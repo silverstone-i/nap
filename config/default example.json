@@ -1,0 +1,29 @@
+{
+    "runtimeEnv": {
+        "development": {
+            "user": "",
+            "password": "",
+            "database": "napdb",
+            "host": "localhost",
+            "port": 5432,
+            "server_port": 3111
+        },
+        "test": {
+            "user": "",
+            "password": "",
+            "database": "napdb",
+            "host": "localhost",
+            "port": 5432,
+            "server_port": 3111
+        },
+        "production": {
+            "user": "",
+            "password": "",
+            "database": "napdb",
+            "host": "localhost",
+            "port": "5432",
+            "ssl": "true",
+            "server_port": 3111
+        }
+    }
+}
