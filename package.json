@@ -16,12 +16,10 @@
     "url": "git+https://github.com/silverstone-i/nap.git"
   },
   "keywords": [
-    "\"Project",
-    "Costing\"",
+    "Job-Costing",
     "Finance",
     "Accounting",
-    "\"General",
-    "Ledger\""
+    "General-Ledger"
   ],
   "author": "Ian Silverstone",
   "license": "MIT",

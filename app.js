@@ -12,13 +12,14 @@ const path = require('path');
 const { DB } = require('nap-db');
 require('dotenv').config();
 const repositories = require('./app-repos');
+const useRouters = require('./app-controllers');
 
 // Create the express app
 const app = express();
 
-// Install intial middleware
+// Install initial middleware
 app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded()); // Parse URL encoded bodies
+app.use(express.urlencoded({extended: false})); // Parse URL encoded bodies
 app.use(morgan('tiny')); // Minimsl logging to console TODO: write to log file
 
 // Read configuration and environment variables to run server and connect to the database
@@ -44,9 +45,13 @@ db.connect()
 //  User authentication
 //  User authorization
 //  Data validation and sanitization
+app.use((req, res, next) => {
+    req.db = db;
+    next();
+})
 
 // TODO: Application routes and catchall errors
-app.get('/', (req, res) => res.send('Welkom')); // TODO: Renove this route
+useRouters(app);
 
 // Start express server
 app.listen(PORT, HOST, (err) => {
