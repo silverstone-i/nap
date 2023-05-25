@@ -23,7 +23,7 @@ app.use(express.urlencoded({extended: false})); // Parse URL encoded bodies
 app.use(morgan('tiny')); // Minimsl logging to console TODO: write to log file
 
 // Read configuration and environment variables to run server and connect to the database
-process.env.NODE_ENV ? process.env.NODE_ENV : 'development'; // Default is development runtime environment
+process.env.NODE_ENV = process.env.NODE_ENV || 'development'; // Default is development runtime environment
 const connection = config.get(`runtimeEnv.${process.env.NODE_ENV}`); // DB connection object
 const HOST = connection.host;
 const PORT = connection.server_port || 3000; // Use PORT 3000 if server_port is not defined
@@ -35,7 +35,6 @@ const db = DB.init(connection, repositories);
 db.connect()
     .then((obj) => {
         console.log('Connected to Postgres database!');
-        obj.done(); // success, release connection;
     })
     .catch((error) => {
         console.log('Error connecting to Postgres database:', error.message);
@@ -46,6 +45,7 @@ db.connect()
 //  User authorization
 //  Data validation and sanitization
 app.use((req, res, next) => {
+    // @ts-ignore
     req.db = db;
     next();
 })
