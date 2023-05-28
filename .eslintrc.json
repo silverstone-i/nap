@@ -6,7 +6,7 @@
         "node": true
     },
     "extends": ["airbnb", "prettier"],
-    "plugins": ["prettier"],
+    "plugins":[ "prettier"], 
     "overrides": [
     ],
     "parserOptions": {
@@ -17,7 +17,31 @@
         "no-unused-vars": "warn",
         "no-console": "off",
         "strict": "off",
-        "no-param-reassign": "off",
-        "indent": [4]
+        "prefer-destructuring": "off",
+        "func-names": "off",
+        "arrow-body-style": [
+            "error", 
+            "as-needed"
+        ],
+        "import/no-extraneous-dependencies": [
+            "error", 
+            { "devDependencies": true }
+        ], 
+        "indent": [
+            "error",
+            4
+        ],
+        "linebreak-style": [
+            "error",
+            "unix"
+        ],
+        "quotes": [
+            "error",
+            "single"
+        ],
+        "semi": [
+            "error",
+            "always"
+        ]
     }
 }

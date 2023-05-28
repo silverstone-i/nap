@@ -3,15 +3,15 @@
 // ./admin/controllers/admin.js
 // Manages user login, role assignment, status
 
-const { DB } = require('nap-db');
 const bcrypt = require('bcrypt');
 const router = require('express').Router();
+
 module.exports = router;
 
 // Routes are on path /admin
 
 /**
- *
+ * TO DO only allow users table to be created
  */
 router.post('/create/:table', (req, res) => {
     const table = req.params.table;
@@ -33,7 +33,7 @@ router.post('/signup', (req, res) => {
     req.db.users
         .findAll('*')
         .then((result) => {
-            if (result.length != 0) {
+            if (result.length !== 0) {
                 return res.status(400).send('Not allowed');
             }
             return bcrypt.hash(dto.password, 12);

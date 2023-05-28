@@ -17,7 +17,7 @@ const userSchema = {
         {
             name: 'password',
             type: 'varchar',
-            length: 50,
+            length: 255,
             notNull: true,
         },
         {
