@@ -2,6 +2,16 @@
 
 // ./admin/services/passport.js
 // Administer passport local strategy
+/** ////////////////////////////////////////////////////////////////
+ * TODO:
+ * Persist sessions in Postgress - done through sessions store
+ * Need authenticated user for all routes except
+ *  - /admin/create/:table
+ *  - /admin/signup
+ *  - /login
+ * RBAC
+ * /////////////////////////////////////////////////////////////////
+ */
 
 const passport = require('passport');
 const session = require('express-session');
