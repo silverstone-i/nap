@@ -135,3 +135,6 @@ dist
 
 # Mac sytem files
 .DS_STORE
+
+# project specific
+db/

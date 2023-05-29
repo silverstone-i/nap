@@ -1,7 +1,7 @@
 'use strict';
 
 // ./admin/models/Users.js
-// Implements users table schema
+// User catalog
 
 const { Model } = require('nap-db');
 
