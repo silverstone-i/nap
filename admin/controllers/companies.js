@@ -23,17 +23,17 @@ router.post('/import_xslx/:sheet', upload.single('file'), (req, res) => {
     // Access the uploaded file data from req.file.buffer
     // @ts-ignore
     const fileBuffer = req.file.buffer;
-    const sheetNo = req.params.sheet;
-    console.log(fileBuffer);
+    const sheetNo = +req.params.sheet;
 
     getExcellRows(sheetNo, fileBuffer, 'nap-admin')
-        .then((dto) => {
+        .then((dto) =>
             // @ts-ignore
-            req.db.companies.insert(dto).catch((err) => Promise.reject(err));
-        })
-        .catch((err) => Promise.reject(err));
-
-    res.send('received file ???');
+            req.db.companies
+                .insert(dto)
+                .then(() => res.send('received file ???'))
+                .catch((err) => res.status(500).send(err.message))
+        )
+        .catch((err) => res.status(400).send(err.message));
 });
 
 // router.get('/export_xslx', (req, res) => {
