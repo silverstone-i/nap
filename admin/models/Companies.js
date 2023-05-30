@@ -15,7 +15,7 @@ const companySchema = {
             primary: true,
         },
         {
-            name: 'name',
+            name: 'company',
             type: 'varchar',
             length: 100,
             notNull: true,
@@ -36,11 +36,6 @@ const companySchema = {
             type: 'boolean',
             notNull: true,
             default: true,
-        },
-        {
-            name: 'address_id',
-            type: 'serial',
-            primaryKey: true,
         },
         {
             name: 'address_1',

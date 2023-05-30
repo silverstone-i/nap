@@ -69,6 +69,27 @@ app.use((req, res, next) => {
 // TODO: Application routes and catchall errors
 useRouters(app);
 
+// eslint-disable-next-line consistent-return
+app.use((err, req, res, next) => {
+    // Check if the error has already been sent to the client
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    // Log the error for debugging (optional)
+    console.error(err);
+
+    // Set a default status code for the error
+    const statusCode = err.statusCode || 500;
+
+    // Send the error response to the client
+    res.status(statusCode).json({
+        error: {
+            message: err.message || 'Internal Server Error',
+        },
+    });
+});
+
 // Start express server
 app.listen(PORT, HOST, (err) => {
     if (err) console.log('Error in server setup', err.message);
