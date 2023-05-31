@@ -47,6 +47,8 @@ const companySchema = {
             name: 'address_2',
             type: 'varchar',
             length: 255,
+            default: '',
+            useDefault: true,
         },
         {
             name: 'city',
@@ -85,6 +87,11 @@ class Companies extends Model {
             Companies.#cs = this.createColumnsets();
             super.setColumnsets(Companies.#cs);
         }
+    }
+
+    // eslint-disable-next-line class-methods-use-this
+    getColumnSet() {
+        return Companies.#cs;
     }
 }
 

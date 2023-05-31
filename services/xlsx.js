@@ -29,4 +29,34 @@ const getExcelRows = (sheetNo, fileBuffer, userName) =>
             .catch(reject);
     });
 
-module.exports = getExcelRows;
+const writeExcelRows = (rows, headersOnly = false) =>
+    new Promise((resolve, reject) => {
+        xlsx.fromBlankAsync()
+            .then((workbook) => {
+                const sheet = workbook.sheet(0);
+
+                // Write headers
+                Object.keys(rows[0]).forEach((key, columnIndex) => {
+                    sheet.cell(1, columnIndex + 1).value(key);
+                });
+
+                // Write rows if headersOnly is false
+                if (!headersOnly) {
+                    rows.forEach((row, rowIndex) => {
+                        Object.values(row).forEach((value, columnIndex) => {
+                            sheet
+                                .cell(rowIndex + 2, columnIndex + 1)
+                                .value(value);
+                        });
+                    });
+                }
+
+                resolve(workbook.outputAsync());
+            })
+            .catch(reject);
+    });
+
+module.exports = {
+    getExcelRows,
+    writeExcelRows,
+};
