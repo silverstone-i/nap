@@ -68,7 +68,9 @@ router.post('/insert', (req, res) => {
         .catch((err) => res.status(500).send(err.message));
 });
 
-// Updates record with data specified in the dto - must ahve primary key and other values
+/**
+ * This is a description of the companies update route
+ */
 router.put('/update', (req, res) => {
     const dto = req.body;
     const user = 'nap-admin';
