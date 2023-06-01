@@ -60,9 +60,16 @@ initializePassport(
         })
 );
 
+// Allow access to db in middleware
 app.use((req, res, next) => {
     // @ts-ignore
     req.db = db;
+    next();
+});
+
+// TODO: Authentication and authorization middleware - combine with db above?
+app.use((req, res, next) => {
+    req.user = 'nap-admin';
     next();
 });
 

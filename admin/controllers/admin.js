@@ -12,6 +12,7 @@ module.exports = router;
 
 /**
  * TO DO only allow users table to be created
+ * @param tableName - name of table associated with a model schema
  */
 router.post('/create/:table', (req, res) => {
     const table = req.params.table;
