@@ -143,7 +143,7 @@ router.put('/update', (req, res) => {
 
     req.db.accounts
         .update(dto)
-        .then(res.json({ message: 'Record was updated' }))
+        .then(() => res.json({ message: 'Record was updated' }))
         .catch((err) => res.status(500).json({ message: `${err.message}` }));
 });
 
