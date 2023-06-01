@@ -131,7 +131,7 @@ router.post('/insert', (req, res) => {
  * ...
  * // DTO to be processed
  * const dto = {
- *      comapany_id: '010',      // PRIMARY KEY - Required
+ *      company_id: '010',      // PRIMARY KEY - Required
  *      active: false,           // Column to be updated - At least 1 column is required
  * }
  * ...

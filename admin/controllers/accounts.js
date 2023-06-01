@@ -30,7 +30,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 /**
- * Get all data in comapnaies table.
+ * Get all data in accounts table.
  * @name GET/
  * @function
  * @memberof module:routers/accounts~accountsRouter
@@ -67,8 +67,10 @@ router.get('/', (req, res) => {
  * @return {DTO} dto - Selected record
  * @return {string} message - Error message or 'No records found'
  * @example
+ * ...
  * url = http://localhost:2828/admin/setup/accounts/account_id/WEG?account_id&account&description
  * creates query string SELECT "account_id","account","description" FROM accounts WHERE "account_id" = 'WEG';
+ * ...
  */
 router.get('/:column/:value', (req, res) => {
     const columns = Object.keys(req.query);
@@ -128,7 +130,7 @@ router.post('/insert', (req, res) => {
  * ...
  * // DTO to be processed
  * const dto = {
- *      comapany_id: '010',      // PRIMARY KEY - Required
+ *      company_id: '010',      // PRIMARY KEY - Required
  *      active: false,           // Column to be updated - At least 1 column is required
  * }
  * ...

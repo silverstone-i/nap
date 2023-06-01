@@ -30,7 +30,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 /**
- * Get all data in comapnaies table.
+ * Get all data in classifications table.
  * @name GET/
  * @function
  * @memberof module:routers/classifications~classificationsRouter
@@ -69,8 +69,10 @@ router.get('/', (req, res) => {
  * @description - Uses the following query structure:
  * - SELECT columns[] FROM table where :column = :value
  * @example
+ * ...
  * url = http://localhost:2828/admin/setup/classifications/classification_id/WEG?classification_id&classification&description
  * creates query string SELECT "classification_id","classification","description" FROM classifications WHERE "classification_id" = 'WEG';
+ * ...
  */
 router.get('/:column/:value', (req, res) => {
     const columns = Object.keys(req.query);
@@ -130,7 +132,7 @@ router.post('/insert', (req, res) => {
  * ...
  * // DTO to be processed
  * const dto = {
- *      comapany_id: '010',      // PRIMARY KEY - Required
+ *      company_id: '010',      // PRIMARY KEY - Required
  *      active: false,           // Column to be updated - At least 1 column is required
  * }
  * ...

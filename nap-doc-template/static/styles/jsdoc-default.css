@@ -178,6 +178,8 @@ h4
     letter-spacing: -0.33px;
     margin-bottom: 12px;
     color: #4d4e53;
+    font-weight: bolder;
+    background-color: #ddd;
 }
 
 h5, .container-overview .subsection-title
