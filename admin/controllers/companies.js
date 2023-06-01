@@ -9,6 +9,7 @@
  * @module routers/companies
  * @requires express
  * @requires multer
+ * @requires '../../services/xlsx'
  */
 
 /**
@@ -29,7 +30,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 /**
- * Get all data in comapnaies table.
+ * Get all data in companies table.
  * @name GET/
  * @function
  * @memberof module:routers/companies~companiesRouter
@@ -65,13 +66,14 @@ router.get('/', (req, res) => {
  * @param {callback} middleware - Express middleware.
  * @return {DTO} dto - Selected record
  * @return {string} message - Error message or 'No records found'
- * @description - Uses the following query structure:
- * - SELECT columns[] FROM table where :column = :value
  * @example
+ * ...
  * url = http://localhost:2828/admin/setup/companies/company_id/WEG?company_id&company&description
  * creates query string SELECT "company_id","company","description" FROM companies WHERE "company_id" = 'WEG';
+ * ...
  */
 router.get('/:column/:value', (req, res) => {
+    console.log(req.route);
     const columns = Object.keys(req.query);
     const column = req.params.column;
     const value = req.params.value;
@@ -175,23 +177,32 @@ router.post('/import_xslx/:sheet', upload.single('file'), (req, res) => {
 
 /**
  * Export records or headers only to excel file
- * @name POST/export_xslx/:headersOnly
+ * @name GET/export_xslx
  * @function
  * @memberof module:routers/companies~companiesRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/export_xslx/:headersOnly
+ * @param {string} path - Router path - /admin/setup/companies/export_xslx
  * @param {callback} middleware - Middleware.
  * @param {boolean} headersOnly - True if only headers are to be exported
  * @return {Buffer} buffer - File buffer containing exported data
  * @return {string} message - Error
+ * @example Usage to print all records
+ * ...
+ * const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=false'
+ * ...
+ * Usage to print headers only
+ * ...
+ * const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=true'
+ * ...
  */
-router.get('/export_xslx/:headersOnly', (req, res) => {
-    const headersOnly = req.params.headersOnly;
+router.get('/export_xslx', (req, res) => {
+    const headersOnly = req.query.headersOnly === 'true';
 
     // Get an array of column headers from the defined schema
     const columns = req.db.companies.originalSchema.columns.map(
         (column) => column.name
     );
+
     // Get all data in table
     req.db.companies
         // eslint-disable-next-line quotes, prettier/prettier

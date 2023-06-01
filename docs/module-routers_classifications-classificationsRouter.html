@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Namespace: companiesRouter</title>
+    <title>JSDoc: Namespace: classificationsRouter</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Namespace: companiesRouter</h1>
+    <h1 class="page-title">Namespace: classificationsRouter</h1>
 
     
 
@@ -29,7 +29,7 @@
 <header>
     
         <h2>
-            <span class="ancestors"><a href="module-routers_companies.html">routers/companies</a>~</span>companiesRouter</h2>
+            <span class="ancestors"><a href="module-routers_classifications.html">routers/classifications</a>~</span>classificationsRouter</h2>
         
     
 </header>
@@ -38,7 +38,7 @@
     <div class="container-overview">
     
         
-            <div class="description"><p>Routes to mange data in the companies table.</p></div>
+            <div class="description"><p>Routes to mange data in the classifications table.</p></div>
         
 
         
@@ -73,7 +73,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="controllers_companies.js.html">controllers/companies.js</a>, <a href="controllers_companies.js.html#line15">line 15</a>
+        <a href="controllers_classifications.js.html">controllers/classifications.js</a>, <a href="controllers_classifications.js.html#line15">line 15</a>
     </li></ul></dd>
     
 
@@ -120,7 +120,7 @@
 
 
 <div class="description">
-    <p>Get all data in companies table.</p>
+    <p>Get all data in comapnaies table.</p>
 </div>
 
 
@@ -172,7 +172,7 @@
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/companies</p></td>
+            <td class="description last"><p>Router path - /admin/setup/classifications</p></td>
         </tr>
 
     
@@ -236,7 +236,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="controllers_companies.js.html">controllers/companies.js</a>, <a href="controllers_companies.js.html#line32">line 32</a>
+        <a href="controllers_classifications.js.html">controllers/classifications.js</a>, <a href="controllers_classifications.js.html#line32">line 32</a>
     </li></ul></dd>
     
 
@@ -322,7 +322,10 @@
 
 
 <div class="description">
-    <p>Get record that matches provided criteria</p>
+    <ul>
+<li>Uses the following query structure:</li>
+<li>SELECT columns[] FROM table where :column = :value</li>
+</ul>
 </div>
 
 
@@ -374,7 +377,7 @@
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/companies</p></td>
+            <td class="description last"><p>Router path - /admin/setup/classifications</p></td>
         </tr>
 
     
@@ -438,7 +441,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="controllers_companies.js.html">controllers/companies.js</a>, <a href="controllers_companies.js.html#line59">line 59</a>
+        <a href="controllers_classifications.js.html">controllers/classifications.js</a>, <a href="controllers_classifications.js.html#line59">line 59</a>
     </li></ul></dd>
     
 
@@ -511,10 +514,8 @@
 
     <h5>Example</h5>
     
-    <pre class="prettyprint"><code>...
-url = http://localhost:2828/admin/setup/companies/company_id/WEG?company_id&amp;company&amp;description
-creates query string SELECT "company_id","company","description" FROM companies WHERE "company_id" = 'WEG';
-...</code></pre>
+    <pre class="prettyprint"><code>url = http://localhost:2828/admin/setup/classifications/classification_id/WEG?classification_id&amp;classification&amp;description
+creates query string SELECT "classification_id","classification","description" FROM classifications WHERE "classification_id" = 'WEG';</code></pre>
 
 
 
@@ -584,7 +585,7 @@ creates query string SELECT "company_id","company","description" FROM companies 
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/companies/export_xslx</p></td>
+            <td class="description last"><p>Router path - /admin/setup/classifications/export_xslx</p></td>
         </tr>
 
     
@@ -671,7 +672,7 @@ creates query string SELECT "company_id","company","description" FROM companies 
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="controllers_companies.js.html">controllers/companies.js</a>, <a href="controllers_companies.js.html#line178">line 178</a>
+        <a href="controllers_classifications.js.html">controllers/classifications.js</a>, <a href="controllers_classifications.js.html#line177">line 177</a>
     </li></ul></dd>
     
 
@@ -746,11 +747,11 @@ creates query string SELECT "company_id","company","description" FROM companies 
     
     <pre class="prettyprint"><code>Usage to print all records
 ...
-const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=false'
+const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?headersOnly=false'
 ...
 Usage to print headers only
 ...
-const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=true'
+const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?headersOnly=true'
 ...</code></pre>
 
 
@@ -821,7 +822,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/companies/import_xslx/:sheet</p></td>
+            <td class="description last"><p>Router path - /admin/setup/classifications/import_xslx/:sheet</p></td>
         </tr>
 
     
@@ -885,7 +886,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="controllers_companies.js.html">controllers/companies.js</a>, <a href="controllers_companies.js.html#line151">line 151</a>
+        <a href="controllers_classifications.js.html">controllers/classifications.js</a>, <a href="controllers_classifications.js.html#line150">line 150</a>
     </li></ul></dd>
     
 
@@ -951,7 +952,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
 
 
 <div class="description">
-    <p>Insert new company in companies table</p>
+    <p>Insert new classification in classifications table</p>
 </div>
 
 
@@ -1003,7 +1004,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/companies/insert</p></td>
+            <td class="description last"><p>Router path - /admin/setup/classifications/insert</p></td>
         </tr>
 
     
@@ -1090,7 +1091,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="controllers_companies.js.html">controllers/companies.js</a>, <a href="controllers_companies.js.html#line91">line 91</a>
+        <a href="controllers_classifications.js.html">controllers/classifications.js</a>, <a href="controllers_classifications.js.html#line90">line 90</a>
     </li></ul></dd>
     
 
@@ -1156,7 +1157,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
 
 
 <div class="description">
-    <p>Updates record in companies table</p>
+    <p>Updates record in classifications table</p>
 </div>
 
 
@@ -1208,7 +1209,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/companies/update</p></td>
+            <td class="description last"><p>Router path - /admin/setup/classifications/update</p></td>
         </tr>
 
     
@@ -1295,7 +1296,7 @@ const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="controllers_companies.js.html">controllers/companies.js</a>, <a href="controllers_companies.js.html#line121">line 121</a>
+        <a href="controllers_classifications.js.html">controllers/classifications.js</a>, <a href="controllers_classifications.js.html#line120">line 120</a>
     </li></ul></dd>
     
 

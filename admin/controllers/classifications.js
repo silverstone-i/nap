@@ -1,50 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>JSDoc: Source: controllers/companies.js</title>
-
-    <script src="scripts/prettify/prettify.js"> </script>
-    <script src="scripts/prettify/lang-css.js"> </script>
-    <!--[if lt IE 9]>
-      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
-    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
-    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
-</head>
-
-<body>
-
-<div id="main">
-
-    <h1 class="page-title">Source: controllers/companies.js</h1>
-
-    
-
-
-
-    
-    <section>
-        <article>
-            <pre class="prettyprint source linenums"><code>// @ts-nocheck
+// @ts-nocheck
 
 'use strict';
 
-// ./admin/controllers/companies.js
-// Manages /admin/setup/companies route
+// ./admin/controllers/classifications.js
+// Manages /admin/setup/classifications route
 
-/** Express router providing company related routes
- * @module routers/companies
+/** Express router providing classification related routes
+ * @module routers/classifications
  * @requires express
  * @requires multer
  * @requires '../../services/xlsx'
  */
 
 /**
- * Routes to mange data in the companies table.
+ * Routes to mange data in the classifications table.
  * @type {object}
  * @const
- * @namespace companiesRouter
+ * @namespace classificationsRouter
  */
 
 const multer = require('multer');
@@ -58,23 +30,23 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 /**
- * Get all data in companies table.
+ * Get all data in comapnaies table.
  * @name GET/
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/classifications~classificationsRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies
+ * @param {string} path - Router path - /admin/setup/classifications
  * @param {callback} middleware - Express middleware.
  * @return {DTO[]} dto - Array of all records found
  * @return {string} message - Error message or 'No records found'
  */
 router.get('/', (req, res) => {
-    const columns = req.db.companies.originalSchema.columns.map(
+    const columns = req.db.classifications.originalSchema.columns.map(
         (column) => column.name
     );
 
     // Get all data
-    req.db.companies
+    req.db.classifications
         .findAll(columns)
         .then((dto) =>
             dto.length > 0
@@ -88,25 +60,24 @@ router.get('/', (req, res) => {
  * Get record that matches provided criteria
  * @name GET/:column/:value
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/classifications~classificationsRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies
+ * @param {string} path - Router path - /admin/setup/classifications
  * @param {callback} middleware - Express middleware.
  * @return {DTO} dto - Selected record
  * @return {string} message - Error message or 'No records found'
+ * @description - Uses the following query structure:
+ * - SELECT columns[] FROM table where :column = :value
  * @example
- * ...
- * url = http://localhost:2828/admin/setup/companies/company_id/WEG?company_id&amp;company&amp;description
- * creates query string SELECT "company_id","company","description" FROM companies WHERE "company_id" = 'WEG';
- * ...
+ * url = http://localhost:2828/admin/setup/classifications/classification_id/WEG?classification_id&classification&description
+ * creates query string SELECT "classification_id","classification","description" FROM classifications WHERE "classification_id" = 'WEG';
  */
 router.get('/:column/:value', (req, res) => {
-    console.log(req.route);
     const columns = Object.keys(req.query);
     const column = req.params.column;
     const value = req.params.value;
 
-    req.db.companies
+    req.db.classifications
         .findWhere(columns, column, value)
         .then((dto) =>
             dto
@@ -117,12 +88,12 @@ router.get('/:column/:value', (req, res) => {
 });
 
 /**
- * Insert new company in companies table
+ * Insert new classification in classifications table
  * @name POST/insert
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/classifications~classificationsRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/insert
+ * @param {string} path - Router path - /admin/setup/classifications/insert
  * @param {callback} middleware - Middleware.
  * @param {DTO} req.body - Data to be inserted
  * @return {string} message -Error or 'Data was inserted'
@@ -140,18 +111,18 @@ router.post('/insert', (req, res) => {
         dto.created_by = user;
     }
 
-    req.db.companies
+    req.db.classifications
         .insert(dto)
         .then(() => res.json({ message: 'Data was inserted' }))
         .catch((err) => res.status(500).json({ message: `${err.message}` }));
 });
 
-/** Updates record in companies table
+/** Updates record in classifications table
  * @name PUT/update
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/classifications~classificationsRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/update
+ * @param {string} path - Router path - /admin/setup/classifications/update
  * @param {callback} middleware - Middleware.
  * @param {DTO} req.body - Data to be updated
  * @return {string} message -Error or 'Record was updated'
@@ -170,7 +141,7 @@ router.put('/update', (req, res) => {
 
     dto.updated_by = user;
 
-    req.db.companies
+    req.db.classifications
         .update(dto)
         .then(res.json({ message: 'Record was updated' }))
         .catch((err) => res.status(500).json({ message: `${err.message}` }));
@@ -180,9 +151,9 @@ router.put('/update', (req, res) => {
  * Import records from excel file
  * @name POST/import_xslx/:sheet
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/classifications~classificationsRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/import_xslx/:sheet
+ * @param {string} path - Router path - /admin/setup/classifications/import_xslx/:sheet
  * @param {callback} middleware - Middleware.
  * @return {string} message - Error or 'Data was imported'
  */
@@ -195,7 +166,7 @@ router.post('/import_xslx/:sheet', upload.single('file'), (req, res) => {
     getExcelRows(sheetNo, fileBuffer, 'nap-admin')
         .then((dto) =>
             // @ts-ignore
-            req.db.companies
+            req.db.classifications
                 .insert(dto)
                 .then(() => res.json({ message: 'Data was imported' }))
                 .catch((err) => res.status(500).send(err.message))
@@ -207,32 +178,31 @@ router.post('/import_xslx/:sheet', upload.single('file'), (req, res) => {
  * Export records or headers only to excel file
  * @name GET/export_xslx
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/classifications~classificationsRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/export_xslx
+ * @param {string} path - Router path - /admin/setup/classifications/export_xslx
  * @param {callback} middleware - Middleware.
  * @param {boolean} headersOnly - True if only headers are to be exported
  * @return {Buffer} buffer - File buffer containing exported data
  * @return {string} message - Error
  * @example Usage to print all records
  * ...
- * const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=false'
+ * const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?headersOnly=false'
  * ...
  * Usage to print headers only
  * ...
- * const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=true'
+ * const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?headersOnly=true'
  * ...
  */
 router.get('/export_xslx', (req, res) => {
     const headersOnly = req.query.headersOnly === 'true';
 
     // Get an array of column headers from the defined schema
-    const columns = req.db.companies.originalSchema.columns.map(
+    const columns = req.db.classifications.originalSchema.columns.map(
         (column) => column.name
     );
-
     // Get all data in table
-    req.db.companies
+    req.db.classifications
         // eslint-disable-next-line quotes, prettier/prettier
         .findAll(columns)
         .then((dto) => writeExcelRows(dto, headersOnly))
@@ -240,7 +210,7 @@ router.get('/export_xslx', (req, res) => {
             // Set the appropriate headers for the response
             res.setHeader(
                 'Content-Disposition',
-                'attachment; filename="companies.xlsx"'
+                'attachment; filename="classifications.xlsx"'
             );
             res.setHeader(
                 'Content-Type',
@@ -254,26 +224,3 @@ router.get('/export_xslx', (req, res) => {
             res.status(500).json({ message: `${err.message}` });
         });
 });
-</code></pre>
-        </article>
-    </section>
-
-
-
-
-</div>
-
-<nav>
-    <h2><a href="index.html">nap-accounting</a></h2><h3>Modules</h3><ul><li><a href="module-routers_accounts.html">routers/accounts</a></li><li><a href="module-routers_classifications.html">routers/classifications</a></li><li><a href="module-routers_companies.html">routers/companies</a></li></ul><h3>Namespaces</h3><ul><li><a href="module-routers_accounts-accountsRouter.html">accountsRouter</a></li><li><a href="module-routers_classifications-classificationsRouter.html">classificationsRouter</a></li><li><a href="module-routers_companies-companiesRouter.html">companiesRouter</a></li></ul><h3>Classes</h3><ul><li><a href="Companies.html">Companies</a></li></ul><h3>Global</h3><ul><li><a href="global.html#dataSchema">dataSchema</a></li><li><a href="global.html#dto">dto</a></li></ul>
-</nav>
-
-<br class="clear">
-
-<footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Thu Jun 01 2023 02:54:11 GMT-0400 (Eastern Daylight Time)
-</footer>
-
-<script> prettyPrint(); </script>
-<script src="scripts/linenumber.js"> </script>
-</body>
-</html>
