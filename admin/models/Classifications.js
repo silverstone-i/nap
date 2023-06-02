@@ -8,7 +8,8 @@ const classificationSchema = {
     columns: [
         {
             name: 'classification_id',
-            type: 'numeric',
+            type: 'varchar',
+            length: 15,
             primary: true,
         },
         {

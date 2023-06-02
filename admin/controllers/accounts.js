@@ -68,8 +68,8 @@ router.get('/', (req, res) => {
  * @return {string} message - Error message or 'No records found'
  * @example
  * ...
- * url = http://localhost:2828/admin/setup/accounts/account_id/WEG?account_id&account&description
- * creates query string SELECT "account_id","account","description" FROM accounts WHERE "account_id" = 'WEG';
+ * url = http://localhost:2828/admin/setup/accounts/name/CC%201?account_id&name&description
+ * creates query string SELECT "account_id","name","description" FROM accounts WHERE "name" = 'CC 1';
  * ...
  */
 router.get('/:column/:value', (req, res) => {

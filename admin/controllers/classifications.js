@@ -70,8 +70,8 @@ router.get('/', (req, res) => {
  * - SELECT columns[] FROM table where :column = :value
  * @example
  * ...
- * url = http://localhost:2828/admin/setup/classifications/classification_id/WEG?classification_id&classification&description
- * creates query string SELECT "classification_id","classification","description" FROM classifications WHERE "classification_id" = 'WEG';
+ * url = http://localhost:2828/admin/setup/classifications/classification_id/7?classification_id&description
+ * creates query string SELECT "classification_id","description" FROM classifications WHERE "classification_id" = '7';
  * ...
  */
 router.get('/:column/:value', (req, res) => {

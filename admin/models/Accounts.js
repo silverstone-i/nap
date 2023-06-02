@@ -9,24 +9,19 @@ const accountSchema = {
         {
             name: 'account_id',
             type: 'varchar',
-            length: 15,
+            length: 20,
             primary: true,
         },
         {
             name: 'name',
             type: 'varchar',
-            length: 20,
+            length: 50,
             notNull: true,
         },
         {
             name: 'description',
             type: 'varchar',
             length: 255,
-        },
-        {
-            name: 'classification_id',
-            type: 'numeric',
-            notNull: true,
         },
         {
             name: 'active',
@@ -42,13 +37,6 @@ const accountSchema = {
             name: 'account',
             type: 'varchar',
             length: 25,
-        },
-    ],
-    foreignKeys: [
-        {
-            hasRelations: [{ name: 'classification_id' }],
-            withColumns: [{ name: 'classification_id' }],
-            withTable: 'classifications',
         },
     ],
 };
