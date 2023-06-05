@@ -38,7 +38,7 @@
     <div class="container-overview">
     
         
-            <div class="description"><p>Routes to mange data in the accounts table.</p></div>
+            <div class="description"><p>Routes to manage application settings.</p></div>
         
 
         
@@ -73,7 +73,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line10">line 10</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line15">line 15</a>
     </li></ul></dd>
     
 
@@ -120,7 +120,7 @@
 
 
 <div class="description">
-    <p>Export records or headers only to excel file</p>
+    <p>Export settings records or headers only to excel file</p>
 </div>
 
 
@@ -172,7 +172,7 @@
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/export_xslx</p></td>
+            <td class="description last"><p>Router path - /admin/settings/export_xslx/:headersOnly</p></td>
         </tr>
 
     
@@ -259,7 +259,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line197">line 197</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line84">line 84</a>
     </li></ul></dd>
     
 
@@ -317,11 +317,11 @@
     
     <pre class="prettyprint"><code>Usage to print all records
 ...
-const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=false'
+const url = 'http://localhost:2828/admin/settings/export_xslx'
 ...
 Usage to print headers only
 ...
-const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=true'
+const url = 'http://localhost:2828/admin/settings/export_xslx?headersOnly=true'
 ...</code></pre>
 
 
@@ -340,7 +340,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
 
 <div class="description">
-    <p>Get all data in accounts table.</p>
+    <p>Select records in the settings table</p>
 </div>
 
 
@@ -392,7 +392,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts</p></td>
+            <td class="description last"><p>Router path - /admin/settings/find</p></td>
         </tr>
 
     
@@ -456,7 +456,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line84">line 84</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line137">line 137</a>
     </li></ul></dd>
     
 
@@ -524,7 +524,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
 
 <div class="description">
-    <p>Import records from excel file</p>
+    <p>Import settings from excel file</p>
 </div>
 
 
@@ -576,7 +576,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/import_xslx/:sheet</p></td>
+            <td class="description last"><p>Router path - /admin/settings/import_xslx/:sheet</p></td>
         </tr>
 
     
@@ -640,7 +640,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line170">line 170</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line161">line 161</a>
     </li></ul></dd>
     
 
@@ -706,7 +706,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
 
 <div class="description">
-    <p>Insert new account in accounts table</p>
+    <p>Insert a new setting in settings table</p>
 </div>
 
 
@@ -758,7 +758,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/insert</p></td>
+            <td class="description last"><p>Router path - /admin/settings/insert</p></td>
         </tr>
 
     
@@ -845,7 +845,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line108">line 108</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line188">line 188</a>
     </li></ul></dd>
     
 
@@ -911,7 +911,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
 
 <div class="description">
-    <p>Updates record in accounts table</p>
+    <p>Updates a setting in settins table</p>
 </div>
 
 
@@ -963,7 +963,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/update</p></td>
+            <td class="description last"><p>Router path - /admin/settings/update</p></td>
         </tr>
 
     
@@ -1050,7 +1050,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line139">line 139</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line219">line 219</a>
     </li></ul></dd>
     
 
@@ -1135,7 +1135,7 @@ const dto = {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Mon Jun 05 2023 02:25:26 GMT-0400 (Eastern Daylight Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Mon Jun 05 2023 13:16:30 GMT-0400 (Eastern Daylight Time)
 </footer>
 
 <script> prettyPrint(); </script>

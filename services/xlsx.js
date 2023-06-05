@@ -22,6 +22,7 @@ const getExcelRows = (sheetNo, fileBuffer, userName) =>
                                 rowObject[header] = rowData[index];
                             });
                             rowObject.created_by = userName;
+                            console.log(rowObject);
                             return rowObject;
                         })
                 );

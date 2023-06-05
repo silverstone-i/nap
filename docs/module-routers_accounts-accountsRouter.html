@@ -73,7 +73,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line15">line 15</a>
+        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line16">line 16</a>
     </li></ul></dd>
     
 
@@ -112,418 +112,6 @@
     
 
     
-    <h4 class="name" id="~GET/"><span class="type-signature">(inner) </span>GET/<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {Array.&lt;<a href="global.html#DTO">DTO</a>>|string}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    <p>Get all data in accounts table.</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>path</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Router path - /admin/setup/accounts</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>middleware</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><a href="callback.html">callback</a></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Express middleware.</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line32">line 32</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-<ul>
-        <li>
-<div class="param-desc">
-    <p>dto - Array of all records found</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Array.&lt;<a href="global.html#DTO">DTO</a>></span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>message - Error message or 'No records found'</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    </ul>
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="~GET/:column/:value"><span class="type-signature">(inner) </span>GET/:column/:value<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {<a href="global.html#DTO">DTO</a>|string}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    <p>Get record that matches provided criteria</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>path</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Router path - /admin/setup/accounts</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>middleware</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><a href="callback.html">callback</a></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Express middleware.</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line59">line 59</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-<ul>
-        <li>
-<div class="param-desc">
-    <p>dto - Selected record</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type"><a href="global.html#DTO">DTO</a></span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>message - Error message or 'No records found'</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    </ul>
-
-
-
-
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>...
-url = http://localhost:2828/admin/setup/accounts/name/CC%201?account_id&amp;name&amp;description
-creates query string SELECT "account_id","name","description" FROM accounts WHERE "name" = 'CC 1';
-...</code></pre>
-
-
-
-        
-            
-
-    
-
-    
     <h4 class="name" id="~GET/export_xslx"><span class="type-signature">(inner) </span>GET/export_xslx<span class="signature">(path, middleware, headersOnly)</span><span class="type-signature"> &rarr; {Buffer|string}</span></h4>
     
 
@@ -532,7 +120,7 @@ creates query string SELECT "account_id","name","description" FROM accounts WHER
 
 
 <div class="description">
-    <p>Export records or headers only to excel file</p>
+    <p>Export accounts records or headers only to excel file</p>
 </div>
 
 
@@ -584,7 +172,7 @@ creates query string SELECT "account_id","name","description" FROM accounts WHER
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/export_xslx</p></td>
+            <td class="description last"><p>Router path - /admin/accounts/export_xslx/</p></td>
         </tr>
 
     
@@ -671,7 +259,7 @@ creates query string SELECT "account_id","name","description" FROM accounts WHER
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line177">line 177</a>
+        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line41">line 41</a>
     </li></ul></dd>
     
 
@@ -697,8 +285,8 @@ creates query string SELECT "account_id","name","description" FROM accounts WHER
 
 
 <h5>Returns:</h5>
-<ul>
-        <li>
+
+        
 <div class="param-desc">
     <p>buffer - File buffer containing exported data</p>
 </div>
@@ -712,32 +300,15 @@ creates query string SELECT "account_id","name","description" FROM accounts WHER
     <dd>
         
 <span class="param-type">Buffer</span>
+|
 
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>message - Error</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
 <span class="param-type">string</span>
 
 
     </dd>
 </dl>
-</li>
-    </ul>
+
+    
 
 
 
@@ -746,11 +317,11 @@ creates query string SELECT "account_id","name","description" FROM accounts WHER
     
     <pre class="prettyprint"><code>Usage to print all records
 ...
-const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=false'
+const url = 'http://localhost:2828/admin/accounts/export_xslx'
 ...
 Usage to print headers only
 ...
-const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=true'
+const url = 'http://localhost:2828/admin/accounts/export_xslx?headersOnly=true'
 ...</code></pre>
 
 
@@ -761,7 +332,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
 
     
-    <h4 class="name" id="~POST/import_xslx/:sheet"><span class="type-signature">(inner) </span>POST/import_xslx/:sheet<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {string}</span></h4>
+    <h4 class="name" id="~GET/find"><span class="type-signature">(inner) </span>GET/find<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {Array.&lt;Array>}</span></h4>
     
 
     
@@ -769,7 +340,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
 
 <div class="description">
-    <p>Import records from excel file</p>
+    <p>Select records in the accounts table</p>
 </div>
 
 
@@ -821,7 +392,191 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/import_xslx/:sheet</p></td>
+            <td class="description last"><p>Router path - /admin/accounts/find</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>middleware</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="callback.html">callback</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Express middleware.</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line94">line 94</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    <ul>
+<li>Array of objects representing all records found</li>
+</ul>
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Array.&lt;Array></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~POST/import_xslx/:sheet"><span class="type-signature">(inner) </span>POST/import_xslx/:sheet<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {string}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Import accounts from excel file</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>path</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Router path - /admin/accounts/import_xslx/:sheet</p></td>
         </tr>
 
     
@@ -885,7 +640,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line150">line 150</a>
+        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line118">line 118</a>
     </li></ul></dd>
     
 
@@ -951,7 +706,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
 
 <div class="description">
-    <p>Insert new account in accounts table</p>
+    <p>Insert a new account in accounts table</p>
 </div>
 
 
@@ -1003,7 +758,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/insert</p></td>
+            <td class="description last"><p>Router path - /admin/accounts/insert</p></td>
         </tr>
 
     
@@ -1090,7 +845,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line90">line 90</a>
+        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line145">line 145</a>
     </li></ul></dd>
     
 
@@ -1156,7 +911,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
 
 <div class="description">
-    <p>Updates record in accounts table</p>
+    <p>Updates a account in settins table</p>
 </div>
 
 
@@ -1208,7 +963,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/accounts/update</p></td>
+            <td class="description last"><p>Router path - /admin/accounts/update</p></td>
         </tr>
 
     
@@ -1295,7 +1050,7 @@ const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line120">line 120</a>
+        <a href="admin_controllers_accounts.js.html">admin/controllers/accounts.js</a>, <a href="admin_controllers_accounts.js.html#line176">line 176</a>
     </li></ul></dd>
     
 
@@ -1380,7 +1135,7 @@ const dto = {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Mon Jun 05 2023 02:25:26 GMT-0400 (Eastern Daylight Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Mon Jun 05 2023 13:16:30 GMT-0400 (Eastern Daylight Time)
 </footer>
 
 <script> prettyPrint(); </script>

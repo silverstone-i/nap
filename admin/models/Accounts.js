@@ -35,7 +35,8 @@ const accountSchema = {
         },
         {
             name: 'bank_id',
-            type: 'numeric',
+            type: 'varchar',
+            length: 10,
         },
         {
             name: 'acct_num',
