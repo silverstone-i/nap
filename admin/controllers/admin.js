@@ -3,10 +3,28 @@
 // ./admin/controllers/admin.js
 // Manages user login, role assignment, status
 
+/** Express router providing account related routes
+ * @module routers/admin
+ */
+
+/**
+ * Routes to mange data in the accounts table.
+ * @type {object}
+ * @const
+ * @namespace adminRouter
+ */
+
+const multer = require('multer');
 const bcrypt = require('bcrypt');
 const router = require('express').Router();
+const { getExcelRows, writeExcelRows } = require('../../services/xlsx');
+const DTO = require('../../services/type-defs');
 
 module.exports = router;
+
+// Multer configuration
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // Routes are on path /admin
 
@@ -47,4 +65,183 @@ router.post('/signup', (req, res) => {
                 .then(() => res.status(200).send('User created'));
         })
         .catch((err) => res.status(500).send(err.message));
+});
+
+// Settings routes
+// Insert
+// Find
+// Update
+// Delete
+// import
+
+/**
+ * This callback is displayed as part of the request route.
+ * @callback callback~expressCallback
+ * @param {Object} req - express request object
+ * @param {Object} res - express response object
+ */
+
+/**
+ * Get all data in accounts table.
+ * @name GET/find
+ * @function
+ * @memberof module:routers/admin~adminRouter
+ * @inner
+ * @param {string} path - Router path - /admin/setup/accounts
+ * @param {callback} middleware - Express middleware.
+ * @return {Array[]} - Array of objects representing all records found
+ */
+router.get('/settings/find', (req, res) => {
+    const dto = req.body;
+
+    // @ts-ignore
+    req.db.settings
+        .find(dto)
+        .then((data) =>
+            data
+                ? res.json(data)
+                : res.status(200).json({ message: 'No records found' })
+        )
+        .catch((err) => res.status(500).json({ message: `${err.message}` }));
+});
+
+/**
+ * Insert new account in accounts table
+ * @name POST/insert
+ * @function
+ * @memberof module:routers/admin~adminRouter
+ * @inner
+ * @param {string} path - Router path - /admin/setup/accounts/insert
+ * @param {callback} middleware - Middleware.
+ * @param {DTO} req.body - Data to be inserted
+ * @return {string} message -Error or 'Data was inserted'
+ */
+router.post('/settings/insert', (req, res) => {
+    const dto = req.body;
+    const user = req.user;
+
+    if (dto instanceof Array) {
+        dto.forEach((row) => {
+            // eslint-disable-next-line no-param-reassign
+            row.created_by = user;
+        });
+    } else {
+        dto.created_by = user;
+    }
+
+    // @ts-ignore
+    req.db.settings
+        .insert(dto)
+        .then(() => res.json({ message: 'Data was inserted' }))
+        .catch((err) => res.status(500).json({ message: `${err.message}` }));
+});
+
+/** Updates record in accounts table
+ * @name PUT/update
+ * @function
+ * @memberof module:routers/admin~adminRouter
+ * @inner
+ * @param {string} path - Router path - /admin/setup/accounts/update
+ * @param {callback} middleware - Middleware.
+ * @param {DTO} req.body - Data to be updated
+ * @return {string} message -Error or 'Record was updated'
+ * @example
+ * ...
+ * // DTO to be processed
+ * const dto = {
+ *      company_id: '010',      // PRIMARY KEY - Required
+ *      active: false,           // Column to be updated - At least 1 column is required
+ * }
+ * ...
+ */
+router.put('/settings/update', (req, res) => {
+    const dto = req.body;
+    const user = req.user;
+
+    dto.updated_by = user;
+
+    // @ts-ignore
+    req.db.settings
+        .update(dto)
+        .then(() => res.json({ message: 'Record was updated' }))
+        .catch((err) => res.status(500).json({ message: `${err.message}` }));
+});
+
+/**
+ * Import records from excel file
+ * @name POST/import_xslx/:sheet
+ * @function
+ * @memberof module:routers/admin~adminRouter
+ * @inner
+ * @param {string} path - Router path - /admin/setup/accounts/import_xslx/:sheet
+ * @param {callback} middleware - Middleware.
+ * @return {string} message - Error or 'Data was imported'
+ */
+router.post('/settings/import_xslx/:sheet', upload.single('file'), (req, res) => {
+    // Access the uploaded file data from req.file.buffer
+    // @ts-ignore
+    const fileBuffer = req.file.buffer;
+    const sheetNo = +req.params.sheet;
+
+    getExcelRows(sheetNo, fileBuffer, 'nap-admin')
+        .then((dto) =>
+            // @ts-ignore
+            req.db.settings
+                .insert(dto)
+                .then(() => res.json({ message: 'Data was imported' }))
+                .catch((err) => res.status(500).send(err.message))
+        )
+        .catch((err) => res.status(400).json({ message: `${err.message}` }));
+});
+
+/**
+ * Export records or headers only to excel file
+ * @name GET/export_xslx
+ * @function
+ * @memberof module:routers/admin~adminRouter
+ * @inner
+ * @param {string} path - Router path - /admin/setup/accounts/export_xslx
+ * @param {callback} middleware - Middleware.
+ * @param {boolean} headersOnly - True if only headers are to be exported
+ * @return {Buffer|string} buffer - File buffer containing exported data
+ * @example Usage to print all records
+ * ...
+ * const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=false'
+ * ...
+ * Usage to print headers only
+ * ...
+ * const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=true'
+ * ...
+ */
+router.get('/settings/export_xslx', (req, res) => {
+    const headersOnly = req.query.headersOnly === 'true';
+
+    // Get an array of column headers from the defined schema
+    // @ts-ignore
+    const columns = req.db.accounts.originalSchema.columns.map(
+        (column) => column.name
+    );
+    // Get all data in table
+    // @ts-ignore
+    req.db.settings
+        // eslint-disable-next-line quotes, prettier/prettier
+        .findAll(columns)
+        .then((dto) => writeExcelRows(dto, headersOnly))
+        .then((buffer) => {
+            // Set the appropriate headers for the response
+            res.setHeader(
+                'Content-Disposition',
+                'attachment; filename="accounts.xlsx"'
+            );
+            res.setHeader(
+                'Content-Type',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+
+            // Send the buffer as the response
+            res.send(buffer);
+        })
+        .catch((err) => {
+            res.status(500).json({ message: `${err.message}` });
+        });
 });

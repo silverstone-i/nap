@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: controllers/companies.js</title>
+    <title>JSDoc: Source: controllers/admin.js</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Source: controllers/companies.js</h1>
+    <h1 class="page-title">Source: controllers/admin.js</h1>
 
     
 
@@ -26,30 +26,30 @@
     
     <section>
         <article>
-            <pre class="prettyprint source linenums"><code>// @ts-nocheck
+            <pre class="prettyprint source linenums"><code>'use strict';
 
-'use strict';
+// ./admin/controllers/admin.js
+// Manages user login, role assignment, status
 
-// ./admin/controllers/companies.js
-// Manages /admin/setup/companies route
-
-/** Express router providing company related routes
- * @module routers/companies
+/** Express router providing account related routes
+ * @module routers/admin
  * @requires express
  * @requires multer
  * @requires '../../services/xlsx'
  */
 
 /**
- * Routes to mange data in the companies table.
+ * Routes to mange data in the accounts table.
  * @type {object}
  * @const
- * @namespace companiesRouter
+ * @namespace adminRouter
  */
 
 const multer = require('multer');
+const bcrypt = require('bcrypt');
 const router = require('express').Router();
 const { getExcelRows, writeExcelRows } = require('../../services/xlsx');
+const DTO = require('../../services/type-defs');
 
 module.exports = router;
 
@@ -57,77 +57,97 @@ module.exports = router;
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-/**
- * Get all data in companies table.
- * @name GET/
- * @function
- * @memberof module:routers/companies~companiesRouter
- * @inner
- * @param {string} path - Router path - /admin/setup/companies
- * @param {callback} middleware - Express middleware.
- * @return {DTO[]} dto - Array of all records found
- * @return {string} message - Error message or 'No records found'
- */
-router.get('/', (req, res) => {
-    const columns = req.db.companies.originalSchema.columns.map(
-        (column) => column.name
-    );
+// Routes are on path /admin
 
-    // Get all data
-    req.db.companies
-        .findAll(columns)
-        .then((dto) =>
-            dto.length > 0
-                ? res.json(dto)
+/**
+ * TO DO only allow users table to be created
+ * @param tableName - name of table associated with a model schema
+ */
+router.post('/create/:table', (req, res) => {
+    const table = req.params.table;
+    // @ts-ignore
+    req.db[table]
+        .createTable()
+        .then(() => res.send(`${table} table created`))
+        .catch((err) => res.status(500).send(err.message));
+});
+
+/**
+ *  MUST BE THE FIRST USER IN THE USER TABLE
+ */
+router.post('/signup', (req, res) => {
+    const dto = req.body;
+
+    // Make sure users table is empty
+    // @ts-ignore
+    req.db.users
+        .findAll('*')
+        .then((result) => {
+            if (result.length !== 0) {
+                return res.status(400).send('Not allowed');
+            }
+            return bcrypt.hash(dto.password, 12);
+        })
+        .then((hash) => {
+            dto.password = hash;
+            // @ts-ignore
+            req.db.users
+                .insert(dto)
+                .then(() => res.status(200).send('User created'));
+        })
+        .catch((err) => res.status(500).send(err.message));
+});
+
+// Settings routes
+// Insert
+// Find
+// Update
+// Delete
+// import
+
+/**
+ * This callback is displayed as part of the request route.
+ * @callback callback~expressCallback
+ * @param {Object} req - express request object
+ * @param {Object} res - express response object
+ */
+
+/**
+ * Get all data in accounts table.
+ * @name GET/find
+ * @function
+ * @memberof module:routers/admin~adminRouter
+ * @inner
+ * @param {string} path - Router path - /admin/setup/accounts
+ * @param {callback} middleware - Express middleware.
+ * @return {Array[]} - Array of objects representing all records found
+ */
+router.get('/settings/find', (req, res) => {
+    const dto = req.body;
+
+    // @ts-ignore
+    req.db.settings
+        .find(dto)
+        .then((data) =>
+            data
+                ? res.json(data)
                 : res.status(200).json({ message: 'No records found' })
         )
         .catch((err) => res.status(500).json({ message: `${err.message}` }));
 });
 
 /**
- * Get record that matches provided criteria
- * @name GET/:column/:value
- * @function
- * @memberof module:routers/companies~companiesRouter
- * @inner
- * @param {string} path - Router path - /admin/setup/companies
- * @param {callback} middleware - Express middleware.
- * @return {DTO} dto - Selected record
- * @return {string} message - Error message or 'No records found'
- * @example
- * ...
- * url = http://localhost:2828/admin/setup/companies/company_id/WEG?company_id&amp;company&amp;description
- * creates query string SELECT "company_id","company","description" FROM companies WHERE "company_id" = 'WEG';
- * ...
- */
-router.get('/:column/:value', (req, res) => {
-    console.log(req.route);
-    const columns = Object.keys(req.query);
-    const column = req.params.column;
-    const value = req.params.value;
-
-    req.db.companies
-        .findWhere(columns, column, value)
-        .then((dto) =>
-            dto
-                ? res.json(dto)
-                : res.status(200).json({ message: 'No records found' })
-        )
-        .catch((err) => res.status(500).json({ message: `${err.message}` }));
-});
-
-/**
- * Insert new company in companies table
+ * Insert new account in accounts table
  * @name POST/insert
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/admin~adminRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/insert
+ * @param {string} path - Router path - /admin/setup/accounts/insert
  * @param {callback} middleware - Middleware.
  * @param {DTO} req.body - Data to be inserted
  * @return {string} message -Error or 'Data was inserted'
  */
-router.post('/insert', (req, res) => {
+router.post('/settings/insert', (req, res) => {
     const dto = req.body;
     const user = req.user;
 
@@ -140,18 +160,19 @@ router.post('/insert', (req, res) => {
         dto.created_by = user;
     }
 
-    req.db.companies
+    // @ts-ignore
+    req.db.settings
         .insert(dto)
         .then(() => res.json({ message: 'Data was inserted' }))
         .catch((err) => res.status(500).json({ message: `${err.message}` }));
 });
 
-/** Updates record in companies table
+/** Updates record in accounts table
  * @name PUT/update
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/admin~adminRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/update
+ * @param {string} path - Router path - /admin/setup/accounts/update
  * @param {callback} middleware - Middleware.
  * @param {DTO} req.body - Data to be updated
  * @return {string} message -Error or 'Record was updated'
@@ -164,13 +185,14 @@ router.post('/insert', (req, res) => {
  * }
  * ...
  */
-router.put('/update', (req, res) => {
+router.put('/settings/update', (req, res) => {
     const dto = req.body;
     const user = req.user;
 
     dto.updated_by = user;
 
-    req.db.companies
+    // @ts-ignore
+    req.db.settings
         .update(dto)
         .then(() => res.json({ message: 'Record was updated' }))
         .catch((err) => res.status(500).json({ message: `${err.message}` }));
@@ -180,13 +202,13 @@ router.put('/update', (req, res) => {
  * Import records from excel file
  * @name POST/import_xslx/:sheet
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/admin~adminRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/import_xslx/:sheet
+ * @param {string} path - Router path - /admin/setup/accounts/import_xslx/:sheet
  * @param {callback} middleware - Middleware.
  * @return {string} message - Error or 'Data was imported'
  */
-router.post('/import_xslx/:sheet', upload.single('file'), (req, res) => {
+router.post('/settings/import_xslx/:sheet', upload.single('file'), (req, res) => {
     // Access the uploaded file data from req.file.buffer
     // @ts-ignore
     const fileBuffer = req.file.buffer;
@@ -195,7 +217,7 @@ router.post('/import_xslx/:sheet', upload.single('file'), (req, res) => {
     getExcelRows(sheetNo, fileBuffer, 'nap-admin')
         .then((dto) =>
             // @ts-ignore
-            req.db.companies
+            req.db.settings
                 .insert(dto)
                 .then(() => res.json({ message: 'Data was imported' }))
                 .catch((err) => res.status(500).send(err.message))
@@ -207,32 +229,32 @@ router.post('/import_xslx/:sheet', upload.single('file'), (req, res) => {
  * Export records or headers only to excel file
  * @name GET/export_xslx
  * @function
- * @memberof module:routers/companies~companiesRouter
+ * @memberof module:routers/admin~adminRouter
  * @inner
- * @param {string} path - Router path - /admin/setup/companies/export_xslx
+ * @param {string} path - Router path - /admin/setup/accounts/export_xslx
  * @param {callback} middleware - Middleware.
  * @param {boolean} headersOnly - True if only headers are to be exported
- * @return {Buffer} buffer - File buffer containing exported data
- * @return {string} message - Error
+ * @return {Buffer|string} buffer - File buffer containing exported data
  * @example Usage to print all records
  * ...
- * const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=false'
+ * const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=false'
  * ...
  * Usage to print headers only
  * ...
- * const url = 'http://localhost:2828/admin/setup/companies/export_xslx?headersOnly=true'
+ * const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=true'
  * ...
  */
-router.get('/export_xslx', (req, res) => {
+router.get('/settings/export_xslx', (req, res) => {
     const headersOnly = req.query.headersOnly === 'true';
 
     // Get an array of column headers from the defined schema
-    const columns = req.db.companies.originalSchema.columns.map(
+    // @ts-ignore
+    const columns = req.db.accounts.originalSchema.columns.map(
         (column) => column.name
     );
-
     // Get all data in table
-    req.db.companies
+    // @ts-ignore
+    req.db.settings
         // eslint-disable-next-line quotes, prettier/prettier
         .findAll(columns)
         .then((dto) => writeExcelRows(dto, headersOnly))
@@ -240,7 +262,7 @@ router.get('/export_xslx', (req, res) => {
             // Set the appropriate headers for the response
             res.setHeader(
                 'Content-Disposition',
-                'attachment; filename="companies.xlsx"'
+                'attachment; filename="accounts.xlsx"'
             );
             res.setHeader(
                 'Content-Type',

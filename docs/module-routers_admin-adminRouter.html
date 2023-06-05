@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Namespace: classificationsRouter</title>
+    <title>JSDoc: Namespace: adminRouter</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Namespace: classificationsRouter</h1>
+    <h1 class="page-title">Namespace: adminRouter</h1>
 
     
 
@@ -29,7 +29,7 @@
 <header>
     
         <h2>
-            <span class="ancestors"><a href="module-routers_classifications.html">routers/classifications</a>~</span>classificationsRouter</h2>
+            <span class="ancestors"><a href="module-routers_admin.html">routers/admin</a>~</span>adminRouter</h2>
         
     
 </header>
@@ -38,7 +38,7 @@
     <div class="container-overview">
     
         
-            <div class="description"><p>Routes to mange data in the classifications table.</p></div>
+            <div class="description"><p>Routes to mange data in the accounts table.</p></div>
         
 
         
@@ -73,7 +73,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_classifications.js.html">admin/controllers/classifications.js</a>, <a href="admin_controllers_classifications.js.html#line15">line 15</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line10">line 10</a>
     </li></ul></dd>
     
 
@@ -105,421 +105,6 @@
 
     
         <h3 class="subsection-title">Methods</h3>
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="~GET/"><span class="type-signature">(inner) </span>GET/<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {Array.&lt;<a href="global.html#DTO">DTO</a>>|string}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    <p>Get all data in classifications table.</p>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>path</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Router path - /admin/setup/classifications</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>middleware</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><a href="callback.html">callback</a></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Express middleware.</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_classifications.js.html">admin/controllers/classifications.js</a>, <a href="admin_controllers_classifications.js.html#line32">line 32</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-<ul>
-        <li>
-<div class="param-desc">
-    <p>dto - Array of all records found</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Array.&lt;<a href="global.html#DTO">DTO</a>></span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>message - Error message or 'No records found'</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    </ul>
-
-
-
-
-
-        
-            
-
-    
-
-    
-    <h4 class="name" id="~GET/:column/:value"><span class="type-signature">(inner) </span>GET/:column/:value<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {<a href="global.html#DTO">DTO</a>|string}</span></h4>
-    
-
-    
-
-
-
-<div class="description">
-    <ul>
-<li>Uses the following query structure:</li>
-<li>SELECT columns[] FROM table where :column = :value</li>
-</ul>
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>path</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">string</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Router path - /admin/setup/classifications</p></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>middleware</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type"><a href="callback.html">callback</a></span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"><p>Express middleware.</p></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_classifications.js.html">admin/controllers/classifications.js</a>, <a href="admin_controllers_classifications.js.html#line59">line 59</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-<ul>
-        <li>
-<div class="param-desc">
-    <p>dto - Selected record</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type"><a href="global.html#DTO">DTO</a></span>
-
-
-    </dd>
-</dl>
-</li>
-    
-        <li>
-<div class="param-desc">
-    <p>message - Error message or 'No records found'</p>
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">string</span>
-
-
-    </dd>
-</dl>
-</li>
-    </ul>
-
-
-
-
-    <h5>Example</h5>
-    
-    <pre class="prettyprint"><code>...
-url = http://localhost:2828/admin/setup/classifications/classification_id/7?classification_id&amp;description
-creates query string SELECT "classification_id","description" FROM classifications WHERE "classification_id" = '7';
-...</code></pre>
-
-
 
         
             
@@ -587,7 +172,7 @@ creates query string SELECT "classification_id","description" FROM classificatio
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/classifications/export_xslx</p></td>
+            <td class="description last"><p>Router path - /admin/setup/accounts/export_xslx</p></td>
         </tr>
 
     
@@ -674,7 +259,7 @@ creates query string SELECT "classification_id","description" FROM classificatio
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_classifications.js.html">admin/controllers/classifications.js</a>, <a href="admin_controllers_classifications.js.html#line179">line 179</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line197">line 197</a>
     </li></ul></dd>
     
 
@@ -700,8 +285,8 @@ creates query string SELECT "classification_id","description" FROM classificatio
 
 
 <h5>Returns:</h5>
-<ul>
-        <li>
+
+        
 <div class="param-desc">
     <p>buffer - File buffer containing exported data</p>
 </div>
@@ -715,15 +300,194 @@ creates query string SELECT "classification_id","description" FROM classificatio
     <dd>
         
 <span class="param-type">Buffer</span>
+|
+
+<span class="param-type">string</span>
 
 
     </dd>
 </dl>
-</li>
+
     
-        <li>
+
+
+
+
+    <h5>Example</h5>
+    
+    <pre class="prettyprint"><code>Usage to print all records
+...
+const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=false'
+...
+Usage to print headers only
+...
+const url = 'http://localhost:2828/admin/setup/accounts/export_xslx?headersOnly=true'
+...</code></pre>
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="~GET/find"><span class="type-signature">(inner) </span>GET/find<span class="signature">(path, middleware)</span><span class="type-signature"> &rarr; {Array.&lt;Array>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    <p>Get all data in accounts table.</p>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>path</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Router path - /admin/setup/accounts</p></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>middleware</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="callback.html">callback</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"><p>Express middleware.</p></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line84">line 84</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
 <div class="param-desc">
-    <p>message - Error</p>
+    <ul>
+<li>Array of objects representing all records found</li>
+</ul>
 </div>
 
 
@@ -734,27 +498,15 @@ creates query string SELECT "classification_id","description" FROM classificatio
     </dt>
     <dd>
         
-<span class="param-type">string</span>
+<span class="param-type">Array.&lt;Array></span>
 
 
     </dd>
 </dl>
-</li>
-    </ul>
 
-
-
-
-    <h5>Example</h5>
     
-    <pre class="prettyprint"><code>Usage to print all records
-...
-const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?headersOnly=false'
-...
-Usage to print headers only
-...
-const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?headersOnly=true'
-...</code></pre>
+
+
 
 
 
@@ -824,7 +576,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/classifications/import_xslx/:sheet</p></td>
+            <td class="description last"><p>Router path - /admin/setup/accounts/import_xslx/:sheet</p></td>
         </tr>
 
     
@@ -888,7 +640,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_classifications.js.html">admin/controllers/classifications.js</a>, <a href="admin_controllers_classifications.js.html#line152">line 152</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line170">line 170</a>
     </li></ul></dd>
     
 
@@ -954,7 +706,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
 
 
 <div class="description">
-    <p>Insert new classification in classifications table</p>
+    <p>Insert new account in accounts table</p>
 </div>
 
 
@@ -1006,7 +758,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/classifications/insert</p></td>
+            <td class="description last"><p>Router path - /admin/setup/accounts/insert</p></td>
         </tr>
 
     
@@ -1093,7 +845,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_classifications.js.html">admin/controllers/classifications.js</a>, <a href="admin_controllers_classifications.js.html#line92">line 92</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line108">line 108</a>
     </li></ul></dd>
     
 
@@ -1159,7 +911,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
 
 
 <div class="description">
-    <p>Updates record in classifications table</p>
+    <p>Updates record in accounts table</p>
 </div>
 
 
@@ -1211,7 +963,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
 
             
 
-            <td class="description last"><p>Router path - /admin/setup/classifications/update</p></td>
+            <td class="description last"><p>Router path - /admin/setup/accounts/update</p></td>
         </tr>
 
     
@@ -1298,7 +1050,7 @@ const url = 'http://localhost:2828/admin/setup/classifications/export_xslx?heade
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="admin_controllers_classifications.js.html">admin/controllers/classifications.js</a>, <a href="admin_controllers_classifications.js.html#line122">line 122</a>
+        <a href="admin_controllers_admin.js.html">admin/controllers/admin.js</a>, <a href="admin_controllers_admin.js.html#line139">line 139</a>
     </li></ul></dd>
     
 

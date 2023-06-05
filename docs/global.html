@@ -98,78 +98,6 @@
 
         
             
-<h4 class="name" id="dataSchema"><span class="type-signature">(constant) </span>dataSchema<span class="type-signature"> :<a href="global.html#TableSchema">TableSchema</a></span></h4>
-
-
-
-
-<div class="description">
-    <p>Data schema used to map the data model to the database</p>
-</div>
-
-
-
-    <h5>Type:</h5>
-    <ul>
-        <li>
-            
-<span class="param-type"><a href="global.html#TableSchema">TableSchema</a></span>
-
-
-        </li>
-    </ul>
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="services_table-schema.js.html">services/table-schema.js</a>, <a href="services_table-schema.js.html#line68">line 68</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-        
-            
 <h4 class="name" id="dto"><span class="type-signature">(constant) </span>dto<span class="type-signature"> :<a href="global.html#DTO">DTO</a></span></h4>
 
 
@@ -220,7 +148,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="services_table-schema.js.html">services/table-schema.js</a>, <a href="services_table-schema.js.html#line108">line 108</a>
+        <a href="services_type-defs.js.html">services/type-defs.js</a>, <a href="services_type-defs.js.html#line76">line 76</a>
     </li></ul></dd>
     
 
@@ -235,12 +163,72 @@
 
 
 
-    <h5>Example</h5>
+
+        
+            
+<h4 class="name" id="tableSchema"><span class="type-signature">(constant) </span>tableSchema<span class="type-signature"> :<a href="global.html#TableSchema">TableSchema</a></span></h4>
+
+
+
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type"><a href="global.html#TableSchema">TableSchema</a></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
     
-    <pre class="prettyprint"><code>const dto = {
-   column1: 'columnValue1',
-   column2: 'columnValue2',
-}</code></pre>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="services_type-defs.js.html">services/type-defs.js</a>, <a href="services_type-defs.js.html#line80">line 80</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
 
 
 
@@ -579,7 +567,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="services_table-schema.js.html">services/table-schema.js</a>, <a href="services_table-schema.js.html#line4">line 4</a>
+        <a href="services_type-defs.js.html">services/type-defs.js</a>, <a href="services_type-defs.js.html#line4">line 4</a>
     </li></ul></dd>
     
 
@@ -603,7 +591,9 @@
 
 
 <div class="description">
-    <p>Data Transfer Object used to interact with data models</p>
+    <p>This represents a Data Transfer Object that can hold row data from any table.
+The keys represent column names, and the values represent the corresponding data.
+The actual column names and data types will vary depending on the table.</p>
 </div>
 
 
@@ -612,7 +602,7 @@
     <ul>
         <li>
             
-<span class="param-type">Object</span>
+<span class="param-type">Object.&lt;string, any></span>
 
 
         </li>
@@ -651,7 +641,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="services_table-schema.js.html">services/table-schema.js</a>, <a href="services_table-schema.js.html#line96">line 96</a>
+        <a href="services_type-defs.js.html">services/type-defs.js</a>, <a href="services_type-defs.js.html#line65">line 65</a>
     </li></ul></dd>
     
 
@@ -863,7 +853,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="services_table-schema.js.html">services/table-schema.js</a>, <a href="services_table-schema.js.html#line16">line 16</a>
+        <a href="services_type-defs.js.html">services/type-defs.js</a>, <a href="services_type-defs.js.html#line16">line 16</a>
     </li></ul></dd>
     
 
@@ -1098,7 +1088,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="services_table-schema.js.html">services/table-schema.js</a>, <a href="services_table-schema.js.html#line25">line 25</a>
+        <a href="services_type-defs.js.html">services/type-defs.js</a>, <a href="services_type-defs.js.html#line25">line 25</a>
     </li></ul></dd>
     
 
@@ -1115,7 +1105,7 @@
 
     <h5>Example</h5>
     
-    <pre class="prettyprint"><code>const dataSchema = {
+    <pre class="prettyprint"><code>const tableSchema = {
     tableName: 'string',
     dbSchema: 'string',
     timeStamps: true,
@@ -1127,11 +1117,11 @@
             length: 10,
             unique: false,
             notNull: true,
-            primary: false,
             default: 'default value',
             useDefault: true,
         },
     ],
+    primaryKeys: [{ name: 'primary_key1 }, { name: 'primary_key2' }],
     foreignKeys: [
         {
             hasRelations: [{ name: 'relation1' }, { name: 'relation2' }],
@@ -1159,13 +1149,13 @@
 </div>
 
 <nav>
-    <h2><a href="index.html">nap-accounting</a></h2><h3>Modules</h3><ul><li><a href="module-routers_accounts.html">routers/accounts</a></li><li><a href="module-routers_classifications.html">routers/classifications</a></li><li><a href="module-routers_companies.html">routers/companies</a></li></ul><h3>Namespaces</h3><ul><li><a href="module-routers_accounts-accountsRouter.html">accountsRouter</a></li><li><a href="module-routers_classifications-classificationsRouter.html">classificationsRouter</a></li><li><a href="module-routers_companies-companiesRouter.html">companiesRouter</a></li></ul><h3>Classes</h3><ul><li><a href="Companies.html">Companies</a></li></ul><h3>Global</h3><ul><li><a href="global.html#dataSchema">dataSchema</a></li><li><a href="global.html#dto">dto</a></li></ul>
+    <h2><a href="index.html">nap-accounting</a></h2><h3>Modules</h3><ul><li><a href="module-routers_accounts.html">routers/accounts</a></li><li><a href="module-routers_admin.html">routers/admin</a></li><li><a href="module-routers_classifications.html">routers/classifications</a></li><li><a href="module-routers_companies.html">routers/companies</a></li></ul><h3>Namespaces</h3><ul><li><a href="module-routers_accounts-accountsRouter.html">accountsRouter</a></li><li><a href="module-routers_admin-adminRouter.html">adminRouter</a></li><li><a href="module-routers_classifications-classificationsRouter.html">classificationsRouter</a></li><li><a href="module-routers_companies-companiesRouter.html">companiesRouter</a></li></ul><h3>Classes</h3><ul><li><a href="Companies.html">Companies</a></li></ul><h3>Global</h3><ul><li><a href="global.html#dto">dto</a></li><li><a href="global.html#tableSchema">tableSchema</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Thu Jun 01 2023 23:16:10 GMT-0400 (Eastern Daylight Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Mon Jun 05 2023 02:25:26 GMT-0400 (Eastern Daylight Time)
 </footer>
 
 <script> prettyPrint(); </script>

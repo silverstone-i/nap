@@ -7,10 +7,14 @@ const accountSchema = {
     tableName: 'accounts',
     columns: [
         {
+            name: 'company_id',
+            type: 'varchar',
+            length: 3,
+        },
+        {
             name: 'account_id',
             type: 'varchar',
             length: 20,
-            primary: true,
         },
         {
             name: 'name',
@@ -34,9 +38,17 @@ const accountSchema = {
             type: 'numeric',
         },
         {
-            name: 'account',
+            name: 'acct_num',
             type: 'varchar',
             length: 25,
+        },
+    ],
+    primaryKeys: [
+        {
+            name: 'company_id',
+        },
+        {
+            name: 'account_id',
         },
     ],
 };

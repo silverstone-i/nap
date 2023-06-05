@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-// ./admin/service/table-schema.ts
+// ./admin/service/table-schema.js
 
 /**
  * @typedef {Object} Column
@@ -33,7 +33,7 @@
  *
  * @example
  *
- * const dataSchema = {
+ * const tableSchema = {
  *     tableName: 'string',
  *     dbSchema: 'string',
  *     timeStamps: true,
@@ -45,11 +45,11 @@
  *             length: 10,
  *             unique: false,
  *             notNull: true,
- *             primary: false,
  *             default: 'default value',
  *             useDefault: true,
  *         },
  *     ],
+ *     primaryKeys: [{ name: 'primary_key1 }, { name: 'primary_key2' }],
  *     foreignKeys: [
  *         {
  *             hasRelations: [{ name: 'relation1' }, { name: 'relation2' }],
@@ -62,50 +62,21 @@
  * };
  */
 
-/** Data schema used to map the data model to the database
- * @type {TableSchema}
- */
-const dataSchema = {
-    tableName: 'string',
-    dbSchema: 'string',
-    timeStamps: true,
-    useCS: true,
-    columns: [
-        {
-            name: 'string',
-            type: 'string',
-            length: 10,
-            unique: false,
-            notNull: true,
-            primary: false,
-            default: 'default value',
-            useDefault: true,
-        },
-    ],
-    foreignKeys: [
-        {
-            hasRelations: [{ name: 'relation1' }, { name: 'relation2' }],
-            withColumns: [{ name: 'column1' }, { name: 'column2' }],
-            withTable: 'relatedTable',
-            onDeleteAction: 'action1',
-            onUpdateAction: 'action2',
-        },
-    ],
-};
-
-/** Data Transfer Object used to interact with data models
- * @typedef {Object} DTO
+/**
+ * @typedef {Object.<string, any>} DTO
+ *
+ * This represents a Data Transfer Object that can hold row data from any table.
+ * The keys represent column names, and the values represent the corresponding data.
+ * The actual column names and data types will vary depending on the table.
  */
 
 /**
- * @type { DTO }
- * @example
- * const dto = {
- *    column1: 'columnValue1',
- *    column2: 'columnValue2',
- * }
+ * @type {DTO}
  */
-const dto = {
-    column1: 'columnValue1',
-    column2: 'columnValue2',
-};
+const dto = {}
+
+/** @type {TableSchema} */
+// @ts-ignore
+const tableSchema = {}
+
+module.exports = {}

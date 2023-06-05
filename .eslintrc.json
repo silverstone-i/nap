@@ -1,16 +1,23 @@
 {
     "env": {
-        "browser": true,
+        // "browser": true,
         "commonjs": true,
-        "es2021": true,
+        // "es2021": true,
         "node": true
     },
-    "extends": ["airbnb", "prettier"],
-    "plugins":[ "prettier"], 
+    "extends": [
+        "airbnb", 
+        "prettier"
+    ],
+    "plugins":[ 
+        "prettier",
+        "plugin:@typescript-eslint/recommended"
+    ], 
     "overrides": [
     ],
     "parserOptions": {
-        "ecmaVersion": "latest"
+        "scourceType": "script"
+        // "ecmaVersion": "latest"
     },
     "rules": {
         "prettier/prettier": "error",
