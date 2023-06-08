@@ -1,22 +1,21 @@
-/* eslint-disable class-methods-use-this */
-
 'use strict';
 
-// ./admin/models/Companies.js
-// Companies catalog
+// ./admin/models/Miscellaneous.js
+// List of miscellaneous names catalog - supports credit card transactions name and miscelaneous checks
 
 const { Model } = require('nap-db');
 
-const companySchema = {
-    tableName: 'companies',
+const miscellaneousSchema = {
+    tableName: 'miscellaneous',
     columns: [
         {
-            name: 'company_id',
+            name: 'misc_id',
             type: 'varchar',
-            length: 3,
+            length: 50,
+            primary: true,
         },
         {
-            name: 'company',
+            name: 'name',
             type: 'varchar',
             length: 100,
             notNull: true,
@@ -27,22 +26,19 @@ const companySchema = {
             length: 255,
         },
         {
-            name: 'tax_id',
+            name: 'email',
             type: 'varchar',
-            length: 15,
-            notNull: true,
+            length: 255,
         },
         {
-            name: 'active',
-            type: 'boolean',
-            notNull: true,
-            default: true,
+            name: 'phone',
+            type: 'varchar',
+            length: 18,
         },
         {
             name: 'address_1',
             type: 'varchar',
             length: 255,
-            notNull: true,
         },
         {
             name: 'address_2',
@@ -55,29 +51,20 @@ const companySchema = {
             name: 'city',
             type: 'varchar',
             length: 255,
-            notNull: true,
         },
         {
             name: 'region',
             type: 'varchar',
             length: 255,
-            notNull: true,
         },
         {
             name: 'postal_code',
             type: 'varchar',
             length: 255,
-            notNull: true,
         },
         {
             name: 'country',
             type: 'varchar',
-            length: 255,
-        },
-    ],
-    primaryKeys: [
-        {
-            name: 'company_id',
         },
     ],
 };
@@ -85,7 +72,7 @@ const companySchema = {
 /**
  * Companies - Models data in the companies table
  */
-class Companies extends Model {
+class Miscellaneous extends Model {
     static #cs;
 
     /**
@@ -94,12 +81,12 @@ class Companies extends Model {
      * @param {Object} pgp - {@link https://vitaly-t.github.io/pg-promise/module-pg-promise.html pg-promise} object
      * @param {Object} schema - Deep copy of companySChema to map columns
      */
-    constructor(db, pgp, schema = JSON.parse(JSON.stringify(companySchema))) {
+    constructor(db, pgp, schema = JSON.parse(JSON.stringify(miscellaneousSchema))) {
         super(db, pgp, schema);
 
-        if (!Companies.#cs) {
-            Companies.#cs = this.createColumnsets();
-            super.setColumnsets(Companies.#cs);
+        if (!Miscellaneous.#cs) {
+            Miscellaneous.#cs = this.createColumnsets();
+            super.setColumnsets(Miscellaneous.#cs);
         }
     }
 
@@ -108,8 +95,8 @@ class Companies extends Model {
      * @returns ColumnSet object associated with the data model
      */
     getColumnSet() {
-        return Companies.#cs;
+        return Miscellaneous.#cs;
     }
 }
 
-module.exports = Companies;
+module.exports = Miscellaneous;

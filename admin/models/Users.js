@@ -12,7 +12,6 @@ const userSchema = {
             name: 'email',
             type: 'varchar',
             length: 255,
-            primary: true,
         },
         {
             name: 'password',
@@ -39,6 +38,11 @@ const userSchema = {
             default: true,
         },
     ],
+    primaryKeys: [
+        {
+            name: 'email',
+        }
+    ]
 };
 
 class Users extends Model {

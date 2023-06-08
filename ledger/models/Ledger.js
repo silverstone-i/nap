@@ -1,12 +1,12 @@
 'use strict';
 
-// ./general-ledger/models/GL.js
+// ./ledger/models/Ledger.js
 // General Journal catalog
 
 const { Model } = require('nap-db');
 
-const glSchema = {
-    tableName: 'general-ledger',
+const ledgerSchema = {
+    tableName: 'ledger',
     columns: [
         {
             name: 'sequence',
@@ -34,7 +34,7 @@ const glSchema = {
         },
         {
             name: 'batch',
-            type: 'number',
+            type: 'integer',
             notNull: true,
         },
         {
@@ -53,6 +53,16 @@ const glSchema = {
             type: 'varchar',
             length: 100,
         },
+        {
+            name: 'module',
+            type: 'varchar',
+            length: 25,
+        },
+        {
+            name: 'module_ref',
+            type: 'varchar',
+            length: 25,
+        },
     ],
     primaryKeys: [
         {
@@ -61,18 +71,18 @@ const glSchema = {
     ],
 }
 
-class GeneralLedger extends Model {
+class Ledger extends Model {
     static #cs;
 
     // Deep copy userSchema to ensure it does not change
-    constructor(db, pgp, schema = JSON.parse(JSON.stringify(glSchema))) {
+    constructor(db, pgp, schema = JSON.parse(JSON.stringify(ledgerSchema))) {
         super(db, pgp, schema);
 
-        if (!GeneralLedger.#cs) {
-            GeneralLedger.#cs = this.createColumnsets();
-            super.setColumnsets(GeneralLedger.#cs);
+        if (!Ledger.#cs) {
+            Ledger.#cs = this.createColumnsets();
+            super.setColumnsets(Ledger.#cs);
         }
     }
 }
 
-module.exports = GeneralLedger;
+module.exports = Ledger;
