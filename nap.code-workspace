@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../nap-code/nap-client"
+    },
+    {
+      "path": "../nap-code/nap-server"
+    },
+    {
+      "path": "../nap-code/nap-proto"
+    }
+  ],
+  "settings": {}
+}
