@@ -11,6 +11,9 @@
     },
     {
       "path": "../nap-code/nap-proto"
+    },
+    {
+      "path": "../ai-projects/gpt-pilot/workspace/naplight"
     }
   ],
   "settings": {}
