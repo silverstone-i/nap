@@ -14,6 +14,9 @@
     },
     {
       "path": "../ai-projects/gpt-pilot/workspace/naplight"
+    },
+    {
+      "path": "../sandbox/express-session-authentication-starter-final"
     }
   ],
   "settings": {}
