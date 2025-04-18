@@ -1,0 +1,31 @@
+{
+  "name": "nap-serv",
+  "version": "0.1.0",
+  "description": "Track project costs, profitability, and payments with built-in double-entry accounting—designed for growth, automation, and financial clarity.",
+  "keywords": [
+    "\"postgres\"",
+    "\"pg-promise\"",
+    "\"nodejs\"",
+    "\"express\"",
+    "\"pern\"",
+    "\"project-costing\"",
+    "\"double-entry\"",
+    "\"accounting\"",
+    "\"general-ledger\"",
+    "\"schema-generator\"",
+    "\"bookkeeping\"",
+    "\"financial-tracking\"",
+    "\"activity-based-costing\"",
+    "\"project-profitability\"",
+    "\"accounts-payable\"",
+    "\"accounts-receivable\"",
+    "\"pg-schemata\""
+  ],
+  "license": "MIT",
+  "author": "Ian SIlverstone",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
