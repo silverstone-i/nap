@@ -18,6 +18,8 @@ app.use(cors(/* options */));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+import db from './db/db.js';
+
 // Test route
 app.get('/', (req, res) => {
   res.send('API is running');

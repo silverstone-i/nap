@@ -8,12 +8,13 @@
  *
  * Removal or modification of this copyright notice is prohibited.
  */
+import 'dotenv/config'
 
 import { DB } from 'pg-schemata';
 import repositories from './repositories.js';
 
 console.log('Initializing database connection...');
-const { db } = DB.init(process.env.DATABASE_URL, repositories);
+const { db, pgp } = DB.init(process.env.DATABASE_URL, repositories);
 console.log('Database connection established.');
 
-export default db;
+export { db, pgp };

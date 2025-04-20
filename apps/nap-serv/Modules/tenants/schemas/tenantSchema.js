@@ -23,7 +23,7 @@ const tenantSchema = {
   dbSchema: 'admin',
   table: 'tenants',
   hasAuditFields: true,
-  version: '1.0.0',
+  version: '0.1.0',
   columns: [
     /**
      * Unique tenant identifier (UUID, immutable).
@@ -181,20 +181,20 @@ const tenantSchema = {
         columns: ['subdomain']
       }
     ],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['owner_user_id'],
-        references: 'public.users(id)',
-        onDelete: 'SET NULL'
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['creator_user_id'],
-        references: 'public.users(id)',
-        onDelete: 'SET NULL'
-      }
-    ]
+    // foreignKeys: [
+    //   {
+    //     type: 'ForeignKey',
+    //     columns: ['owner_user_id'],
+    //     references: 'public.users(id)',
+    //     onDelete: 'SET NULL'
+    //   },
+    //   {
+    //     type: 'ForeignKey',
+    //     columns: ['creator_user_id'],
+    //     references: 'public.users(id)',
+    //     onDelete: 'SET NULL'
+    //   }
+    // ]
   }
 };
 

@@ -9,10 +9,10 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import Tenant from './models/tenant.js';
+import Tenants from './models/tenants.js';
 
 const tenantRepositories = {
-  tenant: Tenant
+  tenants: Tenants,
 };
 
 export default tenantRepositories;

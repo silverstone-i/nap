@@ -12,10 +12,10 @@
 import { BaseModel } from 'pg-schemata';
 import tenantSchema from '../schemas/tenantSchema.js';
 
-class Tenant extends BaseModel {
+class Tenants extends BaseModel {
   constructor(db, pgp) {
     super(db, pgp, tenantSchema);
   }
 }
 
-export default Tenant;
+export default Tenants;
