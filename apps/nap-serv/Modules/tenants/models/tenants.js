@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { BaseModel } from 'pg-schemata';
+import {BaseModel} from 'pg-schemata';
 import tenantSchema from '../schemas/tenantSchema.js';
 
 class Tenants extends BaseModel {
