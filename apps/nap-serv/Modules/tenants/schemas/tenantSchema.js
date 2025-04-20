@@ -181,20 +181,26 @@ const tenantSchema = {
         columns: ['subdomain']
       }
     ],
-    // foreignKeys: [
-    //   {
-    //     type: 'ForeignKey',
-    //     columns: ['owner_user_id'],
-    //     references: 'public.users(id)',
-    //     onDelete: 'SET NULL'
-    //   },
-    //   {
-    //     type: 'ForeignKey',
-    //     columns: ['creator_user_id'],
-    //     references: 'public.users(id)',
-    //     onDelete: 'SET NULL'
-    //   }
-    // ]
+      foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['owner_user_id'],
+        references: {
+          table: 'admin.nap_users',
+          columns: ['id']
+        },
+        onDelete: 'SET NULL'
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['creator_user_id'],
+        references: {
+          table: 'admin.nap_users',
+          columns: ['id']
+        },
+        onDelete: 'SET NULL'
+      }
+      ]
   }
 };
 
