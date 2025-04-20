@@ -9,10 +9,12 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import Tenants from './models/tenants.js';
+import Tenants from './models/Tenants.js';
+import NapUsers from './models/NapUsers.js';
 
 const tenantRepositories = {
   tenants: Tenants,
+  napUsers: NapUsers,
 };
 
 export default tenantRepositories;
