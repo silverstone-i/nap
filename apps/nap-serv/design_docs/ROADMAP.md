@@ -13,7 +13,11 @@ This roadmap outlines the phased development plan for the nap-serve backend syst
 - Tenant schema isolation and tenant management
 - Express API scaffolding and middleware (tenant context, auth)
 - BaseModel integration with schema-qualified queries
-- Initial PostgreSQL schema migrations (tenants, companies, users)
+- Initial PostgreSQL schema migrations:
+  - `tenants` table (globally scoped; defines assigned database and schema for each tenant — managed by nap only)
+  - `nap_users` table (globally scoped; defines system-level users with super-admin privileges — managed by nap only)
+
+> 📝 The `tenants` and `nap_users` tables are globally scoped and maintained solely by nap administrators. These tables are not accessible to tenants to preserve strict isolation and confidentiality. Each tenant’s data is stored in a dedicated schema within a designated database. Tenant users and all other personnel — including both app users and non-users — are managed via the `employees` table within each tenant schema. Tenants can operate multiple companies, but all share the same schema and data structure.
 
 ---
 
