@@ -12,25 +12,26 @@
 import { db, pgp } from './db.js';
 import repositories from './repositories.js';
 
-function migrate() {
+async function migrate() {
   try {
-    Object.keys(repositories).forEach(key => {
+    for (const key of Object.keys(repositories)) {
       console.log('Creating table for', key);
 
       const model = db[key];
-      model.createTable();
-    });
-
-    pgp.end();
-    console.log('Database connection closed.');
-    console.log('Migration completed.');
+      await model.createTable();
+      console.log('Created table:', key);
+    }
   } catch (error) {
     console.error('Error during migration:', error.message);
     console.error('Stack trace:', error.stack);
+  } finally {
     pgp.end();
     console.log('Database connection closed.');
-    process.exit(1);
+    console.log('Migration completed.');
   }
 }
 
-migrate();
+await migrate().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
