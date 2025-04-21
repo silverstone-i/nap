@@ -10,7 +10,7 @@
 */
 
 import express from 'express';
-import { TenantController } from '../controllers/tenantController.js';
+import TenantController from '../../controllers/TenantControllers.js';
 
 const router = express.Router();
 
@@ -30,6 +30,6 @@ router.put('/:id', TenantController.update);
 router.delete('/:id', TenantController.remove);
 
 // Get allowed modules for a given tenant
-router.get('/:id/modules', TenantController.getAllowedModules);
+router.get('/:id/modules', TenantController.getAllAllowedModules);
 
 export default router;
