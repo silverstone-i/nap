@@ -9,15 +9,101 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
+// NOTE: Tables are created based on the repository classes (extending BaseModel).
+// Order matters due to FK constraints; loading is currently manual and sequential.
 import { db, pgp } from './db.js';
 import repositories from './repositories.js';
 
-async function migrate() {
-  try {
-    for (const key of Object.keys(repositories)) {
-      console.log('Creating table for', key);
+// Extracts table dependencies from model's foreign keys
+function getTableDependencies(model) {
+  const schema = model.schema;
+  if (!schema?.constraints?.foreignKeys) return [];
 
-      const model = db[key];
+  return schema.constraints.foreignKeys.map(fk => {
+    const schemaName = fk.references.schema || 'public';
+    return `${schemaName}.${fk.references.table}`;
+  });
+}
+
+// Performs topological sort to respect foreign key dependencies
+function topoSortModels(models) {
+  const sorted = [];
+  const visited = new Set();
+  const tableKeyMap = Object.fromEntries(
+    Object.entries(models).map(([k, m]) => [`${m.schemaName}.${m.tableName}`, k])
+  );
+
+  function visit(key, visiting = new Set()) {
+    if (visited.has(key)) return;
+    if (visiting.has(key)) {
+      throw new Error(`Cyclic dependency detected involving table: ${key}`);
+    }
+
+    visiting.add(key);
+    const model = models[key];
+    const deps = getTableDependencies(model);
+    for (const dep of deps) {
+      const depKey = tableKeyMap[dep];
+      if (depKey) visit(depKey, visiting);
+    }
+
+    visiting.delete(key);
+    visited.add(key);
+    sorted.push(key);
+  }
+
+  for (const key of Object.keys(models)) {
+    visit(key);
+  }
+
+  return sorted;
+}
+import fs from 'fs';
+
+function isValidModel(model) {
+  return typeof model?.createTable === 'function' &&
+         model.schema?.dbSchema &&
+         model.schema?.table;
+}
+
+function writeDependencyGraph(models, sortedKeys) {
+  const edges = [];
+
+  for (const key of sortedKeys) {
+    const model = models[key];
+    const schema = model.schema;
+    if (!schema?.constraints?.foreignKeys) continue;
+
+    for (const fk of schema.constraints.foreignKeys) {
+      const from = `${schema.dbSchema}.${schema.table}`;
+      const to = `${fk.references.schema || 'public'}.${fk.references.table}`;
+      edges.push(`  "${from}" -> "${to}";`);
+    }
+  }
+
+  const dot = [
+    'digraph TableDependencies {',
+    '  rankdir=LR;',
+    ...edges,
+    '}'
+  ].join('\n');
+
+  fs.writeFileSync('./table-dependencies.dot', dot);
+  console.log('Dependency graph written to table-dependencies.dot');
+}
+
+async function migrate() {
+  let sortedKeys = [];
+  let validModels = {};
+  try {
+    validModels = Object.fromEntries(
+      Object.entries(db).filter(([_, model]) => isValidModel(model))
+    );
+    sortedKeys = topoSortModels(validModels);
+    for (const key of sortedKeys) {
+      const model = validModels[key];
+      console.log(`Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`);
+
       await model.createTable();
       console.log('Created table:', key);
     }
@@ -25,6 +111,7 @@ async function migrate() {
     console.error('Error during migration:', error.message);
     console.error('Stack trace:', error.stack);
   } finally {
+    writeDependencyGraph(validModels, sortedKeys);
     pgp.end();
     console.log('Database connection closed.');
     console.log('Migration completed.');
