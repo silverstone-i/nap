@@ -72,6 +72,10 @@ web_modules/
 # Output of 'npm pack'
 *.tgz
 
+# Table dependency graphs
+table-dependencies.dot
+*.dot
+
 # Yarn Integrity file
 .yarn-integrity
 
