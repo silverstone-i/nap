@@ -11,6 +11,8 @@
 import express from 'express';
 import cors from 'cors';
 
+import apiRoutes from './apiRoutes.js';
+
 const app = express();
 
 // Middleware
@@ -18,7 +20,12 @@ app.use(cors(/* options */));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-import db from './db/db.js';
+// Load API routes based on enabled modules
+apiRoutes.forEach(({ prefix, routes }) => {
+  routes.forEach((router) => {
+    app.use(`/api/${prefix}`, router);
+  });
+});
 
 // Test route
 app.get('/', (req, res) => {
