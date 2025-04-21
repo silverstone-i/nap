@@ -9,10 +9,14 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import tenantRepositories from '../../modules/tenants/tenantRepositories.js';
+const enabledModules = ['tenants']; // TODO: Load dynamically per tenant or env config
 
-const repositories = {
-  ...tenantRepositories,
-};
+const repositories = {};
+
+for (const moduleName of enabledModules) {
+  const modulePath = `../../modules/${moduleName}/${moduleName.slice(0, -1)}Repositories.js`;
+  const { default: moduleRepositories } = await import(modulePath);
+  Object.assign(repositories, moduleRepositories);
+}
 
 export default repositories;
