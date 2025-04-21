@@ -13,8 +13,8 @@ import 'dotenv/config'
 import { DB } from 'pg-schemata';
 import repositories from './repositories.js';
 
-console.log('Initializing database connection...');
+console.log('\nInitializing database connection...');
 const { db, pgp } = DB.init(process.env.DATABASE_URL, repositories);
-console.log('Database connection established.');
+console.log('Database connection established.\n');
 
 export { db, pgp };
