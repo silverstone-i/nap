@@ -9,8 +9,6 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-// NOTE: Tables are created based on the repository classes (extending BaseModel).
-// Order matters due to FK constraints; loading is currently manual and sequential.
 import { db, pgp } from './db.js';
 import repositories from './repositories.js';
 
@@ -89,7 +87,7 @@ function writeDependencyGraph(models, sortedKeys) {
   ].join('\n');
 
   fs.writeFileSync('./table-dependencies.dot', dot);
-  console.log('Dependency graph written to table-dependencies.dot');
+  console.log('\nDependency graph written to table-dependencies.dot\n');
 }
 
 async function migrate() {
@@ -113,10 +111,12 @@ async function migrate() {
   } finally {
     writeDependencyGraph(validModels, sortedKeys);
     pgp.end();
-    console.log('Database connection closed.');
+    console.log('Database connection closed.\n');
     console.log('Migration completed.');
   }
 }
+
+console.log('Starting migration...\n');
 
 await migrate().catch(err => {
   console.error(err);
