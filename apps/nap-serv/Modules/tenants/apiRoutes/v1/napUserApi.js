@@ -1,7 +1,7 @@
 
 
 import { Router } from 'express';
-import NapUserController from '../controllers/NapUserController.js';
+import NapUserController from '../../controllers/NapUserController.js';
 
 const router = Router();
 

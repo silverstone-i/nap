@@ -158,6 +158,16 @@ const tenantSchema = {
     },
 
     /**
+     * List of enabled module identifiers for this tenant (e.g., accounting, projects).
+     */
+    {
+      name: 'allowed_modules',
+      type: 'text[]',
+      nullable: false,
+      default: `'{}'`, // empty array by default
+    },
+
+    /**
      * Optional trial expiration timestamp.
      */
     {
