@@ -26,7 +26,11 @@
   ],
   "scripts": {
     "migrate": "node ./src/db/migrate.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs": "jsdoc -c jsdoc.json README.md && cp LICENSE docs/ && mkdir -p docs/images && cp docs-pages/images/nap-logo.png docs/images/",
+    "lint": "eslint .",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:unit": "NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=unit",
+    "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest test/integration",
     "dev": "nodemon --delay 5 server.js",
     "start": "node server.js"
   },
@@ -36,7 +40,9 @@
     "express": "^5.1.0"
   },
   "devDependencies": {
+    "@swc/jest": "^0.2.37",
     "cross-env": "^7.0.3",
+    "eslint": "^9.25.1",
     "jest": "^29.7.0",
     "supertest": "^7.1.0"
   }
