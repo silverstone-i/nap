@@ -15,7 +15,7 @@ import { db } from '../../../src/db/db.js';
 export const NapUserController = {
   async create(req, res) {
     try {
-      const user = await db.napUser.create(req.body);
+      const user = await db.napUser.insert(req.body);
       res.status(201).json(user);
     } catch (err) {
       res.status(400).json({ error: err.message });
