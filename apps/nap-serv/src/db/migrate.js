@@ -28,7 +28,10 @@ function topoSortModels(models) {
   const sorted = [];
   const visited = new Set();
   const tableKeyMap = Object.fromEntries(
-    Object.entries(models).map(([k, m]) => [`${m.schemaName}.${m.tableName}`, k])
+    Object.entries(models).map(([k, m]) => [
+      `${m.schemaName}.${m.tableName}`,
+      k,
+    ])
   );
 
   function visit(key, visiting = new Set()) {
@@ -59,9 +62,11 @@ function topoSortModels(models) {
 import fs from 'fs';
 
 function isValidModel(model) {
-  return typeof model?.createTable === 'function' &&
-         model.schema?.dbSchema &&
-         model.schema?.table;
+  return (
+    typeof model?.createTable === 'function' &&
+    model.schema?.dbSchema &&
+    model.schema?.table
+  );
 }
 
 function writeDependencyGraph(models, sortedKeys) {
@@ -83,24 +88,26 @@ function writeDependencyGraph(models, sortedKeys) {
     'digraph TableDependencies {',
     '  rankdir=LR;',
     ...edges,
-    '}'
+    '}',
   ].join('\n');
 
   fs.writeFileSync('./table-dependencies.dot', dot);
   console.log('\nDependency graph written to table-dependencies.dot\n');
 }
 
-async function migrate() {
+async function migrate(dbOverride = db, pgpOverride = pgp) {
   let sortedKeys = [];
   let validModels = {};
   try {
     validModels = Object.fromEntries(
-      Object.entries(db).filter(([_, model]) => isValidModel(model))
+      Object.entries(dbOverride).filter(([_, model]) => isValidModel(model))
     );
     sortedKeys = topoSortModels(validModels);
     for (const key of sortedKeys) {
       const model = validModels[key];
-      console.log(`Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`);
+      console.log(
+        `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
+      );
 
       await model.createTable();
       console.log('Created table:', key);
@@ -110,7 +117,7 @@ async function migrate() {
     console.error('Stack trace:', error.stack);
   } finally {
     writeDependencyGraph(validModels, sortedKeys);
-    pgp.end();
+    // pgpOverride.end();
     console.log('Database connection closed.\n');
     console.log('Migration completed.');
   }
@@ -118,7 +125,11 @@ async function migrate() {
 
 console.log('Starting migration...\n');
 
-await migrate().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+if (process.argv[1] === new URL(import.meta.url).pathname) {
+  await migrate().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+export { migrate };
