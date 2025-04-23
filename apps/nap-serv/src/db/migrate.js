@@ -35,14 +35,15 @@ function topoSortModels(models) {
   );
 
   function visit(key, visiting = new Set()) {
+    const model = models[key];
+    const deps = getTableDependencies(model);
     if (visited.has(key)) return;
     if (visiting.has(key)) {
       throw new Error(`Cyclic dependency detected involving table: ${key}`);
     }
 
     visiting.add(key);
-    const model = models[key];
-    const deps = getTableDependencies(model);
+    // const deps = getTableDependencies(model); // Removed, already declared above
     for (const dep of deps) {
       const depKey = tableKeyMap[dep];
       if (depKey) visit(depKey, visiting);
@@ -95,7 +96,7 @@ function writeDependencyGraph(models, sortedKeys) {
   console.log('\nDependency graph written to table-dependencies.dot\n');
 }
 
-async function migrate(dbOverride = db, pgpOverride = pgp) {
+async function migrate(dbOverride = db, pgpOverride = pgp, shouldRethrow = false) {  
   let sortedKeys = [];
   let validModels = {};
   try {
@@ -115,6 +116,8 @@ async function migrate(dbOverride = db, pgpOverride = pgp) {
   } catch (error) {
     console.error('Error during migration:', error.message);
     console.error('Stack trace:', error.stack);
+    if (shouldRethrow) {
+      throw error;}
   } finally {
     writeDependencyGraph(validModels, sortedKeys);
     // pgpOverride.end();
