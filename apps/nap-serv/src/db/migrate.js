@@ -96,7 +96,11 @@ function writeDependencyGraph(models, sortedKeys) {
   console.log('\nDependency graph written to table-dependencies.dot\n');
 }
 
-async function migrate(dbOverride = db, pgpOverride = pgp, shouldRethrow = false) {  
+async function migrate(
+  dbOverride = db,
+  pgpOverride = pgp,
+  testFlag = false
+) {
   let sortedKeys = [];
   let validModels = {};
   try {
@@ -116,11 +120,14 @@ async function migrate(dbOverride = db, pgpOverride = pgp, shouldRethrow = false
   } catch (error) {
     console.error('Error during migration:', error.message);
     console.error('Stack trace:', error.stack);
-    if (shouldRethrow) {
-      throw error;}
+    if (testFlag) {
+      throw error;
+    }
   } finally {
     writeDependencyGraph(validModels, sortedKeys);
-    // pgpOverride.end();
+    if (!testFlag) {
+      await pgpOverride.end();
+    }
     console.log('Database connection closed.\n');
     console.log('Migration completed.');
   }
