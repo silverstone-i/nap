@@ -15,7 +15,7 @@ describe('Migration Script', () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    await migrateScript.migrate();
+    await migrateScript.migrate(db, pgp, true);
 
     const result = await db.oneOrNone(
       "SELECT to_regclass('admin.tenants') AS table"
@@ -46,19 +46,14 @@ describe('Migration Script', () => {
     const spyError = jest.spyOn(console, 'error').mockImplementation(() => {});
     const spyLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    await migrateScript.migrate(mockDb, mockPgp);
-
-    expect(spyError).toHaveBeenCalled();
-    expect(spyLog).toHaveBeenCalledWith(
-      expect.stringContaining('Dependency graph written')
-    );
+    await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow('Simulated createTable error');
 
     spyLog.mockRestore();
     spyError.mockRestore();
   });
 
   test('should process models without foreign keys (nap_users)', async () => {
-    await migrateScript.migrate();
+    await migrateScript.migrate(db, pgp, true);
 
     const napUsersModel = db['napUsers'];
 
@@ -72,7 +67,7 @@ describe('Migration Script', () => {
 
     // Run migration with only nap_users
     const filteredDb = { 'admin.nap_users': napUsersModel };
-    await migrateScript.migrate(filteredDb, pgp);
+    await migrateScript.migrate(filteredDb, pgp, true);
 
     logSpy.mockRestore();
     errorSpy.mockRestore();
