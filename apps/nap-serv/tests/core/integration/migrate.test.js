@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { db, pgp } from '../../../src/db/db.js';
-import * as migrateScript from '../../../src/db/migrate.js';
+import * as migrateScript from '../../../scripts/migrate.js';
 
 describe('Migration Script', () => {
   beforeAll(async () => {
@@ -46,7 +46,9 @@ describe('Migration Script', () => {
     const spyError = jest.spyOn(console, 'error').mockImplementation(() => {});
     const spyLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow('Simulated createTable error');
+    await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow(
+      'Simulated createTable error'
+    );
 
     spyLog.mockRestore();
     spyError.mockRestore();
@@ -102,6 +104,8 @@ describe('Migration Script', () => {
     };
     const mockPgp = { end: jest.fn() };
 
-    await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow('Cyclic dependency detected');
+    await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow(
+      'Cyclic dependency detected'
+    );
   });
 });

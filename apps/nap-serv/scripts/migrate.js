@@ -9,8 +9,8 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db, pgp } from './db.js';
-import repositories from './repositories.js';
+import { db, pgp } from '../src/db/db.js';
+import repositories from '../src/db/repositories.js';
 
 // Extracts table dependencies from model's foreign keys
 function getTableDependencies(model) {
