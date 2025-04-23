@@ -52,7 +52,7 @@ export const NapUserController = {
 
   async remove(req, res) {
     try {
-      await db.napUser.remove(req.params.id);
+      await db.napUser.deleteById(req.params.id);
       res.status(204).end();
     } catch (err) {
       res.status(500).json({ error: err.message });
