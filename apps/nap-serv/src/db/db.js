@@ -29,7 +29,6 @@ switch (process.env.NODE_ENV) {
     throw new Error('NODE_ENV is not set to a valid value');
 }
 
-console.log('DATABASE_URL:', DATABASE_URL);
 if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is not set');
 }
