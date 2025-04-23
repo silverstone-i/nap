@@ -38,9 +38,11 @@ app.use((req, res) => {
 });
 
 // Global error handler
-app.use((err, req, res, next) => {
+function globalErrorHandler(err, req, res, next) {
   console.error(err.stack);
   res.status(500).send('Something broke!');
-});
+}
 
-export default app;
+app.use(globalErrorHandler);
+
+export { app as default, globalErrorHandler };
