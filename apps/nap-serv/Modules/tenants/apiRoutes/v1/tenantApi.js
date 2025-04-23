@@ -10,7 +10,7 @@
 */
 
 import express from 'express';
-import TenantController from '../../controllers/TenantControllers.js';
+import TenantController from '../../controllers/TenantController.js';
 
 const router = express.Router();
 
