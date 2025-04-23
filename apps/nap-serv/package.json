@@ -25,14 +25,20 @@
     "\"pg-schemata\""
   ],
   "scripts": {
-    "migrate": "node ./src/db/migrate.js",
+    "migrate": "cross-env NODE_ENV=test node ./src/db/migrate.js",
     "docs": "jsdoc -c jsdoc.json README.md && cp LICENSE docs/ && mkdir -p docs/images && cp docs-pages/images/nap-logo.png docs/images/",
     "lint": "eslint .",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "test:unit": "NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=unit",
-    "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest test/integration",
-    "dev": "nodemon --delay 5 server.js",
-    "start": "node server.js"
+    "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=unit --coverage",
+    "test:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=integration --coverage",
+    "test:tenant": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/tenant --coverage",
+    "test:tenant:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/tenant/unit --coverage",
+    "test:tenant:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/tenant/integration --coverage",
+    "test:core": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/core --coverage",
+    "test:core:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/core/unit --coverage",
+    "test:core:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/core/integration --coverage",
+    "dev": "cross-env NODE_ENV=development nodemon --delay 5 server.js",
+    "start": "cross-env NODE_ENV=production node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
