@@ -28,7 +28,7 @@
     "migrate": "cross-env NODE_ENV=development node ./scripts/migrate.js",
     "docs": "jsdoc -c jsdoc.json README.md && cp LICENSE docs/ && mkdir -p docs/images && cp docs-pages/images/nap-logo.png docs/images/",
     "lint": "eslint .",
-    "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage --detectOpenHandles --forceExit",
     "test:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=unit --coverage",
     "test:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=integration --coverage",
     "test:tenant": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/tenant --coverage",
