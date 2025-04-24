@@ -52,7 +52,7 @@ const napUserSchema = {
       type: 'boolean',
       default: 'true',
       nullable: false,
-    }
+    },
   ],
 
   constraints: {
@@ -61,24 +61,24 @@ const napUserSchema = {
     checks: [
       {
         type: 'Check',
-        expression: `char_length(email) > 3`
+        expression: `char_length(email) > 3`,
       },
       {
         type: 'Check',
-        expression: `role IN ('super_admin', 'support')`
-      }
+        expression: `role IN ('super_admin', 'support')`,
+      },
     ],
     indexes: [
       {
         type: 'Index',
-        columns: ['email']
+        columns: ['email'],
       },
       {
         type: 'Index',
-        columns: ['role']
-      }
-    ]
-  }
+        columns: ['role'],
+      },
+    ],
+  },
 };
 
 export default napUserSchema;
