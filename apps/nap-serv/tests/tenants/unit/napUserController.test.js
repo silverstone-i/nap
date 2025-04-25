@@ -1,157 +1,167 @@
-'use strict';
-
 import { jest } from '@jest/globals';
+import NapUserController from '../../../modules/tenants/controllers/NapUserController.js';
+import { db } from '../../../src/db/db.js';
 
-jest.unstable_mockModule('../../../src/db/db.js', () => ({
-  db: {
-    napUser: {
+jest.mock('../../../src/db/db.js');
+
+describe('NapUserController', () => {
+  const mockRes = () => {
+    const res = {};
+    res.status = jest.fn().mockReturnValue(res);
+    res.json = jest.fn().mockReturnValue(res);
+    res.end = jest.fn();
+    return res;
+  };
+
+  beforeEach(() => {
+    db.napUsers = {
       insert: jest.fn(),
       findAll: jest.fn(),
       findById: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
-      deleteById: jest.fn(),
-    },
-  },
-}));
-
-let NapUserController, db;
-beforeAll(async () => {
-  ({ db } = await import('../../../src/db/db.js'));
-  NapUserController = (await import('../../../modules/tenants/controllers/NapUserController.js')).default;
-});
-
-describe('NapUserController', () => {
-  let req, res;
-
-  beforeEach(() => {
-    req = { body: {}, params: {} };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      end: jest.fn(),
     };
-    db.napUser.insert.mockReset();
   });
 
-  describe('create', () => {
-    it('should create a user and return 201', async () => {
-      const mockUser = { id: 1, name: 'John Doe' };
-      db.napUser.insert.mockResolvedValue(mockUser);
+  afterEach(() => jest.clearAllMocks());
 
-      req.body = { name: 'John Doe' };
+  describe('create', () => {
+    it('should insert a user and return 201', async () => {
+      const req = {
+        body: {
+          email: 'test@example.com',
+          password_hash: 'secret',
+          created_by: 'Test',
+        },
+      };
+      const res = mockRes();
+      db.napUsers.insert.mockResolvedValue(req.body);
+
       await NapUserController.create(req, res);
 
-      expect(db.napUser.insert).toHaveBeenCalledWith(req.body);
+      expect(db.napUsers.insert).toHaveBeenCalledWith(req.body);
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith(mockUser);
+      expect(res.json).toHaveBeenCalledWith(req.body);
     });
 
-    it('should handle errors during create', async () => {
-      db.napUser.insert.mockRejectedValue(new Error('Insert failed'));
+    it('should handle insertion error', async () => {
+      const req = { body: {} };
+      const res = mockRes();
+      db.napUsers.insert.mockRejectedValue(new Error('Insert error'));
 
       await NapUserController.create(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Insert failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Insert error' });
     });
   });
 
   describe('getAll', () => {
     it('should return all users', async () => {
-      const mockUsers = [{ id: 1 }, { id: 2 }];
-      db.napUser.findAll.mockResolvedValue(mockUsers);
+      const req = {};
+      const res = mockRes();
+      const users = [{ id: 1 }, { id: 2 }];
+      db.napUsers.findAll.mockResolvedValue(users);
 
       await NapUserController.getAll(req, res);
 
-      expect(db.napUser.findAll).toHaveBeenCalled();
-      expect(res.json).toHaveBeenCalledWith(mockUsers);
+      expect(res.json).toHaveBeenCalledWith(users);
     });
 
-    it('should handle errors during getAll', async () => {
-      db.napUser.findAll.mockRejectedValue(new Error('Fetch failed'));
+    it('should handle error on getAll', async () => {
+      const req = {};
+      const res = mockRes();
+      db.napUsers.findAll.mockRejectedValue(new Error('Find error'));
 
       await NapUserController.getAll(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Fetch failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
     });
   });
 
   describe('getById', () => {
-    it('should return a user by id', async () => {
-      const mockUser = { id: 1 };
-      db.napUser.findById.mockResolvedValue(mockUser);
+    it('should return user by ID', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      const user = { id: 'abc' };
+      db.napUsers.findById.mockResolvedValue(user);
 
-      req.params.id = 1;
       await NapUserController.getById(req, res);
 
-      expect(db.napUser.findById).toHaveBeenCalledWith(1);
-      expect(res.json).toHaveBeenCalledWith(mockUser);
+      expect(res.json).toHaveBeenCalledWith(user);
     });
 
     it('should return 404 if user not found', async () => {
-      db.napUser.findById.mockResolvedValue(null);
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.napUsers.findById.mockResolvedValue(null);
 
-      req.params.id = 1;
       await NapUserController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: 'User not found' });
     });
 
-    it('should handle errors during getById', async () => {
-      db.napUser.findById.mockRejectedValue(new Error('Fetch failed'));
+    it('should handle error on getById', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.napUsers.findById.mockRejectedValue(new Error('Find error'));
 
       await NapUserController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Fetch failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
     });
   });
 
   describe('update', () => {
-    it('should update a user and return the updated user', async () => {
-      const updatedUser = { id: 1, name: 'Updated Name' };
-      db.napUser.update.mockResolvedValue(updatedUser);
+    it('should update and return user', async () => {
+      const req = { params: { id: 'abc' }, body: { email: 'updated' } };
+      const res = mockRes();
+      const updatedUser = { id: 'abc', email: 'updated' };
+      db.napUsers.update.mockResolvedValue(updatedUser);
 
-      req.params.id = 1;
-      req.body = { name: 'Updated Name' };
       await NapUserController.update(req, res);
 
-      expect(db.napUser.update).toHaveBeenCalledWith(1, req.body);
+      expect(db.napUsers.update).toHaveBeenCalledWith('abc', { email: 'updated' });
       expect(res.json).toHaveBeenCalledWith(updatedUser);
     });
 
-    it('should handle errors during update', async () => {
-      db.napUser.update.mockRejectedValue(new Error('Update failed'));
+    it('should handle update error', async () => {
+      const req = { params: { id: 'abc' }, body: {} };
+      const res = mockRes();
+      db.napUsers.update.mockRejectedValue(new Error('Update error'));
 
       await NapUserController.update(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Update failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Update error' });
     });
   });
 
   describe('remove', () => {
-    it('should remove a user and return 204', async () => {
-      db.napUser.deleteById.mockResolvedValue();
+    it('should delete user and return 204', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.napUsers.delete.mockResolvedValue();
 
-      req.params.id = 1;
       await NapUserController.remove(req, res);
 
-      expect(db.napUser.deleteById).toHaveBeenCalledWith(1);
+      expect(db.napUsers.delete).toHaveBeenCalledWith('abc');
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.end).toHaveBeenCalled();
     });
 
-    it('should handle errors during remove', async () => {
-      db.napUser.deleteById.mockRejectedValue(new Error('Remove failed'));
+    it('should handle delete error', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.napUsers.delete.mockRejectedValue(new Error('Delete error'));
 
       await NapUserController.remove(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Remove failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Delete error' });
     });
   });
 });
