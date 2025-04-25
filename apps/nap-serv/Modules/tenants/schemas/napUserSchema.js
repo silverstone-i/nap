@@ -35,6 +35,7 @@ const napUserSchema = {
       type: 'varchar',
       length: 100,
       nullable: true,
+      // default: null,
       colProps: { skip: c => !c.exists }
     },
     {
@@ -42,6 +43,7 @@ const napUserSchema = {
       type: 'varchar',
       length: 100,
       nullable: true,
+      // default: null,
       colProps: { skip: c => !c.exists }
     },
     {
@@ -57,6 +59,7 @@ const napUserSchema = {
       type: 'boolean',
       default: 'true',
       nullable: false,
+      // default: true,
       colProps: { skip: c => !c.exists }
     },
   ],
