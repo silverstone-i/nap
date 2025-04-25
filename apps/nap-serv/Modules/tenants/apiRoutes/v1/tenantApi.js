@@ -32,4 +32,6 @@ router.delete('/:id', TenantController.remove);
 // Get allowed modules for a given tenant
 router.get('/:id/modules', TenantController.getAllAllowedModules);
 
-export default router;
+export default router;async (params) => {
+  
+}
