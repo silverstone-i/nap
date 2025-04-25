@@ -22,23 +22,27 @@ const napUserSchema = {
       type: 'varchar',
       length: 255,
       nullable: false,
+      colProps: { skip: c => !c.exists }
     },
     {
       name: 'password_hash',
       type: 'text',
       nullable: false,
+      colProps: { skip: c => !c.exists }
     },
     {
       name: 'first_name',
       type: 'varchar',
       length: 100,
       nullable: true,
+      colProps: { skip: c => !c.exists }
     },
     {
       name: 'last_name',
       type: 'varchar',
       length: 100,
       nullable: true,
+      colProps: { skip: c => !c.exists }
     },
     {
       name: 'role',
@@ -46,12 +50,14 @@ const napUserSchema = {
       length: 50,
       default: `'super_admin'`,
       nullable: false,
+      colProps: { skip: c => !c.exists }
     },
     {
       name: 'is_active',
       type: 'boolean',
       default: 'true',
       nullable: false,
+      colProps: { skip: c => !c.exists }
     },
   ],
 
