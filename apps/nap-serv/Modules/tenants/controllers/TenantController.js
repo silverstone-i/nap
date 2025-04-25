@@ -15,7 +15,7 @@ const TenantController = {
   async create(req, res) {
     try {
       const tenant = await db.tenants.insert(req.body);
-      
+
       res.status(201).json(tenant);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -25,7 +25,7 @@ const TenantController = {
   async getAll(req, res) {
     try {
       const tenants = await db.tenants.findAll();
-      
+
       res.json(tenants);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -48,36 +48,27 @@ const TenantController = {
       res.json(tenant);
     } catch (err) {
       console.error('Error updating tenant:', err);
-      
       res.status(400).json({ error: err.message });
     }
   },
 
   async remove(req, res) {
-    console.log('Deleting tenant with ID:', req.params.id);
-    
     try {
       await db.tenants.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
-      console.error('Error deleting tenant:', err);
-      
       res.status(500).json({ error: err.message });
     }
   },
 
   async getAllAllowedModules(req, res) {
-    console.log('Fetching allowed modules for tenant ID:', req.params.id);
-    
     try {
       const tenant = await db.tenants.findById(req.params.id);
       if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
-      console.log('Tenant allowed modules:', tenant.allowed_modules);
-      
       res.json({ allowed_modules: tenant.allowed_modules });
     } catch (err) {
       console.error('Error fetching allowed modules:', err);
-      
+
       res.status(500).json({ error: err.message });
     }
   },
