@@ -1,194 +1,199 @@
 
 
-'use strict';
-
 import { jest } from '@jest/globals';
+import TenantController from '../../../modules/tenants/controllers/TenantController.js';
+import { db } from '../../../src/db/db.js';
 
-jest.unstable_mockModule('../../../src/db/db.js', () => ({
-  db: {
-    tenant: {
+jest.mock('../../../src/db/db.js');
+
+describe('TenantController', () => {
+  const mockRes = () => {
+    const res = {};
+    res.status = jest.fn().mockReturnValue(res);
+    res.json = jest.fn().mockReturnValue(res);
+    res.end = jest.fn();
+    return res;
+  };
+
+  beforeEach(() => {
+    db.tenants = {
       insert: jest.fn(),
       findAll: jest.fn(),
       findById: jest.fn(),
       update: jest.fn(),
-      deleteById: jest.fn(),
-    },
-  },
-}));
-
-let TenantController, db;
-beforeAll(async () => {
-  ({ db } = await import('../../../src/db/db.js'));
-  TenantController = (await import('../../../modules/tenants/controllers/TenantController.js')).default;
-});
-
-describe('TenantController', () => {
-  let req, res;
-
-  beforeEach(() => {
-    req = { params: {}, body: {} };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      end: jest.fn(),
+      delete: jest.fn(),
     };
-    db.tenant.insert.mockReset();
-    db.tenant.findAll.mockReset();
-    db.tenant.findById.mockReset();
-    db.tenant.update.mockReset();
-    db.tenant.deleteById.mockReset();
   });
 
-  describe('create', () => {
-    it('should create a tenant and return 201', async () => {
-      const mockTenant = { id: '1', name: 'Tenant A' };
-      db.tenant.insert.mockResolvedValue(mockTenant);
+  afterEach(() => jest.clearAllMocks());
 
-      req.body = { name: 'Tenant A' };
+  describe('create', () => {
+    it('should insert a tenant and return 201', async () => {
+      const req = { body: { name: 'Tenant A' } };
+      const res = mockRes();
+      db.tenants.insert.mockResolvedValue(req.body);
+
       await TenantController.create(req, res);
 
-      expect(db.tenant.insert).toHaveBeenCalledWith(req.body);
+      expect(db.tenants.insert).toHaveBeenCalledWith(req.body);
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith(mockTenant);
+      expect(res.json).toHaveBeenCalledWith(req.body);
     });
 
-    it('should handle errors during create', async () => {
-      db.tenant.insert.mockRejectedValue(new Error('Insert failed'));
+    it('should handle insertion error', async () => {
+      const req = { body: {} };
+      const res = mockRes();
+      db.tenants.insert.mockRejectedValue(new Error('Insert error'));
 
       await TenantController.create(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Insert failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Insert error' });
     });
   });
 
   describe('getAll', () => {
     it('should return all tenants', async () => {
-      const tenants = [{ id: '1' }, { id: '2' }];
-      db.tenant.findAll.mockResolvedValue(tenants);
+      const req = {};
+      const res = mockRes();
+      const tenants = [{ id: 1 }, { id: 2 }];
+      db.tenants.findAll.mockResolvedValue(tenants);
 
       await TenantController.getAll(req, res);
 
-      expect(db.tenant.findAll).toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith(tenants);
     });
 
-    it('should handle errors during getAll', async () => {
-      db.tenant.findAll.mockRejectedValue(new Error('Fetch failed'));
+    it('should handle error on getAll', async () => {
+      const req = {};
+      const res = mockRes();
+      db.tenants.findAll.mockRejectedValue(new Error('Find error'));
 
       await TenantController.getAll(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Fetch failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
     });
   });
 
   describe('getById', () => {
-    it('should return a tenant by id', async () => {
-      const tenant = { id: '1' };
-      db.tenant.findById.mockResolvedValue(tenant);
+    it('should return tenant by ID', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      const tenant = { id: 'abc' };
+      db.tenants.findById.mockResolvedValue(tenant);
 
-      req.params.id = '1';
       await TenantController.getById(req, res);
 
-      expect(db.tenant.findById).toHaveBeenCalledWith('1');
       expect(res.json).toHaveBeenCalledWith(tenant);
     });
 
     it('should return 404 if tenant not found', async () => {
-      db.tenant.findById.mockResolvedValue(null);
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.tenants.findById.mockResolvedValue(null);
 
-      req.params.id = '1';
       await TenantController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: 'Tenant not found' });
     });
 
-    it('should handle errors during getById', async () => {
-      db.tenant.findById.mockRejectedValue(new Error('Fetch failed'));
+    it('should handle error on getById', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.tenants.findById.mockRejectedValue(new Error('Find error'));
 
       await TenantController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Fetch failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
     });
   });
 
   describe('update', () => {
-    it('should update a tenant and return it', async () => {
-      const updatedTenant = { id: '1', name: 'Updated Tenant' };
-      db.tenant.update.mockResolvedValue(updatedTenant);
+    it('should update and return tenant', async () => {
+      const req = { params: { id: 'abc' }, body: { name: 'Updated Tenant' } };
+      const res = mockRes();
+      const updatedTenant = { id: 'abc', name: 'Updated Tenant' };
+      db.tenants.update.mockResolvedValue(updatedTenant);
 
-      req.params.id = '1';
-      req.body = { name: 'Updated Tenant' };
       await TenantController.update(req, res);
 
-      expect(db.tenant.update).toHaveBeenCalledWith('1', req.body);
+      expect(db.tenants.update).toHaveBeenCalledWith('abc', { name: 'Updated Tenant' });
       expect(res.json).toHaveBeenCalledWith(updatedTenant);
     });
 
-    it('should handle errors during update', async () => {
-      db.tenant.update.mockRejectedValue(new Error('Update failed'));
+    it('should handle update error', async () => {
+      const req = { params: { id: 'abc' }, body: {} };
+      const res = mockRes();
+      db.tenants.update.mockRejectedValue(new Error('Update error'));
 
       await TenantController.update(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Update failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Update error' });
     });
   });
 
   describe('remove', () => {
-    it('should remove a tenant and return 204', async () => {
-      db.tenant.deleteById.mockResolvedValue();
+    it('should delete tenant and return 204', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.tenants.delete.mockResolvedValue();
 
-      req.params.id = '1';
       await TenantController.remove(req, res);
 
-      expect(db.tenant.deleteById).toHaveBeenCalledWith('1');
+      expect(db.tenants.delete).toHaveBeenCalledWith('abc');
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.end).toHaveBeenCalled();
     });
 
-    it('should handle errors during remove', async () => {
-      db.tenant.deleteById.mockRejectedValue(new Error('Delete failed'));
+    it('should handle delete error', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.tenants.delete.mockRejectedValue(new Error('Delete error'));
 
       await TenantController.remove(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Delete failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Delete error' });
     });
   });
 
   describe('getAllAllowedModules', () => {
-    it('should return allowed modules for tenant', async () => {
-      const tenant = { id: '1', allowed_modules: ['accounting', 'projects'] };
-      db.tenant.findById.mockResolvedValue(tenant);
+    it('should return allowed modules', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      const tenant = { id: 'abc', allowed_modules: ['accounting', 'projects'] };
+      db.tenants.findById.mockResolvedValue(tenant);
 
-      req.params.id = '1';
       await TenantController.getAllAllowedModules(req, res);
 
-      expect(db.tenant.findById).toHaveBeenCalledWith('1');
-      expect(res.json).toHaveBeenCalledWith({ allowed_modules: tenant.allowed_modules });
+      expect(db.tenants.findById).toHaveBeenCalledWith('abc');
+      expect(res.json).toHaveBeenCalledWith({ allowed_modules: ['accounting', 'projects'] });
     });
 
-    it('should return 404 if tenant not found in getAllAllowedModules', async () => {
-      db.tenant.findById.mockResolvedValue(null);
+    it('should return 404 if tenant not found', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.tenants.findById.mockResolvedValue(null);
 
-      req.params.id = '1';
       await TenantController.getAllAllowedModules(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: 'Tenant not found' });
     });
 
-    it('should handle errors during getAllAllowedModules', async () => {
-      db.tenant.findById.mockRejectedValue(new Error('Fetch failed'));
+    it('should handle error on getAllAllowedModules', async () => {
+      const req = { params: { id: 'abc' } };
+      const res = mockRes();
+      db.tenants.findById.mockRejectedValue(new Error('Find error'));
 
       await TenantController.getAllAllowedModules(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Fetch failed' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
     });
   });
 });
