@@ -1,15 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
-
-
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 /**
  * Table schema definition for the `admin.tenants` table.
@@ -44,6 +42,7 @@ const tenantSchema = {
       type: 'varchar',
       length: 150,
       nullable: false,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -53,6 +52,8 @@ const tenantSchema = {
       name: 'subdomain',
       type: 'varchar',
       length: 100,
+      default: null,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -62,6 +63,7 @@ const tenantSchema = {
       name: 'email',
       type: 'varchar',
       length: 255,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -71,6 +73,8 @@ const tenantSchema = {
       name: 'phone',
       type: 'varchar',
       length: 50,
+      default: null,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -79,6 +83,8 @@ const tenantSchema = {
     {
       name: 'address',
       type: 'jsonb',
+      default: `'{}'`, // empty JSON object by default
+      colProps: { mod: ':json', skip: c => !c.exists },
     },
 
     /**
@@ -89,6 +95,7 @@ const tenantSchema = {
       type: 'varchar',
       length: 50,
       default: `'UTC'`,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -99,6 +106,7 @@ const tenantSchema = {
       type: 'varchar',
       length: 3,
       default: `'USD'`,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -109,6 +117,7 @@ const tenantSchema = {
       type: 'boolean',
       default: 'true',
       nullable: false,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -118,6 +127,8 @@ const tenantSchema = {
       name: 'owner_user_id',
       type: 'uuid',
       nullable: true,
+      default: null,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -127,6 +138,8 @@ const tenantSchema = {
       name: 'creator_user_id',
       type: 'uuid',
       nullable: true,
+      default: null,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -137,6 +150,8 @@ const tenantSchema = {
       type: 'varchar',
       length: 100,
       nullable: false,
+      default: `'localhost'`,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -145,6 +160,8 @@ const tenantSchema = {
     {
       name: 'billing_info',
       type: 'jsonb',
+      default: `'{}'`, // empty JSON object by default
+      colProps: { mod: ':json', skip: c => !c.exists },
     },
 
     /**
@@ -154,7 +171,8 @@ const tenantSchema = {
       name: 'plan',
       type: 'varchar',
       length: 50,
-      default: `'free'`
+      default: `'free'`,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -165,6 +183,7 @@ const tenantSchema = {
       type: 'text[]',
       nullable: false,
       default: `'{}'`, // empty array by default
+      colProps: { mod: '^', skip: c => !c.exists },
     },
 
     /**
@@ -173,7 +192,9 @@ const tenantSchema = {
     {
       name: 'trial_expires_at',
       type: 'timestamptz',
-    }
+      default: `CURRENT_TIMESTAMP + INTERVAL '30 days'`, // 30 days from now
+      colProps: { mod: '^', skip: c => !c.exists },
+    },
   ],
 
   constraints: {
@@ -182,36 +203,36 @@ const tenantSchema = {
     checks: [
       {
         type: 'Check',
-        expression: `char_length(name) > 2`
-      }
+        expression: `char_length(name) > 2`,
+      },
     ],
     indexes: [
       {
         type: 'Index',
-        columns: ['subdomain']
-      }
+        columns: ['subdomain'],
+      },
     ],
-      foreignKeys: [
+    foreignKeys: [
       {
         type: 'ForeignKey',
         columns: ['owner_user_id'],
         references: {
           table: 'admin.nap_users',
-          columns: ['id']
+          columns: ['id'],
         },
-        onDelete: 'SET NULL'
+        onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['creator_user_id'],
         references: {
           table: 'admin.nap_users',
-          columns: ['id']
+          columns: ['id'],
         },
-        onDelete: 'SET NULL'
-      }
-      ]
-  }
+        onDelete: 'SET NULL',
+      },
+    ],
+  },
 };
 
 export default tenantSchema;
