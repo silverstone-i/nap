@@ -8,13 +8,12 @@
  *
  * Removal or modification of this copyright notice is prohibited.
  */
+import { BaseModel } from 'pg-schemata';
+import categoriesSchema from '../schemas/categoriesSchema.js';
 
-import Tenants from './models/Tenants.js';
-import NapUsers from './models/NapUsers.js';
-
-const tenantRepositories = {
-  napUsers: NapUsers,
-  tenants: Tenants,
-};
-
-export default tenantRepositories;
+class Categories extends BaseModel {
+  constructor(db, pgp) {
+    super(db, pgp, categoriesSchema);
+  }
+}
+export default Categories;
