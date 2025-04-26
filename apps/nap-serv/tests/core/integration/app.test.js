@@ -3,15 +3,15 @@ import express from 'express';
 import request from 'supertest';
 import app, { globalErrorHandler } from '../../../src/app.js';
 
-// beforeAll(() => {
-//   jest.spyOn(console, 'log').mockImplementation(() => {});
-//   jest.spyOn(console, 'error').mockImplementation(() => {});
-// });
+beforeAll(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
 
-// afterAll(() => {
-//   console.log.mockRestore();
-//   console.error.mockRestore();
-// });
+afterAll(() => {
+  console.log.mockRestore();
+  console.error.mockRestore();
+});
 
 describe('App Integration Tests', () => {
   test('GET / should return API running message', async () => {
