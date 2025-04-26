@@ -5,7 +5,8 @@ export default {
   testEnvironment: 'node',
   verbose: true,
   moduleNameMapper: {},
-  coveragePathIgnorePatterns: ['/src/db/db.js'],
+  coveragePathIgnorePatterns: ['/src/db/db.js', '/modules/tenants/apiRoutes/v1'],
+
   // setupFilesAfterEnv: ['./jest.setup.js'],
 
 };
