@@ -9,12 +9,12 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-const enabledModules = ['shared', 'tenants', 'projectActivities', ]; // TODO: Load dynamically per tenant or env config
+const enabledModules = ['shared', 'tenants', 'projectActivities']; // TODO: Load dynamically per tenant or env config
 
 const repositories = {};
 
 for (const moduleName of enabledModules) {
-  const modulePath = `../../modules/${moduleName}/repositories.js`;
+  const modulePath = `../../modules/${moduleName}/${moduleName}Repositories.js`;
   console.log('Loading module:', modulePath);
   
   const { default: moduleRepositories } = await import(modulePath);
