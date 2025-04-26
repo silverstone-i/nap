@@ -2,6 +2,16 @@ import { jest } from '@jest/globals';
 import { db, pgp } from '../../../src/db/db.js';
 import * as migrateScript from '../../../scripts/migrate.js';
 
+// beforeAll(() => {
+//   jest.spyOn(console, 'log').mockImplementation(() => {});
+//   jest.spyOn(console, 'error').mockImplementation(() => {});
+// });
+
+// afterAll(() => {
+//   console.log.mockRestore();
+//   console.error.mockRestore();
+// });
+
 describe('Migration Script', () => {
   beforeAll(async () => {
     await db.none('DROP SCHEMA IF EXISTS admin CASCADE; CREATE SCHEMA admin;');
@@ -12,18 +22,12 @@ describe('Migration Script', () => {
   });
 
   test('should create all tables without error', async () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
     await migrateScript.migrate(db, pgp, true);
 
     const result = await db.oneOrNone(
       "SELECT to_regclass('admin.tenants') AS table"
     );
     expect(result.table).toBe('admin.tenants');
-
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
   });
 
   test('should handle errors during migration and log appropriately', async () => {
@@ -43,15 +47,9 @@ describe('Migration Script', () => {
     };
     const mockPgp = { end: jest.fn() };
 
-    const spyError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const spyLog = jest.spyOn(console, 'log').mockImplementation(() => {});
-
     await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow(
       'Simulated createTable error'
     );
-
-    spyLog.mockRestore();
-    spyError.mockRestore();
   });
 
   test('should process models without foreign keys (nap_users)', async () => {
@@ -63,16 +61,9 @@ describe('Migration Script', () => {
     expect(napUsersModel).toBeDefined();
     expect(napUsersModel.schema.constraints?.foreignKeys).toBeUndefined();
 
-    // Spy to suppress logs
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
     // Run migration with only nap_users
     const filteredDb = { 'admin.nap_users': napUsersModel };
     await migrateScript.migrate(filteredDb, pgp, true);
-
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
   });
 
   test('should throw an error for cyclic dependencies', async () => {
