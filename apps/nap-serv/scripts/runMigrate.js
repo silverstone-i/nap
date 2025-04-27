@@ -81,7 +81,7 @@ function isValidModel(model) {
 }
 
 function writeDependencyGraph(models, sortedKeys) {
-  const edges = [];
+  const edges = new Set();
 
   for (const key of sortedKeys) {
     const model = models[key];
@@ -90,15 +90,24 @@ function writeDependencyGraph(models, sortedKeys) {
 
     for (const fk of schema.constraints.foreignKeys) {
       const from = `${schema.dbSchema}.${schema.table}`;
-      const to = `${fk.references.schema || 'public'}.${fk.references.table}`;
-      edges.push(`  "${from}" -> "${to}";`);
+      let refSchema = 'public';
+      let refTable = fk.references.table;
+
+      if (refTable.includes('.')) {
+        [refSchema, refTable] = refTable.split('.');
+      } else if (fk.references.schema) {
+        refSchema = fk.references.schema;
+      }
+
+      const to = `${refSchema}.${refTable}`;
+      edges.add(`  "${from}" -> "${to}";`);
     }
   }
 
   const dot = [
     'digraph TableDependencies {',
     '  rankdir=LR;',
-    ...edges,
+    ...Array.from(edges),
     '}',
   ].join('\n');
 
