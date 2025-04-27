@@ -10,14 +10,14 @@
 */
 
 import { db } from '../../src/db/db.js';
-import migrate from '../../scripts/migrate.js';
+import runMigrate from '../../scripts/runMigrate.js';
 import app from '../../src/app.js';
 
 /**
  * Sets up the integration test environment.
  * Drops and recreates specified schemas, runs migrations, and starts the server.
  *
- * @param {string[]} schemaList - List of schemas to reset and migrate. Defaults to ['admin'].
+ * @param {string[]} schemaList - List of schemas to reset and runMigrate. Defaults to ['admin'].
  * @returns {Promise<{ server: import('http').Server, teardown: Function }>}
  */
 export async function setupIntegrationTest(schemaList = ['admin']) {
@@ -29,7 +29,7 @@ export async function setupIntegrationTest(schemaList = ['admin']) {
   );
 
   // Run migrations
-  await migrate(db,{ schemas: schemaList },true );
+  await runMigrate(db,{ schemas: schemaList },true );
 
   // Start the server
   const server = app.listen();
