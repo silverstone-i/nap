@@ -63,12 +63,11 @@ const TenantController = {
 
   async getAllAllowedModules(req, res) {
     try {
-      const tenant = await db.tenants.findById(req.params.id);
-      if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
-      res.json({ allowed_modules: tenant.allowed_modules });
+      const allowedModules = await db.tenants.getAllowedModulesById(req.params.id);
+      if (!allowedModules) return res.status(404).json({ error: 'Tenant not found' });
+      res.json({ allowed_modules: allowedModules });
     } catch (err) {
       console.error('Error fetching allowed modules:', err);
-
       res.status(500).json({ error: err.message });
     }
   },

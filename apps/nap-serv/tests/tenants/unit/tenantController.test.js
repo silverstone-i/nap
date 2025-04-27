@@ -1,5 +1,3 @@
-
-
 import { jest } from '@jest/globals';
 import TenantController from '../../../modules/tenants/controllers/TenantController.js';
 import { db } from '../../../src/db/db.js';
@@ -32,6 +30,7 @@ describe('TenantController', () => {
       findById: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      getAllowedModulesById: jest.fn(),
     };
   });
 
@@ -175,19 +174,19 @@ describe('TenantController', () => {
     it('should return allowed modules', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      const tenant = { id: 'abc', allowed_modules: ['accounting', 'projects'] };
-      db.tenants.findById.mockResolvedValue(tenant);
+      const allowedModules = ['accounting', 'projects'];
+      db.tenants.getAllowedModulesById.mockResolvedValue(allowedModules);
 
       await TenantController.getAllAllowedModules(req, res);
 
-      expect(db.tenants.findById).toHaveBeenCalledWith('abc');
-      expect(res.json).toHaveBeenCalledWith({ allowed_modules: ['accounting', 'projects'] });
+      expect(db.tenants.getAllowedModulesById).toHaveBeenCalledWith('abc');
+      expect(res.json).toHaveBeenCalledWith({ allowed_modules: allowedModules });
     });
 
     it('should return 404 if tenant not found', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      db.tenants.findById.mockResolvedValue(null);
+      db.tenants.getAllowedModulesById.mockResolvedValue(null);
 
       await TenantController.getAllAllowedModules(req, res);
 
@@ -198,7 +197,7 @@ describe('TenantController', () => {
     it('should handle error on getAllAllowedModules', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      db.tenants.findById.mockRejectedValue(new Error('Find error'));
+      db.tenants.getAllowedModulesById.mockRejectedValue(new Error('Find error'));
 
       await TenantController.getAllAllowedModules(req, res);
 
