@@ -17,10 +17,18 @@ function getTableDependencies(model) {
   const schema = model.schema;
   if (!schema?.constraints?.foreignKeys) return [];
 
-  return schema.constraints.foreignKeys.map(fk => {
-    const schemaName = fk.references.schema || 'public';
-    return `${schemaName}.${fk.references.table}`;
-  });
+  return Array.from(new Set(schema.constraints.foreignKeys.map(fk => {
+    let schemaName = 'public';
+    let refTable = fk.references.table;
+
+    if (refTable.includes('.')) {
+      [schemaName, refTable] = refTable.split('.');
+    } else if (fk.references.schema) {
+      schemaName = fk.references.schema;
+    }
+
+    return `${schemaName}.${refTable}`;
+  })));
 }
 
 // Performs topological sort to respect foreign key dependencies
@@ -28,15 +36,16 @@ function topoSortModels(models) {
   const sorted = [];
   const visited = new Set();
   const tableKeyMap = Object.fromEntries(
-    Object.entries(models).map(([k, m]) => [
-      `${m.schemaName}.${m.tableName}`,
-      k,
+    Object.entries(models).flatMap(([k, m]) => [
+      [`${m.schemaName}.${m.tableName}`, k], // schema-qualified key
+      [m.tableName, k],                      // unqualified key
     ])
   );
 
   function visit(key, visiting = new Set()) {
     const model = models[key];
     const deps = getTableDependencies(model);
+    // console.log(`Visiting ${key}, dependencies:`, deps);
     if (visited.has(key)) return;
     if (visiting.has(key)) {
       throw new Error(`Cyclic dependency detected involving table: ${key}`);
@@ -45,6 +54,7 @@ function topoSortModels(models) {
     visiting.add(key);
     // const deps = getTableDependencies(model); // Removed, already declared above
     for (const dep of deps) {
+      // Try to match dependency with schema-qualified and unqualified table names
       const depKey = tableKeyMap[dep];
       if (depKey) visit(depKey, visiting);
     }
@@ -96,7 +106,7 @@ function writeDependencyGraph(models, sortedKeys) {
   console.log('\nDependency graph written to table-dependencies.dot\n');
 }
 
-async function migrate(
+async function runMigrate(
   dbOverride = db,
   pgpOverride = pgp,
   testFlag = false
@@ -105,14 +115,18 @@ async function migrate(
   let validModels = {};
   try {
     validModels = Object.fromEntries(
-      Object.entries(dbOverride).filter(([_, model]) => isValidModel(model))
+      Object.entries(dbOverride)
+        .filter(([_, model]) => isValidModel(model))
+        .map(([key, model]) => [`${model.schema.dbSchema}.${model.schema.table}`, model])
     );
+    
     sortedKeys = topoSortModels(validModels);
+    // console.log('Sorted table creation order:', sortedKeys);
     for (const key of sortedKeys) {
       const model = validModels[key];
-      console.log(
-        `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
-      );
+      // console.log(
+        // `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
+      // );
 
       await model.createTable();
       console.log('Created table:', key);
@@ -136,11 +150,11 @@ async function migrate(
 console.log('Starting migration...\n');
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  await migrate().catch(err => {
+  await runMigrate().catch(err => {
     console.error(err);
     process.exit(1);
   });
 }
 
-export { migrate };
-export default migrate;
+export { runMigrate };
+export default runMigrate;
