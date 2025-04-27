@@ -25,7 +25,7 @@
     "\"pg-schemata\""
   ],
   "scripts": {
-    "migrate": "cross-env NODE_ENV=development node ./scripts/migrate.js",
+    "migrate": "cross-env NODE_ENV=development node ./scripts/runMigrate.js",
     "docs": "jsdoc -c jsdoc.json README.md && cp LICENSE docs/ && mkdir -p docs/images && cp docs-pages/images/nap-logo.png docs/images/",
     "lint": "eslint .",
     "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage --detectOpenHandles --forceExit",
