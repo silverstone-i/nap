@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 import { BaseModel } from 'pg-schemata';
-import costLinesSchema from '../schemas/categoriesSchema.js';
+import costLinesSchema from '../schemas/costLinesSchema.js';
 
 class CostLines extends BaseModel {
   constructor(db, pgp) {
