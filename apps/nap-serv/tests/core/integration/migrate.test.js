@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { db, pgp } from '../../../src/db/db.js';
-import * as migrateScript from '../../../scripts/migrate.js';
+import * as migrateScript from '../../../scripts/runMigrate.js';
 
 // beforeAll(() => {
 //   jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -14,15 +14,21 @@ import * as migrateScript from '../../../scripts/migrate.js';
 
 describe('Migration Script', () => {
   beforeAll(async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
     await db.none('DROP SCHEMA IF EXISTS admin CASCADE; CREATE SCHEMA admin;');
   });
 
   afterAll(async () => {
     await db.$pool.end();
+
+    console.log.mockRestore();
+    console.error.mockRestore();
   });
 
   test('should create all tables without error', async () => {
-    await migrateScript.migrate(db, pgp, true);
+    await migrateScript.runMigrate(db, pgp, true);
 
     const result = await db.oneOrNone(
       "SELECT to_regclass('admin.tenants') AS table"
@@ -47,13 +53,13 @@ describe('Migration Script', () => {
     };
     const mockPgp = { end: jest.fn() };
 
-    await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow(
-      'Simulated createTable error'
-    );
+    await expect(
+      migrateScript.runMigrate(mockDb, mockPgp, true)
+    ).rejects.toThrow('Simulated createTable error');
   });
 
   test('should process models without foreign keys (nap_users)', async () => {
-    await migrateScript.migrate(db, pgp, true);
+    await migrateScript.runMigrate(db, pgp, true);
 
     const napUsersModel = db['napUsers'];
 
@@ -63,7 +69,7 @@ describe('Migration Script', () => {
 
     // Run migration with only nap_users
     const filteredDb = { 'admin.nap_users': napUsersModel };
-    await migrateScript.migrate(filteredDb, pgp, true);
+    await migrateScript.runMigrate(filteredDb, pgp, true);
   });
 
   test('should throw an error for cyclic dependencies', async () => {
@@ -95,8 +101,8 @@ describe('Migration Script', () => {
     };
     const mockPgp = { end: jest.fn() };
 
-    await expect(migrateScript.migrate(mockDb, mockPgp, true)).rejects.toThrow(
-      'Cyclic dependency detected'
-    );
+    await expect(
+      migrateScript.runMigrate(mockDb, mockPgp, true)
+    ).rejects.toThrow('Cyclic dependency detected');
   });
 });
