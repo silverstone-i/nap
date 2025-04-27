@@ -11,12 +11,13 @@
 
 import tenantApiRoutes from '../modules/tenants/apiRoutes/v1ApiRoutes.js';
 import activitiesApiRoutes from '../modules/activities/apiRoutes/v1ActivitiesApiRoutes.js';
+import sharedApiRoutes from '../modules/shared/apiRoutes/v1SharedApiRoutes.js';
 // Future imports for other modules can go here
 // import accountingApiRoutes from '../modules/accounting/apiRoutes/v1ApiRoutes.js';
 
 
 // Simulated list of modules per tenant - replace with dynamic logic as needed
-const enabledModules = ['activities', 'tenants']; // TODO: Load dynamically per tenant or env config
+const enabledModules = ['shared', 'activities', 'tenants']; // TODO: Load dynamically per tenant or env config
 
 const allRoutes = {
   tenants: {
@@ -26,6 +27,10 @@ const allRoutes = {
   activities: {
     prefix: 'activities/v1',
     routes: activitiesApiRoutes,
+  },
+  shared: {
+    prefix: 'shared/v1',
+    routes: sharedApiRoutes, 
   },
   // accounting: {
   //   prefix: 'accounting/v1',
@@ -37,8 +42,5 @@ const allRoutes = {
 const apiRoutes = enabledModules
   .map((module) => allRoutes[module])
   .filter(Boolean);
-
-  console.log('API Routes:', apiRoutes);
-  
 
 export default apiRoutes;
