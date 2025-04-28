@@ -9,8 +9,8 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import vendorApiRoutes from './v1/vendorApi.js';
+import coreApiRoutes from './v1/vendorApi.js';
 
-const v1SharedApiRoutes = [vendorApiRoutes];
-export default v1SharedApiRoutes;
+const v1CoreApiRoutes = [coreApiRoutes];
+export default v1CoreApiRoutes;
 

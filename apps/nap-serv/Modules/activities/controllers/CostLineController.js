@@ -11,7 +11,7 @@
 
 import { db } from '../../../src/db/db.js';
 
-const CostLineController = {
+export const CostLineController = {
   async create(req, res) {
     try {
       const costLine = await db.costLines.insert(req.body);

@@ -17,17 +17,14 @@ function getTableDependencies(model) {
   const schema = model.schema;
   if (!schema?.constraints?.foreignKeys) return [];
 
+  console.log(`Model: ${schema.dbSchema}.${schema.table}, FK references:`, schema.constraints.foreignKeys.map(fk => fk.references));
+
   return Array.from(new Set(schema.constraints.foreignKeys.map(fk => {
-    let schemaName = 'public';
-    let refTable = fk.references.table;
-
-    if (refTable.includes('.')) {
-      [schemaName, refTable] = refTable.split('.');
-    } else if (fk.references.schema) {
-      schemaName = fk.references.schema;
-    }
-
-    return `${schemaName}.${refTable}`;
+    const { schema: refSchema = 'public', table: refTable } = fk.references;
+    const [schemaName, tableName] = refTable.includes('.')
+      ? refTable.split('.')
+      : [refSchema, refTable];
+    return `${schemaName}.${tableName}`.toLowerCase();
   })));
 }
 
@@ -35,28 +32,18 @@ function getTableDependencies(model) {
 function topoSortModels(models) {
   const sorted = [];
   const visited = new Set();
-  const tableKeyMap = Object.fromEntries(
-    Object.entries(models).flatMap(([k, m]) => [
-      [`${m.schemaName}.${m.tableName}`, k], // schema-qualified key
-      [m.tableName, k],                      // unqualified key
-    ])
-  );
 
   function visit(key, visiting = new Set()) {
     const model = models[key];
     const deps = getTableDependencies(model);
-    // console.log(`Visiting ${key}, dependencies:`, deps);
     if (visited.has(key)) return;
     if (visiting.has(key)) {
-      throw new Error(`Cyclic dependency detected involving table: ${key}`);
+      throw new Error(`Cyclic dependency detected: ${Array.from(visiting).join(' -> ')} -> ${key}`);
     }
 
     visiting.add(key);
-    // const deps = getTableDependencies(model); // Removed, already declared above
     for (const dep of deps) {
-      // Try to match dependency with schema-qualified and unqualified table names
-      const depKey = tableKeyMap[dep];
-      if (depKey) visit(depKey, visiting);
+      if (models[dep]) visit(dep, visiting);
     }
 
     visiting.delete(key);
@@ -126,16 +113,17 @@ async function runMigrate(
     validModels = Object.fromEntries(
       Object.entries(dbOverride)
         .filter(([_, model]) => isValidModel(model))
-        .map(([key, model]) => [`${model.schema.dbSchema}.${model.schema.table}`, model])
+        .map(([key, model]) => [`${model.schema.dbSchema}.${model.schema.table}`.toLowerCase(), model])
     );
     
+    console.log('Loaded models:', Object.keys(validModels));
     sortedKeys = topoSortModels(validModels);
-    // console.log('Sorted table creation order:', sortedKeys);
+    console.log('Sorted table creation order:', sortedKeys);
     for (const key of sortedKeys) {
       const model = validModels[key];
-      // console.log(
-        // `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
-      // );
+      console.log(
+        `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
+      );
 
       await model.createTable();
       console.log('Created table:', key);

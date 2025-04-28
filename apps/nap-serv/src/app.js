@@ -23,7 +23,7 @@ app.use(express.urlencoded({ extended: true }));
 // Load API routes based on enabled modules
 apiRoutes.forEach(({ prefix, routes }) => {
   routes.forEach((router) => {
-    app.use(`/api/${prefix}`, router);
+    app.use(`/api/${prefix}`, router);    
   });
 });
 

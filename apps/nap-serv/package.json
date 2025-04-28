@@ -37,8 +37,12 @@
     "test:core": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/core --coverage",
     "test:core:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/core/unit --coverage",
     "test:core:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/core/integration --coverage",
+    "test:activities": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities --coverage",
+    "test:activities:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/unit --coverage",
+    "test:activities:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/integration --coverage",
     "dev": "cross-env NODE_ENV=development nodemon --delay 5 server.js",
-    "start": "cross-env NODE_ENV=production node server.js"
+    "start": "cross-env NODE_ENV=production node server.js",
+    "ext": "cross-env NODE_ENV=test node ./tests/util/loadHarness.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

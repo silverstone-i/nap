@@ -21,11 +21,13 @@ import app from '../../src/app.js';
  * @returns {Promise<{ server: import('http').Server, teardown: Function }>}
  */
 export async function setupIntegrationTest(schemaList = ['admin']) {
-  // Drop and recreate schemas
+  // Drop and recreate schemas, but skip 'public'
   await Promise.all(
-    schemaList.map(schema =>
-      db.none(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`)
-    )
+    schemaList
+      .filter(schema => schema !== 'public')
+      .map(schema =>
+        db.none(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`)
+      )
   );
 
   // Run migrations
