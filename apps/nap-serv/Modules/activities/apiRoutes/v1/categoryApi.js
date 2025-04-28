@@ -15,18 +15,18 @@ import CategoryController from '../../controllers/CategoryController.js';
 const router = express.Router();
 
 // Create a category
-router.post('/', CategoryController.create);
+router.post('/category', CategoryController.create);
 
 // Get all categories
-router.get('/', CategoryController.getAll);
+router.get('/category', CategoryController.getAll);
 
 // Get a specific category by ID
-router.get('/:id', CategoryController.getById);
+router.get('/category/:id', CategoryController.getById);
 
 // Update a category by ID
-router.put('/:id', CategoryController.update);
+router.put('/category/:id', CategoryController.update);
 
 // Delete a category by ID
-router.delete('/:id', CategoryController.remove);
+router.delete('/category/:id', CategoryController.remove);
 
 export default router;
