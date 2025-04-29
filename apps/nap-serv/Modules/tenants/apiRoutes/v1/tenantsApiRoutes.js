@@ -9,6 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
+import 'dotenv/config'; // Load environment variables from .env file
 import express from 'express';
 import { readdirSync } from 'fs';
 import path from 'path';
