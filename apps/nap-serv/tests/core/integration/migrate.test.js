@@ -43,13 +43,14 @@ describe('Migration Script', () => {
           dbSchema: 'admin',
           table: 'cyclic',
           constraints: {
-            foreignKeys: [{ references: { schema: 'admin', table: 'cyclic' } }],
+            foreignKeys: [],
           },
         },
         createTable: jest.fn().mockImplementation(() => {
           throw new Error('Simulated createTable error');
         }),
       },
+      one: jest.fn().mockResolvedValue({ search_path: 'admin' }),
     };
     const mockPgp = { end: jest.fn() };
 
@@ -68,7 +69,10 @@ describe('Migration Script', () => {
     expect(napUsersModel.schema.constraints?.foreignKeys).toBeUndefined();
 
     // Run migration with only nap_users
-    const filteredDb = { 'admin.nap_users': napUsersModel };
+    const filteredDb = {
+      'admin.nap_users': napUsersModel,
+      one: jest.fn().mockResolvedValue({ search_path: 'admin' }),
+    };
     await migrateScript.runMigrate(filteredDb, pgp, true);
   });
 
