@@ -47,7 +47,11 @@
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "morgan": "^1.10.0",
+    "pg-schemata": "file:../pg-schemata",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@swc/jest": "^0.2.37",
