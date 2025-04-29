@@ -16,12 +16,12 @@ const router = Router();
 
 
 router
-  .route('/users')
+  .route('/')
   .post(NapUserController.create)
   .get(NapUserController.getAll);
 
 router
-  .route('/users/:id')
+  .route('/:id')
   .get(NapUserController.getById)
   .put(NapUserController.update)
   .delete(NapUserController.remove);
