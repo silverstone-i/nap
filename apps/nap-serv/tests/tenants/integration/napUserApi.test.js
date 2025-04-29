@@ -25,10 +25,10 @@ describe('Integration: napUser API', () => {
     await teardown();
   });
 
-  test('POST /api/tenants/v1/users - create a user', async () => {
+  test('POST /api/v1/users - create a user', async () => {
     let res;
     try {
-      res = await request(server).post('/api/tenants/v1/users').send({
+      res = await request(server).post('/api/v1/users').send({
         email: 'testuser@example.com',
         password_hash: 'password123',
         first_name: 'Test',
@@ -46,8 +46,8 @@ describe('Integration: napUser API', () => {
     
   });
 
-  test('GET /api/tenants/v1/users/:id - fetch created user', async () => {
-    const res = await request(server).get(`/api/tenants/v1/users/${testUserId}`);
+  test('GET /api/v1/users/:id - fetch created user', async () => {
+    const res = await request(server).get(`/api/v1/users/${testUserId}`);
     expect(res.statusCode).toBe(200);
     expect(res.body).toMatchObject({
       id: testUserId,
@@ -59,21 +59,21 @@ describe('Integration: napUser API', () => {
     });
   });
 
-  test('PUT /api/tenants/v1/users/:id - update user', async () => {
+  test('PUT /api/v1/users/:id - update user', async () => {
     const res = await request(server)
-      .put(`/api/tenants/v1/users/${testUserId}`)
+      .put(`/api/v1/users/${testUserId}`)
       .send({ first_name: 'updateduser', updated_by: 'testuser' });
 
     expect(res.statusCode).toBe(200);
     expect(res.body.first_name).toBe('updateduser');
   });
 
-  test('DELETE /api/tenants/v1/users/:id - delete user', async () => {
-    const res = await request(server).delete(`/api/tenants/v1/users/${testUserId}`);
+  test('DELETE /api/v1/users/:id - delete user', async () => {
+    const res = await request(server).delete(`/api/v1/users/${testUserId}`);
     expect(res.statusCode).toBe(204);
   });
 
-  test('GET /api/tenants/v1/users/:id - confirm user deletion', async () => {
+  test('GET /api/v1/users/:id - confirm user deletion', async () => {
     const res = await request(server).get(`/tenants/v1/users/${testUserId}`);
     expect(res.statusCode).toBe(404);
   });

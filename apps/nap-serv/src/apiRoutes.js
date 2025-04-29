@@ -23,21 +23,29 @@ async function loadModuleRoutes(moduleName) {
     .filter(dirent => dirent.isDirectory() && dirent.name.startsWith('v'))
     .map(dirent => dirent.name);
 
-  for (const version of versions) {
-    const versionPath = path.join(moduleApiPath, version);
+  try {
+    for (const version of versions) {
+      const versionRouterFile = `../modules/${moduleName}/apiRoutes/${version}/${moduleName}ApiRoutes.js`;
 
-    const versionRouterModule = await import(`../modules/${moduleName}/apiRoutes/${version}/${moduleName}ApiRoutes.js`).catch(() => null);
+      const versionRouterModule = await import(versionRouterFile);
 
-    if (versionRouterModule && versionRouterModule.default) {
-      moduleRouter.use(`/${version}`, versionRouterModule.default);
+      if (versionRouterModule && versionRouterModule.default) {
+        moduleRouter.use(`/${version}`, versionRouterModule.default);
+      }
     }
+  } catch (error) {
+    console.error(`Error loading module ${moduleName}:`, error.message);
+    return null;
   }
 
   return moduleRouter;
 }
 
 const apiRoutes = await Promise.all(
-  enabledModules.map(async (moduleName) => await loadModuleRoutes(moduleName))
+  enabledModules.map(async moduleName => {
+    const routes = await loadModuleRoutes(moduleName);
+    return routes;
+  })
 );
 
 export default apiRoutes;

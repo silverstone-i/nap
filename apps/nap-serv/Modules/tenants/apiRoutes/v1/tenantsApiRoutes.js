@@ -16,14 +16,12 @@ import path from 'path';
 const router = express.Router();
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
-const versionDir = path.join(__dirname, 'v1');
 
 // Automatically read all API files inside v1/
-const files = readdirSync(versionDir)
-  .filter(file => file.endsWith('Api.js'));
+const files = readdirSync(__dirname).filter(file => file.endsWith('Api.js'));
 
 for (const file of files) {
-  const routeModule = await import(`./v1/${file}`);
+  const routeModule = await import(`./${file}`);
   const route = routeModule.default;
 
   let mountPath = file

@@ -17,15 +17,15 @@ function getTableDependencies(model) {
   const schema = model.schema;
   if (!schema?.constraints?.foreignKeys) return [];
 
-  console.log(`Model: ${schema.dbSchema}.${schema.table}, FK references:`, schema.constraints.foreignKeys.map(fk => fk.references));
+  // console.log(`Model: ${schema.dbSchema}.${schema.table}, FK references:`, schema.constraints.foreignKeys.map(fk => fk.references));
 
   return Array.from(new Set(schema.constraints.foreignKeys.map(fk => {
-    console.log('FK:', fk.references);
+    // console.log('FK:', fk.references);
     
     const [schemaName, tableName] = fk.references.table.includes('.')
       ? fk.references.table.split('.')
       : [fk.references.schema || 'public', fk.references.table];
-    console.log('schemaName:', schemaName, 'tableName:', tableName);
+    // console.log('schemaName:', schemaName, 'tableName:', tableName);
     return `${schemaName}.${tableName}`.toLowerCase();
   })));
 }
@@ -101,7 +101,7 @@ function writeDependencyGraph(models, sortedKeys) {
   ].join('\n');
 
   fs.writeFileSync('./table-dependencies.dot', dot);
-  console.log('\nDependency graph written to table-dependencies.dot\n');
+  // console.log('\nDependency graph written to table-dependencies.dot\n');
 }
 
 async function runMigrate(
@@ -118,28 +118,20 @@ async function runMigrate(
         .map(([key, model]) => [`${model.schema.dbSchema}.${model.schema.table}`.toLowerCase(), model])
     );
     
-    console.log('Loaded models:', Object.keys(validModels));
+    // console.log('Loaded models:', Object.keys(validModels));
     sortedKeys = topoSortModels(validModels);
-    console.log('Sorted table creation order:', sortedKeys);
+    // console.log('Sorted table creation order:', sortedKeys);
     for (const key of sortedKeys) {
       const model = validModels[key];
-      console.log(
-        `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
-      );
+      // console.log(
+      //   `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
+      // );
 
       // Log the current search_path before creating the table
       const { search_path } = await dbOverride.one('SHOW search_path');
-      // console.log(`Current search_path before creating ${key}: ${search_path}`);
-
-      // // Explicitly set the search_path for the current schema
-      // const targetSchema = model.schema?.dbSchema;
-      // if (targetSchema) {
-      //   await dbOverride.none(`SET search_path TO ${targetSchema}, public`);
-      //   console.log(`Set search_path to ${targetSchema}, public`);
-      // }
 
       await model.createTable();
-      console.log('Created table:', key);
+      // console.log('Created table:', key);
     }
   } catch (error) {
     console.error('Error during migration:', error.message);
@@ -152,12 +144,12 @@ async function runMigrate(
     if (!testFlag) {
       await pgpOverride.end();
     }
-    console.log('Database connection closed.\n');
-    console.log('Migration completed.');
+    // console.log('Database connection closed.\n');
+    // console.log('Migration completed.');
   }
 }
 
-console.log('Starting migration...\n');
+// console.log('Starting migration...\n');
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   await runMigrate().catch(err => {

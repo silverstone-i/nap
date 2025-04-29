@@ -24,7 +24,8 @@ describe('Cost Line API Integration Tests', () => {
     await teardown();
   });
 
-  describe('POST /api/activities/v1/cl/', () => {
+  describe('POST /api/v1/cl/', () => {
+    
     it('should create a new cost line', async () => {
       const newCostLine = {
         type: 'Material',
@@ -32,42 +33,41 @@ describe('Cost Line API Integration Tests', () => {
         created_by: 'Tester',
       };
       const res = await request(server)
-        .post('/api/activities/v1/cl/')
+        .post('/api/v1/cl/')
         .send(newCostLine);
       testCostLineId = res.body.id; // Store the ID for later tests
-      console.log('Created Cost Line ID:', testCostLineId);
 
       expect(res.statusCode).toBe(201);
       expect(res.body.type).toBe('Material');
     });
 
     it('should return all cost lines including the newly created one', async () => {
-      const res = await request(server).get('/api/activities/v1/cl/');
+      const res = await request(server).get('/api/v1/cl/');
       expect(res.statusCode).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.some(cl => cl.id === testCostLineId)).toBe(true);
     });
 
-    // test('PUT /api/activities/v1/cl/:id - update cost line', async () => {
-    //   const res = await request(server)
-    //     .put(`/api/activities/v1/cl/${testCostLineId}`)
-    //     .send({ type: 'Labor', updated_by: 'Tester' });
-    //   expect(res.statusCode).toBe(200);
-    //   expect(res.body.type).toBe('Labor');
-    // });
+    test('PUT /api/v1/cl/:id - update cost line', async () => {
+      const res = await request(server)
+        .put(`/api/v1/cl/${testCostLineId}`)
+        .send({ type: 'Labor', updated_by: 'Tester' });
+      expect(res.statusCode).toBe(200);
+      expect(res.body.type).toBe('Labor');
+    });
 
-    // test('DELETE /api/activities/v1/cl/:id - delete cost line', async () => {
-    //   const res = await request(server).delete(
-    //     `/api/activities/v1/cl/${testCostLineId}`
-    //   );
-    //   expect(res.statusCode).toBe(204);
-    // });
+    test('DELETE /api/v1/cl/:id - delete cost line', async () => {
+      const res = await request(server).delete(
+        `/api/v1/cl/${testCostLineId}`
+      );
+      expect(res.statusCode).toBe(204);
+    });
 
-    // test('GET /api/activities/v1/cl/:id - confirm cost line deletion', async () => {
-    //   const res = await request(server).get(
-    //     `/api/activities/v1/cl/${testCostLineId}`
-    //   );
-    //   expect(res.statusCode).toBe(404);
-    // });
+    test('GET /api/v1/cl/:id - confirm cost line deletion', async () => {
+      const res = await request(server).get(
+        `/api/v1/cl/${testCostLineId}`
+      );
+      expect(res.statusCode).toBe(404);
+    });
   });
 });

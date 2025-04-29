@@ -25,12 +25,12 @@ export async function setupIntegrationTest(schemaList = ['admin']) {
   await Promise.all(
     schemaList
       .filter(schema => {
-        console.log('Schema_____:', schema);
+        // console.log('Schema_____:', schema);
         
         return schema !== 'public';
       })
       .map(schema => {
-        console.log('Dropping and recreating schema:', schema);
+        // console.log('Dropping and recreating schema:', schema);
 
         return db.none(
           `DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`

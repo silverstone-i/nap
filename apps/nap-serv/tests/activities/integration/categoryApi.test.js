@@ -24,11 +24,11 @@ describe('Category API Integration Tests', () => {
     await teardown();
   });
 
-  describe('POST /api/activities/v1/category', () => {
+  describe('POST /api/v1/category/', () => {
     it('should create a new category', async () => {
       const newCategory = { name: 'Test Category', created_by: 'Tester' };
       const res = await request(server)
-        .post('/api/activities/v1/category')
+        .post('/api/v1/category')
         .send(newCategory);
       testCategoryId = res.body.id; // Store the ID for later tests
 
@@ -37,10 +37,10 @@ describe('Category API Integration Tests', () => {
     });
   });
 
-  describe('GET /api/activities/v1/category', () => {
+  describe('GET /api/v1/category', () => {
     it('should return all categories', async () => {
       try {
-        const res = await request(server).get('/api/activities/v1/category');
+        const res = await request(server).get('/api/v1/category');
         expect(res.statusCode).toBe(200);
         expect(Array.isArray(res.body)).toBe(true);
       } catch (error) {
@@ -49,24 +49,24 @@ describe('Category API Integration Tests', () => {
     });
   });
 
-  test('PUT /api/activities/v1/category/:id - update category', async () => {
+  test('PUT /api/v1/category/:id - update category', async () => {
     const res = await request(server)
-      .put(`/api/activities/v1/category/${testCategoryId}`)
+      .put(`/api/v1/category/${testCategoryId}`)
       .send({ name: 'Updated Category', updated_by: 'Tester' });
     expect(res.statusCode).toBe(200);
     expect(res.body.name).toBe('Updated Category');
   });
 
-  test('DELETE /api/activities/v1/category/:id - delete category', async () => {
+  test('DELETE /api/v1/category/:id - delete category', async () => {
     const res = await request(server).delete(
-      `/api/activities/v1/category/${testCategoryId}`
+      `/api/v1/category/${testCategoryId}`
     );
     expect(res.statusCode).toBe(204);
   });
 
-  test('GET /api/activities/v1/category/:id - confirm category deletion', async () => {
+  test('GET /api/v1/category/:id - confirm category deletion', async () => {
     const res = await request(server).get(
-      `/api/activities/v1/category/${testCategoryId}`
+      `/api/v1/category/${testCategoryId}`
     );
     expect(res.statusCode).toBe(404);
   });
