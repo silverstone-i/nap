@@ -20,10 +20,12 @@ function getTableDependencies(model) {
   console.log(`Model: ${schema.dbSchema}.${schema.table}, FK references:`, schema.constraints.foreignKeys.map(fk => fk.references));
 
   return Array.from(new Set(schema.constraints.foreignKeys.map(fk => {
-    const { schema: refSchema = 'public', table: refTable } = fk.references;
-    const [schemaName, tableName] = refTable.includes('.')
-      ? refTable.split('.')
-      : [refSchema, refTable];
+    console.log('FK:', fk.references);
+    
+    const [schemaName, tableName] = fk.references.table.includes('.')
+      ? fk.references.table.split('.')
+      : [fk.references.schema || 'public', fk.references.table];
+    console.log('schemaName:', schemaName, 'tableName:', tableName);
     return `${schemaName}.${tableName}`.toLowerCase();
   })));
 }
@@ -124,6 +126,17 @@ async function runMigrate(
       console.log(
         `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
       );
+
+      // Log the current search_path before creating the table
+      const { search_path } = await dbOverride.one('SHOW search_path');
+      // console.log(`Current search_path before creating ${key}: ${search_path}`);
+
+      // // Explicitly set the search_path for the current schema
+      // const targetSchema = model.schema?.dbSchema;
+      // if (targetSchema) {
+      //   await dbOverride.none(`SET search_path TO ${targetSchema}, public`);
+      //   console.log(`Set search_path to ${targetSchema}, public`);
+      // }
 
       await model.createTable();
       console.log('Created table:', key);
