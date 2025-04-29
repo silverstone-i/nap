@@ -1,4 +1,4 @@
-# nap-serve Development Roadmap and Operational Checklist
+# nap-serv Development Roadmap and Operational Checklist
 
 This document combines the full development roadmap for nap-serve and the current operational procedures for maintaining modules, APIs, and upcoming system enhancements.
 
