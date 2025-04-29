@@ -14,19 +14,15 @@ import CostLineController from '../../controllers/CostLineController.js';
 
 const router = express.Router();
 
-// Create a cost line
-router.post('/cl', CostLineController.create);
+router
+  .route('/')
+  .post(CostLineController.create)
+  .get(CostLineController.getAll);
 
-// Get all cost lines
-router.get('/cl', CostLineController.getAll);
-
-// Get a specific cost line by ID
-router.get('/cl/:id', CostLineController.getById);
-
-// Update a cost line by ID
-router.put('/cl/:id', CostLineController.update);
-
-// Delete a cost line by ID
-router.delete('/cl/:id', CostLineController.remove);
+router
+  .route('/:id')
+  .get(CostLineController.getById)
+  .put(CostLineController.update)
+  .delete(CostLineController.remove);
 
 export default router;

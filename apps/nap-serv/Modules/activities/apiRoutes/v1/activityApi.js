@@ -14,19 +14,15 @@ import ActivityController from '../../controllers/ActivityController.js';
 
 const router = express.Router();
 
-// Create an activity
-router.post('/', ActivityController.create);
+router
+  .route('/')
+  .post(ActivityController.create)
+  .get(ActivityController.getAll);
 
-// Get all activities
-router.get('/', ActivityController.getAll);
-
-// Get a specific activity by ID
-router.get('/:id', ActivityController.getById);
-
-// Update an activity by ID
-router.put('/:id', ActivityController.update);
-
-// Delete an activity by ID
-router.delete('/:id', ActivityController.remove);
+router
+  .route('/:id')
+  .get(ActivityController.getById)
+  .put(ActivityController.update)
+  .delete(ActivityController.remove);
 
 export default router;

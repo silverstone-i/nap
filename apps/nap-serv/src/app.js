@@ -20,11 +20,9 @@ app.use(cors(/* options */));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Load API routes based on enabled modules
-apiRoutes.forEach(({ prefix, routes }) => {
-  routes.forEach((router) => {
-    app.use(`/api/${prefix}`, router);    
-  });
+// Mount each module's router under /api
+apiRoutes.forEach((router) => {
+  app.use('/api', router);
 });
 
 // Test route

@@ -10,13 +10,13 @@
 */
 
 const categoriesSchema = {
-  dbSchema: 'public',
+  dbSchema: 'tenantid',
   table: 'categories',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
-    { name: 'id', type: 'serial', nullable: false, immutable: true, colProps: { cnd: true }},
-    { name: 'name', type: 'varchar', length: 255, nullable: false }
+    { name: 'id', type: 'uuid', default: 'uuid_generate_v4()', nullable: false, immutable: true, colProps: { cnd: true }},
+    { name: 'name', type: 'varchar', length: 10, nullable: false }
   ],
   constraints: {
     primaryKey: ['id'],

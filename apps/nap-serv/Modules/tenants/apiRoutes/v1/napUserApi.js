@@ -14,19 +14,16 @@ import NapUserController from '../../controllers/NapUserController.js';
 
 const router = Router();
 
-// Create a new user
-router.post('/users', NapUserController.create);
 
-// Retrieve all users
-router.get('/users', NapUserController.getAll);
+router
+  .route('/users')
+  .post(NapUserController.create)
+  .get(NapUserController.getAll);
 
-// Retrieve a single user by id
-router.get('/users/:id', NapUserController.getById);
-
-// Update a user by id
-router.put('/users/:id', NapUserController.update);
-
-// Delete a user by id
-router.delete('/users/:id', NapUserController.remove);
+router
+  .route('/users/:id')
+  .get(NapUserController.getById)
+  .put(NapUserController.update)
+  .delete(NapUserController.remove);
 
 export default router;

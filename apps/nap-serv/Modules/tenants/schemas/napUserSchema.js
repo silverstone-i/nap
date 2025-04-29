@@ -13,7 +13,7 @@ const napUserSchema = {
     {
       name: 'id',
       type: 'uuid',
-      default: 'uuidv7()',
+      default: 'uuid_generate_v4()',
       nullable: false,
       immutable: true,
     },

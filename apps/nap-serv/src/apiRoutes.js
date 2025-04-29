@@ -9,38 +9,35 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import tenantApiRoutes from '../modules/tenants/apiRoutes/v1ApiRoutes.js';
-import activitiesApiRoutes from '../modules/activities/apiRoutes/v1ActivitiesApiRoutes.js';
-import coreApiRoutes from '../modules/core/apiRoutes/v1CoreApiRoutes.js';
-// Future imports for other modules can go here
-// import accountingApiRoutes from '../modules/accounting/apiRoutes/v1ApiRoutes.js';
+import express from 'express';
+import { readdirSync, statSync } from 'fs';
+import path from 'path';
 
-
-// Simulated list of modules per tenant - replace with dynamic logic as needed
 const enabledModules = ['core', 'activities', 'tenants']; // TODO: Load dynamically per tenant or env config
 
-const allRoutes = {
-  tenants: {
-    prefix: 'tenants/v1',
-    routes: tenantApiRoutes,
-  },
-  activities: {
-    prefix: 'activities/v1',
-    routes: activitiesApiRoutes,
-  },
-  core: {
-    prefix: 'core/v1',
-    routes: coreApiRoutes, 
-  },
-  // accounting: {
-  //   prefix: 'accounting/v1',
-  //   routes: accountingApiRoutes,
-  // },
-};
+async function loadModuleRoutes(moduleName) {
+  const moduleRouter = express.Router();
+  const moduleApiPath = path.resolve(`./modules/${moduleName}/apiRoutes`);
 
-// Dynamically build routes based on enabled modules
-const apiRoutes = enabledModules
-  .map((module) => allRoutes[module])
-  .filter(Boolean);
+  const versions = readdirSync(moduleApiPath, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory() && dirent.name.startsWith('v'))
+    .map(dirent => dirent.name);
+
+  for (const version of versions) {
+    const versionPath = path.join(moduleApiPath, version);
+
+    const versionRouterModule = await import(`../modules/${moduleName}/apiRoutes/${version}/${moduleName}ApiRoutes.js`).catch(() => null);
+
+    if (versionRouterModule && versionRouterModule.default) {
+      moduleRouter.use(`/${version}`, versionRouterModule.default);
+    }
+  }
+
+  return moduleRouter;
+}
+
+const apiRoutes = await Promise.all(
+  enabledModules.map(async (moduleName) => await loadModuleRoutes(moduleName))
+);
 
 export default apiRoutes;

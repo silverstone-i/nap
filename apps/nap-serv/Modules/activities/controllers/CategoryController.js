@@ -25,9 +25,12 @@ export const CategoryController = {
   async getAll(req, res) {
     try {
       const categories = await db.categories.findAll();
+      console.log('Get all categories:', categories);
+      
       res.json(categories);
     } catch (err) {
-      console.error('Error fetching categories:', err);
+      console.error('Error fetching all categories:', err.message);
+      // console.error('Error fetching all categories:', err.stack);
       res.status(500).json({ error: err.message });
     }
   },
@@ -39,7 +42,8 @@ export const CategoryController = {
         return res.status(404).json({ error: 'Category not found' });
       res.json(category);
     } catch (err) {
-      console.error('Error fetching category:', err);
+      console.error('Error fetching category:', err.message);
+      // console.error('Error fetching category:', err.stack);
       res.status(500).json({ error: err.message });
     }
   },

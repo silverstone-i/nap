@@ -10,14 +10,15 @@
  */
 
 const vendorsSchema = {
-  dbSchema: 'public',
+  dbSchema: 'tenantid',
   table: 'vendors',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
     {
       name: 'id',
-      type: 'serial',
+      type: 'uuid',
+      default: 'uuid_generate_v4()',
       nullable: false,
       immutable: true,
       colProps: { cnd: true },

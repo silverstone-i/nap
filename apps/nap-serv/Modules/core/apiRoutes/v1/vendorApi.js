@@ -16,19 +16,15 @@ import VendorController from '../../controllers/VendorController.js';
 
 const router = express.Router();
 
-// Create a vendor
-router.post('/', VendorController.create);
+router
+  .route('/')
+  .post(VendorController.create)
+  .get(VendorController.getAll);
 
-// Get all vendors
-router.get('/', VendorController.getAll);
-
-// Get a vendor by ID
-router.get('/:id', VendorController.getById);
-
-// Update a vendor
-router.put('/:id', VendorController.update);
-
-// Delete a vendor
-router.delete('/:id', VendorController.remove);
+router
+  .route('/:id')
+  .get(VendorController.getById)
+  .put(VendorController.update)
+  .delete(VendorController.remove);
 
 export default router;

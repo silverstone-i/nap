@@ -10,16 +10,16 @@
 */
 
 const costLinesSchema = {
-  dbSchema: 'public',
+  dbSchema: 'tenantid',
   table: 'cost_lines',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
-    { name: 'id', type: 'serial', nullable: false, immutable: true, colProps: { cnd: true }},
-    { name: 'activity_id', type: 'integer', nullable: false, colProps: { cnd: true }},
+    { name: 'id', type: 'uuid', default: 'uuid_generate_v4()', nullable: false, immutable: true},
+    { name: 'activity_id', type: 'uuid', nullable: false, colProps: { cnd: true }},
     { name: 'type', type: 'varchar', length: 50, nullable: false },
     { name: 'amount', type: 'numeric', nullable: false },
-    { name: 'vendor_id', type: 'integer', nullable: false, colProps: { cnd: true }}
+    { name: 'vendor_id', type: 'uuid', nullable: false, colProps: { cnd: true }}
   ],
   constraints: {
     primaryKey: ['id'],
@@ -27,13 +27,13 @@ const costLinesSchema = {
       {
         type: 'ForeignKey',
         columns: ['activity_id'],
-        references: { table: 'public.activities', columns: ['id'] },
+        references: { schema: 'tenantid',table: 'activities', columns: ['id'] },
         onDelete: 'CASCADE'
       },
       {
         type: 'ForeignKey',
         columns: ['vendor_id'],
-        references: { table: 'public.vendors', columns: ['id'] },
+        references: { schema: 'tenantid', table: 'vendors', columns: ['id'] },
         onDelete: 'RESTRICT'
       }
     ],

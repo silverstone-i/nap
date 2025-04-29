@@ -24,7 +24,11 @@ export const CostLineController = {
 
   async getAll(req, res) {
     try {
+      console.log('Fetching all cost lines');
+      
       const costLines = await db.costLines.findAll();
+      console.log('Cost lines fetched:', costLines);
+      
       res.json(costLines);
     } catch (err) {
       console.error('Error fetching cost lines:', err);
