@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import { db } from '../../src/db/db.js';
 import runMigrate from '../../scripts/runMigrate.js';
@@ -24,14 +24,22 @@ export async function setupIntegrationTest(schemaList = ['admin']) {
   // Drop and recreate schemas, but skip 'public'
   await Promise.all(
     schemaList
-      .filter(schema => schema !== 'public')
-      .map(schema =>
-        db.none(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`)
-      )
+      .filter(schema => {
+        console.log('Schema_____:', schema);
+        
+        return schema !== 'public';
+      })
+      .map(schema => {
+        console.log('Dropping and recreating schema:', schema);
+
+        return db.none(
+          `DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`
+        );
+      })
   );
 
   // Run migrations
-  await runMigrate(db,{ schemas: schemaList },true );
+  await runMigrate(db, { schemas: schemaList }, true);
 
   // Start the server
   const server = app.listen();
