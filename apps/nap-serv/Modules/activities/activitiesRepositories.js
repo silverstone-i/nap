@@ -12,11 +12,13 @@
 import Activities from "./models/Activities.js";
 import Categories from "./models/Categories.js";
 import CostLines from "./models/CostLines.js";
+import VendorParts from "./models/VendorParts.js";
 
 const repositories = {
   activities: Activities,
   categories: Categories,
-  costLines: CostLines
+  costLines: CostLines,
+  vendorParts: VendorParts,
 };
 
 export default repositories;
