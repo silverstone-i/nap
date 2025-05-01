@@ -30,6 +30,7 @@ This document combines the full development roadmap for nap-serve and the curren
 - Project and activity table models
 - Budget table per project/account/activity
 - Budget input and revision endpoints
+- Projects table is currently managed within the activities module to support integrated costing and profitability reporting; may migrate to a dedicated project management module in a future phase.
 
 ---
 
