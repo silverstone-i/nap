@@ -9,20 +9,36 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-const categoriesSchema = {
+const schema = {
   dbSchema: 'tenantid',
   table: 'categories',
   hasAuditFields: true,
   version: '1.0.0',
-  columns: [
-    { name: 'id', type: 'uuid', default: 'uuid_generate_v4()', nullable: false, immutable: true, colProps: { cnd: true }},
-    { name: 'name', type: 'varchar', length: 10, nullable: false }
-  ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['name']],
-    indexes: [{ type: 'Index', columns: ['name'] }]
-  }
+    unique: [['tenant_id', 'category_id']],
+    indexes: [
+      {
+        type: 'Index',
+        columns: ['tenant_id', 'category_id'],
+      },
+    ],
+  },
+
+  columns: [
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuidv7()',
+      nullable: false,
+      immutable: true,
+      colProps: { cnd: true },
+    },
+    { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'category_id', type: 'varchar(12)', nullable: false },
+    { name: 'name', type: 'varchar(32)', nullable: false },
+    { name: 'description', type: 'text', nullable: true }
+  ],
 };
 
-export default categoriesSchema;
+export default schema;
