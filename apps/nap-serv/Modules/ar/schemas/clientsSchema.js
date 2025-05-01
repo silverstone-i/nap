@@ -53,12 +53,12 @@ const schema = {
       colProps: { cnd: true },
     },
     { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'client_code', type: 'varchar', length: 12, nullable: false },
+    { name: 'client_code', type: 'varchar(12)', nullable: false },
 
-    { name: 'name', type: 'varchar', length: 255, nullable: false },
-    { name: 'email', type: 'varchar', length: 128, nullable: true },
-    { name: 'phone', type: 'varchar', length: 32, nullable: true },
-    { name: 'tax_id', type: 'varchar', length: 64, nullable: true },
+    { name: 'name', type: 'varchar(255)', nullable: false },
+    { name: 'email', type: 'varchar(128)', nullable: true },
+    { name: 'phone', type: 'varchar(32)', nullable: true },
+    { name: 'tax_id', type: 'varchar(64)', nullable: true },
 
     { name: 'billing_address_id', type: 'uuid', nullable: true },
     { name: 'physical_address_id', type: 'uuid', nullable: true },
