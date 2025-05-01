@@ -47,8 +47,8 @@ const schema = {
     },
     { name: 'tenant_id', type: 'uuid', nullable: false },
 
-    { name: 'project_code', type: 'varchar', length: 32, nullable: false },
-    { name: 'name', type: 'varchar', length: 255, nullable: false },
+    { name: 'project_code', type: 'varchar(32)', nullable: false },
+    { name: 'name', type: 'varchar(255)', nullable: false },
     { name: 'client_id', type: 'uuid', nullable: true },
     { name: 'address_id', type: 'uuid', nullable: true },
     { name: 'description', type: 'text', nullable: true },
