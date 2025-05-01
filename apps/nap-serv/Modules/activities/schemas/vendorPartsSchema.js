@@ -9,35 +9,59 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-
-const vendorPartsSchema = {
+const schema = {
   dbSchema: 'tenantid',
-  table: 'vendor_parts',
+  table: 'vendorparts',
   hasAuditFields: true,
   version: '1.0.0',
-  columns: [
-    { name: 'id', type: 'serial', nullable: false, immutable: true, colProps: { cnd: true } },
-    { name: 'vendor_id', type: 'uuid', nullable: false },
-    { name: 'part_number', type: 'varchar', length: 64, nullable: false },
-    { name: 'description', type: 'varchar', length: 255, nullable: true },
-    { name: 'unit', type: 'varchar', length: 32, nullable: true },
-    { name: 'unit_cost', type: 'numeric(12,4)', nullable: true }
-  ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['vendor_id', 'part_number']],
     foreignKeys: [
       {
         type: 'ForeignKey',
         columns: ['vendor_id'],
-        references: { table: 'tenantid.vendors', columns: ['id'] },
-        onDelete: 'CASCADE'
-      }
+        references: {
+          table: 'tenantid.vendors',
+          columns: ['id'],
+        },
+        onDelete: 'CASCADE',
+      },
     ],
+    unique: [['tenant_id', 'vendor_id', 'tenant_sku']],
     indexes: [
-      { type: 'Index', columns: ['vendor_id'] },
-      { type: 'Index', columns: ['part_number'] }
-    ]
-  }
+      {
+        type: 'Index',
+        columns: ['tenant_id', 'vendor_id'],
+      },
+      {
+        type: 'Index',
+        columns: ['tenant_sku'],
+      },
+      {
+        type: 'Index',
+        columns: ['vendor_sku'],
+      },
+    ],
+  },
+
+  columns: [
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuidv7()',
+      nullable: false,
+      immutable: true,
+      colProps: { cnd: true },
+    },
+    { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'vendor_id', type: 'uuid', nullable: false },
+    { name: 'vendor_sku', type: 'varchar(64)', nullable: false },
+    { name: 'tenant_sku', type: 'varchar(64)', nullable: false },
+    { name: 'description', type: 'varchar(64)', nullable: true },
+    { name: 'unit', type: 'varchar(32)', nullable: true },
+    { name: 'unit_cost', type: 'numeric(12,4)', nullable: true },
+    { name: 'markup_pct', type: 'numeric(5,2)', nullable: true },
+  ],
 };
-export default vendorPartsSchema;
+
+export default schema;
