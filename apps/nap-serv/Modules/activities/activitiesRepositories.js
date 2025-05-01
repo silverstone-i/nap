@@ -15,6 +15,7 @@ import CostLines from "./models/CostLines.js";
 import VendorParts from "./models/VendorParts.js";
 import ActivityActuals from "./models/ActivityActuals.js";
 import ActivityBudgets from "./models/ActivityBudgets.js";
+import Projects from "./models/Projects.js";
 
 const repositories = {
   activities: Activities,
@@ -23,6 +24,7 @@ const repositories = {
   vendorParts: VendorParts,
   activityActuals: ActivityActuals,
   activityBudgets: ActivityBudgets,
+  projects: Projects,
 };
 
 export default repositories;
