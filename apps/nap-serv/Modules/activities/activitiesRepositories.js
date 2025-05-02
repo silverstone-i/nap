@@ -16,6 +16,10 @@ import VendorParts from "./models/VendorParts.js";
 import ActivityActuals from "./models/ActivityActuals.js";
 import ActivityBudgets from "./models/ActivityBudgets.js";
 import Projects from "./models/Projects.js";
+import ProjectActivities from "./models/ProjectActivities.js";
+import ProjectProfitabilityView from "./models/ProjectProfitabilityView.js";
+import ActivityProfitabilityView from "./models/ActivityProfitabilityView.js";
+import ProjectActualProfitabilityView from "./models/ProjectActualProfitabilityView.js";
 
 const repositories = {
   activities: Activities,
@@ -25,6 +29,10 @@ const repositories = {
   activityActuals: ActivityActuals,
   activityBudgets: ActivityBudgets,
   projects: Projects,
+  projectActivities: ProjectActivities,
+  projectProfitabilityView: ProjectProfitabilityView,
+  ActivityProfitabilityView: ActivityProfitabilityView,
+  projectActualProfitabilityView: ProjectActualProfitabilityView,
 };
 
 export default repositories;
