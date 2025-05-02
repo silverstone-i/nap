@@ -60,6 +60,17 @@ const schema = {
     { name: 'description', type: 'varchar(64)', nullable: true },
     { name: 'unit', type: 'varchar(32)', nullable: true },
     { name: 'unit_cost', type: 'numeric(12,4)', nullable: true },
+    {
+      name: 'currency',
+      type: 'varchar(3)',
+      nullable: false
+    },
+    {
+      name: 'is_active',
+      type: 'boolean',
+      default: true,
+      nullable: false
+    },
     { name: 'markup_pct', type: 'numeric(5,2)', nullable: true },
   ],
 };
