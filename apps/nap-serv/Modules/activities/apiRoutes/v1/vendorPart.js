@@ -16,10 +16,15 @@ import VendorPartsController from '../../controllers/VendorPartsController.js';
 
 const router = express.Router();
 
-router.post('/vendor-part', VendorPartsController.create);
-router.get('/vendor-part', VendorPartsController.getAll);
-router.get('/vendor-part/:id', VendorPartsController.getById);
-router.put('/vendor-part/:id', VendorPartsController.update);
-router.delete('/vendor-part/:id', VendorPartsController.remove);
+router
+  .route('/')
+  .post(VendorPartsController.create)
+  .get(VendorPartsController.getAll);
+
+router
+  .route('/:id')
+  .get(VendorPartsController.getById)
+  .put(VendorPartsController.update)
+  .delete(VendorPartsController.remove);
 
 export default router;
