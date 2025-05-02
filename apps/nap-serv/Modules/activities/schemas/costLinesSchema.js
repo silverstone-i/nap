@@ -29,6 +29,12 @@ const schema = {
         references: { table: 'tenantid.vendorparts', columns: ['tenant_id', 'vendor_id', 'tenant_sku'] },
         onDelete: 'SET NULL',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['project_id'],
+        references: { table: 'tenantid.projects', columns: ['id'] },
+        onDelete: 'CASCADE',
+      },
     ],
     indexes: [
       {
@@ -38,6 +44,18 @@ const schema = {
       {
         type: 'Index',
         columns: ['assembly_code'],
+      },
+      {
+        type: 'Index',
+        columns: ['project_id', 'activity_id'],
+      },
+      {
+        type: 'Index',
+        columns: ['vendor_id'],
+      },
+      {
+        type: 'Index',
+        columns: ['source_type'],
       },
     ],
   },
@@ -52,9 +70,11 @@ const schema = {
       colProps: { cnd: true },
     },
     { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'project_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
     { name: 'activity_id', type: 'varchar(12)', nullable: false },
     { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
+    { name: 'source_type', type: 'varchar(16)', nullable: false }, // e.g., 'material' or 'labor'
     { name: 'quantity', type: 'numeric(12,4)', nullable: false },
     { name: 'markup_pct', type: 'numeric(5,2)', nullable: true },
     { name: 'assembly_code', type: 'varchar(16)', nullable: true },
