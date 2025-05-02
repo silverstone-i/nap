@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -16,10 +14,15 @@ import ActivityActualController from '../../controllers/ActivityActualController
 
 const router = express.Router();
 
-router.post('/activity-actual', ActivityActualController.create);
-router.get('/activity-actual', ActivityActualController.getAll);
-router.get('/activity-actual/:id', ActivityActualController.getById);
-router.put('/activity-actual/:id', ActivityActualController.update);
-router.delete('/activity-actual/:id', ActivityActualController.remove);
+router
+  .route('/')
+  .post(ActivityActualController.create)
+  .get(ActivityActualController.getAll);
+
+router
+  .route('/:id')
+  .get(ActivityActualController.getById)
+  .put(ActivityActualController.update)
+  .delete(ActivityActualController.remove);
 
 export default router;
