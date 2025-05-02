@@ -1,3 +1,4 @@
+
 'use strict';
 
 /*
@@ -28,6 +29,7 @@ async function seedPhase2() {
 
   const tenantId = '00000000-0000-4000-a000-000000000001';
 
+  // Insert client
   const client = await db.clients.insert({
     tenant_id: tenantId,
     client_code: 'CLI001',
@@ -35,98 +37,153 @@ async function seedPhase2() {
     created_by: 'seed-script',
   });
 
-  const project = await db.projects.insert({
-    tenant_id: tenantId,
-    project_code: 'PRJ001',
-    name: 'Test Project',
-    client_id: client.id,
-    created_by: 'seed-script',
-  });
-
-  // Ensure the required category exists for activities
-  await db.none(
-    `INSERT INTO tenantid.categories (id, tenant_id, category_id, name, created_by)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (tenant_id, category_id) DO NOTHING`,
-    [
-      '11111111-1111-4000-a111-000000000001',
-      tenantId,
-      'CAT01',
-      'General',
-      'seed-script'
-    ]
-  );
-
-  const activities = await Promise.all(
-    ['Excavation', 'Framing'].map((name, i) =>
-      db.activities.insert({
+  // Insert two identical house projects
+  const projects = await Promise.all(
+    ['Zeblin 1', 'Zeblin 2'].map((name, i) =>
+      db.projects.insert({
         tenant_id: tenantId,
-        activity_id: `ACT${i + 1}`,
+        project_code: `PRJ00${i + 1}`,
         name,
-        category_id: 'CAT01',
-        type: 'turnkey',
+        client_id: client.id,
         created_by: 'seed-script',
       })
     )
   );
 
-  await Promise.all(
-    activities.map(a =>
-      db.projectActivities.insert({
+  // Insert categories
+  const categories = {
+    'CAT-1': 'Foundation',
+    'CAT-2': 'Framing',
+  };
+
+  for (const [id, name] of Object.entries(categories)) {
+    await db.none(
+      `INSERT INTO tenantid.categories (tenant_id, category_id, name, created_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenant_id, category_id) DO NOTHING`,
+      [tenantId, id, name, 'seed-script']
+    );
+  }
+
+  // Insert activities
+  const activitiesData = [
+    ['ACT-1', 'Foundation Posts', 'CAT-1'],
+    ['ACT-2', 'Slab', 'CAT-1'],
+    ['ACT-3', 'Foundation Walls', 'CAT-1'],
+    ['ACT-4', 'Water Proofing', 'CAT-1'],
+    ['ACT-5', 'Basement', 'CAT-2'],
+    ['ACT-6', '1st Floor', 'CAT-2'],
+    ['ACT-7', '2nd Floor', 'CAT-2'],
+    ['ACT-8', 'Roof', 'CAT-2'],
+  ];
+
+  const activities = {};
+  for (const [id, name, catId] of activitiesData) {
+    const activity = await db.activities.insert({
+      tenant_id: tenantId,
+      activity_id: id,
+      name,
+      category_id: catId,
+      type: 'turnkey',
+      created_by: 'seed-script',
+    });
+    activities[id] = activity;
+  }
+
+  // Assign all activities to both projects
+  for (const project of projects) {
+    for (const activity of Object.values(activities)) {
+      await db.projectActivities.insert({
         tenant_id: tenantId,
         project_id: project.id,
-        activity_id: a.activity_id,
+        activity_id: activity.activity_id,
         created_by: 'seed-script',
-      })
-    )
-  );
+      });
+    }
+  }
 
-  const vendor = await db.vendors.insert({
-    tenant_id: tenantId,
-    name: 'ABC Supplies',
-    created_by: 'seed-script',
-  });
+  // Insert vendors
+  const vendors = {
+    'V-1': await db.vendors.insert({ tenant_id: tenantId, name: 'The Foundation Guy', created_by: 'seed-script' }),
+    'V-2': await db.vendors.insert({ tenant_id: tenantId, name: 'The Lumber Guy', created_by: 'seed-script' }),
+    'V-3': await db.vendors.insert({ tenant_id: tenantId, name: 'Framing is US', created_by: 'seed-script' }),
+  };
 
-  const part = await db.vendorParts.insert({
-    tenant_id: tenantId,
-    vendor_id: vendor.id,
-    vendor_sku: 'VS001',
-    tenant_sku: 'TS001',
-    description: 'Concrete',
-    unit: 'yd',
-    unit_cost: 100.0,
-    markup_pct: 10.0,
-    created_by: 'seed-script',
-  });
+  // Insert vendor parts
+  const parts = {
+    concrete: await db.vendorParts.insert({
+      tenant_id: tenantId,
+      vendor_id: vendors['V-1'].id,
+      vendor_sku: 'res_concrete',
+      tenant_sku: 'sku-1000',
+      description: 'Concrete',
+      unit: 'yd',
+      unit_cost: 100,
+      markup_pct: 10,
+      created_by: 'seed-script',
+    }),
+    labor: await db.vendorParts.insert({
+      tenant_id: tenantId,
+      vendor_id: vendors['V-1'].id,
+      vendor_sku: 'res_labor',
+      tenant_sku: 'sku-1001',
+      description: 'Labor',
+      unit: 'hr',
+      unit_cost: 15,
+      markup_pct: 10,
+      created_by: 'seed-script',
+    }),
+  };
 
-  await db.activityBudgets.insert({
+  // Foundation Guy bid
+  await db.costLines.insert({
     tenant_id: tenantId,
-    activity_id: activities[0].activity_id,
-    budgeted_cost: 1000,
-    budgeted_price: 1300,
+    activity_id: 'ACT-1',
+    vendor_id: vendors['V-1'].id,
+    tenant_sku: parts.concrete.tenant_sku,
+    quantity: 350,
+    markup_pct: 10,
     created_by: 'seed-script',
   });
 
   await db.costLines.insert({
     tenant_id: tenantId,
-    activity_id: activities[0].activity_id,
-    vendor_id: vendor.id,
-    tenant_sku: part.tenant_sku,
+    activity_id: 'ACT-1',
+    vendor_id: vendors['V-1'].id,
+    tenant_sku: parts.labor.tenant_sku,
     quantity: 10,
-    markup_pct: 15.0,
+    markup_pct: 10,
     created_by: 'seed-script',
   });
 
-  await db.activityActuals.insert({
-    tenant_id: tenantId,
-    activity_id: activities[0].activity_id,
-    source_type: 'material',
-    source_ref: part.id,
-    unit: 'yd',
-    quantity: 10,
-    unit_cost: 100.0,
-    created_by: 'seed-script',
-  });
+  // Framing bids: materials (Lumber Guy), labor (Framing is US)
+  const framingCosts = [
+    { act: 'ACT-5', vendor: 'V-2', type: 'material', amount: 8000 },
+    { act: 'ACT-5', vendor: 'V-2', type: 'labor', amount: 4750 },
+    { act: 'ACT-5', vendor: 'V-3', type: 'labor', amount: 3900 },
+    { act: 'ACT-6', vendor: 'V-2', type: 'material', amount: 12000 },
+    { act: 'ACT-6', vendor: 'V-2', type: 'labor', amount: 14500 },
+    { act: 'ACT-6', vendor: 'V-3', type: 'labor', amount: 11700 },
+    { act: 'ACT-7', vendor: 'V-2', type: 'material', amount: 13000 },
+    { act: 'ACT-7', vendor: 'V-2', type: 'labor', amount: 14500 },
+    { act: 'ACT-7', vendor: 'V-3', type: 'labor', amount: 11700 },
+    { act: 'ACT-8', vendor: 'V-2', type: 'material', amount: 4500 },
+    { act: 'ACT-8', vendor: 'V-2', type: 'labor', amount: 2350 },
+    { act: 'ACT-8', vendor: 'V-3', type: 'labor', amount: 1950 },
+  ];
+
+  for (const cost of framingCosts) {
+    await db.activityActuals.insert({
+      tenant_id: tenantId,
+      activity_id: cost.act,
+      source_type: cost.type,
+      source_ref: vendors[cost.vendor].id,
+      quantity: 1,
+      unit_cost: cost.amount,
+      unit: 'lot',
+      created_by: 'seed-script',
+    });
+  }
 
   console.log('✅ Phase II seed data inserted successfully.');
   process.exit(0);
