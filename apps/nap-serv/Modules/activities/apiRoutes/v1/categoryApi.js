@@ -16,15 +16,8 @@ const router = express.Router();
 
 router
   .route('/')
-  .post((req, res) => {
-    const { name, created_by } = req.body;
-    if (!name || !created_by) {
-      return res.status(400).json({ error: 'Name and created_by are required' });
-    }
-    CategoryController.create(req, res);
-  })
-  .get(CategoryController.getAll);
-
+  .post(CategoryController.create);
+  
 router
   .route('/:id')
   .get(CategoryController.getById)
