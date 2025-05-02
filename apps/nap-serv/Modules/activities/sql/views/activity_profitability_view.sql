@@ -1,0 +1,46 @@
+/*
+* Copyright © 2024-present, Ian Silverstone
+*
+* See the LICENSE file at the top-level directory of this distribution
+* for licensing information.
+*
+* Removal or modification of this copyright notice is prohibited.
+*/
+
+DROP VIEW IF EXISTS tenantid.activity_profitability CASCADE;
+
+CREATE OR REPLACE VIEW tenantid.activity_profitability AS
+SELECT
+  a.id AS activity_id,
+  a.tenant_id,
+  cl.project_id,
+  cl.source_type,
+  a.name AS activity_name,
+  COALESCE(b.budgeted_cost, 0) AS budgeted_cost,
+  COALESCE(b.budgeted_price, 0) AS budgeted_price,
+
+  -- Actuals based on vendor_parts + cost_lines
+  SUM(cl.quantity * vp.unit_cost) AS actual_cost,
+  SUM(cl.quantity * vp.unit_cost * (1 + COALESCE(cl.markup_pct, vp.markup_pct, 0) / 100)) AS actual_price,
+
+  -- Profitability
+  SUM(cl.quantity * vp.unit_cost * (1 + COALESCE(cl.markup_pct, vp.markup_pct, 0) / 100)) -
+  SUM(cl.quantity * vp.unit_cost) AS profit,
+
+  -- Budget vs actual variance
+  COALESCE(b.budgeted_price, 0) -
+  SUM(cl.quantity * vp.unit_cost * (1 + COALESCE(cl.markup_pct, vp.markup_pct, 0) / 100)) AS price_variance,
+
+  COALESCE(b.budgeted_cost, 0) -
+  SUM(cl.quantity * vp.unit_cost) AS cost_variance
+
+FROM tenantid.activities a
+LEFT JOIN tenantid.activity_budgets b
+  ON a.tenant_id = b.tenant_id AND a.activity_id = b.activity_id
+LEFT JOIN tenantid.costlines cl
+  ON a.tenant_id = cl.tenant_id AND a.activity_id = cl.activity_id
+LEFT JOIN tenantid.vendorparts vp
+  ON cl.tenant_id = vp.tenant_id
+ AND cl.vendor_id = vp.vendor_id
+ AND cl.tenant_sku = vp.tenant_sku
+GROUP BY a.id, a.tenant_id, cl.project_id, cl.source_type, a.name, b.budgeted_cost, b.budgeted_price;
