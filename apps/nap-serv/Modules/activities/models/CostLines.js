@@ -14,6 +14,8 @@ import costLinesSchema from '../schemas/costLinesSchema.js';
 class CostLines extends BaseModel {
   constructor(db, pgp) {
     super(db, pgp, costLinesSchema);
+    // console.log('CostLines model initialized', this.schema);
+    
   }
 }
 export default CostLines;
