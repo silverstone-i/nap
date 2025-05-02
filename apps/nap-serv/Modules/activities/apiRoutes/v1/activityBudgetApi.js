@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -16,10 +14,15 @@ import ActivityBudgetController from '../../controllers/ActivityBudgetController
 
 const router = express.Router();
 
-router.post('/activity-budget', ActivityBudgetController.create);
-router.get('/activity-budget', ActivityBudgetController.getAll);
-router.get('/activity-budget/:id', ActivityBudgetController.getById);
-router.put('/activity-budget/:id', ActivityBudgetController.update);
-router.delete('/activity-budget/:id', ActivityBudgetController.remove);
+router
+  .route('/')
+  .post(ActivityBudgetController.create)
+  .get(ActivityBudgetController.getAll);
+
+router
+  .route('/:id')
+  .get(ActivityBudgetController.getById)
+  .put(ActivityBudgetController.update)
+  .delete(ActivityBudgetController.remove);
 
 export default router;
