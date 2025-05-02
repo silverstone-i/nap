@@ -10,6 +10,7 @@
  */
 
 import { db, pgp } from '../src/db/db.js';
+import { loadViews } from './loadViews.js';
 
 // Extracts table dependencies from model's foreign keys
 function getTableDependencies(model) {
@@ -122,6 +123,11 @@ async function runMigrate(
     console.log('Sorted table creation order:', sortedKeys);
     for (const key of sortedKeys) {
       const model = validModels[key];
+
+      if (model?.constructor?.isViewModel) {
+        continue; // Skip views
+      }
+
       console.log(
         `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
       );
@@ -132,6 +138,8 @@ async function runMigrate(
       await model.createTable();
       console.log('Created table:', key);
     }
+    await loadViews(dbOverride);
+    console.log('All views loaded.');
   } catch (error) {
     console.error('Error during migration:', error.message);
     console.error('Stack trace:', error.stack);
