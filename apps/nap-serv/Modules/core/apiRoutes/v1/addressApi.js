@@ -12,14 +12,19 @@
  */
 
 import express from 'express';
-import AddressesController from '../../controllers/AddressesController.js';
+import AddressesController from '../../controllers/AddressController.js';
 
 const router = express.Router();
 
-router.post('/address', AddressesController.create);
-router.get('/address', AddressesController.getAll);
-router.get('/address/:id', AddressesController.getById);
-router.put('/address/:id', AddressesController.update);
-router.delete('/address/:id', AddressesController.remove);
+router
+  .route('/')
+  .post(AddressesController.create)
+  .get(AddressesController.getAll);
+
+router
+  .route('/:id')
+  .get(AddressesController.getById)
+  .put(AddressesController.update)
+  .delete(AddressesController.remove);
 
 export default router;
