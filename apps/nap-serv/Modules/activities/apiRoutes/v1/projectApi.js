@@ -16,10 +16,15 @@ import ProjectController from '../../controllers/ProjectController.js';
 
 const router = express.Router();
 
-router.post('/project', ProjectController.create);
-router.get('/project', ProjectController.getAll);
-router.get('/project/:id', ProjectController.getById);
-router.put('/project/:id', ProjectController.update);
-router.delete('/project/:id', ProjectController.remove);
+router
+  .route('/')
+  .post(ProjectController.create)
+  .get(ProjectController.getAll);
+
+router
+  .route('/:id')
+  .get(ProjectController.getById)
+  .put(ProjectController.update)
+  .delete(ProjectController.remove);
 
 export default router;
