@@ -13,7 +13,7 @@ const schema = {
   dbSchema: 'tenantid',
   table: 'projects',
   hasAuditFields: true,
-  version: '1.0.0',
+  version: '1.1.0',
   constraints: {
     primaryKey: ['id'],
     foreignKeys: [
@@ -35,6 +35,12 @@ const schema = {
       { type: 'Index', columns: ['tenant_id', 'project_code'] },
       { type: 'Index', columns: ['client_id'] },
     ],
+    checks: [
+      {
+        type: 'Check',
+        expression: `status IN ('planning', 'budgeting', 'released', 'complete')`,
+      },
+    ],
   },
   columns: [
     {
@@ -53,6 +59,12 @@ const schema = {
     { name: 'address_id', type: 'uuid', nullable: true },
     { name: 'description', type: 'text', nullable: true },
     { name: 'notes', type: 'text', nullable: true },
+    {
+      name: 'status',
+      type: 'varchar(20)',
+      default: `'planning'`,
+      nullable: false,
+    },
   ],
 };
 

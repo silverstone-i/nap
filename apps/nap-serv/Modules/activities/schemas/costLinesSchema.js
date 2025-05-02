@@ -31,8 +31,8 @@ const schema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['project_id'],
-        references: { table: 'tenantid.projects', columns: ['id'] },
+        columns: ['project_unit_id'],
+        references: { table: 'tenantid.project_units', columns: ['id'] },
         onDelete: 'CASCADE',
       },
     ],
@@ -47,7 +47,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['project_id', 'activity_id'],
+        columns: ['project_unit_id', 'activity_id'],
       },
       {
         type: 'Index',
@@ -57,6 +57,12 @@ const schema = {
         type: 'Index',
         columns: ['source_type'],
       },
+    ],
+    checks: [
+      {
+        type: 'Check',
+        expression: `source_type IN ('material', 'labor')`
+      }
     ],
   },
 
@@ -70,12 +76,15 @@ const schema = {
       colProps: { cnd: true },
     },
     { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'project_id', type: 'uuid', nullable: false },
+    { name: 'project_unit_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
     { name: 'activity_id', type: 'varchar(12)', nullable: false },
     { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
-    { name: 'source_type', type: 'varchar(16)', nullable: false }, // e.g., 'material' or 'labor'
+    { name: 'source_type', type: 'varchar(16)', default: `'material'`, nullable: false }, // e.g., 'material' or 'labor'
     { name: 'quantity', type: 'numeric(12,4)', nullable: false },
+    { name: 'unit', type: 'varchar(20)', nullable: true },
+    { name: 'unit_price', type: 'numeric(12,4)', nullable: false },
+    { name: 'amount', type: 'numeric(12,2)', generated: '(quantity * unit_price)', stored: true },
     { name: 'markup_pct', type: 'numeric(5,2)', nullable: true },
     { name: 'assembly_code', type: 'varchar(16)', nullable: true },
   ],

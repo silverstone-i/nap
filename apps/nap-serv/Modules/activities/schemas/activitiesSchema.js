@@ -14,28 +14,6 @@ const schema = {
   table: 'activities',
   hasAuditFields: true,
   version: '1.0.0',
-  constraints: {
-    primaryKey: ['id'],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['tenant_id', 'category_id'],
-        references: {
-          table: 'tenantid.categories',
-          columns: ['tenant_id', 'category_id'],
-        },
-        onDelete: 'CASCADE',
-      },
-    ],
-    unique: [['tenant_id', 'activity_id']],
-    indexes: [
-      {
-        type: 'Index',
-        columns: ['tenant_id', 'category_id'],
-      },
-    ],
-  },
-
   columns: [
     {
       name: 'id',
@@ -45,18 +23,46 @@ const schema = {
       immutable: true,
       colProps: { cnd: true },
     },
-    { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'activity_id', type: 'varchar(12)', nullable: false },
-    { name: 'name', type: 'varchar(32)', nullable: false },
-    { name: 'category_id', type: 'varchar(12)', nullable: false },
     {
-      name: 'type',
-      type: 'varchar(12)',
+      name: 'tenant_id',
+      type: 'uuid',
       nullable: false,
-      default: `'turnkey'`,
+      colProps: { cnd: true },
     },
-    { name: 'description', type: 'text', nullable: true },
+    {
+      name: 'category_id',
+      type: 'uuid',
+      nullable: false,
+    },
+    {
+      name: 'activity_code',
+      type: 'varchar(20)',
+      nullable: false,
+    },
+    {
+      name: 'name',
+      type: 'varchar(100)',
+      nullable: false,
+    },
+    {
+      name: 'description',
+      type: 'text',
+      nullable: true,
+    },
   ],
+  constraints: {
+    primaryKey: ['id'],
+    unique: [['tenant_id', 'activity_code']],
+    foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['category_id'],
+        references: { table: 'tenantid.categories', columns: ['id'] },
+        onDelete: 'CASCADE',
+      },
+    ],
+    indexes: [{ type: 'Index', columns: ['tenant_id', 'category_id'] }],
+  },
 };
 
 export default schema;
