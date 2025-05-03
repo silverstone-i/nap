@@ -11,10 +11,11 @@
 
 import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
 import { db } from '../../../src/db/db.js';
+import request from 'supertest';
 
 let catid;
 
-async function setup() {
+async function setup(context) {
   // Create a category for the test
   const category = {
     tenant_id: '00000000-0000-4000-a000-000000000001',
@@ -24,17 +25,35 @@ async function setup() {
     created_by: 'integration-test',
   };
 
-  console.log('Creating category:', category);
-
   const result = await db.categories.insert(category);
-  console.log('Category created:', result);
-
   catid = result.id;
 }
+
 async function cleanup() {
   // Delete the test category
-  console.log('Deleting category with id:', catid);
   await db.categories.delete(catid);
+}
+
+function extraTests(context) {
+  describe('Extra tests after DELETE', () => {
+    let server;
+
+    beforeAll(() => {
+      server = context.server;
+    });
+
+    test('should return 404 when fetching deleted record', async () => {
+      const res = await request(server).get(`/api/v1/activities/${context.createdId}`);
+      expect(res.status).toBe(404);
+    });
+
+    test('should not list deleted record in GET all', async () => {
+      const res = await request(server).get('/api/v1/activities');
+      expect(res.status).toBe(200);
+      const ids = res.body.map(item => item.activity_id);
+      expect(ids).not.toContain(context.createdId);
+    });
+  });
 }
 
 await runExtendedCrudTests({
@@ -50,4 +69,5 @@ await runExtendedCrudTests({
   },
   beforeHook: setup,
   afterHook: cleanup,
+  extraTests,
 });

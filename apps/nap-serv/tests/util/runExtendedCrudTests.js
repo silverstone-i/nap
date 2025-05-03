@@ -19,34 +19,48 @@ export async function runExtendedCrudTests({
   beforeHook,
   afterHook,
 }) {
+  if (!routePrefix || !testRecord) {
+    throw new Error('routePrefix and testRecord are required.');
+  }
+
   describe(`Extended CRUD API Tests: ${routePrefix}`, () => {
     let server, teardown;
-    let createdId;
+    const context = { server: null, createdId: null };
+
+    const getTestRecord = typeof testRecord === 'function' ? testRecord : () => testRecord;
 
     beforeAll(async () => {
       ({ server, teardown } = await setupIntegrationTest());
+      context.server = server;
 
-      console.log('Running beforeHook', typeof beforeHook);
-
-      if (typeof beforeHook === 'function') {
-        console.log('Running beforeHook');
-
-        await beforeHook({ server });
+      try {
+        if (typeof beforeHook === 'function') {
+          await beforeHook(context);
+        }
+      } catch (err) {
+        console.error('Error in beforeHook:', err);
+        throw err;
       }
     });
 
     afterAll(async () => {
-      if (typeof afterHook === 'function') {
-        await afterHook({ server });
+      try {
+        if (typeof afterHook === 'function') {
+          await afterHook(context);
+        }
+      } catch (err) {
+        console.error('Error in afterHook:', err);
+        throw err;
       }
+
       await teardown();
     });
 
     test(`POST ${routePrefix} should create`, async () => {
-      const res = await request(server).post(routePrefix).send(testRecord);
+      const res = await request(server).post(routePrefix).send(getTestRecord());
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('id');
-      createdId = res.body.id;
+      context.createdId = res.body.id;
     });
 
     test(`GET ${routePrefix} should return list`, async () => {
@@ -56,16 +70,16 @@ export async function runExtendedCrudTests({
     });
 
     test(`GET ${routePrefix}/:id should return specific item`, async () => {
-      const res = await request(server).get(`${routePrefix}/${createdId}`);
+      const res = await request(server).get(`${routePrefix}/${context.createdId}`);
       expect(res.status).toBe(200);
-      expect(res.body.id).toBe(createdId);
+      expect(res.body.id).toBe(context.createdId);
     });
 
     test(`PUT ${routePrefix}/:id should update`, async () => {
       const res = await request(server)
-        .put(`${routePrefix}/${createdId}`)
+        .put(`${routePrefix}/${context.createdId}`)
         .send({
-          ...testRecord,
+          ...getTestRecord(),
           name: 'Updated Name',
           updated_by: 'integration-test',
         });
@@ -74,13 +88,14 @@ export async function runExtendedCrudTests({
     });
 
     test(`DELETE ${routePrefix}/:id should delete`, async () => {
-      const res = await request(server).delete(`${routePrefix}/${createdId}`);
+      const res = await request(server).delete(`${routePrefix}/${context.createdId}`);
       expect(res.status).toBe(204);
     });
 
-    // Run any extra route tests
-    test(`Extra tests for ${routePrefix}`, async () => {
-      await extraTests({ server, createdId });
-    });
+    if (typeof extraTests === 'function') {
+      describe('Extra tests', () => {
+        extraTests(context);
+      });
+    }
   });
 }

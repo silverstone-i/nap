@@ -14,12 +14,6 @@ import ActivityController from '../../controllers/ActivityController.js';
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-  console.log('Request URL:', req.originalUrl);
-  console.log('Request Method:', req.method);
-  next();
-});
-
 router
   .route('/')
   .post(ActivityController.create)
