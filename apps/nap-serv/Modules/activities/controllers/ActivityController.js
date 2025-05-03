@@ -13,6 +13,8 @@ import { db } from '../../../src/db/db.js';
 
 export const ActivityController = {
   async create(req, res) {
+    console.log('Creating activity with:', req.body);
+    
     try {
       const activity = await db.activities.insert(req.body);
       res.status(201).json(activity);
