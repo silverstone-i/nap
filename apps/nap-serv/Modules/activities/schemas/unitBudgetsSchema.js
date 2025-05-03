@@ -13,7 +13,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'project_unit_budgets',
+  table: 'unit_budgets',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
@@ -32,7 +32,7 @@ const schema = {
       colProps: { cnd: true }
     },
     {
-      name: 'project_unit_id',
+      name: 'unit_id',
       type: 'uuid',
       nullable: false
     },
@@ -77,12 +77,12 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'project_unit_id', 'activity_id', 'version']],
+    unique: [['tenant_id', 'unit_id', 'activity_id', 'version']],
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['project_unit_id'],
-        references: { table: 'tenantid.project_units', columns: ['id'] },
+        columns: ['unit_id'],
+        references: { table: 'tenantid.units', columns: ['id'] },
         onDelete: 'CASCADE'
       },
       {
@@ -103,7 +103,7 @@ const schema = {
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['tenant_id', 'project_unit_id'] },
+      { type: 'Index', columns: ['tenant_id', 'unit_id'] },
       { type: 'Index', columns: ['activity_id'] }
     ]
   }

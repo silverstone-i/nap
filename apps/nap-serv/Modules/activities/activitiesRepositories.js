@@ -15,9 +15,9 @@ import Categories from './models/Categories.js';
 import ChangeOrderLines from './models/ChangeOrderLines.js';
 import CostLines from './models/CostLines.js';
 import Projects from './models/Projects.js';
-import ProjectUnitAssignments from './models/ProjectUnitAssignments.js';
-import ProjectUnitBudgets from './models/ProjectUnitBudgets.js';
-import ProjectUnits from './models/ProjectUnits.js';
+import UnitAssignments from './models/UnitAssignments.js';
+import UnitBudgets from './models/UnitBudgets.js';
+import Units from './models/Units.js';
 import VendorParts from './models/VendorParts.js';
 
 const repositories = {
@@ -27,9 +27,9 @@ const repositories = {
   changeOrderLines: ChangeOrderLines,
   costLines: CostLines,
   projects: Projects,
-  projectUnitAssignments: ProjectUnitAssignments,
-  projectUnitBudgets: ProjectUnitBudgets,
-  projectUnits: ProjectUnits,
+  unitAssignments: UnitAssignments,
+  unitBudgets: UnitBudgets,
+  units: Units,
   vendorParts: VendorParts,
 };
 

@@ -10,12 +10,12 @@
 */
 
 import { BaseModel } from "pg-schemata";
-import projectUnitBudgetSchema from "../schemas/projectUnitBudgetSchema.js";
+import unitsSchema from "../schemas/unitsSchema.js";
 
-class ProjectUnitBudgets extends BaseModel {
+class Units extends BaseModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, projectUnitBudgetSchema, logger);
+    super(db, pgp, unitsSchema, logger);
   }
 }
 
-export default ProjectUnitBudgets;
+export default Units;

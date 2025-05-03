@@ -30,7 +30,7 @@ const schema = {
       colProps: { cnd: true }
     },
     {
-      name: 'cost_line_id',
+      name: 'activity_id',
       type: 'uuid',
       nullable: false
     },
@@ -76,8 +76,8 @@ const schema = {
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['cost_line_id'],
-        references: { table: 'tenantid.costlines', columns: ['id'] },
+        columns: ['activity_id'],
+        references: { table: 'tenantid.activities', columns: ['id'] },
         onDelete: 'CASCADE'
       }
     ],
@@ -88,7 +88,7 @@ const schema = {
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['tenant_id', 'cost_line_id'] },
+      { type: 'Index', columns: ['tenant_id', 'activity_id'] },
       { type: 'Index', columns: ['incurred_on'] }
     ]
   }

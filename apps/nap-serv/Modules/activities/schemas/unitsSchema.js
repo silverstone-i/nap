@@ -11,7 +11,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'project_units',
+  table: 'units',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
