@@ -1,27 +1,44 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import request from 'supertest';
 import { setupIntegrationTest } from './integrationHarness.js';
 
-export async function runExtendedCrudTests({ routePrefix, model, testRecord, extraTests = () => {} }) {
+export async function runExtendedCrudTests({
+  routePrefix,
+  testRecord,
+  extraTests = () => {},
+  beforeHook,
+  afterHook,
+}) {
   describe(`Extended CRUD API Tests: ${routePrefix}`, () => {
     let server, teardown;
     let createdId;
 
     beforeAll(async () => {
       ({ server, teardown } = await setupIntegrationTest());
+
+      console.log('Running beforeHook', typeof beforeHook);
+
+      if (typeof beforeHook === 'function') {
+        console.log('Running beforeHook');
+
+        await beforeHook({ server });
+      }
     });
 
     afterAll(async () => {
+      if (typeof afterHook === 'function') {
+        await afterHook({ server });
+      }
       await teardown();
     });
 
@@ -45,10 +62,13 @@ export async function runExtendedCrudTests({ routePrefix, model, testRecord, ext
     });
 
     test(`PUT ${routePrefix}/:id should update`, async () => {
-      const res = await request(server).put(`${routePrefix}/${createdId}`).send({
-        ...testRecord,
-        name: 'Updated Name'
-      });
+      const res = await request(server)
+        .put(`${routePrefix}/${createdId}`)
+        .send({
+          ...testRecord,
+          name: 'Updated Name',
+          updated_by: 'integration-test',
+        });
       expect(res.status).toBe(200);
       expect(res.body.name).toBe('Updated Name');
     });
