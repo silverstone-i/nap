@@ -34,6 +34,7 @@ const schema = {
     indexes: [
       { type: 'Index', columns: ['tenant_id', 'project_code'] },
       { type: 'Index', columns: ['client_id'] },
+      { type: 'Index', columns: ['tenant_id', 'project_code', 'version'] },
     ],
     checks: [
       {

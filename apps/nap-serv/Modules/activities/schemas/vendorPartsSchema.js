@@ -41,6 +41,10 @@ const schema = {
         type: 'Index',
         columns: ['vendor_sku'],
       },
+      {
+        type: 'Index',
+        columns: ['tenant_id', 'vendor_id', 'tenant_sku', 'version']
+      },
     ],
   },
 

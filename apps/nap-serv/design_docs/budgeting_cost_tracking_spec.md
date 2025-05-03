@@ -4,8 +4,8 @@
 
 ```text
 projects
-  └── project_units
-        └── project_unit_budgets
+  └── units
+        └── unit_budgets
               └── activities (linked to categories)
                     └── cost_lines
                           └── actual_costs
@@ -19,16 +19,16 @@ projects
 ### `projects`
 Defines the overall job (e.g., development, consulting engagement).
 
-### `project_units`
+### `units`
 Instances of house plans or sub-projects within a project.
 
-### `project_unit_budgets`
+### `unit_budgets`
 Versioned budget per unit. Final budget must be approved before release.
 
 | Field | Description |
 |-------|-------------|
 | id | UUIDv7 |
-| project_unit_id | FK to `project_units` |
+| unit_id | FK to `units` |
 | version | Integer |
 | status | `draft`, `submitted`, `approved` |
 | approved_by | User ID |
@@ -42,7 +42,7 @@ Atomic scoped line items for budgeting.
 | Field | Description |
 |-------|-------------|
 | id | UUIDv7 |
-| project_unit_budget_id | FK to approved budget |
+| unit_budget_id | FK to approved budget |
 | activity_id | FK to `activities` |
 | vendor_id | Optional FK |
 | quantity | Work units |
@@ -77,7 +77,7 @@ Header record for approved changes.
 | Field | Description |
 |-------|-------------|
 | id | UUIDv7 |
-| project_unit_id | FK |
+| unit_id | FK |
 | description | Scope summary |
 | status | `draft`, `submitted`, `approved`, `rejected` |
 | requested_by | FK |
@@ -104,7 +104,7 @@ Detailed line items tied to activities.
 ## Rules & Behaviors
 
 - ✅ Budgets must be **fully approved** before release
-- ✅ Actuals **cannot post** unless `project_unit.status = 'released'`
+- ✅ Actuals **cannot post** unless `unit.status = 'released'`
 - ✅ Each cost line is **vendor-exclusive**
 - ✅ Change orders:
   - Must be approved before actuals
@@ -133,11 +133,11 @@ Detailed line items tied to activities.
 ## Status Workflow
 
 ```text
-projects → project_units → project_unit_budgets
+projects → units → unit_budgets
                                      ↓
                            status = 'approved'
                                      ↓
-                           project_units.status = 'released'
+                           units.status = 'released'
                                      ↓
                               actuals can begin
 ```

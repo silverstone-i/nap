@@ -31,8 +31,8 @@ const schema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['project_unit_id'],
-        references: { table: 'tenantid.project_units', columns: ['id'] },
+        columns: ['unit_id'],
+        references: { table: 'tenantid.units', columns: ['id'] },
         onDelete: 'CASCADE',
       },
     ],
@@ -47,7 +47,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['project_unit_id', 'activity_id'],
+        columns: ['unit_id', 'activity_id'],
       },
       {
         type: 'Index',
@@ -57,6 +57,10 @@ const schema = {
         type: 'Index',
         columns: ['source_type'],
       },
+      {
+        type: 'Index',
+        columns: ['tenant_id', 'unit_id', 'vendor_id', 'activity_id', 'tenant_sku']
+      }
     ],
     checks: [
       {
@@ -76,7 +80,7 @@ const schema = {
       colProps: { cnd: true },
     },
     { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'project_unit_id', type: 'uuid', nullable: false },
+    { name: 'unit_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
     { name: 'activity_id', type: 'varchar(12)', nullable: false },
     { name: 'tenant_sku', type: 'varchar(64)', nullable: true },

@@ -86,7 +86,8 @@ const schema = {
     ],
     indexes: [
       { type: 'Index', columns: ['tenant_id', 'project_id'] },
-      { type: 'Index', columns: ['unit_id'] }
+      { type: 'Index', columns: ['unit_id'] },
+      { type: 'Index', columns: ['tenant_id', 'project_id', 'unit_id'] }
     ]
   }
 };

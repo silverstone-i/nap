@@ -23,7 +23,7 @@ This document outlines how to adapt or remove existing schemas in the nap-serv p
 ## ❌ Schemas to REMOVE or DEPRECATE
 
 ### `activity_budgets`
-- **Why**: Superseded by `cost_lines` linked to `project_unit_budgets`
+- **Why**: Superseded by `cost_lines` linked to `unit_budgets`
 - **Action**: Remove
 
 ### `activity_actuals`
@@ -65,8 +65,8 @@ This document outlines how to adapt or remove existing schemas in the nap-serv p
 
 ## 🔜 New Schemas Introduced
 
-- `project_unitsSchema.js`
-- `project_unit_budgetsSchema.js`
+- `unitsSchema.js`
+- `unit_budgetsSchema.js`
 - `actual_costsSchema.js`
 - `change_ordersSchema.js`
 - `change_order_linesSchema.js`

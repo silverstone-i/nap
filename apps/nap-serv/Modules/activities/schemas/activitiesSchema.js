@@ -61,7 +61,10 @@ const schema = {
         onDelete: 'CASCADE',
       },
     ],
-    indexes: [{ type: 'Index', columns: ['tenant_id', 'category_id'] }],
+    indexes: [
+      { type: 'Index', columns: ['tenant_id', 'category_id'] },
+      { type: 'Index', columns: ['tenant_id', 'category_id', 'activity_code'] }
+    ],
   },
 };
 

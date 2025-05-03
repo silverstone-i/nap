@@ -21,7 +21,7 @@ The `change_order_lines` table tracks approved changes to project unit activity 
 | Field          | Description                                                              |
 |----------------|---------------------------------------------------------------------------|
 | `id`           | Unique change order line ID (`uuidv7`)                                   |
-| `project_unit_id` | The unit of work this change applies to                               |
+| `unit_id`      | The unit of work this change applies to                               |
 | `activity_id`  | The activity whose budget is being altered                               |
 | `change_amount`| The amount of the change (positive or negative)                          |
 | `currency`     | Currency code, typically USD, CAD, etc.                                   |
@@ -48,15 +48,15 @@ The `change_order_lines` table tracks approved changes to project unit activity 
 ## 4. Constraints and Rules
 
 - ✅ Cannot exceed authority's change order limit (business logic, not DB-enforced).
-- ✅ Must tie to a valid `project_unit_id` and `activity_id` pair.
-- 🛑 No duplicate references for the same `tenant_id`, `project_unit_id`, `activity_id`, and `reference`.
+- ✅ Must tie to a valid `unit_id` and `activity_id` pair.
+- 🛑 No duplicate references for the same `tenant_id`, `unit_id`, `activity_id`, and `reference`.
 
 ---
 
 ## 5. Implications for Budget Tracking
 
 When approved:
-- Adds to `project_unit_budget` allowance for that activity.
+- Adds to `unit_budget` allowance for that activity.
 - Included in delta calculations for actuals vs. adjusted budget.
 - Auditable history for all budget changes.
 
