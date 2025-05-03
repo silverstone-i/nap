@@ -20,7 +20,7 @@ const schema = {
       {
         type: 'ForeignKey',
         columns: ['tenant_id', 'activity_id'],
-        references: { table: 'tenantid.activities', columns: ['tenant_id', 'activity_id'] },
+        references: { table: 'tenantid.activities', columns: ['tenant_id', 'id'] },
         onDelete: 'CASCADE',
       },
       {
@@ -82,7 +82,7 @@ const schema = {
     { name: 'tenant_id', type: 'uuid', nullable: false },
     { name: 'unit_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
-    { name: 'activity_id', type: 'varchar(12)', nullable: false },
+    { name: 'activity_id', type: 'uuid', nullable: false },
     { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
     { name: 'source_type', type: 'varchar(16)', default: `'material'`, nullable: false }, // e.g., 'material' or 'labor'
     { name: 'quantity', type: 'numeric(12,4)', nullable: false },

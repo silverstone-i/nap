@@ -31,7 +31,7 @@ const schema = {
     },
     {
       name: 'category_id',
-      type: 'uuid',
+      type: 'varchar(12)',
       nullable: false,
     },
     {
@@ -52,18 +52,21 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'activity_code']],
+    unique: [
+      ['tenant_id', 'activity_code'],
+      ['tenant_id', 'id'],
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',
         columns: ['category_id'],
-        references: { table: 'tenantid.categories', columns: ['id'] },
+        references: { table: 'tenantid.categories', columns: ['category_id'] },
         onDelete: 'CASCADE',
       },
     ],
     indexes: [
-      { type: 'Index', columns: ['tenant_id', 'category_id'] },
-      { type: 'Index', columns: ['tenant_id', 'category_id', 'activity_code'] }
+      { type: 'Index', columns: ['category_id'] },
+      { type: 'Index', columns: ['tenant_id', 'activity_code'] }, // ✅ fixed here
     ],
   },
 };
