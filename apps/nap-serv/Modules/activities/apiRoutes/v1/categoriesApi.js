@@ -16,7 +16,8 @@ const router = express.Router();
 
 router
   .route('/')
-  .post(CategoryController.create);
+  .post(CategoryController.create)
+  .get(CategoryController.getAll);
   
 router
   .route('/:id')
