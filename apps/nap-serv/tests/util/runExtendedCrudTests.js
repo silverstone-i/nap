@@ -19,6 +19,7 @@ export async function runExtendedCrudTests({
   beforeHook,
   afterHook,
   updateField = 'name',
+  updateValue = 'Updated Name',
 }) {
   if (!routePrefix || !testRecord) {
     throw new Error('routePrefix and testRecord are required.');
@@ -81,11 +82,11 @@ export async function runExtendedCrudTests({
         .put(`${routePrefix}/${context.createdId}`)
         .send({
           ...getTestRecord(),
-          [updateField]: 'Updated Name',
+          [updateField]: updateValue,
           updated_by: 'integration-test',
         });
       expect(res.status).toBe(200);
-      expect(res.body[updateField]).toBe('Updated Name');
+      expect(res.body[updateField]).toBe(updateValue);
     });
 
     test(`DELETE ${routePrefix}/:id should delete`, async () => {
