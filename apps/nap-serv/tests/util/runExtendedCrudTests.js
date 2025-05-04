@@ -18,6 +18,7 @@ export async function runExtendedCrudTests({
   extraTests = () => {},
   beforeHook,
   afterHook,
+  updateField = 'name',
 }) {
   if (!routePrefix || !testRecord) {
     throw new Error('routePrefix and testRecord are required.');
@@ -30,7 +31,7 @@ export async function runExtendedCrudTests({
     const getTestRecord = typeof testRecord === 'function' ? testRecord : () => testRecord;
 
     beforeAll(async () => {
-      ({ server, teardown } = await setupIntegrationTest());
+      ({ server, teardown } = await setupIntegrationTest(['admin', 'tenantid']));
       context.server = server;
 
       try {
@@ -80,11 +81,11 @@ export async function runExtendedCrudTests({
         .put(`${routePrefix}/${context.createdId}`)
         .send({
           ...getTestRecord(),
-          name: 'Updated Name',
+          [updateField]: 'Updated Name',
           updated_by: 'integration-test',
         });
       expect(res.status).toBe(200);
-      expect(res.body.name).toBe('Updated Name');
+      expect(res.body[updateField]).toBe('Updated Name');
     });
 
     test(`DELETE ${routePrefix}/:id should delete`, async () => {
