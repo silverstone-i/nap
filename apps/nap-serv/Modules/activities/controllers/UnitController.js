@@ -13,7 +13,7 @@
 
 import { db } from '../../../src/db/db.js';
 
-export const UnitController = {
+const UnitController = {
   async create(req, res) {
     try {
       const row = await db.projectUnits.insert(req.body);
@@ -37,7 +37,7 @@ export const UnitController = {
   async getById(req, res) {
     try {
       const row = await db.projectUnits.findById(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Not found' });
+      if (!row) return res.status(404).json({ error: 'Unit not found' });
       res.json(row);
     } catch (err) {
       console.error('Error fetching project unit by id:', err);
@@ -57,7 +57,7 @@ export const UnitController = {
 
   async remove(req, res) {
     try {
-      await db.projectUnits.remove(req.params.id);
+      await db.projectUnits.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting project unit:', err);
@@ -65,3 +65,5 @@ export const UnitController = {
     }
   }
 };
+
+export default UnitController;

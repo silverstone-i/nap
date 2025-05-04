@@ -11,7 +11,7 @@
 
 import { db } from '../../../src/db/db.js';
 
-export const UnitBudgetController = {
+const UnitBudgetController = {
   async create(req, res) {
     try {
       const row = await db.projectUnitBudgets.insert(req.body);
@@ -35,7 +35,7 @@ export const UnitBudgetController = {
   async getById(req, res) {
     try {
       const row = await db.projectUnitBudgets.findById(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Not found' });
+      if (!row) return res.status(404).json({ error: 'Unit budget not found' });
       res.json(row);
     } catch (err) {
       console.error('Error fetching project unit budget by id:', err);
@@ -55,7 +55,7 @@ export const UnitBudgetController = {
 
   async remove(req, res) {
     try {
-      await db.projectUnitBudgets.remove(req.params.id);
+      await db.projectUnitBudgets.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting project unit budget:', err);
@@ -63,3 +63,5 @@ export const UnitBudgetController = {
     }
   }
 };
+
+export default UnitBudgetController;

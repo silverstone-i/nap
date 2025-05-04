@@ -13,55 +13,57 @@
 
 import { db } from '../../../src/db/db.js';
 
-export const ActualCostsController = {
+const ChangeOrderLineController = {
   async create(req, res) {
     try {
-      const actual = await db.actualCosts.insert(req.body);
-      res.status(201).json(actual);
+      const row = await db.changeOrderLines.insert(req.body);
+      res.status(201).json(row);
     } catch (err) {
-      console.error('Error creating actual cost:', err);
+      console.error('Error creating change order line:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getAll(req, res) {
     try {
-      const rows = await db.actualCosts.findAll();
+      const rows = await db.changeOrderLines.findAll();
       res.json(rows);
     } catch (err) {
-      console.error('Error fetching actual costs:', err);
+      console.error('Error fetching change order lines:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getById(req, res) {
     try {
-      const item = await db.actualCosts.findById(req.params.id);
-      if (!item) return res.status(404).json({ error: 'Actual costs not found' });
-      res.json(item);
+      const row = await db.changeOrderLines.findById(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Change order line not found' });
+      res.json(row);
     } catch (err) {
-      console.error('Error fetching actual cost by id:', err);
+      console.error('Error fetching change order line by id:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async update(req, res) {
     try {
-      const updated = await db.actualCosts.update(req.params.id, req.body);
+      const updated = await db.changeOrderLines.update(req.params.id, req.body);
       res.json(updated);
     } catch (err) {
-      console.error('Error updating actual cost:', err);
+      console.error('Error updating change order line:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async remove(req, res) {
     try {
-      await db.actualCosts.delete(req.params.id);
+      await db.changeOrderLines.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
-      console.error('Error deleting actual cost:', err);
+      console.error('Error deleting change order line:', err);
       res.status(500).json({ error: err.message });
     }
   }
 };
+
+export default ChangeOrderLineController;

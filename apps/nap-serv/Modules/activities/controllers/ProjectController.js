@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -38,7 +36,7 @@ const ProjectController = {
     try {
       const project = await db.projects.findById(req.params.id);
       if (!project) {
-        return res.status(404).json({ error: 'Not found' });
+        return res.status(404).json({ error: 'Project not found' });
       }
       res.json(project);
     } catch (err) {
@@ -59,8 +57,8 @@ const ProjectController = {
 
   async remove(req, res) {
     try {
-      await db.projects.remove(req.params.id);
-      res.status(204).send();
+      await db.projects.delete(req.params.id);
+      res.status(204).end();
     } catch (err) {
       console.error('Error deleting project:', err);
       res.status(500).json({ error: err.message });

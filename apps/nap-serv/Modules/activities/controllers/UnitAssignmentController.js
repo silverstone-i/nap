@@ -13,10 +13,10 @@
 
 import { db } from '../../../src/db/db.js';
 
-export const UnitAssignmentController = {
+const UnitAssignmentController = {
   async create(req, res) {
     try {
-      const row = await db.projectUnitAssignments.insert(req.body);
+      const row = await db.unitAssignments.insert(req.body);
       res.status(201).json(row);
     } catch (err) {
       console.error('Error creating project unit assignment:', err);
@@ -26,7 +26,7 @@ export const UnitAssignmentController = {
 
   async getAll(req, res) {
     try {
-      const rows = await db.projectUnitAssignments.findAll();
+      const rows = await db.unitAssignments.findAll();
       res.json(rows);
     } catch (err) {
       console.error('Error fetching project unit assignments:', err);
@@ -36,8 +36,8 @@ export const UnitAssignmentController = {
 
   async getById(req, res) {
     try {
-      const row = await db.projectUnitAssignments.findById(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Not found' });
+      const row = await db.unitAssignments.findById(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Unit assignment not found' });
       res.json(row);
     } catch (err) {
       console.error('Error fetching project unit assignment by id:', err);
@@ -47,7 +47,7 @@ export const UnitAssignmentController = {
 
   async update(req, res) {
     try {
-      const updated = await db.projectUnitAssignments.update(req.params.id, req.body);
+      const updated = await db.unitAssignments.update(req.params.id, req.body);
       res.json(updated);
     } catch (err) {
       console.error('Error updating project unit assignment:', err);
@@ -57,7 +57,7 @@ export const UnitAssignmentController = {
 
   async remove(req, res) {
     try {
-      await db.projectUnitAssignments.remove(req.params.id);
+      await db.unitAssignments.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting project unit assignment:', err);
@@ -65,3 +65,5 @@ export const UnitAssignmentController = {
     }
   }
 };
+
+export default UnitAssignmentController;
