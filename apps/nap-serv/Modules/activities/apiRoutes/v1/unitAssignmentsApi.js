@@ -10,19 +10,19 @@
 */
 
 import express from 'express';
-import { UnitAssignmentController } from '../../controllers/UnitAssignmentController.js';
+import UnitAssignmentsController from '../../controllers/UnitAssignmentsController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(UnitAssignmentController.create)
-  .get(UnitAssignmentController.getAll);
+  .post(UnitAssignmentsController.create)
+  .get(UnitAssignmentsController.getAll);
 
 router
   .route('/:id')
-  .get(UnitAssignmentController.getById)
-  .put(UnitAssignmentController.update)
-  .delete(UnitAssignmentController.remove);
+  .get(UnitAssignmentsController.getById)
+  .put(UnitAssignmentsController.update)
+  .delete(UnitAssignmentsController.remove);
 
 export default router;

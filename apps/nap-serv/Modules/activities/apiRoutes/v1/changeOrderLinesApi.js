@@ -10,19 +10,19 @@
 */
 
 import express from 'express';
-import { ChangeOrderLineController } from '../../controllers/ChangeOderLineController.js';
+import ChangeOrderLinesController from '../../controllers/ChangeOrderLinesController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(ChangeOrderLineController.create)
-  .get(ChangeOrderLineController.getAll);
+  .post(ChangeOrderLinesController.create)
+  .get(ChangeOrderLinesController.getAll);
 
 router
   .route('/:id')
-  .get(ChangeOrderLineController.getById)
-  .put(ChangeOrderLineController.update)
-  .delete(ChangeOrderLineController.remove);
+  .get(ChangeOrderLinesController.getById)
+  .put(ChangeOrderLinesController.update)
+  .delete(ChangeOrderLinesController.remove);
 
 export default router;

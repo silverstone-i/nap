@@ -12,19 +12,19 @@
 */
 
 import express from 'express';
-import { UnitController } from '../../controllers/UnitController.js';
+import UnitsController from '../../controllers/UnitsController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(UnitController.create)
-  .get(UnitController.getAll);
+  .post(UnitsController.create)
+  .get(UnitsController.getAll);
 
 router
   .route('/:id')
-  .get(UnitController.getById)
-  .put(UnitController.update)
-  .delete(UnitController.remove);
+  .get(UnitsController.getById)
+  .put(UnitsController.update)
+  .delete(UnitsController.remove);
 
 export default router;

@@ -12,19 +12,19 @@
  */
 
 import express from 'express';
-import VendorPartController from '../../controllers/VendorPartController.js';
+import VendorPartsController from '../../controllers/VendorPartsController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(VendorPartController.create)
-  .get(VendorPartController.getAll);
+  .post(VendorPartsController.create)
+  .get(VendorPartsController.getAll);
 
 router
   .route('/:id')
-  .get(VendorPartController.getById)
-  .put(VendorPartController.update)
-  .delete(VendorPartController.remove);
+  .get(VendorPartsController.getById)
+  .put(VendorPartsController.update)
+  .delete(VendorPartsController.remove);
 
 export default router;

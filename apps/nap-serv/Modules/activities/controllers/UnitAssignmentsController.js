@@ -13,57 +13,57 @@
 
 import { db } from '../../../src/db/db.js';
 
-const ActualCostsController = {
+const UnitAssignmentsController = {
   async create(req, res) {
     try {
-      const actual = await db.actualCosts.insert(req.body);
-      res.status(201).json(actual);
+      const row = await db.unitAssignments.insert(req.body);
+      res.status(201).json(row);
     } catch (err) {
-      console.error('Error creating actual cost:', err);
+      console.error('Error creating project unit assignment:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getAll(req, res) {
     try {
-      const rows = await db.actualCosts.findAll();
+      const rows = await db.unitAssignments.findAll();
       res.json(rows);
     } catch (err) {
-      console.error('Error fetching actual costs:', err);
+      console.error('Error fetching project unit assignments:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getById(req, res) {
     try {
-      const item = await db.actualCosts.findById(req.params.id);
-      if (!item) return res.status(404).json({ error: 'Actual costs not found' });
-      res.json(item);
+      const row = await db.unitAssignments.findById(req.params.id);
+      if (!row) return res.status(404).json({ error: 'Unit assignment not found' });
+      res.json(row);
     } catch (err) {
-      console.error('Error fetching actual cost by id:', err);
+      console.error('Error fetching project unit assignment by id:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async update(req, res) {
     try {
-      const updated = await db.actualCosts.update(req.params.id, req.body);
+      const updated = await db.unitAssignments.update(req.params.id, req.body);
       res.json(updated);
     } catch (err) {
-      console.error('Error updating actual cost:', err);
+      console.error('Error updating project unit assignment:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async remove(req, res) {
     try {
-      await db.actualCosts.delete(req.params.id);
+      await db.unitAssignments.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
-      console.error('Error deleting actual cost:', err);
+      console.error('Error deleting project unit assignment:', err);
       res.status(500).json({ error: err.message });
     }
   }
 };
 
-export default ActualCostsController;
+export default UnitAssignmentsController;

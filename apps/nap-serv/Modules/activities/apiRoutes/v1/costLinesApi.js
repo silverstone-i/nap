@@ -10,19 +10,19 @@
  */
 
 import express from 'express';
-import CostLineController from '../../controllers/CostLineController.js';
+import CostLinesController from '../../controllers/CostLinesController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(CostLineController.create)
-  .get(CostLineController.getAll);
+  .post(CostLinesController.create)
+  .get(CostLinesController.getAll);
 
 router
   .route('/:id')
-  .get(CostLineController.getById)
-  .put(CostLineController.update)
-  .delete(CostLineController.remove);
+  .get(CostLinesController.getById)
+  .put(CostLinesController.update)
+  .delete(CostLinesController.remove);
 
 export default router;

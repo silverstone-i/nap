@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -13,57 +11,59 @@
 
 import { db } from '../../../src/db/db.js';
 
-const ActualCostsController = {
+const ProjectsController = {
   async create(req, res) {
     try {
-      const actual = await db.actualCosts.insert(req.body);
-      res.status(201).json(actual);
+      const project = await db.projects.insert(req.body);
+      res.status(201).json(project);
     } catch (err) {
-      console.error('Error creating actual cost:', err);
+      console.error('Error creating project:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getAll(req, res) {
     try {
-      const rows = await db.actualCosts.findAll();
-      res.json(rows);
+      const projects = await db.projects.findAll();
+      res.json(projects);
     } catch (err) {
-      console.error('Error fetching actual costs:', err);
+      console.error('Error fetching projects:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getById(req, res) {
     try {
-      const item = await db.actualCosts.findById(req.params.id);
-      if (!item) return res.status(404).json({ error: 'Actual costs not found' });
-      res.json(item);
+      const project = await db.projects.findById(req.params.id);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      res.json(project);
     } catch (err) {
-      console.error('Error fetching actual cost by id:', err);
+      console.error('Error fetching project by ID:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async update(req, res) {
     try {
-      const updated = await db.actualCosts.update(req.params.id, req.body);
+      const updated = await db.projects.update(req.params.id, req.body);
       res.json(updated);
     } catch (err) {
-      console.error('Error updating actual cost:', err);
+      console.error('Error updating project:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async remove(req, res) {
     try {
-      await db.actualCosts.delete(req.params.id);
+      await db.projects.delete(req.params.id);
       res.status(204).end();
     } catch (err) {
-      console.error('Error deleting actual cost:', err);
+      console.error('Error deleting project:', err);
       res.status(500).json({ error: err.message });
     }
   }
 };
 
-export default ActualCostsController;
+export default ProjectsController;

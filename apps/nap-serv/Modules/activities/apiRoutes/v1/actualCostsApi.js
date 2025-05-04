@@ -12,7 +12,7 @@
 */
 
 import express from 'express';
-import { ActualCostsController } from '../../controllers/ActualCostsController.js';
+import ActualCostsController from '../../controllers/ActualCostsController.js';
 
 const router = express.Router();
 

@@ -12,19 +12,19 @@
  */
 
 import express from 'express';
-import ProjectController from '../../controllers/ProjectController.js';
+import ProjectsController from '../../controllers/ProjectsController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(ProjectController.create)
-  .get(ProjectController.getAll);
+  .post(ProjectsController.create)
+  .get(ProjectsController.getAll);
 
 router
   .route('/:id')
-  .get(ProjectController.getById)
-  .put(ProjectController.update)
-  .delete(ProjectController.remove);
+  .get(ProjectsController.getById)
+  .put(ProjectsController.update)
+  .delete(ProjectsController.remove);
 
 export default router;

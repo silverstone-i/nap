@@ -12,19 +12,19 @@
 */
 
 import express from 'express';
-import { UnitBudgetController } from '../../controllers/UnitBudgetController.js';
+import UnitBudgetsController from '../../controllers/UnitBudgetsController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(UnitBudgetController.create)
-  .get(UnitBudgetController.getAll);
+  .post(UnitBudgetsController.create)
+  .get(UnitBudgetsController.getAll);
 
 router
   .route('/:id')
-  .get(UnitBudgetController.getById)
-  .put(UnitBudgetController.update)
-  .delete(UnitBudgetController.remove);
+  .get(UnitBudgetsController.getById)
+  .put(UnitBudgetsController.update)
+  .delete(UnitBudgetsController.remove);
 
 export default router;
