@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -48,6 +46,7 @@ const ChangeOrderLinesController = {
   async update(req, res) {
     try {
       const updated = await db.changeOrderLines.update(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: 'Change order line not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating change order line:', err);
@@ -57,7 +56,8 @@ const ChangeOrderLinesController = {
 
   async remove(req, res) {
     try {
-      await db.changeOrderLines.delete(req.params.id);
+      const deleted = await db.changeOrderLines.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ error: 'Change order line not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting change order line:', err);

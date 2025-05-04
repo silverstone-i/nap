@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -50,6 +48,9 @@ const AddressController = {
   async update(req, res) {
     try {
       const updated = await db.addresses.update(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.json(updated);
     } catch (err) {
       console.error('Error updating address:', err);
@@ -59,7 +60,10 @@ const AddressController = {
 
   async remove(req, res) {
     try {
-      await db.addresses.remove(req.params.id);
+      const removed = await db.addresses.remove(req.params.id);
+      if (!removed) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.status(204).send();
     } catch (err) {
       console.error('Error deleting address:', err);

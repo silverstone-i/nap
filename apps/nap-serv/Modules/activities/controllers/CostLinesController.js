@@ -51,6 +51,8 @@ export const CostLinesController = {
   async update(req, res) {
     try {
       const updated = await db.costLines.update(req.params.id, req.body);
+      if (!updated)
+        return res.status(404).json({ error: 'Cost line not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating cost line:', err);

@@ -50,6 +50,9 @@ const VendorPartsController = {
   async update(req, res) {
     try {
       const updated = await db.vendorParts.update(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Vendor part not found' });
+      }
       res.json(updated);
     } catch (err) {
       console.error('Error updating vendor part:', err);
@@ -59,7 +62,10 @@ const VendorPartsController = {
 
   async remove(req, res) {
     try {
-      await db.vendorParts.delete(req.params.id);
+      const deleted = await db.vendorParts.delete(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Vendor part not found' });
+      }
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting vendor part:', err);

@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -48,6 +46,7 @@ const UnitAssignmentsController = {
   async update(req, res) {
     try {
       const updated = await db.unitAssignments.update(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: 'Unit assignment not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating project unit assignment:', err);
@@ -57,7 +56,8 @@ const UnitAssignmentsController = {
 
   async remove(req, res) {
     try {
-      await db.unitAssignments.delete(req.params.id);
+      const deleted = await db.unitAssignments.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ error: 'Unit assignment not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting project unit assignment:', err);

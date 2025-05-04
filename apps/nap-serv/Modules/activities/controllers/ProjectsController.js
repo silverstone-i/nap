@@ -48,6 +48,9 @@ const ProjectsController = {
   async update(req, res) {
     try {
       const updated = await db.projects.update(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
       res.json(updated);
     } catch (err) {
       console.error('Error updating project:', err);
@@ -57,7 +60,10 @@ const ProjectsController = {
 
   async remove(req, res) {
     try {
-      await db.projects.delete(req.params.id);
+      const deleted = await db.projects.delete(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting project:', err);

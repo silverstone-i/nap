@@ -45,6 +45,7 @@ const TenantController = {
   async update(req, res) {
     try {
       const tenant = await db.tenants.update(req.params.id, req.body);
+      if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
       res.json(tenant);
     } catch (err) {
       console.error('Error updating tenant:', err);
@@ -54,7 +55,8 @@ const TenantController = {
 
   async remove(req, res) {
     try {
-      await db.tenants.delete(req.params.id);
+      const deleted = await db.tenants.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ error: 'Tenant not found' });
       res.status(204).end();
     } catch (err) {
       res.status(500).json({ error: err.message });

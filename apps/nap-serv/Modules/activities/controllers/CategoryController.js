@@ -51,6 +51,8 @@ export const CategoryController = {
   async update(req, res) {
     try {
       const updated = await db.categories.update(req.params.id, req.body);
+      if (!updated)
+        return res.status(404).json({ error: 'Category not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating category:', err);

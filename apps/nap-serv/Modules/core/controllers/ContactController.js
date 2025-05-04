@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -50,6 +48,9 @@ const ContactController = {
   async update(req, res) {
     try {
       const updated = await db.contacts.update(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.json(updated);
     } catch (err) {
       console.error('Error updating contact:', err);
@@ -59,7 +60,10 @@ const ContactController = {
 
   async remove(req, res) {
     try {
-      await db.contacts.remove(req.params.id);
+      const deleted = await db.contacts.remove(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.status(204).send();
     } catch (err) {
       console.error('Error deleting contact:', err);

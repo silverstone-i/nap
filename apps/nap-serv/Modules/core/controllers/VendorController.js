@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -49,6 +47,9 @@ export const VendorController = {
   async update(req, res) {
     try {
       const updated = await db.vendors.update(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: 'Vendor not found' });
+      }
       res.json(updated);
     } catch (err) {
       console.error('Error updating vendor:', err);
@@ -58,11 +59,10 @@ export const VendorController = {
 
   async remove(req, res) {
     try {
-      const vendor = await db.vendors.findById(req.params.id);
-      if (!vendor)
+      const deleted = await db.vendors.delete(req.params.id);
+      if (!deleted) {
         return res.status(404).json({ error: 'Vendor not found' });
-
-      await db.vendors.delete(req.params.id);
+      }
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting vendor:', err);

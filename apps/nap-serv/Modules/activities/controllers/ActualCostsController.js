@@ -48,6 +48,7 @@ const ActualCostsController = {
   async update(req, res) {
     try {
       const updated = await db.actualCosts.update(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: 'Actual cost not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating actual cost:', err);
@@ -57,7 +58,8 @@ const ActualCostsController = {
 
   async remove(req, res) {
     try {
-      await db.actualCosts.delete(req.params.id);
+      const deleted = await db.actualCosts.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ error: 'Actual cost not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting actual cost:', err);

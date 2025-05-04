@@ -47,6 +47,7 @@ export const NapUserController = {
   async update(req, res) {
     try {
       const user = await db.napUsers.update(req.params.id, req.body);
+      if (!user) return res.status(404).json({ error: 'User not found' });
       res.json(user);
     } catch (err) {
       console.error('Error updating user:', err);
@@ -57,7 +58,8 @@ export const NapUserController = {
 
   async remove(req, res) {
     try {
-      await db.napUsers.delete(req.params.id);
+      const deleted = await db.napUsers.delete(req.params.id);
+      if (!deleted) return res.status(404).json({ error: 'User not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting user:', err);

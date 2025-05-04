@@ -47,6 +47,8 @@ export const ActivityController = {
   async update(req, res) {
     try {
       const updated = await db.activities.update(req.params.id, req.body);
+      if (!updated)
+        return res.status(404).json({ error: 'Activity not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating activity:', err);
