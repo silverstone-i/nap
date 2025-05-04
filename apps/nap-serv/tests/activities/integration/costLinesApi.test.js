@@ -9,65 +9,107 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import request from 'supertest';
-import { setupIntegrationTest } from '../../util/integrationHarness.js';
+import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
+import { db } from '../../../src/db/db.js';
 
-describe('Cost Line API Integration Tests', () => {
-  let server, teardown;
-  let testCostLineId;
+const tenant_id = '00000000-0000-4000-a000-000000000001';
 
-  beforeAll(async () => {
-    ({ server, teardown } = await setupIntegrationTest(['admin', 'tenantid']));
+export const setupTestDependencies = async () => {
+  const existingCategories = await db.categories.findBy([
+    { tenant_id, category_id: 'COST-MAT' },
+  ]);
+  for (const row of existingCategories) {
+    await db.categories.delete(row.id);
+  }
+
+  const category = await db.categories.insert({
+    tenant_id,
+    category_id: 'COST-MAT',
+    name: 'Materials',
+    created_by: 'integration-test',
   });
 
-  afterAll(async () => {
-    await teardown();
+  const unit = await db.units.insert({
+    tenant_id,
+    unit_code: 'COST-UNIT',
+    description: 'Cost Line Unit',
+    status: 'pending',
+    created_by: 'integration-test',
   });
 
-  describe('POST /api/v1/cl/', () => {
-    
-    it('should create a new cost line', async () => {
-      const newCostLine = {
-        type: 'Material',
-        amount: 1000,
-        created_by: 'Tester',
-      };
-      const res = await request(server)
-        .post('/api/v1/cl/')
-        .send(newCostLine);
-      testCostLineId = res.body.id; // Store the ID for later tests
-
-      expect(res.statusCode).toBe(201);
-      expect(res.body.type).toBe('Material');
-    });
-
-    it('should return all cost lines including the newly created one', async () => {
-      const res = await request(server).get('/api/v1/cl/');
-      expect(res.statusCode).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.some(cl => cl.id === testCostLineId)).toBe(true);
-    });
-
-    test('PUT /api/v1/cl/:id - update cost line', async () => {
-      const res = await request(server)
-        .put(`/api/v1/cl/${testCostLineId}`)
-        .send({ type: 'Labor', updated_by: 'Tester' });
-      expect(res.statusCode).toBe(200);
-      expect(res.body.type).toBe('Labor');
-    });
-
-    test('DELETE /api/v1/cl/:id - delete cost line', async () => {
-      const res = await request(server).delete(
-        `/api/v1/cl/${testCostLineId}`
-      );
-      expect(res.statusCode).toBe(204);
-    });
-
-    test('GET /api/v1/cl/:id - confirm cost line deletion', async () => {
-      const res = await request(server).get(
-        `/api/v1/cl/${testCostLineId}`
-      );
-      expect(res.statusCode).toBe(404);
-    });
+  const activity = await db.activities.insert({
+    tenant_id,
+    category_id: category.category_id,
+    activity_code: 'COST-ACT',
+    name: 'Cost Activity',
+    created_by: 'integration-test',
   });
+
+  const vendor = await db.vendors.insert({
+    tenant_id,
+    name: 'Integration Vendor',
+    created_by: 'integration-test',
+  });
+
+  const vendorPart = await db.vendorParts.insert({
+    tenant_id,
+    vendor_id: vendor.id,
+    tenant_sku: 'SKU-123',
+    description: 'Test Vendor Part',
+    created_by: 'integration-test',
+  });
+
+  return { category, unit, activity, vendor, vendorPart };
+};
+
+export const cleanupTestDependencies = async () => {
+  const all = await db.vendorParts.findAll();
+  for (const row of all) await db.vendorParts.delete(row.id);
+
+  const vendors = await db.vendors.findAll();
+  for (const row of vendors) await db.vendors.delete(row.id);
+
+  const activities = await db.activities.findAll();
+  for (const row of activities) await db.activities.delete(row.id);
+
+  const units = await db.units.findAll();
+  for (const row of units) await db.units.delete(row.id);
+
+  const categories = await db.categories.findAll();
+  for (const row of categories) await db.categories.delete(row.id);
+};
+
+const routePrefix = '/api/v1/cost-lines';
+
+const testContext = {};
+
+await runExtendedCrudTests({
+  routePrefix,
+  testRecord: () => ({
+    tenant_id,
+    unit_id: testContext.unit.id,
+    vendor_id: testContext.vendor.id,
+    activity_id: testContext.activity.id,
+    tenant_sku: testContext.vendorPart.tenant_sku,
+    source_type: 'material',
+    quantity: 10,
+    unit: 'EA',
+    unit_price: 5.25,
+    amount: 52.5,
+    markup_pct: 0.1,
+    assembly_code: 'ASM-001',
+    created_by: 'integration-test',
+  }),
+  updateField: 'source_type',
+  updateValue: 'labor',
+  beforeHook: async () => {
+    const deps = await setupTestDependencies();
+    Object.assign(testContext, deps);
+  },
+  afterHook: cleanupTestDependencies,
 });
+
+// const costLine = await db.costLines.insert(dto);
+// console.log('Cost line created:', costLine);
+
+// await cleanupTestDependencies();
