@@ -29,7 +29,7 @@ for (const file of files) {
     .replace(/[A-Z]/g, letter => '-' + letter.toLowerCase())
     .replace(/^-/, '');
 
-  if (mountPath === 'cost-line') mountPath = 'cl';
+    
 
   router.use(`/${mountPath}`, route);
 }
