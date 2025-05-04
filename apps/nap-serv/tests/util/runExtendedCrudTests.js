@@ -94,6 +94,27 @@ export async function runExtendedCrudTests({
       expect(res.status).toBe(204);
     });
 
+    test(`GET ${routePrefix}/:id with nonexistent ID should return 404`, async () => {
+      const res = await request(server).get(`${routePrefix}/00000000-0000-0000-0000-000000000000`);
+      expect(res.status).toBe(404);
+    });
+
+    test(`PUT ${routePrefix}/:id with nonexistent ID should return 404`, async () => {
+      const res = await request(server)
+        .put(`${routePrefix}/00000000-0000-0000-0000-000000000000`)
+        .send({
+          ...getTestRecord(),
+          [updateField]: updateValue,
+          updated_by: 'integration-test',
+        });
+      expect(res.status).toBe(404);
+    });
+
+    test(`DELETE ${routePrefix}/:id with nonexistent ID should return 404`, async () => {
+      const res = await request(server).delete(`${routePrefix}/00000000-0000-0000-0000-000000000000`);
+      expect(res.status).toBe(404);
+    });
+
     if (typeof extraTests === 'function') {
       describe('Extra tests', () => {
         extraTests(context);
