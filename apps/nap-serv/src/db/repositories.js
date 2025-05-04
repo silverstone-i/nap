@@ -14,13 +14,11 @@ const enabledModules = ['core', 'tenants', 'activities', 'ar']; // TODO: Load dy
 const repositories = {};
 
 for (const moduleName of enabledModules) {
-  // Use dynamic import to load the module  
+  // Use dynamic import to load the module
   const modulePath = `../../modules/${moduleName}/${moduleName}Repositories.js`;
-  // console.log('Loading module:', modulePath);
-  
 
   const { default: moduleRepositories } = await import(modulePath);
-  Object.assign(repositories, moduleRepositories); 
+  Object.assign(repositories, moduleRepositories);
   // console.log('Loaded repositories:', Object.keys(moduleRepositories));
   // console.log('Current repositories:', Object.keys(repositories));
 }
