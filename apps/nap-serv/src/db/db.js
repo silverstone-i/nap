@@ -38,4 +38,6 @@ console.log('\nInitializing database connection...');
 const { db, pgp } = DB.init(DATABASE_URL, repositories);
 console.log('Database connection established.\n');
 
+// console.log('Loaded db models:', Object.keys(db))
+
 export { db, pgp };
