@@ -1,13 +1,15 @@
+
+
 import { jest } from '@jest/globals';
 import { db } from '../../../src/db/db.js';
-import { CostLineController } from '../../../modules/activities/controllers/CostLineController.js';
+import UnitController from '../../../modules/activities/controllers/UnitController.js';
 import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
 
 jest.mock('../../../src/db/db.js');
 
 runControllerCrudUnitTests({
-  name: 'CostLine',
-  controller: CostLineController,
-  modelName: 'costLines',
+  name: 'Unit',
+  controller: UnitController,
+  modelName: 'projectUnits',
   db,
 });
