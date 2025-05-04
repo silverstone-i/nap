@@ -112,6 +112,12 @@ async function runMigrate(
   let sortedKeys = [];
   let validModels = {};
   try {
+    await dbOverride.none(`
+      DROP SCHEMA IF EXISTS admin CASCADE;
+      DROP SCHEMA IF EXISTS tenantid CASCADE;
+      CREATE SCHEMA admin;
+      CREATE SCHEMA tenantid;
+    `);
     validModels = Object.fromEntries(
       Object.entries(dbOverride)
         .filter(([_, model]) => isValidModel(model))
