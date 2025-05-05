@@ -38,6 +38,8 @@ describe('Migration Script', () => {
 
   test('should handle errors during migration and log appropriately', async () => {
     const mockDb = {
+      none: jest.fn().mockResolvedValue(undefined),
+      one: jest.fn().mockResolvedValue({ search_path: 'admin' }),
       'admin.cyclic': {
         schema: {
           dbSchema: 'admin',
@@ -50,7 +52,6 @@ describe('Migration Script', () => {
           throw new Error('Simulated createTable error');
         }),
       },
-      one: jest.fn().mockResolvedValue({ search_path: 'admin' }),
     };
     const mockPgp = { end: jest.fn() };
 
@@ -70,14 +71,17 @@ describe('Migration Script', () => {
 
     // Run migration with only nap_users
     const filteredDb = {
-      'admin.nap_users': napUsersModel,
+      none: jest.fn().mockResolvedValue(undefined),
       one: jest.fn().mockResolvedValue({ search_path: 'admin' }),
+      'admin.nap_users': napUsersModel,
     };
     await migrateScript.runMigrate(filteredDb, pgp, true);
   });
 
   test('should throw an error for cyclic dependencies', async () => {
     const mockDb = {
+      none: jest.fn().mockResolvedValue(undefined),
+      one: jest.fn().mockResolvedValue({ search_path: 'admin' }),
       'admin.a': {
         schemaName: 'admin',
         tableName: 'a',
