@@ -27,11 +27,11 @@ const schema = {
         onDelete: 'CASCADE',
       },
     ],
-    unique: [['tenant_id', 'vendor_id', 'tenant_sku']],
+    unique: [['vendor_id', 'tenant_sku']],
     indexes: [
       {
         type: 'Index',
-        columns: ['tenant_id', 'vendor_id'],
+        columns: ['vendor_id'],
       },
       {
         type: 'Index',
@@ -43,7 +43,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['tenant_id', 'vendor_id', 'tenant_sku', 'version']
+        columns: ['vendor_id', 'tenant_sku', 'version']
       },
     ],
   },

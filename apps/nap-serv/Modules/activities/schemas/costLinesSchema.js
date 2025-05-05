@@ -19,14 +19,14 @@ const schema = {
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['tenant_id', 'activity_id'],
-        references: { table: 'tenantid.activities', columns: ['tenant_id', 'id'] },
+        columns: ['activity_id'],
+        references: { table: 'tenantid.activities', columns: ['id'] },
         onDelete: 'CASCADE',
       },
       {
         type: 'ForeignKey',
-        columns: ['tenant_id', 'vendor_id', 'tenant_sku'],
-        references: { table: 'tenantid.vendorparts', columns: ['tenant_id', 'vendor_id', 'tenant_sku'] },
+        columns: ['vendor_id', 'tenant_sku'],
+        references: { table: 'tenantid.vendorparts', columns: ['vendor_id', 'tenant_sku'] },
         onDelete: 'SET NULL',
       },
       {
@@ -39,7 +39,7 @@ const schema = {
     indexes: [
       {
         type: 'Index',
-        columns: ['tenant_id', 'activity_id'],
+        columns: ['activity_id'],
       },
       {
         type: 'Index',
@@ -59,7 +59,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['tenant_id', 'unit_id', 'vendor_id', 'activity_id', 'tenant_sku']
+        columns: ['unit_id', 'vendor_id', 'activity_id', 'tenant_sku']
       }
     ],
     checks: [

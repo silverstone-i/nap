@@ -19,7 +19,7 @@ const schema = {
     indexes: [
       {
         type: 'Index',
-        columns: ['tenant_id', 'last_name'],
+        columns: ['last_name'],
       },
     ],
   },

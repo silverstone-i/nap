@@ -16,11 +16,11 @@ const schema = {
   version: '1.0.0',
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'category_id'], ['category_id']],
+    unique: [['category_id']],
     indexes: [
       {
         type: 'Index',
-        columns: ['tenant_id', 'category_id'],
+        columns: ['category_id'],
       },
     ],
   },

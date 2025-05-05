@@ -16,45 +16,18 @@ const schema = {
   version: '1.0.0',
   constraints: {
     primaryKey: ['id'],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['mailing_address_id'],
-        references: { table: 'tenantid.addresses', columns: ['id'] },
-        onDelete: 'SET NULL'
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['physical_address_id'],
-        references: { table: 'tenantid.addresses', columns: ['id'] },
-        onDelete: 'SET NULL'
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['accounting_contact_id'],
-        references: { table: 'tenantid.contacts', columns: ['id'] },
-        onDelete: 'SET NULL'
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['sales_contact_id'],
-        references: { table: 'tenantid.contacts', columns: ['id'] },
-        onDelete: 'SET NULL'
-      }
-    ],
-    unique: [['tenant_id', 'name'], ['tenant_id', 'vendor_code']],
+    unique: [['name'], ['vendor_code']],
     indexes: [
       {
         type: 'Index',
-        columns: ['tenant_id', 'name'],
+        columns: ['name'],
       },
       {
         type: 'Index',
-        columns: ['tenant_id', 'vendor_code'],
+        columns: ['vendor_code'],
       },
     ],
   },
-
   columns: [
     {
       name: 'id',

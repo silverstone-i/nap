@@ -30,7 +30,7 @@ const schema = {
         onDelete: 'SET NULL',
       },
     ],
-    unique: [['tenant_id', 'project_code']],
+    unique: [['project_code']],
     indexes: [
       { type: 'Index', columns: ['tenant_id', 'project_code'] },
       { type: 'Index', columns: ['client_id'] },

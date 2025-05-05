@@ -66,7 +66,7 @@ const schema = {
     ],
     indexes: [
       { type: 'Index', columns: ['category_id'] },
-      { type: 'Index', columns: ['tenant_id', 'activity_code'] }, // ✅ fixed here
+      { type: 'Index', columns: ['activity_code'] },
     ],
   },
 };

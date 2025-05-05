@@ -48,7 +48,7 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'unit_code']],
+    unique: [['unit_code']],
     checks: [
       {
         type: 'Check',
@@ -56,7 +56,7 @@ const schema = {
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['tenant_id', 'unit_code'] }
+      { type: 'Index', columns: ['unit_code'] }
     ]
   }
 };
