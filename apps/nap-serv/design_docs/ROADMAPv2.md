@@ -19,7 +19,7 @@ This document combines the full development roadmap for nap-serve and the curren
 
 ---
 
-## 📊 Phase 2: Project Costing Engine 🛠️ In Progress
+## 📊 Phase 2: Project Costing Engine ✅ Complete
 
 ### Goals:
 - Support core activity code structure and project budgeting
@@ -31,6 +31,16 @@ This document combines the full development roadmap for nap-serve and the curren
 - Budget table per project/account/activity
 - Budget input and revision endpoints
 - Projects table is currently managed within the activities module to support integrated costing and profitability reporting; may migrate to a dedicated project management module in a future phase.
+
+✅ Phase 2 Complete: Core project costing engine implemented with tested integration of units, activities, budgets, and cost lines. Integration tests validate data aggregation and relational integrity. Business logic deferred to Phase 5.
+
+### Remaining Technical Tasks (Pre-Business Logic)
+
+- [x] Complete model integration between `project_unit_budgets`, `activities`, and `cost_lines`
+- [x] Add API endpoints for `project_unit_budgets`
+- [x] Support POST and GET routes to seed and fetch budget rows per activity
+- [x] Verify cost line schema can support downstream accounting references (e.g., GL mapping)
+- [x] Implement basic costing data aggregation queries for summaries (project-level, category-level)
 
 ---
 
@@ -61,7 +71,20 @@ This document combines the full development roadmap for nap-serve and the curren
 
 ---
 
-## 📈 Phase 5: Consolidated Reporting 🚧 Not Started
+## ⚙️ Phase 5: Project & Accounting Logic 🚧 Not Started
+
+### Goals:
+- Implement domain-specific rules for costing, approvals, and GL integration
+
+### Deliverables:
+- Budget → Actual status transitions
+- Activity ↔ GL/account mapping logic
+- Posting rules for cost_lines, actuals, and change_orders
+- Full integration tests for costing workflows
+
+---
+
+## 📈 Phase 6: Consolidated Reporting 🚧 Not Started
 
 ### Goals:
 - Generate financial reports across companies and projects with eliminations
@@ -75,7 +98,7 @@ This document combines the full development roadmap for nap-serve and the curren
 
 ---
 
-## 🔐 Phase 6: Security & Roles 🚧 Not Started
+## 🔐 Phase 7: Security & Roles 🚧 Not Started
 
 ### Goals:
 - Implement secure and permission-aware system behavior
@@ -87,7 +110,7 @@ This document combines the full development roadmap for nap-serve and the curren
 
 ---
 
-## 🧪 Phase 7: QA, Hardening, and Beta Release 🚧 Not Started
+## 🧪 Phase 8: QA, Hardening, and Beta Release 🚧 Not Started
 
 ### Goals:
 - Prepare system for initial user adoption
