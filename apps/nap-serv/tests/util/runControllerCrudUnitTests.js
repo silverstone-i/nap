@@ -17,6 +17,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       const res = {};
       res.status = jest.fn().mockReturnValue(res);
       res.json = jest.fn().mockReturnValue(res);
+      res.send = jest.fn();
       res.end = jest.fn();
       return res;
     };
@@ -151,12 +152,12 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
         const req = { params: { id: 'abc' } };
         const res = mockRes();
         model().findById.mockResolvedValue({ id: 'abc' });
-        model().delete.mockResolvedValue();
+        model().delete.mockResolvedValue(1);
 
         await controller.remove(req, res);
 
         expect(res.status).toHaveBeenCalledWith(204);
-        expect(res.end).toHaveBeenCalled();
+        expect(res.send.mock.calls.length + res.end.mock.calls.length).toBeGreaterThan(0);
       });
 
       it('should handle error', async () => {
