@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import TenantController from '../../../modules/tenants/controllers/TenantController.js';
+import TenantsController from '../../../modules/tenants/controllers/TenantsController.js';
 import { db } from '../../../src/db/db.js';
 
 beforeAll(() => {
@@ -14,7 +14,7 @@ afterAll(() => {
 
 jest.mock('../../../src/db/db.js');
 
-describe('TenantController', () => {
+describe('TenantsController', () => {
   const mockRes = () => {
     const res = {};
     res.status = jest.fn().mockReturnValue(res);
@@ -42,7 +42,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.insert.mockResolvedValue(req.body);
 
-      await TenantController.create(req, res);
+      await TenantsController.create(req, res);
 
       expect(db.tenants.insert).toHaveBeenCalledWith(req.body);
       expect(res.status).toHaveBeenCalledWith(201);
@@ -54,7 +54,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.insert.mockRejectedValue(new Error('Insert error'));
 
-      await TenantController.create(req, res);
+      await TenantsController.create(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: 'Insert error' });
@@ -68,7 +68,7 @@ describe('TenantController', () => {
       const tenants = [{ id: 1 }, { id: 2 }];
       db.tenants.findAll.mockResolvedValue(tenants);
 
-      await TenantController.getAll(req, res);
+      await TenantsController.getAll(req, res);
 
       expect(res.json).toHaveBeenCalledWith(tenants);
     });
@@ -78,7 +78,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.findAll.mockRejectedValue(new Error('Find error'));
 
-      await TenantController.getAll(req, res);
+      await TenantsController.getAll(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
@@ -92,7 +92,7 @@ describe('TenantController', () => {
       const tenant = { id: 'abc' };
       db.tenants.findById.mockResolvedValue(tenant);
 
-      await TenantController.getById(req, res);
+      await TenantsController.getById(req, res);
 
       expect(res.json).toHaveBeenCalledWith(tenant);
     });
@@ -102,7 +102,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.findById.mockResolvedValue(null);
 
-      await TenantController.getById(req, res);
+      await TenantsController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: 'Tenant not found' });
@@ -113,7 +113,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.findById.mockRejectedValue(new Error('Find error'));
 
-      await TenantController.getById(req, res);
+      await TenantsController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
@@ -127,7 +127,7 @@ describe('TenantController', () => {
       const updatedTenant = { id: 'abc', name: 'Updated Tenant' };
       db.tenants.update.mockResolvedValue(updatedTenant);
 
-      await TenantController.update(req, res);
+      await TenantsController.update(req, res);
 
       expect(db.tenants.update).toHaveBeenCalledWith('abc', { name: 'Updated Tenant' });
       expect(res.json).toHaveBeenCalledWith(updatedTenant);
@@ -138,7 +138,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.update.mockRejectedValue(new Error('Update error'));
 
-      await TenantController.update(req, res);
+      await TenantsController.update(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: 'Update error' });
@@ -151,7 +151,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.delete.mockResolvedValue();
 
-      await TenantController.remove(req, res);
+      await TenantsController.remove(req, res);
 
       expect(db.tenants.delete).toHaveBeenCalledWith('abc');
       expect(res.status).toHaveBeenCalledWith(204);
@@ -163,7 +163,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.delete.mockRejectedValue(new Error('Delete error'));
 
-      await TenantController.remove(req, res);
+      await TenantsController.remove(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ error: 'Delete error' });
@@ -177,7 +177,7 @@ describe('TenantController', () => {
       const allowedModules = ['accounting', 'projects'];
       db.tenants.getAllowedModulesById.mockResolvedValue(allowedModules);
 
-      await TenantController.getAllAllowedModules(req, res);
+      await TenantsController.getAllAllowedModules(req, res);
 
       expect(db.tenants.getAllowedModulesById).toHaveBeenCalledWith('abc');
       expect(res.json).toHaveBeenCalledWith({ allowed_modules: allowedModules });
@@ -188,7 +188,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.getAllowedModulesById.mockResolvedValue(null);
 
-      await TenantController.getAllAllowedModules(req, res);
+      await TenantsController.getAllAllowedModules(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: 'Tenant not found' });
@@ -199,7 +199,7 @@ describe('TenantController', () => {
       const res = mockRes();
       db.tenants.getAllowedModulesById.mockRejectedValue(new Error('Find error'));
 
-      await TenantController.getAllAllowedModules(req, res);
+      await TenantsController.getAllAllowedModules(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });

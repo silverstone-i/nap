@@ -1,8 +1,5 @@
-
-
-
 import { jest } from '@jest/globals';
-import { VendorController } from '../../../modules/core/controllers/VendorController.js';
+import NapUsersController from '../../../modules/tenants/controllers/NapUsersController.js';
 import { db } from '../../../src/db/db.js';
 
 beforeAll(() => {
@@ -17,7 +14,7 @@ afterAll(() => {
 
 jest.mock('../../../src/db/db.js');
 
-describe('VendorController', () => {
+describe('NapUsersController', () => {
   const mockRes = () => {
     const res = {};
     res.status = jest.fn().mockReturnValue(res);
@@ -27,7 +24,7 @@ describe('VendorController', () => {
   };
 
   beforeEach(() => {
-    db.vendors = {
+    db.napUsers = {
       insert: jest.fn(),
       findAll: jest.fn(),
       findById: jest.fn(),
@@ -39,14 +36,20 @@ describe('VendorController', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('create', () => {
-    it('should insert a vendor and return 201', async () => {
-      const req = { body: { name: 'Test Vendor', created_by: 'Tester' } };
+    it('should insert a user and return 201', async () => {
+      const req = {
+        body: {
+          email: 'test@example.com',
+          password_hash: 'secret',
+          created_by: 'Test',
+        },
+      };
       const res = mockRes();
-      db.vendors.insert.mockResolvedValue(req.body);
+      db.napUsers.insert.mockResolvedValue(req.body);
 
-      await VendorController.create(req, res);
+      await NapUsersController.create(req, res);
 
-      expect(db.vendors.insert).toHaveBeenCalledWith(req.body);
+      expect(db.napUsers.insert).toHaveBeenCalledWith(req.body);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(req.body);
     });
@@ -54,33 +57,33 @@ describe('VendorController', () => {
     it('should handle insertion error', async () => {
       const req = { body: {} };
       const res = mockRes();
-      db.vendors.insert.mockRejectedValue(new Error('Insert error'));
+      db.napUsers.insert.mockRejectedValue(new Error('Insert error'));
 
-      await VendorController.create(req, res);
+      await NapUsersController.create(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: 'Insert error' });
     });
   });
 
   describe('getAll', () => {
-    it('should return all vendors', async () => {
+    it('should return all users', async () => {
       const req = {};
       const res = mockRes();
-      const vendors = [{ id: 1 }, { id: 2 }];
-      db.vendors.findAll.mockResolvedValue(vendors);
+      const users = [{ id: 1 }, { id: 2 }];
+      db.napUsers.findAll.mockResolvedValue(users);
 
-      await VendorController.getAll(req, res);
+      await NapUsersController.getAll(req, res);
 
-      expect(res.json).toHaveBeenCalledWith(vendors);
+      expect(res.json).toHaveBeenCalledWith(users);
     });
 
     it('should handle error on getAll', async () => {
       const req = {};
       const res = mockRes();
-      db.vendors.findAll.mockRejectedValue(new Error('Find error'));
+      db.napUsers.findAll.mockRejectedValue(new Error('Find error'));
 
-      await VendorController.getAll(req, res);
+      await NapUsersController.getAll(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
@@ -88,34 +91,34 @@ describe('VendorController', () => {
   });
 
   describe('getById', () => {
-    it('should return vendor by ID', async () => {
+    it('should return user by ID', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      const vendor = { id: 'abc' };
-      db.vendors.findById.mockResolvedValue(vendor);
+      const user = { id: 'abc' };
+      db.napUsers.findById.mockResolvedValue(user);
 
-      await VendorController.getById(req, res);
+      await NapUsersController.getById(req, res);
 
-      expect(res.json).toHaveBeenCalledWith(vendor);
+      expect(res.json).toHaveBeenCalledWith(user);
     });
 
-    it('should return 404 if vendor not found', async () => {
+    it('should return 404 if user not found', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      db.vendors.findById.mockResolvedValue(null);
+      db.napUsers.findById.mockResolvedValue(null);
 
-      await VendorController.getById(req, res);
+      await NapUsersController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Vendor not found' });
+      expect(res.json).toHaveBeenCalledWith({ error: 'User not found' });
     });
 
     it('should handle error on getById', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      db.vendors.findById.mockRejectedValue(new Error('Find error'));
+      db.napUsers.findById.mockRejectedValue(new Error('Find error'));
 
-      await VendorController.getById(req, res);
+      await NapUsersController.getById(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ error: 'Find error' });
@@ -123,40 +126,39 @@ describe('VendorController', () => {
   });
 
   describe('update', () => {
-    it('should update and return vendor', async () => {
-      const req = { params: { id: 'abc' }, body: { name: 'Updated' } };
+    it('should update and return user', async () => {
+      const req = { params: { id: 'abc' }, body: { email: 'updated' } };
       const res = mockRes();
-      const updatedVendor = { id: 'abc', name: 'Updated' };
-      db.vendors.update.mockResolvedValue(updatedVendor);
+      const updatedUser = { id: 'abc', email: 'updated' };
+      db.napUsers.update.mockResolvedValue(updatedUser);
 
-      await VendorController.update(req, res);
+      await NapUsersController.update(req, res);
 
-      expect(db.vendors.update).toHaveBeenCalledWith('abc', { name: 'Updated' });
-      expect(res.json).toHaveBeenCalledWith(updatedVendor);
+      expect(db.napUsers.update).toHaveBeenCalledWith('abc', { email: 'updated' });
+      expect(res.json).toHaveBeenCalledWith(updatedUser);
     });
 
     it('should handle update error', async () => {
       const req = { params: { id: 'abc' }, body: {} };
       const res = mockRes();
-      db.vendors.update.mockRejectedValue(new Error('Update error'));
+      db.napUsers.update.mockRejectedValue(new Error('Update error'));
 
-      await VendorController.update(req, res);
+      await NapUsersController.update(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: 'Update error' });
     });
   });
 
   describe('remove', () => {
-    it('should delete vendor and return 204', async () => {
+    it('should delete user and return 204', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      db.vendors.findById.mockResolvedValue({ id: 'abc' });
-      db.vendors.delete.mockResolvedValue();
+      db.napUsers.delete.mockResolvedValue();
 
-      await VendorController.remove(req, res);
+      await NapUsersController.remove(req, res);
 
-      expect(db.vendors.delete).toHaveBeenCalledWith('abc');
+      expect(db.napUsers.delete).toHaveBeenCalledWith('abc');
       expect(res.status).toHaveBeenCalledWith(204);
       expect(res.end).toHaveBeenCalled();
     });
@@ -164,10 +166,9 @@ describe('VendorController', () => {
     it('should handle delete error', async () => {
       const req = { params: { id: 'abc' } };
       const res = mockRes();
-      db.vendors.findById.mockResolvedValue({ id: 'abc' });
-      db.vendors.delete.mockRejectedValue(new Error('Delete error'));
+      db.napUsers.delete.mockRejectedValue(new Error('Delete error'));
 
-      await VendorController.remove(req, res);
+      await NapUsersController.remove(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ error: 'Delete error' });
