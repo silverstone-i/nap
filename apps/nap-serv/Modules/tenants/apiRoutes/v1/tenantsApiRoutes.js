@@ -30,9 +30,6 @@ for (const file of files) {
     .replace(/[A-Z]/g, letter => '-' + letter.toLowerCase()) // camelCase to kebab-case
     .replace(/^-/, '');
 
-  if (mountPath === 'nap-user') mountPath = 'users';
-  if (mountPath === 'tenant') mountPath = 'tenants';
-
   router.use(`/${mountPath}`, route);
 }
 
