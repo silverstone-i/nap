@@ -2,31 +2,33 @@
 
 _Not Another Program_ — Project Costing & Profitability Server
 
-[![npm version](https://img.shields.io/npm/v/nap-serve.svg)](https://www.npmjs.com/package/nap-serve)
-[![build status](https://img.shields.io/github/actions/workflow/status/your-username/pg-schemata/ci.yml?branch=main)](https://github.com/your-username/nap-serve/actions)
+[![npm version](https://img.shields.io/npm/v/nap-serv.svg)](https://www.npmjs.com/package/nap-serv)
+[![build status](https://img.shields.io/github/actions/workflow/status/your-username/pg-schemata/ci.yml?branch=main)](https://github.com/your-username/nap-serv/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
 [![postgresql](https://img.shields.io/badge/PostgreSQL-✔️-blue)](https://www.postgresql.org/)
 [![node](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
-[![Coverage Status](https://coveralls.io/repos/github/your-org/nap-serve/badge.svg?branch=main)](https://coveralls.io/github/your-org/nap-serve?branch=main)
-[![Docs](https://img.shields.io/badge/docs-online-brightgreen)](https://your-org.github.io/nap-serve/)
+[![Coverage Status](https://coveralls.io/repos/github/your-org/nap-serv/badge.svg?branch=main)](https://coveralls.io/github/your-org/nap-serv?branch=main)
+[![Docs](https://img.shields.io/badge/docs-online-brightgreen)](https://your-org.github.io/nap-serv/)
 
 ---
 
 ## Overview
 
-`nap-serv` is the backend server for a PERN-stack application that tracks project costs, schedules, client payments, and overall profitability. It includes a full-featured double-entry bookkeeping system with General Ledger, Accounts Payable, and Accounts Receivable support.
+`nap-serv` is the backend server for a PERN-stack project-based cost management platform. It supports multi-tenant operations, project budgeting vs. actual cost tracking, double-entry accounting, and centralized user authentication via `nap_users`.
 
 ## Features
 
-- 🔐 Auth with JWT, session timeout, and banking-style inactivity warnings
-- 📊 Project-level costing, activity tracking, profitability analysis
-- 📅 Schedule management and billing cycles
-- 🧾 Full double-entry bookkeeping:
+- 🧑‍💼 Multi-tenant architecture with per-tenant PostgreSQL schemas
+- 🔐 Centralized authentication with JWT/session and `nap_users` table
+- 📊 Project-level budgeting, costing, and profitability tracking
+- 🛠️ Activity-based cost rollups and actual vs. budget comparisons
+- 💰 Double-entry bookkeeping system:
   - General Ledger
   - Accounts Payable / Receivable
-- 📦 Modular design using PostgreSQL, Express, Node.js (ESM)
-- ✏️ Future: AI reporting, dashboards, and cost estimating
+- 📆 Schedule management and billing cycle integration
+- 📦 Modular design (PostgreSQL + Express + Node.js)
+- 🧠 Planned: AI-powered reporting and cost estimation tools
 
 ## Tech Stack
 
@@ -47,7 +49,7 @@ nap/
 ## Getting Started
 
 ```bash
-git clone https://github.com/your-org/nap-serve.git
+git clone https://github.com/your-org/nap-serv.git
 cd nap-serv
 npm install
 npm run dev
@@ -69,7 +71,7 @@ npm run docs
 ```
 
 Documentation is published at:  
-👉 [https://your-org.github.io/nap-serve](https://your-org.github.io/nap-serve)
+👉 [https://your-org.github.io/nap-serv](https://your-org.github.io/nap-serv)
 
 ## License
 
