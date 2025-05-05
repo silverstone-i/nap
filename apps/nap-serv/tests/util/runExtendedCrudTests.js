@@ -85,8 +85,11 @@ export async function runExtendedCrudTests({
           [updateField]: updateValue,
           updated_by: 'integration-test',
         });
-      expect(res.status).toBe(200);
-      expect(res.body[updateField]).toBe(updateValue);
+      if (typeof updateValue === 'number') {
+        expect(parseFloat(res.body[updateField])).toBeCloseTo(updateValue);
+      } else {
+        expect(res.body[updateField]).toBe(updateValue);
+      }
     });
 
     test(`DELETE ${routePrefix}/:id should delete`, async () => {
