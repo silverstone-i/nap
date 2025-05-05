@@ -11,65 +11,65 @@
 
 import { db } from '../../../src/db/db.js';
 
-const ContactController = {
+const AddressController = {
   async create(req, res) {
     try {
-      const contact = await db.contacts.insert(req.body);
-      res.status(201).json(contact);
+      const address = await db.addresses.insert(req.body);
+      res.status(201).json(address);
     } catch (err) {
-      console.error('Error creating contact:', err);
+      console.error('Error creating address:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getAll(req, res) {
     try {
-      const contacts = await db.contacts.findAll();
-      res.json(contacts);
+      const addresses = await db.addresses.findAll();
+      res.json(addresses);
     } catch (err) {
-      console.error('Error fetching contacts:', err);
+      console.error('Error fetching addresses:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async getById(req, res) {
     try {
-      const contact = await db.contacts.findById(req.params.id);
-      if (!contact) {
+      const address = await db.addresses.findById(req.params.id);
+      if (!address) {
         return res.status(404).json({ error: 'Not found' });
       }
-      res.json(contact);
+      res.json(address);
     } catch (err) {
-      console.error('Error fetching contact by ID:', err);
+      console.error('Error fetching address by ID:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async update(req, res) {
     try {
-      const updated = await db.contacts.update(req.params.id, req.body);
+      const updated = await db.addresses.update(req.params.id, req.body);
       if (!updated) {
         return res.status(404).json({ error: 'Not found' });
       }
       res.json(updated);
     } catch (err) {
-      console.error('Error updating contact:', err);
+      console.error('Error updating address:', err);
       res.status(500).json({ error: err.message });
     }
   },
 
   async remove(req, res) {
     try {
-      const deleted = await db.contacts.remove(req.params.id);
-      if (!deleted) {
+      const removed = await db.addresses.delete(req.params.id);
+      if (!removed) {
         return res.status(404).json({ error: 'Not found' });
       }
       res.status(204).send();
     } catch (err) {
-      console.error('Error deleting contact:', err);
+      console.error('Error deleting address:', err);
       res.status(500).json({ error: err.message });
     }
   }
 };
 
-export default ContactController;
+export default AddressController;
