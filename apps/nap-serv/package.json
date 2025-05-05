@@ -45,6 +45,10 @@
     "test:activities": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities --coverage",
     "test:activities:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/unit --coverage",
     "test:activities:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/integration --coverage",
+    "test:accounting": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities --coverage",
+    "test:accountin:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/unit --coverage",
+    "test:accounting:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/integration --coverage",
+
     "dev": "cross-env NODE_ENV=development nodemon --delay 5 server.js",
     "start": "cross-env NODE_ENV=production node server.js"
   },
