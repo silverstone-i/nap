@@ -59,7 +59,7 @@ export const NapUserController = {
   async remove(req, res) {
     try {
       const deleted = await db.napUsers.delete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: 'User not found' });
+      if (deleted === 0) return res.status(404).json({ error: 'User not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting user:', err);

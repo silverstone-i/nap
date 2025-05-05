@@ -17,7 +17,6 @@ const TenantController = {
       const tenant = await db.tenants.insert(req.body);
 
       console.log('Tenant created with id:', tenant.id);
-      
 
       res.status(201).json(tenant);
     } catch (err) {
@@ -59,7 +58,8 @@ const TenantController = {
   async remove(req, res) {
     try {
       const deleted = await db.tenants.delete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: 'Tenant not found' });
+      if (deleted === 0)
+        return res.status(404).json({ error: 'Tenant not found' });
       res.status(204).end();
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -68,10 +68,13 @@ const TenantController = {
 
   async getAllAllowedModules(req, res) {
     console.log('Fetching allowed modules for tenant ID:', req.params.id);
-    
+
     try {
-      const allowedModules = await db.tenants.getAllowedModulesById(req.params.id);
-      if (!allowedModules) return res.status(404).json({ error: 'Tenant not found' });
+      const allowedModules = await db.tenants.getAllowedModulesById(
+        req.params.id
+      );
+      if (!allowedModules)
+        return res.status(404).json({ error: 'Tenant not found' });
       res.json({ allowed_modules: allowedModules });
     } catch (err) {
       console.error('Error fetching allowed modules:', err);

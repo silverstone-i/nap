@@ -35,7 +35,7 @@ const UnitBudgetsController = {
   async getById(req, res) {
     try {
       const row = await db.unitBudgets.findById(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Unit budget not found' });
+      if (!row) return res.status(404).json({ error: 'Unit budgets not found' });
       res.json(row);
     } catch (err) {
       console.error('Error fetching project unit budget by id:', err);
@@ -46,7 +46,7 @@ const UnitBudgetsController = {
   async update(req, res) {
     try {
       const updated = await db.unitBudgets.update(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: 'Unit budget not found' });
+      if (!updated) return res.status(404).json({ error: 'Unit budgets not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating project unit budget:', err);
@@ -57,7 +57,7 @@ const UnitBudgetsController = {
   async remove(req, res) {
     try {
       const result = await db.unitBudgets.delete(req.params.id);
-      if (!result) return res.status(404).json({ error: 'Unit budget not found' });
+      if (!result) return res.status(404).json({ error: 'Unit budgets not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting project unit budget:', err);

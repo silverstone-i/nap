@@ -11,7 +11,7 @@
 
 import { db } from '../../../src/db/db.js';
 
-const AddressController = {
+const AddressesController = {
   async create(req, res) {
     try {
       const address = await db.addresses.insert(req.body);
@@ -36,7 +36,7 @@ const AddressController = {
     try {
       const address = await db.addresses.findById(req.params.id);
       if (!address) {
-        return res.status(404).json({ error: 'Not found' });
+        return res.status(404).json({ error: 'Addresses not found' });
       }
       res.json(address);
     } catch (err) {
@@ -49,7 +49,7 @@ const AddressController = {
     try {
       const updated = await db.addresses.update(req.params.id, req.body);
       if (!updated) {
-        return res.status(404).json({ error: 'Not found' });
+        return res.status(404).json({ error: 'Addresses not found' });
       }
       res.json(updated);
     } catch (err) {
@@ -61,10 +61,10 @@ const AddressController = {
   async remove(req, res) {
     try {
       const removed = await db.addresses.delete(req.params.id);
-      if (!removed) {
-        return res.status(404).json({ error: 'Not found' });
+      if (removed === 0) {
+        return res.status(404).json({ error: 'Addresses not found' });
       }
-      res.status(204).send();
+      res.status(204).end();
     } catch (err) {
       console.error('Error deleting address:', err);
       res.status(500).json({ error: err.message });
@@ -72,4 +72,4 @@ const AddressController = {
   }
 };
 
-export default AddressController;
+export default AddressesController;

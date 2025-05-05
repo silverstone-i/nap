@@ -40,7 +40,7 @@ export const CostLinesController = {
     try {
       const costLine = await db.costLines.findById(req.params.id);
       if (!costLine)
-        return res.status(404).json({ error: 'Cost line not found' });
+        return res.status(404).json({ error: 'Cost lines not found' });
       res.json(costLine);
     } catch (err) {
       console.error('Error fetching cost line:', err);
@@ -52,7 +52,7 @@ export const CostLinesController = {
     try {
       const updated = await db.costLines.update(req.params.id, req.body);
       if (!updated)
-        return res.status(404).json({ error: 'Cost line not found' });
+        return res.status(404).json({ error: 'Cost lines not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating cost line:', err);
@@ -65,7 +65,7 @@ export const CostLinesController = {
       // Check if the costLine exists before attempting to delete
       const costLine = await db.costLines.findById(req.params.id);
       if (!costLine)
-        return res.status(404).json({ error: 'Cost line not found' });
+        return res.status(404).json({ error: 'Cost lines not found' });
 
       await db.costLines.delete(req.params.id);
       res.status(204).end();

@@ -11,7 +11,7 @@
 
 import { db } from '../../../src/db/db.js';
 
-export const VendorController = {
+export const VendorsController = {
   async create(req, res) {
     try {
       const vendor = await db.vendors.insert(req.body);
@@ -60,7 +60,7 @@ export const VendorController = {
   async remove(req, res) {
     try {
       const deleted = await db.vendors.delete(req.params.id);
-      if (!deleted) {
+      if (deleted === 0) {
         return res.status(404).json({ error: 'Vendor not found' });
       }
       res.status(204).end();
@@ -71,4 +71,4 @@ export const VendorController = {
   },
 };
 
-export default VendorController;
+export default VendorsController;

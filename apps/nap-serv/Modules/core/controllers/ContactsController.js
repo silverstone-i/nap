@@ -36,7 +36,7 @@ const ContactController = {
     try {
       const contact = await db.contacts.findById(req.params.id);
       if (!contact) {
-        return res.status(404).json({ error: 'Not found' });
+        return res.status(404).json({ error: 'Contacts not found' });
       }
       res.json(contact);
     } catch (err) {
@@ -49,7 +49,7 @@ const ContactController = {
     try {
       const updated = await db.contacts.update(req.params.id, req.body);
       if (!updated) {
-        return res.status(404).json({ error: 'Not found' });
+        return res.status(404).json({ error: 'Contacts not found' });
       }
       res.json(updated);
     } catch (err) {
@@ -62,9 +62,9 @@ const ContactController = {
     try {
       const deleted = await db.contacts.delete(req.params.id);
       if (!deleted) {
-        return res.status(404).json({ error: 'Not found' });
+        return res.status(404).json({ error: 'Contacts not found' });
       }
-      res.status(204).send();
+      res.status(204).end();
     } catch (err) {
       console.error('Error deleting contact:', err);
       res.status(500).json({ error: err.message });

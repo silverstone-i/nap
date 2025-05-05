@@ -38,7 +38,7 @@ const VendorPartsController = {
     try {
       const part = await db.vendorParts.findById(req.params.id);
       if (!part) {
-        return res.status(404).json({ error: 'Vendor part not found' });
+        return res.status(404).json({ error: 'Vendor parts not found' });
       }
       res.json(part);
     } catch (err) {
@@ -51,7 +51,7 @@ const VendorPartsController = {
     try {
       const updated = await db.vendorParts.update(req.params.id, req.body);
       if (!updated) {
-        return res.status(404).json({ error: 'Vendor part not found' });
+        return res.status(404).json({ error: 'Vendor parts not found' });
       }
       res.json(updated);
     } catch (err) {
@@ -64,7 +64,7 @@ const VendorPartsController = {
     try {
       const deleted = await db.vendorParts.delete(req.params.id);
       if (!deleted) {
-        return res.status(404).json({ error: 'Vendor part not found' });
+        return res.status(404).json({ error: 'Vendor parts not found' });
       }
       res.status(204).end();
     } catch (err) {

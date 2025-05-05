@@ -39,7 +39,7 @@ const UnitsController = {
   async getById(req, res) {
     try {
       const row = await db.units.findById(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Unit not found' });
+      if (!row) return res.status(404).json({ error: 'Units not found' });
       res.json(row);
     } catch (err) {
       console.error('Error fetching unit by id:', err);
@@ -50,7 +50,7 @@ const UnitsController = {
   async update(req, res) {
     try {
       const updated = await db.units.update(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: 'Unit not found' });
+      if (!updated) return res.status(404).json({ error: 'Units not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating unit:', err);
@@ -61,7 +61,7 @@ const UnitsController = {
   async remove(req, res) {
     try {
       const deleted = await db.units.delete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: 'Unit not found' });
+      if (!deleted) return res.status(404).json({ error: 'Units not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting unit:', err);

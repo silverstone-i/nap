@@ -36,7 +36,7 @@ const ProjectsController = {
     try {
       const project = await db.projects.findById(req.params.id);
       if (!project) {
-        return res.status(404).json({ error: 'Project not found' });
+        return res.status(404).json({ error: 'Projects not found' });
       }
       res.json(project);
     } catch (err) {
@@ -49,7 +49,7 @@ const ProjectsController = {
     try {
       const updated = await db.projects.update(req.params.id, req.body);
       if (!updated) {
-        return res.status(404).json({ error: 'Project not found' });
+        return res.status(404).json({ error: 'Projects not found' });
       }
       res.json(updated);
     } catch (err) {
@@ -62,7 +62,7 @@ const ProjectsController = {
     try {
       const deleted = await db.projects.delete(req.params.id);
       if (!deleted) {
-        return res.status(404).json({ error: 'Project not found' });
+        return res.status(404).json({ error: 'Projects not found' });
       }
       res.status(204).end();
     } catch (err) {

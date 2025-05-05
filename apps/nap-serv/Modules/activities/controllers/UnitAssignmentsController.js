@@ -35,7 +35,7 @@ const UnitAssignmentsController = {
   async getById(req, res) {
     try {
       const row = await db.unitAssignments.findById(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Unit assignment not found' });
+      if (!row) return res.status(404).json({ error: 'Unit assignments not found' });
       res.json(row);
     } catch (err) {
       console.error('Error fetching project unit assignment by id:', err);
@@ -46,7 +46,7 @@ const UnitAssignmentsController = {
   async update(req, res) {
     try {
       const updated = await db.unitAssignments.update(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: 'Unit assignment not found' });
+      if (!updated) return res.status(404).json({ error: 'Unit assignments not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating project unit assignment:', err);
@@ -57,7 +57,7 @@ const UnitAssignmentsController = {
   async remove(req, res) {
     try {
       const deleted = await db.unitAssignments.delete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: 'Unit assignment not found' });
+      if (!deleted) return res.status(404).json({ error: 'Unit assignments not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting project unit assignment:', err);

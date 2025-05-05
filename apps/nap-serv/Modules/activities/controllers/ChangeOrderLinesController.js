@@ -35,7 +35,7 @@ const ChangeOrderLinesController = {
   async getById(req, res) {
     try {
       const row = await db.changeOrderLines.findById(req.params.id);
-      if (!row) return res.status(404).json({ error: 'Change order line not found' });
+      if (!row) return res.status(404).json({ error: 'Change order lines not found' });
       res.json(row);
     } catch (err) {
       console.error('Error fetching change order line by id:', err);
@@ -46,7 +46,7 @@ const ChangeOrderLinesController = {
   async update(req, res) {
     try {
       const updated = await db.changeOrderLines.update(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: 'Change order line not found' });
+      if (!updated) return res.status(404).json({ error: 'Change order lines not found' });
       res.json(updated);
     } catch (err) {
       console.error('Error updating change order line:', err);
@@ -57,7 +57,7 @@ const ChangeOrderLinesController = {
   async remove(req, res) {
     try {
       const deleted = await db.changeOrderLines.delete(req.params.id);
-      if (!deleted) return res.status(404).json({ error: 'Change order line not found' });
+      if (!deleted) return res.status(404).json({ error: 'Change order lines not found' });
       res.status(204).end();
     } catch (err) {
       console.error('Error deleting change order line:', err);
