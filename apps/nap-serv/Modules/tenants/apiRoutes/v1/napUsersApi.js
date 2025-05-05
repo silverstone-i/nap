@@ -10,20 +10,20 @@
 */
 
 import { Router } from 'express';
-import NapUserController from '../../controllers/NapUserController.js';
+import NapUsersController from '../../controllers/NapUsersController.js';
 
 const router = Router();
 
 
 router
   .route('/')
-  .post(NapUserController.create)
-  .get(NapUserController.getAll);
+  .post(NapUsersController.create)
+  .get(NapUsersController.getAll);
 
 router
   .route('/:id')
-  .get(NapUserController.getById)
-  .put(NapUserController.update)
-  .delete(NapUserController.remove);
+  .get(NapUsersController.getById)
+  .put(NapUsersController.update)
+  .delete(NapUsersController.remove);
 
 export default router;

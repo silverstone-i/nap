@@ -30,8 +30,6 @@ for (const file of files) {
     .replace(/[A-Z]/g, letter => '-' + letter.toLowerCase())
     .replace(/^-/, '');
 
-  if (mountPath === 'vendor') mountPath = 'vendors';
-
   router.use(`/${mountPath}`, route);
 }
 

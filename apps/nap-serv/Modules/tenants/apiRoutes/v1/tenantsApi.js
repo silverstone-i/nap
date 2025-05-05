@@ -10,19 +10,23 @@
 */
 
 import express from 'express';
-import VendorController from '../../controllers/VendorController.js';
+import TenantsController from '../../controllers/TenantsController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(VendorController.create)
-  .get(VendorController.getAll);
+  .post(TenantsController.create)
+  .get(TenantsController.getAll);
 
 router
   .route('/:id')
-  .get(VendorController.getById)
-  .put(VendorController.update)
-  .delete(VendorController.remove);
+  .get(TenantsController.getById)
+  .put(TenantsController.update)
+  .delete(TenantsController.remove);
+
+router
+  .route('/:id/modules')
+  .get(TenantsController.getAllAllowedModules);
 
 export default router;

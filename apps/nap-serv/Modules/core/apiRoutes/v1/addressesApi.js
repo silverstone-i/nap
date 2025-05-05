@@ -12,7 +12,7 @@
  */
 
 import express from 'express';
-import AddressesController from '../../controllers/AddressController.js';
+import AddressesController from '../../controllers/AddressesController.js';
 
 const router = express.Router();
 

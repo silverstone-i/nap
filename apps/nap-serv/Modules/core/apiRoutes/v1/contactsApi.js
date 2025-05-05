@@ -10,19 +10,19 @@
  */
 
 import express from 'express';
-import ContactController from '../../controllers/ContactController.js';
+import ContactsController from '../../controllers/ContactsController.js';
 
 const router = express.Router();
 
 router
 .route('/')
-.post(ContactController.create)
-.get(ContactController.getAll);
+.post(ContactsController.create)
+.get(ContactsController.getAll);
 
 router
 .route('/:id')
-.get(ContactController.getById)
-.put(ContactController.update)
-.delete(ContactController.remove);
+.get(ContactsController.getById)
+.put(ContactsController.update)
+.delete(ContactsController.remove);
 
 export default router;
