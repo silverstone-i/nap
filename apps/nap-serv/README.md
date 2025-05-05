@@ -1,4 +1,4 @@
-# nap-serve
+# nap-serv
 
 _Not Another Program_ — Project Costing & Profitability Server
 
@@ -15,7 +15,7 @@ _Not Another Program_ — Project Costing & Profitability Server
 
 ## Overview
 
-`nap-serve` is the backend server for a PERN-stack application that tracks project costs, schedules, client payments, and overall profitability. It includes a full-featured double-entry bookkeeping system with General Ledger, Accounts Payable, and Accounts Receivable support.
+`nap-serv` is the backend server for a PERN-stack application that tracks project costs, schedules, client payments, and overall profitability. It includes a full-featured double-entry bookkeeping system with General Ledger, Accounts Payable, and Accounts Receivable support.
 
 ## Features
 
@@ -48,7 +48,7 @@ nap/
 
 ```bash
 git clone https://github.com/your-org/nap-serve.git
-cd nap-serve
+cd nap-serv
 npm install
 npm run dev
 ```
