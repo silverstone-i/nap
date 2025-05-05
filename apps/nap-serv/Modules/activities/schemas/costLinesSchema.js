@@ -35,6 +35,12 @@ const schema = {
         references: { table: 'tenantid.units', columns: ['id'] },
         onDelete: 'CASCADE',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['unit_budget_id'],
+        references: { table: 'tenantid.unit_budgets', columns: ['id'] },
+        onDelete: 'SET NULL'
+      },
     ],
     indexes: [
       {
@@ -80,9 +86,15 @@ const schema = {
       colProps: { cnd: true },
     },
     { name: 'tenant_id', type: 'uuid', nullable: false },
+    {
+      name: 'name',
+      type: 'varchar(64)',
+      nullable: false
+    },
     { name: 'unit_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
     { name: 'activity_id', type: 'uuid', nullable: false },
+    { name: 'unit_budget_id', type: 'uuid', nullable: true },
     { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
     { name: 'source_type', type: 'varchar(16)', default: `'material'`, nullable: false }, // e.g., 'material' or 'labor'
     { name: 'quantity', type: 'numeric(12,4)', nullable: false },

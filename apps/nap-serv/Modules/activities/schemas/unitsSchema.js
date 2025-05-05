@@ -30,6 +30,11 @@ const schema = {
       colProps: { cnd: true }
     },
     {
+      name: 'name',
+      type: 'varchar(64)',
+      nullable: false
+    },
+    {
       name: 'unit_code',
       type: 'varchar(20)',
       nullable: false
@@ -56,7 +61,8 @@ const schema = {
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['unit_code'] }
+      { type: 'Index', columns: ['unit_code'] },
+      { type: 'Index', columns: ['name'] }
     ]
   }
 };

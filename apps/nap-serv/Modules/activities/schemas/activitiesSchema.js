@@ -52,10 +52,7 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [
-      ['tenant_id', 'activity_code'],
-      ['tenant_id', 'id'],
-    ],
+    unique: [['activity_code'], ['id']],
     foreignKeys: [
       {
         type: 'ForeignKey',
