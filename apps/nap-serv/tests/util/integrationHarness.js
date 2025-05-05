@@ -49,7 +49,9 @@ export async function setupIntegrationTest(schemaList = ['admin']) {
     server,
     teardown: async () => {
       await server.close();
-      await db.$pool.end();
+      if (!db.$pool.ended) {
+        await db.$pool.end();
+      }
     },
   };
 }
