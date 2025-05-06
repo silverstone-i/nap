@@ -45,6 +45,7 @@ function topoSortModels(models) {
 
     visiting.add(key);
     for (const dep of deps) {
+      if (dep === key) continue; // Skip self-referencing dependencies
       if (models[dep]) visit(dep, visiting);
     }
 
@@ -134,9 +135,9 @@ async function runMigrate(
         continue; // Skip views
       }
 
-      // console.log(
-      //   `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
-      // );
+      console.log(
+        `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
+      );
 
       // Log the current search_path before creating the table
       const { search_path } = await dbOverride.one('SHOW search_path');
