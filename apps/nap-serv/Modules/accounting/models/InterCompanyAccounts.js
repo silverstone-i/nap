@@ -10,11 +10,11 @@
 */
 
 import { BaseModel } from "pg-schemata";
-import interCompanyAccounts from "../schemas/interCompanyAccounts.js";
+import interCompanyAccountsSchema from "../schemas/interCompanyAccountsSchema.js";
 
 class InterCompanyAccounts extends BaseModel {
   constructor(db, pgp, logger = null) {
-    super(db, pgp, interCompanyAccounts, logger);
+    super(db, pgp, interCompanyAccountsSchema, logger);
   }
 }
 export default InterCompanyAccounts;

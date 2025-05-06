@@ -11,7 +11,7 @@
 
 const interCompanyTransactionsSchema = {
   dbSchema: 'tenantid',
-  table: 'intercompany_transactions',
+  table: 'inter_company_transactions',
   hasAuditFields: true,
   version: '1.0.0',
 

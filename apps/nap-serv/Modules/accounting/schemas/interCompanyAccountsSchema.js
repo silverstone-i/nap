@@ -33,7 +33,7 @@ const interCompanyAccountsSchema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['intercompany_account_id'],
+        columns: ['inter_company_account_id'],
         references: { table: 'tenantid.chart_of_accounts', columns: ['id'] },
         onDelete: 'RESTRICT',
       }
@@ -49,7 +49,7 @@ const interCompanyAccountsSchema = {
     { name: 'tenant_id', type: 'uuid', nullable: false },
     { name: 'source_company_id', type: 'uuid', nullable: false },
     { name: 'target_company_id', type: 'uuid', nullable: false },
-    { name: 'intercompany_account_id', type: 'uuid', nullable: false },
+    { name: 'inter_company_account_id', type: 'uuid', nullable: false },
     { name: 'description', type: 'text', nullable: true },
     { name: 'is_active', type: 'boolean', nullable: false, default: true }
   ]
