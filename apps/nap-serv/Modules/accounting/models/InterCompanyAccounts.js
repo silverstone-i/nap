@@ -9,13 +9,12 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import {BaseModel} from "pg-schemata";
-import postingQueuesSchema from "../schemas/postingQueuesSchema.js";
+import { BaseModel } from "pg-schemata";
+import interCompanyAccounts from "../schemas/interCompanyAccounts.js";
 
-class PostingQueues extends BaseModel {
+class InterCompanyAccounts extends BaseModel {
   constructor(db, pgp, logger = null) {
-    super(db, pgp, postingQueuesSchema, logger);
+    super(db, pgp, interCompanyAccounts, logger);
   }
 }
-
-export default PostingQueues;
+export default InterCompanyAccounts;

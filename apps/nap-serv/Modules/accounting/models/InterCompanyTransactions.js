@@ -10,12 +10,12 @@
  */
 
 import { BaseModel } from 'pg-schemata';
-import apCreditMemosSchema from '../schemas/apCreditMemosSchema.js';
+import interCompanyTransactionsSchema from '../schemas/interCompanyTransactionsSchema.js';
 
-class ApCreditMemos extends BaseModel {
+class InterCompanyTransactions extends BaseModel {
   constructor(db, pgp, logger = null) {
-    super(db, pgp, apCreditMemosSchema, logger);
+    super(db, pgp, interCompanyTransactionsSchema, logger);
   }
 }
 
-export default ApCreditMemos;
+export default InterCompanyTransactions;
