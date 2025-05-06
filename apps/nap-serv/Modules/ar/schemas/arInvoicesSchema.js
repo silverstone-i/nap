@@ -36,12 +36,19 @@ const arInvoicesSchema = {
         references: { table: 'tenantid.projects', columns: ['id'] },
         onDelete: 'SET NULL',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['company_id'],
+        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
     ],
   },
 
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
     { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'company_id', type: 'uuid', nullable: false },
 
     { name: 'client_id', type: 'uuid', nullable: false },
     { name: 'project_id', type: 'uuid', nullable: true },

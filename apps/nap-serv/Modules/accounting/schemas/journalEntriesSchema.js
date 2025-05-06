@@ -29,12 +29,19 @@ const journalEntriesSchema = {
         references: { table: 'tenantid.journal_entries', columns: ['id'] },
         onDelete: 'SET NULL',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['company_id'],
+        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
     ],
   },
 
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
     { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'company_id', type: 'uuid', nullable: false },
 
     { name: 'entry_date', type: 'date', nullable: false },
     { name: 'description', type: 'text', nullable: true },
@@ -47,4 +54,4 @@ const journalEntriesSchema = {
   ],
 };
 
-module.exports = journalEntriesSchema;
+export default journalEntriesSchema;

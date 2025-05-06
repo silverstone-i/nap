@@ -39,10 +39,10 @@ const arInvoiceLinesSchema = {
 
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
-    { name: 'tenantId', type: 'uuid', nullable: false },
+    { name: 'tenant_id', type: 'uuid', nullable: false },
 
-    { name: 'invoiceId', type: 'uuid', nullable: false },
-    { name: 'accountId', type: 'uuid', nullable: false },
+    { name: 'invoice_id', type: 'uuid', nullable: false },
+    { name: 'account_id', type: 'uuid', nullable: false },
 
     { name: 'description', type: 'text', nullable: true },
     { name: 'amount', type: 'numeric(12,2)', nullable: false },

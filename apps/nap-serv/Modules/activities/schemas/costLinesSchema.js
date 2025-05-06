@@ -41,6 +41,12 @@ const schema = {
         references: { table: 'tenantid.unit_budgets', columns: ['id'] },
         onDelete: 'SET NULL'
       },
+      {
+        type: 'ForeignKey',
+        columns: ['company_id'],
+        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
     ],
     indexes: [
       {
@@ -86,6 +92,7 @@ const schema = {
       colProps: { cnd: true },
     },
     { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'company_id', type: 'uuid', nullable: false },
     {
       name: 'name',
       type: 'varchar(64)',
