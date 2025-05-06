@@ -9,9 +9,9 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-const apInvoicesSchema = {
+const apCreditMemosSchema = {
   dbSchema: 'tenantid',
-  table: 'ap_invoices',
+  table: 'ap_credit_memos',
   hasAuditFields: true,
   version: '1.0.0',
 
@@ -19,9 +19,8 @@ const apInvoicesSchema = {
     primaryKey: ['id'],
     indexes: [
       { type: 'Index', columns: ['vendor_id'] },
-      { type: 'Index', columns: ['project_id'] },
-      { type: 'Index', columns: ['invoice_date'] },
-      { type: 'Index', columns: ['status'] },
+      { type: 'Index', columns: ['ap_invoice_id'] },
+      { type: 'Index', columns: ['credit_date'] },
     ],
     foreignKeys: [
       {
@@ -32,8 +31,8 @@ const apInvoicesSchema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['project_id'],
-        references: { table: 'tenantid.projects', columns: ['id'] },
+        columns: ['ap_invoice_id'],
+        references: { table: 'tenantid.ap_invoices', columns: ['id'] },
         onDelete: 'SET NULL',
       },
     ],
@@ -44,17 +43,14 @@ const apInvoicesSchema = {
     { name: 'tenant_id', type: 'uuid', nullable: false },
 
     { name: 'vendor_id', type: 'uuid', nullable: false },
-    { name: 'project_id', type: 'uuid', nullable: true },
+    { name: 'ap_invoice_id', type: 'uuid', nullable: true },
 
-    { name: 'invoice_number', type: 'varchar(32)', nullable: false },
-    { name: 'invoice_date', type: 'date', nullable: false },
-    { name: 'due_date', type: 'date', nullable: true },
-
-    { name: 'total_amount', type: 'numeric(12,2)', nullable: false },
-    { name: 'status', type: 'varchar(16)', default: `'open'`, nullable: false }, // 'open', 'approved', 'paid', 'voided'
-
+    { name: 'credit_number', type: 'varchar(32)', nullable: false },
+    { name: 'credit_date', type: 'date', nullable: false },
+    { name: 'amount', type: 'numeric(12,2)', nullable: false },
     { name: 'description', type: 'text', nullable: true },
+    { name: 'status', type: 'varchar(16)', default: `'open'`, nullable: false }, // 'open', 'applied', 'voided'
   ],
 };
 
-export default apInvoicesSchema;
+export default apCreditMemosSchema;

@@ -1,5 +1,14 @@
 'use strict';
 
+/*
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
+
 const chartOfAccountsSchema = {
   dbSchema: 'tenantid',
   table: 'chart_of_accounts',
@@ -23,7 +32,13 @@ const chartOfAccountsSchema = {
   },
 
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuidv7()',
+      nullable: false,
+      immutable: true,
+    },
     { name: 'tenant_id', type: 'uuid', nullable: false },
 
     { name: 'code', type: 'varchar(16)', nullable: false },
