@@ -40,7 +40,6 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
 
   const base = {
     async create(req, res) {
-      console.log('Model Name:', modelName);
       try {
         const record = await db[modelName].insert(req.body);
         res.status(201).json(record);
@@ -50,7 +49,6 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
     },
 
     async getAll(req, res) {
-      console.log('Model Name:', modelName);
       try {
         const records = await db[modelName].findAll();
         res.json(records);
@@ -61,8 +59,6 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
 
     async getById(req, res) {
       try {
-        console.log('Model Name:', modelName);
-
         const record = await db[modelName].findById(req.params.id);        
         if (!record) return res.status(404).json({ error: `${errorLabel} not found` });
         res.json(record);
@@ -72,7 +68,6 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
     },
 
     async update(req, res) {
-      console.log('Model Name:', modelName);
       try {
         const updated = await db[modelName].update(req.params.id, req.body);
         if (!updated) return res.status(404).json({ error: `${errorLabel} not found` });
@@ -83,7 +78,6 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
     },
 
     async remove(req, res) {
-      console.log('Model Name:', modelName);
       try {
         const deleted = await db[modelName].delete(req.params.id);
         if (deleted === 0) return res.status(404).json({ error: `${errorLabel} not found` });

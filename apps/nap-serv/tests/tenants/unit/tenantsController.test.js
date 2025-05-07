@@ -3,13 +3,13 @@ import TenantsController from '../../../modules/tenants/controllers/TenantsContr
 import { db } from '../../../src/db/db.js';
 
 beforeAll(() => {
-  // jest.spyOn(console, 'log').mockImplementation(() => {});
-  // jest.spyOn(console, 'error').mockImplementation(() => {});
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterAll(() => {
-  // console.log.mockRestore();
-  // console.error.mockRestore();
+  console.log.mockRestore();
+  console.error.mockRestore();
 });
 
 jest.mock('../../../src/db/db.js');
