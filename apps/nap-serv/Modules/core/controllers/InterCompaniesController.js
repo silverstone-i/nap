@@ -1,67 +1,17 @@
-const db = require('../models');
+'use strict';
 
-class InterCompaniesController {
-  async getAll(req, res) {
-    try {
-      const interCompanies = await db.interCompanies.findAll();
-      res.json(interCompanies);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
+/*
+* Copyright © 2024-present, Ian Silverstone
+*
+* See the LICENSE file at the top-level directory of this distribution
+* for licensing information.
+*
+* Removal or modification of this copyright notice is prohibited.
+*/
 
-  async getById(req, res) {
-    try {
-      const interCompany = await db.interCompanies.findByPk(req.params.id);
-      if (interCompany) {
-        res.json(interCompany);
-      } else {
-        res.status(404).json({ error: 'InterCompany not found' });
-      }
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
+import { createController } from '../../../src/utils/createController.js';
 
-  async create(req, res) {
-    try {
-      const newInterCompany = await db.interCompanies.create(req.body);
-      res.status(201).json(newInterCompany);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
+const InterCompanyController = createController('interCompanies', {}, 'Inter companies');
 
-  async update(req, res) {
-    try {
-      const [updated] = await db.interCompanies.update(req.body, {
-        where: { id: req.params.id }
-      });
-      if (updated) {
-        const updatedInterCompany = await db.interCompanies.findByPk(req.params.id);
-        res.json(updatedInterCompany);
-      } else {
-        res.status(404).json({ error: 'InterCompany not found' });
-      }
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
+export default InterCompanyController;
 
-  async delete(req, res) {
-    try {
-      const deleted = await db.interCompanies.destroy({
-        where: { id: req.params.id }
-      });
-      if (deleted) {
-        res.status(204).send();
-      } else {
-        res.status(404).json({ error: 'InterCompany not found' });
-      }
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-}
-
-module.exports = new InterCompaniesController();

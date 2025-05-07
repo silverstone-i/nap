@@ -2,12 +2,12 @@
 
 import { jest } from '@jest/globals';
 import { db } from '../../../src/db/db.js';
-import VendorsController from '../../../modules/core/controllers/VendorsController.js';
+import InterCompaniesController from '../../../modules/core/controllers/InterCompaniesController.js';
 import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
 
 jest.mock('../../../src/db/db.js');
 
-db.vendors = {
+db.interCompanies = {
   insert: jest.fn(),
   findAll: jest.fn(),
   findById: jest.fn(),
@@ -16,8 +16,8 @@ db.vendors = {
 };
 
 runControllerCrudUnitTests({
-  name: 'Vendor',
-  controller: VendorsController,
-  modelName: 'vendors',
+  name: 'InterCompanies',
+  controller: InterCompaniesController,
+  modelName: 'interCompanies',
   db,
 });

@@ -16,7 +16,7 @@ db.contacts = {
 };
 
 runControllerCrudUnitTests({
-  name: 'Contacts',
+  name: 'Contact',
   controller: ContactsController,
   modelName: 'contacts',
   db,

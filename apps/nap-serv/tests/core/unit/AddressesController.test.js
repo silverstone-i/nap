@@ -14,7 +14,7 @@ db.addresses = {
 };
 
 runControllerCrudUnitTests({
-  name: 'Addresses',
+  name: 'Address',
   controller: AddressesController,
   modelName: 'addresses',
   db,

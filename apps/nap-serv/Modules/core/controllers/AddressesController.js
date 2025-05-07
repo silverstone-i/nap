@@ -9,67 +9,8 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db } from '../../../src/db/db.js';
+import { createController } from '../../../src/utils/createController.js';
 
-const AddressesController = {
-  async create(req, res) {
-    try {
-      const address = await db.addresses.insert(req.body);
-      res.status(201).json(address);
-    } catch (err) {
-      console.error('Error creating address:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async getAll(req, res) {
-    try {
-      const addresses = await db.addresses.findAll();
-      res.json(addresses);
-    } catch (err) {
-      console.error('Error fetching addresses:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async getById(req, res) {
-    try {
-      const address = await db.addresses.findById(req.params.id);
-      if (!address) {
-        return res.status(404).json({ error: 'Addresses not found' });
-      }
-      res.json(address);
-    } catch (err) {
-      console.error('Error fetching address by ID:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async update(req, res) {
-    try {
-      const updated = await db.addresses.update(req.params.id, req.body);
-      if (!updated) {
-        return res.status(404).json({ error: 'Addresses not found' });
-      }
-      res.json(updated);
-    } catch (err) {
-      console.error('Error updating address:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async remove(req, res) {
-    try {
-      const removed = await db.addresses.delete(req.params.id);
-      if (removed === 0) {
-        return res.status(404).json({ error: 'Addresses not found' });
-      }
-      res.status(204).end();
-    } catch (err) {
-      console.error('Error deleting address:', err);
-      res.status(500).json({ error: err.message });
-    }
-  }
-};
+const AddressesController = createController('addresses', {}, 'Address');
 
 export default AddressesController;
