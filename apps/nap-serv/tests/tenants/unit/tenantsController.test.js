@@ -3,13 +3,13 @@ import TenantsController from '../../../modules/tenants/controllers/TenantsContr
 import { db } from '../../../src/db/db.js';
 
 beforeAll(() => {
-  jest.spyOn(console, 'log').mockImplementation(() => {});
-  jest.spyOn(console, 'error').mockImplementation(() => {});
+  // jest.spyOn(console, 'log').mockImplementation(() => {});
+  // jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterAll(() => {
-  console.log.mockRestore();
-  console.error.mockRestore();
+  // console.log.mockRestore();
+  // console.error.mockRestore();
 });
 
 jest.mock('../../../src/db/db.js');
@@ -52,7 +52,7 @@ describe('TenantsController', () => {
     it('should handle insertion error', async () => {
       const req = { body: {} };
       const res = mockRes();
-      db.tenants.insert.mockRejectedValue(new Error('Insert error'));
+      db.tenants.insert.mockRejectedValue({ message: 'Insert error', code: '23503' });
 
       await TenantsController.create(req, res);
 
@@ -136,7 +136,7 @@ describe('TenantsController', () => {
     it('should handle update error', async () => {
       const req = { params: { id: 'abc' }, body: {} };
       const res = mockRes();
-      db.tenants.update.mockRejectedValue(new Error('Update error'));
+      db.tenants.update.mockRejectedValue({ message: 'Update error', code: '23503' });
 
       await TenantsController.update(req, res);
 
