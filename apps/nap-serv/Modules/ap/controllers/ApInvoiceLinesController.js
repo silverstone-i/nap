@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -11,61 +9,8 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db } from '../../../src/db/db.js';
+import { createController } from '../../../src/utils/createController.js';
 
-export const ApInvoiceLinesController = {
-  async create(req, res) {
-    try {
-      const record = await db.apInvoiceLines.insert(req.body);
-      res.status(201).json(record);
-    } catch (err) {
-      console.error('Error creating AP invoice line:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async getAll(req, res) {
-    try {
-      const records = await db.apInvoiceLines.findAll();
-      res.json(records);
-    } catch (err) {
-      console.error('Error fetching AP invoice lines:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async getById(req, res) {
-    try {
-      const record = await db.apInvoiceLines.findById(req.params.id);
-      if (!record) return res.status(404).json({ error: 'AP invoice line not found' });
-      res.json(record);
-    } catch (err) {
-      console.error('Error fetching AP invoice line:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async update(req, res) {
-    try {
-      const updated = await db.apInvoiceLines.update(req.params.id, req.body);
-      if (!updated) return res.status(404).json({ error: 'AP invoice line not found' });
-      res.json(updated);
-    } catch (err) {
-      console.error('Error updating AP invoice line:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-
-  async remove(req, res) {
-    try {
-      const deleted = await db.apInvoiceLines.delete(req.params.id);
-      if (deleted === 0) return res.status(404).json({ error: 'AP invoice line not found' });
-      res.status(204).end();
-    } catch (err) {
-      console.error('Error deleting AP invoice line:', err);
-      res.status(500).json({ error: err.message });
-    }
-  },
-};
+const ApInvoiceLinesController = createController('apInvoiceLines', {}, 'AP Invoice Line');
 
 export default ApInvoiceLinesController;
