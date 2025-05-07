@@ -22,22 +22,12 @@ import app from '../../src/app.js';
  */
 export async function setupIntegrationTest(schemaList = ['admin']) {
   // Drop and recreate schemas, but skip 'public'
-  await Promise.all(
-    schemaList
-      .filter(schema => {
-        // console.log('Schema_____:', schema);
-        
-        return schema !== 'public';
-      })
-      .map(schema => {
-        // console.log('Dropping and recreating schema:', schema);
-
-        return db.none(
-          `DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`
-        );
-      })
-  );
-
+  for (const schema of schemaList) {
+    if (schema !== 'public') {
+      await db.none(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
+    }
+  }
+  
   // Run migrations
   await runMigrate(db, { schemas: schemaList }, true);
 
