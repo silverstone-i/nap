@@ -52,9 +52,6 @@
     "test:ap": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/ap --coverage",
     "test:ap:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/ap/unit --coverage",
     "test:ap:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/ap/integration --coverage",
-
-
-
     "dev": "cross-env NODE_ENV=development nodemon --delay 5 server.js",
     "start": "cross-env NODE_ENV=production node server.js"
   },
