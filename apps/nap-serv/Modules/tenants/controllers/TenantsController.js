@@ -12,7 +12,7 @@
 import { db } from '../../../src/db/db.js';
 import { createController, handleError } from '../../../src/utils/createController.js';
 
-const TenantController = createController('tenants', {
+const TenantsController = createController('tenants', {
   async getAllAllowedModules(req, res) {
     console.log('Model Name:', 'tenants');
     console.log('Fetching allowed modules for tenant ID:', req.params.id);
@@ -24,9 +24,9 @@ const TenantController = createController('tenants', {
       }
       res.json({ allowed_modules: allowedModules });
     } catch (err) {
-      handleError(err, res, 'fetching allowed modules', 'Tenant');
+      handleError(err, res, 'fetching allowed modules', 'Tenants');
     }
   }
-}, 'Tenant');
+}, 'Tenants');
 
-export default TenantController;
+export default TenantsController;

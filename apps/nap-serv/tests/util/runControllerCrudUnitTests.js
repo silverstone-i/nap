@@ -11,7 +11,7 @@
 
 import { jest } from '@jest/globals';
 
-export function runControllerCrudUnitTests({ name, controller, modelName, db, extraTests }) {
+export function runControllerCrudUnitTests({ name, controller, modelName, db, extraTests, extraModelMethods = {} }) {
   describe(`${name} Controller`, () => {
     const mockRes = () => {
       const res = {};
@@ -39,6 +39,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
         findById: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        ...extraModelMethods,
       };
     });
 
