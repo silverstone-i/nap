@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const ActivityController = createController('activities', {}, 'Activity');
+const ActivitiesController = createController('activities', {}, 'Activity');
 
-export default ActivityController;
+export default ActivitiesController;

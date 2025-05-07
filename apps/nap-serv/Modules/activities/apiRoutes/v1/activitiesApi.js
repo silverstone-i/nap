@@ -10,19 +10,19 @@
  */
 
 import express from 'express';
-import ActivityController from '../../controllers/ActivityController.js';
+import ActivitiesController from '../../controllers/ActivitiesController.js';
 
 const router = express.Router();
 
 router
   .route('/')
-  .post(ActivityController.create)
-  .get(ActivityController.getAll);
+  .post(ActivitiesController.create)
+  .get(ActivitiesController.getAll);
 
 router
   .route('/:id')
-  .get(ActivityController.getById)
-  .put(ActivityController.update)
-  .delete(ActivityController.remove);
+  .get(ActivitiesController.getById)
+  .put(ActivitiesController.update)
+  .delete(ActivitiesController.remove);
 
 export default router;

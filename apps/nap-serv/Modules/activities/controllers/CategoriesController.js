@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const CategoryController = createController('categories', {}, 'Category');
+const CategoriesController = createController('categories', {}, 'Category');
 
-export default CategoryController;
+export default CategoriesController;
