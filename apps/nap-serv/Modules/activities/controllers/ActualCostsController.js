@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const ActualCostsController = createController('actualCosts', {}, 'Actual Cost');
+const ActualCostsController = createController('actualCosts', {}, 'Actual costs');
 
 export default ActualCostsController;

@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const ProjectsController = createController('projects', {}, 'Project');
+const ProjectsController = createController('projects', {}, 'Projects');
 
 export default ProjectsController;

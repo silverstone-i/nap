@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const InternalTransfersController = createController('internalTransfers', {}, 'Internal Transfer');
+const InternalTransfersController = createController('internalTransfers', {}, 'Internal transfer');
 
 export default InternalTransfersController;

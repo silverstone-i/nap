@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const JournalEntriesController = createController('journalEntries', {}, 'Journal Entry');
+const JournalEntriesController = createController('journalEntries', {}, 'Journal entry');
 
 export default JournalEntriesController;

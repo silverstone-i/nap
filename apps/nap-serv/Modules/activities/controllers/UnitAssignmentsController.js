@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const UnitAssignmentsController = createController('unitAssignments', {}, 'Unit Assignment');
+const UnitAssignmentsController = createController('unitAssignments', {}, 'Unit assignments');
 
 export default UnitAssignmentsController;

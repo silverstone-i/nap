@@ -14,7 +14,7 @@ import { createController } from '../../../src/utils/createController.js';
 const JournalEntryLinesController = createController(
   'journalEntryLines',
   {},
-  'Journal Entry Line'
+  'Journal entry line'
 );
 
 export default JournalEntryLinesController;

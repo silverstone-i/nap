@@ -14,7 +14,7 @@ import { createController } from '../../../src/utils/createController.js';
 const ChangeOrderLinesController = createController(
   'changeOrderLines',
   {},
-  'Change Order Line'
+  'Change order lines'
 );
 
 export default ChangeOrderLinesController;

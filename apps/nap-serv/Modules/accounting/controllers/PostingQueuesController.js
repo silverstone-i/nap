@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const PostingQueuesController = createController('postingQueues', {}, 'Posting Queue');
+const PostingQueuesController = createController('postingQueues', {}, 'Posting queue');
 
 export default PostingQueuesController;

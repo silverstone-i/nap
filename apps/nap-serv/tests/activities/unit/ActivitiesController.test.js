@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { db } from '../../../src/db/db.js';
-import { ActivityController } from '../../../modules/activities/controllers/ActivityController.js';
+import ActivitiesController from '../../../modules/activities/controllers/ActivitiesController.js';
 import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
 
 
@@ -16,7 +16,7 @@ db.activities = {
 
 runControllerCrudUnitTests({
   name: 'Activity',
-  controller: ActivityController,
+  controller: ActivitiesController,
   modelName: 'activities',
   db,
 });

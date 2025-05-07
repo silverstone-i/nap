@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const UnitBudgetsController = createController('unitBudgets', {}, 'Unit Budget');
+const UnitBudgetsController = createController('unitBudgets', {}, 'Unit budgets');
 
 export default UnitBudgetsController;

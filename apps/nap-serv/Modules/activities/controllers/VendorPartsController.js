@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const VendorPartsController = createController('vendorParts', {}, 'Vendor Part');
+const VendorPartsController = createController('vendorParts', {}, 'Vendor parts');
 
 export default VendorPartsController;

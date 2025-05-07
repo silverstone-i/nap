@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const InterCompanyAccountsController = createController('interCompanyAcounts', {}, 'Inter-company Account');
+const InterCompanyAccountsController = createController('interCompanyAccounts', {}, 'Inter company account');
 
 export default InterCompanyAccountsController;

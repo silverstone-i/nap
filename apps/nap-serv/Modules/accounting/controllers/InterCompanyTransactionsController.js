@@ -14,7 +14,7 @@ import { createController } from '../../../src/utils/createController.js';
 const InterCompanyTransactionsController = createController(
   'interCompanyTransactions',
   {},
-  'Inter-company Transaction'
+  'Inter company transaction'
 );
 
 export default InterCompanyTransactionsController;

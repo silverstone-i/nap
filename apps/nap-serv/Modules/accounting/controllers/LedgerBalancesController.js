@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const LedgerBalancesController = createController('ledgerBalances', {}, 'Ledger Balance');
+const LedgerBalancesController = createController('ledgerBalances', {}, 'Ledger balance');
 
 export default LedgerBalancesController;

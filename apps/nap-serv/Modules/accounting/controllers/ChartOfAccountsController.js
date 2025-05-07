@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const ChartOfAccountsController = createController('chartOfAccounts', {}, 'Chart of Account');
+const ChartOfAccountsController = createController('chartOfAccounts', {}, 'Chart of accounts');
 
 export default ChartOfAccountsController;

@@ -14,7 +14,7 @@ import { createController } from '../../../src/utils/createController.js';
 const AccountClassificationsController = createController(
   'accountClassifications',
   {},
-  'Account Classification'
+  'Account classification'
 );
 
 export default AccountClassificationsController;

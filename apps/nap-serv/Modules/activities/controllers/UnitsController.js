@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const UnitsController = createController('units', {}, 'Unit');
+const UnitsController = createController('units', {}, 'Units');
 
 export default UnitsController;
