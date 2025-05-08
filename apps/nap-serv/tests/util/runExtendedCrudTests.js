@@ -29,7 +29,7 @@ export async function runExtendedCrudTests({
     let server, teardown;
     const context = { server: null, createdId: null };
 
-    const getTestRecord = typeof testRecord === 'function' ? testRecord : () => testRecord;
+    const getTestRecord = typeof testRecord === 'function' ? (ctx) => testRecord(ctx) : () => testRecord;
 
     beforeAll(async () => {
       ({ server, teardown } = await setupIntegrationTest(['admin', 'tenantid']));
@@ -59,7 +59,7 @@ export async function runExtendedCrudTests({
     });
 
     test(`POST ${routePrefix} should create`, async () => {
-      const res = await request(server).post(routePrefix).send(getTestRecord());
+      const res = await request(server).post(routePrefix).send(getTestRecord(context));
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('id');
       context.createdId = res.body.id;
@@ -81,7 +81,7 @@ export async function runExtendedCrudTests({
       const res = await request(server)
         .put(`${routePrefix}/${context.createdId}`)
         .send({
-          ...getTestRecord(),
+          ...getTestRecord(context),
           [updateField]: updateValue,
           updated_by: 'integration-test',
         });
@@ -106,7 +106,7 @@ export async function runExtendedCrudTests({
       const res = await request(server)
         .put(`${routePrefix}/00000000-0000-0000-0000-000000000000`)
         .send({
-          ...getTestRecord(),
+          ...getTestRecord(context),
           [updateField]: updateValue,
           updated_by: 'integration-test',
         });

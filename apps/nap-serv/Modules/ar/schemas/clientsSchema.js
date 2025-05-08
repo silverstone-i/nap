@@ -66,6 +66,38 @@ const schema = {
 
     { name: 'notes', type: 'text', nullable: true },
   ],
+  beforeHook: async (ctx) => {
+    const { db } = await import('../../../src/db/db.js');
+    ctx.tenantId = uuid();
+    ctx.addressId1 = uuid();
+    ctx.addressId2 = uuid();
+    ctx.contactId = uuid();
+
+    await db.none(`INSERT INTO tenantid.addresses (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
+      ctx.addressId1, ctx.tenantId, 'integration-test'
+    ]);
+
+    await db.none(`INSERT INTO tenantid.addresses (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
+      ctx.addressId2, ctx.tenantId, 'integration-test'
+    ]);
+
+    await db.none(`INSERT INTO tenantid.contacts (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
+      ctx.contactId, ctx.tenantId, 'integration-test'
+    ]);
+  },
+  testRecord: (ctx) => ({
+    tenant_id: ctx.tenantId,
+    client_code: 'CLNT1001',
+    name: 'Sample Client',
+    email: 'client@example.com',
+    phone: '123-456-7890',
+    tax_id: 'TAX123456',
+    billing_address_id: ctx.addressId1,
+    physical_address_id: ctx.addressId2,
+    primary_contact_id: ctx.contactId,
+    created_by: 'integration-test',
+    updated_by: 'integration-test',
+  }),
 };
 
 export default schema;

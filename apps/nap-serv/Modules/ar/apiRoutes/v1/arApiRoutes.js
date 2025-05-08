@@ -20,8 +20,11 @@ const router = express.Router();
 // Mount the sub-routers
 router.use('/v1/receipts', receiptsApi);
 router.use('/v1/clients', clientsApi);
-router.use('/v1/arInvoices', arInvoicesApi);
-router.use('/v1/arInvoiceLines', arInvoiceLinesApi);
+router.use('/v1/ar-invoices', arInvoicesApi);
+router.use('/v1/ar-invoice-lines', arInvoiceLinesApi);
+
+console.log('AR API Routes loaded');
+
 
 // Export the router
 export default router;
