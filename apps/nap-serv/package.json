@@ -5,6 +5,9 @@
   "license": "MIT",
   "author": "Ian SIlverstone",
   "type": "module",
+  "imports": {
+    "#db/*": "./src/db/*"
+  },
   "main": "server.js",
   "keywords": [
     "\"postgres\"",
