@@ -11,19 +11,6 @@
 
 import { Router } from 'express';
 import NapUsersController from '../../controllers/NapUsersController.js';
+import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = Router();
-
-
-router
-  .route('/')
-  .post(NapUsersController.create)
-  .get(NapUsersController.getAll);
-
-router
-  .route('/:id')
-  .get(NapUsersController.getById)
-  .put(NapUsersController.update)
-  .delete(NapUsersController.remove);
-
-export default router;
+export default createRouter(NapUsersController);

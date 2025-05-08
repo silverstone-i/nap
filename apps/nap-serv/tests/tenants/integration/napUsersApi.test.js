@@ -14,7 +14,7 @@
 import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
 import { db } from '../../../src/db/db.js';
 
-const routePrefix = '/api/v1/nap-users';
+const routePrefix = '/api/tenants/v1/nap-users';
 
 export const cleanupTestDependencies = async () => {
   const all = await db.napUsers.findAll();
