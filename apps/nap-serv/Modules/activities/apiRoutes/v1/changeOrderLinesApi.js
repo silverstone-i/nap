@@ -12,17 +12,6 @@
 import express from 'express';
 import ChangeOrderLinesController from '../../controllers/ChangeOrderLinesController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-  .route('/')
-  .post(ChangeOrderLinesController.create)
-  .get(ChangeOrderLinesController.getAll);
-
-router
-  .route('/:id')
-  .get(ChangeOrderLinesController.getById)
-  .put(ChangeOrderLinesController.update)
-  .delete(ChangeOrderLinesController.remove);
-
-export default router;
+export default createRouter(ChangeOrderLinesController);

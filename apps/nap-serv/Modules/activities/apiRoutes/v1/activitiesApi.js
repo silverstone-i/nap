@@ -12,17 +12,6 @@
 import express from 'express';
 import ActivitiesController from '../../controllers/ActivitiesController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-  .route('/')
-  .post(ActivitiesController.create)
-  .get(ActivitiesController.getAll);
-
-router
-  .route('/:id')
-  .get(ActivitiesController.getById)
-  .put(ActivitiesController.update)
-  .delete(ActivitiesController.remove);
-
-export default router;
+export default createRouter(ActivitiesController);

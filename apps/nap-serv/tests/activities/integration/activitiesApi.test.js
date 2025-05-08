@@ -34,6 +34,8 @@ async function cleanup() {
   await db.categories.delete(catid);
 }
 
+const routePrefix = '/api/activities/v1/activities';
+
 function extraTests(context) {
   describe('Extra tests after DELETE', () => {
     let server;
@@ -43,12 +45,12 @@ function extraTests(context) {
     });
 
     test('should return 404 when fetching deleted record', async () => {
-      const res = await request(server).get(`/api/v1/activities/${context.createdId}`);
+      const res = await request(server).get(`${routePrefix}/${context.createdId}`);
       expect(res.status).toBe(404);
     });
 
     test('should not list deleted record in GET all', async () => {
-      const res = await request(server).get('/api/v1/activities');
+      const res = await request(server).get(routePrefix);
       expect(res.status).toBe(200);
       const ids = res.body.map(item => item.activity_id);
       expect(ids).not.toContain(context.createdId);
@@ -57,7 +59,7 @@ function extraTests(context) {
 }
 
 await runExtendedCrudTests({
-  routePrefix: '/api/v1/activities',
+  routePrefix,
   model: db.activities,
   testRecord: {
     tenant_id: '00000000-0000-4000-a000-000000000001',

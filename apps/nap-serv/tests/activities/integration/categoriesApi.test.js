@@ -12,7 +12,7 @@
 import {runExtendedCrudTests} from '../../util/runExtendedCrudTests.js';
 
 await runExtendedCrudTests({
-  routePrefix: '/api/v1/categories',
+  routePrefix: '/api/activities/v1/categories',
   testRecord: () => ({ name: 'Test Category', created_by: 'Tester' }),
   updatedFields: () => ({ name: 'Updated Category', updated_by: 'Tester' }),
 });

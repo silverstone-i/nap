@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -11,20 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import express from 'express';
 import VendorPartsController from '../../controllers/VendorPartsController.js';
+import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = express.Router();
-
-router
-  .route('/')
-  .post(VendorPartsController.create)
-  .get(VendorPartsController.getAll);
-
-router
-  .route('/:id')
-  .get(VendorPartsController.getById)
-  .put(VendorPartsController.update)
-  .delete(VendorPartsController.remove);
-
-export default router;
+export default createRouter(VendorPartsController);

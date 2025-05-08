@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -14,17 +12,6 @@
 import express from 'express';
 import ActualCostsController from '../../controllers/ActualCostsController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-  .route('/')
-  .post(ActualCostsController.create)
-  .get(ActualCostsController.getAll);
-
-router
-  .route('/:id')
-  .get(ActualCostsController.getById)
-  .put(ActualCostsController.update)
-  .delete(ActualCostsController.remove);
-
-export default router;
+export default createRouter(ActualCostsController);

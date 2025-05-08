@@ -12,17 +12,6 @@
 import express from 'express';
 import CostLinesController from '../../controllers/CostLinesController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-  .route('/')
-  .post(CostLinesController.create)
-  .get(CostLinesController.getAll);
-
-router
-  .route('/:id')
-  .get(CostLinesController.getById)
-  .put(CostLinesController.update)
-  .delete(CostLinesController.remove);
-
-export default router;
+export default createRouter(CostLinesController);

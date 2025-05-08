@@ -45,7 +45,7 @@ export const cleanupTestDependencies = async () => {
   for (const row of units) await db.units.delete(row.id);
 };
 
-const routePrefix = '/api/v1/unit-assignments';
+const routePrefix = '/api/activities/v1/unit-assignments';
 
 const testContext = {};
 

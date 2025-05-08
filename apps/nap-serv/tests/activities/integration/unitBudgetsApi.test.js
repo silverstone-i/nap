@@ -51,7 +51,7 @@ async function cleanup() {
 
 await runExtendedCrudTests({
   updateField: 'unit',
-  routePrefix: '/api/v1/unit-budgets',
+  routePrefix: '/api/activities/v1/unit-budgets',
   model: db.unitBudgets,
   testRecord: {
     tenant_id: '00000000-0000-4000-a000-000000000001',

@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -14,17 +12,6 @@
 import express from 'express';
 import UnitBudgetsController from '../../controllers/UnitBudgetsController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-  .route('/')
-  .post(UnitBudgetsController.create)
-  .get(UnitBudgetsController.getAll);
-
-router
-  .route('/:id')
-  .get(UnitBudgetsController.getById)
-  .put(UnitBudgetsController.update)
-  .delete(UnitBudgetsController.remove);
-
-export default router;
+export default createRouter(UnitBudgetsController);

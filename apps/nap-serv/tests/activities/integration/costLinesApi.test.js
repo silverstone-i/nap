@@ -79,7 +79,7 @@ export const cleanupTestDependencies = async () => {
   for (const row of categories) await db.categories.delete(row.id);
 };
 
-const routePrefix = '/api/v1/cost-lines';
+const routePrefix = '/api/activities/v1/cost-lines';
 
 const testContext = {};
 

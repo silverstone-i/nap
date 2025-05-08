@@ -55,7 +55,7 @@ export const cleanupTestDependencies = async () => {
   for (const row of categories) await db.categories.delete(row.id);
 };
 
-const routePrefix = '/api/v1/change-order-lines';
+const routePrefix = '/api/activities/v1/change-order-lines';
 
 const testContext = {};
 

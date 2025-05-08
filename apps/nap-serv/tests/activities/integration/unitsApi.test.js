@@ -14,7 +14,7 @@ import { db } from '../../../src/db/db.js';
 
 await runExtendedCrudTests({
   updateField: 'description',
-  routePrefix: '/api/v1/units',
+  routePrefix: '/api/activities/v1/units',
   model: db.units,
   testRecord: {
     tenant_id: '00000000-0000-4000-a000-000000000001',

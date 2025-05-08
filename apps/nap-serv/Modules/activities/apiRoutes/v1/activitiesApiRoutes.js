@@ -10,27 +10,29 @@
  */
 
 import express from 'express';
-import { readdirSync } from 'fs';
-import path from 'path';
+import activitiesApi from './activitiesApi.js';
+import actualCostsApi from './actualCostsApi.js';
+import categoriesApi from './categoriesApi.js';
+import changeOrderLinesApi from './changeOrderLinesApi.js';
+import costLinesApi from './costLinesApi.js';
+import projectsApi from './projectsApi.js';
+import unitAssignmentsApi from './unitAssignmentsApi.js';
+import unitBudgetsApi from './unitBudgetsApi.js';
+import unitsApi from './unitsApi.js';
+import vendorPartsApi from './vendorPartsApi.js';
 
 const router = express.Router();
+router.use('/v1/activities', activitiesApi);
+router.use('/v1/actual-costs', actualCostsApi);
+router.use('/v1/categories', categoriesApi);
+router.use('/v1/change-order-lines', changeOrderLinesApi);
+router.use('/v1/cost-lines', costLinesApi);
+router.use('/v1/projects', projectsApi);
+router.use('/v1/unit-assignments', unitAssignmentsApi);
+router.use('/v1/unit-budgets', unitBudgetsApi);
+router.use('/v1/units', unitsApi);
+router.use('/v1/vendor-parts', vendorPartsApi);
 
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
-
-const files = readdirSync(__dirname).filter(file => file.endsWith('Api.js'));
-
-for (const file of files) {
-  const routeModule = await import(`./${file}`);
-  const route = routeModule.default;
-
-  let mountPath = file
-    .replace('Api.js', '')
-    .replace(/[A-Z]/g, letter => '-' + letter.toLowerCase())
-    .replace(/^-/, '');
-
-    
-
-  router.use(`/${mountPath}`, route);
-}
+console.log('Loaded activities router');
 
 export default router;

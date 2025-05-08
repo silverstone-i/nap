@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -14,17 +12,6 @@
 import express from 'express';
 import UnitsController from '../../controllers/UnitsController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-  .route('/')
-  .post(UnitsController.create)
-  .get(UnitsController.getAll);
-
-router
-  .route('/:id')
-  .get(UnitsController.getById)
-  .put(UnitsController.update)
-  .delete(UnitsController.remove);
-
-export default router;
+export default createRouter(UnitsController);

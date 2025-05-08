@@ -24,7 +24,7 @@ export const cleanupTestDependencies = async () => {
   for (const row of all) await db.projects.delete(row.id);
 };
 
-const routePrefix = '/api/v1/projects';
+const routePrefix = '/api/activities/v1/projects';
 
 const testContext = {};
 

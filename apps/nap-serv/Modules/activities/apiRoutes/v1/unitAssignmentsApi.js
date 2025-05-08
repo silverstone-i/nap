@@ -11,18 +11,6 @@
 
 import express from 'express';
 import UnitAssignmentsController from '../../controllers/UnitAssignmentsController.js';
+import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = express.Router();
-
-router
-  .route('/')
-  .post(UnitAssignmentsController.create)
-  .get(UnitAssignmentsController.getAll);
-
-router
-  .route('/:id')
-  .get(UnitAssignmentsController.getById)
-  .put(UnitAssignmentsController.update)
-  .delete(UnitAssignmentsController.remove);
-
-export default router;
+export default createRouter(UnitAssignmentsController);
