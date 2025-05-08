@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-const express = require('express');
+import express from 'express';
 import apCreditMemosApi from './apCreditMemosApi';
 import apInvoicesApi from './apInvoicesApi';
 import apInvoiceLinesApi from './apInvoiceLinesApi';
