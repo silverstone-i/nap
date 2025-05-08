@@ -12,17 +12,6 @@
 import express from 'express';
 import ContactsController from '../../controllers/ContactsController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-.route('/')
-.post(ContactsController.create)
-.get(ContactsController.getAll);
-
-router
-.route('/:id')
-.get(ContactsController.getById)
-.put(ContactsController.update)
-.delete(ContactsController.remove);
-
-export default router;
+export default createRouter(ContactsController);

@@ -12,17 +12,6 @@
 import express from 'express';
 import InterCompaniesController from '../../controllers/InterCompaniesController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-.route('/')
-.post(InterCompaniesController.create)
-.get(InterCompaniesController.getAll);
-
-router
-.route('/:id')
-.get(InterCompaniesController.getById)
-.put(InterCompaniesController.update)
-.delete(InterCompaniesController.remove);
-
-export default router;
+export default createRouter(InterCompaniesController);

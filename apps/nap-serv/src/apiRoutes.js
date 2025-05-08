@@ -9,8 +9,8 @@ import tenantsRoutes from '../modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
 
 const router = express.Router();
 
-// router.use('core', coreRoutes);
-// router.use('activities', activitiesRoutes);
+router.use('/core', coreRoutes);
+router.use('/activities', activitiesRoutes);
 router.use('/tenants', tenantsRoutes);
 
 export default router;

@@ -19,7 +19,7 @@ export const cleanupTestDependencies = async () => {
   for (const row of all) await db.interCompanies.delete(row.id);
 };
 
-const routePrefix = '/api/v1/inter-companies';
+const routePrefix = '/api/core/v1/inter-companies';
 
 await runExtendedCrudTests({
   routePrefix,

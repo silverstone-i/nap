@@ -12,17 +12,6 @@
 import express from 'express';
 import VendorsController from '../../controllers/VendorsController.js';
 
-const router = express.Router();
+import createRouter from '../../../../src/utils/createRouter.js';
 
-router
-  .route('/')
-  .post(VendorsController.create)
-  .get(VendorsController.getAll);
-
-router
-  .route('/:id')
-  .get(VendorsController.getById)
-  .put(VendorsController.update)
-  .delete(VendorsController.remove);
-
-export default router;
+export default createRouter(VendorsController);

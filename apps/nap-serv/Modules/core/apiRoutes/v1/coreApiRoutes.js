@@ -10,26 +10,18 @@
  */
 
 import express from 'express';
-import { readdirSync } from 'fs';
-import path from 'path';
+import addressesApi from './addressesApi.js';
+import contactsApi from './contactsApi.js';
+import interCompaniesApi from './interCompaniesApi.js';
+import vendorsApi from './vendorsApi.js';
 
 const router = express.Router();
 
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+router.use('/v1/addresses', addressesApi);
+router.use('/v1/contacts', contactsApi);
+router.use('/v1/inter-companies', interCompaniesApi);
+router.use('/v1/vendors', vendorsApi);
 
-const files = readdirSync(__dirname).filter(file => file.endsWith('Api.js'));
-
-for (const file of files) {
-  // eslint-disable-next-line no-await-in-loop
-  const routeModule = await import(`./${file}`);
-  const route = routeModule.default;
-
-  let mountPath = file
-    .replace('Api.js', '')
-    .replace(/[A-Z]/g, letter => '-' + letter.toLowerCase())
-    .replace(/^-/, '');
-
-  router.use(`/${mountPath}`, route);
-}
+console.log('Loaded coreApi router');
 
 export default router;

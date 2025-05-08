@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -13,18 +11,6 @@
 
 import express from 'express';
 import AddressesController from '../../controllers/AddressesController.js';
+import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = express.Router();
-
-router
-  .route('/')
-  .post(AddressesController.create)
-  .get(AddressesController.getAll);
-
-router
-  .route('/:id')
-  .get(AddressesController.getById)
-  .put(AddressesController.update)
-  .delete(AddressesController.remove);
-
-export default router;
+export default createRouter(AddressesController);

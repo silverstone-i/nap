@@ -21,7 +21,7 @@ export const cleanupTestDependencies = async () => {
   for (const row of all) await db.contacts.delete(row.id);
 };
 
-const routePrefix = '/api/v1/contacts';
+const routePrefix = '/api/core/v1/contacts';
 
 await runExtendedCrudTests({
   routePrefix,
