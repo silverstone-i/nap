@@ -1,52 +1,16 @@
 'use strict';
 
-/*
- * Copyright © 2024-present, Ian Silverstone
- *
- * See the LICENSE file at the top-level directory of this distribution
- * for licensing information.
- *
- * Removal or modification of this copyright notice is prohibited.
- */
-
 import 'dotenv/config';
 import express from 'express';
-import { readdirSync, statSync } from 'fs';
-import path from 'path';
 
-const enabledModules = ['core', 'activities', 'tenants']; // TODO: Load dynamically per tenant or env config
+import coreRoutes from '../modules/core/apiRoutes/v1/coreApiRoutes.js';
+import activitiesRoutes from '../modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
+import tenantsRoutes from '../modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
 
-async function loadModuleRoutes(moduleName) {
-  const moduleRouter = express.Router();
-  const moduleApiPath = path.resolve(`./modules/${moduleName}/apiRoutes`);
+const router = express.Router();
 
-  const versions = readdirSync(moduleApiPath, { withFileTypes: true })
-    .filter(dirent => dirent.isDirectory() && dirent.name.startsWith('v'))
-    .map(dirent => dirent.name);
+// router.use('core', coreRoutes);
+// router.use('activities', activitiesRoutes);
+router.use('/tenants', tenantsRoutes);
 
-  try {
-    for (const version of versions) {
-      const versionRouterFile = `../modules/${moduleName}/apiRoutes/${version}/${moduleName}ApiRoutes.js`;
-
-      const versionRouterModule = await import(versionRouterFile);
-
-      if (versionRouterModule && versionRouterModule.default) {
-        moduleRouter.use(`/${version}`, versionRouterModule.default);
-      }
-    }
-  } catch (error) {
-    console.error(`Error loading module ${moduleName}:`, error.message);
-    return null;
-  }
-
-  return moduleRouter;
-}
-
-const apiRoutes = await Promise.all(
-  enabledModules.map(async moduleName => {
-    const routes = await loadModuleRoutes(moduleName);
-    return routes;
-  })
-);
-
-export default apiRoutes;
+export default router;

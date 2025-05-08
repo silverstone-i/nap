@@ -9,20 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import express from 'express';
-import CategoryController from '../../controllers/CategoryController.js';
+import CategoriesController from '../../controllers/CategoriesController.js';
+import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = express.Router();
-
-router
-  .route('/')
-  .post(CategoryController.create)
-  .get(CategoryController.getAll);
-  
-router
-  .route('/:id')
-  .get(CategoryController.getById)
-  .put(CategoryController.update)
-  .delete(CategoryController.remove);
-
-export default router;
+export default createRouter(CategoriesController);

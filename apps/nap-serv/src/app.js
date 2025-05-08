@@ -75,11 +75,7 @@ app.use((req, res, next) => {
 });
 
 // Mount each module's router under /api
-apiRoutes.forEach(router => {
-  if (router) {
-    app.use('/api', router);
-  }
-});
+app.use('/api', apiRoutes);
 
 // Test route
 app.get('/', (req, res) => {

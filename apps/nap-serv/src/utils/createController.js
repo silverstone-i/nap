@@ -10,6 +10,7 @@
 */
 
 import { db } from '../db/db.js';
+// import { db } from '#db/db.js';
 
 /**
  * Handles errors for CRUD controllers.
@@ -40,6 +41,8 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
 
   const base = {
     async create(req, res) {
+      console.log('Creating record:', req.body);
+      
       try {
         const record = await db[modelName].insert(req.body);
         res.status(201).json(record);

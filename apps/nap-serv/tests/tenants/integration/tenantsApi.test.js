@@ -14,7 +14,7 @@ import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
 import { db } from '../../../src/db/db.js';
 import { setupIntegrationTest } from '../../util/integrationHarness.js';
 
-const routePrefix = '/api/v1/tenants';
+const routePrefix = '/api/tenants/v1/tenants';
 
 let server, teardown;
 let tenantId;

@@ -10,26 +10,14 @@
  */
 
 import express from 'express';
-import { readdirSync } from 'fs';
-import path from 'path';
+import tenantsApi from './tenantsApi.js';
+import napUsersApi from './napUsersApi.js';
 
 const router = express.Router();
 
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+router.use('/v1/nap-users', napUsersApi);
+router.use('/v1/tenants', tenantsApi);
 
-// Automatically read all API files inside v1/
-const files = readdirSync(__dirname).filter(file => file.endsWith('Api.js'));
-
-for (const file of files) {
-  const routeModule = await import(`./${file}`);
-  const route = routeModule.default;
-
-  let mountPath = file
-    .replace('Api.js', '') // Remove 'Api.js'
-    .replace(/[A-Z]/g, letter => '-' + letter.toLowerCase()) // camelCase to kebab-case
-    .replace(/^-/, '');
-
-  router.use(`/${mountPath}`, route);
-}
+console.log('Loaded tenantsApi router');
 
 export default router;
