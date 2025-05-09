@@ -11,6 +11,6 @@
 
 import { createController } from '../../../src/utils/createController.js';
 
-const CategoriesAccountMapController = createController('categoriesAccountMaps', {}, 'Categories account map');
+const CategoriesAccountMapController = createController('categoriesAccountMap', {}, 'Categories account map');
 
 export default CategoriesAccountMapController;
