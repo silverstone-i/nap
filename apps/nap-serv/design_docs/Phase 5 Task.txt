@@ -1,0 +1,83 @@
+🧾 Accounting Module (General Ledger)
+
+Tasks:
+	1.	Journal Entry Generation
+	•	Auto-post journal entries on:
+	•	AP invoice approval
+	•	AR invoice issuance
+	•	Activity actual cost submission
+	•	Intercompany transactions
+	•	Enforce balanced debits and credits
+	2.	Account Mapping Engine
+	•	Map activity categories or cost lines to GL accounts
+	•	Support hierarchical fallback (activity → category → default)
+	3.	Period Validation
+	•	Ensure entries fall within open fiscal periods
+	•	Add logic to lock periods post close
+	4.	Auto-posting Triggers
+	•	Hook into actual_costs, change_order_lines, ap_invoices, ar_invoices
+	•	Determine appropriate journal type and structure
+	5.	Transaction Audit Trail
+	•	Link journal entries to source documents (cost_line_id, invoice_id, etc.)
+	•	Include tenant_id and user tracking
+
+🔗 Interactions:
+	•	Pull activity → category → GL account mapping
+	•	Post actuals from activities as journaled costs
+
+⸻
+
+💸 Accounts Payable (AP)
+
+Tasks:
+	1.	Invoice Approval Workflow
+	•	Add status transitions: draft → approved → posted
+	•	Prevent posting unless all lines are mapped to accounts
+	2.	Cost Line Integration
+	•	Tie invoice lines to cost lines or activity actuals
+	•	Validate total amounts and match budget
+	3.	GL Posting
+	•	On approval: post to AP liability and expense accounts
+	•	Optionally post to WIP or prepay accounts (based on vendor or cost type)
+	4.	Vendor Balances
+	•	Update vendor ledger and aging schedules
+	•	Trigger payment due tracking logic
+	5.	Elimination Logic
+	•	If vendor is an internal company, post intercompany entries instead
+
+🔗 Interactions:
+	•	Attach AP invoice lines to cost_lines (source = vendor)
+	•	Reference activities to validate which project_unit_budget they’re hitting
+
+⸻
+
+💰 Accounts Receivable (AR)
+
+Tasks:
+	1.	Invoice Generation
+	•	Manual or system-generated (e.g., billing schedule)
+	•	Link AR invoices to activities, milestones, or schedules
+	2.	Revenue Recognition
+	•	Use activity completion % or actual cost thresholds
+	•	Recognize revenue upon billing or completion depending on accounting method
+	3.	GL Posting
+	•	Debit A/R, credit revenue accounts
+	•	Auto-post on invoice issue or receipt of payment
+	4.	Client Balances
+	•	Track aging
+	•	Allow partial payments and credit memos
+	5.	Cash Application
+	•	On payment, clear A/R and apply to specific invoice(s)
+
+🔗 Interactions:
+	•	Pull activity % complete or cost incurred for billing logic
+	•	Derive billing unit or contract value from project_unit_budgets
+
+⸻
+
+🧩 Shared Infrastructure Requirements
+	•	Status Engine for workflows (draft → approved → posted)
+	•	Mapping Table: activity/category → GL account
+	•	Document ↔ Journal Linkage (foreign keys with audit logging)
+	•	Validation Middleware in controllers to enforce transitions and posting rules
+	•	Scheduler (Phase 6) for AR recurring billing and period-end automation

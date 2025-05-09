@@ -17,6 +17,8 @@ _Not Another Program_ — Project Costing & Profitability Server
 
 `nap-serv` is the backend server for a PERN-stack project-based cost management platform. It supports multi-tenant operations, project budgeting vs. actual cost tracking, double-entry accounting, and centralized user authentication via `nap_users`.
 
+Dynamic route loading was deprecated in favor of static registration to support ESM testing with Jest.
+
 ## Features
 
 - 🧑‍💼 Multi-tenant architecture with per-tenant PostgreSQL schemas
@@ -27,7 +29,7 @@ _Not Another Program_ — Project Costing & Profitability Server
   - General Ledger
   - Accounts Payable / Receivable
 - 📆 Schedule management and billing cycle integration
-- 📦 Modular design (PostgreSQL + Express + Node.js)
+- 📦 Static route registration (ESM- and Jest-compatible; dynamic loading deprecated)
 - 🧠 Planned: AI-powered reporting and cost estimation tools
 
 ## Tech Stack
@@ -35,7 +37,7 @@ _Not Another Program_ — Project Costing & Profitability Server
 - **Backend:** Node.js (ESM), Express
 - **Database:** PostgreSQL
 - **Frontend:** [nap-client](https://github.com/your-org/nap-client)
-- **ORM Layer:** [`pg-schemata`](https://www.npmjs.com/package/pg-schemata) (custom wrapper for `pg-promise`)
+- **ORM Layer:** [`pg-schemata`](https://www.npmjs.com/package/pg-schemata) – schema-driven PostgreSQL wrapper with static module integration
 
 ## Monorepo Structure
 

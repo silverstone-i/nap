@@ -44,30 +44,15 @@ This document combines the full development roadmap for nap-serve and the curren
 
 ---
 
-## 💸 Phase 3: Financial Core (GL, AP, AR) 🚧 Not Started
+## 💸 Phase 3: Financial Core (GL, AP, AR) ✅ Complete
 
-### Goals:
-- Establish full double-entry GL and transactional input points
-
-### Deliverables:
-- General ledger with journal entry API
-- Chart of accounts and company-account assignment
-- Accounts payable (vendor bills, labor logs, material use)
-- Basic accounts receivable (incoming payments, billing units)
-- GL posting rules for cost/revenue events
+✅ Phase 3 Complete: Full scaffolding for GL, AP, and AR modules is implemented and tested. This includes schema definitions, models, routes, controllers, and integration tests. Business logic integration deferred to Phase 5.
 
 ---
 
-## 🔄 Phase 4: Intercompany Accounting 🚧 Not Started
+## 🔄 Phase 4: Intercompany Accounting ✅ Complete
 
-### Goals:
-- Allow multiple companies per tenant with internal billing and eliminations
-
-### Deliverables:
-- Intercompany transaction engine
-- Auto-generated journal entries for internal services
-- Due-to / due-from account mappings
-- Elimination tagging and logic
+✅ Phase 4 Complete: Intercompany transaction engine, account mapping, auto-generated journal entries, and elimination tagging are implemented and tested.
 
 ---
 
@@ -137,38 +122,48 @@ This document combines the full development roadmap for nap-serve and the curren
 
 # 📋 Operational Checklist
 
-## ✅ Current State (April 2025)
+## ✅ Current State (May 2025)
+
+### ✅ Module Development Progress
+
+- Activities, Units, Budgets: Fully implemented with tested integration
+- Accounting (GL, AP, AR): Full scaffolding complete and tested
+- Intercompany: Functional and tested
+- Migration Engine: Supports dependency-aware ordering
+- Controllers/Routes: All current modules scaffolded with CRUD and tests
 
 ### 🚀 Adding a New Module (Dynamic Loading) ✅ Complete
 
-- Modules dynamically loaded via `apiRoutes.js`
-- Auto-scan and auto-mount `v1/`, `v2/`, etc.
+```
+❌ Deprecated in favor of static route registration to improve compatibility with Jest and ESM modules.
+```
 
 ---
 
 ### 🚀 Adding a New Version ✅ Complete
 
-- Drop into `/v2/`
-- Dynamic detection enabled
-- No manual edits required
+```
+❌ Deprecated. Version folders are now manually registered to support better testability and clarity.
+```
 
 ---
 
 ### 🚀 Adding a New API to Existing Module ✅ Complete
 
-- Drop `*.Api.js` into the correct version folder
-- Auto-mounted
+```
+❌ Deprecated. APIs must now be statically imported and registered in the route index to enable controller-level test mocking.
+```
 
 ---
 
 ## 📦 Best Practices (Current)
 
-| Task | Status |
-|:--|:--|
-| New Module | ✅ Complete |
-| New Version | ✅ Complete |
-| New API File | ✅ Complete |
-| Version Routing | ✅ Complete |
+| Task              | Status       |
+|-------------------|--------------|
+| New Module        | ✅ Static Only |
+| New Version       | ❌ Deprecated |
+| New API File      | ❌ Deprecated |
+| Version Routing   | ✅ Static Only |
 
 ---
 
