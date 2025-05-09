@@ -9,7 +9,7 @@ jest.mock('../../../src/db/db.js');
 
 const mockId = '550e8400-e29b-41d4-a716-446655440000';
 
-db.categoriesAccountMaps = {
+db.categoriesAccountMap = {
   insert: jest.fn().mockResolvedValue({ id: mockId, name: 'Test Map' }),
   findAll: jest.fn().mockResolvedValue([{ id: mockId }]),
   findById: jest.fn().mockResolvedValue({ id: mockId }),
@@ -20,6 +20,6 @@ db.categoriesAccountMaps = {
 runControllerCrudUnitTests({
   name: 'Categories Account Map',
   controller: CategoriesAccountMapController,
-  modelName: 'categoriesAccountMaps',
+  modelName: 'categoriesAccountMap',
   db,
 });
