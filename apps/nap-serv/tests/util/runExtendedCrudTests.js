@@ -87,6 +87,14 @@ export async function runExtendedCrudTests({
         });
       if (typeof updateValue === 'number') {
         expect(parseFloat(res.body[updateField])).toBeCloseTo(updateValue);
+      } else if (
+        typeof updateValue === 'string' &&
+        typeof res.body[updateField] === 'string' &&
+        /^\d{4}-\d{2}-\d{2}T/.test(res.body[updateField])
+      ) {
+        // Compare only the date part for ISO date strings
+        const formatted = new Date(res.body[updateField]).toISOString().split('T')[0];
+        expect(formatted).toBe(updateValue);
       } else {
         expect(res.body[updateField]).toBe(updateValue);
       }
