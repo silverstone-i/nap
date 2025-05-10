@@ -10,11 +10,11 @@
 */
 
 import { BaseModel } from "pg-schemata";
-import actualCostSchema from "../schemas/actualCostSchema.js";
+import actualCostsSchema from "../schemas/actualCostsSchema.js";
 
 class ActualCosts extends BaseModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, actualCostSchema, logger);
+    super(db, pgp, actualCostsSchema, logger);
   }
 }
 
