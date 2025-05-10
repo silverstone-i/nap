@@ -25,7 +25,13 @@ export function generateCrudTestsForSchema(schema, ControllerClass, options = {}
     ...(options.mockOverrides || {}),
   };
 
-  const controller = new ControllerClass(model);
+  class TestController extends ControllerClass {
+    constructor() {
+      super();
+      this.model = model;
+    }
+  }
+  const controller = new TestController();
 
   runControllerCrudUnitTests({
     name: schema.table,
