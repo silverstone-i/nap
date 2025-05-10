@@ -24,9 +24,10 @@ function handleError(err, res, context, errorLabel) {
 }
 
 class BaseController {
-  constructor(modelName, errorLabel = modelName) {
+  constructor(modelName, errorLabel = null) {
     this.model = db[modelName];
-    this.errorLabel = errorLabel;
+    const schema = this.model?.schema || {};
+    this.errorLabel = errorLabel ?? schema.table ?? modelName;
   }
 
   async create(req, res) {
