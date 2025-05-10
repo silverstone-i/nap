@@ -1,9 +1,9 @@
 import { jest } from '@jest/globals';
 import { TenantsController } from '../../../modules/tenants/controllers/TenantsController.js';
-import tenantSchema from '../../../modules/tenants/schemas/tenantSchema.js';
+import tenantsSchema from '../../../modules/tenants/schemas/tenantsSchema.js';
 import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-generateCrudTestsForSchema(tenantSchema, TenantsController, {
+generateCrudTestsForSchema(tenantsSchema, TenantsController, {
   mockOverrides: {
     getAllowedModulesById: jest.fn(),
   },

@@ -10,11 +10,11 @@
  */
 
 import {BaseModel} from 'pg-schemata';
-import tenantSchema from '../schemas/tenantSchema.js';
+import tenantsSchema from '../schemas/tenantsSchema.js';
 
 class Tenants extends BaseModel {
   constructor(db, pgp) {
-    super(db, pgp, tenantSchema);
+    super(db, pgp, tenantsSchema);
   }
 
   async getAllowedModulesById(tenantId) {

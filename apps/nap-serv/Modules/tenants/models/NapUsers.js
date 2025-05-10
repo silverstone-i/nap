@@ -10,11 +10,11 @@
 */
 
 import {BaseModel} from 'pg-schemata';
-import napUserSchema from '../schemas/napUserSchema.js';
+import napUsersSchema from '../schemas/napUsersSchema.js';
 
 class NapUsers extends BaseModel {
   constructor(db, pgp) {
-    super(db, pgp, napUserSchema);
+    super(db, pgp, napUsersSchema);
   }
 }
 
