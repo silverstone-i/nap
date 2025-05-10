@@ -10,23 +10,35 @@
  */
 
 import { db } from '../../../src/db/db.js';
-import { createController, handleError } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const TenantsController = createController('tenants', {
+class TenantsController extends BaseController {
+  constructor(model = db.tenants) {
+    super('tenants', 'tenants');
+    this.model = model;
+  }
+
   async getAllAllowedModules(req, res) {
     console.log('Model Name:', 'tenants');
     console.log('Fetching allowed modules for tenant ID:', req.params.id);
 
     try {
-      const allowedModules = await db.tenants.getAllowedModulesById(req.params.id);
+      const allowedModules = await this.model.getAllowedModulesById(req.params.id);
       if (!allowedModules) {
         return res.status(404).json({ error: 'Tenant not found' });
       }
       res.json({ allowed_modules: allowedModules });
     } catch (err) {
-      handleError(err, res, 'fetching allowed modules', 'Tenants');
+      res.status(500).json({ error: err.message });
     }
   }
-}, 'Tenants');
+}
 
-export default TenantsController;
+const instance = new TenantsController();
+
+export { TenantsController }; // Export the class for testing purposes
+export default instance;  // Export the instance for use in development and production
+// This allows for both testing and direct usage of the controller
+// without needing to create a new instance each time.
+// This is useful for maintaining a singleton pattern for the controller
+// while still allowing for testing flexibility.

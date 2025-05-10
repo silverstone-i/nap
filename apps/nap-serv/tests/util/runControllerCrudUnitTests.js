@@ -4,14 +4,14 @@
 * Copyright © 2024-present, Ian Silverstone
 *
 * See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
 *
-* Removal or modification of this copyright notice is prohibited.
+* This test harness expects a controller and its injected model.
+* All methods are mocked directly on the model object for isolation.
 */
 
 import { jest } from '@jest/globals';
 
-export function runControllerCrudUnitTests({ name, controller, modelName, db, extraTests, extraModelMethods = {} }) {
+export function runControllerCrudUnitTests({ name, controller, model, extraTests }) {
   describe(`${name} Controller`, () => {
     const mockRes = () => {
       const res = {};
@@ -33,25 +33,20 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
     });
 
     beforeEach(() => {
-      db[modelName] = {
-        insert: jest.fn(),
-        findAll: jest.fn(),
-        findById: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        ...extraModelMethods,
-      };
+      for (const key in model) {
+        if (typeof model[key] === 'function') {
+          model[key] = jest.fn();
+        }
+      }
     });
 
     afterEach(() => jest.clearAllMocks());
-
-    const model = () => db[modelName];
 
     describe('create', () => {
       it('should insert and return 201', async () => {
         const req = { body: { name: 'Item' } };
         const res = mockRes();
-        model().insert.mockResolvedValue(req.body);
+        model.insert.mockResolvedValue(req.body);
 
         await controller.create(req, res);
 
@@ -62,7 +57,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should handle insert error', async () => {
         const req = { body: {} };
         const res = mockRes();
-        model().insert.mockRejectedValue(new Error('Insert failed'));
+        model.insert.mockRejectedValue(new Error('Insert failed'));
 
         await controller.create(req, res);
 
@@ -75,7 +70,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should return all', async () => {
         const req = {};
         const res = mockRes();
-        model().findAll.mockResolvedValue([{ id: 1 }]);
+        model.findAll.mockResolvedValue([{ id: 1 }]);
 
         await controller.getAll(req, res);
         expect(res.json).toHaveBeenCalledWith([{ id: 1 }]);
@@ -84,7 +79,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should handle error', async () => {
         const req = {};
         const res = mockRes();
-        model().findAll.mockRejectedValue(new Error('Find failed'));
+        model.findAll.mockRejectedValue(new Error('Find failed'));
 
         await controller.getAll(req, res);
         expect(res.status).toHaveBeenCalledWith(500);
@@ -100,7 +95,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should return item by ID', async () => {
         const req = { params: { id: 'abc' } };
         const res = mockRes();
-        model().findById.mockResolvedValue({ id: 'abc' });
+        model.findById.mockResolvedValue({ id: 'abc' });
 
         await controller.getById(req, res);
         expect(res.json).toHaveBeenCalledWith({ id: 'abc' });
@@ -109,7 +104,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should return 404 if not found', async () => {
         const req = { params: { id: 'abc' } };
         const res = mockRes();
-        model().findById.mockResolvedValue(null);
+        model.findById.mockResolvedValue(null);
 
         await controller.getById(req, res);
         expect(res.status).toHaveBeenCalledWith(404);
@@ -119,7 +114,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should handle error', async () => {
         const req = { params: { id: 'abc' } };
         const res = mockRes();
-        model().findById.mockRejectedValue(new Error('Find error'));
+        model.findById.mockRejectedValue(new Error('Find error'));
 
         await controller.getById(req, res);
         expect(res.status).toHaveBeenCalledWith(500);
@@ -131,7 +126,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should update and return item', async () => {
         const req = { params: { id: 'abc' }, body: { name: 'Updated' } };
         const res = mockRes();
-        model().update.mockResolvedValue({ id: 'abc', name: 'Updated' });
+        model.update.mockResolvedValue({ id: 'abc', name: 'Updated' });
 
         await controller.update(req, res);
         expect(res.json).toHaveBeenCalledWith({ id: 'abc', name: 'Updated' });
@@ -140,7 +135,7 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should handle error', async () => {
         const req = { params: { id: 'abc' }, body: {} };
         const res = mockRes();
-        model().update.mockRejectedValue(new Error('Update error'));
+        model.update.mockRejectedValue(new Error('Update error'));
 
         await controller.update(req, res);
         expect(res.status).toHaveBeenCalledWith(500);
@@ -152,8 +147,8 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should delete and return 204', async () => {
         const req = { params: { id: 'abc' } };
         const res = mockRes();
-        model().findById.mockResolvedValue({ id: 'abc' });
-        model().delete.mockResolvedValue(1);
+        model.findById.mockResolvedValue({ id: 'abc' });
+        model.delete.mockResolvedValue(1);
 
         await controller.remove(req, res);
 
@@ -164,8 +159,8 @@ export function runControllerCrudUnitTests({ name, controller, modelName, db, ex
       it('should handle error', async () => {
         const req = { params: { id: 'abc' } };
         const res = mockRes();
-        model().findById.mockResolvedValue({ id: 'abc' });
-        model().delete.mockRejectedValue(new Error('Delete error'));
+        model.findById.mockResolvedValue({ id: 'abc' });
+        model.delete.mockRejectedValue(new Error('Delete error'));
 
         await controller.remove(req, res);
 

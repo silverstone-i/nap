@@ -1,19 +1,11 @@
 import { jest } from '@jest/globals';
-import TenantsController from '../../../modules/tenants/controllers/TenantsController.js';
-import { db } from '../../../src/db/db.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { TenantsController } from '../../../modules/tenants/controllers/TenantsController.js';
+import tenantSchema from '../../../modules/tenants/schemas/tenantSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-const getAllowedModulesById = jest.fn();
-
-runControllerCrudUnitTests({
-  name: 'Tenants',
-  controller: TenantsController,
-  modelName: 'tenants',
-  db,
-  extraModelMethods: {
-    getAllowedModulesById,
+generateCrudTestsForSchema(tenantSchema, TenantsController, {
+  mockOverrides: {
+    getAllowedModulesById: jest.fn(),
   },
   extraTests: ({ mockRes, controller, model }) => {
     describe('getAllAllowedModules', () => {
@@ -21,18 +13,18 @@ runControllerCrudUnitTests({
         const req = { params: { id: 'abc' } };
         const res = mockRes();
         const allowedModules = ['accounting', 'projects'];
-        getAllowedModulesById.mockResolvedValue(allowedModules);
+        model.getAllowedModulesById.mockResolvedValue(allowedModules);
 
         await controller.getAllAllowedModules(req, res);
 
-        expect(getAllowedModulesById).toHaveBeenCalledWith('abc');
+        expect(model.getAllowedModulesById).toHaveBeenCalledWith('abc');
         expect(res.json).toHaveBeenCalledWith({ allowed_modules: allowedModules });
       });
 
       it('should return 404 if tenant not found', async () => {
         const req = { params: { id: 'abc' } };
         const res = mockRes();
-        getAllowedModulesById.mockResolvedValue(null);
+        model.getAllowedModulesById.mockResolvedValue(null);
 
         await controller.getAllAllowedModules(req, res);
 
@@ -43,7 +35,7 @@ runControllerCrudUnitTests({
       it('should handle error on getAllAllowedModules', async () => {
         const req = { params: { id: 'abc' } };
         const res = mockRes();
-        getAllowedModulesById.mockRejectedValue(new Error('Find error'));
+        model.getAllowedModulesById.mockRejectedValue(new Error('Find error'));
 
         await controller.getAllAllowedModules(req, res);
 

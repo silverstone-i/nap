@@ -35,16 +35,16 @@ export function handleError(err, res, context, errorLabel) {
  * @param {string} modelName - key of the db object e.g., 'vendors'
  * @param {object} [extras] - optional additional methods
  * @param {string} [errorLabel=modelName] - label to use in error messages
+ * @param {object} [model=db[modelName]] - optional model object to use
  * @returns {object} controller
  */
-export function createController(modelName, extras = {}, errorLabel = modelName) {
+export function createController(modelName, extras = {}, errorLabel = modelName, model = db[modelName]) {
 
   const base = {
     async create(req, res) {
       console.log('Creating record:', req.body);
-      
       try {
-        const record = await db[modelName].insert(req.body);
+        const record = await model.insert(req.body);
         res.status(201).json(record);
       } catch (err) {
         handleError(err, res, 'creating', errorLabel);
@@ -53,7 +53,7 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
 
     async getAll(req, res) {
       try {
-        const records = await db[modelName].findAll();
+        const records = await model.findAll();
         res.json(records);
       } catch (err) {
         handleError(err, res, 'fetching', errorLabel);
@@ -62,7 +62,7 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
 
     async getById(req, res) {
       try {
-        const record = await db[modelName].findById(req.params.id);        
+        const record = await model.findById(req.params.id);
         if (!record) return res.status(404).json({ error: `${errorLabel} not found` });
         res.json(record);
       } catch (err) {
@@ -72,7 +72,7 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
 
     async update(req, res) {
       try {
-        const updated = await db[modelName].update(req.params.id, req.body);
+        const updated = await model.update(req.params.id, req.body);
         if (!updated) return res.status(404).json({ error: `${errorLabel} not found` });
         res.json(updated);
       } catch (err) {
@@ -82,7 +82,7 @@ export function createController(modelName, extras = {}, errorLabel = modelName)
 
     async remove(req, res) {
       try {
-        const deleted = await db[modelName].delete(req.params.id);
+        const deleted = await model.delete(req.params.id);
         if (deleted === 0) return res.status(404).json({ error: `${errorLabel} not found` });
         res.status(204).end();
       } catch (err) {
