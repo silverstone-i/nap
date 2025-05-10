@@ -1,21 +1,6 @@
 import { jest } from '@jest/globals';
-import { db } from '../../../src/db/db.js';
-import AddressesController from '../../../modules/core/controllers/AddressesController.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { AddressesController } from '../../../modules/core/controllers/AddressesController.js';
+import addressesSchema from '../../../modules/core/schemas/addressesSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-db.addresses = {
-  insert: jest.fn(),
-  findAll: jest.fn(),
-  findById: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn().mockResolvedValue(1),
-};
-
-runControllerCrudUnitTests({
-  name: 'Address',
-  controller: AddressesController,
-  modelName: 'addresses',
-  db,
-});
+generateCrudTestsForSchema(addressesSchema, AddressesController);

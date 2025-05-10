@@ -1,23 +1,6 @@
-
-
 import { jest } from '@jest/globals';
-import { db } from '../../../src/db/db.js';
-import VendorsController from '../../../modules/core/controllers/VendorsController.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { VendorsController } from '../../../modules/core/controllers/VendorsController.js';
+import vendorsSchema from '../../../modules/core/schemas/vendorsSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-db.vendors = {
-  insert: jest.fn(),
-  findAll: jest.fn(),
-  findById: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn().mockResolvedValue(1),
-};
-
-runControllerCrudUnitTests({
-  name: 'Vendor',
-  controller: VendorsController,
-  modelName: 'vendors',
-  db,
-});
+generateCrudTestsForSchema(vendorsSchema, VendorsController);
