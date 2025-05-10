@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class LedgerBalancesController extends BaseController {
   constructor(model = db.ledgerBalances) {
-    super('ledgerBalances', 'Ledger balance');
+    super('ledgerBalances');
     this.model = model;
   }
 }

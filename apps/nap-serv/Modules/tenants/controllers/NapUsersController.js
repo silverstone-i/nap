@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class NapUsersController extends BaseController {
   constructor(model = db.napUsers) {
-    super('napUsers', 'nap_users');
+    super('napUsers');
     this.model = model;
   }
 }

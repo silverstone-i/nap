@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class UnitAssignmentsController extends BaseController {
   constructor(model = db.unitAssignments) {
-    super('unitAssignments', 'Unit assignments');
+    super('unitAssignments');
     this.model = model;
   }
 }

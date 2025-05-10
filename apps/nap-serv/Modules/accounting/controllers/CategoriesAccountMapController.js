@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class CategoriesAccountMapController extends BaseController {
   constructor(model = db.categoriesAccountMap) {
-    super('categoriesAccountMap', 'Categories account map');
+    super('categoriesAccountMap');
     this.model = model;
   }
 }

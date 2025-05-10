@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class ArInvoicesController extends BaseController {
   constructor(model = db.arInvoices) {
-    super('arInvoices', 'AR Invoice');
+    super('arInvoices');
     this.model = model;
   }
 }

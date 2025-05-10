@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class CostLinesController extends BaseController {
   constructor(model = db.costLines) {
-    super('costLines', 'Cost lines');
+    super('costLines');
     this.model = model;
   }
 }

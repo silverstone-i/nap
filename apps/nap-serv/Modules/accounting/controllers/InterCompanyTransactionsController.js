@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class InterCompanyTransactionsController extends BaseController {
   constructor(model = db.interCompanyTransactions) {
-    super('interCompanyTransactions', 'Inter company transaction');
+    super('interCompanyTransactions');
     this.model = model;
   }
 }

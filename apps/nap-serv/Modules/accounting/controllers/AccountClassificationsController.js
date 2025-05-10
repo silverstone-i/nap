@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class AccountClassificationsController extends BaseController {
   constructor(model = db.accountClassifications) {
-    super('accountClassifications', 'Account classification');
+    super('accountClassifications');
     this.model = model;
   }
 }

@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class CategoriesController extends BaseController {
   constructor(model = db.categories) {
-    super('categories', 'Category');
+    super('categories');
     this.model = model;
   }
 }

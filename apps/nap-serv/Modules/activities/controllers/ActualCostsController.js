@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class ActualCostsController extends BaseController {
   constructor(model = db.actualCosts) {
-    super('actualCosts', 'Actual costs');
+    super('actualCosts');
     this.model = model;
   }
 }

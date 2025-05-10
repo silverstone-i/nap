@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class ChangeOrderLinesController extends BaseController {
   constructor(model = db.changeOrderLines) {
-    super('changeOrderLines', 'Change order lines');
+    super('changeOrderLines');
     this.model = model;
   }
 }

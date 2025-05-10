@@ -15,7 +15,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 // Class-based controller for AP Credit Memos, supporting model injection for testing
 class ApCreditMemosController extends BaseController {
   constructor(model = db.apCreditMemos) {
-    super('apCreditMemos', 'AP Credit Memo');
+    super('apCreditMemos');
     this.model = model;
   }
 }

@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class ApInvoiceLinesController extends BaseController {
   constructor(model = db.apInvoiceLines) {
-    super('apInvoiceLines', 'AP Invoice Line');
+    super('apInvoiceLines');
     this.model = model;
   }
 }

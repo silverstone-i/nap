@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class PostingQueuesController extends BaseController {
   constructor(model = db.postingQueues) {
-    super('postingQueues', 'Posting queue');
+    super('postingQueues');
     this.model = model;
   }
 }

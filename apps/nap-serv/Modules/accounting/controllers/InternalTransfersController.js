@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class InternalTransfersController extends BaseController {
   constructor(model = db.internalTransfers) {
-    super('internalTransfers', 'Internal transfer');
+    super('internalTransfers');
     this.model = model;
   }
 }

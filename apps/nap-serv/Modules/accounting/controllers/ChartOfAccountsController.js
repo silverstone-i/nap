@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class ChartOfAccountsController extends BaseController {
   constructor(model = db.chartOfAccounts) {
-    super('chartOfAccounts', 'Chart of accounts');
+    super('chartOfAccounts');
     this.model = model;
   }
 }

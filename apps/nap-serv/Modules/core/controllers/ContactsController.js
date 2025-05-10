@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class ContactsController extends BaseController {
   constructor(model = db.contacts) {
-    super('contacts', 'Contact');
+    super('contacts');
     this.model = model;
   }
 }

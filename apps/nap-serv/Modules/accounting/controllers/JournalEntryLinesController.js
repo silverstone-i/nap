@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class JournalEntryLinesController extends BaseController {
   constructor(model = db.journalEntryLines) {
-    super('journalEntryLines', 'Journal entry line');
+    super('journalEntryLines');
     this.model = model;
   }
 }

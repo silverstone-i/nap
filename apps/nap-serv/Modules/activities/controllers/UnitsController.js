@@ -14,7 +14,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class UnitsController extends BaseController {
   constructor(model = db.units) {
-    super('units', 'Units');
+    super('units');
     this.model = model;
   }
 }
