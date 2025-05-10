@@ -25,9 +25,14 @@ function handleError(err, res, context, errorLabel) {
 
 class BaseController {
   constructor(modelName, errorLabel = null) {
+    // console.log('Model Name:', typeof modelName === 'string' ? modelName : modelName.name);
+    
     this.model = db[modelName];
+    // console.log('Model typeof:', typeof this.model);
+    
     const schema = this.model?.schema || {};
     this.errorLabel = errorLabel ?? schema.table ?? modelName;
+    // console.log('Error Label:', this.errorLabel);
   }
 
   async create(req, res) {
@@ -35,6 +40,7 @@ class BaseController {
       const record = await this.model.insert(req.body);
       res.status(201).json(record);
     } catch (err) {
+      console.error('Error creating record:', err);
       handleError(err, res, 'creating', this.errorLabel);
     }
   }
