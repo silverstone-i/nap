@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const ArInvoicesController = createController('arInvoices', {}, 'AR Invoice');
+class ArInvoicesController extends BaseController {
+  constructor(model = db.arInvoices) {
+    super('arInvoices', 'AR Invoice');
+    this.model = model;
+  }
+}
 
-export default ArInvoicesController;
+const instance = new ArInvoicesController();
+
+export default instance; // Use in production and development environments
+export { ArInvoicesController }; // Use in test environment

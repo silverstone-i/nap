@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const CostLinesController = createController('costLines', {}, 'Cost lines');
+class CostLinesController extends BaseController {
+  constructor(model = db.costLines) {
+    super('costLines', 'Cost lines');
+    this.model = model;
+  }
+}
 
-export default CostLinesController;
+const instance = new CostLinesController();
+
+export default instance; // Use in production and development environments
+export { CostLinesController }; // Use in test environment

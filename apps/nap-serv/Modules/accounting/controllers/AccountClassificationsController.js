@@ -9,12 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const AccountClassificationsController = createController(
-  'accountClassifications',
-  {},
-  'Account classification'
-);
+class AccountClassificationsController extends BaseController {
+  constructor(model = db.accountClassifications) {
+    super('accountClassifications', 'Account classification');
+    this.model = model;
+  }
+}
 
-export default AccountClassificationsController;
+const instance = new AccountClassificationsController();
+
+export default instance; // Use in production and development environments
+export { AccountClassificationsController }; // Use in test environment

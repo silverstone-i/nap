@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const PaymentsController = createController('payments', {}, 'Payment');
+class PaymentsController extends BaseController {
+  constructor(model = db.payments) {
+    super('payments', 'Payment');
+    this.model = model;
+  }
+}
 
-export default PaymentsController;
+const instance = new PaymentsController();
+
+export default instance; // Use in production and development environments
+export { PaymentsController }; // Use in test environment

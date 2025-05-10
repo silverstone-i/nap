@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const ActualCostsController = createController('actualCosts', {}, 'Actual costs');
+class ActualCostsController extends BaseController {
+  constructor(model = db.actualCosts) {
+    super('actualCosts', 'Actual costs');
+    this.model = model;
+  }
+}
 
-export default ActualCostsController;
+const instance = new ActualCostsController();
+
+export default instance; // Use in production and development environments
+export { ActualCostsController }; // Use in test environment

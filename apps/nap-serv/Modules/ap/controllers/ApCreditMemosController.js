@@ -9,8 +9,17 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const ApCreditMemosController = createController('apCreditMemos', {}, 'AP Credit Memo');
+// Class-based controller for AP Credit Memos, supporting model injection for testing
+class ApCreditMemosController extends BaseController {
+  constructor(model = db.apCreditMemos) {
+    super('apCreditMemos', 'AP Credit Memo');
+    this.model = model;
+  }
+}
 
-export default ApCreditMemosController;
+const instance = new ApCreditMemosController();
+
+export default instance; // Use in production and development environments
+export { ApCreditMemosController }; // Use in test environment

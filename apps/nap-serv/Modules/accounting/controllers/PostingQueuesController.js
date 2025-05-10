@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const PostingQueuesController = createController('postingQueues', {}, 'Posting queue');
+class PostingQueuesController extends BaseController {
+  constructor(model = db.postingQueues) {
+    super('postingQueues', 'Posting queue');
+    this.model = model;
+  }
+}
 
-export default PostingQueuesController;
+const instance = new PostingQueuesController();
+
+export default instance; // Use in production and development environments
+export { PostingQueuesController }; // Use in test environment

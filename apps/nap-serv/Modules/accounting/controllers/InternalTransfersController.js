@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const InternalTransfersController = createController('internalTransfers', {}, 'Internal transfer');
+class InternalTransfersController extends BaseController {
+  constructor(model = db.internalTransfers) {
+    super('internalTransfers', 'Internal transfer');
+    this.model = model;
+  }
+}
 
-export default InternalTransfersController;
+const instance = new InternalTransfersController();
+
+export default instance; // Use in production and development environments
+export { InternalTransfersController }; // Use in test environment

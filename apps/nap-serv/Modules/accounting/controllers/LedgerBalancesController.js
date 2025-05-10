@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const LedgerBalancesController = createController('ledgerBalances', {}, 'Ledger balance');
+class LedgerBalancesController extends BaseController {
+  constructor(model = db.ledgerBalances) {
+    super('ledgerBalances', 'Ledger balance');
+    this.model = model;
+  }
+}
 
-export default LedgerBalancesController;
+const instance = new LedgerBalancesController();
+
+export default instance; // Use in production and development environments
+export { LedgerBalancesController }; // Use in test environment

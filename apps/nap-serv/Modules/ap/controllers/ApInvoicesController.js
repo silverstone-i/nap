@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const ApInvoicesController = createController('apInvoices', {}, 'AP Invoice');
+class ApInvoicesController extends BaseController {
+  constructor(model = db.apInvoices) {
+    super('apInvoices', 'AP Invoice');
+    this.model = model;
+  }
+}
 
-export default ApInvoicesController;
+const instance = new ApInvoicesController();
+
+export default instance; // Use in production and development environments
+export { ApInvoicesController }; // Use in test environment

@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const VendorPartsController = createController('vendorParts', {}, 'Vendor parts');
+class VendorPartsController extends BaseController {
+  constructor(model = db.vendorParts) {
+    super('vendorParts', 'Vendor parts');
+    this.model = model;
+  }
+}
 
-export default VendorPartsController;
+const instance = new VendorPartsController();
+
+export default instance; // Use in production and development environments
+export { VendorPartsController }; // Use in test environment

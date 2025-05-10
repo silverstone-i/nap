@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const CategoriesAccountMapController = createController('categoriesAccountMap', {}, 'Categories account map');
+class CategoriesAccountMapController extends BaseController {
+  constructor(model = db.categoriesAccountMap) {
+    super('categoriesAccountMap', 'Categories account map');
+    this.model = model;
+  }
+}
 
-export default CategoriesAccountMapController;
+const instance = new CategoriesAccountMapController();
+
+export default instance; // Use in production and development environments
+export { CategoriesAccountMapController }; // Use in test environment

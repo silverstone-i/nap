@@ -9,9 +9,17 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const InterCompanyController = createController('interCompanies', {}, 'Inter companies');
+class InterCompaniesController extends BaseController {
+  constructor(model = db.interCompanies) {
+    super('interCompanies', 'Inter companies');
+    this.model = model;
+  }
+}
 
-export default InterCompanyController;
+const instance = new InterCompaniesController();
+
+export default instance; // Use in production and development environments
+export { InterCompaniesController }; // Use in test environment
 

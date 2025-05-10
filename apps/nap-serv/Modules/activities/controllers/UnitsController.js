@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const UnitsController = createController('units', {}, 'Units');
+class UnitsController extends BaseController {
+  constructor(model = db.units) {
+    super('units', 'Units');
+    this.model = model;
+  }
+}
 
-export default UnitsController;
+const instance = new UnitsController();
+
+export default instance; // Use in production and development environments
+export { UnitsController }; // Use in test environment

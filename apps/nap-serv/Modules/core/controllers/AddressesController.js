@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const AddressesController = createController('addresses', {}, 'Address');
+class AddressesController extends BaseController {
+  constructor(model = db.addresses) {
+    super('addresses', 'Address');
+    this.model = model;
+  }
+}
 
-export default AddressesController;
+const instance = new AddressesController();
+
+export default instance; // Use in production and development environments
+export { AddressesController }; // Use in test environment

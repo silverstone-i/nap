@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const ChartOfAccountsController = createController('chartOfAccounts', {}, 'Chart of accounts');
+class ChartOfAccountsController extends BaseController {
+  constructor(model = db.chartOfAccounts) {
+    super('chartOfAccounts', 'Chart of accounts');
+    this.model = model;
+  }
+}
 
-export default ChartOfAccountsController;
+const instance = new ChartOfAccountsController();
+
+export default instance; // Use in production and development environments
+export { ChartOfAccountsController }; // Use in test environment

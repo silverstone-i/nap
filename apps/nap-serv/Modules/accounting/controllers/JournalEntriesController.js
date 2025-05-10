@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const JournalEntriesController = createController('journalEntries', {}, 'Journal entry');
+class JournalEntriesController extends BaseController {
+  constructor(model = db.journalEntries) {
+    super('journalEntries', 'Journal entry');
+    this.model = model;
+  }
+}
 
-export default JournalEntriesController;
+const instance = new JournalEntriesController();
+
+export default instance; // Use in production and development environments
+export { JournalEntriesController }; // Use in test environment

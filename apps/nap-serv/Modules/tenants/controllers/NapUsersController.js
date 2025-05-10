@@ -9,9 +9,16 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const NapUsersController = createController('napUsers', {}, 'Nap users');
+class NapUsersController extends BaseController {
+  constructor(model = db.napUsers) {
+    super('napUsers', 'Nap users');
+    this.model = model;
+  }
+}
 
-export default NapUsersController;
-export { NapUsersController };
+const instance = new NapUsersController();
+
+export default instance;  // Use in production and development environments
+export { NapUsersController }; // Use in test environment

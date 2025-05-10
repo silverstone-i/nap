@@ -9,8 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const CategoriesController = createController('categories', {}, 'Category');
+class CategoriesController extends BaseController {
+  constructor(model = db.categories) {
+    super('categories', 'Category');
+    this.model = model;
+  }
+}
 
-export default CategoriesController;
+const instance = new CategoriesController();
+
+export default instance; // Use in production and development environments
+export { CategoriesController }; // Use in test environment

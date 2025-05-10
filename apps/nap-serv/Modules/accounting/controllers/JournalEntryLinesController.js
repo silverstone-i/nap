@@ -9,12 +9,16 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { createController } from '../../../src/utils/createController.js';
+import BaseController from '../../../src/utils/BaseController.js';
 
-const JournalEntryLinesController = createController(
-  'journalEntryLines',
-  {},
-  'Journal entry line'
-);
+class JournalEntryLinesController extends BaseController {
+  constructor(model = db.journalEntryLines) {
+    super('journalEntryLines', 'Journal entry line');
+    this.model = model;
+  }
+}
 
-export default JournalEntryLinesController;
+const instance = new JournalEntryLinesController();
+
+export default instance; // Use in production and development environments
+export { JournalEntryLinesController }; // Use in test environment
