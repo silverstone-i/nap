@@ -22,14 +22,14 @@ export default function createRouter(controller, extendRoutes) {
 
   router
     .route('/')
-    .post(controller.create)
-    .get(controller.getAll);
+    .post((req, res) => controller.create(req, res))
+    .get((req, res) => controller.getAll(req, res));
 
   router
     .route('/:id')
-    .get(controller.getById)
-    .put(controller.update)
-    .delete(controller.remove);
+    .get((req, res) => controller.getById(req, res))
+    .put((req, res) => controller.update(req, res))
+    .delete((req, res) => controller.remove(req, res));
 
   if (typeof extendRoutes === 'function') {
     extendRoutes(router);
