@@ -82,3 +82,5 @@ MIT © 2025 Ian Silverstone
 # 🚀 Contributions Welcome
 
 Feel free to open issues, suggest features, or submit pull requests!
+
+- 📄 [Detailed test setup guide](./design_docs/test-setup.md)
