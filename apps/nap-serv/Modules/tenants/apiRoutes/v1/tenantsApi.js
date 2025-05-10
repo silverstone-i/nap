@@ -12,5 +12,5 @@
 import TenantsController from '../../controllers/TenantsController.js';
 import createRouter from '../../../../src/utils/createRouter.js'
 export default createRouter(TenantsController, (router) => {
-  router.route('/:id/modules').get(TenantsController.getAllAllowedModules);
+  router.route('/:id/modules').get((req, res) => TenantsController.getAllAllowedModules(req, res));
 });
