@@ -9,13 +9,11 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db } from '../../../src/db/db.js';
 import BaseController from '../../../src/utils/BaseController.js';
 
 class InterCompanyTransactionsController extends BaseController {
-  constructor(model = db.interCompanyTransactions) {
+  constructor() {
     super('interCompanyTransactions');
-    this.model = model;
   }
 }
 

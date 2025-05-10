@@ -9,13 +9,11 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import { db } from '../../../src/db/db.js';
 import BaseController from '../../../src/utils/BaseController.js';
 
 class InterCompaniesController extends BaseController {
-  constructor(model = db.interCompanies) {
+  constructor() {
     super('interCompanies');
-    this.model = model;
   }
 }
 
@@ -23,4 +21,3 @@ const instance = new InterCompaniesController();
 
 export default instance; // Use in production and development environments
 export { InterCompaniesController }; // Use in test environment
-

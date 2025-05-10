@@ -9,13 +9,11 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db } from '../../../src/db/db.js';
 import BaseController from '../../../src/utils/BaseController.js';
 
 class CostLinesController extends BaseController {
-  constructor(model = db.costLines) {
+  constructor() {
     super('costLines');
-    this.model = model;
   }
 }
 

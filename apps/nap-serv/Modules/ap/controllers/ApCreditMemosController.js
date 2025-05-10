@@ -9,14 +9,12 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db } from '../../../src/db/db.js';
 import BaseController from '../../../src/utils/BaseController.js';
 
 // Class-based controller for AP Credit Memos, supporting model injection for testing
 class ApCreditMemosController extends BaseController {
-  constructor(model = db.apCreditMemos) {
+  constructor() {
     super('apCreditMemos');
-    this.model = model;
   }
 }
 
