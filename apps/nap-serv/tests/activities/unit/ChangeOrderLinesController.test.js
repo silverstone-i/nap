@@ -1,13 +1,5 @@
-import { jest } from '@jest/globals';
-import { db } from '../../../src/db/db.js';
-import ChangeOrderLinesController from '../../../modules/activities/controllers/ChangeOrderLinesController.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { ChangeOrderLinesController } from '../../../modules/activities/controllers/ChangeOrderLinesController.js';
+import changeOrderLinesSchema from '../../../modules/activities/schemas/changeOrderLinesSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-runControllerCrudUnitTests({
-  name: 'ChangeOrderLines',
-  controller: ChangeOrderLinesController,
-  modelName: 'changeOrderLines',
-  db,
-});
+generateCrudTestsForSchema(changeOrderLinesSchema, ChangeOrderLinesController);

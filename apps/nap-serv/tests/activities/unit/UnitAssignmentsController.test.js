@@ -1,14 +1,6 @@
 import { jest } from '@jest/globals';
-import { db } from '../../../src/db/db.js';
-import UnitAssignmentsController from '../../../modules/activities/controllers/UnitAssignmentsController.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { UnitAssignmentsController } from '../../../modules/activities/controllers/UnitAssignmentsController.js';
+import unitAssignmentsSchema from '../../../modules/activities/schemas/unitAssignmentsSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-runControllerCrudUnitTests({
-  name: 'UnitAssignments',
-  controller: UnitAssignmentsController,
-  modelName: 'unitAssignments',
-  db,
-});
-
+generateCrudTestsForSchema(unitAssignmentsSchema, UnitAssignmentsController);

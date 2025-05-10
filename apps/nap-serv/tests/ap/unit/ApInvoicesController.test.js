@@ -1,25 +1,6 @@
-
-
 import { jest } from '@jest/globals';
-import { db } from '../../../src/db/db.js';
-import ApInvoicesController from '../../../modules/ap/controllers/ApInvoicesController.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { ApInvoicesController } from '../../../modules/ap/controllers/ApInvoicesController.js';
+import apInvoicesSchema from '../../../modules/ap/schemas/apInvoicesSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-const mockId = '550e8400-e29b-41d4-a716-446655440000';
-
-db.apInvoices = {
-  insert: jest.fn().mockResolvedValue({ id: mockId, name: 'Test Invoice' }),
-  findAll: jest.fn().mockResolvedValue([{ id: mockId }]),
-  findById: jest.fn().mockResolvedValue({ id: mockId }),
-  update: jest.fn().mockResolvedValue({ id: mockId, name: 'Updated' }),
-  delete: jest.fn().mockResolvedValue(1),
-};
-
-runControllerCrudUnitTests({
-  name: 'AP Invoice',
-  controller: ApInvoicesController,
-  modelName: 'apInvoices',
-  db,
-});
+generateCrudTestsForSchema(apInvoicesSchema, ApInvoicesController);

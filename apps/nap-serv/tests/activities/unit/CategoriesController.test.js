@@ -1,13 +1,6 @@
 import { jest } from '@jest/globals';
-import { db } from '../../../src/db/db.js';
-import CategoriesController from '../../../modules/activities/controllers/CategoriesController.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { CategoriesController } from '../../../modules/activities/controllers/CategoriesController.js';
+import categoriesSchema from '../../../modules/activities/schemas/categoriesSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-runControllerCrudUnitTests({
-  name: 'Category',
-  controller: CategoriesController,
-  modelName: 'categories',
-  db,
-});
+generateCrudTestsForSchema(categoriesSchema, CategoriesController);

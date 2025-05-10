@@ -1,21 +1,6 @@
 import { jest } from '@jest/globals';
-import { db } from '../../../src/db/db.js';
-import ClientsController from '../../../modules/ar/controllers/ClientsController.js';
-import { runControllerCrudUnitTests } from '../../util/runControllerCrudUnitTests.js';
+import { ClientsController } from '../../../modules/ar/controllers/ClientsController.js';
+import clientsSchema from '../../../modules/ar/schemas/clientsSchema.js';
+import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-jest.mock('../../../src/db/db.js');
-
-db.clients = {
-  insert: jest.fn(),
-  findAll: jest.fn(),
-  findById: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn().mockResolvedValue(1),
-};
-
-runControllerCrudUnitTests({
-  name: 'Client',
-  controller: ClientsController,
-  modelName: 'clients',
-  db,
-});
+generateCrudTestsForSchema(clientsSchema, ClientsController);
