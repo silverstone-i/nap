@@ -10,7 +10,7 @@
  */
 
 import { BaseModel } from 'pg-schemata';
-import ledgerBalancesSchema from '../schemas/ledgerBalancesScema.js';
+import ledgerBalancesSchema from '../schemas/ledgerBalancesSchema.js';
 
 class LedgerBalances extends BaseModel {
   constructor(db, pgp, logger = null) {
