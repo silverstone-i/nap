@@ -9,19 +9,14 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db } from '../../../src/db/db.js';
 import BaseController from '../../../src/utils/BaseController.js';
 
 class TenantsController extends BaseController {
-  constructor(model = db.tenants) {
+  constructor() {
     super('tenants');
-    this.model = model;
   }
 
   async getAllAllowedModules(req, res) {
-    console.log('Model Name:', 'tenants');
-    console.log('Fetching allowed modules for tenant ID:', req.params.id);
-
     try {
       const allowedModules = await this.model.getAllowedModulesById(req.params.id);
       if (!allowedModules) {
