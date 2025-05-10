@@ -12,7 +12,6 @@
 import request from 'supertest';
 import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
 import { db } from '../../../src/db/db.js';
-import { setupIntegrationTest } from '../../util/integrationHarness.js';
 
 const routePrefix = '/api/tenants/v1/tenants';
 
@@ -23,14 +22,6 @@ export const cleanupTestDependencies = async () => {
   const all = await db.tenants.findAll();
   for (const row of all) await db.tenants.delete(row.id);
 };
-
-beforeAll(async () => {
-  ({ server, teardown } = await setupIntegrationTest());
-});
-
-afterAll(async () => {
-  await teardown();
-});
 
 function extraTests(context) {
   let server;
