@@ -73,6 +73,26 @@ const schema = {
       type: 'varchar(20)',
       default: `'draft'`,
       nullable: false
+    },
+    {
+      name: 'submitted_by',
+      type: 'varchar(64)',
+      nullable: true
+    },
+    {
+      name: 'submitted_at',
+      type: 'timestamptz',
+      nullable: true
+    },
+    {
+      name: 'approved_by',
+      type: 'varchar(64)',
+      nullable: true
+    },
+    {
+      name: 'approved_at',
+      type: 'timestamptz',
+      nullable: true
     }
   ],
   constraints: {
@@ -99,7 +119,7 @@ const schema = {
       },
       {
         type: 'Check',
-        expression: `status IN ('draft', 'approved', 'rejected')`
+        expression: `status IN ('draft', 'submitted', 'approved', 'locked', 'rejected')`
       }
     ],
     indexes: [

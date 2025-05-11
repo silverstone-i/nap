@@ -11,6 +11,7 @@
 
 import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
 import { db } from '../../../src/db/db.js';
+import request from 'supertest';
 
 let unitId, activityId, category;
 
@@ -65,4 +66,42 @@ await runExtendedCrudTests({
   },
   beforeHook: setup,
   afterHook: cleanup,
+  extraTests: (ctx) => {
+    const prefix = '/api/activities/v1/unit-budgets';
+
+    test('should submit a draft budget', async () => {
+      const record = await db.unitBudgets.insert({
+        tenant_id: '00000000-0000-4000-a000-000000000001',
+        unitId,
+        activityId,
+        budgeted_amount: 12345,
+        version: 1,
+        is_current: true,
+        status: 'draft',
+        created_by: 'integration-test',
+      });
+
+      const res = await request(ctx.server).post(`${prefix}/${record.id}/submit`);
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('submitted');
+    });
+
+    test('should approve a submitted budget', async () => {
+      const record = await db.unitBudgets.insert({
+        tenant_id: '00000000-0000-4000-a000-000000000001',
+        unitId,
+        activityId,
+        budgeted_amount: 98765,
+        version: 1,
+        is_current: true,
+        status: 'draft',
+        created_by: 'integration-test',
+      });
+
+      await request(ctx.server).post(`${prefix}/${record.id}/submit`);
+      const res = await request(ctx.server).post(`${prefix}/${record.id}/approve`);
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('approved');
+    });
+  }
 });
