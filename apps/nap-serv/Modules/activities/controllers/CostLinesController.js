@@ -15,6 +15,22 @@ class CostLinesController extends BaseController {
   constructor() {
     super('costLines');
   }
+
+  async lockByUnitBudget(req, res) {
+    const unitBudgetId = req.params.unitBudgetId;
+    const updatedBy = req.user?.email || 'system';
+
+    try {
+      const result = await this.model.updateWhere(
+        { unit_budget_id: unitBudgetId, status: 'draft' },
+        { status: 'locked', updated_by: updatedBy }
+      );
+      res.status(200).json({ locked: result.rowCount });
+    } catch (err) {
+      console.error('Error locking cost lines:', err);
+      res.status(500).json({ error: 'Failed to lock cost lines.' });
+    }
+  }
 }
 
 const instance = new CostLinesController();

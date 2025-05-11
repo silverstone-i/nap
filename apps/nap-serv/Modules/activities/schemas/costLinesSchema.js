@@ -11,7 +11,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'costlines',
+  table: 'cost_lines',
   hasAuditFields: true,
   version: '1.0.0',
   constraints: {
@@ -78,6 +78,10 @@ const schema = {
       {
         type: 'Check',
         expression: `source_type IN ('material', 'labor')`
+      },
+      {
+        type: 'Check',
+        expression: `status IN ('draft', 'locked', 'change_order')`
       }
     ],
   },
@@ -110,6 +114,12 @@ const schema = {
     { name: 'amount', type: 'numeric(12,2)', generated: '(quantity * unit_price)', stored: true },
     { name: 'markup_pct', type: 'numeric(5,2)', nullable: true },
     { name: 'assembly_code', type: 'varchar(16)', nullable: true },
+    {
+      name: 'status',
+      type: 'varchar(20)',
+      nullable: false,
+      default: `'draft'`
+    },
   ],
 };
 

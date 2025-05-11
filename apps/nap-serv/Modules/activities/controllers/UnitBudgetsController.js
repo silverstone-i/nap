@@ -10,6 +10,7 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
+import CostLinesController from './CostLinesController.js';
 
 class UnitBudgetsController extends BaseController {
   constructor() {
@@ -50,6 +51,8 @@ class UnitBudgetsController extends BaseController {
         approved_by: req.user?.email || 'system',
         approved_at: new Date()
       });
+
+      await CostLinesController.lockByUnitBudget({ params: { unitBudgetId: id }, user: req.user }, { status: () => ({ json: () => {} }) });
 
       res.status(200).json(updated);
     } catch (err) {
