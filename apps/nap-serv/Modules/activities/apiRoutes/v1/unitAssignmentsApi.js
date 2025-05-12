@@ -9,8 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import express from 'express';
-import UnitAssignmentsController from '../../controllers/UnitAssignmentsController.js';
+import unitAssignmentsController from '../../controllers/UnitAssignmentsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(UnitAssignmentsController);
+export default createRouter(unitAssignmentsController);

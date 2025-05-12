@@ -9,12 +9,12 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import UnitBudgetsController from '../../controllers/UnitBudgetsController.js';
+import unitBudgetsController from '../../controllers/UnitBudgetsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = createRouter(UnitBudgetsController);
+const router = createRouter(unitBudgetsController);
 
-router.route('/:id/submit').post((req, res) => UnitBudgetsController.submit(req, res));
-router.route('/:id/approve').post((req, res) => UnitBudgetsController.approve(req, res));
+router.route('/:id/submit').post((req, res) => unitBudgetsController.submit(req, res));
+router.route('/:id/approve').post((req, res) => unitBudgetsController.approve(req, res));
 
 export default router;

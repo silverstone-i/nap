@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import VendorPartsController from '../../controllers/VendorPartsController.js';
+import vendorPartsController from '../../controllers/VendorPartsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(VendorPartsController);
+export default createRouter(vendorPartsController);

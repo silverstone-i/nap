@@ -9,10 +9,10 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { BaseModel } from 'pg-schemata';
+import { TableModel } from 'pg-schemata';
 import apCreditMemosSchema from '../schemas/apCreditMemosSchema.js';
 
-class ApCreditMemos extends BaseModel {
+class ApCreditMemos extends TableModel {
   constructor(db, pgp, logger = null) {
     super(db, pgp, apCreditMemosSchema, logger);
   }

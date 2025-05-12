@@ -9,7 +9,6 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import express from 'express';
 import ContactsController from '../../controllers/ContactsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';

@@ -11,6 +11,7 @@
 
 import { db, pgp } from '../src/db/db.js';
 import { loadViews } from './loadViews.js';
+import { URL } from 'url';
 
 // Extracts table dependencies from model's foreign keys
 function getTableDependencies(model) {
@@ -121,8 +122,8 @@ async function runMigrate(
     `);
     validModels = Object.fromEntries(
       Object.entries(dbOverride)
-        .filter(([_, model]) => isValidModel(model))
-        .map(([key, model]) => [`${model.schema.dbSchema}.${model.schema.table}`.toLowerCase(), model])
+        .filter(([, model]) => isValidModel(model))
+        .map(([, model]) => [`${model.schema.dbSchema}.${model.schema.table}`.toLowerCase(), model])
     );
     
     // console.log('Loaded models:', Object.keys(validModels));
@@ -140,7 +141,7 @@ async function runMigrate(
       );
 
       // Log the current search_path before creating the table
-      const { search_path } = await dbOverride.one('SHOW search_path');
+      // const { search_path } = await dbOverride.one('SHOW search_path');
 
       await model.createTable();
       // console.log('Created table:', key);

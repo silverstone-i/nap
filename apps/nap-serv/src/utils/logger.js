@@ -11,7 +11,6 @@
 
 import { createLogger, format, transports } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import { fileURLToPath } from 'url';
 import path from 'path';
 
 const env = process.env.NODE_ENV || 'development';

@@ -9,10 +9,10 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { BaseModel } from 'pg-schemata';
+import { TableModel } from 'pg-schemata';
 import accountClassificationsSchema from '../schemas/accountClassificationsSchema.js';
 
-class AccountClassifications extends BaseModel {
+class AccountClassifications extends TableModel {
   constructor(db, pgp, logger = null) {
     super(db, pgp, accountClassificationsSchema, logger);
   }

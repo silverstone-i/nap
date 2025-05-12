@@ -9,10 +9,10 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { BaseModel } from 'pg-schemata';
+import { TableModel } from 'pg-schemata';
 import arInvoiceLinesSchema from '../schemas/arInvoiceLinesSchema.js';
 
-class ArInvoiceLines extends BaseModel {
+class ArInvoiceLines extends TableModel {
   constructor(db, pgp, logger = null) {
     super(db, pgp, arInvoiceLinesSchema, logger);
   }

@@ -9,13 +9,12 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import express from 'express';
-import CostLinesController from '../../controllers/CostLinesController.js';
+import costLinesController from '../../controllers/CostLinesController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = createRouter(CostLinesController);
+const router = createRouter(costLinesController);
 
-router.route('/lock/:unitBudgetId').post((req, res) => CostLinesController.lockByUnitBudget(req, res));
+router.route('/lock/:unitBudgetId').post((req, res) => costLinesController.lockByUnitBudget(req, res));
 
 export default router;

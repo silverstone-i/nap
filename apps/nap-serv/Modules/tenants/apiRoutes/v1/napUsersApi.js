@@ -9,7 +9,6 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import { Router } from 'express';
 import NapUsersController from '../../controllers/NapUsersController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 

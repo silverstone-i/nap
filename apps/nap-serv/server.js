@@ -22,7 +22,7 @@ app.get('/healthz', (req, res) => {
 });
 
 // Global error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   logger.error(`Unhandled error: ${err.message}`, { stack: err.stack });
   res.status(500).json({ error: 'Internal Server Error' });
 });

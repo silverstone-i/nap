@@ -9,10 +9,10 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { BaseModel } from 'pg-schemata';
+import { TableModel } from 'pg-schemata';
 import projectSchema from '../schemas/projectsSchema.js';
 
-class Projects extends BaseModel {
+class Projects extends TableModel {
   constructor(db, pgp) {
     super(db, pgp, projectSchema);
   }

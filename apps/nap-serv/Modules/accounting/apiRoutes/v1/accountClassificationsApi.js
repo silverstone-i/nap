@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import AccountClassificationsController from '../../controllers/AccountClassificationsController.js';
+import accountClassificationsController from '../../controllers/AccountClassificationsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(AccountClassificationsController);
+export default createRouter(accountClassificationsController);

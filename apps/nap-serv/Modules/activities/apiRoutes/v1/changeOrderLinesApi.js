@@ -9,16 +9,15 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import express from 'express';
-import ChangeOrderLinesController from '../../controllers/ChangeOrderLinesController.js';
+import changeOrderLinesController from '../../controllers/ChangeOrderLinesController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = createRouter(ChangeOrderLinesController);
+const router = createRouter(changeOrderLinesController);
 
 // Add custom route for approving change order lines
 router.patch('/change-order-lines/:id/approve', (req, res) =>
-  new ChangeOrderLinesController().approve(req, res)
+  changeOrderLinesController.approve(req, res)
 );
 
 export default router;

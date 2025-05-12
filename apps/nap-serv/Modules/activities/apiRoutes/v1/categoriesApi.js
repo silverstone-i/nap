@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import CategoriesController from '../../controllers/CategoriesController.js';
+import categoriesController from '../../controllers/CategoriesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(CategoriesController);
+export default createRouter(categoriesController);

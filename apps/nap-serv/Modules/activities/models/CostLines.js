@@ -8,14 +8,13 @@
  *
  * Removal or modification of this copyright notice is prohibited.
  */
-import { BaseModel } from 'pg-schemata';
+import { TableModel } from 'pg-schemata';
 import costLinesSchema from '../schemas/costLinesSchema.js';
 
-class CostLines extends BaseModel {
+class CostLines extends TableModel {
   constructor(db, pgp) {
     super(db, pgp, costLinesSchema);
     // console.log('CostLines model initialized', this.schema);
-    
   }
 }
 export default CostLines;

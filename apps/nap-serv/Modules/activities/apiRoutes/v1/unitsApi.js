@@ -9,9 +9,8 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import express from 'express';
-import UnitsController from '../../controllers/UnitsController.js';
+import unitsController from '../../controllers/UnitsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(UnitsController);
+export default createRouter(unitsController);

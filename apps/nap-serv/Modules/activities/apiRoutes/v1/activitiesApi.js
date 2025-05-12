@@ -9,9 +9,8 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import express from 'express';
-import ActivitiesController from '../../controllers/ActivitiesController.js';
+import activitiesController from '../../controllers/ActivitiesController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ActivitiesController);
+export default createRouter(activitiesController);

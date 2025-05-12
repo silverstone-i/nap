@@ -9,9 +9,8 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import express from 'express';
-import ActualCostsController from '../../controllers/ActualCostsController.js';
+import actualCostsController from '../../controllers/ActualCostsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ActualCostsController);
+export default createRouter(actualCostsController);

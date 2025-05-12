@@ -9,12 +9,3 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import { TableModel } from 'pg-schemata';
-import addressesSchema from '../schemas/addressesSchema.js';
-
-class Addresses extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, addressesSchema);
-  }
-}
-export default Addresses;

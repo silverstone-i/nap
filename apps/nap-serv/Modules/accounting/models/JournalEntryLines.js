@@ -9,10 +9,10 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { BaseModel } from 'pg-schemata';
+import { TableModel } from 'pg-schemata';
 import journalEntryLinesSchema from '../schemas/journalEntryLinesSchema.js';
 
-class JournalEntryLines extends BaseModel {
+class JournalEntryLines extends TableModel {
   constructor(db, pgp, logger = null) {
     super(db, pgp, journalEntryLinesSchema, logger);
   }

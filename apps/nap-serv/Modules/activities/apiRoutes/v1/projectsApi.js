@@ -9,9 +9,8 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import express from 'express';
-import ProjectsController from '../../controllers/ProjectsController.js';
+import projectsController from '../../controllers/ProjectsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ProjectsController);
+export default createRouter(projectsController);
