@@ -20,7 +20,7 @@ describe('Integration: Budget and CostLine Linkage', () => {
   test('should link cost line to unit budget successfully', async () => {
     const result = await db.one(`
       SELECT id, unit_budget_id
-      FROM tenantid.costlines
+      FROM tenantid.cost_lines
       WHERE id = '00000000-0000-0000-0000-000000000004'
     `);
 

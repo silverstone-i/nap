@@ -40,7 +40,7 @@ describe('AP Invoice Lines API', () => {
         ctx.activityId, ctx.tenantId, 'FRM-001', 'Framing', 'integration-test',
       ]);
 
-      await db.none(`INSERT INTO tenantid.costlines (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
+      await db.none(`INSERT INTO tenantid.cost_lines (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
         ctx.costLineId, ctx.tenantId, 'integration-test',
       ]);
 

@@ -32,7 +32,7 @@ const apInvoiceLinesSchema = {
       {
         type: 'ForeignKey',
         columns: ['cost_line_id'],
-        references: { table: 'tenantid.costlines', columns: ['id'] },
+        references: { table: 'tenantid.cost_lines', columns: ['id'] },
         onDelete: 'SET NULL',
       },
       {

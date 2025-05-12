@@ -37,7 +37,7 @@ SELECT
 FROM tenantid.activities a
 LEFT JOIN tenantid.activity_budgets b
   ON a.tenant_id = b.tenant_id AND a.activity_id = b.activity_id
-LEFT JOIN tenantid.costlines cl
+LEFT JOIN tenantid.cost_lines cl
   ON a.tenant_id = cl.tenant_id AND a.activity_id = cl.activity_id
 LEFT JOIN tenantid.vendorparts vp
   ON cl.tenant_id = vp.tenant_id

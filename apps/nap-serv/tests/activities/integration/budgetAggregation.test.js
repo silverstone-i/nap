@@ -25,10 +25,10 @@ describe('Integration: Budget Aggregation', () => {
     await teardown();
   });
 
-  test('should sum costlines per unit_budget_id correctly', async () => {
+  test('should sum cost_lines per unit_budget_id correctly', async () => {
     const result = await db.any(`
       SELECT unit_budget_id, SUM(quantity * unit_price)::numeric(12,2) as total
-      FROM tenantid.costlines
+      FROM tenantid.cost_lines
       GROUP BY unit_budget_id
     `);
 

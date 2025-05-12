@@ -34,7 +34,7 @@ describe('Integration: Unit Budget Rollup', () => {
         ub.budgeted_amount::numeric(12,2),
         SUM(cl.quantity * cl.unit_price)::numeric(12,2) AS actual_cost
       FROM tenantid.unit_budgets ub
-      LEFT JOIN tenantid.costlines cl ON cl.unit_budget_id = ub.id
+      LEFT JOIN tenantid.cost_lines cl ON cl.unit_budget_id = ub.id
       WHERE ub.id = '00000000-0000-0000-0000-000000000003'
       GROUP BY ub.id, ub.budgeted_amount
     `);

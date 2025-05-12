@@ -14,4 +14,11 @@ import ChangeOrderLinesController from '../../controllers/ChangeOrderLinesContro
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ChangeOrderLinesController);
+const router = createRouter(ChangeOrderLinesController);
+
+// Add custom route for approving change order lines
+router.patch('/change-order-lines/:id/approve', (req, res) =>
+  new ChangeOrderLinesController().approve(req, res)
+);
+
+export default router;

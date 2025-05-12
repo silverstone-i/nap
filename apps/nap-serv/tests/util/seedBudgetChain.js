@@ -55,7 +55,7 @@ export async function seedBudgetChain(db, {
 
   // Seed cost line
   await db.none(`
-    INSERT INTO tenantid.costlines (
+    INSERT INTO tenantid.cost_lines (
       id, tenant_id, unit_id, vendor_id, activity_id, unit_budget_id,
       source_type, quantity, unit_price, name
     )

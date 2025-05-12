@@ -21,7 +21,7 @@ SELECT
   COALESCE(SUM(ab.budgeted_cost), 0) AS total_budgeted_cost,
   COALESCE(SUM(ab.budgeted_price), 0) AS total_budgeted_price,
 
-  -- Actual values from costlines
+  -- Actual values from cost_lines
   COALESCE(SUM(cl.quantity * vp.unit_cost), 0) AS actual_cost,
   COALESCE(SUM(cl.quantity * vp.unit_cost * (1 + COALESCE(cl.markup_pct, vp.markup_pct, 0) / 100)), 0) AS actual_price,
 
@@ -36,7 +36,7 @@ SELECT
   COALESCE(SUM(cl.quantity * vp.unit_cost * (1 + COALESCE(cl.markup_pct, vp.markup_pct, 0) / 100)), 0) AS price_variance
 
 FROM tenantid.projects p
-LEFT JOIN tenantid.costlines cl
+LEFT JOIN tenantid.cost_lines cl
   ON p.id = cl.project_id
 LEFT JOIN tenantid.vendorparts vp
   ON cl.tenant_id = vp.tenant_id
