@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import ChartOfAccountsController from '../../controllers/ChartOfAccountsController.js';
+import chartOfAccountsController from '../../controllers/ChartOfAccountsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ChartOfAccountsController);
+export default createRouter(chartOfAccountsController);

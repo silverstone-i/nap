@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import PostingQueuesController from '../../controllers/PostingQueuesController.js';
+import postingQueuesController from '../../controllers/PostingQueuesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(PostingQueuesController);
+export default createRouter(postingQueuesController);

@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import ApCreditMemosController from '../../controllers/ApCreditMemosController.js';
+import apCreditMemosController from '../../controllers/ApCreditMemosController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ApCreditMemosController);
+export default createRouter(apCreditMemosController);

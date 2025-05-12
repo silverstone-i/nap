@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import CategoriesAccountMapController from '../../controllers/CategoriesAccountMapController.js';
+import categoriesAccountMapController from '../../controllers/CategoriesAccountMapController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(CategoriesAccountMapController);
+export default createRouter(categoriesAccountMapController);

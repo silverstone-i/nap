@@ -9,8 +9,8 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import VendorsController from '../../controllers/VendorsController.js';
+import vendorsController from '../../controllers/VendorsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(VendorsController);
+export default createRouter(vendorsController);

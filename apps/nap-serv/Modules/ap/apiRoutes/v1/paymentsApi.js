@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import PaymentsController from '../../controllers/PaymentsController.js';
+import paymentsController from '../../controllers/PaymentsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(PaymentsController);
+export default createRouter(paymentsController);

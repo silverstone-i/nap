@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import ApInvoicesController from '../../controllers/ApInvoicesController.js';
+import apInvoicesController from '../../controllers/ApInvoicesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ApInvoicesController);
+export default createRouter(apInvoicesController);

@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import AddressesController from '../../controllers/AddressesController.js';
+import addressesController from '../../controllers/AddressesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(AddressesController);
+export default createRouter(addressesController);

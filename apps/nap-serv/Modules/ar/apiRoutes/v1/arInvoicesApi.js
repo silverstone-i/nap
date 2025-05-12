@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import ArInvoicesController from '../../controllers/ArInvoicesController.js';
+import arInvoicesController from '../../controllers/ArInvoicesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ArInvoicesController);
+export default createRouter(arInvoicesController);

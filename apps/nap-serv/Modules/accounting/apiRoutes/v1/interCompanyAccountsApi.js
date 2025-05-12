@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import InterCompanyAccountsController from '../../controllers/InterCompanyAccountsController.js';
+import interCompanyAccountsController from '../../controllers/InterCompanyAccountsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(InterCompanyAccountsController);
+export default createRouter(interCompanyAccountsController);

@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import ReceiptsController from '../../controllers/ReceiptsController.js';
+import receiptsController from '../../controllers/ReceiptsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ReceiptsController);
+export default createRouter(receiptsController);

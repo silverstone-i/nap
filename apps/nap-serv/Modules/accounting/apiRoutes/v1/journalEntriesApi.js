@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import JournalEntriesController from '../../controllers/JournalEntriesController.js';
+import journalEntriesController from '../../controllers/JournalEntriesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(JournalEntriesController);
+export default createRouter(journalEntriesController);

@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import ClientsController from '../../controllers/ClientsController.js';
+import clientsController from '../../controllers/ClientsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ClientsController);
+export default createRouter(clientsController);

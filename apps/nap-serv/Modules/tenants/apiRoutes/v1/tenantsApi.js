@@ -9,8 +9,8 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import TenantsController from '../../controllers/TenantsController.js';
+import tenantsController from '../../controllers/TenantsController.js';
 import createRouter from '../../../../src/utils/createRouter.js'
-export default createRouter(TenantsController, (router) => {
-  router.route('/:id/modules').get((req, res) => TenantsController.getAllAllowedModules(req, res));
+export default createRouter(tenantsController, (router) => {
+  router.route('/:id/modules').get((req, res) => tenantsController.getAllAllowedModules(req, res));
 });

@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import LedgerBalancesController from '../../controllers/LedgerBalancesController.js';
+import ledgerBalancesController from '../../controllers/LedgerBalancesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(LedgerBalancesController);
+export default createRouter(ledgerBalancesController);

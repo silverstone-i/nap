@@ -9,8 +9,8 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import InterCompaniesController from '../../controllers/InterCompaniesController.js';
+import interCompaniesController from '../../controllers/InterCompaniesController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(InterCompaniesController);
+export default createRouter(interCompaniesController);

@@ -9,8 +9,8 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import ContactsController from '../../controllers/ContactsController.js';
+import contactsController from '../../controllers/ContactsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(ContactsController);
+export default createRouter(contactsController);

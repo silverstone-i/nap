@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import InternalTransfersController from '../../controllers/InternalTransfersController.js';
+import internalTransfersController from '../../controllers/InternalTransfersController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(InternalTransfersController);
+export default createRouter(internalTransfersController);

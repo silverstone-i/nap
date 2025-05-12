@@ -9,7 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import NapUsersController from '../../controllers/NapUsersController.js';
+import napUsersController from '../../controllers/NapUsersController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(NapUsersController);
+export default createRouter(napUsersController);
