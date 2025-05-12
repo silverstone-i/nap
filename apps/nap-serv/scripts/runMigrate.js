@@ -145,8 +145,9 @@ async function runMigrate(
       await model.createTable();
       // console.log('Created table:', key);
     }
-    // await loadViews(dbOverride);
-    // console.log('All views loaded.');
+    
+    await loadViews(dbOverride);
+    console.log('All views loaded.');
   } catch (error) {
     console.error('Error during migration:', error.message);
     console.error('Stack trace:', error.stack);
