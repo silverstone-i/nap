@@ -19,7 +19,7 @@ async function seedPhase2() {
   await db.none('DELETE FROM tenantid.clients');
   await db.none('DELETE FROM tenantid.activity_budgets');
   await db.none('DELETE FROM tenantid.activity_actuals');
-  await db.none('DELETE FROM tenantid.costlines');
+  await db.none('DELETE FROM tenantid.cost_lines');
   await db.none('DELETE FROM tenantid.vendorparts');
   await db.none('DELETE FROM tenantid.activities');
   await db.none('DELETE FROM tenantid.categories');
