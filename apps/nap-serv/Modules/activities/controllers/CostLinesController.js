@@ -25,24 +25,37 @@ class CostLinesController extends BaseController {
     const updatedBy = req.user?.email || 'system';
 
     try {
-      const costLines = await this.model.findWhere([{ column: 'unit_budget_id', op: '=', value: unitBudgetId }]);
+      const costLines = await this.model.findWhere([
+        { column: 'unit_budget_id', op: '=', value: unitBudgetId },
+      ]);
       if (!costLines.length) {
         return res.status(200).json({ locked: 0 });
       }
 
-      const preview = costLines[0];
-
-      assertStatusAllowed(preview.status, ['approved'], 'lock cost lines');
-
-      const result = await this.model.updateWhere(
-        [
-          { column: 'unit_budget_id', op: '=', value: unitBudgetId },
-          { column: 'status', op: '=', value: 'approved' }
-        ],
-        { status: 'locked', updated_by: updatedBy }
+      const unitBudget = await this.model.db.oneOrNone(
+        `SELECT status FROM tenantid.unit_budgets WHERE id = $1`,
+        [unitBudgetId]
       );
+      if (!unitBudget) {
+        return res.status(404).json({ error: 'Unit budget not found' });
+      }
+      console.log('unitBudget', unitBudget);
 
-      res.status(200).json({ locked: result.rowCount });
+      assertStatusAllowed(unitBudget.status, ['approved'], 'lock cost lines');
+      console.log('assertStatusAllowed', unitBudget.status);
+
+      const where = {
+        id: { $in: costLines.map(line => line.id) },
+      };
+      console.log('where = ', where);
+
+      const result = await this.model.updateWhere(where, {
+        status: 'locked',
+        updated_by: updatedBy,
+      });
+
+      console.log('controller result', result);
+      res.status(200).json({ locked: result });
     } catch (err) {
       console.error('Error locking cost lines:', err);
       res.status(500).json({ error: 'Failed to lock cost lines.' });

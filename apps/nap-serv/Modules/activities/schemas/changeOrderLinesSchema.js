@@ -67,7 +67,7 @@ const schema = {
     },
     {
       name: 'approved_by',
-      type: 'uuid',
+      type: 'varchar(20)',
       nullable: true,
     },
     {
@@ -102,7 +102,7 @@ const schema = {
     checks: [
       {
         type: 'Check',
-        expression: `status IN ('pending', 'approved', 'rejected')`,
+        expression: `status IN ('pending', 'approved', 'locked', 'rejected')`,
       },
     ],
     indexes: [

@@ -33,7 +33,11 @@ class ChangeOrderLinesController extends BaseController {
         return res.status(404).json({ error: 'Change order not found.' });
       }
 
-      assertStatusAllowed(changeOrder.status, ['draft'], 'approve change order');
+      assertStatusAllowed(
+        changeOrder.status,
+        ['draft'],
+        'approve change order'
+      );
 
       const updated = await this.model.updateWhere(
         { id },
@@ -49,6 +53,71 @@ class ChangeOrderLinesController extends BaseController {
     } catch (err) {
       console.error('Error approving change order:', err);
       res.status(500).json({ error: 'Failed to approve change order.' });
+    }
+  }
+
+  /**
+   * Approve all change order lines by unit budget ID.
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   */
+  async lockByUnitBudget(req, res) {
+    console.log('req.params', req.params);
+
+    const unitBudgetId = req.params.id;
+    const approvedBy = req.user?.email || 'system';
+
+    try {
+      console.log('unitBudgetId', unitBudgetId);
+
+      const unitBudget = await this.model.db.unitBudgets.findById(unitBudgetId);
+      console.log('unitBudget', unitBudget);
+
+      if (!unitBudget) {
+        return res.status(404).json({ error: 'Unit budget not found.' });
+      }
+
+      assertStatusAllowed(
+        unitBudget.status,
+        ['approved'],
+        'approve change orders'
+      );
+      console.log('unitBudget.status', unitBudget.status);
+
+      const rows = await this.model.findWhere([
+        {
+          unit_id: unitBudget.unit_id,
+          status: 'pending',
+        },
+      ]);
+
+      console.log('rows', rows);
+
+      const idsToApprove = rows.map(row => row.id);
+      if (idsToApprove.length === 0) {
+        return res.status(200).json({ approved: 0 });
+      }
+
+      const where = { id: { $in: idsToApprove } };
+      console.log('where = ', where);
+
+      const rowsToUpdate = await this.model.findWhere([
+        { id: { $in: idsToApprove } },
+      ]); // ✅      
+      console.log('Rows that will be updated:', rowsToUpdate);
+
+      const result = await this.model.updateWhere(where, {
+        status: 'locked',
+        approved_by: approvedBy,
+        approved_at: new Date().toISOString(),
+        updated_by: approvedBy,
+      });
+
+      console.log('controller result', result);
+      res.status(200).json({ approved: result });
+    } catch (err) {
+      console.error('Error approving change orders:', err);
+      res.status(500).json({ error: 'Failed to approve change orders.' });
     }
   }
 }
