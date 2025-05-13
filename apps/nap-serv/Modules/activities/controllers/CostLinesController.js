@@ -19,18 +19,26 @@ class CostLinesController extends BaseController {
 
   async lockByUnitBudget(req, res) {
     const unitBudgetId = req.params.unitBudgetId;
+    if (!unitBudgetId) {
+      return res.status(400).json({ error: 'Missing unit budget ID' });
+    }
     const updatedBy = req.user?.email || 'system';
 
     try {
-      const preview = await this.model.findOneBy({ unit_budget_id: unitBudgetId });
-      if (!preview) {
-        return res.status(404).json({ error: 'No cost lines found for unit budget' });
+      const costLines = await this.model.findWhere([{ column: 'unit_budget_id', op: '=', value: unitBudgetId }]);
+      if (!costLines.length) {
+        return res.status(200).json({ locked: 0 });
       }
+
+      const preview = costLines[0];
 
       assertStatusAllowed(preview.status, ['approved'], 'lock cost lines');
 
       const result = await this.model.updateWhere(
-        { unit_budget_id: unitBudgetId, status: 'approved' },
+        [
+          { column: 'unit_budget_id', op: '=', value: unitBudgetId },
+          { column: 'status', op: '=', value: 'approved' }
+        ],
         { status: 'locked', updated_by: updatedBy }
       );
 
