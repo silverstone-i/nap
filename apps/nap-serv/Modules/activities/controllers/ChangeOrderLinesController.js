@@ -10,6 +10,7 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
+import { assertStatusAllowed } from '../logic/budgetLogic.js';
 
 class ChangeOrderLinesController extends BaseController {
   constructor() {
@@ -32,9 +33,7 @@ class ChangeOrderLinesController extends BaseController {
         return res.status(404).json({ error: 'Change order not found.' });
       }
 
-      if (changeOrder.status === 'approved') {
-        return res.status(400).json({ error: 'Change order already approved.' });
-      }
+      assertStatusAllowed(changeOrder.status, ['draft'], 'approve change order');
 
       const updated = await this.model.updateWhere(
         { id },
