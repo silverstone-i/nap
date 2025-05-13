@@ -6,6 +6,8 @@
 
 import { jest } from '@jest/globals';
 import { runControllerCrudUnitTests } from './runControllerCrudUnitTests.js';
+import { TableModel } from 'pg-schemata';
+import { db, pgp } from '../../src/db/db.js';
 
 /**
  * Generates standardized CRUD unit tests for a given schema and controller class.
@@ -15,15 +17,21 @@ import { runControllerCrudUnitTests } from './runControllerCrudUnitTests.js';
  * @param {object} [options.mockOverrides] - Functions to override or extend default mocks.
  * @param {Function} [options.extraTests] - Additional custom tests to run.
  */
-export function generateCrudTestsForSchema(schema, ControllerClass, options = {}) {
-  const model = {
-    insert: jest.fn(),
-    findAll: jest.fn(),
-    findById: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-    ...(options.mockOverrides || {}),
-  };
+export function generateCrudTestsForSchema(
+  schema,
+  ControllerClass,
+  options = {}
+) {
+  const model = options.useRealModel
+    ? new TableModel(db, pgp, schema)
+    : {
+        insert: jest.fn(),
+        findAll: jest.fn(),
+        findById: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        ...(options.mockOverrides || {}),
+      };
 
   class TestController extends ControllerClass {
     constructor() {
@@ -32,6 +40,10 @@ export function generateCrudTestsForSchema(schema, ControllerClass, options = {}
     }
   }
   const controller = new TestController();
+
+  if (options.useRealModel) {
+    controller.model = model;
+  }
 
   runControllerCrudUnitTests({
     name: schema.table,
