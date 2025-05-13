@@ -11,6 +11,7 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 import CostLinesController from './CostLinesController.js';
+import { validateStatusTransition } from '../logic/budgetLogic.js';
 
 class UnitBudgetsController extends BaseController {
   constructor() {
@@ -21,9 +22,7 @@ class UnitBudgetsController extends BaseController {
     try {
       const id = req.params.id;
       const existing = await this.model.findById(id);
-      if (!existing || existing.status !== 'draft') {
-        return res.status(400).json({ error: 'Only draft budgets can be submitted.' });
-      }
+      validateStatusTransition(existing.status, 'submitted');
 
       const updated = await this.model.update(id, {
         status: 'submitted',
@@ -33,6 +32,9 @@ class UnitBudgetsController extends BaseController {
 
       res.status(200).json(updated);
     } catch (err) {
+      if (err.message.startsWith('Invalid status transition')) {
+        return res.status(400).json({ error: err.message });
+      }
       console.error('Error submitting budget:', err);
       res.status(500).json({ error: 'Failed to submit budget.' });
     }
@@ -42,9 +44,7 @@ class UnitBudgetsController extends BaseController {
     try {
       const id = req.params.id;
       const existing = await this.model.findById(id);
-      if (!existing || existing.status !== 'submitted') {
-        return res.status(400).json({ error: 'Only submitted budgets can be approved.' });
-      }
+      validateStatusTransition(existing.status, 'approved');
 
       const updated = await this.model.update(id, {
         status: 'approved',
@@ -56,6 +56,9 @@ class UnitBudgetsController extends BaseController {
 
       res.status(200).json(updated);
     } catch (err) {
+      if (err.message.startsWith('Invalid status transition')) {
+        return res.status(400).json({ error: err.message });
+      }
       console.error('Error approving budget:', err);
       res.status(500).json({ error: 'Failed to approve budget.' });
     }
