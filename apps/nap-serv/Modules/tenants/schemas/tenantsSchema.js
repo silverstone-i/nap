@@ -35,10 +35,22 @@ const tenantSchema = {
     },
 
     /**
+     * Short unique human-readable code for the tenant (e.g., "nap").
+     */
+    {
+      name: 'tenant_code',
+      type: 'varchar',
+      length: 20,
+      nullable: false,
+      unique: true,
+      colProps: { skip: c => !c.exists },
+    },
+
+    /**
      * Display name for the tenant (must be unique).
      */
     {
-      name: 'name',
+      name: 'company',
       type: 'varchar',
       length: 150,
       nullable: false,
@@ -46,13 +58,13 @@ const tenantSchema = {
     },
 
     /**
-     * Optional subdomain identifier (e.g. used for routing: tenant1.example.com).
+     * Schema name for this tenant’s database namespace.
      */
     {
-      name: 'subdomain',
+      name: 'schema_name',
       type: 'varchar',
-      length: 100,
-      default: null,
+      length: 50,
+      nullable: false,
       colProps: { skip: c => !c.exists },
     },
 
@@ -67,7 +79,7 @@ const tenantSchema = {
     },
 
     /**
-     * Contact phone number.
+     * Contact phone number (direct or cell).
      */
     {
       name: 'phone',
@@ -78,13 +90,25 @@ const tenantSchema = {
     },
 
     /**
-     * Structured address data stored as JSON (street, city, postal, etc.).
+     * Structured billing address stored as JSON (street, city, postal, etc.).
      */
     {
       name: 'address',
       type: 'jsonb',
       default: `'{}'`, // empty JSON object by default
       colProps: { mod: ':json', skip: c => !c.exists },
+    },
+
+    /**
+     * Primary contact person name.
+     */
+    {
+      name: 'contact_name',
+      type: 'varchar',
+      length: 150,
+      nullable: true,
+      default: null,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -121,28 +145,6 @@ const tenantSchema = {
     },
 
     /**
-     * Internal owner or account representative for this tenant (internal user).
-     */
-    {
-      name: 'owner_user_id',
-      type: 'uuid',
-      nullable: true,
-      default: null,
-      colProps: { skip: c => !c.exists },
-    },
-
-    /**
-     * Tenant-facing creator or admin who initiated the tenant (external user).
-     */
-    {
-      name: 'creator_user_id',
-      type: 'uuid',
-      nullable: true,
-      default: null,
-      colProps: { skip: c => !c.exists },
-    },
-
-    /**
      * Logical or physical database identifier for this tenant’s data.
      */
     {
@@ -155,13 +157,15 @@ const tenantSchema = {
     },
 
     /**
-     * Flexible metadata for billing details (e.g. Stripe ID, tax ID, billing address).
+     * Tax identification number for billing or regulatory use.
      */
     {
-      name: 'billing_info',
-      type: 'jsonb',
-      default: `'{}'`, // empty JSON object by default
-      colProps: { mod: ':json', skip: c => !c.exists },
+      name: 'tax_id',
+      type: 'varchar',
+      length: 30,
+      nullable: true,
+      default: null,
+      colProps: { skip: c => !c.exists },
     },
 
     /**
@@ -199,38 +203,16 @@ const tenantSchema = {
 
   constraints: {
     primaryKey: ['id'],
-    unique: [['name'], ['subdomain']],
+    unique: [['company'], ['tenant_code']],
     checks: [
       {
         type: 'Check',
-        expression: `char_length(name) > 2`,
+        expression: `char_length(company) > 2`,
       },
     ],
     indexes: [
-      {
-        type: 'Index',
-        columns: ['subdomain'],
-      },
     ],
     foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['owner_user_id'],
-        references: {
-          table: 'admin.nap_users',
-          columns: ['id'],
-        },
-        onDelete: 'SET NULL',
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['creator_user_id'],
-        references: {
-          table: 'admin.nap_users',
-          columns: ['id'],
-        },
-        onDelete: 'SET NULL',
-      },
     ],
   },
 };
