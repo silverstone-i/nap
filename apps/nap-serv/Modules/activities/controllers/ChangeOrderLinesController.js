@@ -101,10 +101,10 @@ class ChangeOrderLinesController extends BaseController {
       const where = { id: { $in: idsToApprove } };
       console.log('where = ', where);
 
-      const rowsToUpdate = await this.model.findWhere([
-        { id: { $in: idsToApprove } },
-      ]); // ✅      
-      console.log('Rows that will be updated:', rowsToUpdate);
+      // const rowsToUpdate = await this.model.findWhere([
+      //   { id: { $in: idsToApprove } },
+      // ]); // ✅      
+      // console.log('Rows that will be updated:', rowsToUpdate);
 
       const result = await this.model.updateWhere(where, {
         status: 'locked',
