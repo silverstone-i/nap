@@ -13,4 +13,6 @@ import subProjectsController from '../../controllers/SubProjectsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(subProjectsController);
+const router = createRouter(subProjectsController);
+
+export default router;

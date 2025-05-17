@@ -13,4 +13,6 @@ import actualCostsController from '../../controllers/ActualCostsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(actualCostsController);
+const router = createRouter(actualCostsController);
+
+export default router;

@@ -13,4 +13,6 @@ import activitiesController from '../../controllers/ActivitiesController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(activitiesController);
+const router = createRouter(activitiesController);
+
+export default router;

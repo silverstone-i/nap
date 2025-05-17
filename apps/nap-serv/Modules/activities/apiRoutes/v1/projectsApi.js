@@ -13,4 +13,6 @@ import projectsController from '../../controllers/ProjectsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(projectsController);
+const router = createRouter(projectsController);
+
+export default router;

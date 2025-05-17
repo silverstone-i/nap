@@ -15,6 +15,4 @@ import createRouter from '../../../../src/utils/createRouter.js';
 
 const router = createRouter(costLinesController);
 
-router.route('/lock/:unitBudgetId').post((req, res) => costLinesController.lockByUnitBudget(req, res));
-
 export default router;

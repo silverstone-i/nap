@@ -12,4 +12,6 @@
 import subProjectAssignmentsController from '../../controllers/SubProjectAssignmentsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(subProjectAssignmentsController);
+const router = createRouter(subProjectAssignmentsController);
+
+export default router;

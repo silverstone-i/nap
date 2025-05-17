@@ -12,4 +12,6 @@
 import categoriesController from '../../controllers/CategoriesController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(categoriesController);
+const router = createRouter(categoriesController);
+
+export default router;

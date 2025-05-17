@@ -15,14 +15,4 @@ import createRouter from '../../../../src/utils/createRouter.js';
 
 const router = createRouter(changeOrderLinesController);
 
-// Add custom route for approving change order lines
-router.patch('/approve/:id', (req, res) =>
-  changeOrderLinesController.approve(req, res)
-);
-
-// Add custom route for locking change order lines by unit budget
-router.patch('/lock/:id', (req, res) =>
-  changeOrderLinesController.lockByTemplate(req, res)
-);
-
 export default router;

@@ -12,4 +12,6 @@
 import vendorPartsController from '../../controllers/VendorPartsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(vendorPartsController);
+const router = createRouter(vendorPartsController);
+
+export default router;
