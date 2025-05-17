@@ -32,8 +32,8 @@ const arInvoicesSchema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['unit_id'],
-        references: { table: 'tenantid.units', columns: ['id'] },
+        columns: ['sub_project_id'],
+        references: { table: 'tenantid.sub_projects', columns: ['id'] },
         onDelete: 'SET NULL',
       },
       {
@@ -51,7 +51,7 @@ const arInvoicesSchema = {
     { name: 'company_id', type: 'uuid', nullable: false },
 
     { name: 'client_id', type: 'uuid', nullable: false },
-    { name: 'unit_id', type: 'uuid', nullable: true },
+    { name: 'sub_project_id', type: 'uuid', nullable: true },
 
     { name: 'invoice_number', type: 'varchar(32)', nullable: false },
     { name: 'invoice_date', type: 'date', nullable: false },

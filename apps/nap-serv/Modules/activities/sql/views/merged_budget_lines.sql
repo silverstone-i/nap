@@ -1,8 +1,8 @@
 CREATE OR REPLACE VIEW merged_budget_lines AS
 SELECT
   id,
-  unit_id,
-  unit_budget_id,
+  sub_project_id,
+  template_id,
   activity_id,
   amount,
   'budget' AS source,
@@ -15,8 +15,8 @@ UNION ALL
 
 SELECT
   id,
-  unit_id,
-  NULL AS unit_budget_id,
+  sub_project_id,
+  NULL AS template_id,
   activity_id,
   change_amount AS amount,
   'change_order' AS source,

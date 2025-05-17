@@ -15,8 +15,9 @@ import { db } from '../../../src/db/db.js';
 const tenant_id = '00000000-0000-4000-a000-000000000001';
 
 export const setupTestDependencies = async () => {
-  const existingCategories = await db.categories.findBy([
-    { tenant_id, category_id: 'COST-MAT' },
+  const existingCategories = await db.categories.findWhere([
+    { tenant_id },
+    { category_id: 'COST-MAT' }
   ]);
   for (const row of existingCategories) {
     await db.categories.delete(row.id);
@@ -29,10 +30,10 @@ export const setupTestDependencies = async () => {
     created_by: 'integration-test',
   });
 
-  const unit = await db.units.insert({
+  const subProject = await db.subProjects.insert({
     tenant_id,
-    unit_code: 'COST-UNIT',
-    description: 'Cost Line Unit',
+    sub_project_code: 'COST-SP',
+    description: 'Cost Line SP',
     status: 'pending',
     created_by: 'integration-test',
   });
@@ -59,7 +60,7 @@ export const setupTestDependencies = async () => {
     created_by: 'integration-test',
   });
 
-  return { category, unit, activity, vendor, vendorPart };
+  return { category, subProject, activity, vendor, vendorPart };
 };
 
 export const cleanupTestDependencies = async () => {
@@ -72,8 +73,8 @@ export const cleanupTestDependencies = async () => {
   const activities = await db.activities.findAll();
   for (const row of activities) await db.activities.delete(row.id);
 
-  const units = await db.units.findAll();
-  for (const row of units) await db.units.delete(row.id);
+  const subProjects = await db.subProjects.findAll();
+  for (const row of subProjects) await db.subProjects.delete(row.id);
 
   const categories = await db.categories.findAll();
   for (const row of categories) await db.categories.delete(row.id);
@@ -87,7 +88,7 @@ await runExtendedCrudTests({
   routePrefix,
   testRecord: () => ({
     tenant_id,
-    unit_id: testContext.unit.id,
+    sub_project_id: testContext.subProject.id,
     vendor_id: testContext.vendor.id,
     activity_id: testContext.activity.id,
     tenant_sku: testContext.vendorPart.tenant_sku,
@@ -99,6 +100,7 @@ await runExtendedCrudTests({
     markup_pct: 0.1,
     assembly_code: 'ASM-001',
     created_by: 'integration-test',
+    status: 'draft',
   }),
   updateField: 'source_type',
   updateValue: 'labor',

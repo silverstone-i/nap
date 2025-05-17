@@ -31,14 +31,14 @@ const schema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['unit_id'],
-        references: { table: 'tenantid.units', columns: ['id'] },
+        columns: ['sub_project_id'],
+        references: { table: 'tenantid.sub_projects', columns: ['id'] },
         onDelete: 'CASCADE',
       },
       {
         type: 'ForeignKey',
-        columns: ['unit_budget_id'],
-        references: { table: 'tenantid.unit_budgets', columns: ['id'] },
+        columns: ['template_id'],
+        references: { table: 'tenantid.templates', columns: ['id'] },
         onDelete: 'SET NULL'
       },
       {
@@ -59,7 +59,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['unit_id', 'activity_id'],
+        columns: ['sub_project_id', 'activity_id'],
       },
       {
         type: 'Index',
@@ -71,7 +71,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['unit_id', 'vendor_id', 'activity_id', 'tenant_sku']
+        columns: ['sub_project_id', 'vendor_id', 'activity_id', 'tenant_sku']
       }
     ],
     checks: [
@@ -102,10 +102,10 @@ const schema = {
       type: 'varchar(64)',
       nullable: false
     },
-    { name: 'unit_id', type: 'uuid', nullable: false },
+    { name: 'sub_project_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
     { name: 'activity_id', type: 'uuid', nullable: false },
-    { name: 'unit_budget_id', type: 'uuid', nullable: true },
+    { name: 'template_id', type: 'uuid', nullable: true },
     { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
     { name: 'source_type', type: 'varchar(16)', default: `'material'`, nullable: false }, // e.g., 'material' or 'labor'
     { name: 'quantity', type: 'numeric(12,4)', nullable: false },

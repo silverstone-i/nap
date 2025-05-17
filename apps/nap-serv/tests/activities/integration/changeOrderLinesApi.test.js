@@ -22,10 +22,10 @@ export const setupTestDependencies = async () => {
     created_by: 'integration-test',
   });
 
-  const unit = await db.units.insert({
+  const subProject = await db.subProjects.insert({
     tenant_id,
-    unit_code: 'CHG-UNIT',
-    description: 'Change Order Unit',
+    sub_project_code: 'CHG-SP',
+    description: 'Change Order Sub Project',
     status: 'pending',
     created_by: 'integration-test',
   });
@@ -38,7 +38,7 @@ export const setupTestDependencies = async () => {
     created_by: 'integration-test',
   });
 
-  return { category, unit, activity };
+  return { category, subProject, activity };
 };
 
 export const cleanupTestDependencies = async () => {
@@ -48,8 +48,8 @@ export const cleanupTestDependencies = async () => {
   const activities = await db.activities.findAll();
   for (const row of activities) await db.activities.delete(row.id);
 
-  const units = await db.units.findAll();
-  for (const row of units) await db.units.delete(row.id);
+  const subProjects = await db.subProjects.findAll();
+  for (const row of subProjects) await db.subProjects.delete(row.id);
 
   const categories = await db.categories.findAll();
   for (const row of categories) await db.categories.delete(row.id);
@@ -63,7 +63,7 @@ await runExtendedCrudTests({
   routePrefix,
   testRecord: () => ({
     tenant_id,
-    unit_id: testContext.unit.id,
+    sub_project_id: testContext.subProject.id,
     activity_id: testContext.activity.id,
     reason: 'Scope change',
     change_amount: 1000.00,

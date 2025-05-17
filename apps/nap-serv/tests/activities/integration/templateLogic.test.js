@@ -4,7 +4,7 @@
 import {
   validateStatusTransition,
   assertStatusAllowed,
-} from '../../../modules/activities/logic/budgetLogic.js';
+} from '../../../modules/activities/logic/templateLogic.js';
 
 describe('Integration: budgetLogic', () => {
   describe('Status transitions', () => {

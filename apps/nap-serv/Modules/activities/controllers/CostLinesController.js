@@ -1,5 +1,5 @@
 'use strict';
-import { assertStatusAllowed } from '../logic/budgetLogic.js';
+import { assertStatusAllowed } from '../logic/templateLogic.js';
 
 /*
  * Copyright © 2024-present, Ian Silverstone
@@ -17,50 +17,35 @@ class CostLinesController extends BaseController {
     super('costLines');
   }
 
-  async lockByUnitBudget(req, res) {
-    const unitBudgetId = req.params.unitBudgetId;
-    if (!unitBudgetId) {
-      return res.status(400).json({ error: 'Missing unit budget ID' });
-    }
-    const updatedBy = req.user?.email || 'system';
+//   async lockByTemplate(req, res) {
+//     const subProjectId = req.params.templateId;
+//     if (!subProjectId) {
+//       return res.status(400).json({ error: 'Missing sub-project ID' });
+//     }
+//     const updatedBy = req.user?.email || 'system';
 
-    try {
-      const costLines = await this.model.findWhere([
-        { column: 'unit_budget_id', op: '=', value: unitBudgetId },
-      ]);
-      if (!costLines.length) {
-        return res.status(200).json({ locked: 0 });
-      }
+//     try {
+//       const costLines = await this.model.findWhere([
+//         { sub_project_id: subProjectId },
+//       ]);
+//       if (!costLines.length) {
+//         return res.status(200).json({ locked: 0 });
+//       }
 
-      const unitBudget = await this.model.db.oneOrNone(
-        `SELECT status FROM tenantid.unit_budgets WHERE id = $1`,
-        [unitBudgetId]
-      );
-      if (!unitBudget) {
-        return res.status(404).json({ error: 'Unit budget not found' });
-      }
-      console.log('unitBudget', unitBudget);
+//       const result = await this.model.updateWhere(
+//         { id: { $in: costLines.map(line => line.id) } },
+//         {
+//           status: 'locked',
+//           updated_by: updatedBy,
+//         }
+//       );
 
-      assertStatusAllowed(unitBudget.status, ['approved'], 'lock cost lines');
-      console.log('assertStatusAllowed', unitBudget.status);
-
-      const where = {
-        id: { $in: costLines.map(line => line.id) },
-      };
-      console.log('where = ', where);
-
-      const result = await this.model.updateWhere(where, {
-        status: 'locked',
-        updated_by: updatedBy,
-      });
-
-      console.log('controller result', result);
-      res.status(200).json({ locked: result });
-    } catch (err) {
-      console.error('Error locking cost lines:', err);
-      res.status(500).json({ error: 'Failed to lock cost lines.' });
-    }
-  }
+//       res.status(200).json({ locked: result });
+//     } catch (err) {
+//       console.error('Error locking cost lines:', err);
+//       res.status(500).json({ error: 'Failed to lock cost lines.' });
+//     }
+//   }
 }
 
 const instance = new CostLinesController();

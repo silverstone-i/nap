@@ -16,9 +16,9 @@ import categoriesApi from './categoriesApi.js';
 import changeOrderLinesApi from './changeOrderLinesApi.js';
 import costLinesApi from './costLinesApi.js';
 import projectsApi from './projectsApi.js';
-import unitAssignmentsApi from './unitAssignmentsApi.js';
-import unitBudgetsApi from './unitBudgetsApi.js';
-import unitsApi from './unitsApi.js';
+import subProjectAssignmentsApi from './subProjectAssignmentsApi.js';
+import templatesApi from './templatesApi.js';
+import subProjectsApi from './subProjectsApi.js';
 import vendorPartsApi from './vendorPartsApi.js';
 
 const router = express.Router();
@@ -28,9 +28,9 @@ router.use('/v1/categories', categoriesApi);
 router.use('/v1/change-order-lines', changeOrderLinesApi);
 router.use('/v1/cost-lines', costLinesApi);
 router.use('/v1/projects', projectsApi);
-router.use('/v1/unit-assignments', unitAssignmentsApi);
-router.use('/v1/unit-budgets', unitBudgetsApi);
-router.use('/v1/units', unitsApi);
+router.use('/v1/sub-project-assignments', subProjectAssignmentsApi);
+router.use('/v1/templates', templatesApi);
+router.use('/v1/sub-projects', subProjectsApi);
 router.use('/v1/vendor-parts', vendorPartsApi);
 
 console.log('Loaded activities router');

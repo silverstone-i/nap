@@ -9,7 +9,8 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import unitAssignmentsController from '../../controllers/UnitAssignmentsController.js';
+import subProjectsController from '../../controllers/SubProjectsController.js';
+
 import createRouter from '../../../../src/utils/createRouter.js';
 
-export default createRouter(unitAssignmentsController);
+export default createRouter(subProjectsController);

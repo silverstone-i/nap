@@ -14,12 +14,12 @@ import { db } from '../../../src/db/db.js';
 
 await runExtendedCrudTests({
   updateField: 'description',
-  routePrefix: '/api/activities/v1/units',
-  model: db.units,
+  routePrefix: '/api/activities/v1/sub-projects',
+  model: db.subProjects,
   testRecord: {
     tenant_id: '00000000-0000-4000-a000-000000000001',
-    unit_code: () => `UNIT-${Date.now()}`,
-    description: 'Integration test unit',
+    sub_project_code: () => `SP-${Date.now()}`,
+    description: 'Integration test sub project',
     status: 'pending',
     created_by: 'integration-test',
   },

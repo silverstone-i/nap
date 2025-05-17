@@ -1,5 +1,7 @@
 'use strict';
 
+// unitAssignmentsSchema.js
+
 /*
 * Copyright © 2024-present, Ian Silverstone
 *
@@ -11,7 +13,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'unit_assignments',
+  table: 'sub_project_assignments',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
@@ -35,7 +37,7 @@ const schema = {
       nullable: false
     },
     {
-      name: 'unit_id',
+      name: 'sub_project_id',
       type: 'uuid',
       nullable: false
     },
@@ -63,7 +65,7 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['project_id', 'unit_id']],
+    unique: [['project_id', 'sub_project_id']],
     foreignKeys: [
       {
         type: 'ForeignKey',
@@ -73,8 +75,8 @@ const schema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['unit_id'],
-        references: { table: 'tenantid.units', columns: ['id'] },
+        columns: ['sub_project_id'],
+        references: { table: 'tenantid.sub_projects', columns: ['id'] },
         onDelete: 'CASCADE'
       }
     ],

@@ -22,7 +22,7 @@ router.patch('/approve/:id', (req, res) =>
 
 // Add custom route for locking change order lines by unit budget
 router.patch('/lock/:id', (req, res) =>
-  changeOrderLinesController.lockByUnitBudget(req, res)
+  changeOrderLinesController.lockByTemplate(req, res)
 );
 
 export default router;

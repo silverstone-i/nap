@@ -18,26 +18,26 @@ afterAll(async () => {
 });
 
 /**
- * Real-model integration tests for UnitBudgetsController logic.
+ * Real-model integration tests for TemplatesController logic.
  */
 
 import { jest } from '@jest/globals';
-import { UnitBudgetsController } from '../../../modules/activities/controllers/UnitBudgetsController.js';
-import schema from '../../../modules/activities/schemas/UnitBudgetsSchema.js';
+import { TemplatesController } from '../../../modules/activities/controllers/TemplatesController.js';
+import schema from '../../../modules/activities/schemas/templatesSchema.js';
 import { db, pgp } from '../../../src/db/db.js';
 import { TableModel } from 'pg-schemata';
 import { mockReq, mockRes } from '../../util/mockHelpers.js';
 
-describe('UnitBudgetsController (real model)', () => {
-  let inserted, unit, activity, category;
+describe('TemplatesController (real model)', () => {
+  let inserted, subProject, activity, category;
   const model = new TableModel(db, pgp, schema);
-  const controller = new UnitBudgetsController();
+  const controller = new TemplatesController();
   controller.model = model;
 
   beforeEach(async () => {
-    unit = await db.one(`
-      INSERT INTO tenantid.units (id, tenant_id, name, unit_code, status)
-      VALUES ($1, $2, 'Unit One', 'UNIT01', 'pending')
+    subProject = await db.one(`
+      INSERT INTO tenantid.sub_projects (id, tenant_id, name, sub_project_code, status)
+      VALUES ($1, $2, 'SUB PROJECT One', 'SP01', 'pending')
       RETURNING *;
     `, ['11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000']);
 
@@ -56,7 +56,7 @@ describe('UnitBudgetsController (real model)', () => {
 
     inserted = await model.insert({
       tenant_id: '00000000-0000-0000-0000-000000000000',
-      unit_id: unit.id,
+      sub_project_id: subProject.id,
       activity_id: activity.id,
       budgeted_amount: 1000,
       status: 'draft',
@@ -67,7 +67,7 @@ describe('UnitBudgetsController (real model)', () => {
 
   afterEach(async () => {
     await model.deleteWhere({ id: inserted?.id });
-    await db.none(`DELETE FROM tenantid.units WHERE id = $1`, [unit?.id]);
+    await db.none(`DELETE FROM tenantid.sub_projects WHERE id = $1`, [subProject?.id]);
     await db.none(`DELETE FROM tenantid.activities WHERE id = $1`, [activity?.id]);
     await db.none(`DELETE FROM tenantid.categories WHERE id = $1`, [category?.id]);
   });

@@ -1,5 +1,7 @@
 'use strict';
 
+//UnitAssignments.js
+
 /*
  * Copyright © 2024-present, Ian Silverstone
  *
@@ -10,12 +12,12 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import unitBudgetsSchema from '../schemas/unitBudgetsSchema.js';
+import subProjectAssignmentsSchema from '../schemas/subProjectAssignmentsSchema.js';
 
-class UnitBudgets extends TableModel {
+class SubProjectAssignments extends TableModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, unitBudgetsSchema, logger);
+    super(db, pgp, subProjectAssignmentsSchema, logger);
   }
 }
 
-export default UnitBudgets;
+export default SubProjectAssignments;

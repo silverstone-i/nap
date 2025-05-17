@@ -2,18 +2,9 @@
 
 'use strict';
 
-/*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
-
 const schema = {
   dbSchema: 'tenantid',
-  table: 'unit_budgets',
+  table: 'sub_project_budgets',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
@@ -32,7 +23,7 @@ const schema = {
       colProps: { cnd: true }
     },
     {
-      name: 'unit_id',
+      name: 'sub_project_id',
       type: 'uuid',
       nullable: false
     },
@@ -43,7 +34,7 @@ const schema = {
     },
     {
       name: 'budgeted_amount',
-      type: 'numeric',
+      type: 'numeric(12,2)',
       nullable: false
     },
     {
@@ -57,52 +48,25 @@ const schema = {
       nullable: true
     },
     {
-      name: 'version',
-      type: 'integer',
-      default: 1,
-      nullable: false
-    },
-    {
-      name: 'is_current',
-      type: 'boolean',
-      default: true,
-      nullable: false
+      name: 'source_template_id',
+      type: 'uuid',
+      nullable: true
     },
     {
       name: 'status',
       type: 'varchar(20)',
       default: `'draft'`,
       nullable: false
-    },
-    {
-      name: 'submitted_by',
-      type: 'varchar(64)',
-      nullable: true
-    },
-    {
-      name: 'submitted_at',
-      type: 'timestamptz',
-      nullable: true
-    },
-    {
-      name: 'approved_by',
-      type: 'varchar(64)',
-      nullable: true
-    },
-    {
-      name: 'approved_at',
-      type: 'timestamptz',
-      nullable: true
     }
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'unit_id', 'activity_id', 'version']],
+    unique: [['tenant_id', 'sub_project_id', 'activity_id']],
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['unit_id'],
-        references: { table: 'tenantid.units', columns: ['id'] },
+        columns: ['sub_project_id'],
+        references: { table: 'tenantid.sub_projects', columns: ['id'] },
         onDelete: 'CASCADE'
       },
       {
@@ -115,17 +79,12 @@ const schema = {
     checks: [
       {
         type: 'Check',
-        expression: 'version > 0'
-      },
-      {
-        type: 'Check',
         expression: `status IN ('draft', 'submitted', 'approved', 'locked', 'rejected')`
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['unit_id'] },
-      { type: 'Index', columns: ['activity_id'] },
-      { type: 'Index', columns: ['activity_id', 'version'] }
+      { type: 'Index', columns: ['sub_project_id'] },
+      { type: 'Index', columns: ['activity_id'] }
     ]
   }
 };

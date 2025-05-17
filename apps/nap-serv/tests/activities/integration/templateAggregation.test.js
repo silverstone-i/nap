@@ -25,15 +25,15 @@ describe('Integration: Budget Aggregation', () => {
     await teardown();
   });
 
-  test('should sum cost_lines per unit_budget_id correctly', async () => {
+  test('should sum cost_lines per template_id correctly', async () => {
     const result = await db.any(`
-      SELECT unit_budget_id, SUM(quantity * unit_price)::numeric(12,2) as total
+      SELECT template_id, SUM(quantity * unit_price)::numeric(12,2) as total
       FROM tenantid.cost_lines
-      GROUP BY unit_budget_id
+      GROUP BY template_id
     `);
 
     expect(result.length).toBeGreaterThan(0);
-    const row = result.find(r => r.unit_budget_id === '00000000-0000-0000-0000-000000000003');
+    const row = result.find(r => r.template_id === '00000000-0000-0000-0000-000000000003');
     expect(row).toBeDefined();
     expect(row.total).toBe('5000.00'); // 100 qty * 50 unit_price
   });

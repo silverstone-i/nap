@@ -10,7 +10,7 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import { assertStatusAllowed } from '../logic/budgetLogic.js';
+import { assertStatusAllowed } from '../logic/templateLogic.js';
 
 class ChangeOrderLinesController extends BaseController {
   constructor() {
@@ -56,70 +56,70 @@ class ChangeOrderLinesController extends BaseController {
     }
   }
 
-  /**
-   * Approve all change order lines by unit budget ID.
-   * @param {import('express').Request} req
-   * @param {import('express').Response} res
-   */
-  async lockByUnitBudget(req, res) {
-    console.log('req.params', req.params);
+  // /**
+  //  * Approve all change order lines by unit budget ID.
+  //  * @param {import('express').Request} req
+  //  * @param {import('express').Response} res
+  //  */
+  // async lockByTemplate(req, res) {
+  //   console.log('req.params', req.params);
 
-    const unitBudgetId = req.params.id;
-    const approvedBy = req.user?.email || 'system';
+  //   const templateId = req.params.id;
+  //   const approvedBy = req.user?.email || 'system';
 
-    try {
-      console.log('unitBudgetId', unitBudgetId);
+  //   try {
+  //     console.log('templateId', templateId);
 
-      const unitBudget = await this.model.db.unitBudgets.findById(unitBudgetId);
-      console.log('unitBudget', unitBudget);
+  //     const template = await this.model.db.templates.findById(templateId);
+  //     console.log('template', template);
 
-      if (!unitBudget) {
-        return res.status(404).json({ error: 'Unit budget not found.' });
-      }
+  //     if (!template) {
+  //       return res.status(404).json({ error: 'Template not found.' });
+  //     }
 
-      assertStatusAllowed(
-        unitBudget.status,
-        ['approved'],
-        'approve change orders'
-      );
-      console.log('unitBudget.status', unitBudget.status);
+  //     assertStatusAllowed(
+  //       template.status,
+  //       ['approved'],
+  //       'approve change orders'
+  //     );
+  //     console.log('template.status', template.status);
 
-      const rows = await this.model.findWhere([
-        {
-          unit_id: unitBudget.unit_id,
-          status: 'pending',
-        },
-      ]);
+  //     const rows = await this.model.findWhere([
+  //       {
+  //         sub_project_id: template.sub_project_id,
+  //         status: 'pending',
+  //       },
+  //     ]);
 
-      console.log('rows', rows);
+  //     console.log('rows', rows);
 
-      const idsToApprove = rows.map(row => row.id);
-      if (idsToApprove.length === 0) {
-        return res.status(200).json({ approved: 0 });
-      }
+  //     const idsToApprove = rows.map(row => row.id);
+  //     if (idsToApprove.length === 0) {
+  //       return res.status(200).json({ approved: 0 });
+  //     }
 
-      const where = { id: { $in: idsToApprove } };
-      console.log('where = ', where);
+  //     const where = { id: { $in: idsToApprove } };
+  //     console.log('where = ', where);
 
-      // const rowsToUpdate = await this.model.findWhere([
-      //   { id: { $in: idsToApprove } },
-      // ]); // ✅      
-      // console.log('Rows that will be updated:', rowsToUpdate);
+  //     // const rowsToUpdate = await this.model.findWhere([
+  //     //   { id: { $in: idsToApprove } },
+  //     // ]); // ✅
+  //     // console.log('Rows that will be updated:', rowsToUpdate);
 
-      const result = await this.model.updateWhere(where, {
-        status: 'locked',
-        approved_by: approvedBy,
-        approved_at: new Date().toISOString(),
-        updated_by: approvedBy,
-      });
+  //     const result = await this.model.updateWhere(where, {
+  //       status: 'locked',
+  //       approved_by: approvedBy,
+  //       approved_at: new Date().toISOString(),
+  //       updated_by: approvedBy,
+  //     });
 
-      console.log('controller result', result);
-      res.status(200).json({ approved: result });
-    } catch (err) {
-      console.error('Error approving change orders:', err);
-      res.status(500).json({ error: 'Failed to approve change orders.' });
-    }
-  }
+  //     console.log('controller result', result);
+  //     res.status(200).json({ approved: result });
+  //   } catch (err) {
+  //     console.error('Error approving change orders:', err);
+  //     res.status(500).json({ error: 'Failed to approve change orders.' });
+  //   }
+  // }
 }
 
 const instance = new ChangeOrderLinesController();

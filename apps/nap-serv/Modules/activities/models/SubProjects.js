@@ -1,5 +1,7 @@
 'use strict';
 
+// units.js
+
 /*
  * Copyright © 2024-present, Ian Silverstone
  *
@@ -10,11 +12,11 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import unitsSchema from '../schemas/unitsSchema.js';
+import subProjectsSchema from '../schemas/subProjectsSchema.js';
 
 class Units extends TableModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, unitsSchema, logger);
+    super(db, pgp, subProjectsSchema, logger);
   }
 }
 

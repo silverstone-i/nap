@@ -8,7 +8,7 @@
  */
 export async function seedBudgetChain(db, {
   tenantId = '11111111-1111-1111-1111-111111111111',
-  unitId = '00000000-0000-0000-0000-000000000001',
+  subProjectId = '00000000-0000-0000-0000-000000000001',
   activityId = '00000000-0000-0000-0000-000000000002',
   budgetId = '00000000-0000-0000-0000-000000000003',
   vendorId = '00000000-0000-0000-0000-000000000099',
@@ -20,10 +20,10 @@ export async function seedBudgetChain(db, {
 } = {}) {
   // Seed unit
   await db.none(`
-    INSERT INTO tenantid.units (id, tenant_id, name, unit_code, status)
-    VALUES ($1, $2, $3, 'UNITCODE1', 'pending')
+    INSERT INTO tenantid.sub_projects (id, tenant_id, name, sub_project_code, status)
+    VALUES ($1, $2, $3, 'BUDGETCODE1', 'pending')
     ON CONFLICT DO NOTHING
-  `, [unitId, tenantId, unitName]);
+  `, [subProjectId, tenantId, unitName]);
 
   // Seed category
   await db.none(`
@@ -41,10 +41,10 @@ export async function seedBudgetChain(db, {
 
   // Seed unit budget
   await db.none(`
-    INSERT INTO tenantid.unit_budgets (id, tenant_id, unit_id, activity_id, budgeted_amount, version)
+    INSERT INTO tenantid.templates (id, tenant_id, sub_project_id, activity_id, budgeted_amount, version)
     VALUES ($1, $2, $3, $4, 5000, 1)
     ON CONFLICT DO NOTHING
-  `, [budgetId, tenantId, unitId, activityId]);
+  `, [budgetId, tenantId, subProjectId, activityId]);
 
   // Seed vendor
   await db.none(`
@@ -56,7 +56,7 @@ export async function seedBudgetChain(db, {
   // Seed cost line
   await db.none(`
     INSERT INTO tenantid.cost_lines (
-      id, tenant_id, unit_id, vendor_id, activity_id, unit_budget_id,
+      id, tenant_id, sub_project_id, vendor_id, activity_id, template_id,
       source_type, quantity, unit_price, name
     )
     VALUES (
@@ -65,5 +65,5 @@ export async function seedBudgetChain(db, {
       'material', 100, 50, 'Seeded Cost Line'
     )
     ON CONFLICT DO NOTHING
-  `, [tenantId, unitId, vendorId, activityId, budgetId]);
+  `, [tenantId, subProjectId, vendorId, activityId, budgetId]);
 }

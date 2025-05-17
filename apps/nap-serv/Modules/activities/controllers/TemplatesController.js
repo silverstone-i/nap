@@ -11,11 +11,11 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 import CostLinesController from './CostLinesController.js';
-import { validateStatusTransition } from '../logic/budgetLogic.js';
+import { validateStatusTransition } from '../logic/templateLogic.js';
 
-class UnitBudgetsController extends BaseController {
+class TemplatesController extends BaseController {
   constructor() {
-    super('unitBudgets');
+    super('templates');
   }
 
   async submit(req, res) {
@@ -27,7 +27,7 @@ class UnitBudgetsController extends BaseController {
       const updated = await this.model.update(id, {
         status: 'submitted',
         submitted_by: req.user?.email || 'system',
-        submitted_at: new Date()
+        submitted_at: new Date(),
       });
 
       res.status(200).json(updated);
@@ -49,10 +49,13 @@ class UnitBudgetsController extends BaseController {
       const updated = await this.model.update(id, {
         status: 'approved',
         approved_by: req.user?.email || 'system',
-        approved_at: new Date()
+        approved_at: new Date(),
       });
 
-      await CostLinesController.lockByUnitBudget({ params: { unitBudgetId: id }, user: req.user }, { status: () => ({ json: () => {} }) });
+      // await CostLinesController.lockByTemplate(
+      //   { params: { templateId: id }, user: req.user },
+      //   { status: () => ({ json: () => {} }) }
+      // );
 
       res.status(200).json(updated);
     } catch (err) {
@@ -65,7 +68,7 @@ class UnitBudgetsController extends BaseController {
   }
 }
 
-const instance = new UnitBudgetsController();
+const instance = new TemplatesController();
 
 export default instance; // Use in production and development environments
-export { UnitBudgetsController }; // Use in test environment
+export { TemplatesController }; // Use in test environment

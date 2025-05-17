@@ -1,5 +1,7 @@
 'use strict';
 
+// unitBudgets.js
+
 /*
  * Copyright © 2024-present, Ian Silverstone
  *
@@ -10,12 +12,12 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import unitAssignmentsSchema from '../schemas/unitAssignmentsSchema.js';
+import templatesSchema from '../schemas/templatesSchema.js';
 
-class UnitAssignments extends TableModel {
+class Templates extends TableModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, unitAssignmentsSchema, logger);
+    super(db, pgp, templatesSchema, logger);
   }
 }
 
-export default UnitAssignments;
+export default Templates;

@@ -11,13 +11,13 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 
-class UnitAssignmentsController extends BaseController {
+class SubProjectAssignmentsController extends BaseController {
   constructor() {
-    super('unitAssignments');
+    super('subProjectAssignments');
   }
 }
 
-const instance = new UnitAssignmentsController();
+const instance = new SubProjectAssignmentsController();
 
 export default instance; // Use in production and development environments
-export { UnitAssignmentsController }; // Use in test environment
+export { SubProjectAssignmentsController }; // Use in test environment

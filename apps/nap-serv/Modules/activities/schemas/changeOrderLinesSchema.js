@@ -30,7 +30,7 @@ const schema = {
       colProps: { cnd: true },
     },
     {
-      name: 'unit_id',
+      name: 'sub_project_id',
       type: 'uuid',
       nullable: false,
     },
@@ -84,12 +84,12 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'unit_id', 'activity_id', 'reference']],
+    // unique: [['tenant_id', 'sub_project_id', 'activity_id', 'reference']],
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['unit_id'],
-        references: { table: 'tenantid.units', columns: ['id'] },
+        columns: ['sub_project_id'],
+        references: { table: 'tenantid.sub_projects', columns: ['id'] },
         onDelete: 'CASCADE',
       },
       {

@@ -1,5 +1,6 @@
 'use strict';
 
+// unitSchema.js
 /*
 * Copyright © 2024-present, Ian Silverstone
 *
@@ -11,7 +12,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'units',
+  table: 'sub_projects',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
@@ -35,7 +36,7 @@ const schema = {
       nullable: false
     },
     {
-      name: 'unit_code',
+      name: 'sub_project_code',
       type: 'varchar(20)',
       nullable: false
     },
@@ -53,7 +54,7 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['unit_code']],
+    unique: [['sub_project_code']],
     checks: [
       {
         type: 'Check',
@@ -61,7 +62,7 @@ const schema = {
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['unit_code'] },
+      { type: 'Index', columns: ['sub_project_code'] },
       { type: 'Index', columns: ['name'] }
     ]
   }

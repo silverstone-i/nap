@@ -23,29 +23,29 @@ export const setupTestDependencies = async () => {
     created_by: 'integration-test',
   });
 
-  const unit = await db.units.insert({
+  const subProject = await db.subProjects.insert({
     tenant_id,
-    unit_code: 'UA-UNIT',
-    description: 'Unit for assignment',
+    sub_project_code: 'UA-SP',
+    description: 'SP for assignment',
     status: 'pending',
     created_by: 'integration-test',
   });
 
-  return { project, unit };
+  return { project, subProject };
 };
 
 export const cleanupTestDependencies = async () => {
-  const all = await db.unitAssignments.findAll();
-  for (const row of all) await db.unitAssignments.delete(row.id);
+  const all = await db.subProjectAssignments.findAll();
+  for (const row of all) await db.subProjectAssignments.delete(row.id);
 
   const projects = await db.projects.findAll();
   for (const row of projects) await db.projects.delete(row.id);
 
-  const units = await db.units.findAll();
-  for (const row of units) await db.units.delete(row.id);
+  const subProjects = await db.subProjects.findAll();
+  for (const row of subProjects) await db.subProjects.delete(row.id);
 };
 
-const routePrefix = '/api/activities/v1/unit-assignments';
+const routePrefix = '/api/activities/v1/sub-project-assignments';
 
 const testContext = {};
 
@@ -54,8 +54,8 @@ await runExtendedCrudTests({
   testRecord: () => ({
     tenant_id,
     project_id: testContext.project.id,
-    unit_id: testContext.unit.id,
-    assigned_code: 'U-01',
+    sub_project_id: testContext.subProject.id,
+    assigned_code: 'SP-01',
     status: 'planned',
     created_by: 'integration-test',
   }),
