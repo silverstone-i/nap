@@ -32,7 +32,7 @@ const schema = {
       colProps: { cnd: true }
     },
     {
-      name: 'sub_project_id',
+      name: 'deliverable_id',
       type: 'uuid',
       nullable: false
     },
@@ -47,7 +47,7 @@ const schema = {
       nullable: false
     },
     {
-      name: 'sub_project',
+      name: 'deliverable',
       type: 'varchar(20)',
       nullable: true
     },
@@ -97,12 +97,12 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    // unique: [['tenant_id', 'sub_project_id', 'activity_id', 'version']],
+    // unique: [['tenant_id', 'deliverable_id', 'activity_id', 'version']],
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['sub_project_id'],
-        references: { table: 'tenantid.sub_projects', columns: ['id'] },
+        columns: ['deliverable_id'],
+        references: { table: 'tenantid.deliverables', columns: ['id'] },
         onDelete: 'CASCADE'
       },
       {
@@ -123,7 +123,7 @@ const schema = {
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['sub_project_id'] },
+      { type: 'Index', columns: ['deliverable_id'] },
       { type: 'Index', columns: ['activity_id'] },
       { type: 'Index', columns: ['activity_id', 'version'] }
     ]

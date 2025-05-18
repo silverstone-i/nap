@@ -14,11 +14,11 @@ import { db } from '../../../src/db/db.js';
 
 await runExtendedCrudTests({
   updateField: 'description',
-  routePrefix: '/api/activities/v1/sub-projects',
-  model: db.subProjects,
+  routePrefix: '/api/activities/v1/deliverables',
+  model: db.deliverables,
   testRecord: {
     tenant_id: '00000000-0000-4000-a000-000000000001',
-    sub_project_code: () => `SP-${Date.now()}`,
+    deliverable_code: () => `SP-${Date.now()}`,
     description: 'Integration test sub project',
     status: 'pending',
     created_by: 'integration-test',

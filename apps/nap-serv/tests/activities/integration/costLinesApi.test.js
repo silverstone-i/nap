@@ -30,9 +30,9 @@ export const setupTestDependencies = async () => {
     created_by: 'integration-test',
   });
 
-  const subProject = await db.subProjects.insert({
+  const deliverable = await db.deliverables.insert({
     tenant_id,
-    sub_project_code: 'COST-SP',
+    deliverable_code: 'COST-SP',
     description: 'Cost Line SP',
     status: 'pending',
     created_by: 'integration-test',
@@ -60,7 +60,7 @@ export const setupTestDependencies = async () => {
     created_by: 'integration-test',
   });
 
-  return { category, subProject, activity, vendor, vendorPart };
+  return { category, deliverable, activity, vendor, vendorPart };
 };
 
 export const cleanupTestDependencies = async () => {
@@ -73,8 +73,8 @@ export const cleanupTestDependencies = async () => {
   const activities = await db.activities.findAll();
   for (const row of activities) await db.activities.delete(row.id);
 
-  const subProjects = await db.subProjects.findAll();
-  for (const row of subProjects) await db.subProjects.delete(row.id);
+  const deliverables = await db.deliverables.findAll();
+  for (const row of deliverables) await db.deliverables.delete(row.id);
 
   const categories = await db.categories.findAll();
   for (const row of categories) await db.categories.delete(row.id);
@@ -88,7 +88,7 @@ await runExtendedCrudTests({
   routePrefix,
   testRecord: () => ({
     tenant_id,
-    sub_project_id: testContext.subProject.id,
+    deliverable_id: testContext.deliverable.id,
     vendor_id: testContext.vendor.id,
     activity_id: testContext.activity.id,
     tenant_sku: testContext.vendorPart.tenant_sku,

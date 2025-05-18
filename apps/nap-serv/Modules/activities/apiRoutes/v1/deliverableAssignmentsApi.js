@@ -9,10 +9,9 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import subProjectsController from '../../controllers/SubProjectsController.js';
-
+import deliverableAssignmentsController from '../../controllers/DeliverableAssignmentsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = createRouter(subProjectsController);
+const router = createRouter(deliverableAssignmentsController);
 
 export default router;

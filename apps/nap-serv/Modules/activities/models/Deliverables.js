@@ -12,11 +12,11 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import subProjectsSchema from '../schemas/subProjectsSchema.js';
+import deliverablesSchema from '../schemas/deliverablesSchema.js';
 
 class Units extends TableModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, subProjectsSchema, logger);
+    super(db, pgp, deliverablesSchema, logger);
   }
 }
 

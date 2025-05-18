@@ -6,15 +6,15 @@ import path from 'path';
 const PATCHES = [
   {
     oldFile: 'unitsSchema.js',
-    newFile: 'subProjectsSchema.js',
+    newFile: 'deliverablesSchema.js',
     oldTable: 'units',
-    newTable: 'sub_projects',
+    newTable: 'deliverables',
   },
   {
     oldFile: 'unitAssignmentsSchema.js',
-    newFile: 'subProjectAssignmentsSchema.js',
+    newFile: 'deliverableAssignmentsSchema.js',
     oldTable: 'unit_assignments',
-    newTable: 'sub_project_assignments',
+    newTable: 'deliverable_assignments',
   },
   {
     oldFile: 'unitBudgetsSchema.js',
@@ -57,7 +57,7 @@ PATCHES.forEach(({ oldFile, newFile, oldTable, newTable }) => {
 // ├── costLinesSchema.js
 // ├── actualCostsSchema.js
 // ├── projectsSchema.js
-// ├── subProjectsSchema.js                ← was units
-// ├── subProjectAssignmentsSchema.js      ← was unit_assignments
+// ├── deliverablesSchema.js                ← was units
+// ├── deliverableAssignmentsSchema.js      ← was unit_assignments
 // ├── budgetsSchema.js                  ← was unit_budgets
-// └── subProjectBudgetsSchema.js          ← new snapshot table
+// └── deliverableBudgetsSchema.js          ← new snapshot table

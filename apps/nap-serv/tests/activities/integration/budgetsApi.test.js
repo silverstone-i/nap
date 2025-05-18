@@ -13,7 +13,7 @@ import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
 import { db } from '../../../src/db/db.js';
 import request from 'supertest';
 
-let subProjectId, activityId, category;
+let deliverableId, activityId, category;
 
 async function setup() {
   // Insert a category for the activity
@@ -34,30 +34,30 @@ async function setup() {
   });
   activityId = activity.id;
 
-  // Insert a subProject
-  const subProject = await db.subProjects.insert({
+  // Insert a deliverable
+  const deliverable = await db.deliverables.insert({
     tenant_id: '00000000-0000-4000-a000-000000000001',
-    sub_project_code: 'SP-BUDGET',
+    deliverable_code: 'SP-BUDGET',
     status: 'pending',
     created_by: 'integration-test',
   });
-  subProjectId = subProject.id;
+  deliverableId = deliverable.id;
 }
 
 async function cleanup() {
-  await db.subProjects.delete(subProjectId);
+  await db.deliverables.delete(deliverableId);
   await db.activities.delete(activityId);
   await db.categories.delete(category.id);
 }
 
 await runExtendedCrudTests({
-  updateField: 'sub_project',
+  updateField: 'deliverable',
   updateFieldValue: 'Updated Name',
   routePrefix: '/api/activities/v1/budgets',
   model: db.budgets,
   testRecord: {
     tenant_id: '00000000-0000-4000-a000-000000000001',
-    sub_project_id: () => subProjectId,
+    deliverable_id: () => deliverableId,
     activity_id: () => activityId,
     budgeted_amount: 25000,
     version: 1,

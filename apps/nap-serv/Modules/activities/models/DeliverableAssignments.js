@@ -12,12 +12,12 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import subProjectAssignmentsSchema from '../schemas/subProjectAssignmentsSchema.js';
+import deliverableAssignmentsSchema from '../schemas/deliverableAssignmentsSchema.js';
 
-class SubProjectAssignments extends TableModel {
+class DeliverableAssignments extends TableModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, subProjectAssignmentsSchema, logger);
+    super(db, pgp, deliverableAssignmentsSchema, logger);
   }
 }
 
-export default SubProjectAssignments;
+export default DeliverableAssignments;

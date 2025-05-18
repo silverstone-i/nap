@@ -12,7 +12,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'sub_projects',
+  table: 'deliverables',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
@@ -36,7 +36,7 @@ const schema = {
       nullable: false
     },
     {
-      name: 'sub_project_code',
+      name: 'deliverable_code',
       type: 'varchar(20)',
       nullable: false
     },
@@ -54,7 +54,7 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['sub_project_code']],
+    unique: [['deliverable_code']],
     checks: [
       {
         type: 'Check',
@@ -62,7 +62,7 @@ const schema = {
       }
     ],
     indexes: [
-      { type: 'Index', columns: ['sub_project_code'] },
+      { type: 'Index', columns: ['deliverable_code'] },
       { type: 'Index', columns: ['name'] }
     ]
   }

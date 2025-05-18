@@ -20,7 +20,7 @@ projects
 Defines the overall job (e.g., development, consulting engagement).
 
 ### `units`
-Instances of house plans or sub-projects within a project.
+Instances of house plans or deliverables within a project.
 
 ### `unit_budgets`
 Versioned budget per unit. Final budget must be approved before release.

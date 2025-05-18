@@ -31,8 +31,8 @@ const schema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['sub_project_id'],
-        references: { table: 'tenantid.sub_projects', columns: ['id'] },
+        columns: ['deliverable_id'],
+        references: { table: 'tenantid.deliverables', columns: ['id'] },
         onDelete: 'CASCADE',
       },
       {
@@ -59,7 +59,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['sub_project_id', 'activity_id'],
+        columns: ['deliverable_id', 'activity_id'],
       },
       {
         type: 'Index',
@@ -71,7 +71,7 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['sub_project_id', 'vendor_id', 'activity_id', 'tenant_sku']
+        columns: ['deliverable_id', 'vendor_id', 'activity_id', 'tenant_sku']
       }
     ],
     checks: [
@@ -102,7 +102,7 @@ const schema = {
       type: 'varchar(64)',
       nullable: false
     },
-    { name: 'sub_project_id', type: 'uuid', nullable: false },
+    { name: 'deliverable_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
     { name: 'activity_id', type: 'uuid', nullable: false },
     { name: 'budget_id', type: 'uuid', nullable: true },

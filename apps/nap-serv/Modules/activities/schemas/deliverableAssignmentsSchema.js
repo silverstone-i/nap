@@ -13,7 +13,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'sub_project_assignments',
+  table: 'deliverable_assignments',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
@@ -37,7 +37,7 @@ const schema = {
       nullable: false
     },
     {
-      name: 'sub_project_id',
+      name: 'deliverable_id',
       type: 'uuid',
       nullable: false
     },
@@ -65,7 +65,7 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['project_id', 'sub_project_id']],
+    unique: [['project_id', 'deliverable_id']],
     foreignKeys: [
       {
         type: 'ForeignKey',
@@ -75,8 +75,8 @@ const schema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['sub_project_id'],
-        references: { table: 'tenantid.sub_projects', columns: ['id'] },
+        columns: ['deliverable_id'],
+        references: { table: 'tenantid.deliverables', columns: ['id'] },
         onDelete: 'CASCADE'
       }
     ],
