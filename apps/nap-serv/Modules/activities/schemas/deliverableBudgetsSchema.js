@@ -38,7 +38,7 @@ const schema = {
       nullable: false
     },
     {
-      name: 'unit',
+      name: 'deliverable',
       type: 'varchar(20)',
       nullable: true
     },

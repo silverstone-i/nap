@@ -1,7 +1,5 @@
 'use strict';
 
-// unitBudgetsSchema.js
-
 /*
 * Copyright © 2024-present, Ian Silverstone
 *

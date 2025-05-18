@@ -12,7 +12,7 @@ describe('AR Invoices API', () => {
       ctx.tenantId = uuid();
       ctx.clientId = uuid();
       ctx.companyId = uuid();
-      ctx.unitId = uuid();
+      ctx.deliverableId = uuid();
 
       await db.none(`INSERT INTO tenantid.clients (id, tenant_id, client_code, name, created_by) VALUES ($1, $2, $3, $4, $5)`, [
         ctx.clientId,
@@ -29,8 +29,8 @@ describe('AR Invoices API', () => {
         'integration-test',
       ]);
 
-      await db.none(`INSERT INTO tenantid.units (id, tenant_id, unit_code, name, created_by) VALUES ($1, $2, $3, $4, $5)`, [
-        ctx.unitId,
+      await db.none(`INSERT INTO tenantid.deliverables (id, tenant_id, deliverable_code, name, created_by) VALUES ($1, $2, $3, $4, $5)`, [
+        ctx.deliverableId,
         ctx.tenantId,
         'UNIT01',
         'Test Unit',
@@ -41,7 +41,7 @@ describe('AR Invoices API', () => {
       tenant_id: ctx.tenantId,
       company_id: ctx.companyId,
       client_id: ctx.clientId,
-      unit_id: ctx.unitId,
+      deliverable_id: ctx.deliverableId,
       invoice_number: `INV-${Date.now()}`,
       invoice_date: '2025-05-01',
       due_date: '2025-05-15',

@@ -1,7 +1,5 @@
 'use strict';
 
-// unitAssignmentsSchema.js
-
 /*
 * Copyright © 2024-present, Ian Silverstone
 *
@@ -88,8 +86,8 @@ const schema = {
     ],
     indexes: [
       { type: 'Index', columns: ['project_id'] },
-      { type: 'Index', columns: ['unit_id'] },
-      { type: 'Index', columns: ['project_id', 'unit_id'] }
+      { type: 'Index', columns: ['deliverable_id'] },
+      { type: 'Index', columns: ['project_id', 'deliverable_id'] }
     ]
   }
 };

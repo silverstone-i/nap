@@ -4,7 +4,7 @@
 
 /**
  * Seed a full budget chain:
- * unit → category → activity → unit_budget → vendor → costline
+ * deliverable → category → activity → budget → vendor → costline
  */
 export async function seedBudgetChain(db, {
   tenantId = '11111111-1111-1111-1111-111111111111',
@@ -13,7 +13,7 @@ export async function seedBudgetChain(db, {
   budgetId = '00000000-0000-0000-0000-000000000003',
   vendorId = '00000000-0000-0000-0000-000000000099',
   categoryId = 'CAT001',
-  unitName = 'Unit A',
+  deliverableName = 'Unit A',
   activityCode = 'ACT001',
   categoryName = 'Excavation',
   vendorName = 'Test Vendor'
@@ -23,7 +23,7 @@ export async function seedBudgetChain(db, {
     INSERT INTO tenantid.deliverables (id, tenant_id, name, deliverable_code, status)
     VALUES ($1, $2, $3, 'BUDGETCODE1', 'pending')
     ON CONFLICT DO NOTHING
-  `, [deliverableId, tenantId, unitName]);
+  `, [deliverableId, tenantId, deliverableName]);
 
   // Seed category
   await db.none(`

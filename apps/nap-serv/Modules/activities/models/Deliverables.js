@@ -1,6 +1,5 @@
 'use strict';
 
-// units.js
 
 /*
  * Copyright © 2024-present, Ian Silverstone
@@ -14,10 +13,10 @@
 import { TableModel } from 'pg-schemata';
 import deliverablesSchema from '../schemas/deliverablesSchema.js';
 
-class Units extends TableModel {
+class Deliverables extends TableModel {
   constructor(db, pgp, logger) {
     super(db, pgp, deliverablesSchema, logger);
   }
 }
 
-export default Units;
+export default Deliverables;

@@ -16,7 +16,7 @@ describe('AR Invoice Lines API', () => {
       ctx.accountId = uuid();
       ctx.clientId = uuid();
       ctx.companyId = uuid();
-      ctx.unitId = uuid();
+      ctx.deliverableId = uuid();
 
       // Seed required dependencies
       await db.none(`INSERT INTO tenantid.clients (id, tenant_id, client_code, name, created_by) VALUES ($1, $2, $3, $4, $5)`, [
@@ -27,12 +27,12 @@ describe('AR Invoice Lines API', () => {
         ctx.companyId, ctx.tenantId, 'TESTCO', 'integration-test',
       ]);
 
-      await db.none(`INSERT INTO tenantid.units (id, tenant_id, unit_code, name, created_by) VALUES ($1, $2, $3, $4, $5)`, [
-        ctx.unitId, ctx.tenantId, 'UNIT01', 'Test Unit', 'integration-test',
+      await db.none(`INSERT INTO tenantid.deliverables (id, tenant_id, deliverable_code, name, created_by) VALUES ($1, $2, $3, $4, $5)`, [
+        ctx.deliverableId, ctx.tenantId, 'UNIT01', 'Test Unit', 'integration-test',
       ]);
 
-      await db.none(`INSERT INTO tenantid.ar_invoices (id, tenant_id, company_id, client_id, unit_id, invoice_number, invoice_date, due_date, total_amount, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`, [
-        ctx.invoiceId, ctx.tenantId, ctx.companyId, ctx.clientId, ctx.unitId,
+      await db.none(`INSERT INTO tenantid.ar_invoices (id, tenant_id, company_id, client_id, deliverable_id, invoice_number, invoice_date, due_date, total_amount, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`, [
+        ctx.invoiceId, ctx.tenantId, ctx.companyId, ctx.clientId, ctx.deliverableId,
         `INV-${Date.now()}`, '2025-05-01', '2025-05-15', 1000, 'open', 'integration-test',
       ]);
 
