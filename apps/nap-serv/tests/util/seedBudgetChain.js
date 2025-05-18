@@ -41,7 +41,7 @@ export async function seedBudgetChain(db, {
 
   // Seed unit budget
   await db.none(`
-    INSERT INTO tenantid.templates (id, tenant_id, sub_project_id, activity_id, budgeted_amount, version)
+    INSERT INTO tenantid.budgets (id, tenant_id, sub_project_id, activity_id, budgeted_amount, version)
     VALUES ($1, $2, $3, $4, 5000, 1)
     ON CONFLICT DO NOTHING
   `, [budgetId, tenantId, subProjectId, activityId]);
@@ -56,7 +56,7 @@ export async function seedBudgetChain(db, {
   // Seed cost line
   await db.none(`
     INSERT INTO tenantid.cost_lines (
-      id, tenant_id, sub_project_id, vendor_id, activity_id, template_id,
+      id, tenant_id, sub_project_id, vendor_id, activity_id, budget_id,
       source_type, quantity, unit_price, name
     )
     VALUES (

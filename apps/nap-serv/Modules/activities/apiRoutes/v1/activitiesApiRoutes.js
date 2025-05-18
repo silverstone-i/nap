@@ -17,7 +17,7 @@ import changeOrderLinesApi from './changeOrderLinesApi.js';
 import costLinesApi from './costLinesApi.js';
 import projectsApi from './projectsApi.js';
 import subProjectAssignmentsApi from './subProjectAssignmentsApi.js';
-import templatesApi from './templatesApi.js';
+import budgetsApi from './budgetsApi.js';
 import subProjectsApi from './subProjectsApi.js';
 import vendorPartsApi from './vendorPartsApi.js';
 
@@ -29,7 +29,7 @@ router.use('/v1/change-order-lines', changeOrderLinesApi);
 router.use('/v1/cost-lines', costLinesApi);
 router.use('/v1/projects', projectsApi);
 router.use('/v1/sub-project-assignments', subProjectAssignmentsApi);
-router.use('/v1/templates', templatesApi);
+router.use('/v1/budgets', budgetsApi);
 router.use('/v1/sub-projects', subProjectsApi);
 router.use('/v1/vendor-parts', vendorPartsApi);
 

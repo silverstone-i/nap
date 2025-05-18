@@ -37,8 +37,8 @@ const schema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['template_id'],
-        references: { table: 'tenantid.templates', columns: ['id'] },
+        columns: ['budget_id'],
+        references: { table: 'tenantid.budgets', columns: ['id'] },
         onDelete: 'SET NULL'
       },
       {
@@ -105,7 +105,7 @@ const schema = {
     { name: 'sub_project_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
     { name: 'activity_id', type: 'uuid', nullable: false },
-    { name: 'template_id', type: 'uuid', nullable: true },
+    { name: 'budget_id', type: 'uuid', nullable: true },
     { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
     { name: 'source_type', type: 'varchar(16)', default: `'material'`, nullable: false }, // e.g., 'material' or 'labor'
     { name: 'quantity', type: 'numeric(12,4)', nullable: false },

@@ -18,9 +18,9 @@ const PATCHES = [
   },
   {
     oldFile: 'unitBudgetsSchema.js',
-    newFile: 'templatesSchema.js',
+    newFile: 'budgetsSchema.js',
     oldTable: 'unit_budgets',
-    newTable: 'templates',
+    newTable: 'budgets',
   }
 ];
 
@@ -59,5 +59,5 @@ PATCHES.forEach(({ oldFile, newFile, oldTable, newTable }) => {
 // ├── projectsSchema.js
 // ├── subProjectsSchema.js                ← was units
 // ├── subProjectAssignmentsSchema.js      ← was unit_assignments
-// ├── templatesSchema.js                  ← was unit_budgets
+// ├── budgetsSchema.js                  ← was unit_budgets
 // └── subProjectBudgetsSchema.js          ← new snapshot table

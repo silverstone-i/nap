@@ -11,14 +11,14 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 
-class TemplatesController extends BaseController {
+class BudgetsController extends BaseController {
   constructor() {
-    super('templates');
+    super('budgets');
   }
 
 }
 
-const instance = new TemplatesController();
+const instance = new BudgetsController();
 
 export default instance; // Use in production and development environments
-export { TemplatesController }; // Use in test environment
+export { BudgetsController }; // Use in test environment

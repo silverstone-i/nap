@@ -48,7 +48,7 @@ const schema = {
       nullable: true
     },
     {
-      name: 'source_template_id',
+      name: 'source_budget_id',
       type: 'uuid',
       nullable: true
     },

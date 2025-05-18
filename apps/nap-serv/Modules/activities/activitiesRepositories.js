@@ -17,7 +17,7 @@ import CostLines from './models/CostLines.js';
 import Projects from './models/Projects.js';
 import SubProjectAssignments from './models/SubProjectAssignments.js';
 import SubProjects from './models/SubProjects.js';
-import Templates from './models/Templates.js';
+import Budgets from './models/Budgets.js';
 import VendorParts from './models/VendorParts.js';
 
 const repositories = {
@@ -29,7 +29,7 @@ const repositories = {
   projects: Projects,
   subProjectAssignments: SubProjectAssignments,
   subProjects: SubProjects,
-  templates: Templates,
+  budgets: Budgets,
   vendorParts: VendorParts,
 };
 

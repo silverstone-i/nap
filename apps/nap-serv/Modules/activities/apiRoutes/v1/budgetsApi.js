@@ -9,9 +9,9 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import templatesController from '../../controllers/TemplatesController.js';
+import budgetsController from '../../controllers/BudgetsController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = createRouter(templatesController);
+const router = createRouter(budgetsController);
 
 export default router;

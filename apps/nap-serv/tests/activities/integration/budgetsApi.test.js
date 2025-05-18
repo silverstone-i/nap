@@ -20,7 +20,7 @@ async function setup() {
   category = await db.categories.insert({
     tenant_id: '00000000-0000-4000-a000-000000000001',
     category_id: 'CAT-BUDGET',
-    name: 'Template Budget Category',
+    name: 'Budget Budget Category',
     created_by: 'integration-test',
   });
 
@@ -53,8 +53,8 @@ async function cleanup() {
 await runExtendedCrudTests({
   updateField: 'sub_project',
   updateFieldValue: 'Updated Name',
-  routePrefix: '/api/activities/v1/templates',
-  model: db.templates,
+  routePrefix: '/api/activities/v1/budgets',
+  model: db.budgets,
   testRecord: {
     tenant_id: '00000000-0000-4000-a000-000000000001',
     sub_project_id: () => subProjectId,

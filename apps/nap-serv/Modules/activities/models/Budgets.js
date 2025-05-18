@@ -12,12 +12,12 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import templatesSchema from '../schemas/templatesSchema.js';
+import budgetsSchema from '../schemas/budgetsSchema.js';
 
-class Templates extends TableModel {
+class Budgets extends TableModel {
   constructor(db, pgp, logger) {
-    super(db, pgp, templatesSchema, logger);
+    super(db, pgp, budgetsSchema, logger);
   }
 }
 
-export default Templates;
+export default Budgets;

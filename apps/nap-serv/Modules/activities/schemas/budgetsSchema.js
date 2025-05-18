@@ -13,7 +13,7 @@
 
 const schema = {
   dbSchema: 'tenantid',
-  table: 'templates',
+  table: 'budgets',
   hasAuditFields: true,
   version: '1.0.0',
   columns: [
