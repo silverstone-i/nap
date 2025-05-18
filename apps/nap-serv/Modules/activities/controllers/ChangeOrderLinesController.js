@@ -10,7 +10,6 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import { assertStatusAllowed } from '../logic/templateLogic.js';
 
 class ChangeOrderLinesController extends BaseController {
   constructor() {

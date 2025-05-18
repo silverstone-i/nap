@@ -20,7 +20,7 @@ import app from '../../src/app.js';
  * @param {string[]} schemaList - List of schemas to reset and runMigrate. Defaults to ['admin'].
  * @returns {Promise<{ server: import('http').Server, teardown: Function }>}
  */
-export async function setupIntegrationTest(schemaList = ['admin']) {
+export async function setupIntegrationTest(schemaList = ['admin', 'tenantid']) {
   // Drop and recreate schemas, but skip 'public'
   for (const schema of schemaList) {
     if (schema !== 'public') {

@@ -136,9 +136,9 @@ async function runMigrate(
         continue; // Skip views
       }
 
-      console.log(
-        `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
-      );
+      // console.log(
+      //   `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
+      // );
 
       // Log the current search_path before creating the table
       // const { search_path } = await dbOverride.one('SHOW search_path');

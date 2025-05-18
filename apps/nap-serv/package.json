@@ -45,7 +45,7 @@
     "test:core:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/core/integration --coverage",
     "test:activities": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities --coverage",
     "test:activities:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/unit --coverage",
-    "test:activities:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/integration --coverage",
+    "test:activities:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/activities/integration --runInBand",
     "test:accounting": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/accounting --coverage",
     "test:accounting:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/accounting/unit --coverage",
     "test:accounting:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest tests/accounting/integration --coverage",
