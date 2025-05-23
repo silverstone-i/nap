@@ -13,6 +13,9 @@ import cors from 'cors';
 
 import apiRoutes from './apiRoutes.js';
 
+import cookieParser from 'cookie-parser';
+import { authenticateJwt } from '../modules/tenants/middlewares/authenticateJwt.js';
+
 const app = express();
 
 // Middleware
@@ -20,6 +23,8 @@ app.use(cors(/* options */));
 app.use(express.json());
 
 app.use(express.urlencoded({ extended: true }));
+
+app.use(cookieParser());
 
 // Morgan + Winston API logging setup
 import morgan from 'morgan';
@@ -67,12 +72,7 @@ app.use(
   )
 );
 
-// Development-only: mock tenantId and userId for logging
-app.use((req, res, next) => {
-  req.tenantId = req.headers['x-tenant-id'] || 'default-tenant';
-  req.user = req.user || { id: req.headers['x-user-id'] || 'anonymous-user' };
-  next();
-});
+app.use(authenticateJwt);
 
 // Mount each module's router under /api
 app.use('/api', apiRoutes);
