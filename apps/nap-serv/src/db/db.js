@@ -35,9 +35,50 @@ if (!DATABASE_URL) {
 
 
 console.log('\nInitializing database connection...');
-const { db, pgp } = DB.init(DATABASE_URL, repositories);
+DB.init(DATABASE_URL, repositories);
+const rawDb = DB.db;
+const pgp = DB.pgp;
+console.log('🔧 Loaded model keys:', Object.keys(rawDb));
 console.log('Database connection established.\n');
 
-// console.log('Loaded db models:', Object.keys(db))
+// Defer callDb + db initialization until models are attached
+function createCallDb(rawDb) {
+  const callDb = function (modelOrName, schemaName) {
+    const model = typeof modelOrName === 'string' ? rawDb[modelOrName] : modelOrName;
 
-export { db, pgp };
+    if (!model || typeof model.setSchemaName !== 'function') {
+      throw new Error('callDb: provided model is not schema-aware');
+    }
+
+    return model.setSchemaName(schemaName);
+  };
+
+  for (const key of Object.keys(rawDb)) {
+    if (typeof rawDb[key]?.setSchemaName === 'function') {
+      callDb[key] = rawDb[key];
+    }
+  }
+
+  // Attach pg-promise instance methods like none, one, etc.
+  const passthroughs = [
+    'connect', 'query', 'none', 'one', 'many', 'oneOrNone',
+    'manyOrNone', 'any', 'result', 'multiResult', 'multi',
+    'stream', 'func', 'proc', 'map', 'each', 'task', 'taskIf',
+    'tx', 'txIf'
+  ];
+
+  for (const fn of passthroughs) {
+    if (typeof rawDb[fn] === 'function') {
+      callDb[fn] = rawDb[fn].bind(rawDb);
+    }
+  }
+
+  return callDb;
+}
+
+const db = createCallDb(rawDb);
+
+// Attach pg-promise `$pool` to db for lifecycle management
+db.$pool = rawDb.$pool;
+
+export { db as default, db, createCallDb, pgp, DB };
