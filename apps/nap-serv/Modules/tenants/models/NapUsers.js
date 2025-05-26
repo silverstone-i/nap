@@ -11,10 +11,22 @@
 
 import { TableModel } from 'pg-schemata';
 import napUsersSchema from '../schemas/napUsersSchema.js';
+import bcrypt from 'bcrypt';
 
 class NapUsers extends TableModel {
   constructor(db, pgp) {
     super(db, pgp, napUsersSchema);
+  }
+
+  async importFromSpreadsheet(rows, options = {}) {
+    const processed = await Promise.all(rows.map(async (row) => {
+      if (row.password) {
+        row.password_hash = await bcrypt.hash(row.password, 10);
+        delete row.password;
+      }
+      return row;
+    }));
+    return super.importFromSpreadsheet(processed, options);
   }
 }
 

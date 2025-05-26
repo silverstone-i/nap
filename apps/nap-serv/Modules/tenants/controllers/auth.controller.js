@@ -13,23 +13,27 @@ import passport from '../auth/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwt.js';
 import jwt from 'jsonwebtoken';
 
-export const login = (req, res, next) => {
+export const login = (req, res, next) => {  
   passport.authenticate('local', { session: false }, (err, user, info) => {
-    if (err || !user) return res.status(400).json({ message: info?.message || 'Login failed' });
+    if (err || !user) {
+      return res.status(400).json({ message: info?.message || 'Login failed' });
+    }
+
+    const isTest = process.env.NODE_ENV === 'test';
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
     res.cookie('auth_token', accessToken, {
       httpOnly: true,
-      secure: true,
+      secure: !isTest,
       sameSite: 'Strict',
       maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: true,
+      secure: !isTest,
       sameSite: 'Strict',
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
@@ -45,10 +49,12 @@ export const refreshToken = (req, res) => {
   jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
     if (err) return res.status(403).json({ message: 'Invalid refresh token' });
 
+    const isTest = process.env.NODE_ENV === 'test';
+
     const accessToken = generateAccessToken(decoded);
     res.cookie('auth_token', accessToken, {
       httpOnly: true,
-      secure: true,
+      secure: !isTest,
       sameSite: 'Strict',
       maxAge: 15 * 60 * 1000
     });

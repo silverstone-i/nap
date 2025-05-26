@@ -72,7 +72,19 @@ app.use(
   )
 );
 
-app.use(authenticateJwt);
+app.use((req, res, next) => {
+  const publicRoutes = [
+    '/api/tenants/v1/auth/login',
+    '/api/tenants/v1/auth/refresh',
+    '/api/tenants/v1/auth/logout'
+  ];
+
+  if (publicRoutes.includes(req.path)) {
+    return next();
+  }
+
+  return authenticateJwt(req, res, next);
+});
 
 // Mount each module's router under /api
 app.use('/api', apiRoutes);

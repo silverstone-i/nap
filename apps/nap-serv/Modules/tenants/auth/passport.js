@@ -19,7 +19,7 @@ passport.use(new LocalStrategy(
   { usernameField: 'email' },
   async (email, password, done) => {
     try {
-      const user = await db(NapUsersModel, 'admin').findOne({ email });
+      const user = await db('napUsers', 'admin').findOneBy([{ email }]);
       if (!user) return done(null, false, { message: 'Incorrect email.' });
 
       const isMatch = await bcrypt.compare(password, user.password_hash);
