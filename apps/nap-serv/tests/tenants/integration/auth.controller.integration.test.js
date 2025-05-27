@@ -2,6 +2,7 @@ import request from 'supertest';
 import bcrypt from 'bcrypt';
 import db from '../../../src/db/db.js';
 import { setupIntegrationTest } from '../../util/integrationHarness.js';
+import jwt from 'jsonwebtoken';
 
 const testEmail = 'test@example.com';
 const testPassword = 'Password123!';
@@ -94,5 +95,105 @@ describe('/auth/refresh', () => {
     const res = await request(server).post(`${routePrefix}/refresh`);
     expect(res.statusCode).toBe(401);
     expect(res.body.message).toMatch(/refresh token/i);
+  });
+});
+
+describe('/auth/logout', () => {
+  it('should clear auth and refresh cookies on logout', async () => {
+    const agent = request.agent(server);
+
+    // Login first to set cookies
+    await agent
+      .post(`${routePrefix}/login`)
+      .send({ email: testEmail, password: testPassword });
+
+    const res = await agent.post(`${routePrefix}/logout`);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['set-cookie']).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/auth_token=;/),
+        expect.stringMatching(/refresh_token=;/)
+      ])
+    );
+  });
+});
+
+describe('/auth/register', () => {
+  const newEmail = 'newuser@example.com';
+
+  afterAll(async () => {
+    await db.napUsers.deleteWhere({ email: newEmail });
+  });
+
+  it('should register a new user successfully', async () => {
+    const agent = request.agent(server);
+    await agent
+      .post(`${routePrefix}/login`)
+      .send({ email: testEmail, password: testPassword });
+
+    const res = await agent
+      .post(`${routePrefix}/register`)
+      .send({
+        email: newEmail,
+        password: 'NewPass123!',
+        user_name: 'New User',
+        tenant_code: 'TEST',
+        role: 'user'
+      });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body.message).toMatch(/registered/i);
+  });
+
+  it('should fail to register with missing fields', async () => {
+    const res = await request(server)
+      .post(`${routePrefix}/register`)
+      .send({ email: newEmail }); // incomplete
+
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe('/auth/token expiry', () => {
+  it('should reject access with expired auth_token', async () => {
+    const expiredToken = jwt.sign(
+      {
+        email: testEmail,
+        role: 'super_admin',
+        tenant_code: 'TEST',
+        schema: 'admin'
+      },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: '-1s' }
+    );
+
+    const res = await request(server)
+      .get(`${routePrefix}/check`)
+      .set('Cookie', [`auth_token=${expiredToken}`]);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toMatch(/unauthorized/i);
+  });
+
+  it('should refresh session even if auth_token is missing, as long as refresh_token is valid', async () => {
+    const agent = request.agent(server);
+
+    // Step 1: Login to receive refresh_token
+    await agent
+      .post(`${routePrefix}/login`)
+      .send({ email: testEmail, password: testPassword });
+
+    // Step 2: Manually clear the auth_token (simulate expiration)
+    agent.jar.setCookie('auth_token=; Max-Age=0', routePrefix);
+
+    // Step 3: Call /auth/refresh with only the valid refresh_token
+    const res = await agent.post(`${routePrefix}/refresh`);
+
+    // Step 4: Assert new auth_token is issued
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['set-cookie']).toEqual(
+      expect.arrayContaining([expect.stringContaining('auth_token=')])
+    );
   });
 });

@@ -74,7 +74,7 @@ const napUserSchema = {
       },
       {
         type: 'Check',
-        expression: `role IN ('super_admin', 'support')`,
+        expression: `role IN ('super_admin', 'admin', 'support', 'user')`,
       },
     ],
     indexes: [

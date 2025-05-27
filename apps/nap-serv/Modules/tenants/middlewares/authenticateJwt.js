@@ -16,7 +16,7 @@ export function authenticateJwt(req, res, next) {
   if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: 'Forbidden' });
+    if (err) return res.status(401).json({ message: 'Unauthorized' });
 
     req.user = decoded;
     req.tenantId = decoded.tenant_code;

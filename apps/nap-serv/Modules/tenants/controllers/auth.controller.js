@@ -12,6 +12,30 @@
 import passport from '../auth/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwt.js';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import { callDb as db } from 'pg-schemata';
+
+export const register = async (req, res) => {
+  const { email, password, user_name, tenant_code, role } = req.body;
+
+  try {
+    const password_hash = await bcrypt.hash(password, 10);
+
+    await db('napUsers', 'admin').insert({
+      email,
+      password_hash,
+      user_name,
+      tenant_code,
+      role
+    });
+
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ message: 'Error registering user' });
+  }
+};
+
 
 export const login = (req, res, next) => {  
   passport.authenticate('local', { session: false }, (err, user, info) => {
@@ -67,4 +91,10 @@ export const logout = (req, res) => {
   res.clearCookie('auth_token');
   res.clearCookie('refresh_token');
   res.json({ message: 'Logged out successfully' });
+};
+
+
+// Check token validity handler
+export const checkToken = (req, res) => {
+  res.status(200).json({ message: 'Token is valid', user: req.user });
 };
