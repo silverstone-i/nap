@@ -21,25 +21,25 @@ const interCompanyTransactionsSchema = {
       {
         type: 'ForeignKey',
         columns: ['source_company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT'
       },
       {
         type: 'ForeignKey',
         columns: ['target_company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT'
       },
       {
         type: 'ForeignKey',
         columns: ['source_journal_entry_id'],
-        references: { table: 'tenantid.journal_entries', columns: ['id'] },
+        references: { table: 'journal_entries', columns: ['id'] },
         onDelete: 'SET NULL'
       },
       {
         type: 'ForeignKey',
         columns: ['target_journal_entry_id'],
-        references: { table: 'tenantid.journal_entries', columns: ['id'] },
+        references: { table: 'journal_entries', columns: ['id'] },
         onDelete: 'SET NULL'
       }
     ],

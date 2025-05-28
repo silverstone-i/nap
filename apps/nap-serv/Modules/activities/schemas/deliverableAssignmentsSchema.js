@@ -68,13 +68,13 @@ const schema = {
       {
         type: 'ForeignKey',
         columns: ['project_id'],
-        references: { table: 'tenantid.projects', columns: ['id'] },
+        references: { table: 'projects', columns: ['id'] },
         onDelete: 'CASCADE'
       },
       {
         type: 'ForeignKey',
         columns: ['deliverable_id'],
-        references: { table: 'tenantid.deliverables', columns: ['id'] },
+        references: { table: 'deliverables', columns: ['id'] },
         onDelete: 'CASCADE'
       }
     ],

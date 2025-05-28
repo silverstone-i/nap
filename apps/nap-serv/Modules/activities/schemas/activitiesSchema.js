@@ -57,7 +57,7 @@ const schema = {
       {
         type: 'ForeignKey',
         columns: ['category_id'],
-        references: { table: 'tenantid.categories', columns: ['category_id'] },
+        references: { table: 'categories', columns: ['category_id'] },
         onDelete: 'CASCADE',
       },
     ],

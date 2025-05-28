@@ -25,7 +25,7 @@ const postingQueuesSchema = {
       {
         type: 'ForeignKey',
         columns: ['journal_entry_id'],
-        references: { table: 'tenantid.journal_entries', columns: ['id'] },
+        references: { table: 'journal_entries', columns: ['id'] },
         onDelete: 'CASCADE',
       },
     ],

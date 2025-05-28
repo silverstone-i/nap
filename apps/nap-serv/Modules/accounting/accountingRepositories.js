@@ -9,7 +9,6 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import AccountClassifications from './models/AccountClassifications.js';
 import CategoriesAccountMap from './models/CategoriesAccountMap.js';
 import ChartOfAccounts from './models/ChartOfAccounts.js';
 import InternalTransfers from './models/InternalTransfers.js';
@@ -21,7 +20,6 @@ import InterCompanyAccounts from './models/InterCompanyAccounts.js';
 import InterCompanyTransactions from './models/InterCompanyTransactions.js';
 
 const repositories = {
-  accountClassifications: AccountClassifications,
   categoriesAccountMap: CategoriesAccountMap,
   chartOfAccounts: ChartOfAccounts,
   internalTransfers: InternalTransfers,

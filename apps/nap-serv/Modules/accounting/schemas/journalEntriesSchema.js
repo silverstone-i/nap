@@ -26,13 +26,13 @@ const journalEntriesSchema = {
       {
         type: 'ForeignKey',
         columns: ['corrects_id'],
-        references: { table: 'tenantid.journal_entries', columns: ['id'] },
+        references: { table: 'journal_entries', columns: ['id'] },
         onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

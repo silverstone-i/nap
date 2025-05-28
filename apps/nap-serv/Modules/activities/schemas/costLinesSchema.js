@@ -20,31 +20,31 @@ const schema = {
       {
         type: 'ForeignKey',
         columns: ['activity_id'],
-        references: { table: 'tenantid.activities', columns: ['id'] },
+        references: { table: 'activities', columns: ['id'] },
         onDelete: 'CASCADE',
       },
       {
         type: 'ForeignKey',
         columns: ['vendor_id', 'tenant_sku'],
-        references: { table: 'tenantid.vendorparts', columns: ['vendor_id', 'tenant_sku'] },
+        references: { table: 'vendorparts', columns: ['vendor_id', 'tenant_sku'] },
         onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['deliverable_id'],
-        references: { table: 'tenantid.deliverables', columns: ['id'] },
+        references: { table: 'deliverables', columns: ['id'] },
         onDelete: 'CASCADE',
       },
       {
         type: 'ForeignKey',
         columns: ['budget_id'],
-        references: { table: 'tenantid.budgets', columns: ['id'] },
+        references: { table: 'budgets', columns: ['id'] },
         onDelete: 'SET NULL'
       },
       {
         type: 'ForeignKey',
         columns: ['company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

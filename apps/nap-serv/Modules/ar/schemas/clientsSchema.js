@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import { v4 as uuid } from 'uuid';
 
@@ -22,23 +22,26 @@ const schema = {
       {
         type: 'ForeignKey',
         columns: ['billing_address_id'],
-        references: { table: 'tenantid.addresses', columns: ['id'] },
-        onDelete: 'SET NULL'
+        references: { table: 'addresses', columns: ['id'] },
+        onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['physical_address_id'],
-        references: { table: 'tenantid.addresses', columns: ['id'] },
-        onDelete: 'SET NULL'
+        references: { table: 'addresses', columns: ['id'] },
+        onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['primary_contact_id'],
-        references: { table: 'tenantid.contacts', columns: ['id'] },
-        onDelete: 'SET NULL'
-      }
+        references: { table: 'contacts', columns: ['id'] },
+        onDelete: 'SET NULL',
+      },
     ],
-    unique: [['tenant_id', 'name'], ['tenant_id', 'client_code']],
+    unique: [
+      ['tenant_id', 'name'],
+      ['tenant_id', 'client_code'],
+    ],
     indexes: [
       { type: 'Index', columns: ['tenant_id', 'name'] },
       { type: 'Index', columns: ['email'] },
@@ -68,38 +71,6 @@ const schema = {
 
     { name: 'notes', type: 'text', nullable: true },
   ],
-  beforeHook: async (ctx) => {
-    const { db } = await import('../../../src/db/db.js');
-    ctx.tenantId = uuid();
-    ctx.addressId1 = uuid();
-    ctx.addressId2 = uuid();
-    ctx.contactId = uuid();
-
-    await db.none(`INSERT INTO tenantid.addresses (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
-      ctx.addressId1, ctx.tenantId, 'integration-test'
-    ]);
-
-    await db.none(`INSERT INTO tenantid.addresses (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
-      ctx.addressId2, ctx.tenantId, 'integration-test'
-    ]);
-
-    await db.none(`INSERT INTO tenantid.contacts (id, tenant_id, created_by) VALUES ($1, $2, $3)`, [
-      ctx.contactId, ctx.tenantId, 'integration-test'
-    ]);
-  },
-  testRecord: (ctx) => ({
-    tenant_id: ctx.tenantId,
-    client_code: 'CLNT1001',
-    name: 'Sample Client',
-    email: 'client@example.com',
-    phone: '123-456-7890',
-    tax_id: 'TAX123456',
-    billing_address_id: ctx.addressId1,
-    physical_address_id: ctx.addressId2,
-    primary_contact_id: ctx.contactId,
-    created_by: 'integration-test',
-    updated_by: 'integration-test',
-  }),
 };
 
 export default schema;

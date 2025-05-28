@@ -25,7 +25,7 @@ const ledgerBalancesSchema = {
       {
         type: 'ForeignKey',
         columns: ['account_id'],
-        references: { table: 'tenantid.chart_of_accounts', columns: ['id'] },
+        references: { table: 'chart_of_accounts', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

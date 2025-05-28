@@ -77,7 +77,7 @@ const schema = {
       {
         type: 'ForeignKey',
         columns: ['activity_id'],
-        references: { table: 'tenantid.activities', columns: ['id'] },
+        references: { table: 'activities', columns: ['id'] },
         onDelete: 'CASCADE'
       }
     ],

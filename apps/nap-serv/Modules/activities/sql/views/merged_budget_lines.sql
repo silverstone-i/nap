@@ -8,7 +8,7 @@ SELECT
   'budget' AS source,
   created_at,
   updated_at
-FROM tenantid.cost_lines
+FROM cost_lines
 WHERE status = 'locked'
 
 UNION ALL
@@ -22,5 +22,5 @@ SELECT
   'change_order' AS source,
   created_at,
   updated_at
-FROM tenantid.change_order_lines
+FROM change_order_lines
 WHERE status = 'approved';

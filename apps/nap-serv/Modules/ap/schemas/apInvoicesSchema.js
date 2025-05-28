@@ -27,19 +27,19 @@ const apInvoicesSchema = {
       {
         type: 'ForeignKey',
         columns: ['vendor_id'],
-        references: { table: 'tenantid.vendors', columns: ['id'] },
+        references: { table: 'vendors', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['project_id'],
-        references: { table: 'tenantid.projects', columns: ['id'] },
+        references: { table: 'projects', columns: ['id'] },
         onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

@@ -25,13 +25,13 @@ const journalEntryLinesSchema = {
       {
         type: 'ForeignKey',
         columns: ['entry_id'],
-        references: { table: 'tenantid.journal_entries', columns: ['id'] },
+        references: { table: 'journal_entries', columns: ['id'] },
         onDelete: 'CASCADE',
       },
       {
         type: 'ForeignKey',
         columns: ['account_id'],
-        references: { table: 'tenantid.chart_of_accounts', columns: ['id'] },
+        references: { table: 'chart_of_accounts', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

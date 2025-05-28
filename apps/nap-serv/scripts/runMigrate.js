@@ -22,10 +22,9 @@ function getTableDependencies(model) {
 
   return Array.from(new Set(schema.constraints.foreignKeys.map(fk => {
     // console.log('FK:', fk.references);
-    
     const [schemaName, tableName] = fk.references.table.includes('.')
       ? fk.references.table.split('.')
-      : [fk.references.schema || 'public', fk.references.table];
+      : [model.schema.dbSchema, fk.references.table];
     // console.log('schemaName:', schemaName, 'tableName:', tableName);
     return `${schemaName}.${tableName}`.toLowerCase();
   })));
@@ -81,7 +80,7 @@ function writeDependencyGraph(models, sortedKeys) {
 
     for (const fk of schema.constraints.foreignKeys) {
       const from = `${schema.dbSchema}.${schema.table}`;
-      let refSchema = 'public';
+      let refSchema = schema.dbSchema;
       let refTable = fk.references.table;
 
       if (refTable.includes('.')) {
@@ -107,48 +106,74 @@ function writeDependencyGraph(models, sortedKeys) {
 }
 
 async function runMigrate(
+  schemaList = ['tenantid'],
   dbOverride = db,
   pgpOverride = pgp,
   testFlag = false
 ) {
+  // Check if schema exists in the database
+  async function schemaExists(schemaName) {
+    const result = await dbOverride.oneOrNone(
+      `SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`,
+      [schemaName]
+    );
+    return !!result;
+  }
+
   let sortedKeys = [];
+  const adminTables = ['admin.tenants', 'admin.nap_users', 'admin.account_classifications'];
   let validModels = {};
   try {
-    await dbOverride.none(`
-      DROP SCHEMA IF EXISTS admin CASCADE;
-      DROP SCHEMA IF EXISTS tenantid CASCADE;
-      CREATE SCHEMA admin;
-      CREATE SCHEMA tenantid;
-    `);
-    validModels = Object.fromEntries(
-      Object.entries(dbOverride)
-        .filter(([, model]) => isValidModel(model))
-        .map(([, model]) => [`${model.schema.dbSchema}.${model.schema.table}`.toLowerCase(), model])
-    );
-    
-    // console.log('Loaded models:', Object.keys(validModels));
-    sortedKeys = topoSortModels(validModels);
-    // console.log('Sorted table creation order:', sortedKeys);
-    for (const key of sortedKeys) {
-      const model = validModels[key];
-
-      if (model?.constructor?.isViewModel) {
-        continue; // Skip views
-      }
-
-      // console.log(
-      //   `Creating table for ${key} (${model.schema?.dbSchema}.${model.schema?.table})`
-      // );
-
-      // Log the current search_path before creating the table
-      // const { search_path } = await dbOverride.one('SHOW search_path');
-
-      await model.createTable();
-      // console.log('Created table:', key);
+    // Ensure 'admin' is included if not present and required
+    if (!schemaList.includes('admin') && !(await schemaExists('admin'))) {
+      schemaList.unshift('admin');
     }
-    
-    await loadViews(dbOverride);
-    console.log('All views loaded.');
+
+    for (const schemaName of schemaList) {
+      if (schemaName !== 'admin') {
+        await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE; CREATE SCHEMA ${schemaName};`);
+      }
+    }
+    for (const schemaName of schemaList) {
+      const allowedAdminTables = new Set(adminTables.map(t => t.toLowerCase()));
+
+      const modelsForSchema = Object.fromEntries(
+        Object.entries(dbOverride)
+          .filter(([, model]) => {
+            if (!isValidModel(model)) return false;
+            const schemaScopedModel = dbOverride(model, schemaName);
+            const fullName = `${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase();
+
+            if (schemaName === 'admin') {
+              return allowedAdminTables.has(fullName);
+            }
+
+            // For tenant schemas, exclude admin tables
+            if (fullName.startsWith('admin.')) return false;
+            if (allowedAdminTables.has(fullName.replace(`${schemaName}.`, 'admin.'))) return false;
+
+            return true;
+          })
+          .map(([, model]) => {
+            const schemaScopedModel = dbOverride(model, schemaName);
+            return [`${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase(), schemaScopedModel];
+          })
+      );
+      console.log('✅ Models for schema', schemaName, Object.keys(modelsForSchema));
+      const keys = topoSortModels(modelsForSchema);
+      console.log('🧭 Sorted model keys for', schemaName, keys);
+
+      for (const key of keys) {
+        const model = modelsForSchema[key];
+        const isAdminTable = model.schema.dbSchema === 'admin';
+        if (model?.constructor?.isViewModel) continue;
+        if (isAdminTable && !allowedAdminTables.has(key)) continue;
+        console.log(`🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`);
+        await dbOverride(model, schemaName).createTable();
+      }
+      await loadViews(dbOverride, schemaName);
+      console.log(`Views loaded for schema: ${schemaName}`);
+    }
   } catch (error) {
     console.error('Error during migration:', error.message);
     console.error('Stack trace:', error.stack);
@@ -168,7 +193,8 @@ async function runMigrate(
 console.log('Starting migration...\n');
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  await runMigrate().catch(err => {
+  const schemas = process.argv.slice(2);
+  await runMigrate(schemas).catch(err => {
     console.error(err);
     process.exit(1);
   });

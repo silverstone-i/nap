@@ -22,19 +22,19 @@ const interCompanyAccountsSchema = {
       {
         type: 'ForeignKey',
         columns: ['source_company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['target_company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['inter_company_account_id'],
-        references: { table: 'tenantid.chart_of_accounts', columns: ['id'] },
+        references: { table: 'chart_of_accounts', columns: ['id'] },
         onDelete: 'RESTRICT',
       }
     ],

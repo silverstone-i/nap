@@ -21,7 +21,7 @@ const schema = {
         type: 'ForeignKey',
         columns: ['vendor_id'],
         references: {
-          table: 'tenantid.vendors',
+          table: 'vendors',
           columns: ['id'],
         },
         onDelete: 'CASCADE',

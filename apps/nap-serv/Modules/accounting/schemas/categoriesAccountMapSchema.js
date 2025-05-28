@@ -25,13 +25,13 @@ const categoriesAccountMapSchema = {
       {
         type: 'ForeignKey',
         columns: ['category_id'],
-        references: { table: 'tenantid.categories', columns: ['id'] },
+        references: { table: 'categories', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['account_id'],
-        references: { table: 'tenantid.chart_of_accounts', columns: ['id'] },
+        references: { table: 'chart_of_accounts', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

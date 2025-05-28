@@ -26,13 +26,13 @@ const receiptsSchema = {
       {
         type: 'ForeignKey',
         columns: ['client_id'],
-        references: { table: 'tenantid.clients', columns: ['id'] },
+        references: { table: 'clients', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['ar_invoice_id'],
-        references: { table: 'tenantid.ar_invoices', columns: ['id'] },
+        references: { table: 'ar_invoices', columns: ['id'] },
         onDelete: 'SET NULL',
       },
     ],

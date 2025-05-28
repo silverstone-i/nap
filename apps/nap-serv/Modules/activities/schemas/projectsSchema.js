@@ -20,19 +20,19 @@ const schema = {
       {
         type: 'ForeignKey',
         columns: ['client_id'],
-        references: { table: 'tenantid.clients', columns: ['id'] },
+        references: { table: 'clients', columns: ['id'] },
         onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['address_id'],
-        references: { table: 'tenantid.addresses', columns: ['id'] },
+        references: { table: 'addresses', columns: ['id'] },
         onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

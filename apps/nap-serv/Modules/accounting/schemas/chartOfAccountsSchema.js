@@ -21,14 +21,6 @@ const chartOfAccountsSchema = {
       { type: 'Index', columns: ['code'] },
       { type: 'Index', columns: ['type'] },
     ],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['classification_id'],
-        references: { table: 'admin.account_classifications', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-    ],
   },
 
   columns: [

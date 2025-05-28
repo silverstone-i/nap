@@ -27,19 +27,19 @@ const arInvoicesSchema = {
       {
         type: 'ForeignKey',
         columns: ['client_id'],
-        references: { table: 'tenantid.clients', columns: ['id'] },
+        references: { table: 'clients', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['deliverable_id'],
-        references: { table: 'tenantid.deliverables', columns: ['id'] },
+        references: { table: 'deliverables', columns: ['id'] },
         onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['company_id'],
-        references: { table: 'tenantid.inter_companies', columns: ['id'] },
+        references: { table: 'inter_companies', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
     ],

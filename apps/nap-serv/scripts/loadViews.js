@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export async function loadViews(db, modulesDir = path.join(__dirname, '../modules')) {
+export async function loadViews(db, schemaName, modulesDir = path.join(__dirname, '../modules')) {
   const modules = fs.readdirSync(modulesDir);
 
   for (const mod of modules) {
@@ -25,7 +25,8 @@ export async function loadViews(db, modulesDir = path.join(__dirname, '../module
     const viewFiles = fs.readdirSync(viewsPath).filter(f => f.endsWith('.sql'));
 
     for (const file of viewFiles) {
-      const sql = fs.readFileSync(path.join(viewsPath, file), 'utf8');
+      const setSchemaSQL = schemaName ? `SET search_path TO ${schemaName};\n` : '';
+      const sql = setSchemaSQL + fs.readFileSync(path.join(viewsPath, file), 'utf8');
       console.log(`⏳ Loading view: ${mod}/sql/views/${file}`);
       try {
         await db.none(sql);

@@ -26,13 +26,13 @@ const paymentsSchema = {
       {
         type: 'ForeignKey',
         columns: ['vendor_id'],
-        references: { table: 'tenantid.vendors', columns: ['id'] },
+        references: { table: 'vendors', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['ap_invoice_id'],
-        references: { table: 'tenantid.ap_invoices', columns: ['id'] },
+        references: { table: 'ap_invoices', columns: ['id'] },
         onDelete: 'SET NULL',
       },
     ],
