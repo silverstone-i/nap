@@ -132,7 +132,6 @@ async function runMigrate(
     for (const schemaName of schemaList) {
       if (schemaName !== 'admin') {
         const sql = `DROP SCHEMA IF EXISTS ${schemaName} CASCADE; CREATE SCHEMA ${schemaName};`
-        console.log(`\n🛠 Executing SQL for ${schemaName}:\n${sql}`);
         await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE; CREATE SCHEMA ${schemaName};`);
       }
     }
@@ -161,9 +160,9 @@ async function runMigrate(
             return [`${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase(), schemaScopedModel];
           })
       );
-      console.log('✅ Models for schema', schemaName, Object.keys(modelsForSchema));
+      // console.log('✅ Models for schema', schemaName, Object.keys(modelsForSchema));
       const keys = topoSortModels(modelsForSchema);
-      console.log('🧭 Sorted model keys for', schemaName, keys);
+      // console.log('🧭 Sorted model keys for', schemaName, keys);
 
       for (const key of keys) {
         const model = modelsForSchema[key];
