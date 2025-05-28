@@ -38,7 +38,7 @@ console.log('\nInitializing database connection...');
 DB.init(DATABASE_URL, repositories);
 const rawDb = DB.db;
 const pgp = DB.pgp;
-console.log('🔧 Loaded model keys:', Object.keys(rawDb));
+// console.log('🔧 Loaded model keys:', Object.keys(rawDb));
 console.log('Database connection established.\n');
 
 // Defer callDb + db initialization until models are attached
