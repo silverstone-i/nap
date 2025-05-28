@@ -13,8 +13,13 @@ import { db, pgp } from '../src/db/db.js';
 
 const adminTables = ['tenants', 'napUsers'];
 
-async function setupAdminSchema() {
+async function setupAdminSchema(dropSchema = false) {
   try {
+    if (dropSchema) {
+      console.log('🧨 Dropping admin schema...');
+      await db.none(`DROP SCHEMA IF EXISTS admin CASCADE;`);
+    }
+
     console.log('🔧 Initializing admin schema...');
     await db.none(`CREATE SCHEMA IF NOT EXISTS admin;`);
 
