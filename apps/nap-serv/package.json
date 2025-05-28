@@ -28,8 +28,10 @@
     "\"pg-schemata\""
   ],
   "scripts": {
-    "migrate:dev": "cross-env NODE_ENV=development node ./scripts/runMigrate.js --",
-    "migrate:test": "cross-env NODE_ENV=test node ./scripts/runMigrate.js --",
+    "setupAdmin:dev": "cross-env NODE_ENV=development node ./scripts/setupAdminSchema.js",
+    "setupAdmin:test": "cross-env NODE_ENV=test node ./scripts/setupAdminSchema.js",
+    "migrate:dev": "cross-env NODE_ENV=development node ./scripts/runMigrate.js",
+    "migrate:test": "cross-env NODE_ENV=test node ./scripts/runMigrate.js",
     "docs": "jsdoc -c jsdoc.json README.md && cp LICENSE docs/ && mkdir -p docs/images && cp docs-pages/images/nap-logo.png docs/images/",
     "lint": "eslint .",
     "seed": "cross-env NODE_ENV=development node ./scripts/seedPhase2.js",
