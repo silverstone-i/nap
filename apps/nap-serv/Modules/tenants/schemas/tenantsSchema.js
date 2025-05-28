@@ -40,7 +40,7 @@ const tenantSchema = {
     {
       name: 'tenant_code',
       type: 'varchar',
-      length: 20,
+      length: 6,
       nullable: false,
       unique: true,
       colProps: { skip: c => !c.exists },
@@ -53,17 +53,6 @@ const tenantSchema = {
       name: 'company',
       type: 'varchar',
       length: 150,
-      nullable: false,
-      colProps: { skip: c => !c.exists },
-    },
-
-    /**
-     * Schema name for this tenant’s database namespace.
-     */
-    {
-      name: 'schema_name',
-      type: 'varchar',
-      length: 50,
       nullable: false,
       colProps: { skip: c => !c.exists },
     },
