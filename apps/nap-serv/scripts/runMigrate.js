@@ -121,7 +121,7 @@ async function runMigrate(
   }
 
   let sortedKeys = [];
-  const adminTables = ['admin.tenants', 'admin.nap_users', 'admin.account_classifications'];
+  const adminTables = ['admin.tenants', 'admin.nap_users'];
   let validModels = {};
   try {
     // Ensure 'admin' is included if not present and required
@@ -131,6 +131,8 @@ async function runMigrate(
 
     for (const schemaName of schemaList) {
       if (schemaName !== 'admin') {
+        const sql = `DROP SCHEMA IF EXISTS ${schemaName} CASCADE; CREATE SCHEMA ${schemaName};`
+        console.log(`\n🛠 Executing SQL for ${schemaName}:\n${sql}`);
         await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE; CREATE SCHEMA ${schemaName};`);
       }
     }
