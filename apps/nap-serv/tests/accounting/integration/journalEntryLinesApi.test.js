@@ -26,14 +26,6 @@ describe('Journal Entry Lines API', () => {
       ctx.accountId = uuid();
       ctx.entryId = uuid();
 
-      const classificationId = '3.3';
-
-      await db.none(
-        `INSERT INTO admin.account_classifications (id, name, type)
-         VALUES ($1, 'Revenue', 'income') ON CONFLICT DO NOTHING`,
-        [classificationId]
-      );
-
       await db.none(
         `INSERT INTO tenantid.inter_companies (id, tenant_id, company_code, company_name, created_by, updated_by)
          VALUES ($1, $2, 'REV', 'Revenue Corp', 'integration-test', 'integration-test')
@@ -42,10 +34,10 @@ describe('Journal Entry Lines API', () => {
       );
 
       await db.none(
-        `INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, classification_id, type, is_active, cash_basis, created_by, updated_by)
+        `INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, type, is_active, cash_basis, created_by, updated_by)
          VALUES ($1, $2, '4000', 'Sales Revenue', $3, 'income', true, false, 'integration-test', 'integration-test')
          ON CONFLICT DO NOTHING`,
-        [ctx.accountId, ctx.tenantId, classificationId]
+        [ctx.accountId, ctx.tenantId]
       );
 
       await db.none(

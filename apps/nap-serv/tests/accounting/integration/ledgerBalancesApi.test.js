@@ -24,19 +24,11 @@ describe('Ledger Balances API', () => {
       ctx.tenantId = uuid();
       ctx.accountId = uuid();
 
-      const classificationId = '4.4';
-
       await db.none(
-        `INSERT INTO admin.account_classifications (id, name, type)
-         VALUES ($1, 'Equity', 'equity') ON CONFLICT DO NOTHING`,
-        [classificationId]
-      );
-
-      await db.none(
-        `INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, classification_id, type, is_active, cash_basis, created_by, updated_by)
+        `INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, type, is_active, cash_basis, created_by, updated_by)
          VALUES ($1, $2, '3000', 'Owner Equity', $3, 'equity', true, false, 'integration-test', 'integration-test')
          ON CONFLICT DO NOTHING`,
-        [ctx.accountId, ctx.tenantId, classificationId]
+        [ctx.accountId, ctx.tenantId]
       );
     },
     testRecord: (ctx) => ({

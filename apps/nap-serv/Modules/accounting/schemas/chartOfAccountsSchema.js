@@ -35,7 +35,6 @@ const chartOfAccountsSchema = {
 
     { name: 'code', type: 'varchar(16)', nullable: false },
     { name: 'name', type: 'varchar(64)', nullable: false },
-    { name: 'classification_id', type: 'varchar(8)', nullable: false },
     { name: 'type', type: 'varchar(16)', nullable: false }, // asset, liability, equity, income, expense, cash, bank
 
     { name: 'description', type: 'text', nullable: true },

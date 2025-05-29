@@ -13,18 +13,13 @@ describe('Category Account Map API', () => {
       ctx.tenantId = uuid();
       ctx.categoryId = uuid();
       ctx.accountId = uuid();
-      ctx.classificationId = '5.9';
 
       await db.none(`INSERT INTO tenantid.categories (id, tenant_id, category_id, name, created_by) VALUES ($1, $2, $3, $4, $5)`, [
         ctx.categoryId, ctx.tenantId, 'MATL', 'Materials', 'integration-test',
       ]);
 
-      await db.none(`INSERT INTO admin.account_classifications (id, name, type) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [
-        ctx.classificationId, 'Temporary Accounts', 'expense',
-      ]);
-
-      await db.none(`INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, classification_id, type, is_active, cash_basis, created_by) VALUES ($1, $2, $3, $4, $5, $6, true, false, $7)`, [
-        ctx.accountId, ctx.tenantId, '6000', 'Materials Expense', ctx.classificationId, 'expense', 'integration-test',
+      await db.none(`INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, type, is_active, cash_basis, created_by) VALUES ($1, $2, $3, $4, $5, $6, true, false, $7)`, [
+        ctx.accountId, ctx.tenantId, '6000', 'Materials Expense', 'expense', 'integration-test',
       ]);
     },
     testRecord: (ctx) => ({

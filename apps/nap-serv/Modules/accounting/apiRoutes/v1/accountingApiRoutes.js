@@ -10,7 +10,6 @@
 */
 
 import express from 'express';
-import accountClassificationsApi from './accountClassificationsApi';
 import categoriesAccountMapApi from './categoriesAccountMapApi';
 import chartOfAccountsApi from './chartOfAccountsApi';
 import interCompanyAccountsApi from './interCompanyAccountsApi';
@@ -23,7 +22,6 @@ import postingQueuesApi from './postingQueuesApi';
 
 const router = express.Router();
 
-router.use('/v1/account-classifications', accountClassificationsApi);
 router.use('/v1/categories-account-map', categoriesAccountMapApi);
 router.use('/v1/chart-of-accounts', chartOfAccountsApi);
 router.use('/v1/inter-company-accounts', interCompanyAccountsApi);

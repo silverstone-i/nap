@@ -11,17 +11,11 @@ describe('Chart of Accounts API', () => {
     beforeHook: async (ctx) => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
-      ctx.classificationId = '5.9';
-
-      await db.none(`INSERT INTO admin.account_classifications (id, name, type) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [
-        ctx.classificationId, 'Temporary Accounts', 'asset',
-      ]);
     },
     testRecord: (ctx) => ({
       tenant_id: ctx.tenantId,
       code: '5000',
       name: 'Raw Materials Expense',
-      classification_id: ctx.classificationId,
       type: 'expense',
       is_active: true,
       cash_basis: false,

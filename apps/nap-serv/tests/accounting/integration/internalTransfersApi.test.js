@@ -23,21 +23,13 @@ describe('Internal Transfers API', () => {
       ctx.accountFromId = uuid();
       ctx.accountToId = uuid();
 
-      const classificationId = '2.2';
-
       await db.none(
-        `INSERT INTO admin.account_classifications (id, name, type)
-         VALUES ($1, 'Bank', 'asset') ON CONFLICT DO NOTHING`,
-        [classificationId]
-      );
-
-      await db.none(
-        `INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, classification_id, type, is_active, cash_basis, created_by, updated_by)
+        `INSERT INTO tenantid.chart_of_accounts (id, tenant_id, code, name, type, is_active, cash_basis, created_by, updated_by)
          VALUES 
          ($1, $2, '1001', 'Checking Account', $3, 'asset', true, false, 'integration-test', 'integration-test'),
          ($4, $2, '1002', 'Savings Account', $3, 'asset', true, false, 'integration-test', 'integration-test')
          ON CONFLICT DO NOTHING`,
-        [ctx.accountFromId, ctx.tenantId, classificationId, ctx.accountToId]
+        [ctx.accountFromId, ctx.tenantId, ctx.accountToId]
       );
     },
     testRecord: (ctx) => ({
