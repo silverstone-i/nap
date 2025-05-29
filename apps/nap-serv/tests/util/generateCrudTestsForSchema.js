@@ -4,7 +4,7 @@
  * Auto-generates CRUD unit tests for a controller based on a schema definition.
  */
 
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 import { runControllerCrudUnitTests } from './runControllerCrudUnitTests.js';
 import { TableModel } from 'pg-schemata';
 import { db, pgp } from '../../src/db/db.js';
@@ -25,11 +25,11 @@ export function generateCrudTestsForSchema(
   const model = options.useRealModel
     ? new TableModel(db, pgp, schema)
     : {
-        insert: jest.fn(),
-        findAll: jest.fn(),
-        findById: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
+        insert: vi.fn(),
+        findAll: vi.fn(),
+        findById: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
         ...(options.mockOverrides || {}),
       };
 
@@ -49,6 +49,6 @@ export function generateCrudTestsForSchema(
     name: schema.table,
     controller,
     model,
-    extraTests: options.extraTests || (() => {}),
+    extraTests: typeof options.extraTests === 'function' ? options.extraTests : undefined,
   });
 }

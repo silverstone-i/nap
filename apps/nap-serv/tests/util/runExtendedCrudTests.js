@@ -9,6 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
+import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { setupIntegrationTest } from './integrationHarness.js';
 

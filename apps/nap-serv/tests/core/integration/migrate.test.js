@@ -1,4 +1,3 @@
-import { jest } from '@jest/globals';
 import { db, pgp } from '../../../src/db/db.js';
 import * as migrateScript from '../../../scripts/runMigrate.js';
 

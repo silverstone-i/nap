@@ -9,38 +9,37 @@
 * All methods are mocked directly on the model object for isolation.
 */
 
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 
 export function runControllerCrudUnitTests({ name, controller, model, extraTests }) {
   describe(`${name} Controller`, () => {
     const mockRes = () => {
       const res = {};
-      res.status = jest.fn().mockReturnValue(res);
-      res.json = jest.fn().mockReturnValue(res);
-      res.send = jest.fn();
-      res.end = jest.fn();
+      res.status = vi.fn().mockReturnValue(res);
+      res.json = vi.fn().mockReturnValue(res);
+      res.send = vi.fn();
+      res.end = vi.fn();
       return res;
     };
 
     beforeAll(() => {
-      jest.spyOn(console, 'log').mockImplementation(() => {});
-      jest.spyOn(console, 'error').mockImplementation(() => {});
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterAll(() => {
-      console.log.mockRestore();
-      console.error.mockRestore();
+      vi.restoreAllMocks();
     });
 
     beforeEach(() => {
       for (const key in model) {
         if (typeof model[key] === 'function') {
-          model[key] = jest.fn();
+          model[key] = vi.fn();
         }
       }
     });
 
-    afterEach(() => jest.clearAllMocks());
+    afterEach(() => vi.clearAllMocks());
 
     describe('create', () => {
       it('should insert and return 201', async () => {

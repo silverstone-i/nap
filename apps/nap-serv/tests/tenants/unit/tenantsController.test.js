@@ -1,11 +1,11 @@
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 import { TenantsController } from '../../../modules/tenants/controllers/TenantsController.js';
 import tenantsSchema from '../../../modules/tenants/schemas/tenantsSchema.js';
 import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
 generateCrudTestsForSchema(tenantsSchema, TenantsController, {
   mockOverrides: {
-    getAllowedModulesById: jest.fn(),
+    getAllowedModulesById: vi.fn(),
   },
   extraTests: ({ mockRes, controller, model }) => {
     describe('getAllAllowedModules', () => {
@@ -18,7 +18,9 @@ generateCrudTestsForSchema(tenantsSchema, TenantsController, {
         await controller.getAllAllowedModules(req, res);
 
         expect(model.getAllowedModulesById).toHaveBeenCalledWith('abc');
-        expect(res.json).toHaveBeenCalledWith({ allowed_modules: allowedModules });
+        expect(res.json).toHaveBeenCalledWith({
+          allowed_modules: allowedModules,
+        });
       });
 
       it('should return 404 if tenant not found', async () => {
