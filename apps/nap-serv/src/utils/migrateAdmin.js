@@ -9,11 +9,11 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import { db, pgp } from '../src/db/db.js';
+import { db, pgp } from '../db/db.js';
 
 const adminTables = ['tenants', 'napUsers'];
 
-async function setupAdminSchema(dropSchema = false) {
+async function migrateAdmin(dropSchema = false) {
   try {
     if (dropSchema) {
       console.log('🧨 Dropping admin schema...');
@@ -39,4 +39,4 @@ async function setupAdminSchema(dropSchema = false) {
   }
 }
 
-setupAdminSchema();
+migrateAdmin();
