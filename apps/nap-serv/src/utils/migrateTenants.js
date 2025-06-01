@@ -69,7 +69,7 @@ function topoSortModels(models) {
 }
 import fs from 'fs';
 
-function    isValidModel(model) {
+function isValidModel(model) {
   return (
     typeof model?.createTable === 'function' &&
     model.schema?.dbSchema &&
@@ -131,16 +131,20 @@ async function migrateTenants({
   const adminTables = ['admin.tenants', 'admin.nap_users'];
   let validModels = {};
   try {
-    // Ensure 'admin' is included if not present and required
-    if (!schemaList.includes('admin') && !(await schemaExists('admin'))) {
+    // Ensure 'admin' is never part of schemaList
+    if (schemaList.includes('admin')) {
+      schemaList.push('admin');
+    }
+
+    // Ensure 'admin' is included the schema does not already exist
+    const exists = await schemaExists('admin');
+    if (!exists) {
       schemaList.unshift('admin');
     }
 
     for (const schemaName of schemaList) {
       if (schemaName !== 'admin') {
-        await dbOverride.none(
-          `DROP SCHEMA IF EXISTS ${schemaName} CASCADE;`
-        );
+        await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE;`);
       }
     }
     for (const schemaName of schemaList) {
@@ -150,7 +154,11 @@ async function migrateTenants({
         Object.entries(dbOverride)
           .filter(([, model]) => {
             if (!isValidModel(model)) return false;
-            const schemaScopedModel = dbOverride(model, schemaName);
+            const originalSchema =
+              `${model.schema?.dbSchema}.${model.schema?.table}`.toLowerCase();
+            const isAdminTable = allowedAdminTables.has(originalSchema);
+            const effectiveSchema = isAdminTable ? 'admin' : schemaName;
+            const schemaScopedModel = dbOverride(model, effectiveSchema);
             const fullName =
               `${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase();
 
@@ -158,19 +166,17 @@ async function migrateTenants({
               return allowedAdminTables.has(fullName);
             }
 
-            // For tenant schemas, exclude admin tables
+            if (isAdminTable) return false;
             if (fullName.startsWith('admin.')) return false;
-            if (
-              allowedAdminTables.has(
-                fullName.replace(`${schemaName}.`, 'admin.')
-              )
-            )
-              return false;
 
             return true;
           })
           .map(([, model]) => {
-            const schemaScopedModel = dbOverride(model, schemaName);
+            const originalSchema =
+              `${model.schema?.dbSchema}.${model.schema?.table}`.toLowerCase();
+            const isAdminTable = allowedAdminTables.has(originalSchema);
+            const effectiveSchema = isAdminTable ? 'admin' : schemaName;
+            const schemaScopedModel = dbOverride(model, effectiveSchema);
             return [
               `${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase(),
               schemaScopedModel,
