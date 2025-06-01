@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import db from '../../../src/db/db.js';
 import { setupIntegrationTest } from '../../util/integrationHarness.js';
 import jwt from 'jsonwebtoken';
+import { expect } from 'vitest';
 
 const testEmail = 'test@example.com';
 const testPassword = 'Password123!';
@@ -13,12 +14,13 @@ let server, teardown;
 const context = { server: null, createdId: null };
 
 beforeAll(async () => {
-  ({ server, teardown } = await setupIntegrationTest(['admin', 'tenantid']));
+  ({ server, teardown } = await setupIntegrationTest(['tenantid']));
+
   context.server = server;
   passwordHash = await bcrypt.hash(testPassword, 10);
 
-  // Clear test user if it exists
-  // await db('napUsers', 'admin').deleteWhere({ email: testEmail });
+  // Clear test user if she exists
+  await db('napUsers', 'admin').deleteWhere({ email: testEmail });
 
   // Insert test user
   try {
@@ -113,7 +115,7 @@ describe('/auth/logout', () => {
     expect(res.headers['set-cookie']).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/auth_token=;/),
-        expect.stringMatching(/refresh_token=;/)
+        expect.stringMatching(/refresh_token=;/),
       ])
     );
   });
@@ -132,15 +134,13 @@ describe('/auth/register', () => {
       .post(`${routePrefix}/login`)
       .send({ email: testEmail, password: testPassword });
 
-    const res = await agent
-      .post(`${routePrefix}/register`)
-      .send({
-        email: newEmail,
-        password: 'NewPass123!',
-        user_name: 'New User',
-        tenant_code: 'TEST',
-        role: 'user'
-      });
+    const res = await agent.post(`${routePrefix}/register`).send({
+      email: newEmail,
+      password: 'NewPass123!',
+      user_name: 'New User',
+      tenant_code: 'TEST',
+      role: 'user',
+    });
 
     expect(res.statusCode).toBe(201);
     expect(res.body.message).toMatch(/registered/i);
@@ -162,7 +162,7 @@ describe('/auth/token expiry', () => {
         email: testEmail,
         role: 'super_admin',
         tenant_code: 'TEST',
-        schema: 'admin'
+        schema: 'admin',
       },
       process.env.ACCESS_TOKEN_SECRET,
       { expiresIn: '-1s' }

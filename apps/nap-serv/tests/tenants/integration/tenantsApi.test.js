@@ -45,7 +45,9 @@ function extraTests(context) {
   });
 
   test('GET /api/v1/tenants/:id/modules - Retrieve allowed modules', async () => {
-    const res = await request(server).get(`${routePrefix}/${tenant.id}/modules`);
+    const res = await request(server)
+      .get(`${routePrefix}/${tenant.id}/modules`)
+      .set('Cookie', [`auth_token=${context.authToken}`]);
     expect(res.statusCode).toBe(200);
     expect(Array.isArray(res.body.allowed_modules)).toBe(true);
     expect(res.body.allowed_modules).toContain('tenants');

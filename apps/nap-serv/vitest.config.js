@@ -14,6 +14,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    // hookTimeout: 1000 * 60 * 60, // 1 hour for debugging purposes
     globals: true,
     environment: 'node',
     setupFiles: ['./tests/setup.js'],
