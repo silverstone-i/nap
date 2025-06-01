@@ -10,7 +10,7 @@
  */
 
 import { db } from '../../src/db/db.js';
-import runMigrate from '../../scripts/runMigrate.js';
+import migrateTenants from '../../src/utils/migrateTenants.js';
 import app from '../../src/app.js';
 
 /**
@@ -20,16 +20,26 @@ import app from '../../src/app.js';
  * @param {string[]} schemaList - List of schemas to reset and runMigrate. Defaults to ['admin'].
  * @returns {Promise<{ server: import('http').Server, teardown: Function }>}
  */
-export async function setupIntegrationTest(schemaList = ['admin', 'tenantid']) {
+export async function setupIntegrationTest(schemaList = ['tenantid']) {
+  console.log('schemaList:', schemaList);
+  
   // Drop and recreate schemas, but skip 'public'
+  try {
   for (const schema of schemaList) {
     if (schema !== 'public') {
+      console.log('Dropping and recreating schema:', schema);
+      
       await db.none(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
     }
   }
+  }
+  catch (error) {
+    console.error('Error dropping and recreating schemas:', error);
+    // throw error;
+  }
   
   // Run migrations
-  await runMigrate(db, { schemas: schemaList }, true);
+  await migrateTenants({testFlag: true});
 
   // Start the server
   const server = app.listen();

@@ -10,15 +10,15 @@
 */
 
 import express from 'express';
-import categoriesAccountMapApi from './categoriesAccountMapApi';
-import chartOfAccountsApi from './chartOfAccountsApi';
-import interCompanyAccountsApi from './interCompanyAccountsApi';
-import interCompanyTransactionsApi from './interCompanyTransactionsApi';
-import internalTransfersApi from './internalTransfersApi';
-import journalEntriesApi from './journalEntriesApi';
-import journalEntryLinesApi from './journalEntryLinesApi';
-import ledgerBalancesApi from './ledgerBalancesApi';
-import postingQueuesApi from './postingQueuesApi';
+import categoriesAccountMapApi from './categoriesAccountMapApi.js';
+import chartOfAccountsApi from './chartOfAccountsApi.js';
+import interCompanyAccountsApi from './interCompanyAccountsApi.js';
+import interCompanyTransactionsApi from './interCompanyTransactionsApi.js';
+import internalTransfersApi from './internalTransfersApi.js';
+import journalEntriesApi from './journalEntriesApi.js';
+import journalEntryLinesApi from './journalEntryLinesApi.js';
+import ledgerBalancesApi from './ledgerBalancesApi.js';
+import postingQueuesApi from './postingQueuesApi.js';
 
 const router = express.Router();
 

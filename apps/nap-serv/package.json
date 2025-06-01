@@ -45,7 +45,7 @@
     "test:accounting:integration": "cross-env NODE_ENV=test vitest run tests/accounting/integration",
     "test:ar": "cross-env NODE_ENV=test vitest run tests/ar",
     "test:ar:unit": "cross-env NODE_ENV=test vitest run --coverage tests/ar/unit",
-    "test:ar:integration": "cross-env NODE_ENV=test vitest run tests/ar/integration",
+    "test:ar:integration": "cross-env NODE_ENV=test vitest tests/ar/integration",
     "test:ap": "cross-env NODE_ENV=test vitest run tests/ap",
     "test:ap:unit": "cross-env NODE_ENV=test vitest run tests/ap/unit",
     "test:ap:integration": "cross-env NODE_ENV=test vitest run tests/ap/integration",

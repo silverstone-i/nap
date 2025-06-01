@@ -10,10 +10,10 @@
 */
 
 import express from 'express';
-import apCreditMemosApi from './apCreditMemosApi';
-import apInvoicesApi from './apInvoicesApi';
-import apInvoiceLinesApi from './apInvoiceLinesApi';
-import paymentsApi from './paymentsApi';
+import apCreditMemosApi from './apCreditMemosApi.js';
+import apInvoicesApi from './apInvoicesApi.js';
+import apInvoiceLinesApi from './apInvoiceLinesApi.js';
+import paymentsApi from './paymentsApi.js';
 
 const router = express.Router();
 router.use('/v1/ap-credit-memos', apCreditMemosApi);

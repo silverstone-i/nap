@@ -16,21 +16,18 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    // include: ['tests/integration/**/*.test.js'],
-    isolate: true,
-    sequence: {
-      concurrent: false,
+    setupFiles: ['./tests/setup.js'],
+    pool: 'threads', // Use the threads pool (default in Vitest 3.x)
+    poolOptions: {
+      threads: {
+        singleThread: true, // Run tests sequentially in a single thread
+      },
     },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      exclude: [
-        'design_docs/**',
-        'node_modules/**',
-        'vitest.config.js',
-      ],
+      exclude: ['design_docs/**', 'node_modules/**', 'vitest.config.js'],
     },
     exclude: ['node_modules', 'dist'],
   },
 });
-
