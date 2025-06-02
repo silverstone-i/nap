@@ -18,6 +18,14 @@ const napUserSchema = {
       immutable: true,
     },
     {
+      name: 'tenant_code',
+      type: 'varchar',
+      length: 6,
+      nullable: false,
+      unique: true,
+      colProps: { skip: c => !c.exists },
+    },
+    {
       name: 'email',
       type: 'varchar',
       length: 255,
@@ -35,7 +43,7 @@ const napUserSchema = {
       type: 'varchar',
       length: 100,
       nullable: true,
-      // default: null,
+      default: null,
       colProps: { skip: c => !c.exists }
     },
     {
@@ -43,7 +51,7 @@ const napUserSchema = {
       type: 'varchar',
       length: 100,
       nullable: true,
-      // default: null,
+      default: null,
       colProps: { skip: c => !c.exists }
     },
     {
@@ -59,7 +67,6 @@ const napUserSchema = {
       type: 'boolean',
       default: 'true',
       nullable: false,
-      // default: true,
       colProps: { skip: c => !c.exists }
     },
   ],
@@ -72,10 +79,11 @@ const napUserSchema = {
         type: 'Check',
         expression: `char_length(email) > 3`,
       },
-      {
-        type: 'Check',
-        expression: `role IN ('super_admin', 'admin', 'support', 'user')`,
-      },
+      // TODO: Valid roles need to be checked in the tenant employees table
+      // {
+      //   type: 'Check',
+      //   expression: `role IN ('super_admin', 'admin', 'support', 'user')`,
+      // },
     ],
     indexes: [
       {

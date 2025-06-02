@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import passport from '../auth/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwt.js';
@@ -16,17 +16,20 @@ import bcrypt from 'bcrypt';
 import { callDb as db } from 'pg-schemata';
 
 export const register = async (req, res) => {
-  const { email, password, user_name, tenant_code, role } = req.body;
+  console.log('Registering user:', req.body);
+
+  const { email, password, first_name, last_name, tenant_code, role } = req.body;
 
   try {
     const password_hash = await bcrypt.hash(password, 10);
 
     await db('napUsers', 'admin').insert({
+      tenant_code,
       email,
       password_hash,
-      user_name,
-      tenant_code,
-      role
+      first_name,
+      last_name,
+      role,
     });
 
     res.status(201).json({ message: 'User registered successfully' });
@@ -36,8 +39,7 @@ export const register = async (req, res) => {
   }
 };
 
-
-export const login = (req, res, next) => {  
+export const login = (req, res, next) => {
   passport.authenticate('local', { session: false }, (err, user, info) => {
     if (err || !user) {
       return res.status(400).json({ message: info?.message || 'Login failed' });
@@ -52,14 +54,14 @@ export const login = (req, res, next) => {
       httpOnly: true,
       secure: !isTest,
       sameSite: 'Strict',
-      maxAge: 15 * 60 * 1000
+      maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
       secure: !isTest,
       sameSite: 'Strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     return res.json({ message: 'Logged in successfully' });
@@ -80,7 +82,7 @@ export const refreshToken = (req, res) => {
       httpOnly: true,
       secure: !isTest,
       sameSite: 'Strict',
-      maxAge: 15 * 60 * 1000
+      maxAge: 15 * 60 * 1000,
     });
 
     res.json({ message: 'Access token refreshed' });
@@ -92,7 +94,6 @@ export const logout = (req, res) => {
   res.clearCookie('refresh_token');
   res.json({ message: 'Logged out successfully' });
 };
-
 
 // Check token validity handler
 export const checkToken = (req, res) => {
