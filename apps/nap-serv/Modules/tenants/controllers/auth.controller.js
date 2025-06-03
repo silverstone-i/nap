@@ -18,7 +18,7 @@ import { callDb as db } from 'pg-schemata';
 export const register = async (req, res) => {
   console.log('Registering user:', req.body);
 
-  const { email, password, first_name, last_name, tenant_code, role } = req.body;
+  const { email, password, user_name, tenant_code, role } = req.body;
 
   try {
     const password_hash = await bcrypt.hash(password, 10);
@@ -27,8 +27,7 @@ export const register = async (req, res) => {
       tenant_code,
       email,
       password_hash,
-      first_name,
-      last_name,
+      user_name,
       role,
     });
 

@@ -148,6 +148,8 @@ async function migrateTenants({
       }
     }
     for (const schemaName of schemaList) {
+      const createdAdminTables = new Set();
+
       const allowedAdminTables = new Set(adminTables.map(t => t.toLowerCase()));
 
       const modelsForSchema = Object.fromEntries(
@@ -196,7 +198,23 @@ async function migrateTenants({
           `🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`
         );
         await dbOverride(model, schemaName).createTable();
+        if (schemaName === 'admin') {
+          createdAdminTables.add(key);
+        }
       }
+
+      const createdAdminTablesSet = new Set(keys);
+
+      // Only bootstrap super admin if admin.nap_users and admin.tenants were created
+      if (
+        schemaName === 'admin' &&
+        createdAdminTablesSet.has('admin.nap_users') &&
+        createdAdminTablesSet.has('admin.tenants')
+      ) {
+        const { bootstrapSuperAdmin } = await import('../../scripts/bootstrapSuperAdmin.js');
+        await bootstrapSuperAdmin(dbOverride);
+      }
+
       await loadViews(dbOverride, schemaName);
       console.log(`Views loaded for schema: ${schemaName}`);
     }

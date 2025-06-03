@@ -39,26 +39,16 @@ const napUserSchema = {
       colProps: { skip: c => !c.exists }
     },
     {
-      name: 'first_name',
+      name: 'user_name',
       type: 'varchar',
       length: 100,
-      nullable: true,
-      default: null,
-      colProps: { skip: c => !c.exists }
-    },
-    {
-      name: 'last_name',
-      type: 'varchar',
-      length: 100,
-      nullable: true,
-      default: null,
+      nullable: false,
       colProps: { skip: c => !c.exists }
     },
     {
       name: 'role',
       type: 'varchar',
       length: 50,
-      default: `'super_admin'`,
       nullable: false,
       colProps: { skip: c => !c.exists }
     },
