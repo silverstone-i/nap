@@ -76,6 +76,7 @@ app.use((req, res, next) => {
   const publicRoutes = [
     '/api/tenants/v1/auth/login',
     '/api/tenants/v1/auth/refresh',
+    // '/api/tenants/v1/tenants/ping'
   ];
 
   if (publicRoutes.includes(req.path)) {

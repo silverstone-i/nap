@@ -25,6 +25,12 @@ export default function createRouter(controller, extendRoutes) {
     .post((req, res) => controller.create(req, res))
     .get((req, res) => controller.getAll(req, res));
 
+    router
+    .route('/ping')
+    .get((req, res) => {
+      res.status(200).json({ message: 'pong' });
+    });
+
   router
     .route('/:id')
     .get((req, res) => controller.getById(req, res))
