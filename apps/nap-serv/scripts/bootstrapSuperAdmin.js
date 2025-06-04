@@ -36,10 +36,13 @@ async function bootstrapSuperAdmin() {
     const passwordHash = await bcrypt.hash(ROOT_PASSWORD, 10);
 
     const userDto = {
+      tenant_code: 'NAP',
+      schema_name: 'admin',
       email: ROOT_EMAIL,
       password_hash: passwordHash,
       role: 'super_admin',
-      user_name: 'system administrator',
+      user_name: 'administrator',
+      created_by: 'administrator',
     };
 
     await db.napUsers.insert(userDto);
