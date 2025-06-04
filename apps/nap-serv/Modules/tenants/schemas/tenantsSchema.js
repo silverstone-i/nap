@@ -30,7 +30,7 @@ const tenantSchema = {
       name: 'id',
       type: 'uuid',
       default: 'gen_random_uuid()',
-      nullable: false,
+      notNull: true,
       immutable: true,
     },
 
@@ -39,9 +39,8 @@ const tenantSchema = {
      */
     {
       name: 'tenant_code',
-      type: 'varchar',
-      length: 6,
-      nullable: false,
+      type: 'varchar(6)',
+      notNull: true,
       unique: true,
       colProps: { skip: c => !c.exists },
     },
@@ -51,9 +50,8 @@ const tenantSchema = {
      */
     {
       name: 'company',
-      type: 'varchar',
-      length: 150,
-      nullable: false,
+      type: 'varchar(150)',
+      notNull: true,
       colProps: { skip: c => !c.exists },
     },
 
@@ -62,8 +60,7 @@ const tenantSchema = {
      */
     {
       name: 'email',
-      type: 'varchar',
-      length: 255,
+      type: 'varchar(255)',
       colProps: { skip: c => !c.exists },
     },
 
@@ -72,8 +69,7 @@ const tenantSchema = {
      */
     {
       name: 'phone',
-      type: 'varchar',
-      length: 50,
+      type: 'varchar(50)',
       default: null,
       colProps: { skip: c => !c.exists },
     },
@@ -93,9 +89,7 @@ const tenantSchema = {
      */
     {
       name: 'contact_name',
-      type: 'varchar',
-      length: 150,
-      nullable: true,
+      type: 'varchar(150)',
       default: null,
       colProps: { skip: c => !c.exists },
     },
@@ -104,9 +98,8 @@ const tenantSchema = {
      * Default time zone for the tenant’s account and reports.
      */
     {
-      name: 'timezone',
-      type: 'varchar',
-      length: 50,
+      name: 'time_zone',
+      type: 'varchar(50)',
       default: `'UTC'`,
       colProps: { skip: c => !c.exists },
     },
@@ -116,8 +109,7 @@ const tenantSchema = {
      */
     {
       name: 'currency_code',
-      type: 'varchar',
-      length: 3,
+      type: 'varchar(5)',
       default: `'USD'`,
       colProps: { skip: c => !c.exists },
     },
@@ -129,7 +121,6 @@ const tenantSchema = {
       name: 'is_active',
       type: 'boolean',
       default: 'true',
-      nullable: false,
       colProps: { skip: c => !c.exists },
     },
 
@@ -138,9 +129,8 @@ const tenantSchema = {
      */
     {
       name: 'db_host',
-      type: 'varchar',
-      length: 100,
-      nullable: false,
+      type: 'varchar(100)',
+      notNull: true,
       default: `'localhost'`,
       colProps: { skip: c => !c.exists },
     },
@@ -150,21 +140,8 @@ const tenantSchema = {
      */
     {
       name: 'tax_id',
-      type: 'varchar',
-      length: 30,
-      nullable: true,
+      type: 'varchar(30)',
       default: null,
-      colProps: { skip: c => !c.exists },
-    },
-
-    /**
-     * Plan or subscription tier for the tenant (e.g. free, standard, enterprise).
-     */
-    {
-      name: 'plan',
-      type: 'varchar',
-      length: 50,
-      default: `'free'`,
       colProps: { skip: c => !c.exists },
     },
 
@@ -174,18 +151,8 @@ const tenantSchema = {
     {
       name: 'allowed_modules',
       type: 'text[]',
-      nullable: false,
+      notNull: true,
       default: `'{}'`, // empty array by default
-      colProps: { mod: '^', skip: c => !c.exists },
-    },
-
-    /**
-     * Optional trial expiration timestamp.
-     */
-    {
-      name: 'trial_expires_at',
-      type: 'timestamptz',
-      default: `CURRENT_TIMESTAMP + INTERVAL '30 days'`, // 30 days from now
       colProps: { mod: '^', skip: c => !c.exists },
     },
   ],
@@ -198,10 +165,6 @@ const tenantSchema = {
         type: 'Check',
         expression: `char_length(company) > 2`,
       },
-    ],
-    indexes: [
-    ],
-    foreignKeys: [
     ],
   },
 };
