@@ -14,50 +14,53 @@ const napUserSchema = {
       name: 'id',
       type: 'uuid',
       default: 'uuid_generate_v4()',
-      nullable: false,
+      notNull: true,
       immutable: true,
     },
     {
       name: 'tenant_code',
-      type: 'varchar',
-      length: 6,
-      nullable: false,
+      type: 'varchar(6)',
+      notNull: true,
+      unique: true,
+      colProps: { skip: c => !c.exists },
+    },
+    {
+      name: 'schema_name',
+      type: 'varchar(6)',
+      notNull: true,
       unique: true,
       colProps: { skip: c => !c.exists },
     },
     {
       name: 'email',
-      type: 'varchar',
-      length: 255,
-      nullable: false,
-      colProps: { skip: c => !c.exists }
+      type: 'varchar(255)',
+      notNull: true,
+      colProps: { skip: c => !c.exists },
     },
     {
       name: 'password_hash',
       type: 'text',
-      nullable: false,
-      colProps: { skip: c => !c.exists }
+      notNull: true,
+      colProps: { skip: c => !c.exists },
     },
     {
       name: 'user_name',
-      type: 'varchar',
-      length: 100,
-      nullable: false,
-      colProps: { skip: c => !c.exists }
+      type: 'varchar(100)',
+      notNull: true,
+      colProps: { skip: c => !c.exists },
     },
     {
       name: 'role',
-      type: 'varchar',
-      length: 50,
-      nullable: false,
-      colProps: { skip: c => !c.exists }
+      type: 'varchar(50)',
+      notNull: true,
+      colProps: { skip: c => !c.exists },
     },
     {
       name: 'is_active',
       type: 'boolean',
       default: 'true',
-      nullable: false,
-      colProps: { skip: c => !c.exists }
+      notNull: true,
+      colProps: { skip: c => !c.exists },
     },
   ],
 
