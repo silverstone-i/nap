@@ -38,7 +38,6 @@ class BaseController {
   async create(req, res) {
     try {
       req.body.created_by = req.user?.user_name || 'system';
-      console.log('Creating record with data:', req.body);
       
       const record = await this.model.insert(req.body);
       res.status(201).json(record);
