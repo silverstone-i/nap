@@ -47,9 +47,10 @@ class BaseController {
     }
   }
 
-  async getAll(req, res) {
+  async get(req, res) {
     try {
-      const records = await this.model.findAll();
+      const filters = Object.entries(req.query).map(([key, value]) => ({ [key]: value }));
+      const records = await this.model.findWhere(filters);
       res.json(records);
     } catch (err) {
       handleError(err, res, 'fetching', this.errorLabel);

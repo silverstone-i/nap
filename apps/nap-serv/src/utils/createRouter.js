@@ -23,7 +23,7 @@ export default function createRouter(controller, extendRoutes) {
   router
     .route('/')
     .post((req, res) => controller.create(req, res))
-    .get((req, res) => controller.getAll(req, res));
+    .get((req, res) => controller.get(req, res));
 
     router
     .route('/ping')
