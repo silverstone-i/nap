@@ -81,6 +81,7 @@
     "@vitest/ui": "^3.1.4",
     "cross-env": "^7.0.3",
     "eslint": "^9.26.0",
+    "fast-glob": "^3.3.3",
     "supertest": "^7.1.0",
     "uuid": "^11.1.0",
     "vitest": "^3.1.4"
