@@ -16,7 +16,7 @@ import { db } from '../src/db/db.js'; // Adjust the import path as necessary
 import { fileURLToPath } from 'url';
 
 async function bootstrapSuperAdmin() {
-  const { ROOT_EMAIL, ROOT_PASSWORD } = process.env;
+  const { ROOT_EMAIL, ROOT_PASSWORD, NAPSOFT_TENANT } = process.env;
 
   if (!ROOT_EMAIL || !ROOT_PASSWORD) {
     console.error('❌ Missing ROOT_EMAIL or ROOT_PASSWORD in .env');
@@ -36,8 +36,8 @@ async function bootstrapSuperAdmin() {
     const passwordHash = await bcrypt.hash(ROOT_PASSWORD, 10);
 
     const userDto = {
-      tenant_code: 'NAP',
-      schema_name: 'admin',
+      tenant_code: NAPSOFT_TENANT || 'NAPSFT',
+      schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'napsft',
       email: ROOT_EMAIL,
       password_hash: passwordHash,
       role: 'super_admin',
