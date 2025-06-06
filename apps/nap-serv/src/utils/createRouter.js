@@ -10,6 +10,7 @@
 */
 
 import express from 'express';
+import { addAuditFields } from '../../middleware/audit/addAuditFields.js';
 
 /**
  * Creates an Express router with standard CRUD routes
@@ -17,25 +18,38 @@ import express from 'express';
  * @param {function} [extendRoutes] - Optional function that receives the router for adding custom routes
  * @returns {Router} - Configured Express router
  */
-export default function createRouter(controller, extendRoutes) {
+
+export default function createRouter(controller, extendRoutes, options = {}) {
   const router = express.Router();
 
-  router
-    .route('/')
-    .post((req, res) => controller.create(req, res))
-    .get((req, res) => controller.get(req, res));
+  const {
+    postMiddlewares = [], // e.g. [authenticateJwt, requireNapsoftUser]
+    getMiddlewares = [],
+    putMiddlewares = [],
+    deleteMiddlewares = [],
+  } = options;
 
-    router
-    .route('/ping')
-    .get((req, res) => {
-      res.status(200).json({ message: 'pong' });
-    });
+  const safePostMiddlewares = postMiddlewares.includes(addAuditFields)
+    ? postMiddlewares
+    : [addAuditFields, ...postMiddlewares];
 
-  router
-    .route('/:id')
-    .get((req, res) => controller.getById(req, res))
-    .put((req, res) => controller.update(req, res))
-    .delete((req, res) => controller.remove(req, res));
+  const safePutMiddlewares = putMiddlewares.includes(addAuditFields)
+    ? putMiddlewares
+    : [addAuditFields, ...putMiddlewares];
+
+  // POST and GET for collection
+  router.post('/', ...safePostMiddlewares, (req, res) => controller.create(req, res));
+  router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
+
+  // Health check or diagnostic
+  router.get('/ping', (req, res) => {
+    res.status(200).json({ message: 'pong' });
+  });
+
+  // Detail routes with optional middleware
+  router.get('/:id', ...getMiddlewares, (req, res) => controller.getById(req, res));
+  router.put('/:id', ...safePutMiddlewares, (req, res) => controller.update(req, res));
+  router.delete('/:id', ...deleteMiddlewares, (req, res) => controller.remove(req, res));
 
   if (typeof extendRoutes === 'function') {
     extendRoutes(router);
