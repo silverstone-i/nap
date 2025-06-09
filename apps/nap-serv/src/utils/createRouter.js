@@ -1,16 +1,16 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import express from 'express';
-import { addAuditFields } from '../../middleware/audit/addAuditFields.js';
+import { addAuditFields } from '../../middlewares/audit/addAuditFields.js';
 
 /**
  * Creates an Express router with standard CRUD routes
@@ -27,6 +27,10 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     getMiddlewares = [],
     putMiddlewares = [],
     deleteMiddlewares = [],
+    disablePost = false,
+    disableGet = false,
+    disablePut = false,
+    disableDelete = false,
   } = options;
 
   const safePostMiddlewares = postMiddlewares.includes(addAuditFields)
@@ -38,8 +42,14 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     : [addAuditFields, ...putMiddlewares];
 
   // POST and GET for collection
-  router.post('/', ...safePostMiddlewares, (req, res) => controller.create(req, res));
-  router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
+  if (!disablePost) {
+    router.post('/', ...safePostMiddlewares, (req, res) =>
+      controller.create(req, res)
+    );
+  }
+  if (!disableGet) {
+    router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
+  }
 
   // Health check or diagnostic
   router.get('/ping', (req, res) => {
@@ -47,9 +57,21 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   });
 
   // Detail routes with optional middleware
-  router.get('/:id', ...getMiddlewares, (req, res) => controller.getById(req, res));
-  router.put('/:id', ...safePutMiddlewares, (req, res) => controller.update(req, res));
-  router.delete('/:id', ...deleteMiddlewares, (req, res) => controller.remove(req, res));
+  if (!disableGet) {
+    router.get('/:id', ...getMiddlewares, (req, res) =>
+      controller.getById(req, res)
+    );
+  }
+  if (!disablePut) {
+    router.put('/:id', ...safePutMiddlewares, (req, res) =>
+      controller.update(req, res)
+    );
+  }
+  if (!disableDelete) {
+    router.delete('/:id', ...deleteMiddlewares, (req, res) =>
+      controller.remove(req, res)
+    );
+  }
 
   if (typeof extendRoutes === 'function') {
     extendRoutes(router);

@@ -12,34 +12,34 @@
 import passport from '../auth/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwt.js';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
 import { callDb as db } from 'pg-schemata';
 
-export const register = async (req, res) => {
-  console.log('Registering user:', req.body);
+// export const register = async (req, res) => {
+//   console.log('Registering user:', req.body);
 
-  const { tenant_code, schema_name, email, password, user_name, role } = req.body;
+//   const { tenant_code, schema_name, email, password, user_name, role } = req.body;
 
-  try {
-    const password_hash = await bcrypt.hash(password, 10);
+//   try {
+//     const password_hash = await bcrypt.hash(password, 10);
 
-    await db('napUsers', 'admin').insert({
-      tenant_code,
-      schema_name: schema_name || tenant_code?.toLowerCase(), // Assume schema_name is the same as tenant_code if not provided
-      email,
-      password_hash,
-      user_name,
-      role,
-    });
+//     await db('napUsers', 'admin').insert({
+//       tenant_code,
+//       schema_name: schema_name || tenant_code?.toLowerCase(), // Assume schema_name is the same as tenant_code if not provided
+//       email,
+//       password_hash,
+//       user_name,
+//       role,
+//     });
 
-    res.status(201).json({ message: 'User registered successfully' });
-  } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ message: 'Error registering user' });
-  }
-};
+//     res.status(201).json({ message: 'User registered successfully' });
+//   } catch (err) {
+//     console.error('Registration error:', err);
+//     res.status(500).json({ message: 'Error registering user' });
+//   }
+// };
 
 export const login = (req, res, next) => {
+  console.log('Logging in user:', req.body);
   passport.authenticate('local', { session: false }, (err, user, info) => {
     if (err || !user) {
       return res.status(400).json({ message: info?.message || 'Login failed' });
