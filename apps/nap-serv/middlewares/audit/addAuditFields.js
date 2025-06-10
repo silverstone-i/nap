@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 export function addAuditFields(req, res, next) {
   const userName = req.user?.user_name; // assuming decoded JWT sets `req.user`

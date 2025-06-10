@@ -43,10 +43,9 @@ export default function createRouter(controller, extendRoutes, options = {}) {
 
   // POST and GET for collection
   if (!disablePost) {
-    router.post('/', ...safePostMiddlewares, (req, res) =>
-      controller.create(req, res)
-    );
+    router.post('/', ...safePostMiddlewares, (req, res) => controller.create(req, res));
   }
+
   if (!disableGet) {
     router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
   }
@@ -58,19 +57,15 @@ export default function createRouter(controller, extendRoutes, options = {}) {
 
   // Detail routes with optional middleware
   if (!disableGet) {
-    router.get('/:id', ...getMiddlewares, (req, res) =>
-      controller.getById(req, res)
-    );
+    router.get('/:id', ...getMiddlewares, (req, res) => controller.getById(req, res));
   }
+
   if (!disablePut) {
-    router.put('/:id', ...safePutMiddlewares, (req, res) =>
-      controller.update(req, res)
-    );
+    router.put('/:id', ...safePutMiddlewares, (req, res) => controller.update(req, res));
   }
+
   if (!disableDelete) {
-    router.delete('/:id', ...deleteMiddlewares, (req, res) =>
-      controller.remove(req, res)
-    );
+    router.delete('/:id', ...deleteMiddlewares, (req, res) => controller.remove(req, res));
   }
 
   if (typeof extendRoutes === 'function') {

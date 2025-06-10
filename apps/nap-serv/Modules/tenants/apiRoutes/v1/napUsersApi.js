@@ -17,9 +17,7 @@ import { addAuditFields } from '../../../../middlewares/audit/addAuditFields.js'
 export default createRouter(
   napUsersController,
   router => {
-    router.post('/register', addAuditFields, (req, res) =>
-      napUsersController.register(req, res)
-    ); // Register a new user
+    router.post('/register', addAuditFields, (req, res) => napUsersController.register(req, res)); // Register a new user
   },
   {
     disablePost: true,
