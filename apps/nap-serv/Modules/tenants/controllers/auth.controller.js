@@ -39,7 +39,6 @@ import { callDb as db } from 'pg-schemata';
 // };
 
 export const login = (req, res, next) => {
-  console.log('Logging in user:', req.body);
   passport.authenticate('local', { session: false }, (err, user, info) => {
     if (err || !user) {
       return res.status(400).json({ message: info?.message || 'Login failed' });

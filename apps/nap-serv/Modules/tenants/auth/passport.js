@@ -18,10 +18,6 @@ import bcrypt from 'bcrypt';
 passport.use(new LocalStrategy(
   { usernameField: 'email' },
   async (email, password, done) => {
-    console.log('Authenticating user:', email);
-    console.log('Password:', password);
-    
-    
     try {
       const user = await db('napUsers', 'admin').findOneBy([{ email }]);
       if (!user) return done(null, false, { message: 'Incorrect email.' });
