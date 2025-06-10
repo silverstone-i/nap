@@ -19,13 +19,15 @@ class NapUsers extends TableModel {
   }
 
   async importFromSpreadsheet(rows, options = {}) {
-    const processed = await Promise.all(rows.map(async (row) => {
-      if (row.password) {
-        row.password_hash = await bcrypt.hash(row.password, 10);
-        delete row.password;
-      }
-      return row;
-    }));
+    const processed = await Promise.all(
+      rows.map(async row => {
+        if (row.password) {
+          row.password_hash = await bcrypt.hash(row.password, 10);
+          delete row.password;
+        }
+        return row;
+      })
+    );
     return super.importFromSpreadsheet(processed, options);
   }
 }

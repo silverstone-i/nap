@@ -32,7 +32,7 @@ class TenantsController extends BaseController {
 const instance = new TenantsController();
 
 export { TenantsController }; // Export the class for testing purposes
-export default instance;  // Export the instance for use in development and production
+export default instance; // Export the instance for use in development and production
 // This allows for both testing and direct usage of the controller
 // without needing to create a new instance each time.
 // This is useful for maintaining a singleton pattern for the controller

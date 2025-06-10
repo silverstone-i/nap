@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -19,7 +17,7 @@ describe('Posting Queue API', () => {
     routePrefix: '/api/accounting/v1/posting-queues',
     updateField: 'status',
     updateValue: 'failed',
-    beforeHook: async (ctx) => {
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
       ctx.companyId = uuid();
@@ -39,7 +37,7 @@ describe('Posting Queue API', () => {
         [ctx.entryId, ctx.tenantId, ctx.companyId]
       );
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       journal_entry_id: ctx.entryId,
       status: 'pending',

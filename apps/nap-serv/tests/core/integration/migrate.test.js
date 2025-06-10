@@ -29,9 +29,7 @@ describe('Migration Script', () => {
   test('should create all tables without error', async () => {
     await migrateScript.runMigrate(db, pgp, true);
 
-    const result = await db.oneOrNone(
-      "SELECT to_regclass('admin.tenants') AS table"
-    );
+    const result = await db.oneOrNone("SELECT to_regclass('admin.tenants') AS table");
     expect(result.table).toBe('admin.tenants');
   });
 
@@ -54,9 +52,7 @@ describe('Migration Script', () => {
     };
     const mockPgp = { end: jest.fn() };
 
-    await expect(
-      migrateScript.runMigrate(mockDb, mockPgp, true)
-    ).rejects.toThrow('Simulated createTable error');
+    await expect(migrateScript.runMigrate(mockDb, mockPgp, true)).rejects.toThrow('Simulated createTable error');
   });
 
   test('should process models without foreign keys (nap_users)', async () => {
@@ -108,8 +104,6 @@ describe('Migration Script', () => {
     };
     const mockPgp = { end: jest.fn() };
 
-    await expect(
-      migrateScript.runMigrate(mockDb, mockPgp, true)
-    ).rejects.toThrow('Cyclic dependency detected');
+    await expect(migrateScript.runMigrate(mockDb, mockPgp, true)).rejects.toThrow('Cyclic dependency detected');
   });
 });

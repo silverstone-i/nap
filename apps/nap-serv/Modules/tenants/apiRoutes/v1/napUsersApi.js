@@ -9,7 +9,6 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-
 import napUsersController from '../../controllers/NapUsersController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
 import { addAuditFields } from '../../../../middlewares/audit/addAuditFields.js';

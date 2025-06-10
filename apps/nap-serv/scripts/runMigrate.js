@@ -1,23 +1,22 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
-
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import { migrateTenants } from '../src/utils/migrateTenants.js';
 /**
  * This script runs the database migration process.
  * It can be executed directly from the command line.
- * 
+ *
  * Usage:
  *   node scripts/runMigrate.js [--test] [schema1 schema2 ...]
- * 
+ *
  * Options:
  *   --test       Run in test mode (does not apply migrations).
  *   schema1 ...  List of schemas to migrate. If none specified, all schemas are migrated.

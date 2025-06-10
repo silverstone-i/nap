@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 const apInvoiceLinesSchema = {
   dbSchema: 'tenantid',
@@ -54,10 +54,10 @@ const apInvoiceLinesSchema = {
     { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
     { name: 'tenant_id', type: 'uuid', nullable: false },
 
-    { name: 'invoice_id', type: 'uuid', nullable: false },   // FK to ap_invoices
-    { name: 'cost_line_id', type: 'uuid', nullable: true },  // FK to cost_lines
-    { name: 'activity_id', type: 'uuid', nullable: true },   // direct link to activity
-    { name: 'account_id', type: 'uuid', nullable: false },   // FK to chart_of_accounts
+    { name: 'invoice_id', type: 'uuid', nullable: false }, // FK to ap_invoices
+    { name: 'cost_line_id', type: 'uuid', nullable: true }, // FK to cost_lines
+    { name: 'activity_id', type: 'uuid', nullable: true }, // direct link to activity
+    { name: 'account_id', type: 'uuid', nullable: false }, // FK to chart_of_accounts
 
     { name: 'description', type: 'text', nullable: true },
     { name: 'amount', type: 'numeric(12,2)', nullable: false },

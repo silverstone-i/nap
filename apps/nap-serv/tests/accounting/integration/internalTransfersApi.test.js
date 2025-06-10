@@ -16,8 +16,8 @@ describe('Internal Transfers API', () => {
   runExtendedCrudTests({
     routePrefix: '/api/accounting/v1/internal-transfers',
     updateField: 'amount',
-    updateValue: 1200.50,
-    beforeHook: async (ctx) => {
+    updateValue: 1200.5,
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
       ctx.accountFromId = uuid();
@@ -32,12 +32,12 @@ describe('Internal Transfers API', () => {
         [ctx.accountFromId, ctx.tenantId, ctx.accountToId]
       );
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       from_account_id: ctx.accountFromId,
       to_account_id: ctx.accountToId,
       transfer_date: '2025-05-09',
-      amount: 1000.00,
+      amount: 1000.0,
       description: 'Initial transfer',
       created_by: 'integration-test',
       updated_by: 'integration-test',

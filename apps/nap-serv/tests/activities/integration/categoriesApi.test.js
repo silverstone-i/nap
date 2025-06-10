@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import {runExtendedCrudTests} from '../../util/runExtendedCrudTests.js';
+import { runExtendedCrudTests } from '../../util/runExtendedCrudTests.js';
 
 await runExtendedCrudTests({
   routePrefix: '/api/activities/v1/categories',

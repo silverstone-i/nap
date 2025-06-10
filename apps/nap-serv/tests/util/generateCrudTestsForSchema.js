@@ -17,11 +17,7 @@ import { db, pgp } from '../../src/db/db.js';
  * @param {object} [options.mockOverrides] - Functions to override or extend default mocks.
  * @param {Function} [options.extraTests] - Additional custom tests to run.
  */
-export function generateCrudTestsForSchema(
-  schema,
-  ControllerClass,
-  options = {}
-) {
+export function generateCrudTestsForSchema(schema, ControllerClass, options = {}) {
   const model = options.useRealModel
     ? new TableModel(db, pgp, schema)
     : {

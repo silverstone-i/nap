@@ -1,20 +1,20 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import { db } from '../db/db.js';
 
 const codeMap = {
-  '23505': 409, // unique_violation
-  '23503': 400, // foreign_key_violation
-  '22001': 400, // string_data_right_truncation
+  23505: 409, // unique_violation
+  23503: 400, // foreign_key_violation
+  22001: 400, // string_data_right_truncation
 };
 
 function handleError(err, res, context, errorLabel) {
@@ -26,10 +26,10 @@ function handleError(err, res, context, errorLabel) {
 class BaseController {
   constructor(modelName, errorLabel = null) {
     // console.log('Model Name:', typeof modelName === 'string' ? modelName : modelName.name);
-    
+
     this.model = db[modelName];
     // console.log('Model typeof:', typeof this.model);
-    
+
     const schema = this.model?.schema || {};
     this.errorLabel = errorLabel ?? schema.table ?? modelName;
     // console.log('Error Label:', this.errorLabel);

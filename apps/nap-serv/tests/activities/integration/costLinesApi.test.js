@@ -15,10 +15,7 @@ import { db } from '../../../src/db/db.js';
 const tenant_id = '00000000-0000-4000-a000-000000000001';
 
 export const setupTestDependencies = async () => {
-  const existingCategories = await db.categories.findWhere([
-    { tenant_id },
-    { category_id: 'COST-MAT' }
-  ]);
+  const existingCategories = await db.categories.findWhere([{ tenant_id }, { category_id: 'COST-MAT' }]);
   for (const row of existingCategories) {
     await db.categories.delete(row.id);
   }

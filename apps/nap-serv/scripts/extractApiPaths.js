@@ -2,12 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 const apiMap = {
-  core: [
-    'v1/addresses',
-    'v1/contacts',
-    'v1/inter-companies',
-    'v1/vendors'
-  ],
+  core: ['v1/addresses', 'v1/contacts', 'v1/inter-companies', 'v1/vendors'],
   activities: [
     'v1/activities',
     'v1/actual-costs',
@@ -18,25 +13,11 @@ const apiMap = {
     'v1/deliverable-assignments',
     'v1/budgets',
     'v1/deliverables',
-    'v1/vendor-parts'
+    'v1/vendor-parts',
   ],
-  tenants: [
-    'v1/nap-users',
-    'v1/tenants',
-    'v1/auth'
-  ],
-  ar: [
-    'v1/receipts',
-    'v1/clients',
-    'v1/ar-invoices',
-    'v1/ar-invoice-lines'
-  ],
-  ap: [
-    'v1/ap-credit-memos',
-    'v1/ap-invoices',
-    'v1/ap-invoice-lines',
-    'v1/payments'
-  ],
+  tenants: ['v1/nap-users', 'v1/tenants', 'v1/auth'],
+  ar: ['v1/receipts', 'v1/clients', 'v1/ar-invoices', 'v1/ar-invoice-lines'],
+  ap: ['v1/ap-credit-memos', 'v1/ap-invoices', 'v1/ap-invoice-lines', 'v1/payments'],
   accounting: [
     'v1/categories-account-map',
     'v1/chart-of-accounts',
@@ -46,8 +27,8 @@ const apiMap = {
     'v1/journal-entries',
     'v1/journal-entry-lines',
     'v1/ledger-balances',
-    'v1/posting-queues'
-  ]
+    'v1/posting-queues',
+  ],
 };
 
 const fullPaths = [];

@@ -8,7 +8,7 @@
  *
  * Removal or modification of this copyright notice is prohibited.
  */
-import 'dotenv/config'
+import 'dotenv/config';
 
 import { DB } from 'pg-schemata';
 import repositories from './repositories.js';
@@ -21,7 +21,7 @@ switch (process.env.NODE_ENV) {
   case 'test':
     DATABASE_URL = process.env.DATABASE_URL_TEST;
     break;
-  // TODO: Uncomment when ready for production  
+  // TODO: Uncomment when ready for production
   // case 'production':
   //   DATABASE_URL = process.env.DATABASE_URL_PROD;
   //   break;
@@ -32,7 +32,6 @@ switch (process.env.NODE_ENV) {
 if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is not set');
 }
-
 
 console.log('\nInitializing database connection...');
 DB.init(DATABASE_URL, repositories);
@@ -61,10 +60,26 @@ function createCallDb(rawDb) {
 
   // Attach pg-promise instance methods like none, one, etc.
   const passthroughs = [
-    'connect', 'query', 'none', 'one', 'many', 'oneOrNone',
-    'manyOrNone', 'any', 'result', 'multiResult', 'multi',
-    'stream', 'func', 'proc', 'map', 'each', 'task', 'taskIf',
-    'tx', 'txIf'
+    'connect',
+    'query',
+    'none',
+    'one',
+    'many',
+    'oneOrNone',
+    'manyOrNone',
+    'any',
+    'result',
+    'multiResult',
+    'multi',
+    'stream',
+    'func',
+    'proc',
+    'map',
+    'each',
+    'task',
+    'taskIf',
+    'tx',
+    'txIf',
   ];
 
   for (const fn of passthroughs) {

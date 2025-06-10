@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 const schema = {
   dbSchema: 'tenantid',
@@ -21,77 +21,77 @@ const schema = {
       default: 'uuidv7()',
       nullable: false,
       immutable: true,
-      colProps: { cnd: true }
+      colProps: { cnd: true },
     },
     {
       name: 'tenant_id',
       type: 'uuid',
       nullable: false,
-      colProps: { cnd: true }
+      colProps: { cnd: true },
     },
     {
       name: 'deliverable_id',
       type: 'uuid',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'activity_id',
       type: 'uuid',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'budgeted_amount',
       type: 'numeric',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'deliverable',
       type: 'varchar(20)',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'quantity',
       type: 'numeric',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'version',
       type: 'integer',
       default: 1,
-      nullable: false
+      nullable: false,
     },
     {
       name: 'is_current',
       type: 'boolean',
       default: true,
-      nullable: false
+      nullable: false,
     },
     {
       name: 'status',
       type: 'varchar(20)',
       default: `'draft'`,
-      nullable: false
+      nullable: false,
     },
     {
       name: 'submitted_by',
       type: 'varchar(64)',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'submitted_at',
       type: 'timestamptz',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'approved_by',
       type: 'varchar(64)',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'approved_at',
       type: 'timestamptz',
-      nullable: true
-    }
+      nullable: true,
+    },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -101,31 +101,31 @@ const schema = {
         type: 'ForeignKey',
         columns: ['deliverable_id'],
         references: { table: 'deliverables', columns: ['id'] },
-        onDelete: 'CASCADE'
+        onDelete: 'CASCADE',
       },
       {
         type: 'ForeignKey',
         columns: ['activity_id'],
         references: { table: 'activities', columns: ['id'] },
-        onDelete: 'CASCADE'
-      }
+        onDelete: 'CASCADE',
+      },
     ],
     checks: [
       {
         type: 'Check',
-        expression: 'version > 0'
+        expression: 'version > 0',
       },
       {
         type: 'Check',
-        expression: `status IN ('draft', 'submitted', 'approved', 'locked', 'rejected')`
-      }
+        expression: `status IN ('draft', 'submitted', 'approved', 'locked', 'rejected')`,
+      },
     ],
     indexes: [
       { type: 'Index', columns: ['deliverable_id'] },
       { type: 'Index', columns: ['activity_id'] },
-      { type: 'Index', columns: ['activity_id', 'version'] }
-    ]
-  }
+      { type: 'Index', columns: ['activity_id', 'version'] },
+    ],
+  },
 };
 
 export default schema;

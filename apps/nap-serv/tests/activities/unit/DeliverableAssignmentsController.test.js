@@ -2,7 +2,4 @@ import { DeliverableAssignmentsController } from '../../../modules/activities/co
 import deliverableAssignmentsSchema from '../../../modules/activities/schemas/deliverableAssignmentsSchema.js';
 import { generateCrudTestsForSchema } from '../../util/generateCrudTestsForSchema.js';
 
-generateCrudTestsForSchema(
-  deliverableAssignmentsSchema,
-  DeliverableAssignmentsController
-);
+generateCrudTestsForSchema(deliverableAssignmentsSchema, DeliverableAssignmentsController);

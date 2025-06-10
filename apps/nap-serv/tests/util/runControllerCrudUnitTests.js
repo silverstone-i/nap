@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-*
-* This test harness expects a controller and its injected model.
-* All methods are mocked directly on the model object for isolation.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ *
+ * This test harness expects a controller and its injected model.
+ * All methods are mocked directly on the model object for isolation.
+ */
 
 import { vi } from 'vitest';
 

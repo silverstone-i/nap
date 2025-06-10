@@ -22,31 +22,31 @@ const interCompanyTransactionsSchema = {
         type: 'ForeignKey',
         columns: ['source_company_id'],
         references: { table: 'inter_companies', columns: ['id'] },
-        onDelete: 'RESTRICT'
+        onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['target_company_id'],
         references: { table: 'inter_companies', columns: ['id'] },
-        onDelete: 'RESTRICT'
+        onDelete: 'RESTRICT',
       },
       {
         type: 'ForeignKey',
         columns: ['source_journal_entry_id'],
         references: { table: 'journal_entries', columns: ['id'] },
-        onDelete: 'SET NULL'
+        onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
         columns: ['target_journal_entry_id'],
         references: { table: 'journal_entries', columns: ['id'] },
-        onDelete: 'SET NULL'
-      }
+        onDelete: 'SET NULL',
+      },
     ],
     indexes: [
       { type: 'Index', columns: ['tenant_id', 'source_company_id'] },
-      { type: 'Index', columns: ['tenant_id', 'target_company_id'] }
-    ]
+      { type: 'Index', columns: ['tenant_id', 'target_company_id'] },
+    ],
   },
 
   columns: [
@@ -58,8 +58,8 @@ const interCompanyTransactionsSchema = {
     { name: 'target_journal_entry_id', type: 'uuid', nullable: true },
     { name: 'module', type: 'varchar(32)', nullable: false }, // e.g. 'ar', 'ap', 'je'
     { name: 'status', type: 'varchar(16)', nullable: false, default: "'pending'" },
-    { name: 'description', type: 'text', nullable: true }
-  ]
+    { name: 'description', type: 'text', nullable: true },
+  ],
 };
 
 export default interCompanyTransactionsSchema;

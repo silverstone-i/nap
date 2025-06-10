@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 const schema = {
   dbSchema: 'tenantid',
@@ -21,45 +21,45 @@ const schema = {
       default: 'uuidv7()',
       nullable: false,
       immutable: true,
-      colProps: { cnd: true }
+      colProps: { cnd: true },
     },
     {
       name: 'tenant_id',
       type: 'uuid',
       nullable: false,
-      colProps: { cnd: true }
+      colProps: { cnd: true },
     },
     {
       name: 'project_id',
       type: 'uuid',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'deliverable_id',
       type: 'uuid',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'assigned_code',
       type: 'varchar(20)',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'status',
       type: 'varchar(20)',
       default: `'planned'`,
-      nullable: false
+      nullable: false,
     },
     {
       name: 'start_date',
       type: 'date',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'end_date',
       type: 'date',
-      nullable: true
-    }
+      nullable: true,
+    },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -69,27 +69,27 @@ const schema = {
         type: 'ForeignKey',
         columns: ['project_id'],
         references: { table: 'projects', columns: ['id'] },
-        onDelete: 'CASCADE'
+        onDelete: 'CASCADE',
       },
       {
         type: 'ForeignKey',
         columns: ['deliverable_id'],
         references: { table: 'deliverables', columns: ['id'] },
-        onDelete: 'CASCADE'
-      }
+        onDelete: 'CASCADE',
+      },
     ],
     checks: [
       {
         type: 'Check',
-        expression: `status IN ('planned', 'released', 'canceled', 'complete')`
-      }
+        expression: `status IN ('planned', 'released', 'canceled', 'complete')`,
+      },
     ],
     indexes: [
       { type: 'Index', columns: ['project_id'] },
       { type: 'Index', columns: ['deliverable_id'] },
-      { type: 'Index', columns: ['project_id', 'deliverable_id'] }
-    ]
-  }
+      { type: 'Index', columns: ['project_id', 'deliverable_id'] },
+    ],
+  },
 };
 
 export default schema;

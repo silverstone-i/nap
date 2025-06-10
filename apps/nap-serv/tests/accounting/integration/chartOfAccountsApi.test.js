@@ -1,5 +1,3 @@
-
-
 import { runExtendedCrudTests } from '../../../tests/util/runExtendedCrudTests.js';
 import { v4 as uuid } from 'uuid';
 
@@ -8,11 +6,11 @@ describe('Chart of Accounts API', () => {
     routePrefix: '/api/accounting/v1/chart-of-accounts',
     updateField: 'name',
     updateValue: 'Updated Account Name',
-    beforeHook: async (ctx) => {
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       code: '5000',
       name: 'Raw Materials Expense',

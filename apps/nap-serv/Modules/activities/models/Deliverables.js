@@ -1,6 +1,5 @@
 'use strict';
 
-
 /*
  * Copyright © 2024-present, Ian Silverstone
  *

@@ -43,11 +43,7 @@ function topoSortModels(models) {
     const deps = getTableDependencies(model);
     if (visited.has(key)) return;
     if (visiting.has(key)) {
-      throw new Error(
-        `Cyclic dependency detected: ${Array.from(visiting).join(
-          ' -> '
-        )} -> ${key}`
-      );
+      throw new Error(`Cyclic dependency detected: ${Array.from(visiting).join(' -> ')} -> ${key}`);
     }
 
     visiting.add(key);
@@ -70,11 +66,7 @@ function topoSortModels(models) {
 import fs from 'fs';
 
 function isValidModel(model) {
-  return (
-    typeof model?.createTable === 'function' &&
-    model.schema?.dbSchema &&
-    model.schema?.table
-  );
+  return typeof model?.createTable === 'function' && model.schema?.dbSchema && model.schema?.table;
 }
 
 function writeDependencyGraph(models, sortedKeys) {
@@ -101,12 +93,7 @@ function writeDependencyGraph(models, sortedKeys) {
     }
   }
 
-  const dot = [
-    'digraph TableDependencies {',
-    '  rankdir=LR;',
-    ...Array.from(edges),
-    '}',
-  ].join('\n');
+  const dot = ['digraph TableDependencies {', '  rankdir=LR;', ...Array.from(edges), '}'].join('\n');
 
   fs.writeFileSync('./table-dependencies.dot', dot);
   // console.log('\nDependency graph written to table-dependencies.dot\n');
@@ -156,13 +143,11 @@ async function migrateTenants({
         Object.entries(dbOverride)
           .filter(([, model]) => {
             if (!isValidModel(model)) return false;
-            const originalSchema =
-              `${model.schema?.dbSchema}.${model.schema?.table}`.toLowerCase();
+            const originalSchema = `${model.schema?.dbSchema}.${model.schema?.table}`.toLowerCase();
             const isAdminTable = allowedAdminTables.has(originalSchema);
             const effectiveSchema = isAdminTable ? 'admin' : schemaName;
             const schemaScopedModel = dbOverride(model, effectiveSchema);
-            const fullName =
-              `${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase();
+            const fullName = `${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase();
 
             if (schemaName === 'admin') {
               return allowedAdminTables.has(fullName);
@@ -174,8 +159,7 @@ async function migrateTenants({
             return true;
           })
           .map(([, model]) => {
-            const originalSchema =
-              `${model.schema?.dbSchema}.${model.schema?.table}`.toLowerCase();
+            const originalSchema = `${model.schema?.dbSchema}.${model.schema?.table}`.toLowerCase();
             const isAdminTable = allowedAdminTables.has(originalSchema);
             const effectiveSchema = isAdminTable ? 'admin' : schemaName;
             const schemaScopedModel = dbOverride(model, effectiveSchema);
@@ -194,9 +178,7 @@ async function migrateTenants({
         const isAdminTable = model.schema.dbSchema === 'admin';
         if (model?.constructor?.isViewModel) continue;
         if (isAdminTable && !allowedAdminTables.has(key)) continue;
-        console.log(
-          `🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`
-        );
+        console.log(`🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`);
         await dbOverride(model, schemaName).createTable();
         if (schemaName === 'admin') {
           createdAdminTables.add(key);

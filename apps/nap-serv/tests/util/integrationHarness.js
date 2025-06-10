@@ -22,13 +22,13 @@ import app from '../../src/app.js';
  */
 export async function setupIntegrationTest(schemaList = ['tenantid']) {
   console.log('schemaList:', schemaList);
-  
+
   // // Drop and recreate schemas, but skip 'public'
   // try {
   // for (const schema of schemaList) {
   //   if (schema !== 'public') {
   //     console.log('Dropping and recreating schema:', schema);
-      
+
   //     await db.none(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
   //   }
   // }
@@ -37,9 +37,9 @@ export async function setupIntegrationTest(schemaList = ['tenantid']) {
   //   console.error('Error dropping and recreating schemas:', error);
   //   // throw error;
   // }
-  
+
   // Run migrations
-  await migrateTenants({testFlag: true});
+  await migrateTenants({ testFlag: true });
 
   // Start the server
   const server = app.listen();

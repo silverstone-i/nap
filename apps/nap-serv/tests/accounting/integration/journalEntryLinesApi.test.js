@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -19,7 +17,7 @@ describe('Journal Entry Lines API', () => {
     routePrefix: '/api/accounting/v1/journal-entry-lines',
     updateField: 'memo',
     updateValue: 'Updated memo content',
-    beforeHook: async (ctx) => {
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
       ctx.companyId = uuid();
@@ -47,12 +45,12 @@ describe('Journal Entry Lines API', () => {
         [ctx.entryId, ctx.tenantId, ctx.companyId]
       );
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       entry_id: ctx.entryId,
       account_id: ctx.accountId,
       debit: 0,
-      credit: 1000.00,
+      credit: 1000.0,
       memo: 'Initial line item',
       created_by: 'integration-test',
       updated_by: 'integration-test',

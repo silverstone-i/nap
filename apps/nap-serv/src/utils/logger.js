@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import { createLogger, format, transports } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
@@ -26,10 +26,7 @@ const devFormat = format.combine(
   })
 );
 
-const prodFormat = format.combine(
-  format.timestamp(),
-  format.json()
-);
+const prodFormat = format.combine(format.timestamp(), format.json());
 
 // Main Logger
 const logger = createLogger({

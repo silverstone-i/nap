@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -19,7 +17,7 @@ describe('Ledger Balances API', () => {
     routePrefix: '/api/accounting/v1/ledger-balances',
     updateField: 'balance',
     updateValue: 4567.89,
-    beforeHook: async (ctx) => {
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
       ctx.accountId = uuid();
@@ -31,7 +29,7 @@ describe('Ledger Balances API', () => {
         [ctx.accountId, ctx.tenantId]
       );
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       account_id: ctx.accountId,
       as_of_date: '2025-05-09',

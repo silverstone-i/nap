@@ -32,7 +32,7 @@ export async function runExtendedCrudTests(options) {
     let server, teardown;
     const context = { server: null, createdId: null };
 
-    const getTestRecord = typeof testRecord === 'function' ? (ctx) => testRecord(ctx) : () => testRecord;
+    const getTestRecord = typeof testRecord === 'function' ? ctx => testRecord(ctx) : () => testRecord;
 
     beforeAll(async () => {
       ({ server, teardown } = await setupIntegrationTest(['admin', 'tenantid']));

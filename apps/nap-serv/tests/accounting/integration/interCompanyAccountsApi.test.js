@@ -1,5 +1,3 @@
-
-
 import { runExtendedCrudTests } from '../../../tests/util/runExtendedCrudTests.js';
 import { v4 as uuid } from 'uuid';
 
@@ -16,4 +14,4 @@ describe('Inter-Company Accounts API', () => {
       updated_by: 'integration-test',
     }),
   });
-}); 
+});

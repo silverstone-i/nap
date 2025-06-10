@@ -17,7 +17,7 @@ describe('InterCompany Transactions API', () => {
     routePrefix: '/api/accounting/v1/inter-company-transactions',
     updateField: 'status',
     updateValue: 'posted',
-    beforeHook: async (ctx) => {
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
       ctx.sourceCompanyId = uuid();
@@ -31,7 +31,7 @@ describe('InterCompany Transactions API', () => {
         [ctx.sourceCompanyId, ctx.tenantId, ctx.targetCompanyId]
       );
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       source_company_id: ctx.sourceCompanyId,
       target_company_id: ctx.targetCompanyId,

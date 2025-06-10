@@ -36,12 +36,12 @@ const interCompanyAccountsSchema = {
         columns: ['inter_company_account_id'],
         references: { table: 'chart_of_accounts', columns: ['id'] },
         onDelete: 'RESTRICT',
-      }
+      },
     ],
     indexes: [
       { type: 'Index', columns: ['tenant_id', 'source_company_id'] },
-      { type: 'Index', columns: ['tenant_id', 'target_company_id'] }
-    ]
+      { type: 'Index', columns: ['tenant_id', 'target_company_id'] },
+    ],
   },
 
   columns: [
@@ -51,8 +51,8 @@ const interCompanyAccountsSchema = {
     { name: 'target_company_id', type: 'uuid', nullable: false },
     { name: 'inter_company_account_id', type: 'uuid', nullable: false },
     { name: 'description', type: 'text', nullable: true },
-    { name: 'is_active', type: 'boolean', nullable: false, default: true }
-  ]
+    { name: 'is_active', type: 'boolean', nullable: false, default: true },
+  ],
 };
 
 export default interCompanyAccountsSchema;

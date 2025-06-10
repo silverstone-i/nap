@@ -7,10 +7,7 @@ export default {
   moduleNameMapper: {},
   coveragePathIgnorePatterns: ['/src/db/db.js', '/modules/tenants/apiRoutes/v1', '/scripts/loadViews.js'],
   roots: ['<rootDir>/tests'],
-  testMatch: [
-  "**/tests/**/*.(test|spec).js",
-  ]
+  testMatch: ['**/tests/**/*.(test|spec).js'],
 
   // setupFilesAfterEnv: ['./jest.setup.js'],
-
 };

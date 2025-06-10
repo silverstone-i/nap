@@ -15,7 +15,6 @@ class BudgetsController extends BaseController {
   constructor() {
     super('budgets');
   }
-
 }
 
 const instance = new BudgetsController();

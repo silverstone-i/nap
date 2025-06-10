@@ -18,9 +18,7 @@ const interCompaniesSchema = {
   constraints: {
     primaryKey: ['id'],
     unique: [['tenant_id', 'company_code']],
-    indexes: [
-      { type: 'Index', columns: ['tenant_id', 'company_code'] }
-    ]
+    indexes: [{ type: 'Index', columns: ['tenant_id', 'company_code'] }],
   },
 
   columns: [
@@ -29,8 +27,8 @@ const interCompaniesSchema = {
     { name: 'company_code', type: 'varchar(8)', nullable: false },
     { name: 'company_name', type: 'varchar(64)', nullable: false },
     { name: 'description', type: 'text', nullable: true },
-    { name: 'is_active', type: 'boolean', nullable: false, default: true }
-  ]
+    { name: 'is_active', type: 'boolean', nullable: false, default: true },
+  ],
 };
 
 export default interCompaniesSchema;

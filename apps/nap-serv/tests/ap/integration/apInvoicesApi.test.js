@@ -1,5 +1,3 @@
-
-
 import { runExtendedCrudTests } from '../../../tests/util/runExtendedCrudTests.js';
 import { v4 as uuid } from 'uuid';
 
@@ -8,7 +6,7 @@ describe('AP Invoices API', () => {
     routePrefix: '/api/ap/v1/ap-invoices',
     updateField: 'status',
     updateValue: 'approved',
-    beforeHook: async (ctx) => {
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
       ctx.vendorId = uuid();
@@ -16,18 +14,25 @@ describe('AP Invoices API', () => {
       ctx.projectId = uuid();
 
       await db.none(`INSERT INTO tenantid.vendors (id, tenant_id, name, created_by) VALUES ($1, $2, $3, $4)`, [
-        ctx.vendorId, ctx.tenantId, 'Test Vendor', 'integration-test',
+        ctx.vendorId,
+        ctx.tenantId,
+        'Test Vendor',
+        'integration-test',
       ]);
 
-      await db.none(`INSERT INTO tenantid.inter_companies (id, tenant_id, company_code, created_by) VALUES ($1, $2, $3, $4)`, [
-        ctx.companyId, ctx.tenantId, 'TESTCO', 'integration-test',
-      ]);
+      await db.none(
+        `INSERT INTO tenantid.inter_companies (id, tenant_id, company_code, created_by) VALUES ($1, $2, $3, $4)`,
+        [ctx.companyId, ctx.tenantId, 'TESTCO', 'integration-test']
+      );
 
       await db.none(`INSERT INTO tenantid.projects (id, tenant_id, name, created_by) VALUES ($1, $2, $3, $4)`, [
-        ctx.projectId, ctx.tenantId, 'Test Project', 'integration-test',
+        ctx.projectId,
+        ctx.tenantId,
+        'Test Project',
+        'integration-test',
       ]);
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       company_id: ctx.companyId,
       vendor_id: ctx.vendorId,

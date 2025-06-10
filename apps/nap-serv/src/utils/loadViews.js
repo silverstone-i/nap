@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import fs from 'fs';
 import path from 'path';
@@ -20,7 +20,7 @@ export async function loadViews(db, schemaName, modulesDir = path.join(__dirname
     console.warn('⚠️ Admin schema does not support custom views. Skipping view loading.');
     return;
   }
-  
+
   const modules = fs.readdirSync(modulesDir);
 
   for (const mod of modules) {

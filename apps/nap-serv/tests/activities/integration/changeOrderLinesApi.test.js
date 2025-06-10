@@ -66,7 +66,7 @@ await runExtendedCrudTests({
     deliverable_id: testContext.deliverable.id,
     activity_id: testContext.activity.id,
     reason: 'Scope change',
-    change_amount: 1000.00,
+    change_amount: 1000.0,
     currency: 'USD',
     reference: 'CHG-REF-001',
     status: 'pending',

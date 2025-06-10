@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 const schema = {
   dbSchema: 'tenantid',
@@ -21,55 +21,55 @@ const schema = {
       default: 'uuidv7()',
       nullable: false,
       immutable: true,
-      colProps: { cnd: true }
+      colProps: { cnd: true },
     },
     {
       name: 'tenant_id',
       type: 'uuid',
       nullable: false,
-      colProps: { cnd: true }
+      colProps: { cnd: true },
     },
     {
       name: 'activity_id',
       type: 'uuid',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'amount',
       type: 'numeric(12,2)',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'currency',
       type: 'varchar(3)',
-      nullable: false
+      nullable: false,
     },
     {
       name: 'reference',
       type: 'text',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'approval_status',
       type: 'varchar(20)',
       default: `'pending'`,
-      nullable: false
+      nullable: false,
     },
     {
       name: 'approved_by',
       type: 'uuid',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'approval_note',
       type: 'text',
-      nullable: true
+      nullable: true,
     },
     {
       name: 'incurred_on',
       type: 'date',
-      nullable: false
-    }
+      nullable: false,
+    },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -78,20 +78,20 @@ const schema = {
         type: 'ForeignKey',
         columns: ['activity_id'],
         references: { table: 'activities', columns: ['id'] },
-        onDelete: 'CASCADE'
-      }
+        onDelete: 'CASCADE',
+      },
     ],
     checks: [
       {
         type: 'Check',
-        expression: `approval_status IN ('pending', 'approved', 'rejected')`
-      }
+        expression: `approval_status IN ('pending', 'approved', 'rejected')`,
+      },
     ],
     indexes: [
       { type: 'Index', columns: ['tenant_id', 'activity_id'] },
-      { type: 'Index', columns: ['incurred_on'] }
-    ]
-  }
+      { type: 'Index', columns: ['incurred_on'] },
+    ],
+  },
 };
 
 export default schema;

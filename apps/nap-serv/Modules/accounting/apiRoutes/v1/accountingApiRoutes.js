@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import express from 'express';
 import categoriesAccountMapApi from './categoriesAccountMapApi.js';
@@ -35,6 +35,4 @@ router.use('/v1/posting-queues', postingQueuesApi);
 
 console.log('Loaded accounting API router');
 
-
 export default router;
-

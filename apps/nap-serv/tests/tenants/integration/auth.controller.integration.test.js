@@ -43,16 +43,11 @@ afterAll(async () => {
 
 describe('/auth/login', () => {
   it('should login successfully and return auth/refresh cookies', async () => {
-    const res = await request(server)
-      .post(`${routePrefix}/login`)
-      .send({ email: testEmail, password: testPassword });
+    const res = await request(server).post(`${routePrefix}/login`).send({ email: testEmail, password: testPassword });
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['set-cookie']).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('auth_token='),
-        expect.stringContaining('refresh_token='),
-      ])
+      expect.arrayContaining([expect.stringContaining('auth_token='), expect.stringContaining('refresh_token=')])
     );
   });
 
@@ -80,17 +75,13 @@ describe('/auth/refresh', () => {
     const agent = request.agent(server);
 
     // Login first to set refresh cookie
-    await agent
-      .post(`${routePrefix}/login`)
-      .send({ email: testEmail, password: testPassword });
+    await agent.post(`${routePrefix}/login`).send({ email: testEmail, password: testPassword });
 
     // Call refresh endpoint
     const res = await agent.post(`${routePrefix}/refresh`);
 
     expect(res.statusCode).toBe(200);
-    expect(res.headers['set-cookie']).toEqual(
-      expect.arrayContaining([expect.stringContaining('auth_token=')])
-    );
+    expect(res.headers['set-cookie']).toEqual(expect.arrayContaining([expect.stringContaining('auth_token=')]));
   });
 
   it('should fail if refresh token is missing', async () => {
@@ -105,18 +96,13 @@ describe('/auth/logout', () => {
     const agent = request.agent(server);
 
     // Login first to set cookies
-    await agent
-      .post(`${routePrefix}/login`)
-      .send({ email: testEmail, password: testPassword });
+    await agent.post(`${routePrefix}/login`).send({ email: testEmail, password: testPassword });
 
     const res = await agent.post(`${routePrefix}/logout`);
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['set-cookie']).toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/auth_token=;/),
-        expect.stringMatching(/refresh_token=;/),
-      ])
+      expect.arrayContaining([expect.stringMatching(/auth_token=;/), expect.stringMatching(/refresh_token=;/)])
     );
   });
 });
@@ -130,9 +116,7 @@ describe('/auth/register', () => {
 
   it('should register a new user successfully', async () => {
     const agent = request.agent(server);
-    await agent
-      .post(`${routePrefix}/login`)
-      .send({ email: testEmail, password: testPassword });
+    await agent.post(`${routePrefix}/login`).send({ email: testEmail, password: testPassword });
 
     const res = await agent.post(`${routePrefix}/register`).send({
       email: newEmail,
@@ -147,9 +131,7 @@ describe('/auth/register', () => {
   });
 
   it('should fail to register with missing fields', async () => {
-    const res = await request(server)
-      .post(`${routePrefix}/register`)
-      .send({ email: newEmail }); // incomplete
+    const res = await request(server).post(`${routePrefix}/register`).send({ email: newEmail }); // incomplete
 
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
   });
@@ -180,9 +162,7 @@ describe('/auth/token expiry', () => {
     const agent = request.agent(server);
 
     // Step 1: Login to receive refresh_token
-    await agent
-      .post(`${routePrefix}/login`)
-      .send({ email: testEmail, password: testPassword });
+    await agent.post(`${routePrefix}/login`).send({ email: testEmail, password: testPassword });
 
     // Step 2: Manually clear the auth_token (simulate expiration)
     agent.jar.setCookie('auth_token=; Max-Age=0', routePrefix);
@@ -192,8 +172,6 @@ describe('/auth/token expiry', () => {
 
     // Step 4: Assert new auth_token is issued
     expect(res.statusCode).toBe(200);
-    expect(res.headers['set-cookie']).toEqual(
-      expect.arrayContaining([expect.stringContaining('auth_token=')])
-    );
+    expect(res.headers['set-cookie']).toEqual(expect.arrayContaining([expect.stringContaining('auth_token=')]));
   });
 });

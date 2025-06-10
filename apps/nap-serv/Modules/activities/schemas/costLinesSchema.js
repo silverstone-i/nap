@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 const schema = {
   dbSchema: 'tenantid',
@@ -39,7 +39,7 @@ const schema = {
         type: 'ForeignKey',
         columns: ['budget_id'],
         references: { table: 'budgets', columns: ['id'] },
-        onDelete: 'SET NULL'
+        onDelete: 'SET NULL',
       },
       {
         type: 'ForeignKey',
@@ -71,18 +71,18 @@ const schema = {
       },
       {
         type: 'Index',
-        columns: ['deliverable_id', 'vendor_id', 'activity_id', 'tenant_sku']
-      }
+        columns: ['deliverable_id', 'vendor_id', 'activity_id', 'tenant_sku'],
+      },
     ],
     checks: [
       {
         type: 'Check',
-        expression: `source_type IN ('material', 'labor')`
+        expression: `source_type IN ('material', 'labor')`,
       },
       {
         type: 'Check',
-        expression: `status IN ('draft', 'locked', 'change_order')`
-      }
+        expression: `status IN ('draft', 'locked', 'change_order')`,
+      },
     ],
   },
 
@@ -100,7 +100,7 @@ const schema = {
     {
       name: 'name',
       type: 'varchar(64)',
-      nullable: false
+      nullable: false,
     },
     { name: 'deliverable_id', type: 'uuid', nullable: false },
     { name: 'vendor_id', type: 'uuid', nullable: false },
@@ -118,7 +118,7 @@ const schema = {
       name: 'status',
       type: 'varchar(20)',
       nullable: false,
-      default: `'draft'`
+      default: `'draft'`,
     },
   ],
 };

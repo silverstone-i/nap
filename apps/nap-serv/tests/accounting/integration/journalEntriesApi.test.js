@@ -1,5 +1,3 @@
-
-
 'use strict';
 
 /*
@@ -19,7 +17,7 @@ describe('Journal Entries API', () => {
     routePrefix: '/api/accounting/v1/journal-entries',
     updateField: 'status',
     updateValue: 'posted',
-    beforeHook: async (ctx) => {
+    beforeHook: async ctx => {
       const { db } = await import('../../../src/db/db.js');
       ctx.tenantId = uuid();
       ctx.companyId = uuid();
@@ -31,7 +29,7 @@ describe('Journal Entries API', () => {
         [ctx.companyId, ctx.tenantId]
       );
     },
-    testRecord: (ctx) => ({
+    testRecord: ctx => ({
       tenant_id: ctx.tenantId,
       company_id: ctx.companyId,
       entry_date: '2025-05-09',
