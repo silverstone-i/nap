@@ -11,6 +11,13 @@
 
 import tenantsController from '../../controllers/TenantsController.js';
 import createRouter from '../../../../src/utils/createRouter.js'
+import { requireNapsoftTenant } from '../../../../middlewares/access/requireNapsoftTenant.js';
+
 export default createRouter(tenantsController, (router) => {
   router.route('/:id/modules').get((req, res) => tenantsController.getAllAllowedModules(req, res));
+}, {
+  postMiddlewares: [requireNapsoftTenant],
+  getMiddlewares: [requireNapsoftTenant],
+  putMiddlewares: [requireNapsoftTenant],
+  deleteMiddlewares: [requireNapsoftTenant],
 });
