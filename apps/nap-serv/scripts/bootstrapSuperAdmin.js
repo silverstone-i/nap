@@ -26,6 +26,22 @@ async function bootstrapSuperAdmin() {
   try {
     console.log('🔐 Checking for existing super admin...');
 
+    console.log('🏢 Ensuring NapSoft tenant exists...');
+    const existingTenant = await db.tenants.findWhere([{ tenant_code: NAPSOFT_TENANT || 'NAPSFT' }]);
+
+    if (existingTenant.length === 0) {
+      await db.tenants.insert({
+        tenant_code: NAPSOFT_TENANT || 'NAPSFT',
+        schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'napsft',
+        tenant_name: 'NapSoft',
+        is_active: true,
+        created_by: 'bootstrap',
+      });
+      console.log('✅ NapSoft tenant created.');
+    } else {
+      console.log('✅ NapSoft tenant already exists.');
+    }
+
     const existingUsers = await db.napUsers.findWhere([{ role: 'super_admin' }]);
 
     if (existingUsers.length > 0) {
