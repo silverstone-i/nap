@@ -30,7 +30,7 @@ class NapUsersController extends BaseController {
     if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
       return res.status(400).json({ message: 'Invalid email format' });
     }
-    if (!['super-admin', 'admin', 'user'].includes(role)) {
+    if (!['super_admin', 'admin', 'user'].includes(role)) {
       return res.status(400).json({ message: 'Invalid role' });
     }
     if (!/^[a-zA-Z0-9_]+$/.test(user_name)) {
