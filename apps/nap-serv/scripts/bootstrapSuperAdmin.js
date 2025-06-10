@@ -33,7 +33,7 @@ async function bootstrapSuperAdmin() {
       await db.tenants.insert({
         tenant_code: NAPSOFT_TENANT || 'NAPSFT',
         schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'napsft',
-        tenant_name: 'NapSoft',
+        company: 'NapSoft',
         is_active: true,
         created_by: 'bootstrap',
       });

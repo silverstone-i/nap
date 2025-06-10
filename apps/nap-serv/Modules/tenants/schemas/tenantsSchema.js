@@ -100,7 +100,7 @@ const tenantSchema = {
     {
       name: 'time_zone',
       type: 'varchar(50)',
-      default: `'UTC'`,
+      default: `'EST'`,
       colProps: { skip: c => !c.exists },
     },
 
