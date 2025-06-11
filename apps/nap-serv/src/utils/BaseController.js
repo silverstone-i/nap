@@ -77,9 +77,9 @@ class BaseController {
 
   async remove(req, res) {
     try {
-      const deleted = await this.model.delete(req.params.id);
-      if (deleted === 0) return res.status(404).json({ error: `${this.errorLabel} not found` });
-      res.status(204).end();
+      const updated = await this.model.updateWhere([{...req.query}], req.body );
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
       handleError(err, res, 'deleting', this.errorLabel);
     }
@@ -87,3 +87,4 @@ class BaseController {
 }
 
 export default BaseController;
+export { handleError }; // Export handleError for use in other controllers
