@@ -41,6 +41,11 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     ? putMiddlewares
     : [addAuditFields, ...putMiddlewares];
 
+      const safeDeleteMiddlewares = deleteMiddlewares.includes(addAuditFields)
+    ? deleteMiddlewares
+    : [addAuditFields, ...deleteMiddlewares];
+
+
   // POST and GET for collection
   if (!disablePost) {
     router.post('/', ...safePostMiddlewares, (req, res) => controller.create(req, res));
@@ -65,7 +70,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disableDelete) {
-    router.delete('/:id', ...deleteMiddlewares, (req, res) => controller.remove(req, res));
+    router.delete('/delete', ...safeDeleteMiddlewares, (req, res) => controller.remove(req, res));
   }
 
   if (typeof extendRoutes === 'function') {
