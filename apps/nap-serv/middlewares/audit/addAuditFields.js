@@ -18,7 +18,7 @@ export function addAuditFields(req, res, next) {
     req.body.created_by = userName;
   }
 
-  if (req.method === 'PUT' || req.method === 'PATCH') {
+  if (req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
     req.body.updated_by = userName;
   }
 
