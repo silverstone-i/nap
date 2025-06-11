@@ -21,8 +21,15 @@ passport.use(
       const user = await db('napUsers', 'admin').findOneBy([{ email }]);
       if (!user) return done(null, false, { message: 'Incorrect email.' });
 
+      if (!user.is_active) return done(null, false, { message: 'User account is inactive.' });
+
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) return done(null, false, { message: 'Incorrect password.' });
+
+      const tenant = await db('tenants', 'admin').findOneBy({ tenant_code: user.tenant_code });
+      if (!tenant || !tenant.is_active) {
+        return done(null, false, { message: 'Tenant is inactive.' });
+      }
 
       return done(null, user);
     } catch (err) {
