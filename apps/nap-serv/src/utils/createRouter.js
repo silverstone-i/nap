@@ -61,7 +61,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disablePut) {
-    router.put('/:id', ...safePutMiddlewares, (req, res) => controller.update(req, res));
+    router.put('/update', ...safePutMiddlewares, (req, res) => controller.update(req, res));
   }
 
   if (!disableDelete) {

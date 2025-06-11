@@ -67,7 +67,7 @@ class BaseController {
 
   async update(req, res) {
     try {
-      const updated = await this.model.update(req.params.id, req.body);
+      const updated = await this.model.updateWhere([{...req.query}], req.body);
       if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.json(updated);
     } catch (err) {
