@@ -10,11 +10,25 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
+import { handleError } from '../../../src/utils/BaseController.js';
+import db from '../../../src/db/db.js';
 
 class TenantsController extends BaseController {
   constructor() {
     super('tenants');
   }
+
+  async remove(req, res) {
+      try {
+        let updated = await this.model.updateWhere([{ ...req.query }], req.body);
+        if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+  
+        updated = await db('napUsers', 'admin').updateWhere([{ ...req.query }], req.body);
+        res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
+      } catch (err) {
+        handleError(err, res, 'deleting', this.errorLabel);
+      }
+    }
 
   async getAllAllowedModules(req, res) {
     try {
