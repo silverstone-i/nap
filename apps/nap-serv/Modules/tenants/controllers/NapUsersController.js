@@ -24,24 +24,6 @@ class NapUsersController extends BaseController {
     if (!tenant_code || !email || !password || !user_name || !role) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
-    }
-    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
-      return res.status(400).json({ message: 'Invalid email format' });
-    }
-    if (!['super_admin', 'admin', 'user'].includes(role)) {
-      return res.status(400).json({ message: 'Invalid role' });
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(user_name)) {
-      return res.status(400).json({ message: 'Invalid username format' });
-    }
-    if (user_name.length < 3 || user_name.length > 20) {
-      return res.status(400).json({ message: 'Username must be between 3 and 20 characters long' });
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(tenant_code)) {
-      return res.status(400).json({ message: 'Invalid tenant code format' });
-    }
 
     try {
       const tenant = await db('tenants', 'admin').findOneBy([
