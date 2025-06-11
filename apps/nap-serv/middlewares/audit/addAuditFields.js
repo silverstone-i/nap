@@ -19,6 +19,7 @@ export function addAuditFields(req, res, next) {
   }
 
   if (req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
+    req.body.updated_at = new Date().toISOString();
     req.body.updated_by = userName;
   }
 
