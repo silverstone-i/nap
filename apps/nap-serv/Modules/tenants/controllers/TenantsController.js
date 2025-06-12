@@ -19,16 +19,49 @@ class TenantsController extends BaseController {
   }
 
   async remove(req, res) {
-      try {
-        let updated = await this.model.updateWhere([{ ...req.query }], req.body);
-        if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
-  
-        updated = await db('napUsers', 'admin').updateWhere([{ ...req.query }], req.body);
-        res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
-      } catch (err) {
-        handleError(err, res, 'deleting', this.errorLabel);
-      }
+    req.body.is_active = false;
+
+    try {
+      let updated = await this.model.updateWhere([{ ...req.query }], req.body);
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+
+      updated = await db('napUsers', 'admin').updateWhere([{ ...req.query }], req.body);
+      res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
+    } catch (err) {
+      handleError(err, res, 'deleting', this.errorLabel);
     }
+  }
+
+  async remove(req, res) {
+    req.body.is_active = false;
+
+    try {
+      let updated = await this.model.updateWhere([{ ...req.query }], req.body);
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+
+      updated = await db('napUsers', 'admin').updateWhere([{ ...req.query }], req.body);
+      res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
+    } catch (err) {
+      handleError(err, res, 'deleting', this.errorLabel);
+    }
+  }
+
+  async restore(req, res) {
+    req.body.is_active = true;
+
+    try {
+      let updated = await this.model.updateWhere([{ ...req.query }], req.body);
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or tenant is active` });
+
+      updated = await db('napUsers', 'admin').updateWhere([{ is_active: false }, {updated_at: { $max: true }}, { ...req.query }], req.body);
+      
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} no users found` });
+
+      res.status(200).json({ message: `${this.errorLabel} marked as active` });
+    } catch (err) {
+      handleError(err, res, 'deleting', this.errorLabel);
+    }
+  }
 
   async getAllAllowedModules(req, res) {
     try {
