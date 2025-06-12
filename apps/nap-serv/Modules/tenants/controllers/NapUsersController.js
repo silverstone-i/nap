@@ -18,6 +18,14 @@ class NapUsersController extends BaseController {
     super('napUsers');
   }
 
+  async remove(req, res) {
+    if (req.query.email === req.user.email) {
+      return res.status(403).json({ message: 'Cannot delete the currently logged-in user' });
+    }
+
+    return super.remove(req, res);
+  }
+
   register = async (req, res) => {
     const { tenant_code, schema_name, email, password, user_name, role } = req.body;
 

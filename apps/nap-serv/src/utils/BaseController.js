@@ -67,7 +67,7 @@ class BaseController {
 
   async update(req, res) {
     try {
-      const updated = await this.model.updateWhere([{...req.query}], req.body);
+      const updated = await this.model.updateWhere([{ ...req.query }], req.body);
       if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.json(updated);
     } catch (err) {
@@ -76,9 +76,12 @@ class BaseController {
   }
 
   async remove(req, res) {
+    req.body.is_active = false; // Soft delete by marking as inactive
+    const filters = [{ is_active: true }, { ...req.query }];
+
     try {
-      const updated = await this.model.updateWhere([{...req.query}], {is_active: false} );
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      const updated = await this.model.updateWhere(filters, req.body);
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
       handleError(err, res, 'deleting', this.errorLabel);
@@ -86,11 +89,12 @@ class BaseController {
   }
 
   async restore(req, res) {
-    console.log('BaseController:restore' );
-    
+    req.body.is_active = true; // Soft delete by marking as inactive
+    const filters = [{ is_active: false }, { ...req.query }];
+
     try {
-      const updated = await this.model.updateWhere([{...req.query}], {is_active: true} );
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      const updated = await this.model.updateWhere(filters, req.body);
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {
       handleError(err, res, 'restoring', this.errorLabel);

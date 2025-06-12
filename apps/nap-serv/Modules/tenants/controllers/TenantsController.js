@@ -18,28 +18,17 @@ class TenantsController extends BaseController {
     super('tenants');
   }
 
+  // Soft delete tenant by marking it as inactive.  Also marks all associated active users as inactive.
   async remove(req, res) {
     req.body.is_active = false;
 
-    try {
-      let updated = await this.model.updateWhere([{ ...req.query }], req.body);
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
-
-      updated = await db('napUsers', 'admin').updateWhere([{ ...req.query }], req.body);
-      res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
-    } catch (err) {
-      handleError(err, res, 'deleting', this.errorLabel);
-    }
-  }
-
-  async remove(req, res) {
-    req.body.is_active = false;
+    const filters = [{ is_active: true }, { ...req.query }];
 
     try {
-      let updated = await this.model.updateWhere([{ ...req.query }], req.body);
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      let updated = await this.model.updateWhere(filters, req.body);
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or tenant is already inactive` });
 
-      updated = await db('napUsers', 'admin').updateWhere([{ ...req.query }], req.body);
+      updated = await db('napUsers', 'admin').updateWhere(filters, req.body);
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
       handleError(err, res, 'deleting', this.errorLabel);
@@ -49,12 +38,15 @@ class TenantsController extends BaseController {
   async restore(req, res) {
     req.body.is_active = true;
 
-    try {
-      let updated = await this.model.updateWhere([{ ...req.query }], req.body);
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or tenant is active` });
+    const filters = [{ is_active: false }, { ...req.query }];
 
-      updated = await db('napUsers', 'admin').updateWhere([{ is_active: false }, {updated_at: { $max: true }}, { ...req.query }], req.body);
-      
+    try {
+      let updated = await this.model.updateWhere(filters, req.body);
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or tenant is already active` });
+
+      filters.unshift({ updated_at: { $max: true } });
+      updated = await db('napUsers', 'admin').updateWhere(filters, req.body);
+
       if (!updated) return res.status(404).json({ error: `${this.errorLabel} no users found` });
 
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
