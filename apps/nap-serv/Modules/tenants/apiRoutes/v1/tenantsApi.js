@@ -23,5 +23,6 @@ export default createRouter(
     getMiddlewares: [requireNapsoftTenant],
     putMiddlewares: [requireNapsoftTenant],
     deleteMiddlewares: [requireNapsoftTenant],
+    patchMiddlewares: [requireNapsoftTenant],
   }
 );
