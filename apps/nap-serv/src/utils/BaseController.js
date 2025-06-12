@@ -77,11 +77,23 @@ class BaseController {
 
   async remove(req, res) {
     try {
-      const updated = await this.model.updateWhere([{...req.query}], req.body );
+      const updated = await this.model.updateWhere([{...req.query}], {is_active: false} );
       if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
       handleError(err, res, 'deleting', this.errorLabel);
+    }
+  }
+
+  async restore(req, res) {
+    console.log('BaseController:restore' );
+    
+    try {
+      const updated = await this.model.updateWhere([{...req.query}], {is_active: true} );
+      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      res.status(200).json({ message: `${this.errorLabel} marked as active` });
+    } catch (err) {
+      handleError(err, res, 'restoring', this.errorLabel);
     }
   }
 }
