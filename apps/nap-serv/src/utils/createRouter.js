@@ -79,10 +79,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disablePatch) {
-    router.patch('/restore', ...safePatchMiddlewares, (req, res) => {
-      console.log('Hit the restore route');
-      
-      controller.restore(req, res)});
+    router.patch('/restore', ...safePatchMiddlewares, (req, res) => controller.restore(req, res));
   }
 
   if (typeof extendRoutes === 'function') {
