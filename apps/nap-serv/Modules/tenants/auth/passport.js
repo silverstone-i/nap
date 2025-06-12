@@ -26,7 +26,7 @@ passport.use(
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) return done(null, false, { message: 'Incorrect password.' });
 
-      const tenant = await db('tenants', 'admin').findOneBy({ tenant_code: user.tenant_code });
+      const tenant = await db('tenants', 'admin').findOneBy([{ tenant_code: user.tenant_code }]);
       if (!tenant || !tenant.is_active) {
         return done(null, false, { message: 'Tenant is inactive.' });
       }
