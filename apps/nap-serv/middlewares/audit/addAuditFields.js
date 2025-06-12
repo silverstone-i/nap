@@ -14,6 +14,8 @@ export function addAuditFields(req, res, next) {
 
   if (!userName) return res.status(400).json({ message: 'Missing user context for audit fields.' });
 
+  if (!req.body) req.body = {};
+
   if (req.method === 'POST') {
     req.body.created_by = userName;
   }
