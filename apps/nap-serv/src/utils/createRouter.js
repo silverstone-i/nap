@@ -27,10 +27,12 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     getMiddlewares = [],
     putMiddlewares = [],
     deleteMiddlewares = [],
+    patchMiddlewares = [],
     disablePost = false,
     disableGet = false,
     disablePut = false,
     disableDelete = false,
+    disablePatch = false,
   } = options;
 
   const safePostMiddlewares = postMiddlewares.includes(addAuditFields)
@@ -41,10 +43,13 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     ? putMiddlewares
     : [addAuditFields, ...putMiddlewares];
 
-      const safeDeleteMiddlewares = deleteMiddlewares.includes(addAuditFields)
+  const safeDeleteMiddlewares = deleteMiddlewares.includes(addAuditFields)
     ? deleteMiddlewares
     : [addAuditFields, ...deleteMiddlewares];
 
+    const safePatchMiddlewares = patchMiddlewares.includes(addAuditFields)
+    ? patchMiddlewares
+    : [addAuditFields, ...patchMiddlewares];
 
   // POST and GET for collection
   if (!disablePost) {
@@ -70,7 +75,14 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disableDelete) {
-    router.delete('/delete', ...safeDeleteMiddlewares, (req, res) => controller.remove(req, res));
+    router.delete('/remove', ...safeDeleteMiddlewares, (req, res) => controller.remove(req, res));
+  }
+
+  if (!disablePatch) {
+    router.patch('/restore', ...safePatchMiddlewares, (req, res) => {
+      console.log('Hit the restore route');
+      
+      controller.restore(req, res)});
   }
 
   if (typeof extendRoutes === 'function') {
