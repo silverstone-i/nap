@@ -40,7 +40,9 @@ class BaseController {
       const record = await this.model.insert(req.body);
       res.status(201).json(record);
     } catch (err) {
-      console.error('Error creating record:', err);
+      if (err.name === 'SchemaDefinitionError') {
+        err.message = 'Invalid input data';
+      }
       handleError(err, res, 'creating', this.errorLabel);
     }
   }
@@ -71,6 +73,10 @@ class BaseController {
       if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.json(updated);
     } catch (err) {
+      if (err.name === 'SchemaDefinitionError') {
+        err.message = 'Invalid input data';
+      }
+
       handleError(err, res, 'updating', this.errorLabel);
     }
   }

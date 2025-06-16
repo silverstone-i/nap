@@ -58,7 +58,9 @@ class NapUsersController extends BaseController {
 
       res.status(201).json({ message: 'User registered successfully' });
     } catch (err) {
-      console.error('Registration error:', err);
+      if (err.name === 'SchemaDefinitionError') {
+        return res.status(400).json({ InvalidInputData: err.cause });
+      }
       res.status(500).json({ message: 'Error registering user' });
     }
   };
