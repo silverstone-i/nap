@@ -16,6 +16,10 @@ import apiRoutes from './apiRoutes.js';
 import cookieParser from 'cookie-parser';
 import { authenticateJwt } from '../modules/tenants/middlewares/authenticateJwt.js';
 
+import logger, { apiLogger } from './utils/logger.js';
+
+import morgan from 'morgan';
+
 const app = express();
 
 // Middleware
@@ -26,38 +30,19 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(cookieParser());
 
-// Morgan + Winston API logging setup
-import morgan from 'morgan';
-import { createLogger, format } from 'winston';
-import DailyRotateFile from 'winston-daily-rotate-file';
-import path from 'path';
-
-// Setup API Logger
-const accessLogDir = path.join(process.cwd(), 'logs/api-logs');
-const apiLogger = createLogger({
-  level: 'info',
-  format: format.combine(format.timestamp(), format.json()),
-  transports: [
-    new DailyRotateFile({
-      filename: path.join(accessLogDir, 'access-%DATE%.log'),
-      datePattern: 'YYYY-MM-DD',
-      maxFiles: '14d',
-      zippedArchive: true,
-    }),
-  ],
-});
-
 // Morgan middleware to write structured logs
 app.use(
   morgan(
     (tokens, req, res) => {
+      console.log('User:', req.user);
+      
       const logData = {
         method: tokens.method(req, res),
         url: tokens.url(req, res),
         statusCode: parseInt(tokens.status(req, res), 10),
         responseTime: parseFloat(tokens['response-time'](req, res)),
         tenantId: req.tenantId || null,
-        userId: req.user?.id || null,
+        userName: req.user?.user_name || null,
       };
       return JSON.stringify(logData);
     },
@@ -65,7 +50,7 @@ app.use(
       stream: {
         write: message => {
           const log = JSON.parse(message);
-          apiLogger.info(log);
+          apiLogger.info('API request log', log);
         },
       },
     }

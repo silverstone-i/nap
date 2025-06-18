@@ -21,8 +21,9 @@ const logDir = path.join(process.cwd(), 'logs');
 const devFormat = format.combine(
   format.colorize(),
   format.timestamp(),
-  format.printf(({ level, message, timestamp }) => {
-    return `[${timestamp}] ${level}: ${message}`;
+  format.printf(({ level, message, timestamp, ...meta }) => {
+    const metaString = Object.keys(meta).length ? JSON.stringify(meta) : '';
+    return `[${timestamp}] ${level}: ${message} ${metaString}`;
   })
 );
 
@@ -46,6 +47,22 @@ const logger = createLogger({
     new DailyRotateFile({
       filename: path.join(logDir, 'combined-%DATE%.log'),
       datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d',
+      zippedArchive: true,
+    }),
+
+  ],
+});
+
+// Dedicated API logger for request logs
+export const apiLogger = createLogger({
+  level: 'info',
+  format: isDevelopment ? devFormat : prodFormat,
+  transports: [
+    new DailyRotateFile({
+      filename: path.join(logDir, 'apiLogs', 'access-%DATE%.log'),
+      datePattern: 'YYYY-MM-DD',
+      level: 'info',
       maxFiles: '14d',
       zippedArchive: true,
     }),

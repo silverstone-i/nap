@@ -12,6 +12,7 @@ import 'dotenv/config';
 
 import { DB } from 'pg-schemata';
 import repositories from './repositories.js';
+import logger from '../utils/logger.js'; 
 
 let DATABASE_URL;
 switch (process.env.NODE_ENV) {
@@ -34,7 +35,9 @@ if (!DATABASE_URL) {
 }
 
 console.log('\nInitializing database connection...');
-DB.init(DATABASE_URL, repositories);
+DB.init(DATABASE_URL, repositories, logger);
+
+
 const rawDb = DB.db;
 const pgp = DB.pgp;
 // console.log('🔧 Loaded model keys:', Object.keys(rawDb));
@@ -50,6 +53,10 @@ function createCallDb(rawDb) {
     }
 
     return model.setSchemaName(schemaName);
+    // if (schemaModel.logger === undefined && logger !== undefined) {
+    //   schemaModel.logger = logger;
+    // }
+    // return schemaModel;
   };
 
   for (const key of Object.keys(rawDb)) {
