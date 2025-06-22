@@ -9,6 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
+/** @type {import('pg-schemata').TableSchema} */
 import { TableModel } from 'pg-schemata';
 import napUsersSchema from '../schemas/napUsersSchema.js';
 import bcrypt from 'bcrypt';
