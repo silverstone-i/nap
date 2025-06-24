@@ -47,7 +47,7 @@ class BaseController {
     }
   }
 
-  async get(req, res) {
+  async getWhere(req, res) {
     try {
       const filters = Object.entries(req.query).map(([key, value]) => ({ [key]: value }));
       const records = await this.model.findWhere(filters);
@@ -104,6 +104,55 @@ class BaseController {
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {
       handleError(err, res, 'restoring', this.errorLabel);
+    }
+  }
+
+  async get(req, res) {
+    try {
+      const result = await this.model.findAfterCursor(req.query);
+      res.json(result);
+    } catch (err) {
+      handleError(err, res, 'fetching', this.errorLabel);
+    }
+  }
+
+  async bulkInsert(req, res) {
+    try {
+      const result = await this.model.bulkInsert(req.body);
+      res.status(201).json(result);
+    } catch (err) {
+      handleError(err, res, 'bulk inserting', this.errorLabel);
+    }
+  }
+
+  async bulkUpdate(req, res) {
+    try {
+      const filters = req.body.filters || [];
+      const updates = req.body.updates || {};
+      const result = await this.model.bulkUpdate(filters, updates);
+      res.status(200).json(result);
+    } catch (err) {
+      handleError(err, res, 'bulk updating', this.errorLabel);
+    }
+  }
+
+  async importXls(req, res) {
+    try {
+      const result = await this.model.importFromSpreadsheet(req.body);
+      res.status(201).json(result);
+    } catch (err) {
+      handleError(err, res, 'importing', this.errorLabel);
+    }
+  }
+
+  async exportXls(req, res) {
+    try {
+      const spreadsheet = await this.model.exportToSpreadsheet(req.body);
+      res.setHeader('Content-Disposition', `attachment; filename="${this.errorLabel}.xlsx"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(spreadsheet);
+    } catch (err) {
+      handleError(err, res, 'exporting', this.errorLabel);
     }
   }
 }

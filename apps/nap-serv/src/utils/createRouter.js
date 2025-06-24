@@ -29,10 +29,14 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     deleteMiddlewares = [],
     patchMiddlewares = [],
     disablePost = false,
-    disableGet = false,
+    disableGetWhere = false,
     disablePut = false,
     disableDelete = false,
     disablePatch = false,
+    disableBulkInsert = false,
+    disableBulkUpdate = false,
+    disableImportXls = false,
+    disableExportXls = false,
   } = options;
 
   const safePostMiddlewares = postMiddlewares.includes(addAuditFields)
@@ -56,14 +60,33 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     router.post('/', ...safePostMiddlewares, (req, res) => controller.create(req, res));
   }
 
-  if (!disableGet) {
+  // Use controller.get for collection GET; disables getWhere path
+  if (!disableGetWhere) {
     router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
+    // router.getWhere('/where', ...getWhereMiddlewares, (req, res) => controller.get(req, res)); // replaced by above
   }
 
   // Health check or diagnostic
   router.get('/ping', (req, res) => {
     res.status(200).json({ message: 'pong' });
   });
+
+  // Bulk and spreadsheet operations
+  if (!disableBulkInsert) {
+    router.post('/bulk-insert', ...safePostMiddlewares, (req, res) => controller.bulkInsert(req, res));
+  }
+
+  if (!disableBulkUpdate) {
+    router.put('/bulk-update', ...safePutMiddlewares, (req, res) => controller.bulkUpdate(req, res));
+  }
+
+  if (!disableImportXls) {
+    router.post('/import-xls', ...safePostMiddlewares, (req, res) => controller.importXls(req, res));
+  }
+
+  if (!disableExportXls) {
+    router.post('/export-xls', (req, res) => controller.exportXls(req, res));
+  }
 
   // Detail routes with optional middleware
   if (!disableGet) {
