@@ -37,7 +37,7 @@ class NapUsersController extends BaseController {
       const tenant = await db('tenants', 'admin').findOneBy([
         {
           tenant_code,
-          is_active: true,
+          deleted_at: {$is: null},
         },
       ]);
 

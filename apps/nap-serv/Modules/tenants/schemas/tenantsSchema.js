@@ -21,7 +21,9 @@ const tenantSchema = {
   dbSchema: 'admin',
   table: 'tenants',
   hasAuditFields: true,
+  softDelete: true,
   version: '0.1.0',
+
   columns: [
     /**
      * Unique tenant identifier (UUID, immutable).
@@ -111,16 +113,6 @@ const tenantSchema = {
       name: 'currency_code',
       type: 'varchar(5)',
       default: `'USD'`,
-      colProps: { skip: c => !c.exists },
-    },
-
-    /**
-     * Indicates whether the tenant is currently active.
-     */
-    {
-      name: 'is_active',
-      type: 'boolean',
-      default: 'true',
       colProps: { skip: c => !c.exists },
     },
 

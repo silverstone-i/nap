@@ -8,6 +8,7 @@ const napUserSchema = {
   table: 'nap_users',
   version: '0.1.0',
   hasAuditFields: true,
+  softDelete: true,
 
   columns: [
     {
@@ -52,13 +53,6 @@ const napUserSchema = {
     {
       name: 'role',
       type: 'varchar(50)',
-      notNull: true,
-      colProps: { skip: c => !c.exists },
-    },
-    {
-      name: 'is_active',
-      type: 'boolean',
-      default: 'true',
       notNull: true,
       colProps: { skip: c => !c.exists },
     },

@@ -20,9 +20,9 @@ class TenantsController extends BaseController {
 
   // Soft delete tenant by marking it as inactive.  Also marks all associated active users as inactive.
   async remove(req, res) {
-    req.body.is_active = false;
+    req.body.deleted_at = Now()
 
-    const filters = [{ is_active: true }, { ...req.query }];
+    const filters = [{ deleted_at: {$is: null} }, { ...req.query }];
 
     try {
       let updated = await this.model.updateWhere(filters, req.body);
@@ -36,9 +36,9 @@ class TenantsController extends BaseController {
   }
 
   async restore(req, res) {
-    req.body.is_active = true;
+    req.body.deleted_at = NULL;
 
-    const filters = [{ is_active: false }, { ...req.query }];
+    const filters = [{deleted_at: { $not: null }}, { ...req.query }];
 
     try {
       let updated = await this.model.updateWhere(filters, req.body);
