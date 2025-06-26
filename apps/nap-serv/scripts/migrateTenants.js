@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db, pgp } from '../db/db.js';
+import { db, pgp } from '../src/db/db.js';
 import { loadViews } from './loadViews.js';
 
 // Extracts table dependencies from model's foreign keys
@@ -193,7 +193,7 @@ async function migrateTenants({
         createdAdminTablesSet.has('admin.nap_users') &&
         createdAdminTablesSet.has('admin.tenants')
       ) {
-        const { bootstrapSuperAdmin } = await import('../../scripts/bootstrapSuperAdmin.js');
+        const { bootstrapSuperAdmin } = await import('./bootstrapSuperAdmin.js');
         await bootstrapSuperAdmin(dbOverride);
       }
 

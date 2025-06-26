@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { db, pgp } from '../db/db.js';
+import { db, pgp } from '../src/db/db.js';
 
 const adminTables = ['tenants', 'napUsers'];
 

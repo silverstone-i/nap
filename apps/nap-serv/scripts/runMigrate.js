@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { migrateTenants } from '../src/utils/migrateTenants.js';
+import { migrateTenants } from './migrateTenants.js';
 /**
  * This script runs the database migration process.
  * It can be executed directly from the command line.
