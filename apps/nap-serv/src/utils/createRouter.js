@@ -29,7 +29,9 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     deleteMiddlewares = [],
     patchMiddlewares = [],
     disablePost = false,
-    disableGetWhere = false,
+    disableGet = false,
+    disableGetWhere = false, // If true, disables the /where endpoint
+    disableGetById = false, // If true, disables the /:id endpoint
     disablePut = false,
     disableDelete = false,
     disablePatch = false,
@@ -60,10 +62,15 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     router.post('/', ...safePostMiddlewares, (req, res) => controller.create(req, res));
   }
 
+  if (!disableGet) {
+    // Use controller.get for collection GET; disables getWhere path
+    router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
+  }
+
   // Use controller.get for collection GET; disables getWhere path
   if (!disableGetWhere) {
-    router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
-    // router.getWhere('/where', ...getWhereMiddlewares, (req, res) => controller.get(req, res)); // replaced by above
+    // router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
+    router.get('/where', ...getMiddlewares, (req, res) => controller.getWhere(req, res));
   }
 
   // Health check or diagnostic
@@ -89,7 +96,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   // Detail routes with optional middleware
-  if (!disableGet) {
+  if (!disableGetById) {
     router.get('/:id', ...getMiddlewares, (req, res) => controller.getById(req, res));
   }
 
