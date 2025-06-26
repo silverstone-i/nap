@@ -16,13 +16,21 @@ export function addAuditFields(req, res, next) {
 
   if (!req.body) req.body = {};
 
-  if (req.method === 'POST') {
-    req.body.created_by = userName;
-  }
+  // Helper to apply audit fields to a single record
+  const applyAuditFields = (record) => {
+    if (req.method === 'POST') {
+      record.created_by = userName;
+    }
+    if (req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
+      record.updated_at = new Date().toISOString();
+      record.updated_by = userName;
+    }
+  };
 
-  if (req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
-    req.body.updated_at = new Date().toISOString();
-    req.body.updated_by = userName;
+  if (Array.isArray(req.body)) {
+    req.body.forEach(applyAuditFields);
+  } else {
+    applyAuditFields(req.body);
   }
 
   next();
