@@ -10,6 +10,7 @@
  */
 
 import { db } from '../db/db.js';
+import logger from './logger.js';
 
 const codeMap = {
   23505: 409, // unique_violation
@@ -36,6 +37,12 @@ class BaseController {
   }
 
   async create(req, res) {
+    logger.info(`[BaseController] create`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const record = await this.model.insert(req.body);
       res.status(201).json(record);
@@ -48,6 +55,12 @@ class BaseController {
   }
 
   async getWhere(req, res) {
+    logger.info(`[BaseController] getWhere`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const filters = Object.entries(req.query).map(([key, value]) => ({ [key]: value }));
       const records = await this.model.findWhere(filters);
@@ -58,6 +71,12 @@ class BaseController {
   }
 
   async getById(req, res) {
+    logger.info(`[BaseController] getById`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const record = await this.model.findById(req.params.id);
       if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
@@ -68,10 +87,22 @@ class BaseController {
   }
 
   async update(req, res) {
+    logger.info(`[BaseController] update`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
-      const updated = await this.model.updateWhere([{ ...req.query }], req.body);
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found` });
-      res.json(updated);
+      const count = await this.model.updateWhere([{ ...req.query }], req.body);
+
+      if (!count) {
+        return res.status(404).json({ error: `${this.errorLabel} not found` });
+      }
+      
+      const id = req.query.id || req.body.id;
+      const updatedRecord = await this.model.findById(id);
+      res.json(updatedRecord);
     } catch (err) {
       if (err.name === 'SchemaDefinitionError') {
         err.message = 'Invalid input data';
@@ -82,6 +113,12 @@ class BaseController {
   }
 
   async remove(req, res) {
+    logger.info(`[BaseController] remove`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     req.body.is_active = false; // Soft delete by marking as inactive
     const filters = [{ is_active: true }, { ...req.query }];
 
@@ -95,6 +132,12 @@ class BaseController {
   }
 
   async restore(req, res) {
+    logger.info(`[BaseController] restore`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     req.body.is_active = true; // Soft delete by marking as inactive
     const filters = [{ is_active: false }, { ...req.query }];
 
@@ -108,6 +151,12 @@ class BaseController {
   }
 
   async get(req, res) {
+    logger.info(`[BaseController] get`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const result = await this.model.findAfterCursor(req.query);
       res.json(result);
@@ -117,6 +166,12 @@ class BaseController {
   }
 
   async bulkInsert(req, res) {
+    logger.info(`[BaseController] bulkInsert`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const result = await this.model.bulkInsert(req.body);
       res.status(201).json(result);
@@ -126,6 +181,12 @@ class BaseController {
   }
 
   async bulkUpdate(req, res) {
+    logger.info(`[BaseController] bulkUpdate`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const filters = req.body.filters || [];
       const updates = req.body.updates || {};
@@ -137,6 +198,12 @@ class BaseController {
   }
 
   async importXls(req, res) {
+    logger.info(`[BaseController] importXls`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const result = await this.model.importFromSpreadsheet(req.body);
       res.status(201).json(result);
@@ -146,6 +213,12 @@ class BaseController {
   }
 
   async exportXls(req, res) {
+    logger.info(`[BaseController] exportXls`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
     try {
       const spreadsheet = await this.model.exportToSpreadsheet(req.body);
       res.setHeader('Content-Disposition', `attachment; filename="${this.errorLabel}.xlsx"`);
