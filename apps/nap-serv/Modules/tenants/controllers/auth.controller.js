@@ -12,7 +12,7 @@
 import passport from '../auth/passport.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwt.js';
 import jwt from 'jsonwebtoken';
-import { callDb as db } from 'pg-schemata';
+import { db } from '../../../src/db/db.js';
 
 export const login = (req, res, next) => {
   passport.authenticate('local', { session: false }, (err, user, info) => {
