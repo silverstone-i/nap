@@ -33,9 +33,7 @@ app.use(cookieParser());
 // Morgan middleware to write structured logs
 app.use(
   morgan(
-    (tokens, req, res) => {
-      console.log('User:', req.user);
-      
+    (tokens, req, res) => {      
       const logData = {
         method: tokens.method(req, res),
         url: tokens.url(req, res),
