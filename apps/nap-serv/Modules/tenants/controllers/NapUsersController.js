@@ -26,6 +26,24 @@ class NapUsersController extends BaseController {
     return super.remove(req, res);
   }
 
+  async restore(req, res) {
+    try {
+      const napUser = await this.model.findOneBy([{ email: req.query.email }], { includeDeactivated: true });
+      if (!napUser) {
+        return res.status(404).json({ message: 'User not found for restore.' });
+      }
+      const tenant = await db('tenants', 'admin').findOneBy([{ tenant_code: napUser.tenant_code }]);
+      if (!tenant) {
+        return res.status(403).json({ message: 'Tenant is deactivated.' });
+      }
+    } catch (err) {
+      console.error('Error finding napUser for restore:', err);
+      return res.status(500).json({ message: 'Error finding napUser for restore.' });
+    }
+
+    return super.restore(req, res);
+  }
+
   register = async (req, res) => {
     const { tenant_code, schema_name, email, password, user_name, role } = req.body;
 
@@ -37,7 +55,7 @@ class NapUsersController extends BaseController {
       const tenant = await db('tenants', 'admin').findOneBy([
         {
           tenant_code,
-          deleted_at: {$is: null},
+          deactivated_at: { $is: null },
         },
       ]);
 

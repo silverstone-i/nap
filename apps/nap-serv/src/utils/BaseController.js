@@ -1,5 +1,6 @@
 'use strict';
 
+import { ClientRequest } from 'http';
 /*
  * Copyright © 2024-present, Ian Silverstone
  *
@@ -20,6 +21,7 @@ const codeMap = {
 
 function handleError(err, res, context, errorLabel) {
   const status = codeMap[err.code] || 500;
+
   console.error(`Error ${context} ${errorLabel}:`, err);
   res.status(status).json({ error: err.message });
 }
@@ -99,10 +101,7 @@ class BaseController {
       if (!count) {
         return res.status(404).json({ error: `${this.errorLabel} not found` });
       }
-      
-      const id = req.query.id || req.body.id;
-      const updatedRecord = await this.model.findById(id);
-      res.json(updatedRecord);
+      res.json({ updatedRecords: count });
     } catch (err) {
       if (err.name === 'SchemaDefinitionError') {
         err.message = 'Invalid input data';
@@ -119,12 +118,13 @@ class BaseController {
       query: req.query,
       body: req.body,
     });
-    req.body.is_active = false; // Soft delete by marking as inactive
-    const filters = [{ is_active: true }, { ...req.query }];
+
+    req.body.deactivated_at = new Date(); // Soft delete by marking as inactive
+    // const filters = [{ deactivated_at: {$is: null} }, { ...req.query }];
 
     try {
-      const updated = await this.model.updateWhere(filters, req.body);
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
+      const count = await this.model.updateWhere(req.query, req.body);
+      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
       handleError(err, res, 'deleting', this.errorLabel);
@@ -138,12 +138,13 @@ class BaseController {
       query: req.query,
       body: req.body,
     });
-    req.body.is_active = true; // Soft delete by marking as inactive
-    const filters = [{ is_active: false }, { ...req.query }];
+    req.body.deactivated_at = null; // Soft delete by marking as inactive
+    const filters = [{deactivated_at: { $not: null }}, { ...req.query }];
 
     try {
-      const updated = await this.model.updateWhere(filters, req.body);
-      if (!updated) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
+      const count = await this.model.updateWhere(filters, req.body, { includeDeactivated: true });
+      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
+      
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {
       handleError(err, res, 'restoring', this.errorLabel);
