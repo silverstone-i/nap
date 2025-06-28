@@ -16,6 +16,7 @@ const testSchema = {
     { name: 'id', type: 'serial' },
     { name: 'name', type: 'varchar(100)', notNull: true },
     { name: 'is_active', type: 'boolean', default: true },
+    { name: 'deactivated_at', type: 'timestamptz' },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -76,11 +77,17 @@ describe('BaseController + createRouter integration', () => {
 
   it('should update a record', async () => {
     const inserted = await db.one("SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('old', 'test-user') RETURNING id");
+    
     const res = await request(app)
       .put('/items/update?id=' + inserted.id)
       .send({ name: 'new' });
+    expect(res.body).not.toBeNull();
     expect(res.statusCode).toBe(200);
-    expect(res.body.name).toBe('new');
+    
+    const getRes = await request(app).get('/items/where?id=' + inserted.id);    
+    expect(getRes.body).toBeDefined();
+    expect(getRes.body).not.toHaveLength(0);
+    expect(getRes.body[0]).toHaveProperty('name', 'new');
   });
 
   it('should soft delete a record', async () => {
@@ -94,7 +101,7 @@ describe('BaseController + createRouter integration', () => {
 
   it('should restore a record', async () => {
     const inserted = await db.one(
-      "SET search_path TO test; INSERT INTO test_items (name, is_active, created_by) VALUES ('inactive', false, 'test-user') RETURNING id"
+      "SET search_path TO test; INSERT INTO test_items (name, is_active, deactivated_at, created_by) VALUES ('inactive', false, now(), 'test-user') RETURNING id"
     );
     const res = await request(app).patch('/items/restore?id=' + inserted.id);
     expect(res.statusCode).toBe(200);

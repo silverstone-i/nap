@@ -92,7 +92,7 @@ describe('BaseController', () => {
       await controller.update(req, res);
 
       expect(modelMock.updateWhere).toHaveBeenCalledWith([{ id: '1' }], { name: 'Updated' });
-      expect(res.json).toHaveBeenCalledWith({ id: '1' });
+      expect(res.json).toHaveBeenCalledWith({ updatedRecords: [{ id: '1' }] });
     });
   });
 
@@ -103,7 +103,9 @@ describe('BaseController', () => {
 
       await controller.remove(req, res);
 
-      expect(modelMock.updateWhere).toHaveBeenCalledWith([{ is_active: true }, { id: 1 }], { is_active: false });
+      expect(modelMock.updateWhere.mock.calls[0][0]).toEqual({ id: 1 });
+      expect(modelMock.updateWhere.mock.calls[0][1].deactivated_at).not.toBeNull();
+      expect(new Date(modelMock.updateWhere.mock.calls[0][1].deactivated_at)).toBeInstanceOf(Date);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ message: 'TestModel marked as inactive' });
     });
@@ -116,7 +118,14 @@ describe('BaseController', () => {
 
       await controller.restore(req, res);
 
-      expect(modelMock.updateWhere).toHaveBeenCalledWith([{ is_active: false }, { id: 1 }], { is_active: true });
+      expect(modelMock.updateWhere).toHaveBeenCalledWith(
+        [
+          { deactivated_at: expect.objectContaining({ $not: null }) },
+          { id: 1 }
+        ],
+        { deactivated_at: null },
+        { includeDeactivated: true }
+      );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ message: 'TestModel marked as active' });
     });
