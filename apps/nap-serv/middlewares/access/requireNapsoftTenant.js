@@ -10,7 +10,7 @@
  */
 
 export function requireNapsoftTenant(req, res, next) {
-  if (req.user.tenant_code.toLowerCase() !== process.env.NAPSOFT_TENANT.toLowerCase()) {
+  if (!req.user || !req.user.tenant_code || req.user.tenant_code.toLowerCase() !== process.env.NAPSOFT_TENANT.toLowerCase()) {
     return res.status(403).json({ message: 'Access denied: not a NapSoft user.' });
   }
   next();
