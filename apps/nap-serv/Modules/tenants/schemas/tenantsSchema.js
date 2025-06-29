@@ -1,23 +1,19 @@
 'use strict';
+// @ts-check
 
 /*
- * Copyright © 2024-present, Ian Silverstone
- *
- * See the LICENSE file at the top-level directory of this distribution
- * for licensing information.
- *
- * Removal or modification of this copyright notice is prohibited.
- */
+* Copyright © 2024-present, Ian Silverstone
+*
+* See the LICENSE file at the top-level directory of this distribution
+* for licensing information.
+*
+* Removal or modification of this copyright notice is prohibited.
+*/
 
-/**
- * Table schema definition for the `admin.tenants` table.
- *
- * Stores core tenant-level information including identity, contact info,
- * default settings, and activation status.
- *
- * @type {import('../types').TableSchema}
- */
-const tenantSchema = {
+/** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
+
+/** @type {TableSchema} */
+const schema = {
   dbSchema: 'admin',
   table: 'tenants',
   hasAuditFields: true,
@@ -161,4 +157,4 @@ const tenantSchema = {
   },
 };
 
-export default tenantSchema;
+export default schema;

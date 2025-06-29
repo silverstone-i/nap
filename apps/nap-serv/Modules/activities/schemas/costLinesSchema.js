@@ -1,19 +1,59 @@
 'use strict';
+// @ts-check
 
 /*
- * Copyright © 2024-present, Ian Silverstone
- *
- * See the LICENSE file at the top-level directory of this distribution
- * for licensing information.
- *
- * Removal or modification of this copyright notice is prohibited.
- */
+* Copyright © 2024-present, Ian Silverstone
+*
+* See the LICENSE file at the top-level directory of this distribution
+* for licensing information.
+*
+* Removal or modification of this copyright notice is prohibited.
+*/
 
+/** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
+
+/** @type {TableSchema} */
 const schema = {
   dbSchema: 'tenantid',
   table: 'cost_lines',
   hasAuditFields: true,
+  softDelete: true,
   version: '1.0.0',
+  columns: [
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuidv7()',
+      nullable: false,
+      immutable: true,
+      colProps: { cnd: true },
+    },
+    { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'company_id', type: 'uuid', nullable: false },
+    {
+      name: 'name',
+      type: 'varchar(64)',
+      nullable: false,
+    },
+    { name: 'deliverable_id', type: 'uuid', nullable: false },
+    { name: 'vendor_id', type: 'uuid', nullable: false },
+    { name: 'activity_id', type: 'uuid', nullable: false },
+    { name: 'budget_id', type: 'uuid', nullable: true },
+    { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
+    { name: 'source_type', type: 'varchar(16)', default: `'material'`, nullable: false }, // e.g., 'material' or 'labor'
+    { name: 'quantity', type: 'numeric(12,4)', nullable: false },
+    { name: 'unit', type: 'varchar(20)', nullable: true },
+    { name: 'unit_price', type: 'numeric(12,4)', nullable: false },
+    { name: 'amount', type: 'numeric(12,2)', generated: '(quantity * unit_price)', stored: true },
+    { name: 'markup_pct', type: 'numeric(5,2)', nullable: true },
+    { name: 'assembly_code', type: 'varchar(16)', nullable: true },
+    {
+      name: 'status',
+      type: 'varchar(20)',
+      nullable: false,
+      default: `'draft'`,
+    },
+  ],
   constraints: {
     primaryKey: ['id'],
     foreignKeys: [
@@ -85,42 +125,6 @@ const schema = {
       },
     ],
   },
-
-  columns: [
-    {
-      name: 'id',
-      type: 'uuid',
-      default: 'uuidv7()',
-      nullable: false,
-      immutable: true,
-      colProps: { cnd: true },
-    },
-    { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'company_id', type: 'uuid', nullable: false },
-    {
-      name: 'name',
-      type: 'varchar(64)',
-      nullable: false,
-    },
-    { name: 'deliverable_id', type: 'uuid', nullable: false },
-    { name: 'vendor_id', type: 'uuid', nullable: false },
-    { name: 'activity_id', type: 'uuid', nullable: false },
-    { name: 'budget_id', type: 'uuid', nullable: true },
-    { name: 'tenant_sku', type: 'varchar(64)', nullable: true },
-    { name: 'source_type', type: 'varchar(16)', default: `'material'`, nullable: false }, // e.g., 'material' or 'labor'
-    { name: 'quantity', type: 'numeric(12,4)', nullable: false },
-    { name: 'unit', type: 'varchar(20)', nullable: true },
-    { name: 'unit_price', type: 'numeric(12,4)', nullable: false },
-    { name: 'amount', type: 'numeric(12,2)', generated: '(quantity * unit_price)', stored: true },
-    { name: 'markup_pct', type: 'numeric(5,2)', nullable: true },
-    { name: 'assembly_code', type: 'varchar(16)', nullable: true },
-    {
-      name: 'status',
-      type: 'varchar(20)',
-      nullable: false,
-      default: `'draft'`,
-    },
-  ],
 };
 
 export default schema;

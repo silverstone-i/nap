@@ -1,15 +1,24 @@
-/**
- * @typedef {import('../../../db/typedefs.js').TableSchema} TableSchema
- */
+'use strict';
+// @ts-check
+
+/*
+* Copyright © 2024-present, Ian Silverstone
+*
+* See the LICENSE file at the top-level directory of this distribution
+* for licensing information.
+*
+* Removal or modification of this copyright notice is prohibited.
+*/
+
+/** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
 /** @type {TableSchema} */
-const napUserSchema = {
+const schema = {
   dbSchema: 'admin',
   table: 'nap_users',
   version: '0.1.0',
   hasAuditFields: true,
   softDelete: true,
-
   columns: [
     {
       name: 'id',
@@ -57,7 +66,6 @@ const napUserSchema = {
       colProps: { skip: c => !c.exists },
     },
   ],
-
   constraints: {
     primaryKey: ['id'],
     unique: [['email']],
@@ -85,4 +93,4 @@ const napUserSchema = {
   },
 };
 
-export default napUserSchema;
+export default schema;

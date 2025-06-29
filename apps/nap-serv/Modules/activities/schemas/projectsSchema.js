@@ -1,19 +1,49 @@
 'use strict';
+// @ts-check
 
 /*
- * Copyright © 2024-present, Ian Silverstone
- *
- * See the LICENSE file at the top-level directory of this distribution
- * for licensing information.
- *
- * Removal or modification of this copyright notice is prohibited.
- */
+* Copyright © 2024-present, Ian Silverstone
+*
+* See the LICENSE file at the top-level directory of this distribution
+* for licensing information.
+*
+* Removal or modification of this copyright notice is prohibited.
+*/
 
+/** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
+
+/** @type {TableSchema} */
 const schema = {
   dbSchema: 'tenantid',
   table: 'projects',
   hasAuditFields: true,
+  softDelete: true,
   version: '1.1.0',
+  columns: [
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuidv7()',
+      nullable: false,
+      immutable: true,
+      colProps: { cnd: true },
+    },
+    { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'company_id', type: 'uuid', nullable: false },
+
+    { name: 'project_code', type: 'varchar(32)', nullable: false },
+    { name: 'name', type: 'varchar(255)', nullable: false },
+    { name: 'client_id', type: 'uuid', nullable: true },
+    { name: 'address_id', type: 'uuid', nullable: true },
+    { name: 'description', type: 'text', nullable: true },
+    { name: 'notes', type: 'text', nullable: true },
+    {
+      name: 'status',
+      type: 'varchar(20)',
+      default: `'planning'`,
+      nullable: false,
+    },
+  ],
   constraints: {
     primaryKey: ['id'],
     foreignKeys: [
@@ -49,31 +79,6 @@ const schema = {
       },
     ],
   },
-  columns: [
-    {
-      name: 'id',
-      type: 'uuid',
-      default: 'uuidv7()',
-      nullable: false,
-      immutable: true,
-      colProps: { cnd: true },
-    },
-    { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'company_id', type: 'uuid', nullable: false },
-
-    { name: 'project_code', type: 'varchar(32)', nullable: false },
-    { name: 'name', type: 'varchar(255)', nullable: false },
-    { name: 'client_id', type: 'uuid', nullable: true },
-    { name: 'address_id', type: 'uuid', nullable: true },
-    { name: 'description', type: 'text', nullable: true },
-    { name: 'notes', type: 'text', nullable: true },
-    {
-      name: 'status',
-      type: 'varchar(20)',
-      default: `'planning'`,
-      nullable: false,
-    },
-  ],
 };
 
 export default schema;
