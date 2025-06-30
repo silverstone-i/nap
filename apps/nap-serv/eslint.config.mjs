@@ -30,7 +30,6 @@ export default [
         beforeEach: true,
         afterEach: true,
         it: true,
-        jest: true,
       },
     },
     rules: {
