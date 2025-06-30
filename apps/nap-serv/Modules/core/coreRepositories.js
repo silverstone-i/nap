@@ -13,11 +13,13 @@ import Vendors from './models/Vendors.js';
 import Contacts from './models/Contacts.js';
 import Addresses from './models/Addresses.js';
 import InterCompanies from './models/InterCompanies.js';
+import Clients from './models/Clients.js';
 
 const repositories = {
   vendors: Vendors,
   contacts: Contacts,
   addresses: Addresses,
   interCompanies: InterCompanies,
+  clients: Clients,
 };
 export default repositories;
