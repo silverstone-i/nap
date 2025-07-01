@@ -100,11 +100,13 @@ function writeDependencyGraph(models, sortedKeys) {
 }
 
 async function migrateTenants({
-  schemaList = ['tenantid'],
+  schemaList = [],
   dbOverride = db,
   pgpOverride = pgp,
   testFlag = false,
 } = {}) {
+  console.log('schemaList:', schemaList);
+  
   // Check if schema exists in the database
   async function schemaExists(schemaName) {
     const result = await dbOverride.oneOrNone(
@@ -118,22 +120,28 @@ async function migrateTenants({
   const adminTables = ['admin.tenants', 'admin.nap_users'];
   let validModels = {};
   try {
-    // Ensure 'admin' is never part of schemaList
-    if (schemaList.includes('admin')) {
-      schemaList.push('admin');
-    }
+    // Check if we need to create the admin tables
+    // Rule 1: remove 'admin' if it exists in both schema and list
+    // Rule 2: add 'admin' if it doesn't exist in schema and isn't in the list
+    // Rule 3: do nothing if !exists && already in the list
 
-    // Ensure 'admin' is included the schema does not already exist
     const exists = await schemaExists('admin');
-    if (!exists) {
-      schemaList.unshift('admin');
-    }
+    const index = schemaList.indexOf('admin');
 
+    if (exists && index !== -1) {
+      schemaList.splice(index, 1); // Rule 1
+    } else if (!exists && index === -1) {
+      schemaList.unshift('admin'); // Rule 2
+    }
+    // Rule 3: list remains unchanged
+
+    // Drop all schemas except 'admin'
     for (const schemaName of schemaList) {
       if (schemaName !== 'admin') {
         await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE;`);
       }
     }
+
     for (const schemaName of schemaList) {
       const createdAdminTables = new Set();
 
@@ -178,7 +186,7 @@ async function migrateTenants({
         const isAdminTable = model.schema.dbSchema === 'admin';
         if (model?.constructor?.isViewModel) continue;
         if (isAdminTable && !allowedAdminTables.has(key)) continue;
-        console.log(`🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`);
+        // console.log(`🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`);
         await dbOverride(model, schemaName).createTable();
         if (schemaName === 'admin') {
           createdAdminTables.add(key);
@@ -197,8 +205,8 @@ async function migrateTenants({
         await bootstrapSuperAdmin(dbOverride);
       }
 
-      await loadViews(dbOverride, schemaName);
-      console.log(`Views loaded for schema: ${schemaName}`);
+      // await loadViews(dbOverride, schemaName);
+      // console.log(`Views loaded for schema: ${schemaName}`);
     }
   } catch (error) {
     console.error('Error during migration:', error.message);

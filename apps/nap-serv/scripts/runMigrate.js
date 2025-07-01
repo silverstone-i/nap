@@ -25,6 +25,9 @@ import { migrateTenants } from './migrateTenants.js';
 const args = process.argv.slice(2);
 const testFlag = process.env.NODE_ENV === 'test' || args.includes('--test');
 const schemaList = args.filter(arg => !arg.startsWith('--'));
+console.log('Running migration with the following parameters:');
+console.log(`  Test mode: ${testFlag}`);
+console.log(`  Schemas: ${schemaList.length > 0 ? schemaList.join(', ') : 'all'}`); 
 
 (async () => {
   try {
