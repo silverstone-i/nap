@@ -15,8 +15,8 @@ import { TableModel } from 'pg-schemata';
 import clientsSchema from '../schemas/clientsSchema.js';
 
 class Clients extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, clientsSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, clientsSchema, logger);
   }
 }
 

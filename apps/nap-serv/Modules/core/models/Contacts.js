@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import contactsSchema from '../schemas/contactsSchema.js';
 
 class Contacts extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, contactsSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, contactsSchema, logger);
   }
 }
 export default Contacts;

@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import vendorsSchema from '../schemas/vendorsSchema.js';
 
 class Vendors extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, vendorsSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, vendorsSchema, logger);
   }
 }
 export default Vendors;

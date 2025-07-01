@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import changeOrdersSchema from '../schemas/changeOrdersSchema.js';
 
 class ChangeOrders extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, changeOrdersSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, changeOrdersSchema, logger);
   }
 }
 

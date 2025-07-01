@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import costItemsSchema from '../schemas/costItemsSchema.js';
 
 class CostItems extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, costItemsSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, costItemsSchema, logger);
   }
 }
 

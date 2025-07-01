@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import projectsSchema from '../schemas/projectsSchema.js';
 
 class Projects extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, projectsSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, projectsSchema, logger);
   }
 }
 

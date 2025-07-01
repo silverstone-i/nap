@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import addressesSchema from '../schemas/addressesSchema.js';
 
 class Addresses extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, addressesSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, addressesSchema, logger);
   }
 }
 export default Addresses;

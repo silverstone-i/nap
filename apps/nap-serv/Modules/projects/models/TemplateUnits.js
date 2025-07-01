@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import templateUnitsSchema from '../schemas/templateUnitsSchema.js';
 
 class TemplateUnits extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, unitTemplatesSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, templateUnitsSchema, logger);
   }
 }
 

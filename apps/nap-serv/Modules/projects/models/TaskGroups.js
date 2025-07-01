@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import taskGroupsSchema from '../schemas/taskGroupsSchema.js';
 
 class TaskGroups extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, taskGroupsSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, taskGroupsSchema, logger);
   }
 }
 

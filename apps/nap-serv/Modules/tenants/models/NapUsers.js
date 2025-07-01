@@ -15,7 +15,7 @@ import napUsersSchema from '../schemas/napUsersSchema.js';
 import bcrypt from 'bcrypt';
 
 class NapUsers extends TableModel {
-  constructor(db, pgp, logger) {
+  constructor(db, pgp, logger = null) {
     super(db, pgp, napUsersSchema, logger);
   }
 

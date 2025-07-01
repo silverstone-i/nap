@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import templateChangeOrdersSchema from '../schemas/templateChangeOrdersSchema.js';
 
 class TemplateChangeOrders extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, templateChangeOrdersSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, templateChangeOrdersSchema, logger);
   }
 }
 

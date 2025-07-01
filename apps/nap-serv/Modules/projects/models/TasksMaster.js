@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import tasksMasterSchema from '../schemas/tasksMasterSchema.js';
 
 class TasksMaster extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, tasksMasterSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, tasksMasterSchema, logger);
   }
 }
 

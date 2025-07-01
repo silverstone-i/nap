@@ -13,8 +13,8 @@ import { TableModel } from 'pg-schemata';
 import tenantsSchema from '../schemas/tenantsSchema.js';
 
 class Tenants extends TableModel {
-  constructor(db, pgp) {
-    super(db, pgp, tenantsSchema);
+  constructor(db, pgp, logger = null) {
+    super(db, pgp, tenantsSchema, logger);
   }
 
   async getAllowedModulesById(tenantId) {
