@@ -20,11 +20,11 @@ const schema = {
   softDelete: true,
 
   columns: [
-    { name: 'id', type: 'uuid', nullable: false, default: 'gen_random_uuid()', immutable: true },
-    { name: 'tenant_code', type: 'varchar(6)', nullable: false, colProps: { skip: c => !c.exists } },
-    { name: 'unit_id', type: 'uuid', nullable: false },
-    { name: 'name', type: 'varchar(150)', nullable: false },
-    { name: 'sequence', type: 'integer', nullable: true },
+    { name: 'id', type: 'uuid', notNull: true, default: 'gen_random_uuid()', immutable: true },
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } },
+    { name: 'unit_id', type: 'uuid', notNull: true },
+    { name: 'name', type: 'varchar(150)', notNull: true },
+    { name: 'sequence', type: 'integer' },
     { name: 'description', type: 'text', default: null },
   ],
 

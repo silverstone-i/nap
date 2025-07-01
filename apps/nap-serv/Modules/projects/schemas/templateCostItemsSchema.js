@@ -23,30 +23,29 @@ const schema = {
     {
       name: 'id',
       type: 'uuid',
-      nullable: false,
+      notNull: true,
       immutable: true,
       default: 'gen_random_uuid()',
     },
     {
       name: 'tenant_code',
       type: 'varchar(6)',
-      nullable: false,
+      notNull: true,
       colProps: { skip: c => !c.exists },
     },
     {
       name: 'template_task_id',
       type: 'uuid',
-      nullable: false,
+      notNull: true,
     },
     {
       name: 'parent_id',
       type: 'uuid',
-      nullable: true,
     },
     {
       name: 'type',
       type: 'varchar(20)',
-      nullable: false,
+      notNull: true,
     },
     {
       name: 'description',
@@ -56,17 +55,14 @@ const schema = {
     {
       name: 'quantity',
       type: 'numeric',
-      nullable: true,
     },
     {
       name: 'unit_cost',
       type: 'numeric',
-      nullable: true,
     },
     {
       name: 'amount',
       type: 'numeric',
-      nullable: true,
     },
   ],
 
