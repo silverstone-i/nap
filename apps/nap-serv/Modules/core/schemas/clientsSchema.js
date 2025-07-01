@@ -13,7 +13,7 @@
 
 /** @type {TableSchema} */
 const schema = {
-  dbSchema: 'core',
+  dbSchema: 'tenantid',
   table: 'clients',
   version: '0.1.0',
   hasAuditFields: true,
