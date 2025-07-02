@@ -30,12 +30,19 @@ class BaseController {
   constructor(modelName, errorLabel = null) {
     // console.log('Model Name:', typeof modelName === 'string' ? modelName : modelName.name);
 
-    this.model = db[modelName];
+    this.modelName = modelName;
     // console.log('Model typeof:', typeof this.model);
 
-    const schema = this.model?.schema || {};
-    this.errorLabel = errorLabel ?? schema.table ?? modelName;
+    // const schema = this.model?.schema || {};
+    this.errorLabel = errorLabel ?? modelName;
     // console.log('Error Label:', this.errorLabel);
+  }
+
+  model(schemaName) {
+    if (!schemaName) throw new Error('schemaName is required');
+    const model = db(this.modelName, schemaName);
+    if (!model) throw new Error(`Model '${this.modelName}' not found for schema '${schemaName}'`);
+    return model;
   }
 
   async create(req, res) {
@@ -46,7 +53,7 @@ class BaseController {
       body: req.body,
     });
     try {
-      const record = await this.model.insert(req.body);
+      const record = await this.model(req.schema).insert(req.body);
       res.status(201).json(record);
     } catch (err) {
       if (err.name === 'SchemaDefinitionError') {
@@ -65,7 +72,7 @@ class BaseController {
     });
     try {
       const filters = Object.entries(req.query).map(([key, value]) => ({ [key]: value }));
-      const records = await this.model.findWhere(filters);
+      const records = await this.model(req.schema).findWhere(filters);
       res.json(records);
     } catch (err) {
       handleError(err, res, 'fetching', this.errorLabel);
@@ -80,7 +87,7 @@ class BaseController {
       body: req.body,
     });
     try {
-      const record = await this.model.findById(req.params.id);
+      const record = await this.model(req.schema).findById(req.params.id);
       if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.json(record);
     } catch (err) {
@@ -96,7 +103,7 @@ class BaseController {
       body: req.body,
     });
     try {
-      const count = await this.model.updateWhere([{ ...req.query }], req.body);
+      const count = await this.model(req.schema).updateWhere([{ ...req.query }], req.body);
 
       if (!count) {
         return res.status(404).json({ error: `${this.errorLabel} not found` });
@@ -123,7 +130,7 @@ class BaseController {
     // const filters = [{ deactivated_at: {$is: null} }, { ...req.query }];
 
     try {
-      const count = await this.model.updateWhere(req.query, req.body);
+      const count = await this.model(req.schema).updateWhere(req.query, req.body);
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
@@ -142,7 +149,7 @@ class BaseController {
     const filters = [{deactivated_at: { $not: null }}, { ...req.query }];
 
     try {
-      const count = await this.model.updateWhere(filters, req.body, { includeDeactivated: true });
+      const count = await this.model(req.schema).updateWhere(filters, req.body, { includeDeactivated: true });
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
       
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
@@ -159,7 +166,7 @@ class BaseController {
       body: req.body,
     });
     try {
-      const result = await this.model.findAfterCursor(req.query);
+      const result = await this.model(req.schema).findAfterCursor(req.query);
       res.json(result);
     } catch (err) {
       handleError(err, res, 'fetching', this.errorLabel);
@@ -174,7 +181,7 @@ class BaseController {
       body: req.body,
     });
     try {
-      const result = await this.model.bulkInsert(req.body);
+      const result = await this.model(req.schema).bulkInsert(req.body);
       res.status(201).json(result);
     } catch (err) {
       handleError(err, res, 'bulk inserting', this.errorLabel);
@@ -191,7 +198,7 @@ class BaseController {
     try {
       const filters = req.body.filters || [];
       const updates = req.body.updates || {};
-      const result = await this.model.bulkUpdate(filters, updates);
+      const result = await this.model(req.schema).bulkUpdate(filters, updates);
       res.status(200).json(result);
     } catch (err) {
       handleError(err, res, 'bulk updating', this.errorLabel);
@@ -206,7 +213,7 @@ class BaseController {
       body: req.body,
     });
     try {
-      const result = await this.model.importFromSpreadsheet(req.body);
+      const result = await this.model(req.schema).importFromSpreadsheet(req.body);
       res.status(201).json(result);
     } catch (err) {
       handleError(err, res, 'importing', this.errorLabel);
@@ -221,7 +228,7 @@ class BaseController {
       body: req.body,
     });
     try {
-      const spreadsheet = await this.model.exportToSpreadsheet(req.body);
+      const spreadsheet = await this.model(req.schema).exportToSpreadsheet(req.body);
       res.setHeader('Content-Disposition', `attachment; filename="${this.errorLabel}.xlsx"`);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.send(spreadsheet);
