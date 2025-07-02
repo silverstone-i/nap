@@ -6,7 +6,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 /** Stub controller that overrides all methods for contract testing */
 class StubController extends BaseController {
   constructor() {
-    super();
+    super('StubModel');
     this.model = {}; // model is unused in stubs
   }
 

@@ -1,10 +1,11 @@
 import request from 'supertest';
 import express from 'express';
-import { db, pgp } from '../../../src/db/db.js';
+import { db, pgp, DB } from '../../../src/db/db.js';
 import dotenv from 'dotenv';
 import { TableModel } from 'pg-schemata';
 import BaseController from '../../../src/utils/BaseController.js';
 import createRouter from '../../../src/utils/createRouter.js';
+import { it } from 'vitest';
 
 dotenv.config();
 
@@ -37,9 +38,12 @@ describe('BaseController + createRouter integration', () => {
     await db.none('DROP SCHEMA IF EXISTS test CASCADE; CREATE SCHEMA test');
 
     try {
-      model = new TestItemModel(db, pgp);
-      await model.createTable();
-      db['testItem'] = model; // assign to db under name used by BaseController
+      db['testItem'] = (schema) => {
+        return new TestItemModel(DB.db, pgp);
+      };
+      model = db.testItem;
+      
+      await model('test').createTable();
     } catch (err) {
       console.error('Error creating test table:', err);
       throw err;
@@ -56,6 +60,8 @@ describe('BaseController + createRouter integration', () => {
         user_name: 'test-user',
         email: 'test@example.com',
       };
+      req.schema = 'test'; // Set schema for BaseController to use
+
       next();
     });
     app.use('/items', router);
@@ -76,15 +82,17 @@ describe('BaseController + createRouter integration', () => {
   });
 
   it('should update a record', async () => {
-    const inserted = await db.one("SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('old', 'test-user') RETURNING id");
-    
+    const inserted = await db.one(
+      "SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('old', 'test-user') RETURNING id"
+    );
+
     const res = await request(app)
       .put('/items/update?id=' + inserted.id)
       .send({ name: 'new' });
     expect(res.body).not.toBeNull();
     expect(res.statusCode).toBe(200);
-    
-    const getRes = await request(app).get('/items/where?id=' + inserted.id);    
+
+    const getRes = await request(app).get('/items/where?id=' + inserted.id);
     expect(getRes.body).toBeDefined();
     expect(getRes.body).not.toHaveLength(0);
     expect(getRes.body[0]).toHaveProperty('name', 'new');

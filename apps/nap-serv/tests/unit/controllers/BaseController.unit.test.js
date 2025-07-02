@@ -1,6 +1,23 @@
-vi.mock('../../../src/db/db.js', () => ({
-  db: { TestModel: {} },
-}));
+vi.mock('../../../src/db/db.js', () => {
+  const modelMock = {
+    insert: vi.fn(),
+    findWhere: vi.fn(),
+    findById: vi.fn(),
+    updateWhere: vi.fn(),
+    findAfterCursor: vi.fn(),
+    bulkInsert: vi.fn(),
+    bulkUpdate: vi.fn(),
+    importFromSpreadsheet: vi.fn(),
+    exportToSpreadsheet: vi.fn(),
+    schema: { table: 'TestModel' },
+    setSchemaName: vi.fn().mockReturnThis(),
+  };
+
+  const dbFn = vi.fn().mockReturnValue(modelMock);
+  dbFn.TestModel = modelMock;
+
+  return { db: dbFn };
+});
 
 import { db } from '../../../src/db/db.js';
 import { describe, it, vi, beforeEach, expect } from 'vitest';
@@ -10,28 +27,16 @@ describe('BaseController', () => {
   let controller, modelMock, req, res;
 
   beforeEach(() => {
-    modelMock = {
-      insert: vi.fn(),
-      findWhere: vi.fn(),
-      findById: vi.fn(),
-      updateWhere: vi.fn(),
-      findAfterCursor: vi.fn(),
-      bulkInsert: vi.fn(),
-      bulkUpdate: vi.fn(),
-      importFromSpreadsheet: vi.fn(),
-      exportToSpreadsheet: vi.fn(),
-      schema: { table: 'TestModel' },
-    };
-
-    db.TestModel = modelMock;
     controller = new BaseController('TestModel');
+    controller.model = (schema) => db('TestModel', schema);
+    modelMock = db('TestModel', 'test');
 
-    req = { body: {}, query: {}, params: {} };
+    req = { body: {}, query: {}, params: {}, schema: 'test' };
     res = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn(),
       send: vi.fn(),
-      setHeader: vi.fn()
+      setHeader: vi.fn(),
     };
   });
 
@@ -103,7 +108,7 @@ describe('BaseController', () => {
 
       await controller.remove(req, res);
 
-      expect(modelMock.updateWhere.mock.calls[0][0]).toEqual({ id: 1 });
+      expect(modelMock.updateWhere.mock.calls[0][0]).toEqual([{ id: "1" }]);
       expect(modelMock.updateWhere.mock.calls[0][1].deactivated_at).not.toBeNull();
       expect(new Date(modelMock.updateWhere.mock.calls[0][1].deactivated_at)).toBeInstanceOf(Date);
       expect(res.status).toHaveBeenCalledWith(200);
@@ -119,10 +124,7 @@ describe('BaseController', () => {
       await controller.restore(req, res);
 
       expect(modelMock.updateWhere).toHaveBeenCalledWith(
-        [
-          { deactivated_at: expect.objectContaining({ $not: null }) },
-          { id: 1 }
-        ],
+        [{ deactivated_at: expect.objectContaining({ $not: null }) }, { id: 1 }],
         { deactivated_at: null },
         { includeDeactivated: true }
       );
@@ -161,7 +163,7 @@ describe('BaseController', () => {
       modelMock.bulkUpdate.mockResolvedValue({ updated: 2 });
       req.body = {
         filters: [{ is_active: true }],
-        updates: { name: 'updated' }
+        updates: { name: 'updated' },
       };
 
       await controller.bulkUpdate(req, res);
@@ -195,7 +197,10 @@ describe('BaseController', () => {
 
       expect(modelMock.exportToSpreadsheet).toHaveBeenCalledWith(req.body);
       expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="TestModel.xlsx"');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
       expect(res.send).toHaveBeenCalledWith(buffer);
     });
   });

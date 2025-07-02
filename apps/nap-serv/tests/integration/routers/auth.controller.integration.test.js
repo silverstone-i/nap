@@ -1,4 +1,3 @@
-import db from '../../../src/db/db.js';
 import request from 'supertest';
 import app from '../../../src/app.js';
 import { describe, it, expect, beforeAll } from 'vitest';
