@@ -23,7 +23,7 @@ const schema = {
     {
       name: 'id',
       type: 'uuid',
-      default: 'uuid_generate_v4()',
+      default: 'uuidv7()',
       notNull: true,
       immutable: true,
     },
