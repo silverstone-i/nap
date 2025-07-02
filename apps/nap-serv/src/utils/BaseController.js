@@ -28,14 +28,13 @@ function handleError(err, res, context, errorLabel) {
 
 class BaseController {
   constructor(modelName, errorLabel = null) {
-    // console.log('Model Name:', typeof modelName === 'string' ? modelName : modelName.name);
+    if (typeof modelName !== 'string') {
+      throw new Error('Invalid model name');
+    }
 
+    this.model = db[modelName];
     this.modelName = modelName;
-    // console.log('Model typeof:', typeof this.model);
-
-    // const schema = this.model?.schema || {};
     this.errorLabel = errorLabel ?? modelName;
-    // console.log('Error Label:', this.errorLabel);
   }
 
   model(schemaName) {
@@ -46,12 +45,6 @@ class BaseController {
   }
 
   async create(req, res) {
-    logger.info(`[BaseController] create`, {
-      model: this.errorLabel,
-      user: req.user?.email,
-      query: req.query,
-      body: req.body,
-    });
     try {
       const record = await this.model(req.schema).insert(req.body);
       res.status(201).json(record);
