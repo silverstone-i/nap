@@ -21,7 +21,7 @@ export const generateAccessToken = user => {
       user_name: user.user_name,
       tenant_code: user.tenant_code,
       role: user.role,
-      schema_name: user.tenant_code?.toLowerCase() || null,
+      schema_name: user.schema_name?.toLowerCase() || user.tenant_code?.toLowerCase() || null,
     },
     ACCESS_TOKEN_SECRET,
     { expiresIn: '15m' }
