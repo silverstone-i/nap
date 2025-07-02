@@ -1,6 +1,6 @@
 
 
-import { db } from '../../../db/db.js';
+import db from '../../../src/db/db.js';
 
 export async function getAllSchemas(req, res) {
   try {

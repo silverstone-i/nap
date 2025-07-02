@@ -4,8 +4,7 @@ import authenticateJwt from '../../middlewares/authenticateJwt.js';
 
 const router = express.Router();
 
-router.use(authenticateJwt);
-
+// router.use(authenticateJwt);
 router.get('/schemas', getAllSchemas);
 router.post('/switch-schema/:schema', switchSchema);
 
