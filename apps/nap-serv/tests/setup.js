@@ -1,4 +1,4 @@
-import { generateTestToken } from './util/tokenUtil.js';
+import { generateTestToken } from './util/testHelpers.js';
 
 const superAdminToken = generateTestToken({ role: 'super_admin' });
 const regularUserToken = generateTestToken({ role: 'user' });
