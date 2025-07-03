@@ -1,3 +1,7 @@
 import { generateTestToken } from './util/tokenUtil.js';
 
-process.env.TEST_JWT = generateTestToken();
+const superAdminToken = generateTestToken({ role: 'super_admin' });
+const regularUserToken = generateTestToken({ role: 'user' });
+
+process.env.TEST_SUPER_ADMIN_JWT = superAdminToken;
+process.env.TEST_REGULAR_USER_JWT = regularUserToken;
