@@ -1,11 +1,10 @@
-
-
 import db from '../../../src/db/db.js';
 
 export async function getAllSchemas(req, res) {
   try {
-    const tenants = await db('tenants', 'admin').findAll();
-    const schemas = tenants.map(t => t.tenant_code.toLowerCase());
+    const tenants = await db('tenants', 'admin').findAll();    
+    const schemas = Array.from(new Set(['admin', ...tenants.map(t => t.tenant_code.toLowerCase())]));
+
     res.json(schemas);
   } catch (err) {
     res.status(500).json({ error: err.message });
