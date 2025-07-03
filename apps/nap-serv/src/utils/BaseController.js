@@ -32,13 +32,13 @@ class BaseController {
       throw new Error('Invalid model name');
     }
 
-    this.model = db[modelName];
     this.modelName = modelName;
     this.errorLabel = errorLabel ?? modelName;
   }
 
   model(schemaName) {
     if (!schemaName) throw new Error('schemaName is required');
+
     const model = db(this.modelName, schemaName);
     if (!model) throw new Error(`Model '${this.modelName}' not found for schema '${schemaName}'`);
     return model;

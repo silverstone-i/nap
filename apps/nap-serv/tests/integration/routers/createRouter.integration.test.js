@@ -38,11 +38,13 @@ describe('BaseController + createRouter integration', () => {
     await db.none('DROP SCHEMA IF EXISTS test CASCADE; CREATE SCHEMA test');
 
     try {
-      db['testItem'] = (schema) => {
+      db['testItem'] = schema => {
         return new TestItemModel(DB.db, pgp);
       };
       model = db.testItem;
-      
+
+      DB.db['testItem'] = new TestItemModel(DB.db, pgp);
+
       await model('test').createTable();
     } catch (err) {
       console.error('Error creating test table:', err);
@@ -66,6 +68,9 @@ describe('BaseController + createRouter integration', () => {
     });
     app.use('/items', router);
   });
+
+  // it('should pass '), async () => {
+  // }
 
   it('should create a record', async () => {
     const res = await request(app).post('/items').send({ name: 'example' });
