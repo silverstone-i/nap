@@ -78,6 +78,7 @@ const schema = {
         onDelete: 'cascade',
       },
     ],
+    unique: [['name']],
   },
 };
 

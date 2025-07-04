@@ -21,8 +21,8 @@ const schema = {
 
   columns: [
     { name: 'id', type: 'uuid', notNull: true, default: 'uuidv7()', immutable: true },
-    { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } },
-    { name: 'unit_id', type: 'uuid', notNull: true },
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true },
+    { name: 'code', type: 'varchar(50)', notNull: true },
     { name: 'name', type: 'varchar(150)', notNull: true },
     { name: 'sequence', type: 'integer' },
     { name: 'description', type: 'text', default: null },
@@ -30,17 +30,7 @@ const schema = {
 
   constraints: {
     primaryKey: ['id'],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['unit_id'],
-        references: {
-          table: 'units',
-          columns: ['id'],
-        },
-        onDelete: 'cascade',
-      },
-    ],
+    unique: [['code'], ['name']],
   },
 };
 
