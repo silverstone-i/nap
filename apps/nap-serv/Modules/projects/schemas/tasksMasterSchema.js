@@ -23,10 +23,10 @@ const schema = {
     { name: 'id', type: 'uuid', notNull: true, default: 'uuidv7()', immutable: true },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Used for filtering/partitioning but not for indexing or uniqueness
     { name: 'code', type: 'varchar(50)', notNull: true },
-    { name: 'name', type: 'varchar(150)', notNull: true },
     { name: 'description', type: 'text', default: null },
+    { name: 'name', type: 'varchar(150)', notNull: true },
     { name: 'is_active', type: 'boolean', default: true },
-    { name: 'task_group_id', type: 'uuid', notNull: true },
+    { name: 'task_group_code', type: 'varchar(50)', notNull: true },
   ],
 
   constraints: {
@@ -35,10 +35,10 @@ const schema = {
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['task_group_id'],
+        columns: ['task_group_code'],
         references: {
           table: 'task_groups',
-          columns: ['id'],
+          columns: ['code'],
         },
         onDelete: 'restrict',
       },

@@ -25,7 +25,6 @@ const schema = {
     { name: 'code', type: 'varchar(50)', notNull: true },
     { name: 'name', type: 'varchar(150)', notNull: true },
     { name: 'sequence', type: 'integer' },
-    { name: 'description', type: 'text', default: null },
   ],
 
   constraints: {
