@@ -1,13 +1,13 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
 import fs from 'fs';
 import path from 'path';
@@ -39,6 +39,19 @@ const apiMap = {
     'v1/journal-entry-lines',
     'v1/ledger-balances',
     'v1/posting-queues',
+  ],
+  projects: [
+    '/v1/projects',
+    '/v1/units',
+    '/v1/template-units',
+    '/v1/template-tasks',
+    '/v1/template-cost-items',
+    '/v1/template-change-orders',
+    '/v1/tasks',
+    '/v1/task-groups',
+    '/v1/tasks-master',
+    '/v1/cost-items',
+    '/v1/change-orders',
   ],
 };
 
