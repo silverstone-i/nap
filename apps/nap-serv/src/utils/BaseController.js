@@ -36,6 +36,23 @@ class BaseController {
     this.errorLabel = errorLabel ?? modelName;
   }
 
+  injectTenantCode(req) {
+    const tenantCode = req.user?.tenant_code;
+    const userName = req.user?.user_name || req.user?.email;
+    if (!tenantCode) return;
+
+    if (Array.isArray(req.body)) {
+      req.body = req.body.map(row => ({ ...row, tenant_code: tenantCode, created_by: userName }));
+    } else if (typeof req.body === 'object' && req.body !== null) {
+      if (req.body.updates && Array.isArray(req.body.updates)) {
+        req.body.updates = req.body.updates.map(row => ({ ...row, tenant_code: tenantCode, updated_by: userName }));
+      } else {
+        req.body.tenant_code = tenantCode;
+        req.body.created_by = userName;
+      }
+    }
+  }
+
   model(schemaName) {
     if (!schemaName) throw new Error('schemaName is required');
 
@@ -45,6 +62,7 @@ class BaseController {
   }
 
   async create(req, res) {
+    this.injectTenantCode(req);
     try {
       const record = await this.model(req.schema).insert(req.body);
       res.status(201).json(record);
@@ -139,12 +157,12 @@ class BaseController {
       body: req.body,
     });
     req.body.deactivated_at = null; // Soft delete by marking as inactive
-    const filters = [{deactivated_at: { $not: null }}, { ...req.query }];
+    const filters = [{ deactivated_at: { $not: null } }, { ...req.query }];
 
     try {
       const count = await this.model(req.schema).updateWhere(filters, req.body, { includeDeactivated: true });
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
-      
+
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {
       handleError(err, res, 'restoring', this.errorLabel);
@@ -167,6 +185,7 @@ class BaseController {
   }
 
   async bulkInsert(req, res) {
+    this.injectTenantCode(req);
     logger.info(`[BaseController] bulkInsert`, {
       model: this.errorLabel,
       user: req.user?.email,
@@ -182,6 +201,7 @@ class BaseController {
   }
 
   async bulkUpdate(req, res) {
+    this.injectTenantCode(req);
     logger.info(`[BaseController] bulkUpdate`, {
       model: this.errorLabel,
       user: req.user?.email,
@@ -205,8 +225,18 @@ class BaseController {
       query: req.query,
       body: req.body,
     });
+    const file = req.file; // multer stores the uploaded file in req.file
+    const index = parseInt(req.body.index || '0', 10);
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
     try {
-      const result = await this.model(req.schema).importFromSpreadsheet(req.body);
+      const tenantCode = req.user?.tenant_code;
+      const result = await this.model(req.schema).importFromSpreadsheet(file.path, index, row => ({
+        ...row,
+        tenant_code: tenantCode,
+        created_by: req.user?.user_name || req.user?.email, 
+      }));
       res.status(201).json(result);
     } catch (err) {
       handleError(err, res, 'importing', this.errorLabel);

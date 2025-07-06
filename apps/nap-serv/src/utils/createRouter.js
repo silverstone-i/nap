@@ -11,6 +11,7 @@
 
 import express from 'express';
 import { addAuditFields } from '../../middlewares/audit/addAuditFields.js';
+import multer from 'multer';
 
 /**
  * Creates an Express router with standard CRUD routes
@@ -88,7 +89,8 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disableImportXls) {
-    router.post('/import-xls', ...safePostMiddlewares, (req, res) => controller.importXls(req, res));
+    const upload = multer({ dest: '/tmp/uploads/' });
+    router.post('/import-xls', ...safePostMiddlewares, upload.single('file'), (req, res) => controller.importXls(req, res));
   }
 
   if (!disableExportXls) {

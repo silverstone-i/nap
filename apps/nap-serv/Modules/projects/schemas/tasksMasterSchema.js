@@ -12,6 +12,8 @@
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
 /** @type {TableSchema} */
+import { z } from 'zod';
+
 const schema = {
   dbSchema: 'tenantid',
   table: 'tasks_master',
@@ -22,11 +24,11 @@ const schema = {
   columns: [
     { name: 'id', type: 'uuid', notNull: true, default: 'uuidv7()', immutable: true },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Used for filtering/partitioning but not for indexing or uniqueness
-    { name: 'code', type: 'varchar(50)', notNull: true },
+    { name: 'code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } }, // Used for filtering/partitioning but not for indexing or uniqueness
     { name: 'description', type: 'text', default: null },
     { name: 'name', type: 'varchar(150)', notNull: true },
     { name: 'is_active', type: 'boolean', default: true },
-    { name: 'task_group_code', type: 'varchar(50)', notNull: true },
+    { name: 'task_group_code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } },
   ],
 
   constraints: {

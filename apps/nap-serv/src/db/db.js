@@ -12,7 +12,7 @@ import 'dotenv/config';
 
 import { DB } from 'pg-schemata';
 import repositories from './repositories.js';
-import logger from '../utils/logger.js'; 
+import logger from '../utils/logger.js';
 
 let DATABASE_URL;
 switch (process.env.NODE_ENV) {
@@ -37,15 +37,16 @@ if (!DATABASE_URL) {
 console.log('\nInitializing database connection...');
 DB.init(DATABASE_URL, repositories, logger);
 
-
 const rawDb = DB.db;
 const pgp = DB.pgp;
+
 // console.log('🔧 Loaded model keys:', Object.keys(rawDb));
 console.log('Database connection established.\n');
 
 // Defer callDb + db initialization until models are attached
 function createCallDb(rawDb) {
   const callDb = function (modelOrName, schemaName) {
+    
     const model = typeof modelOrName === 'string' ? rawDb[modelOrName] : modelOrName;
 
     if (!model || typeof model.setSchemaName !== 'function') {
