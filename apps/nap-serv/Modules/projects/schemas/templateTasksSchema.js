@@ -65,7 +65,7 @@ const schema = {
         type: 'ForeignKey',
         columns: ['template_id'],
         references: {
-          table: 'unit_templates',
+          table: 'template_units',
           columns: ['id'],
         },
         onDelete: 'cascade',

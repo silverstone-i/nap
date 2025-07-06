@@ -39,8 +39,9 @@ const schema = {
       notNull: true,
     },
     {
-      name: 'template_id',
+      name: 'template_unit_id',
       type: 'uuid',
+      notNull: true,
     },
     {
       name: 'version_used',
@@ -54,6 +55,26 @@ const schema = {
     {
       name: 'description',
       type: 'text',
+      default: null,
+    },
+    {
+      name: 'status',
+      type: 'varchar(20)',
+      notNull: true,
+      default: 'draft',
+    },
+    {
+      name: 'start_date',
+      type: 'date',
+    },
+    {
+      name: 'end_date',
+      type: 'date',
+      default: null,
+    },
+    {
+      name: 'location',
+      type: 'varchar(100)',
       default: null,
     },
   ],
@@ -71,7 +92,14 @@ const schema = {
         onDelete: 'cascade',
       },
     ],
-    unique: [['tenant_code', 'name']],
+    unique: [['name']],
+    checks: [
+      {
+        type: 'Check',
+        columns: ['status'],
+        expression: `status IN ('draft', 'in_progress', 'complete')`,
+      },
+    ],
   },
 };
 

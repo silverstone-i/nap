@@ -14,7 +14,7 @@
 /** @type {TableSchema} */
 const schema = {
   dbSchema: 'tenantid',
-  table: 'unit_templates',
+  table: 'template_units',
   version: '0.1.0',
   hasAuditFields: true,
   softDelete: true,
@@ -39,6 +39,11 @@ const schema = {
       notNull: true,
     },
     {
+      name: 'description',
+      type: 'text',
+      default: null,
+    },
+    {
       name: 'template_type',
       type: 'varchar(50)',
       notNull: true,
@@ -53,14 +58,27 @@ const schema = {
       name: 'status',
       type: 'varchar(50)',
       notNull: true,
-      default: `'draft'`,
+      default: 'draft',
     },
   ],
 
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_code', 'name', 'version']],
+    unique: [['name', 'version']],
+    checks: [
+      {
+        type: 'Check',
+        columns: ['template_type'],
+        expression: `template_type IN ('residential', 'commercial', 'standard_build', 'custom_design', 'estimate', 'as_built')`,
+      },
+      {
+        type: 'Check',
+        columns: ['status'],
+        expression: `status IN ('draft', 'approved', 'archived')`,
+      }
+    ]
   },
 };
 
 export default schema;
+
