@@ -13,7 +13,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class TasksMasterController extends BaseController {
   constructor() {
-    super('task_master');
+    super('taskMaster');
   }
 }
 

@@ -13,7 +13,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class ChangeOrdersController extends BaseController {
   constructor() {
-    super('change_orders');
+    super('changeOrders');
   }
 }
 

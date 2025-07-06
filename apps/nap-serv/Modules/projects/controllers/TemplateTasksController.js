@@ -13,7 +13,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class TemplateTasksController extends BaseController {
   constructor() {
-    super('template_tasks');
+    super('templateTasks');
   }
 }
 

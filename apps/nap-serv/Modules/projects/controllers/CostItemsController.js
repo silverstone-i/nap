@@ -13,7 +13,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class CostItemsController extends BaseController {
   constructor() {
-    super('cost_items');
+    super('costItems');
   }
 }
 

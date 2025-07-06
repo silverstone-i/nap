@@ -13,7 +13,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class TaskGroupsController extends BaseController {
   constructor() {
-    super('task_groups');
+    super('taskGroups');
   }
 }
 

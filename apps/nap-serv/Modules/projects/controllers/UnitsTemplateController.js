@@ -13,7 +13,7 @@ import BaseController from '../../../src/utils/BaseController.js';
 
 class UnitsTemplateController extends BaseController {
   constructor() {
-    super('unit_templates');
+    super('unitTemplates');
   }
 }
 
