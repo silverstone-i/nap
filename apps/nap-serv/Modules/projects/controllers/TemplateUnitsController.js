@@ -11,13 +11,13 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 
-class UnitsTemplateController extends BaseController {
+class TemplateUnitsController extends BaseController {
   constructor() {
-    super('unitTemplates');
+    super('templateUnits');
   }
 }
 
-const instance = new UnitsTemplateController();
+const instance = new TemplateUnitsController();
 
 export default instance;
-export { UnitsTemplateController };
+export { TemplateUnitsController };

@@ -12,7 +12,7 @@
 import express from 'express';
 import ProjectsControllerRouter from './ProjectsControllerRouter.js';
 import UnitsControllerRouter from './UnitsControllerRouter.js';
-import UnitsTemplateControllerRouter from './UnitsTemplateControllerRouter.js';
+import UnitsTemplateControllerRouter from './TemplateUnitsControllerRouter.js';
 import TemplateTasksControllerRouter from './TemplateTasksControllerRouter.js';
 import TemplateCostItemsControllerRouter from './TemplateCostItemsControllerRouter.js';
 import TemplateChangeOrdersControllerRouter from './TemplateChangeOrdersControllerRouter.js';
@@ -26,7 +26,7 @@ const router = express.Router();
 
 router.use('/v1/projects', ProjectsControllerRouter);
 router.use('/v1/units', UnitsControllerRouter);
-router.use('/v1/unit-templates', UnitsTemplateControllerRouter);
+router.use('/v1/template-units', UnitsTemplateControllerRouter);
 router.use('/v1/template-tasks', TemplateTasksControllerRouter);
 router.use('/v1/template-cost-items', TemplateCostItemsControllerRouter);
 router.use('/v1/template-change-orders', TemplateChangeOrdersControllerRouter);

@@ -9,10 +9,10 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import UnitsTemplateController from '../../controllers/UnitsTemplateController.js';
+import TemplateUnitsController from '../../controllers/TemplateUnitsController.js';
 
 import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = createRouter(UnitsTemplateController);
+const router = createRouter(TemplateUnitsController);
 
 export default router;
