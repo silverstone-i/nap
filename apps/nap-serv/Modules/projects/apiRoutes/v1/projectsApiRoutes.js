@@ -32,7 +32,7 @@ router.use('/v1/template-cost-items', TemplateCostItemsControllerRouter);
 router.use('/v1/template-change-orders', TemplateChangeOrdersControllerRouter);
 router.use('/v1/tasks', TasksControllerRouter);
 router.use('/v1/task-groups', TaskGroupsControllerRouter);
-router.use('/v1/task-master', TasksMasterControllerRouter);
+router.use('/v1/tasks-master', TasksMasterControllerRouter);
 router.use('/v1/cost-items', CostItemsControllerRouter);
 router.use('/v1/change-orders', ChangeOrdersControllerRouter);
 
