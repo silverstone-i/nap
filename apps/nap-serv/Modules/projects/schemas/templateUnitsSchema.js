@@ -33,11 +33,6 @@ const schema = {
     primaryKey: ['id'],
     unique: [['name', 'version']],
     checks: [
-      {
-        type: 'Check',
-        columns: ['template_type'],
-        expression: `template_type IN ('residential', 'commercial', 'standard_build', 'custom_design', 'estimate', 'as_built')`,
-      },
       { type: 'Check', columns: ['status'], expression: `status IN ('draft', 'approved', 'archived')` },
     ],
   },
