@@ -27,6 +27,8 @@ const schema = {
     { name: 'code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } }, // Used for filtering/partitioning but not for indexing or uniqueness
     { name: 'description', type: 'text', default: null },
     { name: 'name', type: 'varchar(150)', notNull: true },
+    { name: 'is_milestone', type: 'boolean', default: false },
+    { name: 'milestone_type', type: 'varchar(50)', default: null },
     { name: 'is_active', type: 'boolean', default: true },
     { name: 'task_group_code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } },
   ],
@@ -35,15 +37,7 @@ const schema = {
     primaryKey: ['id'],
     unique: [['code']],
     foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['task_group_code'],
-        references: {
-          table: 'task_groups',
-          columns: ['code'],
-        },
-        onDelete: 'restrict',
-      },
+      { type: 'ForeignKey', columns: ['task_group_code'], references: { table: 'task_groups', columns: ['code'] }, onDelete: 'restrict' },
     ],
   },
 };
