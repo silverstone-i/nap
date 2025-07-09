@@ -10,7 +10,7 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import { db } from '../../../src/db/db.js';
+import db, { DB } from '../../../src/db/db.js';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 
@@ -53,14 +53,29 @@ class TemplateCostItemsController extends BaseController {
         rows.push(rowData);
       });
 
-      const query = `
-      SELECT t.id AS task_id, t.task_code, u.name, u.version
-      FROM ${schema}.template_tasks t
-      JOIN ${schema}.template_units u ON t.template_unit_id = u.id
-      WHERE ${conditions.join(' OR ')}
-    `;
+      const keys = rows.map(r => `${r.unit_name}|${r.unit_version}|${r.task_code}`);
+      const uniqueKeys = [...new Set(keys)];
 
-      const taskRecords = await db(schema).query(query, values);
+      const conditions = [];
+      const values = [];
+
+      uniqueKeys.forEach((key, i) => {
+        const [unit_name, unit_version, task_code] = key.split('|');
+        conditions.push(`(u.name = $${values.length + 1} AND u.version = $${values.length + 2} AND t.task_code = $${values.length + 3})`);
+        values.push(unit_name, unit_version, task_code);
+      });
+
+      const query = `
+        SELECT t.id AS task_id, t.task_code, u.name, u.version
+        FROM ${schema}.template_tasks t
+        JOIN ${schema}.template_units u ON t.template_unit_id = u.id
+        WHERE ${conditions.join(' OR ')}
+      `;
+      
+
+      const taskRecords = await db.any(query, values);
+      console.log('Found task records:', taskRecords.length);
+      
       const taskMap = new Map(taskRecords.map(r => [`${r.name}|${r.version}|${r.task_code}`, r.task_id]));
 
       // Step 3: Import with transformed rows

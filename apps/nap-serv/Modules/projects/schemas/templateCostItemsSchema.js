@@ -31,7 +31,7 @@ const schema = {
     { name: 'description', type: 'text', notNull: true },
     { name: 'quantity', type: 'numeric', default: 1 },
     { name: 'unit_cost', type: 'numeric' },
-    { name: 'amount', type: 'numeric(12,2)', generated: '(quantity * unit_price)', stored: true },
+    { name: 'amount', type: 'numeric(12,2)', generated: 'always', expression: '(quantity * unit_cost)', stored: true },
   ],
 
   constraints: {
