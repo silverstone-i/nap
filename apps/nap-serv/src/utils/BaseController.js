@@ -81,10 +81,66 @@ class BaseController {
       query: req.query,
       body: req.body,
     });
+
     try {
-      const filters = Object.entries(req.query).map(([key, value]) => ({ [key]: value }));
-      const records = await this.model(req.schema).findWhere(filters);
-      res.json(records);
+      const joinType = req.query.joinType || 'AND';
+      const limit = req.query.limit !== undefined ? Number(req.query.limit) : null;
+      const offset = req.query.offset !== undefined ? Number(req.query.offset) : null;
+
+      // Parse orderBy from JSON, CSV or string
+      let orderBy = req.query.orderBy ?? null;
+      if (typeof orderBy === 'string') {
+        try {
+          orderBy = JSON.parse(orderBy);
+          if (!Array.isArray(orderBy)) throw new Error();
+        } catch {
+          orderBy = orderBy.split(',').map(s => s.trim());
+        }
+      }
+
+      // Extract cursor.*, filter conditions, and other options
+      const conditions = [];
+      const filters = {};
+      for (const [key, value] of Object.entries(req.query)) {
+        if (
+          key.startsWith('cursor.') ||
+          ['limit', 'offset', 'orderBy', 'columnWhitelist', 'includeDeactivated', 'joinType'].includes(key)
+        ) {
+          continue;
+        }
+        conditions.push({ [key]: value });
+      }
+
+      const options = {
+        filters,
+        limit,
+        offset,
+        orderBy,
+      };
+
+      if (req.query.columnWhitelist) {
+        options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
+      }
+
+      if (req.query.includeDeactivated === 'true') {
+        options.includeDeactivated = true;
+      }
+
+      const [records, totalCount] = await Promise.all([
+        this.model(req.schema).findWhere(conditions, joinType, options),
+        this.model(req.schema).countWhere?.(conditions, joinType) ?? Promise.resolve(null),
+      ]);
+
+      res.json({
+        records,
+        pagination: totalCount !== null
+          ? {
+              total: totalCount,
+              limit: limit ?? undefined,
+              offset: offset ?? 0,
+            }
+          : undefined,
+      });
     } catch (err) {
       handleError(err, res, 'fetching', this.errorLabel);
     }
@@ -177,7 +233,46 @@ class BaseController {
       body: req.body,
     });
     try {
-      const result = await this.model(req.schema).findAfterCursor(req.query);
+      // Parse limit as number
+      const limit = req.query.limit !== undefined ? Number(req.query.limit) : 50;
+
+      // Parse orderBy from string, CSV or JSON
+      let orderBy = req.query.orderBy ?? ['id'];
+      if (typeof orderBy === 'string') {
+        try {
+          orderBy = JSON.parse(orderBy);
+          if (!Array.isArray(orderBy)) throw new Error();
+        } catch {
+          orderBy = orderBy.split(',').map(s => s.trim());
+        }
+      }
+
+      // Extract cursor from query params like cursor.{key}
+      const cursor = {};
+      for (const k in req.query) {
+        if (k.startsWith('cursor.')) {
+          const key = k.split('.')[1];
+          cursor[key] = req.query[k];
+        }
+      }
+
+      // Extract filters (exclude cursor.*, limit, orderBy)
+      const filters = {};
+      for (const [key, value] of Object.entries(req.query)) {
+        if (!key.startsWith('cursor.') && key !== 'limit' && key !== 'orderBy') {
+          filters[key] = value;
+        }
+      }
+      const options = { filters };
+
+      if (req.query.columnWhitelist) {
+        options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
+        delete filters.columnWhitelist;
+      }
+
+      const result = await this.model(req.schema).findAfterCursor(cursor, limit, orderBy, options);
+      console.log('[BaseController] get result:', result.rows.length, 'rows');
+
       res.json(result);
     } catch (err) {
       handleError(err, res, 'fetching', this.errorLabel);
@@ -235,7 +330,7 @@ class BaseController {
       const result = await this.model(req.schema).importFromSpreadsheet(file.path, index, row => ({
         ...row,
         tenant_code: tenantCode,
-        created_by: req.user?.user_name || req.user?.email, 
+        created_by: req.user?.user_name || req.user?.email,
       }));
       res.status(201).json(result);
     } catch (err) {
