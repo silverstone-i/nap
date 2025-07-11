@@ -15,7 +15,7 @@ import multer from 'multer';
 
 /**
  * Creates an Express router with standard CRUD routes
- * @param {object} controller - An object with create, getAll, getById, update, remove methods
+ * @param {object} controller - An object with create, getAll, getById, update, remove/archive methods
  * @param {function} [extendRoutes] - Optional function that receives the router for adding custom routes
  * @returns {Router} - Configured Express router
  */
@@ -107,7 +107,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disableDelete) {
-    router.delete('/remove', ...safeDeleteMiddlewares, (req, res) => controller.remove(req, res));
+    router.delete('/archive', ...safeDeleteMiddlewares, (req, res) => controller.archive(req, res));
   }
 
   if (!disablePatch) {

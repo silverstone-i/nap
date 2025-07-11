@@ -325,8 +325,8 @@ class BaseController {
     }
   }
 
-  async remove(req, res) {
-    logger.info(`[BaseController] remove`, {
+  async archive(req, res) {
+    logger.info(`[BaseController] archive`, {
       model: this.errorLabel,
       user: req.user?.email,
       query: req.query,

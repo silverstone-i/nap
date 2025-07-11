@@ -18,12 +18,12 @@ class NapUsersController extends BaseController {
     super('napUsers');
   }
 
-  async remove(req, res) {
+  async archive(req, res) {
     if (req.query.email === req.user.email) {
-      return res.status(403).json({ message: 'Cannot delete the currently logged-in user' });
+      return res.status(403).json({ message: 'Cannot archive the currently logged-in user' });
     }
 
-    return super.remove(req, res);
+    return super.archive(req, res);
   }
 
   async restore(req, res) {

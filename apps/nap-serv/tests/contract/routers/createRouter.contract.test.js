@@ -15,7 +15,7 @@ class StubController extends BaseController {
   getById = (req, res) => res.json({ method: 'getById' });
   get = (req, res) => res.json({ method: 'get' });
   update = (req, res) => res.status(200).json({ method: 'update' });
-  remove = (req, res) => res.status(200).json({ method: 'remove' });
+  archive = (req, res) => res.status(200).json({ method: 'archive' });
   restore = (req, res) => res.status(200).json({ method: 'restore' });
   bulkInsert = (req, res) => res.status(200).json({ method: 'bulkInsert' });
   bulkUpdate = (req, res) => res.status(200).json({ method: 'bulkUpdate' });
@@ -38,7 +38,7 @@ describe('createRouter contract test', () => {
     ['GET', '/api/test/:id', 200, 'getById'],
     ['GET', '/api/test', 200, 'get'],
     ['PUT', '/api/test/update', 200, 'update'],
-    ['DELETE', '/api/test/remove', 200, 'remove'],
+    ['DELETE', '/api/test/archive', 200, 'archive'],
     ['PATCH', '/api/test/restore', 200, 'restore'],
     ['POST', '/api/test/bulk-insert', 200, 'bulkInsert'],
     ['PUT', '/api/test/bulk-update', 200, 'bulkUpdate'],

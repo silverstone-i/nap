@@ -107,7 +107,7 @@ describe('BaseController + createRouter integration', () => {
     const inserted = await db.one(
       "SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('to-delete', 'test-user') RETURNING id"
     );
-    const res = await request(app).delete('/items/remove?id=' + inserted.id);
+    const res = await request(app).delete('/items/archive?id=' + inserted.id);
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toMatch(/marked as inactive/);
   });

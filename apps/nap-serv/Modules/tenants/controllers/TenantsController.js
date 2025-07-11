@@ -20,8 +20,8 @@ class TenantsController extends BaseController {
   }
 
   // Soft delete tenant by marking it as inactive.  Also marks all associated active users as inactive.
-  async remove(req, res) {
-    logger.info(`[TenantController] remove`, {
+  async archive(req, res) {
+    logger.info(`[TenantController] archive`, {
       model: this.errorLabel,
       user: req.user?.email,
       query: req.query,

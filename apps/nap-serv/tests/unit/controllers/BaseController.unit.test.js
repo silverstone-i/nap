@@ -101,12 +101,12 @@ describe('BaseController', () => {
     });
   });
 
-  describe('remove', () => {
+  describe('Archive', () => {
     it('should mark a record as inactive', async () => {
       modelMock.updateWhere.mockResolvedValue(true);
       req.query = { id: 1 };
 
-      await controller.remove(req, res);
+      await controller.archive(req, res);
 
       expect(modelMock.updateWhere.mock.calls[0][0]).toEqual([{ id: "1" }]);
       expect(modelMock.updateWhere.mock.calls[0][1].deactivated_at).not.toBeNull();
