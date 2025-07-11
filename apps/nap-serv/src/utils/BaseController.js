@@ -86,6 +86,7 @@ class BaseController {
 
       // Parse limit as number
       const limit = req.query.limit !== undefined ? Number(req.query.limit) : 50;
+      const joinType = req.query.joinType || 'AND';
 
       // Parse orderBy from string, CSV or JSON
       let orderBy = req.query.orderBy ?? ['id'];
@@ -110,16 +111,6 @@ class BaseController {
           continue;
         }
 
-        if (key === 'conditions') {
-          try {
-            const parsed = JSON.parse(value);
-            if (Array.isArray(parsed)) {
-              conditions.push(...parsed);
-            }
-          } catch {}
-          continue;
-        }
-
         if (!['limit', 'orderBy', 'columnWhitelist', 'includeDeactivated'].includes(key)) {
           filters[key] = value;
         }
@@ -135,13 +126,13 @@ class BaseController {
         options.includeDeactivated = true;
       }
 
-      const result = await this.model(req.schema).findAfterCursor(cursor, limit, orderBy, {
-        ...options,
-        conditions,
-      });
-      console.log('[BaseController] get result:', result.rows.length, 'rows');
+      const records = await this.model(req.schema).findAfterCursor(cursor, limit, orderBy, options);
 
-      res.json(result);
+      if (conditions.length > 0) {
+        records.warning = 'Conditions were ignored in cursor-based pagination.';
+      }
+
+      res.json(records);
     } catch (err) {
       handleError(err, res, 'fetching', this.errorLabel);
     }
@@ -213,7 +204,7 @@ class BaseController {
 
       const [records, totalCount] = await Promise.all([
         this.model(req.schema).findWhere(conditions, joinType, options),
-        this.model(req.schema).countWhere?.(conditions, joinType) ?? Promise.resolve(null),
+        this.model(req.schema).countWhere ? this.model(req.schema).countWhere(conditions, joinType) : Promise.resolve(null),
       ]);
 
       res.json({
