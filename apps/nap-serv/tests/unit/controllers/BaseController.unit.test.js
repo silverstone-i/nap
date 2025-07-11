@@ -5,6 +5,7 @@ vi.mock('../../../src/db/db.js', () => {
     findById: vi.fn(),
     updateWhere: vi.fn(),
     findAfterCursor: vi.fn(),
+    countWhere: vi.fn(), // ✅ Add this line
     bulkInsert: vi.fn(),
     bulkUpdate: vi.fn(),
     importFromSpreadsheet: vi.fn(),
@@ -28,7 +29,7 @@ describe('BaseController', () => {
 
   beforeEach(() => {
     controller = new BaseController('TestModel');
-    controller.model = (schema) => db('TestModel', schema);
+    controller.model = schema => db('TestModel', schema);
     modelMock = db('TestModel', 'test');
 
     req = { body: {}, query: {}, params: {}, schema: 'test' };
@@ -60,8 +61,15 @@ describe('BaseController', () => {
 
       await controller.getWhere(req, res);
 
-      expect(modelMock.findWhere).toHaveBeenCalledWith([{ is_active: true }]);
-      expect(res.json).toHaveBeenCalledWith([{ id: 1 }]);
+      expect(modelMock.findWhere).toHaveBeenCalledWith([], 'AND', expect.objectContaining({ filters: { is_active: true } }));
+      expect(res.json).toHaveBeenCalledWith({
+        records: [{ id: 1 }],
+        pagination: {
+          limit: undefined,
+          offset: 0,
+          total: undefined,
+        },
+      });
     });
   });
 
@@ -108,7 +116,7 @@ describe('BaseController', () => {
 
       await controller.archive(req, res);
 
-      expect(modelMock.updateWhere.mock.calls[0][0]).toEqual([{ id: "1" }]);
+      expect(modelMock.updateWhere.mock.calls[0][0]).toEqual([{ id: '1' }]);
       expect(modelMock.updateWhere.mock.calls[0][1].deactivated_at).not.toBeNull();
       expect(new Date(modelMock.updateWhere.mock.calls[0][1].deactivated_at)).toBeInstanceOf(Date);
       expect(res.status).toHaveBeenCalledWith(200);
@@ -136,11 +144,19 @@ describe('BaseController', () => {
   describe('get', () => {
     it('should fetch records using cursor-based pagination', async () => {
       modelMock.findAfterCursor.mockResolvedValue([{ id: 1 }]);
-      req.query = { limit: 10 };
+      modelMock.countWhere = vi.fn().mockResolvedValueOnce(1);
+      req.query = { limit: 10, joinType: 'AND' };
 
       await controller.get(req, res);
 
-      expect(modelMock.findAfterCursor).toHaveBeenCalledWith({ limit: 10 });
+      expect(modelMock.findAfterCursor).toHaveBeenCalledWith(
+        {},
+        10,
+        ['id'],
+        expect.objectContaining({
+          filters: expect.any(Object),
+        })
+      );
       expect(res.json).toHaveBeenCalledWith([{ id: 1 }]);
     });
   });
@@ -176,14 +192,14 @@ describe('BaseController', () => {
 
   describe('importXls', () => {
     it('should import records from spreadsheet', async () => {
-      modelMock.importFromSpreadsheet.mockResolvedValue([{ id: 1 }]);
-      req.body = { rows: [{ name: 'test' }] };
+      req.file = { path: '/fake/path.xlsx' };
+      modelMock.importFromSpreadsheet.mockResolvedValue({ inserted: 1 });
 
       await controller.importXls(req, res);
 
-      expect(modelMock.importFromSpreadsheet).toHaveBeenCalledWith(req.body);
+      expect(modelMock.importFromSpreadsheet).toHaveBeenCalledWith('/fake/path.xlsx', 0, expect.any(Function));
       expect(res.status).toHaveBeenCalledWith(201);
-      expect(res.json).toHaveBeenCalledWith([{ id: 1 }]);
+      expect(res.json).toHaveBeenCalledWith({ inserted: 1 });
     });
   });
 
@@ -197,10 +213,7 @@ describe('BaseController', () => {
 
       expect(modelMock.exportToSpreadsheet).toHaveBeenCalledWith(req.body);
       expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="TestModel.xlsx"');
-      expect(res.setHeader).toHaveBeenCalledWith(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      );
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       expect(res.send).toHaveBeenCalledWith(buffer);
     });
   });

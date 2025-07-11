@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import adminApi from '../../../modules/tenants/apiRoutes/v1/adminApi.js';
+import adminApi from '../../../modules/tenants/apiRoutes/v1/admin.controller.router.js';
 
 describe('adminApi contract test', () => {
   const app = express();

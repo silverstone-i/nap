@@ -97,10 +97,14 @@ describe('BaseController + createRouter integration', () => {
     expect(res.body).not.toBeNull();
     expect(res.statusCode).toBe(200);
 
-    const getRes = await request(app).get('/items/where?id=' + inserted.id);
-    expect(getRes.body).toBeDefined();
-    expect(getRes.body).not.toHaveLength(0);
-    expect(getRes.body[0]).toHaveProperty('name', 'new');
+    const getRes = await request(app)
+      .get('/items/where')
+      .query({
+        conditions: JSON.stringify([{ id: { $eq: inserted.id } }]),
+      });
+    expect(Array.isArray(getRes.body.records)).toBe(true);
+    expect(getRes.body.records.length).toBeGreaterThan(0);
+    expect(getRes.body.records[0]).toHaveProperty('name', 'new');
   });
 
   it('should soft delete a record', async () => {
