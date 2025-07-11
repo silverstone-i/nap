@@ -14,15 +14,17 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // hookTimeout: 1000 * 60 * 60, // 1 hour for debugging purposes
     globals: true,
     environment: 'node',
     setupFiles: ['./tests/setup.js'],
-    pool: 'threads', // Use the threads pool (default in Vitest 3.x)
+    pool: 'threads',
     poolOptions: {
       threads: {
-        singleThread: true, // Run tests sequentially in a single thread
+        singleThread: true,
       },
+    },
+    sequence: {
+      concurrent: false, // <-- This forces sequential file execution
     },
     coverage: {
       provider: 'v8',
