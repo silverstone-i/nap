@@ -204,7 +204,7 @@ class BaseController {
 
       const [records, totalCount] = await Promise.all([
         this.model(req.schema).findWhere(conditions, joinType, options),
-        this.model(req.schema).countWhere ? this.model(req.schema).countWhere(conditions, joinType) : Promise.resolve(null),
+        this.model(req.schema).countWhere ? this.model(req.schema).countWhere(conditions, joinType, options) : Promise.resolve(null),
       ]);
 
       res.json({
