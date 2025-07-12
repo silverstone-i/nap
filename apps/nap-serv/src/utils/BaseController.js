@@ -1,6 +1,7 @@
 'use strict';
 
 import { ClientRequest } from 'http';
+import fs from 'fs';
 /*
  * Copyright © 2024-present, Ian Silverstone
  *
@@ -432,7 +433,16 @@ class BaseController {
       const result = await this.model(req.schema).exportToSpreadsheet(path, where, joinType, options);
       res.setHeader('Content-Disposition', `attachment; filename="${this.errorLabel}.xlsx"`);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.download(result.filePath);
+      // TODO: Handle file cleanup after download.  May need to use a temporary file system or cloud storage like Amazon S3.
+      // For now, just send the file and let the client handle it.
+      res.download(result.filePath, `${this.errorLabel}.xlsx`, err => {
+        if (err) {
+          logger.error(`Error sending file: ${err.message}`);
+        }
+        fs.unlink(result.filePath, err => {
+          if (err) logger.error(`Failed to delete exported file: ${err.message}`);
+        });
+      });
     } catch (err) {
       handleError(err, res, 'exporting', this.errorLabel);
     }
