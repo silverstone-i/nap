@@ -422,11 +422,17 @@ class BaseController {
       query: req.query,
       body: req.body,
     });
+
+    const path = `/tmp/${this.errorLabel}-${Date.now()}.xlsx`;
+    const where = Array.isArray(req.body?.where) ? req.body.where : [];
+    const joinType = req.body?.joinType || 'AND';
+    const options = req.body?.options || {};
+
     try {
-      const spreadsheet = await this.model(req.schema).exportToSpreadsheet(req.body);
+      const result = await this.model(req.schema).exportToSpreadsheet(path, where, joinType, options);
       res.setHeader('Content-Disposition', `attachment; filename="${this.errorLabel}.xlsx"`);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.send(spreadsheet);
+      res.download(result.filePath);
     } catch (err) {
       handleError(err, res, 'exporting', this.errorLabel);
     }
