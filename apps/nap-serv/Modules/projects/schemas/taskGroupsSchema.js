@@ -26,6 +26,7 @@ const schema = {
     { name: 'tenant_code', type: 'varchar(6)', notNull: true },
     { name: 'code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } }, // Used for filtering/partitioning but not for indexing or uniqueness
     { name: 'name', type: 'varchar(150)', notNull: true },
+    { name: 'description', type: 'text', notNull: false },
     { name: 'sequence', type: 'integer' },
   ],
 

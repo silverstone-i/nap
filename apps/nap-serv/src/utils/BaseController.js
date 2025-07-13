@@ -435,7 +435,7 @@ class BaseController {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       // TODO: Handle file cleanup after download.  May need to use a temporary file system or cloud storage like Amazon S3.
       // For now, just send the file and let the client handle it.
-      res.download(result.filePath, `${this.errorLabel}.xlsx`, err => {
+      res.download(result.filePath, `${this.errorLabel}_${Date.now()}.xlsx`, err => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }

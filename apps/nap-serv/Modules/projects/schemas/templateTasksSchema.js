@@ -27,7 +27,6 @@ const schema = {
     { name: 'template_unit_id', type: 'uuid', notNull: true },
     { name: 'task_code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } },
     { name: 'name', type: 'varchar(150)', notNull: true },
-    { name: 'description', type: 'text', default: null },
     { name: 'duration_days', type: 'integer', default: 0 },
   ],
 
