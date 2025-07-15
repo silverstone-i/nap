@@ -14,6 +14,17 @@ const schema = {
   table: 'vendors',
   hasAuditFields: true,
   version: '1.0.0',
+  columns: [
+    { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true, colProps: { cnd: true } },
+    { name: 'tenant_id', type: 'uuid', nullable: false },
+    { name: 'vendor_code', type: 'varchar(12)', nullable: false },
+    { name: 'name', type: 'varchar(255)', nullable: false },
+    { name: 'tax_id', type: 'varchar(64)', nullable: true },
+    { name: 'mailing_address_id', type: 'uuid', nullable: true },
+    { name: 'physical_address_id', type: 'uuid', nullable: true },
+    { name: 'accounting_contact_id', type: 'uuid', nullable: true },
+    { name: 'sales_contact_id', type: 'uuid', nullable: true },
+  ],
   constraints: {
     primaryKey: ['id'],
     unique: [['name'], ['vendor_code']],
@@ -28,24 +39,6 @@ const schema = {
       },
     ],
   },
-  columns: [
-    {
-      name: 'id',
-      type: 'uuid',
-      default: 'uuidv7()',
-      nullable: false,
-      immutable: true,
-      colProps: { cnd: true },
-    },
-    { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'vendor_code', type: 'varchar(12)', nullable: false },
-    { name: 'name', type: 'varchar(255)', nullable: false },
-    { name: 'tax_id', type: 'varchar(64)', nullable: true },
-    { name: 'mailing_address_id', type: 'uuid', nullable: true },
-    { name: 'physical_address_id', type: 'uuid', nullable: true },
-    { name: 'accounting_contact_id', type: 'uuid', nullable: true },
-    { name: 'sales_contact_id', type: 'uuid', nullable: true },
-  ],
 };
 
 export default schema;
