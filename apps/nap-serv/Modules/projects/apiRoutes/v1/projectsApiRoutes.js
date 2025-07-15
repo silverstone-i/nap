@@ -10,31 +10,31 @@
  */
 
 import express from 'express';
-import ProjectsControllerRouter from './ProjectsControllerRouter.js';
-import UnitsControllerRouter from './UnitsControllerRouter.js';
-import UnitsTemplateControllerRouter from './TemplateUnitsControllerRouter.js';
-import TemplateTasksControllerRouter from './TemplateTasksControllerRouter.js';
-import TemplateCostItemsControllerRouter from './TemplateCostItemsControllerRouter.js';
-import TemplateChangeOrdersControllerRouter from './TemplateChangeOrdersControllerRouter.js';
-import TasksControllerRouter from './TasksControllerRouter.js';
-import TaskGroupsControllerRouter from './TaskGroupsControllerRouter.js';
-import TasksMasterControllerRouter from './TasksMasterControllerRouter.js';
-import CostItemsControllerRouter from './CostItemsControllerRouter.js';
-import ChangeOrdersControllerRouter from './ChangeOrdersControllerRouter.js';
+import ProjectsRouter from './ProjectsRouter.js';
+import UnitsRouter from './UnitsRouter.js';
+import UnitsTemplateRouter from './TemplateUnitsRouter.js';
+import TemplateTasksRouter from './TemplateTasksRouter.js';
+import TemplateCostItemsRouter from './TemplateCostItemsRouter.js';
+import TemplateChangeOrdersRouter from './TemplateChangeOrdersRouter.js';
+import TasksRouter from './TasksRouter.js';
+import TaskGroupsRouter from './TaskGroupsRouter.js';
+import TasksMasterRouter from './TasksMasterRouter.js';
+import CostItemsRouter from './CostItemsRouter.js';
+import ChangeOrdersRouter from './ChangeOrdersRouter.js';
 
 const router = express.Router();
 
-router.use('/v1/projects', ProjectsControllerRouter);
-router.use('/v1/units', UnitsControllerRouter);
-router.use('/v1/template-units', UnitsTemplateControllerRouter);
-router.use('/v1/template-tasks', TemplateTasksControllerRouter);
-router.use('/v1/template-cost-items', TemplateCostItemsControllerRouter);
-router.use('/v1/template-change-orders', TemplateChangeOrdersControllerRouter);
-router.use('/v1/tasks', TasksControllerRouter);
-router.use('/v1/task-groups', TaskGroupsControllerRouter);
-router.use('/v1/tasks-master', TasksMasterControllerRouter);
-router.use('/v1/cost-items', CostItemsControllerRouter);
-router.use('/v1/change-orders', ChangeOrdersControllerRouter);
+router.use('/v1/projects', ProjectsRouter);
+router.use('/v1/units', UnitsRouter);
+router.use('/v1/template-units', UnitsTemplateRouter);
+router.use('/v1/template-tasks', TemplateTasksRouter);
+router.use('/v1/template-cost-items', TemplateCostItemsRouter);
+router.use('/v1/template-change-orders', TemplateChangeOrdersRouter);
+router.use('/v1/tasks', TasksRouter);
+router.use('/v1/task-groups', TaskGroupsRouter);
+router.use('/v1/tasks-master', TasksMasterRouter);
+router.use('/v1/cost-items', CostItemsRouter);
+router.use('/v1/change-orders', ChangeOrdersRouter);
 
 console.log('Loaded projects router');
 
