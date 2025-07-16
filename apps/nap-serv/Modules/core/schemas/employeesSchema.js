@@ -12,36 +12,31 @@
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
 /** @type {TableSchema} */
-const clientsSchema = {
+const employeesSchema = {
   dbSchema: 'tenantid',
-  table: 'clients',
+  table: 'employees',
   hasAuditFields: true,
   softDelete: true, // Enable soft delete
   version: '1.0.0', // Always use version 1.0.0
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
     { name: 'tenant_id', type: 'uuid', notNull: true }, // Tenant association
-    { name: 'client_code', type: 'varchar(12)', notNull: true }, // Unique client code
-    { name: 'name', type: 'varchar(255)', notNull: true }, // Client name
+    { name: 'employee_code', type: 'varchar(12)', notNull: true }, // Unique employee code
+    { name: 'first_name', type: 'varchar(255)', notNull: true }, // Employee first name
+    { name: 'last_name', type: 'varchar(255)', notNull: true }, // Employee last name
     { name: 'tax_id', type: 'varchar(64)' }, // Tax identification number
-    { name: 'payment_terms', type: 'varchar(64)' }, // Payment terms
-    { name: 'payment_method', type: 'varchar(64)' }, // Payment method
     { name: 'deleted_at', type: 'timestamp' }, // Soft delete column
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['client_code'], ['name']],
+    unique: [['employee_code']],
     indexes: [
       {
         type: 'Index',
-        columns: ['client_code'],
-      },
-      {
-        type: 'Index',
-        columns: ['name'],
+        columns: ['employee_code'],
       },
     ],
   },
 };
 
-export default clientsSchema;
+export default employeesSchema;
