@@ -14,6 +14,8 @@ import Contacts from './models/Contacts.js';
 import Addresses from './models/Addresses.js';
 import InterCompanies from './models/InterCompanies.js';
 import Clients from './models/Clients.js';
+import Employees from './models/Employees.js';
+import Parties from './models/Parties.js';
 
 const repositories = {
   vendors: Vendors,
@@ -21,5 +23,7 @@ const repositories = {
   addresses: Addresses,
   interCompanies: InterCompanies,
   clients: Clients,
+  employees: Employees,
+  parties: Parties,
 };
 export default repositories;
