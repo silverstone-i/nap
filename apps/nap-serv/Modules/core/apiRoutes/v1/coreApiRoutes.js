@@ -10,18 +10,24 @@
  */
 
 import express from 'express';
-import addressesApi from './addressesApi.js';
-import contactsApi from './contactsApi.js';
-import interCompaniesApi from './interCompaniesApi.js';
-import vendorsApi from './vendorsApi.js';
+import addressesRouter from './addressesRouter.js';
+import contactsRouter from './contactsRouter.js';
+import interCompaniesRouter from './interCompaniesRouter.js';
+import vendorsRouter from './vendorsRouter.js';
+import clientsRouter from './clientsRouter.js';
+import employeesRouter from './employeesRouter.js';
+// import partiesRouter from './partiesRouter.js';
 
 const router = express.Router();
 
-router.use('/v1/addresses', addressesApi);
-router.use('/v1/contacts', contactsApi);
-router.use('/v1/inter-companies', interCompaniesApi);
-router.use('/v1/vendors', vendorsApi);
+router.use('/v1/addresses', addressesRouter);
+router.use('/v1/contacts', contactsRouter);
+router.use('/v1/inter-companies', interCompaniesRouter);
+router.use('/v1/vendors', vendorsRouter);
+router.use('/v1/clients', clientsRouter);
+router.use('/v1/employees', employeesRouter);
+// router.use('/v1/parties', partiesRouter);
 
-console.log('Loaded coreApi router');
+console.log('Loaded core modules router');
 
 export default router;

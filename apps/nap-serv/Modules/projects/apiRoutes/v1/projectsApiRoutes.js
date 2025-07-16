@@ -36,6 +36,6 @@ router.use('/v1/tasks-master', TasksMasterRouter);
 router.use('/v1/cost-items', CostItemsRouter);
 router.use('/v1/change-orders', ChangeOrdersRouter);
 
-console.log('Loaded projects router');
+console.log('Loaded projects modules router');
 
 export default router;

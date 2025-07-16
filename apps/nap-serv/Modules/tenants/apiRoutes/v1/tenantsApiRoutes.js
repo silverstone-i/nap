@@ -10,18 +10,18 @@
  */
 
 import express from 'express';
-import TenantsControllerRouter from './TenantsControllerRouter.js';
-import NapUsersControllerRouter from './NapUsersControllerRouter.js';
-import authControllerRouter from './auth.controller.router.js';
-import adminCotrollerRouter from './admin.controller.router.js';
+import TenantsRouter from './TenantsRouter.js';
+import NapUsersRouter from './NapUsersRouter.js';
+import authRouter from './auth.router.js';
+import adminRouter from './admin.router.js';
 
 const router = express.Router();
 
-router.use('/v1/nap-users', NapUsersControllerRouter);
-router.use('/v1/tenants', TenantsControllerRouter);
-router.use('/v1/auth', authControllerRouter);
-router.use('/v1/admin', adminCotrollerRouter);
+router.use('/v1/nap-users', NapUsersRouter);
+router.use('/v1/tenants', TenantsRouter);
+router.use('/v1/auth', authRouter);
+router.use('/v1/admin', adminRouter);
 
-console.log('Loaded tenantsApi router');
+console.log('Loaded tenants modules router');
 
 export default router;
