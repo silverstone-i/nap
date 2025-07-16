@@ -1,4 +1,4 @@
-'use strict';
+// @ts-check
 
 /*
  * Copyright © 2024-present, Ian Silverstone
@@ -9,7 +9,9 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-const schema = {
+/** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
+
+/** @type {TableSchema} */const schema = {
   dbSchema: 'tenantid',
   table: 'vendors',
   hasAuditFields: true,

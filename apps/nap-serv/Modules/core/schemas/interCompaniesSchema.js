@@ -1,4 +1,4 @@
-'use strict';
+// @ts-check
 
 /*
  * Copyright © 2024-present, Ian Silverstone
@@ -9,6 +9,9 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
+/** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
+
+/** @type {TableSchema} */
 const interCompaniesSchema = {
   dbSchema: 'tenantid',
   table: 'inter_companies',
@@ -22,12 +25,12 @@ const interCompaniesSchema = {
   },
 
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
-    { name: 'tenant_id', type: 'uuid', nullable: false },
-    { name: 'company_code', type: 'varchar(8)', nullable: false },
-    { name: 'company_name', type: 'varchar(64)', nullable: false },
-    { name: 'description', type: 'text', nullable: true },
-    { name: 'is_active', type: 'boolean', nullable: false, default: true },
+    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+    { name: 'tenant_id', type: 'uuid', notNull: true },
+    { name: 'company_code', type: 'varchar(8)', notNull: true },
+    { name: 'company_name', type: 'varchar(64)', notNull: true },
+    { name: 'description', type: 'text' },
+    { name: 'is_active', type: 'boolean', notNull: true, default: true },
   ],
 };
 

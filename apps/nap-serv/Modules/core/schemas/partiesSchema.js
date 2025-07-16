@@ -14,16 +14,23 @@
 /** @type {TableSchema} */
 const schema = {
   dbSchema: 'tenantid',
-  table: 'entities',
+  table: 'parties',
   hasAuditFields: true,
   version: '1.0.0', // Always use version 1.0.0
   softDelete: true, // Enable soft delete
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
-    { name: 'entity_type', type: 'varchar(64)', notNull: true }, // e.g., 'vendor', 'client', employee
+    { name: 'party_type', type: 'varchar(64)', notNull: true }, // e.g., 'vendor', 'client', employee
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      {
+        type: 'Check',
+        columns: ['party_type'],
+        expression: "party_type IN ('vendor', 'client', 'employee')",
+      },
+    ],
   },
 };
 
