@@ -25,7 +25,6 @@ const employeesSchema = {
     { name: 'first_name', type: 'varchar(255)', notNull: true }, // Employee first name
     { name: 'last_name', type: 'varchar(255)', notNull: true }, // Employee last name
     { name: 'tax_id', type: 'varchar(64)' }, // Tax identification number
-    { name: 'deleted_at', type: 'timestamp' }, // Soft delete column
   ],
   constraints: {
     primaryKey: ['id'],

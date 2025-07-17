@@ -26,7 +26,6 @@ const clientsSchema = {
     { name: 'tax_id', type: 'varchar(64)' }, // Tax identification number
     { name: 'payment_terms', type: 'varchar(64)' }, // Payment terms
     { name: 'payment_method', type: 'varchar(64)' }, // Payment method
-    { name: 'deleted_at', type: 'timestamp' }, // Soft delete column
   ],
   constraints: {
     primaryKey: ['id'],

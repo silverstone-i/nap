@@ -20,8 +20,8 @@ const interCompaniesSchema = {
 
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'company_code']],
-    indexes: [{ type: 'Index', columns: ['tenant_id', 'company_code'] }],
+    unique: [['company_code']],
+    indexes: [{ type: 'Index', columns: ['company_code'] }],
   },
 
   columns: [

@@ -11,7 +11,10 @@
 
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
-/** @type {TableSchema} */ const schema = {
+/** @type {TableSchema} */ 
+import z from 'zod';
+
+const schema = {
   dbSchema: 'tenantid',
   table: 'vendors',
   hasAuditFields: true,
@@ -24,7 +27,7 @@
     { name: 'name', type: 'varchar(255)', notNull: true },
     { name: 'tax_id', type: 'varchar(64)' },
     { name: 'is_1099', type: 'boolean', notNull: true, default: true },
-    { name: 'payment_terms', type: 'varchar(64)' },
+    { name: 'payment_terms', type: 'varchar(64)', colProps: { validator: z.coerce.string() } }, // Payment terms
     { name: 'payment_method', type: 'varchar(64)' },
     // Removed mailing_address_id, physical_address_id, accounting_contact_id, and sales_contact_id
   ],

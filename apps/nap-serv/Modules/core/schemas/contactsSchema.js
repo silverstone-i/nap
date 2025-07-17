@@ -22,11 +22,10 @@ const schema = {
     { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant association
     { name: 'party_id', type: 'uuid', notNull: true }, // Foreign key to parties table
-    { name: 'type', type: 'varchar(64)', notNull: true }, // e.g., 'sales', 'accounting'
+    { name: 'label', type: 'varchar(64)', notNull: true }, // e.g., 'sales', 'accounting'
     { name: 'name', type: 'varchar(255)', notNull: true },
     { name: 'email', type: 'varchar(255)', notNull: true },
     { name: 'phone', type: 'varchar(32)' },
-    { name: 'deleted_at', type: 'timestamp' }, // Soft delete column
   ],
   constraints: {
     primaryKey: ['id'],
