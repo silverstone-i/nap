@@ -11,15 +11,15 @@
 
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
-/** @type {TableSchema} */const schema = {
+/** @type {TableSchema} */ const schema = {
   dbSchema: 'tenantid',
   table: 'vendors',
   hasAuditFields: true,
   version: '1.0.0', // Updated version
   softDelete: true, // Added soft delete support
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true, colProps: { cnd: true } },
-    { name: 'tenant_id', type: 'uuid', notNull: true },
+    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true, colProps: { cnd: true } }, 
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant association
     { name: 'vendor_code', type: 'varchar(12)', notNull: true },
     { name: 'name', type: 'varchar(255)', notNull: true },
     { name: 'tax_id', type: 'varchar(64)' },

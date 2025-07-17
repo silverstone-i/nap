@@ -20,6 +20,7 @@ const schema = {
   softDelete: true, // Enable soft delete
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant identifier
     { name: 'party_type', type: 'varchar(64)', notNull: true }, // e.g., 'vendor', 'client', employee
   ],
   constraints: {

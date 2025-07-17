@@ -26,7 +26,7 @@ const interCompaniesSchema = {
 
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
-    { name: 'tenant_id', type: 'uuid', notNull: true },
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant association
     { name: 'company_code', type: 'varchar(8)', notNull: true },
     { name: 'company_name', type: 'varchar(64)', notNull: true },
     { name: 'description', type: 'text' },
