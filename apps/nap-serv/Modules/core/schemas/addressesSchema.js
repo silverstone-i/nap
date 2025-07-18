@@ -11,7 +11,7 @@
 
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
-/** @type {TableSchema} */ 
+/** @type {TableSchema} */
 const schema = {
   dbSchema: 'tenantid',
   table: 'addresses',
@@ -28,7 +28,7 @@ const schema = {
     { name: 'city', type: 'varchar(128)', notNull: true },
     { name: 'state', type: 'varchar(64)', notNull: true },
     { name: 'zip', type: 'varchar(16)', notNull: true },
-    { name: 'country', type: 'varchar(64)', notNull: true },
+    { name: 'country', type: 'varchar(64)' },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -47,7 +47,7 @@ const schema = {
       {
         type: 'Check',
         columns: ['label'],
-        expression: 'label IN (\'remittance\', \'physical\', \'shipping\')', // Valid address labels
+        expression: "label IN ('remittance', 'physical', 'shipping')", // Valid address labels
       },
     ],
   },

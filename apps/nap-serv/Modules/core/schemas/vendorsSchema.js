@@ -11,7 +11,7 @@
 
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
-/** @type {TableSchema} */ 
+/** @type {TableSchema} */
 import z from 'zod';
 
 const schema = {
@@ -21,7 +21,7 @@ const schema = {
   version: '1.0.0', // Updated version
   softDelete: true, // Added soft delete support
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true, colProps: { cnd: true } }, 
+    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true, colProps: { cnd: true } },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant association
     { name: 'vendor_code', type: 'varchar(12)', notNull: true },
     { name: 'name', type: 'varchar(255)', notNull: true },
@@ -29,11 +29,10 @@ const schema = {
     { name: 'is_1099', type: 'boolean', notNull: true, default: true },
     { name: 'payment_terms', type: 'varchar(64)', colProps: { validator: z.coerce.string() } }, // Payment terms
     { name: 'payment_method', type: 'varchar(64)' },
-    // Removed mailing_address_id, physical_address_id, accounting_contact_id, and sales_contact_id
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['name'], ['vendor_code']],
+    unique: [['vendor_code']],
     indexes: [
       {
         type: 'Index',

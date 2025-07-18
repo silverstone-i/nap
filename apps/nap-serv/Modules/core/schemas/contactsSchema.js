@@ -26,6 +26,10 @@ const schema = {
     { name: 'name', type: 'varchar(255)', notNull: true },
     { name: 'email', type: 'varchar(255)', notNull: true },
     { name: 'phone', type: 'varchar(32)' },
+    { name: 'mobile', type: 'varchar(32)' },
+    { name: 'fax', type: 'varchar(32)' },
+    { name: 'position', type: 'varchar(128)' }, // Position or title of the contact
+    { name: 'party_type', type: 'varchar(64)', notNull: true }, // Party type association
   ],
   constraints: {
     primaryKey: ['id'],
@@ -38,6 +42,13 @@ const schema = {
           columns: ['id'],
         },
         onDelete: 'cascade', // Ensures contacts are deleted if the party is deleted
+      },
+    ],
+    checks: [
+      {
+        type: 'Check',
+        columns: ['party_type'],
+        expression: "party_type IN ('vendor', 'client', 'employee')", // Valid party types
       },
     ],
   },
