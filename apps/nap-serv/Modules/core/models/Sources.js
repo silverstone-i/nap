@@ -10,11 +10,11 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import partiesSchema from '../schemas/partiesSchema.js';
+import sourcesSchema from '../schemas/sourcesSchema.js';
 
-class Parties extends TableModel {
+class Sources extends TableModel {
   constructor(db, pgp, logger = null) {
-    super(db, pgp, partiesSchema, logger);
+    super(db, pgp, sourcesSchema, logger);
   }
 }
-export default Parties;
+export default Sources;

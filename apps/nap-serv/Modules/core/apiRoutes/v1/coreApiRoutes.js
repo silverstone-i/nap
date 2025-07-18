@@ -16,7 +16,6 @@ import interCompaniesRouter from './interCompaniesRouter.js';
 import vendorsRouter from './vendorsRouter.js';
 import clientsRouter from './clientsRouter.js';
 import employeesRouter from './employeesRouter.js';
-// import partiesRouter from './partiesRouter.js';
 
 const router = express.Router();
 
@@ -26,7 +25,6 @@ router.use('/v1/inter-companies', interCompaniesRouter);
 router.use('/v1/vendors', vendorsRouter);
 router.use('/v1/clients', clientsRouter);
 router.use('/v1/employees', employeesRouter);
-// router.use('/v1/parties', partiesRouter);
 
 console.log('Loaded core modules router');
 

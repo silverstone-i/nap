@@ -10,8 +10,6 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import { resolvePartyId } from '../../../src/utils/dbUtils.js';
-
 import ExcelJS from 'exceljs';
 import db from '../../../src/db/db.js';
 
@@ -141,10 +139,6 @@ class AddressesController extends BaseController {
       if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
       const rows = await parseWorksheet(file.path, index);
-
-      const db = req.db;
-      const pgp = req.pgp;
-      const logger = req.logger;
 
       await db.tx(async t => {
         const sourcesModel = db.sources(schema).setDb(t);
