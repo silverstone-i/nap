@@ -35,6 +35,7 @@ async function parseWorksheet(filePath, sheetIndex) {
       rows.push(obj);
     }
   });
+
   return rows;
 }
 
@@ -42,10 +43,12 @@ async function resolveTableIds(rows, schema, tx) {
   const typeMap = { vendor: 'vendors', client: 'clients', employee: 'employees' };
   const codeGroups = { vendor: new Map(), client: new Map(), employee: new Map() };
 
+  // Collect all unique codes for each source_type from the input rows
   for (const row of rows) {
     codeGroups[row.source_type]?.set(row.code, null);
   }
 
+  // For each source_type, query the DB for matching codes and store their IDs
   for (const [type, codeMap] of Object.entries(codeGroups)) {
     const table = `${schema}.${typeMap[type]}`;
     const codeCol = `${type}_code`;
@@ -57,6 +60,7 @@ async function resolveTableIds(rows, schema, tx) {
       }
     }
   }
+
   return codeGroups;
 }
 
@@ -83,15 +87,25 @@ function deduplicateSourceRecords(rows, codeGroups, tenantCode, createdBy) {
   return sourceRecords;
 }
 
-async function insertAndMergeSources(sourceRecords, schema, sourcesModel, tx) {
-  const existingSources = await tx.any(
+async function insertAndMergeSources(sourceRecords, schema, sourcesModel) {
+  const searchParams = sourceRecords.map(r => [r.table_id, r.source_type]);
+
+  // Build value tuples and flat values for parameterized query
+  const valueTuples = searchParams.map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2})`).join(', ');
+  const flatValues = searchParams.flat();
+
+  const existingSources = await sourcesModel.tx.any(
     `SELECT id, table_id, source_type FROM ${schema}.sources
-           WHERE (table_id, source_type) IN ($1:csv)`,
-    [sourceRecords.map(r => [r.table_id, r.source_type])]
+     WHERE (table_id, source_type) IN (${valueTuples})`,
+    flatValues
   );
+
   const existingMap = new Map(existingSources.map(r => [`${r.table_id}|${r.source_type}`, r]));
   const toInsert = sourceRecords.filter(r => !existingMap.has(`${r.table_id}|${r.source_type}`));
-  const inserted = await sourcesModel.bulkInsert(toInsert, ['table_id', 'source_type', 'id'], tx);
+  let inserted = [];
+  if (toInsert.length > 0) {
+    inserted = await sourcesModel.bulkInsert(toInsert, ['table_id', 'source_type', 'id']);
+  }
   const sourceIdMap = new Map();
   for (const r of [...inserted, ...existingSources]) {
     sourceIdMap.set(`${r.table_id}|${r.source_type}`, r.id);
@@ -141,17 +155,17 @@ class AddressesController extends BaseController {
       const rows = await parseWorksheet(file.path, index);
 
       await db.tx(async t => {
-        // console.log('Testing for tables:', db.addresses(schema) ? true : false, db.sources(schema) ? true : false);
-
         const addressesModel = this.model(schema);
+        addressesModel.tx = t;
         const sourcesModel = db('sources', schema);
+        sourcesModel.tx = t;
 
         const codeGroups = await resolveTableIds(rows, schema, t);
         const sourceRecords = deduplicateSourceRecords(rows, codeGroups, tenantCode, createdBy);
-        const sourceIdMap = await insertAndMergeSources(sourceRecords, schema, sourcesModel, t);
+        const sourceIdMap = await insertAndMergeSources(sourceRecords, schema, sourcesModel);
         const addressRecords = buildAddressRecords(rows, codeGroups, sourceIdMap, tenantCode, createdBy);
 
-        await addressesModel.bulkInsert(addressRecords, [], t);
+        await addressesModel.bulkInsert(addressRecords, []);
       });
 
       res.status(201).json({ inserted: rows.length });
