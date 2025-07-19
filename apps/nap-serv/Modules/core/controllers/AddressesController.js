@@ -51,10 +51,7 @@ async function resolveTableIds(rows, schema, tx) {
     const codeCol = `${type}_code`;
     const codes = Array.from(codeMap.keys());
     if (codes.length > 0) {
-      const found = await tx.any(
-        `SELECT id, ${codeCol} FROM ${table} WHERE ${codeCol} IN ($1:csv)`,
-        [codes]
-      );
+      const found = await tx.any(`SELECT id, ${codeCol} FROM ${table} WHERE ${codeCol} IN ($1:csv)`, [codes]);
       for (const rec of found) {
         codeMap.set(rec[codeCol], rec.id);
       }
@@ -64,13 +61,17 @@ async function resolveTableIds(rows, schema, tx) {
 }
 
 function deduplicateSourceRecords(rows, codeGroups, tenantCode, createdBy) {
-  const uniqueSourceMap = new Map();
+  const uniqueKeys = new Set();
+  const sourceRecords = [];
+
   for (const row of rows) {
     const tableId = codeGroups[row.source_type].get(row.code);
     if (!tableId) throw new Error(`No ${row.source_type} found for code: ${row.code}`);
+
     const key = `${tableId}|${row.source_type}`;
-    if (!uniqueSourceMap.has(key)) {
-      uniqueSourceMap.set(key, {
+    if (!uniqueKeys.has(key)) {
+      uniqueKeys.add(key);
+      sourceRecords.push({
         tenant_code: tenantCode,
         table_id: tableId,
         source_type: row.source_type,
@@ -78,7 +79,8 @@ function deduplicateSourceRecords(rows, codeGroups, tenantCode, createdBy) {
       });
     }
   }
-  return Array.from(uniqueSourceMap.values());
+
+  return sourceRecords;
 }
 
 async function insertAndMergeSources(sourceRecords, schema, sourcesModel, tx) {
@@ -87,11 +89,9 @@ async function insertAndMergeSources(sourceRecords, schema, sourcesModel, tx) {
            WHERE (table_id, source_type) IN ($1:csv)`,
     [sourceRecords.map(r => [r.table_id, r.source_type])]
   );
-  const existingMap = new Map(
-    existingSources.map(r => [`${r.table_id}|${r.source_type}`, r])
-  );
+  const existingMap = new Map(existingSources.map(r => [`${r.table_id}|${r.source_type}`, r]));
   const toInsert = sourceRecords.filter(r => !existingMap.has(`${r.table_id}|${r.source_type}`));
-  const inserted = await sourcesModel.bulkInsert(toInsert, ['table_id', 'source_type', 'id']);
+  const inserted = await sourcesModel.bulkInsert(toInsert, ['table_id', 'source_type', 'id'], tx);
   const sourceIdMap = new Map();
   for (const r of [...inserted, ...existingSources]) {
     sourceIdMap.set(`${r.table_id}|${r.source_type}`, r.id);
@@ -141,15 +141,17 @@ class AddressesController extends BaseController {
       const rows = await parseWorksheet(file.path, index);
 
       await db.tx(async t => {
-        const sourcesModel = db.sources(schema).setDb(t);
-        const addressesModel = this.model(schema).setDb(t);
+        // console.log('Testing for tables:', db.addresses(schema) ? true : false, db.sources(schema) ? true : false);
+
+        const addressesModel = this.model(schema);
+        const sourcesModel = db('sources', schema);
 
         const codeGroups = await resolveTableIds(rows, schema, t);
         const sourceRecords = deduplicateSourceRecords(rows, codeGroups, tenantCode, createdBy);
         const sourceIdMap = await insertAndMergeSources(sourceRecords, schema, sourcesModel, t);
         const addressRecords = buildAddressRecords(rows, codeGroups, sourceIdMap, tenantCode, createdBy);
 
-        await addressesModel.bulkInsert(addressRecords);
+        await addressesModel.bulkInsert(addressRecords, [], t);
       });
 
       res.status(201).json({ inserted: rows.length });
@@ -159,7 +161,6 @@ class AddressesController extends BaseController {
     }
   }
 }
-
 
 const instance = new AddressesController();
 

@@ -21,7 +21,7 @@ const schema = {
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant association
-    { name: 'party_id', type: 'uuid', notNull: true }, // Foreign key to parties table
+    { name: 'source_id', type: 'uuid', notNull: true }, // Foreign key to sources table
     { name: 'label', type: 'varchar(64)', notNull: true }, // e.g., 'sales', 'accounting'
     { name: 'name', type: 'varchar(255)', notNull: true },
     { name: 'email', type: 'varchar(255)', notNull: true },
@@ -29,26 +29,26 @@ const schema = {
     { name: 'mobile', type: 'varchar(32)' },
     { name: 'fax', type: 'varchar(32)' },
     { name: 'position', type: 'varchar(128)' }, // Position or title of the contact
-    { name: 'party_type', type: 'varchar(64)', notNull: true }, // Party type association
+    { name: 'source_type', type: 'varchar(64)', notNull: true }, // Source type association
   ],
   constraints: {
     primaryKey: ['id'],
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['party_id'],
+        columns: ['source_id'],
         references: {
-          table: 'parties', // Unified parties table
+          table: 'sources', // Unified sources table
           columns: ['id'],
         },
-        onDelete: 'cascade', // Ensures contacts are deleted if the party is deleted
+        onDelete: 'cascade', // Ensures contacts are deleted if the source is deleted
       },
     ],
     checks: [
       {
         type: 'Check',
-        columns: ['party_type'],
-        expression: "party_type IN ('vendor', 'client', 'employee')", // Valid party types
+        columns: ['source_type'],
+        expression: "source_type IN ('vendor', 'client', 'employee')", // Valid source types
       },
     ],
   },

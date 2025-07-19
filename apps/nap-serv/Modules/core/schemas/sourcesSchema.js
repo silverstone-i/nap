@@ -14,14 +14,14 @@
 /** @type {TableSchema} */
 const schema = {
   dbSchema: 'tenantid',
-  table: 'parties',
+  table: 'sources',
   hasAuditFields: true,
   version: '1.0.0', // Always use version 1.0.0
   softDelete: true, // Enable soft delete
   columns: [
     { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant identifier
-    { name: 'table_id', type: 'uuid', notNull: true }, // Renamed from 'party_id'
+    { name: 'table_id', type: 'uuid', notNull: true }, 
     { name: 'source_type', type: 'varchar(64)', notNull: true }, // e.g., 'vendor', 'client', employee
   ],
   constraints: {
