@@ -10,7 +10,6 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import { handleError } from '../../../src/utils/BaseController.js';
 import db from '../../../src/db/db.js';
 import logger from '../../../src/utils/logger.js';
 
@@ -38,7 +37,7 @@ class TenantsController extends BaseController {
       count = await db('napUsers', 'admin').updateWhere(req.query, req.body);
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
-      handleError(err, res, 'deleting', this.errorLabel);
+      this.handleError(err, res, 'deleting', this.errorLabel);
     }
   }
 
@@ -58,7 +57,7 @@ class TenantsController extends BaseController {
 
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {
-      handleError(err, res, 'deleting', this.errorLabel);
+      this.handleError(err, res, 'deleting', this.errorLabel);
     }
   }
 
