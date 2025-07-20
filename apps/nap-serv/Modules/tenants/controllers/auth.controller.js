@@ -53,8 +53,6 @@ export const refreshToken = async (req, res) => {
     const isTest = process.env.NODE_ENV === 'test';
 
     try {
-      console.log('Decoded refresh token:', decoded);
-      
       const user = await db('napUsers', 'admin').findOneBy([{ email: decoded.email }]);
       if (!user) return res.status(404).json({ message: 'User not found' });
 
