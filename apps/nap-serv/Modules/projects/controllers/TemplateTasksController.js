@@ -61,37 +61,15 @@ class TemplateTasksController extends BaseController {
 
   async exportXls(req, res) {
     try {
-      const filePath = '/tmp/template_tasks.xlsx';
+      const timestamp = Date.now();
+      const filePath = `/tmp/template_tasks_${timestamp}.xlsx`;
       const where = req.body.where || [];
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
 
-      options.includeDeactivated ??= false;
+      await db('exportTemplateTasks', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
-      const ensureColumns = ['id', 'template_unit_id'];
-      options.columnWhitelist = [...new Set([...ensureColumns, ...(options.columnWhitelist ?? [])])];
-
-      const units = await db('templateUnits', req.schema).findAll();
-      const lookup = new Map(units.map(u => [u.id, { unit_name: u.name, version: u.version }]));
-      const records = await this.model(req.schema).findWhere(where, joinType, options);
-
-      const enrichedRecords = records.map(record => {
-        const unit = lookup.get(record.template_unit_id) || {};
-
-        if (!(unit.unit_name && unit.version)) throw new Error(`No template_unit_id found for ID ${record.template_unit_id}`);
-        const { id, template_unit_id, ...rest } = record;
-
-        return {
-          unit_name: unit.unit_name || '',
-          version: unit.version || '',
-          ...rest,
-        };
-      });
-
-      fs.mkdirSync('/tmp', { recursive: true });
-      await writeFile(enrichedRecords, filePath);
-
-      res.download(filePath, `template_tasks_${Date.now()}.xlsx`, err => {
+      res.download(filePath, `template_tasks_${timestamp}.xlsx`, err => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }

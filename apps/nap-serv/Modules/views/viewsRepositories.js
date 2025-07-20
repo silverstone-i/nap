@@ -10,9 +10,11 @@
 */
 
 import ExportAddresses from "./models/ExportAddresses.js";
+import ExportTemplateTasks from "./models/ExportTemplateTasks.js";
 
 const repositories = {
   exportAddresses: ExportAddresses,
+  exportTemplateTasks: ExportTemplateTasks,
 };
 
 export default repositories;
