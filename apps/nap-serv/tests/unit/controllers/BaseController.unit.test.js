@@ -1,3 +1,5 @@
+// NOTE: BaseController.unit.test.js currently includes tests for ViewController methods
+
 vi.mock('../../../src/db/db.js', () => {
   const modelMock = {
     insert: vi.fn(),
@@ -38,6 +40,7 @@ describe('BaseController', () => {
       json: vi.fn(),
       send: vi.fn(),
       setHeader: vi.fn(),
+      download: vi.fn((filePath, filename, cb) => cb && cb()),
     };
   });
 
@@ -205,16 +208,17 @@ describe('BaseController', () => {
 
   describe('exportXls', () => {
     it('should export data to spreadsheet', async () => {
-      const buffer = Buffer.from('xlsx content');
-      modelMock.exportToSpreadsheet.mockResolvedValue(buffer);
+      const timestamp = Date.now();
+      const filePath = `/tmp/TestModel_${timestamp}.xlsx`;
+      modelMock.exportToSpreadsheet.mockResolvedValue({ filePath });
       req.body = { filters: [] };
 
       await controller.exportXls(req, res);
 
-      expect(modelMock.exportToSpreadsheet).toHaveBeenCalledWith(req.body);
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'attachment; filename="TestModel.xlsx"');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      expect(res.send).toHaveBeenCalledWith(buffer);
+      expect(modelMock.exportToSpreadsheet).toHaveBeenCalledWith(expect.stringMatching(/\/tmp\/TestModel_\d+\.xlsx/), [], 'AND', {});
+      expect(res.download).toHaveBeenCalledWith(expect.any(String), expect.stringMatching(/TestModel_\d+\.xlsx/), expect.any(Function));
+      expect(res.download.mock.calls[0][2]).toBeInstanceOf(Function); // Ensure callback is a function
+      expect(res.download.mock.calls[0][2]()).toBeUndefined(); // Call the callback to simulate download completion
     });
   });
 });
