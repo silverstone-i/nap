@@ -16,10 +16,23 @@ export default [
         exports: true,
       },
     },
-    rules: {},
+    settings: {
+      'import/resolver': {
+        alias: {
+          map: [['pg-schemata', './node_modules/pg-schemata']],
+          extensions: ['.js'],
+        },
+      },
+    },
+    plugins: {
+      import: require('eslint-plugin-import'),
+    },
+    rules: {
+      'import/no-unresolved': 'error',
+    },
   },
   {
-    files: ['**/tests/**/*.js', 'jest.setup.js'],
+    files: ['**/tests/**/*.js', 'vitest.setup.js'],
     languageOptions: {
       globals: {
         describe: true,
@@ -30,6 +43,7 @@ export default [
         beforeEach: true,
         afterEach: true,
         it: true,
+        vi: true,
       },
     },
     rules: {
