@@ -110,7 +110,7 @@ class ViewController {
       if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.json(record);
     } catch (err) {
-      handleError(err, res, 'fetching', this.errorLabel);
+      this.handleError(err, res, 'fetching', this.errorLabel);
     }
   }
 
