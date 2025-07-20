@@ -9,9 +9,15 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
+import fs from 'fs';
 import { db } from '../db/db.js';
 import logger from './logger.js';
 
+const codeMap = {
+  23505: 409, // unique_violation
+  23503: 400, // foreign_key_violation
+  22001: 400, // string_data_right_truncation
+};
 class ViewController {
   constructor(modelName, errorLabel = null) {
     if (typeof modelName !== 'string') {
@@ -89,6 +95,22 @@ class ViewController {
       res.json(records);
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  }
+
+  async getById(req, res) {
+    logger.info(`[BaseController] getById`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
+    try {
+      const record = await this.model(req.schema).findById(req.params.id);
+      if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      res.json(record);
+    } catch (err) {
+      handleError(err, res, 'fetching', this.errorLabel);
     }
   }
 
@@ -173,6 +195,44 @@ class ViewController {
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
+  }
+
+  async exportXls(req, res) {
+    logger.info(`[BaseController] exportXls`, {
+      model: this.errorLabel,
+      user: req.user?.email,
+      query: req.query,
+      body: req.body,
+    });
+
+    const timestamp = Date.now();
+    const path = `/tmp/${this.errorLabel}_${timestamp}.xlsx`;
+    console.log('Exporting to:', path);
+
+    const where = Array.isArray(req.body?.where) ? req.body.where : [];
+    const joinType = req.body?.joinType || 'AND';
+    const options = req.body?.options || {};
+
+    try {
+      const result = await this.model(req.schema).exportToSpreadsheet(path, where, joinType, options);
+      res.download(result.filePath, `${this.errorLabel}_${timestamp}.xlsx`, err => {
+        if (err) {
+          logger.error(`Error sending file: ${err.message}`);
+        }
+        fs.unlink(result.filePath, err => {
+          if (err) logger.error(`Failed to delete exported file: ${err.message}`);
+        });
+      });
+    } catch (err) {
+      this.handleError(err, res, 'exporting', this.errorLabel);
+    }
+  }
+
+  handleError(err, res, context, errorLabel) {
+    const status = codeMap[err.code] || 500;
+
+    console.error(`Error ${context} ${errorLabel}:`, err);
+    res.status(status).json({ error: err.message });
   }
 }
 

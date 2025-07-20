@@ -1,23 +1,10 @@
 'use strict';
 
 import { ClientRequest } from 'http';
-import fs from 'fs';
 import { db } from '../db/db.js';
 import logger from './logger.js';
 import ViewController from './ViewController.js';
 
-const codeMap = {
-  23505: 409, // unique_violation
-  23503: 400, // foreign_key_violation
-  22001: 400, // string_data_right_truncation
-};
-
-function handleError(err, res, context, errorLabel) {
-  const status = codeMap[err.code] || 500;
-
-  console.error(`Error ${context} ${errorLabel}:`, err);
-  res.status(status).json({ error: err.message });
-}
 
 class BaseController extends ViewController {
   constructor(modelName, errorLabel = null) {
@@ -41,14 +28,6 @@ class BaseController extends ViewController {
     }
   }
 
-  model(schemaName) {
-    if (!schemaName) throw new Error('schemaName is required');
-
-    const model = db(this.modelName, schemaName);
-    if (!model) throw new Error(`Model '${this.modelName}' not found for schema '${schemaName}'`);
-    return model;
-  }
-
   async create(req, res) {
     this.injectTenantCode(req);
     try {
@@ -58,23 +37,7 @@ class BaseController extends ViewController {
       if (err.name === 'SchemaDefinitionError') {
         err.message = 'Invalid input data';
       }
-      handleError(err, res, 'creating', this.errorLabel);
-    }
-  }
-
-  async getById(req, res) {
-    logger.info(`[BaseController] getById`, {
-      model: this.errorLabel,
-      user: req.user?.email,
-      query: req.query,
-      body: req.body,
-    });
-    try {
-      const record = await this.model(req.schema).findById(req.params.id);
-      if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
-      res.json(record);
-    } catch (err) {
-      handleError(err, res, 'fetching', this.errorLabel);
+      this.handleError(err, res, 'creating', this.errorLabel);
     }
   }
 
@@ -97,7 +60,7 @@ class BaseController extends ViewController {
         err.message = 'Invalid input data';
       }
 
-      handleError(err, res, 'updating', this.errorLabel);
+      this.handleError(err, res, 'updating', this.errorLabel);
     }
   }
 
@@ -117,7 +80,7 @@ class BaseController extends ViewController {
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
-      handleError(err, res, 'deleting', this.errorLabel);
+      this.handleError(err, res, 'deleting', this.errorLabel);
     }
   }
 
@@ -137,7 +100,7 @@ class BaseController extends ViewController {
 
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {
-      handleError(err, res, 'restoring', this.errorLabel);
+      this.handleError(err, res, 'restoring', this.errorLabel);
     }
   }
 
@@ -153,7 +116,7 @@ class BaseController extends ViewController {
       const result = await this.model(req.schema).bulkInsert(req.body);
       res.status(201).json(result);
     } catch (err) {
-      handleError(err, res, 'bulk inserting', this.errorLabel);
+      this.handleError(err, res, 'bulk inserting', this.errorLabel);
     }
   }
 
@@ -171,7 +134,7 @@ class BaseController extends ViewController {
       const result = await this.model(req.schema).bulkUpdate(filters, updates);
       res.status(200).json(result);
     } catch (err) {
-      handleError(err, res, 'bulk updating', this.errorLabel);
+      this.handleError(err, res, 'bulk updating', this.errorLabel);
     }
   }
 
@@ -196,42 +159,9 @@ class BaseController extends ViewController {
       }));
       res.status(201).json(result);
     } catch (err) {
-      handleError(err, res, 'importing', this.errorLabel);
-    }
-  }
-
-  async exportXls(req, res) {
-    logger.info(`[BaseController] exportXls`, {
-      model: this.errorLabel,
-      user: req.user?.email,
-      query: req.query,
-      body: req.body,
-    });
-
-    const path = `/tmp/${this.errorLabel}-${Date.now()}.xlsx`;
-    const where = Array.isArray(req.body?.where) ? req.body.where : [];
-    const joinType = req.body?.joinType || 'AND';
-    const options = req.body?.options || {};
-
-    try {
-      const result = await this.model(req.schema).exportToSpreadsheet(path, where, joinType, options);
-      res.setHeader('Content-Disposition', `attachment; filename="${this.errorLabel}.xlsx"`);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      // TODO: Handle file cleanup after download.  May need to use a temporary file system or cloud storage like Amazon S3.
-      // For now, just send the file and let the client handle it.
-      res.download(result.filePath, `${this.errorLabel}_${Date.now()}.xlsx`, err => {
-        if (err) {
-          logger.error(`Error sending file: ${err.message}`);
-        }
-        fs.unlink(result.filePath, err => {
-          if (err) logger.error(`Failed to delete exported file: ${err.message}`);
-        });
-      });
-    } catch (err) {
-      handleError(err, res, 'exporting', this.errorLabel);
+      this.handleError(err, res, 'importing', this.errorLabel);
     }
   }
 }
 
 export default BaseController;
-export { handleError }; // Export handleError for use in other controllers
