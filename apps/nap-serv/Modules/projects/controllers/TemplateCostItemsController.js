@@ -102,55 +102,15 @@ class TemplateCostItemsController extends BaseController {
   }
 
   async exportXls(req, res) {
-    try {
-      const filePath = '/tmp/template_cost_items.xlsx';
+      const timestamp = Date.now();
+      const filePath = `/tmp/template_cost_items_${timestamp}.xlsx`;
       const where = req.body.where || [];
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
-      const schema = req.schema || 'tenantid';
 
-      options.includeDeactivated ??= false;
+      await db('exportTemplateCostItems', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
-      const ensureColumns = ['id', 'template_task_id'];
-      options.columnWhitelist = [...new Set([...ensureColumns, ...(options.columnWhitelist ?? [])])];
-
-      const query = `
-        SELECT t.id AS template_task_id, t.task_code, u.name, u.version
-        FROM ${schema}.template_tasks t
-        JOIN ${schema}.template_units u ON t.template_unit_id = u.id
-      `;
-
-      const taskRecords = await db.any(query);
-      const lookup = new Map(taskRecords.map(r => [r.template_task_id, { unit_name: r.name, version: r.version, task_code: r.task_code }]));
-      const costItemRecords = await this.model(schema).findWhere(where, joinType, options);
-
-      const enrichedRecords = costItemRecords.map(r => {
-        const task = lookup.get(r.template_task_id) || {};
-
-        if (!(task.unit_name && task.version)) throw new Error(`No template_task_id found for ID ${record.template_task_id}`);
-        const { id, template_task_id, ...rest } = r;
-
-        return {
-          unit_name: task.unit_name || '',
-          version: task.version || '',
-          task_code: task.task_code || '',
-          ...rest,
-        };
-      });
-
-      const [header, ...dataRows] = enrichedRecords;
-
-      const sortedRows = dataRows.sort((a, b) => {
-        if (a.task_code < b.task_code) return -1;
-        if (a.task_code > b.task_code) return 1;
-        return 0;
-      });
-      const sortedRecords = [header, ...sortedRows];
-
-      fs.mkdirSync('/tmp', { recursive: true });
-      await writeFile(sortedRecords, filePath);
-
-      res.download(filePath, `template_cost_items_${Date.now()}.xlsx`, err => {
+      res.download(filePath, `template_cost_items_${timestamp}.xlsx`, err => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }
@@ -162,7 +122,7 @@ class TemplateCostItemsController extends BaseController {
       res.status(400).json({ error: err.message });
     }
   }
-}
+
 
 const instance = new TemplateCostItemsController();
 
