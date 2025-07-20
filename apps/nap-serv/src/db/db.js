@@ -34,8 +34,11 @@ if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is not set');
 }
 
-console.log('\nInitializing database connection...');
-DB.init(DATABASE_URL, repositories, logger);
+if (!DB.db) {
+  console.log('\nInitializing database connection...');
+  DB.init(DATABASE_URL, repositories, logger);
+  console.log('Database connection established.\n');
+}
 
 const rawDb = DB.db;
 const pgp = DB.pgp;
@@ -46,7 +49,6 @@ console.log('Database connection established.\n');
 // Defer callDb + db initialization until models are attached
 function createCallDb(rawDb) {
   const callDb = function (modelOrName, schemaName) {
-    
     const model = typeof modelOrName === 'string' ? rawDb[modelOrName] : modelOrName;
 
     if (!model || typeof model.setSchemaName !== 'function') {
