@@ -14,7 +14,7 @@
 /** @type {TableSchema} */
 const exportAddressesSchema = {
   dbSchema: 'tenantid',
-  table: 'export_addresses',
+  table: 'vw_export_addresses',
   version: '1.0.0',
 
   columns: [

@@ -1,4 +1,4 @@
-CREATE OR REPLACE VIEW tenantid.export_addresses AS
+CREATE OR REPLACE VIEW tenantid.vw_export_addresses AS
 SELECT
   s.source_type,
   CASE s.source_type

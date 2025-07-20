@@ -180,14 +180,14 @@ class AddressesController extends BaseController {
   async exportXls(req, res) {
     try {
       const timestamp = Date.now();
-      const filePath = `/tmp/export_addresses_${timestamp}.xlsx`;
+      const filePath = `/tmp/addresses_${timestamp}.xlsx`;
       const where = req.body.where || [];
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
 
       await db('exportAddresses', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
-      res.download(filePath, `export_addresses_${timestamp}.xlsx`, err => {
+      res.download(filePath, `addresses_${timestamp}.xlsx`, err => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }
