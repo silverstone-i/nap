@@ -2,17 +2,9 @@
 
 import { ClientRequest } from 'http';
 import fs from 'fs';
-/*
- * Copyright © 2024-present, Ian Silverstone
- *
- * See the LICENSE file at the top-level directory of this distribution
- * for licensing information.
- *
- * Removal or modification of this copyright notice is prohibited.
- */
-
 import { db } from '../db/db.js';
 import logger from './logger.js';
+import ViewController from './ViewController.js';
 
 const codeMap = {
   23505: 409, // unique_violation
@@ -27,14 +19,9 @@ function handleError(err, res, context, errorLabel) {
   res.status(status).json({ error: err.message });
 }
 
-class BaseController {
+class BaseController extends ViewController {
   constructor(modelName, errorLabel = null) {
-    if (typeof modelName !== 'string') {
-      throw new Error('Invalid model name');
-    }
-
-    this.modelName = modelName;
-    this.errorLabel = errorLabel ?? modelName;
+    super(modelName, errorLabel);
   }
 
   injectTenantCode(req) {
@@ -72,209 +59,6 @@ class BaseController {
         err.message = 'Invalid input data';
       }
       handleError(err, res, 'creating', this.errorLabel);
-    }
-  }
-
-  async get(req, res) {
-    logger.info(`[BaseController] get`, {
-      model: this.errorLabel,
-      user: req.user?.email,
-      query: req.query,
-      body: req.body,
-    });
-    try {
-      console.log('[BaseController] get query:', req.query);
-
-      // Parse limit as number
-      const limit = req.query.limit !== undefined ? Number(req.query.limit) : 50;
-      const joinType = req.query.joinType || 'AND';
-
-      // Parse orderBy from string, CSV or JSON
-      let orderBy = req.query.orderBy ?? ['id'];
-      if (typeof orderBy === 'string') {
-        try {
-          orderBy = JSON.parse(orderBy);
-          if (!Array.isArray(orderBy)) throw new Error();
-        } catch {
-          orderBy = orderBy.split(',').map(s => s.trim());
-        }
-      }
-
-      // Extract cursor from query params like cursor.{key}
-      const cursor = {};
-      const conditions = [];
-      const filters = {};
-
-      for (const [key, value] of Object.entries(req.query)) {
-        if (key.startsWith('cursor.')) {
-          const keyName = key.split('.')[1];
-          cursor[keyName] = value;
-          continue;
-        }
-
-        if (!['limit', 'orderBy', 'columnWhitelist', 'includeDeactivated'].includes(key)) {
-          filters[key] = value;
-        }
-      }
-
-      const options = { filters };
-
-      if (req.query.columnWhitelist) {
-        options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
-      }
-
-      if (req.query.includeDeactivated === 'true') {
-        options.includeDeactivated = true;
-      }
-
-      const records = await this.model(req.schema).findAfterCursor(cursor, limit, orderBy, options);
-
-      if (conditions.length > 0) {
-        records.warning = 'Conditions were ignored in cursor-based pagination.';
-      }
-
-      res.json(records);
-    } catch (err) {
-      handleError(err, res, 'fetching', this.errorLabel);
-    }
-  }
-
-  async getWhere(req, res) {
-    logger.info(`[BaseController] getWhere`, {
-      model: this.errorLabel,
-      user: req.user?.email,
-      query: req.query,
-      body: req.body,
-    });
-
-    try {
-      const joinType = req.query.joinType || 'AND';
-      const limit = req.query.limit !== undefined ? Number(req.query.limit) : null;
-      const offset = req.query.offset !== undefined ? Number(req.query.offset) : null;
-
-      // Parse orderBy from JSON, CSV or string
-      let orderBy = req.query.orderBy ?? null;
-      if (typeof orderBy === 'string') {
-        try {
-          orderBy = JSON.parse(orderBy);
-          if (!Array.isArray(orderBy)) throw new Error();
-        } catch {
-          orderBy = orderBy.split(',').map(s => s.trim());
-        }
-      }
-
-      // Extract conditions and filters correctly
-      const conditions = [];
-      const filters = {};
-
-      for (const [key, value] of Object.entries(req.query)) {
-        if (key === 'conditions') {
-          try {
-            const parsed = JSON.parse(value);
-            if (Array.isArray(parsed)) {
-              conditions.push(...parsed);
-            }
-          } catch {}
-          continue;
-        }
-
-        if (
-          key.startsWith('cursor.') ||
-          ['limit', 'offset', 'orderBy', 'columnWhitelist', 'includeDeactivated', 'joinType'].includes(key)
-        ) {
-          continue;
-        }
-
-        filters[key] = value;
-      }
-
-      const options = {
-        filters,
-        limit,
-        offset,
-        orderBy,
-      };
-
-      if (req.query.columnWhitelist) {
-        options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
-      }
-
-      if (req.query.includeDeactivated === 'true') {
-        options.includeDeactivated = true;
-      }
-
-      const [records, totalCount] = await Promise.all([
-        this.model(req.schema).findWhere(conditions, joinType, options),
-        this.model(req.schema).countWhere ? this.model(req.schema).countWhere(conditions, joinType, options) : Promise.resolve(null),
-      ]);
-
-      res.json({
-        records,
-        pagination:
-          totalCount !== null
-            ? {
-                total: totalCount,
-                limit: limit ?? undefined,
-                offset: offset ?? 0,
-              }
-            : undefined,
-      });
-    } catch (err) {
-      handleError(err, res, 'fetching', this.errorLabel);
-    }
-  }
-
-  async getArchived(req, res) {
-    logger.info(`[BaseController] getArchived`, {
-      model: this.errorLabel,
-      user: req.user?.email,
-      query: req.query,
-    });
-
-    try {
-      const joinType = req.query.joinType || 'AND';
-      const limit = req.query.limit !== undefined ? Number(req.query.limit) : null;
-      const offset = req.query.offset !== undefined ? Number(req.query.offset) : null;
-
-      let orderBy = req.query.orderBy ?? 'id';
-      if (typeof orderBy === 'string') {
-        try {
-          orderBy = JSON.parse(orderBy);
-          if (!Array.isArray(orderBy)) throw new Error();
-        } catch {
-          orderBy = orderBy.split(',').map(s => s.trim());
-        }
-      }
-
-      const options = {
-        limit,
-        offset,
-        orderBy,
-      };
-
-      if (req.query.columnWhitelist) {
-        options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
-      }
-
-      // Build filters from query params
-      const filters = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (
-          key.startsWith('cursor.') ||
-          ['limit', 'offset', 'orderBy', 'columnWhitelist', 'includeDeactivated', 'joinType'].includes(key)
-        ) {
-          continue;
-        }
-        filters[key] = value;
-      }
-      options.filters = filters;
-
-      const conditions = [];
-      const records = await this.model(req.schema).findSoftDeleted(conditions, joinType, options);
-
-      res.json({ records });
-    } catch (err) {
-      handleError(err, res, 'fetching archived', this.errorLabel);
     }
   }
 

@@ -105,3 +105,18 @@ const db = createCallDb(rawDb);
 db.$pool = rawDb.$pool;
 
 export { db as default, db, createCallDb, pgp, DB };
+
+// // Singleton guard for callDb instance
+// let callDbInstance;
+// function getDb() {
+//   if (!callDbInstance) {
+//     callDbInstance = createCallDb(rawDb);
+//     callDbInstance.$pool = rawDb.$pool;
+//   }
+//   return callDbInstance;
+// }
+
+// // Export default instance and getter for compatibility
+// export default getDb();
+// export const db = getDb;
+// export { createCallDb, pgp, DB };

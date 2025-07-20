@@ -12,6 +12,8 @@
 import BaseController from '../../../src/utils/BaseController.js';
 import ExcelJS from 'exceljs';
 import db from '../../../src/db/db.js';
+import fs from 'fs';
+import logger from '../../../src/utils/logger.js';
 
 async function parseWorksheet(filePath, sheetIndex) {
   const workbook = new ExcelJS.Workbook();
@@ -171,6 +173,29 @@ class AddressesController extends BaseController {
       res.status(201).json({ inserted: rows.length });
     } catch (err) {
       console.error(err);
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  async exportXls(req, res) {
+    try {
+      const timestamp = Date.now();
+      const filePath = `/tmp/export_addresses_${timestamp}.xlsx`;
+      const where = req.body.where || [];
+      const joinType = req.body.joinType || 'AND';
+      const options = req.body.options || {};
+
+      await db('exportAddresses', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
+
+      res.download(filePath, `export_addresses_${timestamp}.xlsx`, err => {
+        if (err) {
+          logger.error(`Error sending file: ${err.message}`);
+        }
+        fs.unlink(filePath, err => {
+          if (err) logger.error(`Failed to delete exported file: ${err.message}`);
+        });
+      });
+    } catch (err) {
       res.status(400).json({ error: err.message });
     }
   }

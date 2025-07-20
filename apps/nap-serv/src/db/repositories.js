@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-const enabledModules = ['tenants','core', 'projects']; // TODO: Load dynamically per tenant or env config
+const enabledModules = ['tenants','core', 'views', 'projects']; // TODO: Load dynamically per tenant or env config
 
 const repositories = {};
 
