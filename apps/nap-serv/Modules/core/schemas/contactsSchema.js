@@ -29,7 +29,6 @@ const schema = {
     { name: 'mobile', type: 'varchar(32)' },
     { name: 'fax', type: 'varchar(32)' },
     { name: 'position', type: 'varchar(128)' }, // Position or title of the contact
-    { name: 'source_type', type: 'varchar(64)', notNull: true }, // Source type association
   ],
   constraints: {
     primaryKey: ['id'],
@@ -42,13 +41,6 @@ const schema = {
           columns: ['id'],
         },
         onDelete: 'cascade', // Ensures contacts are deleted if the source is deleted
-      },
-    ],
-    checks: [
-      {
-        type: 'Check',
-        columns: ['source_type'],
-        expression: "source_type IN ('vendor', 'client', 'employee')", // Valid source types
       },
     ],
   },

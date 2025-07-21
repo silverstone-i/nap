@@ -35,4 +35,28 @@ async function writeFile(records, filePath) {
   await workbook.xlsx.writeFile(filePath);
 }
 
-export { writeFile };
+async function parseWorksheet(filePath, sheetIndex) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const worksheet = workbook.worksheets[sheetIndex];
+  if (!worksheet) {
+    throw new Error(`Sheet index ${sheetIndex} not found.`);
+  }
+  const rows = [];
+  let headers = [];
+  worksheet.eachRow((row, rowNumber) => {
+    const values = row.values;
+    if (rowNumber === 1) {
+      headers = values.slice(1);
+    } else {
+      const obj = {};
+      headers.forEach((header, i) => {
+        obj[header] = values[i + 1];
+      });
+      rows.push(obj);
+    }
+  });
+  return rows;
+}
+
+export { writeFile, parseWorksheet };
