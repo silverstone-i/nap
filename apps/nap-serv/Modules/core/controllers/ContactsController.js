@@ -63,6 +63,29 @@ class ContactsController extends BaseController {
       res.status(400).json({ error: err.message });
     }
   }
+
+  async exportXls(req, res) {
+    try {
+      const timestamp = Date.now();
+      const filePath = `/tmp/contacts_${timestamp}.xlsx`;
+      const where = req.body.where || [];
+      const joinType = req.body.joinType || 'AND';
+      const options = req.body.options || {};
+
+      await db('exportContacts', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
+
+      res.download(filePath, `contacts_${timestamp}.xlsx`, err => {
+        if (err) {
+          logger.error(`Error sending file: ${err.message}`);
+        }
+        fs.unlink(filePath, err => {
+          if (err) logger.error(`Failed to delete exported file: ${err.message}`);
+        });
+      });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }
 
 const instance = new ContactsController();

@@ -18,15 +18,15 @@ const exportAddressesSchema = {
   version: '1.0.0',
 
   columns: [
-    { name: 'source_type', type: 'text', notNull: true },
-    { name: 'code', type: 'text', notNull: false },
-    { name: 'label', type: 'text', notNull: false },
-    { name: 'address_line1', type: 'text', notNull: false },
-    { name: 'address_line2', type: 'text', notNull: false },
-    { name: 'city', type: 'text', notNull: false },
-    { name: 'state', type: 'text', notNull: false },
-    { name: 'zip', type: 'text', notNull: false },
-    { name: 'country', type: 'text', notNull: false },
+    { name: 'source_type', type: 'varchar(12)', notNull: true },
+    { name: 'code', type: 'varchar(12)', notNull: false },
+    { name: 'label', type: 'varchar(64)', notNull: false },
+    { name: 'address_line1', type: 'varchar(255)', notNull: false },
+    { name: 'address_line2', type: 'varchar(255)', notNull: false },
+    { name: 'city', type: 'varchar(128)', notNull: false },
+    { name: 'state', type: 'varchar(64)', notNull: false },
+    { name: 'zip', type: 'varchar(16)', notNull: false },
+    { name: 'country', type: 'varchar(64)', notNull: false },
   ],
   // No constraints for a view
 };

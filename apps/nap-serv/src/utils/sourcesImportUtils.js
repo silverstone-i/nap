@@ -29,8 +29,6 @@ export async function resolveTableIds(rows, schema, tx) {
       }
     }
   }
-  console.log('Code groups:', codeGroups);
-  
   
   return codeGroups;
 }

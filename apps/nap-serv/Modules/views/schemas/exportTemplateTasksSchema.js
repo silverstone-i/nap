@@ -15,7 +15,7 @@
 const schema = {
   dbSchema: 'tenantid',
   table: 'vw_template_tasks_export',
-  version: '0.1.0',
+  version: '1.0.0',
   columns: [
     { name: 'unit_name', type: 'varchar(150)', notNull: true },
     { name: 'version', type: 'integer', notNull: true },

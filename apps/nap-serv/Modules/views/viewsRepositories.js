@@ -12,11 +12,13 @@
 import ExportAddresses from "./models/ExportAddresses.js";
 import ExportTemplateTasks from "./models/ExportTemplateTasks.js";
 import ExportTemplateCostItems from "./models/ExportTemplateCostItems.js";
+import ExportContacts from "./models/ExportContacts.js";
 
 const repositories = {
   exportAddresses: ExportAddresses,
   exportTemplateTasks: ExportTemplateTasks,
   exportTemplateCostItems: ExportTemplateCostItems,
+  exportContacts: ExportContacts,
 };
 
 export default repositories;

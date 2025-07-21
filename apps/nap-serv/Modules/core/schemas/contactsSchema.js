@@ -32,6 +32,7 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    unique: [['source_id', 'label', 'name', 'email']],
     foreignKeys: [
       {
         type: 'ForeignKey',
