@@ -7,4 +7,5 @@ SELECT
   tt.duration_days
 FROM tenantid.template_tasks tt
 JOIN tenantid.template_units tu
-  ON tt.template_unit_id = tu.id;
+  ON tt.template_unit_id = tu.id
+WHERE tt.deactivated_at IS NULL;

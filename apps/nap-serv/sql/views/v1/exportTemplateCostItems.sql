@@ -12,4 +12,5 @@ SELECT
   tci.unit_cost
 FROM tenantid.template_cost_items tci
 JOIN tenantid.template_tasks tt ON tci.template_task_id = tt.id
-JOIN tenantid.template_units tu ON tt.template_unit_id = tu.id;
+JOIN tenantid.template_units tu ON tt.template_unit_id = tu.id
+WHERE tci.deactivated_at IS NULL;
