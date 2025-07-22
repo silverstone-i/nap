@@ -4,20 +4,45 @@ This document describes the coding conventions used throughout the project to en
 
 ## Repository Pattern
 
-- Repository objects are exported as the default export from each module's repository file (e.g., `coreRepositories.js`, `bomRepositories.js`).
+- Repository objects are exported as the default export from each module's repository file. The file naming convention is `<module name>Repositories.js` (e.g., `coreRepositories.js`, `bomRepositories.js`).
 - Keys in repository objects use camelCase and are descriptive of the model (e.g., `vendors`, `contacts`, `catalogSkus`, `vendorSkus`).
 - Each key maps to a model class imported from the module's `models` directory.
+- To add a new model to a module's repository:
+  1. Create the model in the module's `models` directory.
+  2. Import the model in the repository file.
+  3. Add the model to the repository object using a camelCase key.
+  4. Export the repository object as the default export.
 - Example:
   ```js
   import Vendors from './models/Vendors.js';
   import Contacts from './models/Contacts.js';
   // ...
-  const repositories = {
+  const repository = {
     vendors: Vendors,
     contacts: Contacts,
     // ...
   };
-  export default repositories;
+  export default repository;
+  ```
+
+## API Endpoint Setup Pattern
+
+- API router files are named using the convention `<module name>ApiRoutes.js` (e.g., `coreApiRoutes.js`, `bomApiRoutes.js`).
+- Each module's API router aggregates sub-routers and mounts them under versioned paths using Express.
+- To activate a module's API endpoints:
+  1. Create the API router in the module's `apiRoutes/v1` directory.
+  2. Import the router in `src/apiRoutes.js`.
+  3. Add the router to the main Express router using a descriptive path.
+- Example for main router aggregation:
+  ```js
+  import coreRoutes from '../modules/core/apiRoutes/v1/coreApiRoutes.js';
+  import activitiesRoutes from '../modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
+  // ...
+  const router = express.Router();
+  router.use('/core', coreRoutes);
+  router.use('/activities', activitiesRoutes);
+  // ...
+  export default router;
   ```
 
 ## Model Classes
