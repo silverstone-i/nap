@@ -15,7 +15,7 @@
 const schema = {
   dbSchema: 'tenantid',
   table: 'change_orders',
-  version: '0.1.0',
+  version: '1.0.0',
   hasAuditFields: true,
   softDelete: true,
 

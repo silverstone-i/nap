@@ -8,7 +8,7 @@
 const schema = {
   dbSchema: 'tenantid',
   table: 'catalog_vendor_matches',
-  version: '0.1.0',
+  version: '1.0.0',
   hasAuditFields: true,
   softDelete: false,
 

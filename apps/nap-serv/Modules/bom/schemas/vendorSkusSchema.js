@@ -14,36 +14,47 @@
 /** @type {TableSchema} */
 const schema = {
   dbSchema: 'tenantid',
-  table: 'catalog_items',
-  version: '0.1.0',
+  table: 'vendor_items',
+  version: '1.0.0',
   hasAuditFields: true,
   softDelete: true,
 
   columns: [
     { name: 'id', type: 'uuid', notNull: true, default: 'uuidv7()', immutable: true },
-    { name: 'catalog_item_code', type: 'varchar(200)', notNull: true },
+    { name: 'vendor_id', type: 'uuid', notNull: true },
+    { name: 'vendor_item_code', type: 'varchar(100)', notNull: true },
     { name: 'description', type: 'text' },
     { name: 'embedding', type: 'vector(1536)', default: null },
-    { name: 'vendor_item_id', type: 'uuid', default: null },
+    { name: 'catalog_item_id', type: 'uuid', default: null },
   ],
 
   constraints: {
     primaryKey: ['id'],
+    unique: [['vendor_id', 'vendor_item_code']],
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['vendor_item_id'],
+        columns: ['vendor_id'],
         references: {
-          table: 'vendor_items',
+          table: 'vendors',
+          columns: ['id'],
+        },
+        onDelete: 'restrict',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['catalog_item_id'],
+        references: {
+          table: 'catalog_items',
           columns: ['id'],
         },
         onDelete: 'set null',
-      }
+      },
     ],
     indexes: [
       {
         type: 'Index',
-        columns: ['vendor_item_id'],
+        columns: ['catalog_item_id'],
       },
     ],
   },
