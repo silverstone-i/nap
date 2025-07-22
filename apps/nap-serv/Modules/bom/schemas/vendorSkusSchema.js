@@ -11,26 +11,33 @@
 
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
-/** @type {TableSchema} */
-const schema = {
+/**
+ * Vendor SKUs table schema
+ * Maps vendor-specific SKUs to catalog SKUs
+ * @type {TableSchema}
+ */
+const vendorSkusSchema = {
   dbSchema: 'tenantid',
-  table: 'vendor_items',
-  version: '1.0.0',
+  table: 'vendor_skus',
   hasAuditFields: true,
+  version: '1.0.0',
   softDelete: true,
-
   columns: [
-    { name: 'id', type: 'uuid', notNull: true, default: 'uuidv7()', immutable: true },
+    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true },
     { name: 'vendor_id', type: 'uuid', notNull: true },
-    { name: 'vendor_item_code', type: 'varchar(100)', notNull: true },
-    { name: 'description', type: 'text' },
-    { name: 'embedding', type: 'vector(1536)', default: null },
-    { name: 'catalog_item_id', type: 'uuid', default: null },
+    { name: 'vendor_sku', type: 'varchar(32)', notNull: true },
+    { name: 'description', type: 'varchar(512)', notNull: true },
+    { name: 'unit_price', type: 'numeric', notNull: true, default: 0.0 },
+    { name: 'unit', type: 'varchar(32)', notNull: true },
   ],
-
   constraints: {
     primaryKey: ['id'],
-    unique: [['vendor_id', 'vendor_item_code']],
+    unique: [['vendor_sku']],
+    indexes: [
+      { type: 'Index', columns: ['vendor_id'] },
+      { type: 'Index', columns: ['vendor_sku'] },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',
@@ -39,25 +46,19 @@ const schema = {
           table: 'vendors',
           columns: ['id'],
         },
-        onDelete: 'restrict',
+        onDelete: 'cascade',
       },
       {
         type: 'ForeignKey',
-        columns: ['catalog_item_id'],
+        columns: ['catalog_sku_id'],
         references: {
-          table: 'catalog_items',
+          table: 'catalog_skus',
           columns: ['id'],
         },
-        onDelete: 'set null',
-      },
-    ],
-    indexes: [
-      {
-        type: 'Index',
-        columns: ['catalog_item_id'],
+        onDelete: 'cascade',
       },
     ],
   },
 };
 
-export default schema;
+export default vendorSkusSchema;

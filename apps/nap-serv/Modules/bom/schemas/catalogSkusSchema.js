@@ -11,42 +11,33 @@
 
 /** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
 
-/** @type {TableSchema} */
-const schema = {
+/**
+ * Catalog SKUs table schema
+ * Holds master catalog SKUs for products/services
+ * @type {TableSchema}
+ */
+const catalogSkusSchema = {
   dbSchema: 'tenantid',
-  table: 'catalog_items',
-  version: '1.0.0',
+  table: 'catalog_skus',
   hasAuditFields: true,
+  version: '1.0.0',
   softDelete: true,
-
   columns: [
-    { name: 'id', type: 'uuid', notNull: true, default: 'uuidv7()', immutable: true },
-    { name: 'catalog_item_code', type: 'varchar(200)', notNull: true },
-    { name: 'description', type: 'text' },
-    { name: 'embedding', type: 'vector(1536)', default: null },
-    { name: 'vendor_item_id', type: 'uuid', default: null },
+    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true },
+    { name: 'sku', type: 'varchar(32)', notNull: true },
+    { name: 'description', type: 'varchar(512)' },
+    { name: 'category', type: 'varchar(64)' },
+    { name: 'sub_category', type: 'varchar(64)' },
   ],
-
   constraints: {
     primaryKey: ['id'],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['vendor_item_id'],
-        references: {
-          table: 'vendor_items',
-          columns: ['id'],
-        },
-        onDelete: 'set null',
-      }
-    ],
+    unique: [['sku_code']],
     indexes: [
-      {
-        type: 'Index',
-        columns: ['vendor_item_id'],
-      },
+      { type: 'Index', columns: ['sku_code'] },
+      { type: 'Index', columns: ['name'] },
     ],
   },
 };
 
-export default schema;
+export default catalogSkusSchema;
