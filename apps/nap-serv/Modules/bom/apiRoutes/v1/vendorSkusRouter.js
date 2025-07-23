@@ -10,8 +10,8 @@
 */
 
 import createRouter from "../../../../src/utils/createRouter";
-import VendorItemsController from "../../controllers/VendorItemsControllor";
+import VendorSkusController from "../../controllers/VendorSkusControllor";
 
-const router = createRouter(VendorItemsController);
+const router = createRouter(VendorSkusController);
 
 export default router;

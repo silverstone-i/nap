@@ -9,11 +9,11 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import BaseController from "../../../src/utils/BaseController";
+import BaseController from '../../../src/utils/BaseController.js';
 
-class EmbeddingsController extends BaseController {
+class VendorSkusController extends BaseController {
   constructor(db, pgp, logger = null) {
-    super(db, pgp, 'embeddings', logger);
+    super(db, pgp, 'vendorSkus', logger);
   }
 }
-export default EmbeddingsController;
+export default VendorSkusController;

@@ -10,10 +10,10 @@
 */
 
 import express from 'express';
-import catalogItemsRouter from './catalogItemsRouter.js';
+import catalogItemsRouter from './catalogSkusRouter.js';
 import catalogVendorMatchesRouter from './catalogVendorMatchesRouter.js';
 import embeddingsRouter from './embeddingRouter.js'; 
-import vendorItemsRouter from './vendorItemsRouter.js';
+import vendorItemsRouter from './vendorSkusRouter.js';
 
 const router = express.Router();
 

@@ -10,9 +10,9 @@
 */
 
 import createRouter from '../../../src/utils/createRouter.js';
-import CatalogItemsController from '../controllers/CatalogItemsController.js';
+import CatalogSkusController from '../controllers/CatalogSkusController.js';
 
-const router = createRouter(CatalogItemsController);
+const router = createRouter(CatalogSkusController);
 
 export default router;
 
