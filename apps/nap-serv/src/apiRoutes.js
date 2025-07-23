@@ -19,6 +19,7 @@ import arRoutes from '../modules/ar/apiRoutes/v1/arApiRoutes.js';
 import apRoutes from '../modules/ap/apiRoutes/v1/apApiRoutes.js';
 import accountingRoutes from '../modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
 import projectsRoutes from '../modules/projects/apiRoutes/v1/projectsApiRoutes.js';
+import bomApiRoutes from '../modules/bom/apiRoutes/v1/bomApiRoutes.js';
 
 const router = express.Router();
 
@@ -28,7 +29,8 @@ router.use('/tenants', tenantsRoutes);
 router.use('/ar', arRoutes);
 router.use('/ap', apRoutes);
 router.use('/accounting', accountingRoutes);
-router.use('/projects', projectsRoutes);  
+router.use('/projects', projectsRoutes); 
+router.use('/bom', bomApiRoutes); 
 // Add more routes as needed
 
 export default router;

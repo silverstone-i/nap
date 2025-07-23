@@ -10,16 +10,12 @@
 */
 
 import express from 'express';
-import catalogItemsRouter from './catalogSkusRouter.js';
-import catalogVendorMatchesRouter from './catalogVendorMatchesRouter.js';
-import embeddingsRouter from './embeddingRouter.js'; 
-import vendorItemsRouter from './vendorSkusRouter.js';
+import catalogSkusRouter from './catalogSkusRouter.js';
+import vendorSkusRouter from './vendorSkusRouter.js';
 
 const router = express.Router();
 
-router.use('/v1/catalog-items', catalogItemsRouter);
-router.use('/v1/catalog-vendor-matches', catalogVendorMatchesRouter);
-router.use('/v1/embeddings', embeddingsRouter);
-router.use('/v1/vendor-items', vendorItemsRouter);
+router.use('/v1/catalog-skus', catalogSkusRouter);
+router.use('/v1/vendor-skus', vendorSkusRouter);
 
 export default router;

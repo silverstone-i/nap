@@ -9,8 +9,8 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import createRouter from "../../../../src/utils/createRouter";
-import VendorSkusController from "../../controllers/VendorSkusControllor";
+import createRouter from "../../../../src/utils/createRouter.js";
+import VendorSkusController from "../../controllers/VendorSkusControllor.js";
 
 const router = createRouter(VendorSkusController);
 

@@ -12,8 +12,11 @@
 import BaseController from '../../../src/utils/BaseController.js';
 
 class VendorSkusController extends BaseController {
-  constructor(db, pgp, logger = null) {
-    super(db, pgp, 'vendorSkus', logger);
+  constructor() {
+    super('vendorSkus');
   }
 }
-export default VendorSkusController;
+
+const instance = new VendorSkusController();
+export default instance;
+export { VendorSkusController };
