@@ -48,15 +48,6 @@ const vendorSkusSchema = {
         },
         onDelete: 'cascade',
       },
-      {
-        type: 'ForeignKey',
-        columns: ['catalog_sku_id'],
-        references: {
-          table: 'catalog_skus',
-          columns: ['id'],
-        },
-        onDelete: 'cascade',
-      },
     ],
   },
 };
