@@ -35,10 +35,9 @@ class VendorSkusController extends BaseController {
 
       let result;
       await db.tx(async t => {
-        // Use injected models or fall back to db() calls
-        const vendorsModel = this.vendorsModel || db('vendors', schema);
-        const vendorSkusModel = this.model || db('vendorSkus', schema);
-        const embeddingSkusModel = this.embeddingSkusModel || db('embeddingSkus', schema);
+        const vendorsModel = db('vendors', schema);
+        const vendorSkusModel = this.model(schema);
+        const embeddingSkusModel = db('embeddingSkus', schema);
 
         vendorsModel.tx = t;
         vendorSkusModel.tx = t;
@@ -69,8 +68,6 @@ class VendorSkusController extends BaseController {
           },
           ['id', 'tenant_code', 'vendor_sku', 'description', 'vendor_id', 'tenant_code', 'created_by']
         );
-
-        // console.log('Imported SKUs:', imported);
 
         // After import, generate embeddings for the imported SKUs
         const importedSkus = Array.isArray(imported) ? imported : imported.inserted || [];

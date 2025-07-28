@@ -12,7 +12,6 @@
 import BaseController from '../../../src/utils/BaseController.js';
 import db from '../../../src/db/db.js';
 
-
 class CatalogSkusController extends BaseController {
   constructor() {
     super('catalogSkus');
