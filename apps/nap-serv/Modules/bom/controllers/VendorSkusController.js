@@ -10,7 +10,6 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-
 import db from '../../../src/db/db.js';
 
 class VendorSkusController extends BaseController {
@@ -26,21 +25,30 @@ class VendorSkusController extends BaseController {
       const file = req.file;
       const schema = req.schema;
 
+      if (!tenantCode || !schema) {
+        return res.status(400).json({ error: 'Missing tenant context' });
+      }
+
       if (!file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
       let result;
       await db.tx(async t => {
-        // Preload all vendors for this tenant
-        const vendorsModel = db('vendors', schema);
+        // Use injected models or fall back to db() calls
+        const vendorsModel = this.vendorsModel || db('vendors', schema);
+        const vendorSkusModel = this.model || db('vendorSkus', schema);
+        const embeddingSkusModel = this.embeddingSkusModel || db('embeddingSkus', schema);
+
         vendorsModel.tx = t;
+        vendorSkusModel.tx = t;
+        embeddingSkusModel.tx = t;
+
+        // Preload all vendors for this tenant
         const vendors = await vendorsModel.findAll({ limit: 0 });
         const vendorLookup = new Map(vendors.map(v => [v.vendor_code, v.id]));
 
         // Import and transform each row
-        const vendorSkusModel = this.model(schema);
-        vendorSkusModel.tx = t;
         const imported = await vendorSkusModel.importFromSpreadsheet(
           file.path,
           index,
@@ -65,7 +73,7 @@ class VendorSkusController extends BaseController {
         // console.log('Imported SKUs:', imported);
 
         // After import, generate embeddings for the imported SKUs
-        const importedSkus = Array.isArray(imported) ? imported : imported.inserted || [];        
+        const importedSkus = Array.isArray(imported) ? imported : imported.inserted || [];
 
         // Import the utility and OpenAI embedding service
         const { generateEmbeddingsForSkus, openaiEmbeddingService } = await import('../../../src/utils/embeddingUtils.js');
@@ -83,8 +91,6 @@ class VendorSkusController extends BaseController {
         );
 
         // Save embeddings to embedding_skus table
-        const embeddingSkusModel = db('embeddingSkus', schema);
-        embeddingSkusModel.tx = t;
         await embeddingSkusModel.bulkInsert(embeddings);
 
         result = { imported, embeddings };
