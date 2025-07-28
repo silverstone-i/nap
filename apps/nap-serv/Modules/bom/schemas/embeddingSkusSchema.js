@@ -19,7 +19,7 @@
  */
 const embeddingSkusSchema = {
   dbSchema: 'tenantid',
-  table: 'sku_embeddings',
+  table: 'embedding_skus',
   hasAuditFields: true,
   version: '1.0.0',
   softDelete: false,

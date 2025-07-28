@@ -11,7 +11,7 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 
-import { db } from '../../../src/db/db.js';
+import db from '../../../src/db/db.js';
 
 class VendorSkusController extends BaseController {
   constructor() {
@@ -24,29 +24,70 @@ class VendorSkusController extends BaseController {
       const createdBy = req.user?.user_name || req.user?.email;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
+      const schema = req.schema;
 
       if (!file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
 
-      // Preload all vendors for this tenant
-      const vendors = await db('vendors', req.schema).findAll({ tenant_code: tenantCode });
-      const vendorLookup = new Map(vendors.map(v => [v.vendor_code, v.id]));
+      let result;
+      await db.tx(async t => {
+        // Preload all vendors for this tenant
+        const vendorsModel = db('vendors', schema);
+        vendorsModel.tx = t;
+        const vendors = await vendorsModel.findAll({ limit: 0 });
+        const vendorLookup = new Map(vendors.map(v => [v.vendor_code, v.id]));
 
-      // Import and transform each row
-      const result = await this.model(req.schema).importFromSpreadsheet(file.path, index, row => {
-        const vendor_id = vendorLookup.get(row.vendor_code);
-        if (!vendor_id) {
-          throw new Error(`No vendor found for vendor_code: ${row.vendor_code}`);
-        }
-        // Remove vendor_code from row
-        const { vendor_code, ...rest } = row;
-        return {
-          ...rest,
-          vendor_id,
-          tenant_code: tenantCode,
-          created_by: createdBy,
-        };
+        // Import and transform each row
+        const vendorSkusModel = this.model(schema);
+        vendorSkusModel.tx = t;
+        const imported = await vendorSkusModel.importFromSpreadsheet(
+          file.path,
+          index,
+          row => {
+            const vendor_id = vendorLookup.get(row.vendor_code);
+
+            if (!vendor_id) {
+              throw new Error(`No vendor found for vendor_code: ${row.vendor_code}`);
+            }
+            // Remove vendor_code from row
+            const { vendor_code, ...rest } = row;
+            return {
+              ...rest,
+              vendor_id,
+              tenant_code: tenantCode,
+              created_by: createdBy,
+            };
+          },
+          ['id', 'tenant_code', 'vendor_sku', 'description', 'vendor_id', 'tenant_code', 'created_by']
+        );
+
+        // console.log('Imported SKUs:', imported);
+
+        // After import, generate embeddings for the imported SKUs
+        const importedSkus = Array.isArray(imported) ? imported : imported.inserted || [];        
+
+        // Import the utility and OpenAI embedding service
+        const { generateEmbeddingsForSkus, openaiEmbeddingService } = await import('../../../src/utils/embeddingUtils.js');
+
+        // Call embedding utility with OpenAI embedding service
+        const embeddings = await generateEmbeddingsForSkus(
+          importedSkus,
+          {
+            model: 'text-embedding-3-small',
+            inputType: 'description',
+          },
+          'vendor',
+          // Use OpenAI embedding service
+          openaiEmbeddingService
+        );
+
+        // Save embeddings to embedding_skus table
+        const embeddingSkusModel = db('embeddingSkus', schema);
+        embeddingSkusModel.tx = t;
+        await embeddingSkusModel.bulkInsert(embeddings);
+
+        result = { imported, embeddings };
       });
 
       res.status(201).json(result);

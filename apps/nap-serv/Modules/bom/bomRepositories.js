@@ -11,10 +11,12 @@
 
 import CatalogSkus from './models/CatalogSkus.js';
 import VendorSkus from './models/VendorSkus.js';
+import EmbeddingSkus from './models/EmbeddingSkus.js';
 
 const repository = {
   catalogSkus: CatalogSkus,
   vendorSkus: VendorSkus,
+  embeddingSkus: EmbeddingSkus,
 };
 
 export default repository;
