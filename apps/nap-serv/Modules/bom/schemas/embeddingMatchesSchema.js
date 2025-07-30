@@ -42,4 +42,4 @@ const embeddingMatchesSchema = {
   },
 };
 
-module.exports = embeddingMatchesSchema;
+export default embeddingMatchesSchema;

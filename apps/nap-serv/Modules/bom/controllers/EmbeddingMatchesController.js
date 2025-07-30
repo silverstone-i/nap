@@ -10,6 +10,7 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
+import db from '../../../src/db/db.js';
 
 class EmbeddingMatchesController extends BaseController {
   constructor() {
@@ -24,18 +25,32 @@ class EmbeddingMatchesController extends BaseController {
    */
   async executeMatches(req, res) {
     try {
-      const { vendorIds = [], options = {} } = req.body;
-      if (!options.schema && req.schema) {
-        options.schema = req.schema;
-      }
+      const { vendorIds = [], vendorCodes = [], options = {} } = req.body;
       const threshold = options.threshold || Number(process.env.MATCH_THRESHOLD) || 0.8;
       const embeddingModel = options.embeddingModel || 'text-embedding-3-small';
-      const schema = options.schema;
+      const schema = req.schema;
 
       // Get model instances
-      const db = this.db;
-      const EmbeddingSkus = db.embeddingSkus(schema);
-      const EmbeddingMatches = db.embeddingMatches(schema);
+      const EmbeddingSkus = db('embeddingSkus', schema);
+      const EmbeddingMatches = db('embeddingMatches', schema);
+
+      //Fetch vendorId's, if needed
+      if (vendorCodes.length > 0) {
+        console.log('vendorCodes:', vendorCodes || 'None');
+
+        const conditions = [{ vendor_code: { $in: vendorCodes } }];
+        console.log('conditions:', conditions);
+
+        const vendors = await db('vendors', schema).findWhere(conditions, 'OR', { columnWhitelist: ['id'] });
+
+        if (vendors.length > 0) {
+          // If vendorIds is a const, create a new array and use it for subsequent logic
+          vendorIds.push(...vendors.map(v => v.id));
+
+        }
+
+        console.log('vendorIds:', vendorIds);
+      }
 
       // Fetch vendor embeddings
       let vendorEmbeddings;
@@ -69,4 +84,6 @@ class EmbeddingMatchesController extends BaseController {
   }
 }
 
-export default EmbeddingMatchesController;
+const instance = new EmbeddingMatchesController();
+export default instance;
+export { EmbeddingMatchesController };

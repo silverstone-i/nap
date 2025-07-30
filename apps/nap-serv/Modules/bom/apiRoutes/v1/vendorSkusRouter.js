@@ -10,7 +10,7 @@
 */
 
 import createRouter from "../../../../src/utils/createRouter.js";
-import VendorSkusController from "../../controllers/VendorSkusControllor.js";
+import VendorSkusController from "../../controllers/VendorSkusController.js";
 
 const router = createRouter(VendorSkusController);
 
