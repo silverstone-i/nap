@@ -63,6 +63,46 @@ class EmbeddingSkus extends TableModel {
     const conflictColumns = ['sku_id', 'source', 'model', 'input_type'];
     return this.upsert(embeddingData, conflictColumns);
   }
+
+  /**
+   * Fetch all vendor SKU embeddings for a given schema and optional model
+   * @param {string} [embeddingModel] - Optional AI model filter
+   * @returns {Promise<Array>} Array of vendor embedding records
+   */
+  async findAllVendorEmbeddings(embeddingModel = null) {
+    const conditions = [{ source: 'vendor' }];
+    if (embeddingModel) {
+      conditions.push({ model: embeddingModel });
+    }
+    return this.findWhere(conditions, 'AND');
+  }
+
+  /**
+   * Fetch all catalog SKU embeddings for a given schema and optional model
+   * @param {string} [embeddingModel] - Optional AI model filter
+   * @returns {Promise<Array>} Array of catalog embedding records
+   */
+  async findAllCatalogEmbeddings(embeddingModel = null) {
+    const conditions = [{ source: 'catalog' }];
+    if (embeddingModel) {
+      conditions.push({ model: embeddingModel });
+    }
+    return this.findWhere(conditions, 'AND');
+  }
+
+  /**
+   * Fetch vendor embeddings by array of vendor IDs
+   * @param {Array<string>} vendorIds - Array of vendor SKU IDs
+   * @param {string} [embeddingModel] - Optional AI model filter
+   * @returns {Promise<Array>} Array of vendor embedding records
+   */
+  async findVendorEmbeddingsByIds(vendorIds, embeddingModel = null) {
+    const conditions = [{ source: 'vendor' }, { sku_id: vendorIds }];
+    if (embeddingModel) {
+      conditions.push({ model: embeddingModel });
+    }
+    return this.findWhere(conditions, 'AND');
+  }
 }
 
 export default EmbeddingSkus;
