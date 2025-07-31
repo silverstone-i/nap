@@ -11,6 +11,7 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 import db from '../../../src/db/db.js';
+import { matchVendorToCatalogEmbeddings } from '../../../src/utils/embeddingUtils.js';
 
 class EmbeddingMatchesController extends BaseController {
   constructor() {
@@ -36,20 +37,12 @@ class EmbeddingMatchesController extends BaseController {
 
       //Fetch vendorId's, if needed
       if (vendorCodes.length > 0) {
-        console.log('vendorCodes:', vendorCodes || 'None');
-
         const conditions = [{ vendor_code: { $in: vendorCodes } }];
-        console.log('conditions:', conditions);
-
         const vendors = await db('vendors', schema).findWhere(conditions, 'OR', { columnWhitelist: ['id'] });
 
         if (vendors.length > 0) {
-          // If vendorIds is a const, create a new array and use it for subsequent logic
           vendorIds.push(...vendors.map(v => v.id));
-
         }
-
-        console.log('vendorIds:', vendorIds);
       }
 
       // Fetch vendor embeddings
@@ -57,30 +50,58 @@ class EmbeddingMatchesController extends BaseController {
       if (vendorIds.length === 0) {
         vendorEmbeddings = await EmbeddingSkus.findAllVendorEmbeddings(embeddingModel);
       } else {
-        vendorEmbeddings = await EmbeddingSkus.findVendorEmbeddingsByIds(vendorIds, embeddingModel);
+        vendorEmbeddings = await this.findVendorEmbeddingsByIds(vendorIds, schema, embeddingModel);
       }
 
       // Fetch catalog embeddings
       const catalogEmbeddings = await EmbeddingSkus.findAllCatalogEmbeddings(embeddingModel);
 
-      // Delete existing matches for these vendors
-      if (vendorIds.length > 0) {
-        await EmbeddingMatches.deleteByVendorIds(vendorIds);
+      // Delete existing matches for these vendor embeddings
+      if (vendorEmbeddings.length > 0) {
+        const embeddingSkuIds = vendorEmbeddings.map(e => e.id);
+        const result = await EmbeddingMatches.deleteByEmbeddingSkuIds(embeddingSkuIds);
+        console.log(`Deleted ${result} existing matches for vendor embeddings`);
       }
 
       // Use utility function for matching
-      const { matchVendorToCatalogEmbeddings } = await import('../../../src/utils/embeddingUtils.js');
-      const { matched, lowConfidence } = matchVendorToCatalogEmbeddings(vendorEmbeddings, catalogEmbeddings, threshold);
+      const { matches, lowConfidence } = matchVendorToCatalogEmbeddings(vendorEmbeddings, catalogEmbeddings, {
+        threshold,
+        embeddingModel,
+        tenantCode: req.user.tenant_code,
+      });
 
       // Bulk insert matched records
-      if (matched.length > 0) {
-        await EmbeddingMatches.bulkInsert(matched);
+      if (matches.length > 0) {
+        await EmbeddingMatches.bulkInsert(matches);
       }
 
-      res.status(200).json({ matched, lowConfidence });
+      res.status(200).json({ matches, lowConfidence });
     } catch (err) {
+      console.error('Error executing matches:', err);
       res.status(500).json({ error: err.message });
     }
+  }
+
+  /**
+   * Fetch vendor embeddings by array of vendor IDs
+   * @param {Array<string>} vendorIds - Array of vendor SKU IDs
+   * @param {string} [embeddingModel] - Optional AI model filter
+   * @returns {Promise<Array>} Array of vendor embedding records
+   */
+  async findVendorEmbeddingsByIds(vendorIds, schema, embeddingModel = null) {
+    // Custom join query to get embeddings for given vendorIds
+    const model = embeddingModel ? `AND es.model = '${embeddingModel}'` : '';
+    const vendorIdList = vendorIds.map(id => `'${id}'`).join(',');
+    const query = `
+      SELECT es.*
+      FROM ${schema}.embedding_skus es
+      JOIN ${schema}.vendor_skus vs ON es.sku_id = vs.id
+      WHERE vs.vendor_id IN (${vendorIdList})
+      ${model}
+      AND es.source = 'vendor'
+    `;
+
+    return await db.any(query);
   }
 }
 

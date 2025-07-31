@@ -18,12 +18,12 @@ class EmbeddingMatches extends TableModel {
   }
 
   /**
-   * Delete all matches for given vendor SKU IDs
-   * @param {Array<string>} vendorIds - Array of vendor SKU IDs
+   * Delete all matches for given embedding_skus IDs
+   * @param {Array<string>} embeddingSkuIds - Array of embedding_skus.id values
    * @returns {Promise<number>} Number of deleted records
    */
-  async deleteByVendorIds(vendorIds) {
-    return this.deleteWhere([{ vendor_sku_id: vendorIds }], 'AND');
+  async deleteByEmbeddingSkuIds(embeddingSkuIds) {
+    return await this.deleteWhere([{ vendor_embedding_id: { $in: embeddingSkuIds } }], 'AND');
   }
 
   /**

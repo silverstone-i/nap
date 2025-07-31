@@ -60,6 +60,21 @@ export async function openaiEmbeddingService(texts, model = 'text-embedding-3-sm
   return response.data.map(item => item.embedding);
 }
 
+function parseVector(input) {
+  if (Array.isArray(input)) return input;
+  if (typeof input !== 'string') throw new Error('Invalid input');
+
+  try {
+    // Try JSON first
+    const parsed = JSON.parse(input);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // Fall back to comma-separated
+    return input.split(',').map(Number);
+  }
+  throw new Error('Input must be a numeric vector');
+}
+
 /**
  * Compute cosine similarity between two vectors
  * @param {number[]} a
@@ -67,6 +82,10 @@ export async function openaiEmbeddingService(texts, model = 'text-embedding-3-sm
  * @returns {number}
  */
 export function cosineSimilarity(a, b) {
+  a = parseVector(a);
+  b = parseVector(b);
+  if (a.length !== b.length) throw new Error('Vectors must be of the same length');
+
   let dot = 0,
     normA = 0,
     normB = 0;
@@ -86,7 +105,10 @@ export function cosineSimilarity(a, b) {
  * @returns {Object} { matches: Array, lowConfidence: Array }
  */
 export function matchVendorToCatalogEmbeddings(vendorEmbeddings, catalogEmbeddings, options = {}) {
-  const minConfidence = options.minConfidence ?? 0;
+  const minConfidence = options.threshold ?? 0;
+  const embeddingModel = options.embeddingModel || 'text-embedding-3-small';
+  const tenantCode = options.tenantCode;
+  if (!tenantCode) throw new Error('[matchVendorToCatalogEmbeddings] tenantCode is required in options');
   if (!catalogEmbeddings.length || !vendorEmbeddings.length) return { matches: [], lowConfidence: [] };
 
   const matches = [];
@@ -112,5 +134,24 @@ export function matchVendorToCatalogEmbeddings(vendorEmbeddings, catalogEmbeddin
       lowConfidence.push(matchResult);
     }
   }
-  return { matches, lowConfidence };
+
+  const matchResults = matches.map(match => ({
+    tenant_code: tenantCode,
+    vendor_embedding_id: match.vendor.id,
+    catalog_embedding_id: match.catalog.id,
+    confidence: match.confidence,
+    model: embeddingModel,
+    input_type: match.catalog.input_type === match.vendor.input_type ? match.catalog.input_type : null, // Optional field
+  }));
+
+  const lowConfidenceResults = lowConfidence.map(match => ({
+    tenant_code: tenantCode,
+    vendor_embedding_id: match.vendor.id,
+    catalog_embedding_id: match.catalog.id,
+    confidence: match.confidence,
+    model: embeddingModel,
+    input_type: match.catalog.input_type === match.vendor.input_type ? match.catalog.input_type : null, // Optional field
+  }));
+
+  return { matches: matchResults, lowConfidence: lowConfidenceResults };
 }

@@ -87,21 +87,8 @@ class EmbeddingSkus extends TableModel {
     if (embeddingModel) {
       conditions.push({ model: embeddingModel });
     }
-    return this.findWhere(conditions, 'AND');
-  }
-
-  /**
-   * Fetch vendor embeddings by array of vendor IDs
-   * @param {Array<string>} vendorIds - Array of vendor SKU IDs
-   * @param {string} [embeddingModel] - Optional AI model filter
-   * @returns {Promise<Array>} Array of vendor embedding records
-   */
-  async findVendorEmbeddingsByIds(vendorIds, embeddingModel = null) {
-    const conditions = [{ source: 'vendor' }, { sku_id: vendorIds }];
-    if (embeddingModel) {
-      conditions.push({ model: embeddingModel });
-    }
-    return this.findWhere(conditions, 'AND');
+    
+    return await this.findWhere(conditions, 'AND');
   }
 }
 
