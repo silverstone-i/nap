@@ -110,6 +110,7 @@ export function matchVendorToCatalogEmbeddings(vendorEmbeddings, catalogEmbeddin
   const tenantCode = options.tenantCode;
   if (!tenantCode) throw new Error('[matchVendorToCatalogEmbeddings] tenantCode is required in options');
   if (!catalogEmbeddings.length || !vendorEmbeddings.length) return { matches: [], lowConfidence: [] };
+  console.log('minConfidence:', minConfidence);
 
   const matches = [];
   const lowConfidence = [];
@@ -142,6 +143,7 @@ export function matchVendorToCatalogEmbeddings(vendorEmbeddings, catalogEmbeddin
     confidence: match.confidence,
     model: embeddingModel,
     input_type: match.catalog.input_type === match.vendor.input_type ? match.catalog.input_type : null, // Optional field
+    created_by: options.created_by,
   }));
 
   const lowConfidenceResults = lowConfidence.map(match => ({
@@ -151,6 +153,7 @@ export function matchVendorToCatalogEmbeddings(vendorEmbeddings, catalogEmbeddin
     confidence: match.confidence,
     model: embeddingModel,
     input_type: match.catalog.input_type === match.vendor.input_type ? match.catalog.input_type : null, // Optional field
+    created_by: options.created_by,
   }));
 
   return { matches: matchResults, lowConfidence: lowConfidenceResults };

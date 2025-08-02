@@ -10,7 +10,9 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
+import { QueryModel } from 'pg-schemata';
 import db from '../../../src/db/db.js';
+import { pgp } from '../../../src/db/db.js';
 import { matchVendorToCatalogEmbeddings } from '../../../src/utils/embeddingUtils.js';
 
 class EmbeddingMatchesController extends BaseController {
@@ -22,7 +24,7 @@ class EmbeddingMatchesController extends BaseController {
    * Execute matching for given vendor SKUs (empty array = all vendors)
    * @param {Array<string>} vendorIds - Array of vendor SKU IDs, empty for all vendors
    * @param {Object} options - Additional options (e.g., threshold)
-   * @returns {Promise<{matched: Array, lowConfidence: Array}>}
+   * @returns {Promise<{matched: Array, lowConfidence: Array}>} - Arrays of match records including created_by
    */
   async executeMatches(req, res) {
     try {
@@ -68,6 +70,7 @@ class EmbeddingMatchesController extends BaseController {
         threshold,
         embeddingModel,
         tenantCode: req.user.tenant_code,
+        created_by: req.user.user_name,
       });
 
       // Bulk insert matched records
@@ -75,7 +78,11 @@ class EmbeddingMatchesController extends BaseController {
         await EmbeddingMatches.bulkInsert(matches);
       }
 
-      res.status(200).json({ matches, lowConfidence });
+      const lowConfidenceResults = await this.getReadableLowConfidenceMatches(schema, lowConfidence);
+
+      res.status(200).json({
+        lowConfidence: lowConfidenceResults,
+      });
     } catch (err) {
       console.error('Error executing matches:', err);
       res.status(500).json({ error: err.message });
@@ -102,6 +109,53 @@ class EmbeddingMatchesController extends BaseController {
     `;
 
     return await db.any(query);
+  }
+
+  /**
+   * Returns enriched low-confidence match data (SKU details) for an array of match objects
+   * @param {Object} db - pg-promise db instance
+   * @param {string} schema - tenant schema (e.g. 'ciq')
+   * @param {Array} matches - array of objects with vendor_embedding_id, catalog_embedding_id, model, input_type
+   */
+  async getReadableLowConfidenceMatches(schema, matches) {    
+    if (!matches?.length) return [];
+
+    const valid = matches.filter(m =>
+      m.vendor_embedding_id &&
+      m.catalog_embedding_id &&
+      m.confidence &&
+      m.model &&
+      m.input_type
+    );
+    if (valid.length === 0) return [];
+
+    const valueTuples = valid.map(m =>
+      `('${m.vendor_embedding_id}'::uuid, '${m.catalog_embedding_id}'::uuid, ${m.confidence}, '${m.model}', '${m.input_type}')`
+    );
+    const valuesSQL = valueTuples.join(',\n');
+
+    const query = `
+      WITH input (vendor_embedding_id, catalog_embedding_id, confidence, model, input_type) AS (
+        VALUES ${valuesSQL}
+      )
+      SELECT
+        vs.vendor_sku,
+        vs.description AS vendor_description,
+        cs.catalog_sku,
+        cs.description AS catalog_description,
+        i.vendor_embedding_id,
+        i.catalog_embedding_id,
+        i.confidence,
+        i.model,
+        i.input_type
+      FROM input i
+      JOIN ${schema}.embedding_skus ev ON i.vendor_embedding_id = ev.id
+      JOIN ${schema}.vendor_skus vs ON ev.sku_id = vs.id
+      JOIN ${schema}.embedding_skus ec ON i.catalog_embedding_id = ec.id
+      JOIN ${schema}.catalog_skus cs ON ec.sku_id = cs.id;
+    `;    
+
+    return db.any(query);
   }
 }
 
