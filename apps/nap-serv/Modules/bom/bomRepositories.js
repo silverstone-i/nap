@@ -9,3 +9,14 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
+import VendorSkus from './models/VendorSkus.js';
+import CatalogSkus from './models/CatalogSkus.js';
+import VendorPricing from './models/VendorPricing.js';
+
+const repositories = {
+  vendorSkus: VendorSkus,
+  catalogSkus: CatalogSkus,
+  vendorPricing: VendorPricing,
+};
+
+export default repositories;
