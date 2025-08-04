@@ -14,6 +14,8 @@
  */
 
 import OpenAI from 'openai';
+import _ from 'lodash';
+import { distance } from 'fastest-levenshtein';
 
 /**
  * Normalize a description string: lowercases, trims, removes extra whitespace, expands common abbreviations, etc.
@@ -29,6 +31,10 @@ export const ABBREVIATION_MAP = {
   PVC: 'polyvinyl chloride',
   T111: 't 111 siding',
   'T-111': 't 111 siding',
+  PT: 'pressure treated',
+  EG: 'electro-galvanized',
+  HWH: 'hex washer head',
+  GWB: 'gypsum wall board',
 };
 
 const MARKETING_NOISE_PATTERNS = [
@@ -44,6 +50,14 @@ export function normalizeDescription(raw) {
 
     let desc = raw.toLowerCase();
 
+    // Reformat dimensional lumber patterns like "2 x 4 x 8 ft" → "8 ft 2 in x 4 in"
+    desc = desc.replace(/(\d+)\s*[x×]\s*(\d+)\s*[x×]\s*(\d+)\s*(ft|in)?/gi, (_, w, h, l, unit) => {
+      const width = `${w} in`;
+      const height = `${h} in`;
+      const length = unit === 'in' ? `${l} in` : `${l} ft`;
+      return `${length} ${width} x ${height}`;
+    });
+
     // Normalize Unicode mixed fractions like 1¾ → 1 3/4
     desc = desc
       .replace(/(\d+)\s*¾/g, '$1 3/4')
@@ -58,6 +72,9 @@ export function normalizeDescription(raw) {
       .replace(/⅜/g, '3/8')
       .replace(/⅞/g, '7/8')
       .replace(/¼/g, '1/4');
+
+    // Fallback for 2 x 4 dimensional pattern
+    desc = desc.replace(/(\d+)\s*x\s*(\d+)\b(?!\s*x)/gi, '$1 in x $2 in');
 
     // Convert mixed numbers like "1 3/4" to decimals
     desc = desc.replace(/(\d+)\s+(\d+)\/(\d+)/g, (_, whole, num, denom) => {
@@ -79,16 +96,43 @@ export function normalizeDescription(raw) {
       .replace(/–|—/g, '-') // en-dash/em-dash to hyphen
       .replace(/\s+/g, ' '); // collapse whitespace
 
+    // Ensure decimal numbers like "0.75" are spaced
+    desc = desc.replace(/(\d+\.\d+)(?=\w)/g, '$1 ');
+
     // Expand abbreviations
     for (const [abbr, full] of Object.entries(ABBREVIATION_MAP)) {
       const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
       desc = desc.replace(regex, full);
     }
 
+    // Normalize compound units like "1-lb" to "1 lb"
+    desc = desc.replace(/(\d+)\s*-\s*(lb|ft|in|sqft|oz)/gi, '$1 $2');
+
     // Remove common marketing filler
     for (const pattern of MARKETING_NOISE_PATTERNS) {
       desc = desc.replace(pattern, '');
     }
+
+    // Remove repeated words like "board board"
+    desc = desc.replace(/\b(\w+)\s+\1\b/g, '$1');
+
+    // Update removal of marketing/packaging words to preserve meaningful words like 'sheet', 'panel', etc.
+    desc = desc.replace(/\b(pack|box|bundle|each|roll)\b\s*(of)?/gi, '');
+
+    // Strip trailing punctuation
+    desc = desc.replace(/[^\w\s]$/g, '');
+
+    // Reorder unit mentions to standard: ft, in, lb, oz
+    desc = desc.replace(/\b(\d+(\.\d+)?)( in| ft| lb| oz)\b/g, '$1$3'); // normalize spacing
+    const unitOrder = ['ft', 'in', 'lb', 'oz'];
+    const parts = desc.split(' ');
+    parts.sort((a, b) => {
+      const aIdx = unitOrder.findIndex(u => a.endsWith(u));
+      const bIdx = unitOrder.findIndex(u => b.endsWith(u));
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      return 0;
+    });
+    desc = parts.join(' ');
 
     return desc.trim();
   } catch (err) {
@@ -161,3 +205,24 @@ export function matchToCatalog(vendorEmbedding, catalogRows, threshold = 0.85) {
   }
   return best;
 }
+
+function jaccardSimilarity(a, b) {
+  const tokensA = a.toLowerCase().split(/\W+/);
+  const tokensB = b.toLowerCase().split(/\W+/);
+  const intersection = _.intersection(tokensA, tokensB);
+  const union = _.union(tokensA, tokensB);
+  return union.length === 0 ? 0 : intersection.length / union.length;
+}
+
+function fuzzySimilarity(a, b) {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - distance(a, b) / maxLen;
+}
+
+export function combinedSimilarity(a, b) {
+  const jac = jaccardSimilarity(a, b);
+  const fuzz = fuzzySimilarity(a, b);
+  return 0.5 * jac + 0.5 * fuzz;
+}
+

@@ -84,7 +84,8 @@ class VendorSkusController extends BaseController {
         skus.map(async sku => {
           const description_normalized = normalizeDescription(sku.description);
 
-          const { embedding, model } = await generateEmbedding(description_normalized);
+          const embedding_input = `${sku.vendor_sku} | ${description_normalized}`;
+          const { embedding, model } = await generateEmbedding(embedding_input);
           const match = matchToCatalog(embedding, catalogEmbeddings);
 
           const vendor_id = vendorCodeMap[sku.vendor_code];
@@ -96,6 +97,7 @@ class VendorSkusController extends BaseController {
             description_normalized,
             model: model || 'text-embedding-3-small',
             embedding,
+            embedding_input,
             catalog_sku_id: match?.id || null,
             confidence: match?.confidence || null,
           };

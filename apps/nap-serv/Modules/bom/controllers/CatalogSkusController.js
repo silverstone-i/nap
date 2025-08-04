@@ -61,12 +61,14 @@ class CatalogSkusController extends BaseController {
       const normalizedSkus = await Promise.all(
         skus.map(async sku => {
           const description_normalized = normalizeDescription(sku.description);
-          const { embedding, model } = await generateEmbedding(description_normalized);
+          const inputText = `${sku.catalog_sku || ''} | ${description_normalized}`;
+          const { embedding, model } = await generateEmbedding(inputText);
           return {
             ...sku,
             description_normalized,
             model: model || 'text-embedding-3-small',
             embedding,
+            embedding_input: inputText,
           };
         })
       );
