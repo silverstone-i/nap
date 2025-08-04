@@ -11,14 +11,16 @@
 
 export function addAuditFields(req, res, next) {
   const userName = req.user?.user_name; // assuming decoded JWT sets `req.user`
+  const tenantCode = req.user?.tenant_code; // assuming tenant code is also set in user context
 
-  if (!userName) return res.status(400).json({ message: 'Missing user context for audit fields.' });
+  if (!userName || !tenantCode) return res.status(400).json({ message: 'Missing user context for audit fields.' });
 
   if (!req.body) req.body = {};
 
   // Helper to apply audit fields to a single record
   const applyAuditFields = (record) => {
     if (req.method === 'POST') {
+      record.tenant_code = tenantCode;
       record.created_by = userName;
     }
     if (req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
