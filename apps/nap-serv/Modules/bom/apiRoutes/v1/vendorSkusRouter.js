@@ -9,3 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
+import vendorSkusController from '../../controllers/VendorSkusController.js';
+import createRouter from '../../../../src/utils/createRouter.js';
+
+export default createRouter(vendorSkusController);
