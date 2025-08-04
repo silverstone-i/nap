@@ -13,9 +13,11 @@
 
 import express from 'express';
 import catalogSkusRouter from './catalogSkusRouter.js';
+import vendorSkusRouter from './vendorSkusRouter.js';
 
 const router = express.Router();
 
 router.use('/v1/catalog-skus', catalogSkusRouter);
+router.use('/v1/vendor-skus', vendorSkusRouter);
 
 export default router;
