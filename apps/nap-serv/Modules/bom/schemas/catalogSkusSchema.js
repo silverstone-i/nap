@@ -27,7 +27,7 @@ const schema = {
     { name: 'category', type: 'varchar(64)', notNull: false },
     { name: 'sub_category', type: 'varchar(64)', notNull: false },
     { name: 'model', type: 'varchar(32)', notNull: false },
-    { name: 'embedding', type: 'vector(1536)', notNull: false },
+    { name: 'embedding', type: 'vector(3072)', notNull: false },
   ],
   constraints: {
     primaryKey: ['id'],

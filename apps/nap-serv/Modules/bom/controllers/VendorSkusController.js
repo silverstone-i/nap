@@ -83,9 +83,7 @@ class VendorSkusController extends BaseController {
       const normalizedSkus = await Promise.all(
         skus.map(async sku => {
           const description_normalized = normalizeDescription(sku.description);
-
-          const embedding_input = `${sku.vendor_sku} | ${description_normalized}`;
-          const { embedding, model } = await generateEmbedding(embedding_input);
+          const { embedding, model } = await generateEmbedding(description_normalized);
           const match = matchToCatalog(embedding, catalogEmbeddings);
 
           const vendor_id = vendorCodeMap[sku.vendor_code];
@@ -95,9 +93,8 @@ class VendorSkusController extends BaseController {
             ...sku,
             vendor_id,
             description_normalized,
-            model: model || 'text-embedding-3-small',
+            model: model || 'text-embedding-3-large',
             embedding,
-            embedding_input,
             catalog_sku_id: match?.id || null,
             confidence: match?.confidence || null,
           };

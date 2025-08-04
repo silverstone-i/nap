@@ -144,10 +144,10 @@ export function normalizeDescription(raw) {
 /**
  * Create an embedding vector for a string using the OpenAI API
  * @param {string} text
- * @param {string} [model='text-embedding-3-small']
+ * @param {string} [model='text-embedding-3-large']
  * @returns {Promise<{ embedding: number[], model: string }>}
  */
-export async function generateEmbedding(text, model = 'text-embedding-3-small') {
+export async function generateEmbedding(text, model = 'text-embedding-3-large') {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error('OPENAI_API_KEY not set');
@@ -225,4 +225,3 @@ export function combinedSimilarity(a, b) {
   const fuzz = fuzzySimilarity(a, b);
   return 0.5 * jac + 0.5 * fuzz;
 }
-

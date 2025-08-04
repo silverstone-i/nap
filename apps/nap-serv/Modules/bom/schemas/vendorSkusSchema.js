@@ -27,8 +27,8 @@ const schema = {
     { name: 'description_normalized', type: 'text', notNull: true },
     { name: 'catalog_sku_id', type: 'uuid', notNull: false },
     { name: 'confidence', type: 'float', notNull: false, default: 0.0 },
-    { name: 'model', type: 'varchar(32)', notNull: true, default: 'text-embedding-3-small' },
-    { name: 'embedding', type: 'vector(1536)', notNull: false },
+    { name: 'model', type: 'varchar(32)', notNull: true, default: 'text-embedding-3-large' },
+    { name: 'embedding', type: 'vector(3072)', notNull: false },
   ],
   constraints: {
     primaryKey: ['id'],
