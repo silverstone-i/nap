@@ -44,13 +44,31 @@ export function normalizeDescription(raw) {
 
     let desc = raw.toLowerCase();
 
-    // Convert unicode fractions
-    desc = desc.replace(/¾/g, '0.75').replace(/½/g, '0.5').replace(/⅝/g, '0.625').replace(/⅜/g, '0.375').replace(/⅞/g, '0.875');
+    // Normalize Unicode mixed fractions like 1¾ → 1 3/4
+    desc = desc
+      .replace(/(\d+)\s*¾/g, '$1 3/4')
+      .replace(/(\d+)\s*½/g, '$1 1/2')
+      .replace(/(\d+)\s*⅝/g, '$1 5/8')
+      .replace(/(\d+)\s*⅜/g, '$1 3/8')
+      .replace(/(\d+)\s*⅞/g, '$1 7/8')
+      .replace(/(\d+)\s*¼/g, '$1 1/4')
+      .replace(/¾/g, '3/4')
+      .replace(/½/g, '1/2')
+      .replace(/⅝/g, '5/8')
+      .replace(/⅜/g, '3/8')
+      .replace(/⅞/g, '7/8')
+      .replace(/¼/g, '1/4');
 
-    // Convert ASCII fractions
+    // Convert mixed numbers like "1 3/4" to decimals
+    desc = desc.replace(/(\d+)\s+(\d+)\/(\d+)/g, (_, whole, num, denom) => {
+      const value = parseInt(whole) + parseFloat(num) / parseFloat(denom);
+      return value.toFixed(4).replace(/\.0+$/, '');
+    });
+
+    // Replace ASCII fractions with decimals
     desc = desc.replace(/(\d+)\s?\/\s?(\d+)/g, (_, num, denom) => {
       const value = parseFloat(num) / parseFloat(denom);
-      return value.toFixed(4).replace(/\.0+$/, ''); // Trim trailing zeros
+      return value.toFixed(4).replace(/\.0+$/, '');
     });
 
     // Normalize dimension symbols and punctuation
@@ -63,7 +81,7 @@ export function normalizeDescription(raw) {
 
     // Expand abbreviations
     for (const [abbr, full] of Object.entries(ABBREVIATION_MAP)) {
-      const regex = new RegExp(`\b${abbr}\b`, 'gi');
+      const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
       desc = desc.replace(regex, full);
     }
 
@@ -141,6 +159,5 @@ export function matchToCatalog(vendorEmbedding, catalogRows, threshold = 0.85) {
       best = { id: row.id, confidence: sim };
     }
   }
-  return best && best.confidence >= threshold ? best : null;
+  return best;
 }
-
