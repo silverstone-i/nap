@@ -11,6 +11,7 @@
 
 import BaseController from '../../../src/utils/BaseController.js';
 import { parseWorksheet } from '../../../src/utils/xlsUtils.js';
+import { normalizeDescription, generateEmbedding } from '../utils/embeddingUtils.js';
 
 class CatalogSkusController extends BaseController {
   constructor() {
@@ -33,8 +34,6 @@ class CatalogSkusController extends BaseController {
         created_by: user.user_name,
       }));
 
-      console.log('Importing catalog SKUs:', dto);
-
       req.body = dto;
       return this.bulkInsert(req, res);
     } catch (err) {
@@ -51,12 +50,31 @@ class CatalogSkusController extends BaseController {
    */
   async bulkInsert(req, res) {
     try {
-      console.log('Bulk inserting catalog SKUs:', req.body);
+      const { schema } = req;
+      const skus = req.body;
 
-      // TODO: validate input, normalize descriptions, embed, insert
-      res.status(201).json({ message: 'Bulk insert not implemented yet' });
+      if (!Array.isArray(skus) || skus.length === 0) {
+        return res.status(400).json({ error: 'No SKUs provided for insertion' });
+      }
+
+      // Normalize and embed description text
+      const normalizedSkus = await Promise.all(
+        skus.map(async sku => {
+          const description_normalized = normalizeDescription(sku.description);
+          const { embedding, model } = await generateEmbedding(description_normalized);
+          return {
+            ...sku,
+            description_normalized,
+            model: model || 'text-embedding-3-small',
+            embedding,
+          };
+        })
+      );
+
+      const result = await this.model(schema).bulkInsert(normalizedSkus);
+      res.status(201).json({ message: `${result} SKUs inserted` });
     } catch (err) {
-      this.error(res, err);
+      res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
   }
 
