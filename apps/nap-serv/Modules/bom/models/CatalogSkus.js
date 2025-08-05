@@ -15,6 +15,15 @@ class CatalogSkus extends TableModel {
     return await this.db.any(query);
   }
 
+  async getNormalizedDescriptions() {
+    const query = `
+      SELECT id, description_normalized
+      FROM "${this.schema.dbSchema}"."${this.schema.table}"
+      WHERE description_normalized IS NOT NULL
+    `;
+    return await this.db.any(query);
+  }
+
   // Add custom methods as needed
 }
 
