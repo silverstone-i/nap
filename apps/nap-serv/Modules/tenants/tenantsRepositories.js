@@ -11,10 +11,12 @@
 
 import Tenants from './models/Tenants.js';
 import NapUsers from './models/NapUsers.js';
+import MatchReviewLogs from './models/MatchReviewLogs.js';
 
 const repositories = {
   napUsers: NapUsers,
   tenants: Tenants,
+  matchReviewLogs: MatchReviewLogs,
 };
 
 export default repositories;

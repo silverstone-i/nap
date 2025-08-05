@@ -13,7 +13,7 @@
 
 /** @type {TableSchema} */
 const matchReviewLogsSchema = {
-  dbSchema: 'tenantid',
+  dbSchema: 'admin',
   table: 'match_review_logs',
   version: '1.0.0',
   hasAuditFields: true,
