@@ -12,11 +12,13 @@
 import VendorSkus from './models/VendorSkus.js';
 import CatalogSkus from './models/CatalogSkus.js';
 import VendorPricing from './models/VendorPricing.js';
+import MatchReviewLogs from './models/MatchReviewLogs.js';
 
 const repositories = {
   vendorSkus: VendorSkus,
   catalogSkus: CatalogSkus,
   vendorPricing: VendorPricing,
+  matchReviewLogs: MatchReviewLogs,
 };
 
 export default repositories;

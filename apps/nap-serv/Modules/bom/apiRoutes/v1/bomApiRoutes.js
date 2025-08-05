@@ -14,10 +14,13 @@
 import express from 'express';
 import catalogSkusRouter from './catalogSkusRouter.js';
 import vendorSkusRouter from './vendorSkusRouter.js';
+import matchReviewLogsRouter from './matchReviewLogsRouter.js';
 
 const router = express.Router();
 
 router.use('/v1/catalog-skus', catalogSkusRouter);
 router.use('/v1/vendor-skus', vendorSkusRouter);
+router.use('/v1/match-review-logs', matchReviewLogsRouter);
+
 
 export default router;
