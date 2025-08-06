@@ -117,7 +117,7 @@ async function migrateTenants({
   }
 
   let sortedKeys = [];
-  const adminTables = ['admin.tenants', 'admin.nap_users'];
+  const adminTables = ['admin.tenants', 'admin.nap_users', 'admin.match_review_logs'];
   let validModels = {};
   try {
     // Check if we need to create the admin tables

@@ -38,7 +38,6 @@ class BaseController extends ViewController {
   }
 
   async create(req, res) {
-    this.injectTenantCode(req);
     try {
       const record = await this.model(req.schema).insert(req.body);
       res.status(201).json(record);

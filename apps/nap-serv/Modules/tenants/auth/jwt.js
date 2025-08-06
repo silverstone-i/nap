@@ -22,6 +22,7 @@ export const generateAccessToken = user => {
       tenant_code: user.tenant_code,
       role: user.role,
       schema_name: user.schema_name?.toLowerCase() || user.tenant_code?.toLowerCase() || null,
+      enable_match_logging: process.env.ENABLE_MATCH_LOGGING === 'true' ? true : false,
     },
     ACCESS_TOKEN_SECRET,
     { expiresIn: '15m' }

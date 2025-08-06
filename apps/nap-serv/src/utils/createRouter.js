@@ -43,7 +43,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     disableGetArchived = false, // If true, disables the /archive endpoint
   } = options;
 
-  const safePostMiddlewares = postMiddlewares.includes(addAuditFields) ? postMiddlewares : [addAuditFields, ...postMiddlewares];
+  const safePostMiddlewares = postMiddlewares.includes(addAuditFields) ? postMiddlewares : [addAuditFields, ...postMiddlewares];  
 
   const safePutMiddlewares = putMiddlewares.includes(addAuditFields) ? putMiddlewares : [addAuditFields, ...putMiddlewares];
 

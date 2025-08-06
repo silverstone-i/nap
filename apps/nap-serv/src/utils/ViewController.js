@@ -115,6 +115,8 @@ class ViewController {
   }
 
   async getWhere(req, res) {
+    console.log('schema:', req.schema); // Debugging line
+    
     logger.info(`[ViewController] getWhere`, {
       model: this.errorLabel,
       user: req.user?.email,

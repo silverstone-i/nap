@@ -89,6 +89,18 @@ class VendorSkusController extends BaseController {
           const vendor_id = vendorCodeMap[sku.vendor_code];
           if (!vendor_id) throw new Error(`Unknown vendor_code: ${sku.vendor_code}`);
 
+          if (req.user?.enable_match_logging === true) {
+            await db('matchReviewLogs', 'admin').insert({
+              tenant_code: req.user.tenant_code,
+              vendor_id,
+              vendor_sku: sku.vendor_sku,
+              original_catalog_sku_id: match?.id || null,
+              confidence_before: match?.confidence || null,
+              notes: 'initial match',
+              created_by: req.user.user_name
+            });
+          }
+
           return {
             ...sku,
             vendor_id,
