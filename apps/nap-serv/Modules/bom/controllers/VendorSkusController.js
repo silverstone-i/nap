@@ -80,11 +80,7 @@ class VendorSkusController extends BaseController {
         return res.status(400).json({ error: 'No vendor codes found in SKUs' });
       }
       const vendorQueryConditions = [{ vendor_code: { $in: vendorCodes } }];
-      const vendors = await db('vendors', schema).findWhere(
-        vendorQueryConditions,
-        'AND',
-        { columnWhitelist: ['id', 'vendor_code'] }
-      );
+      const vendors = await db('vendors', schema).findWhere(vendorQueryConditions, 'AND', { columnWhitelist: ['id', 'vendor_code'] });
       const vendorCodeMap = Object.fromEntries(vendors.map(v => [v.vendor_code, v.id]));
       const missingVendors = vendorCodes.filter(code => !vendorCodeMap[code]);
       if (missingVendors.length > 0) {
@@ -96,9 +92,7 @@ class VendorSkusController extends BaseController {
       if (!Array.isArray(catalogEmbeddings)) {
         throw new Error('Catalog embeddings must be an array');
       }
-      const catalogEmbeddingMap = new Map(
-        catalogEmbeddings.map(row => [row.id, row])
-      );
+      const catalogEmbeddingMap = new Map(catalogEmbeddings.map(row => [row.id, row]));
 
       // --- Helper: Build match review log ---
       const buildMatchReviewLog = sku => {
@@ -149,14 +143,24 @@ class VendorSkusController extends BaseController {
       const insertedCount = normalizedSkus.length;
       const unmatchedCount = normalizedSkus.filter(s => !s.catalog_sku_id).length;
 
-      // --- Optional match review logging ---
-      if (req.user?.enable_match_logging === true) {
-        const matchReviewLogs = normalizedSkus.map(buildMatchReviewLog);
-        await db('matchReviewLogs', 'admin').bulkInsert(matchReviewLogs);
-      }
+      let result;
 
-      // --- Bulk insert normalized SKUs ---
-      const result = await this.model(schema).bulkInsert(normalizedSkus);
+      // Use a common transaction context to ensure inserts are all or nothing
+      await db.tx(async t => {
+        const vendorModel = this.model(schema);
+        vendorModel.tx = t;
+
+        // --- Bulk insert normalized SKUs ---
+        result = await vendorModel.bulkInsert(normalizedSkus);
+
+        // --- Optional match review logging ---
+        if (req.user?.enable_match_logging === true) {
+          const matchModel = db('matchReviewLogs', 'admin');
+          matchModel.tx = t;
+          const matchReviewLogs = normalizedSkus.map(buildMatchReviewLog);
+          await matchModel.bulkInsert(matchReviewLogs);
+        }
+      });
 
       const durationMs = Date.now() - startTime;
       logger.info('Vendor SKUs bulk insert completed', {
@@ -172,6 +176,7 @@ class VendorSkusController extends BaseController {
         unmatched: unmatchedCount,
       });
     } catch (err) {
+      console.error('Error during bulk insert of vendor SKUs:', err);
       res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
   }
