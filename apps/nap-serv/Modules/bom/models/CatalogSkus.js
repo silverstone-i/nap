@@ -8,11 +8,16 @@ class CatalogSkus extends TableModel {
 
   async getCatalogEmbeddings() {
     const query = `
-      SELECT id, embedding
+      SELECT id, catalog_sku, description, description_normalized, embedding
       FROM "${this.schema.dbSchema}"."${this.schema.table}"
       WHERE embedding IS NOT NULL
     `;
-    return await this.db.any(query);
+    const rows = await this.db.any(query);
+    // Parse embedding if it's a string
+    return rows.map(row => ({
+      ...row,
+      embedding: Array.isArray(row.embedding) ? row.embedding : typeof row.embedding === 'string' ? JSON.parse(row.embedding) : row.embedding,
+    }));
   }
 
   async getNormalizedDescriptions() {
