@@ -107,6 +107,7 @@ class VendorSkusController extends BaseController {
           catalog_sku: match?.catalog_sku ?? null,
           catalog_description: match?.description ?? null,
           catalog_description_normalized: match?.description_normalized ?? null,
+          catalog_embedding: match?.embedding ?? null,
           confidence: sku.confidence,
           event_type: 'insert',
           status: sku.catalog_sku_id ? 'matched' : 'unmatched',
@@ -143,24 +144,14 @@ class VendorSkusController extends BaseController {
       const insertedCount = normalizedSkus.length;
       const unmatchedCount = normalizedSkus.filter(s => !s.catalog_sku_id).length;
 
-      let result;
+      // --- Optional match review logging ---
+      if (req.user?.enable_match_logging === true) {
+        const matchReviewLogs = normalizedSkus.map(buildMatchReviewLog);
+        await db('matchReviewLogs', 'admin').bulkInsert(matchReviewLogs);
+      }
 
-      // Use a common transaction context to ensure inserts are all or nothing
-      await db.tx(async t => {
-        const vendorModel = this.model(schema);
-        vendorModel.tx = t;
-
-        // --- Bulk insert normalized SKUs ---
-        result = await vendorModel.bulkInsert(normalizedSkus);
-
-        // --- Optional match review logging ---
-        if (req.user?.enable_match_logging === true) {
-          const matchModel = db('matchReviewLogs', 'admin');
-          matchModel.tx = t;
-          const matchReviewLogs = normalizedSkus.map(buildMatchReviewLog);
-          await matchModel.bulkInsert(matchReviewLogs);
-        }
-      });
+      // --- Bulk insert normalized SKUs ---
+      const result = await this.model(schema).bulkInsert(normalizedSkus);
 
       const durationMs = Date.now() - startTime;
       logger.info('Vendor SKUs bulk insert completed', {
@@ -176,7 +167,129 @@ class VendorSkusController extends BaseController {
         unmatched: unmatchedCount,
       });
     } catch (err) {
-      console.error('Error during bulk insert of vendor SKUs:', err);
+      res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+  }
+
+  /**
+   * Bulk update catalog matches for vendor SKUs
+   * Refactored for clarity, grouping, and logging to match bulkInsert style.
+   * Expects array of { vendor_code, vendor_sku, catalog_sku }.
+   */
+  async bulkUpdate(req, res) {
+    try {
+      // --- Extract request data ---
+      const { schema } = req;
+      const updates = req.body;
+      const user = req.user;
+
+      // --- Input validation ---
+      if (!Array.isArray(updates) || updates.length === 0) {
+        return res.status(400).json({ error: 'No updates provided' });
+      }
+      for (const row of updates) {
+        if (!row.vendor_code || !row.vendor_sku || !row.catalog_sku) {
+          return res.status(400).json({ error: 'Each update must include vendor_code, vendor_sku, and catalog_sku' });
+        }
+      }
+
+      // --- Vendor code map and validation ---
+      const vendorCodes = [...new Set(updates.map(u => u.vendor_code))];
+      if (vendorCodes.length === 0) {
+        return res.status(400).json({ error: 'No vendor codes found in updates' });
+      }
+      const vendors = await db('vendors', schema).findWhere([{ vendor_code: { $in: vendorCodes } }], 'AND', { columnWhitelist: ['id', 'vendor_code'] });
+      const vendorCodeMap = Object.fromEntries(vendors.map(v => [v.vendor_code, v.id]));
+      const missingVendors = vendorCodes.filter(code => !vendorCodeMap[code]);
+      if (missingVendors.length > 0) {
+        return res.status(400).json({ error: `Unknown vendor_code(s): ${missingVendors.join(', ')}` });
+      }
+
+      // --- Catalog SKU map and validation ---
+      const catalogSkus = [...new Set(updates.map(u => u.catalog_sku))];
+      if (catalogSkus.length === 0) {
+        return res.status(400).json({ error: 'No catalog_sku values found in updates' });
+      }
+      const catalogRows = await db('catalogSkus', schema).findWhere([{ catalog_sku: { $in: catalogSkus } }], 'AND', { columnWhitelist: ['id', 'catalog_sku', 'description', 'description_normalized'] });
+      const catalogSkuMap = Object.fromEntries(catalogRows.map(r => [r.catalog_sku, r]));
+      const missingCatalogs = catalogSkus.filter(sku => !catalogSkuMap[sku]);
+      if (missingCatalogs.length > 0) {
+        return res.status(400).json({ error: `Unknown catalog_sku(s): ${missingCatalogs.join(', ')}` });
+      }
+
+      // --- Vendor SKU map and validation ---
+      const vendorSkuTuples = updates.map(u => ({
+        vendor_id: vendorCodeMap[u.vendor_code],
+        vendor_sku: u.vendor_sku,
+      }));
+      const vendorSkuRows = await db('vendorSkus', schema).findWhere(
+        vendorSkuTuples.map(({ vendor_id, vendor_sku }) => ({ vendor_id, vendor_sku })),
+        'OR',
+        { columnWhitelist: ['id', 'vendor_id', 'vendor_sku', 'description', 'description_normalized'] }
+      );
+      const vendorSkuMap = new Map(vendorSkuRows.map(r => [`${r.vendor_id}|${r.vendor_sku}`, r]));
+      const missingVendorSkus = vendorSkuTuples.filter(({ vendor_id, vendor_sku }) => !vendorSkuMap.has(`${vendor_id}|${vendor_sku}`));
+      if (missingVendorSkus.length > 0) {
+        return res.status(400).json({ error: `Unknown vendor_sku(s): ${missingVendorSkus.map(x => `${x.vendor_id || ''}:${x.vendor_sku}`).join(', ')}` });
+      }
+
+      // --- Prepare update payloads ---
+      const updatePayloads = updates.map(u => {
+        const vendor_id = vendorCodeMap[u.vendor_code];
+        const catalog = catalogSkuMap[u.catalog_sku];
+        const vendorSku = vendorSkuMap.get(`${vendor_id}|${u.vendor_sku}`);
+        return {
+          id: vendorSku.id,
+          catalog_sku_id: catalog.id,
+          confidence: 1.0,
+          updated_by: user.user_name,
+        };
+      });
+
+      // --- Helper: Build match review log ---
+      const buildMatchReviewLog = u => {
+        const vendor_id = vendorCodeMap[u.vendor_code];
+        const catalog = catalogSkuMap[u.catalog_sku];
+        const vendorSku = vendorSkuMap.get(`${vendor_id}|${u.vendor_sku}`);
+        return {
+          tenant_code: user.tenant_code,
+          vendor_id,
+          vendor_sku: u.vendor_sku,
+          vendor_description: vendorSku.description,
+          vendor_description_normalized: vendorSku.description_normalized,
+          catalog_sku: u.catalog_sku,
+          catalog_description: catalog.description,
+          catalog_description_normalized: catalog.description_normalized,
+          confidence: 1.0,
+          event_type: 'update',
+          status: 'ok',
+          notes: 'manual catalog match',
+          created_by: user.user_name,
+        };
+      };
+
+      // --- Optional match review logging ---
+      let matchReviewLogs = [];
+      if (user?.enable_match_logging === true) {
+        matchReviewLogs = updates.map(buildMatchReviewLog);
+      }
+
+      // --- Transaction: bulk update and log ---
+      let result;
+      await db.tx(async t => {
+        const vendorModel = this.model(schema);
+        vendorModel.tx = t;
+        result = await vendorModel.bulkUpdate(updatePayloads);
+        if (matchReviewLogs.length > 0) {
+          const matchModel = db('matchReviewLogs', 'admin');
+          matchModel.tx = t;
+          await matchModel.bulkInsert(matchReviewLogs);
+        }
+      });
+
+      res.status(200).json({ message: `${updatePayloads.length} SKUs updated` });
+    } catch (err) {
+      console.error('Error during bulk update of vendor SKUs:', err);
       res.status(500).json({ error: err.message || 'Internal Server Error' });
     }
   }
