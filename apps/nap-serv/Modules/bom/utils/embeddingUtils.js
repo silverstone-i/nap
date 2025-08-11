@@ -35,14 +35,10 @@ export const ABBREVIATION_MAP = {
   EG: 'electro-galvanized',
   HWH: 'hex washer head',
   GWB: 'gypsum wall board',
+  LVL: 'laminated veneer lumber',
 };
 
-const MARKETING_NOISE_PATTERNS = [
-  /\bused for\b.*?(\.|$)/gi,
-  /\bideal for\b.*?(\.|$)/gi,
-  /\bperfect for\b.*?(\.|$)/gi,
-  /\bcan be used for\b.*?(\.|$)/gi,
-];
+const MARKETING_NOISE_PATTERNS = [/\bused for\b.*?(\.|$)/gi, /\bideal for\b.*?(\.|$)/gi, /\bperfect for\b.*?(\.|$)/gi, /\bcan be used for\b.*?(\.|$)/gi];
 
 export function normalizeDescription(raw) {
   try {
