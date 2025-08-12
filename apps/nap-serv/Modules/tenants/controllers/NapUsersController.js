@@ -23,12 +23,21 @@ class NapUsersController extends BaseController {
       return res.status(403).json({ message: 'Cannot archive the currently logged-in user' });
     }
 
-    return super.archive(req, res);
+    req.body.deactivated_at = new Date(); // Soft delete by marking as inactive
+    // const filters = [{ deactivated_at: {$is: null} }, { ...req.query }];
+
+    try {
+      const count = await this.model('admin').updateWhere(req.query, req.body);
+      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
+      res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
+    } catch (err) {
+      this.handleError(err, res, 'deleting', this.errorLabel);
+    }
   }
 
   async restore(req, res) {
     try {
-      const napUser = await this.model.findOneBy([{ email: req.query.email }], { includeDeactivated: true });
+      const napUser = await this.model('admin').findOneBy([{ email: req.query.email }], { includeDeactivated: true });
       if (!napUser) {
         return res.status(404).json({ message: 'User not found for restore.' });
       }
@@ -41,7 +50,17 @@ class NapUsersController extends BaseController {
       return res.status(500).json({ message: 'Error finding napUser for restore.' });
     }
 
-    return super.restore(req, res);
+    req.body.deactivated_at = null; // Soft delete by marking as inactive
+    const filters = [{ deactivated_at: { $not: null } }, { ...req.query }];
+
+    try {
+      const count = await this.model('admin').updateWhere(filters, req.body, { includeDeactivated: true });
+      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
+
+      res.status(200).json({ message: `${this.errorLabel} marked as active` });
+    } catch (err) {
+      this.handleError(err, res, 'restoring', this.errorLabel);
+    }
   }
 
   register = async (req, res) => {

@@ -31,7 +31,7 @@ class TenantsController extends BaseController {
     // const filters = [{ deactivated_at: { $is: null } }, { ...req.query }];
 
     try {
-      let count = await this.model.updateWhere(req.query, req.body);
+      let count = await this.model(req.schema).updateWhere(req.query, req.body);
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or tenant is already inactive` });
 
       count = await db('napUsers', 'admin').updateWhere(req.query, req.body);
@@ -47,7 +47,7 @@ class TenantsController extends BaseController {
     const filters = [{ deactivated_at: { $not: null } }, { ...req.query }];
 
     try {
-      let count = await this.model.updateWhere(filters, req.body, { includeDeactivated: true });
+      let count = await this.model(req.schema).updateWhere(filters, req.body, { includeDeactivated: true });
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or tenant is already active` });
 
       filters.unshift({ updated_at: { $max: true } });

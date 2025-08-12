@@ -10,7 +10,8 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import db from '../../../src/db/db.js';
+import { parseWorksheet } from '../../../src/utils/xlsUtils.js';
+import { normalizeDescription, generateEmbedding } from '../utils/embeddingUtils.js';
 
 class CatalogSkusController extends BaseController {
   constructor() {
@@ -19,60 +20,88 @@ class CatalogSkusController extends BaseController {
 
   async importXls(req, res) {
     try {
-      const tenantCode = req.user?.tenant_code;
-      const createdBy = req.user?.user_name || req.user?.email;
+      const { user } = req;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
-      const schema = req.schema;
 
-      if (!file) {
-        return res.status(400).json({ error: 'No file uploaded' });
+      if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+      const rows = await parseWorksheet(file.path, index);
+
+      const dto = rows.map(row => ({
+        ...row,
+        tenant_code: user.tenant_code,
+        created_by: user.user_name,
+      }));
+
+      req.body = dto;
+      return this.bulkInsert(req, res);
+    } catch (err) {
+      console.error('Error importing XLS:', err);
+      res.status(500).json({
+        message: 'Failed to import XLS file',
+        error: err.message || 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * Bulk insert catalog SKUs
+   */
+  async bulkInsert(req, res) {
+    try {
+      const { schema } = req;
+      const skus = req.body;
+
+      if (!Array.isArray(skus) || skus.length === 0) {
+        return res.status(400).json({ error: 'No SKUs provided for insertion' });
       }
 
-      let result;
-      await db.tx(async t => {
-        // Import and transform each row
-        const catalogSkusModel = this.model(schema);
-        catalogSkusModel.tx = t;
-        const imported = await catalogSkusModel.importFromSpreadsheet(
-          file.path,
-          index,
-          row => ({
-            ...row,
-            tenant_code: tenantCode,
-            created_by: createdBy,
-          }),
-          ['id', 'tenant_code', 'catalog_sku', 'description', 'created_by']
-        );
+      // Normalize and embed description text
+      const normalizedSkus = await Promise.all(
+        skus.map(async sku => {
+          const description_normalized = normalizeDescription(sku.description);
+          const { embedding, model } = await generateEmbedding(description_normalized);
+          return {
+            ...sku,
+            description_normalized,
+            model: model || 'text-embedding-3-large',
+            embedding,
+          };
+        })
+      );
 
-        // After import, generate embeddings for the imported SKUs
-        const importedSkus = Array.isArray(imported) ? imported : imported.inserted || [];
-        const { generateEmbeddingsForSkus, openaiEmbeddingService } = await import('../../../src/utils/embeddingUtils.js');
-        const embeddings = await generateEmbeddingsForSkus(
-          importedSkus,
-          {
-            model: 'text-embedding-3-small',
-            inputType: 'description',
-          },
-          'catalog',
-          openaiEmbeddingService
-        );
-
-        // Save embeddings to embedding_skus table
-        const embeddingSkusModel = db('embeddingSkus', schema);
-        embeddingSkusModel.tx = t;
-        await embeddingSkusModel.bulkInsert(embeddings);
-
-        result = { imported, embeddings };
-      });
-
-      res.status(201).json(result);
+      const result = await this.model(schema).bulkInsert(normalizedSkus);
+      res.status(201).json({ message: `${result} SKUs inserted` });
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+  }
+
+  /**
+   * Bulk update catalog SKUs (if enabled)
+   */
+  async bulkUpdate(req, res) {
+    try {
+      // TODO: normalize new descriptions, re-embed, update
+    } catch (err) {
+      this.error(res, err);
+    }
+  }
+
+  /**
+   * Get all catalog SKUs with optional filtering
+   */
+  async getAllCatalogSkus(req, res) {
+    try {
+      // TODO: implement filtering by category/subcategory
+    } catch (err) {
+      this.error(res, err);
     }
   }
 }
 
 const instance = new CatalogSkusController();
+
 export default instance;
 export { CatalogSkusController };

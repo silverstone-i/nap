@@ -9,9 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
-import createRouter from "../../../../src/utils/createRouter.js";
-import VendorSkusController from "../../controllers/VendorSkusController.js";
+import vendorSkusController from '../../controllers/VendorSkusController.js';
+import createRouter from '../../../../src/utils/createRouter.js';
 
-const router = createRouter(VendorSkusController);
-
-export default router;
+export default createRouter(vendorSkusController);

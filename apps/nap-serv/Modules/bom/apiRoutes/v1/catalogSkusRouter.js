@@ -9,10 +9,7 @@
 * Removal or modification of this copyright notice is prohibited.
 */
 
+import catalogSkusController from '../../controllers/CatalogSkusController.js';
 import createRouter from '../../../../src/utils/createRouter.js';
-import CatalogSkusController from '../../controllers/CatalogSkusController.js';
 
-const router = createRouter(CatalogSkusController);
-
-export default router;
-
+export default createRouter(catalogSkusController);

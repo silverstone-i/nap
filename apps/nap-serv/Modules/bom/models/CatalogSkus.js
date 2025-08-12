@@ -1,14 +1,3 @@
-'use strict';
-
-/*
- * Copyright © 2024-present, Ian Silverstone
- *
- * See the LICENSE file at the top-level directory of this distribution
- * for licensing information.
- *
- * Removal or modification of this copyright notice is prohibited.
- */
-
 import { TableModel } from 'pg-schemata';
 import catalogSkusSchema from '../schemas/catalogSkusSchema.js';
 
@@ -17,18 +6,30 @@ class CatalogSkus extends TableModel {
     super(db, pgp, catalogSkusSchema, logger);
   }
 
-  async findByEmbeddingIds(embeddingIds) {
-    if (!embeddingIds || embeddingIds.length === 0) return {};
-    const rows = await this.db.any(
-      `SELECT id, embedding_id, description, part_number
-       FROM ${this.schemaName}.${this._schema.table}
-       WHERE embedding_id IN ($1:csv)`,
-      [embeddingIds]
-    );
-    return rows.reduce((map, row) => {
-      map[row.embedding_id] = row;
-      return map;
-    }, {});
+  async getCatalogEmbeddings() {
+    const query = `
+      SELECT id, catalog_sku, description, description_normalized, embedding
+      FROM "${this.schema.dbSchema}"."${this.schema.table}"
+      WHERE embedding IS NOT NULL
+    `;
+    const rows = await this.db.any(query);
+    // Parse embedding if it's a string
+    return rows.map(row => ({
+      ...row,
+      embedding: Array.isArray(row.embedding) ? row.embedding : typeof row.embedding === 'string' ? JSON.parse(row.embedding) : row.embedding,
+    }));
   }
+
+  async getNormalizedDescriptions() {
+    const query = `
+      SELECT id, description_normalized
+      FROM "${this.schema.dbSchema}"."${this.schema.table}"
+      WHERE description_normalized IS NOT NULL
+    `;
+    return await this.db.any(query);
+  }
+
+  // Add custom methods as needed
 }
+
 export default CatalogSkus;

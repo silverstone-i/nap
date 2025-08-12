@@ -9,16 +9,14 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import CatalogSkus from './models/CatalogSkus.js';
 import VendorSkus from './models/VendorSkus.js';
-import EmbeddingSkus from './models/EmbeddingSkus.js';
-import EmbeddingMatches from './models/EmbeddingMatches.js';
+import CatalogSkus from './models/CatalogSkus.js';
+import VendorPricing from './models/VendorPricing.js';
 
-const repository = {
-  catalogSkus: CatalogSkus,
+const repositories = {
   vendorSkus: VendorSkus,
-  embeddingSkus: EmbeddingSkus,
-  embeddingMatches: EmbeddingMatches,
+  catalogSkus: CatalogSkus,
+  vendorPricing: VendorPricing,
 };
 
-export default repository;
+export default repositories;

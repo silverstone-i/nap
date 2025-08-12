@@ -61,7 +61,7 @@ class ViewController {
       }
 
       const cursor = {};
-      const conditions = [];
+      const conditions = req.query.conditions ? JSON.parse(req.query.conditions) : [];
       const filters = {};
 
       for (const [key, value] of Object.entries(req.query)) {
@@ -71,12 +71,13 @@ class ViewController {
           continue;
         }
 
-        if (!['limit', 'orderBy', 'columnWhitelist', 'includeDeactivated'].includes(key)) {
+        if (!['limit', 'orderBy', 'columnWhitelist', 'includeDeactivated', 'conditions'].includes(key)) {
           filters[key] = value;
         }
       }
 
       const options = { filters };
+      console.log('ViewController get options:', options);
 
       if (req.query.columnWhitelist) {
         options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
@@ -115,6 +116,8 @@ class ViewController {
   }
 
   async getWhere(req, res) {
+    console.log('schema:', req.schema); // Debugging line
+    
     logger.info(`[ViewController] getWhere`, {
       model: this.errorLabel,
       user: req.user?.email,

@@ -38,7 +38,6 @@ class BaseController extends ViewController {
   }
 
   async create(req, res) {
-    this.injectTenantCode(req);
     try {
       const record = await this.model(req.schema).insert(req.body);
       res.status(201).json(record);
@@ -114,7 +113,7 @@ class BaseController extends ViewController {
   }
 
   async bulkInsert(req, res) {
-    this.injectTenantCode(req);
+    // this.injectTenantCode(req);
     logger.info(`[BaseController] bulkInsert`, {
       model: this.errorLabel,
       user: req.user?.email,
@@ -130,7 +129,7 @@ class BaseController extends ViewController {
   }
 
   async bulkUpdate(req, res) {
-    this.injectTenantCode(req);
+    // this.injectTenantCode(req);
     logger.info(`[BaseController] bulkUpdate`, {
       model: this.errorLabel,
       user: req.user?.email,
