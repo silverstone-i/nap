@@ -68,7 +68,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disableGetArchived) {
-    router.get('/archived', ...getMiddlewares, (req, res) => controller.getArchived(req, res));
+    router.get('/archived', ...getMiddlewares, (req, res) => controller.getWhere(req, res));
   }
 
   // Health check or diagnostic

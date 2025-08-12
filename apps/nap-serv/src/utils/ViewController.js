@@ -61,7 +61,7 @@ class ViewController {
       }
 
       const cursor = {};
-      const conditions = [];
+      const conditions = req.query.conditions ? JSON.parse(req.query.conditions) : [];
       const filters = {};
 
       for (const [key, value] of Object.entries(req.query)) {
@@ -77,6 +77,7 @@ class ViewController {
       }
 
       const options = { filters };
+      console.log('ViewController get options:', options);
 
       if (req.query.columnWhitelist) {
         options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
