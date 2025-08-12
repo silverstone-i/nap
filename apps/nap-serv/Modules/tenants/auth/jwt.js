@@ -23,6 +23,7 @@ export const generateAccessToken = user => {
       role: user.role,
       schema_name: user.schema_name?.toLowerCase() || user.tenant_code?.toLowerCase() || null,
       enable_match_logging: process.env.ENABLE_MATCH_LOGGING === 'true' ? true : false,
+      match_threshold: process.env.MATCH_THRESHOLD ? parseFloat(process.env.MATCH_THRESHOLD) : 0.75,
     },
     ACCESS_TOKEN_SECRET,
     { expiresIn: '15m' }
