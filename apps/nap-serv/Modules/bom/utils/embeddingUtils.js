@@ -221,3 +221,168 @@ export function combinedSimilarity(a, b) {
   const fuzz = fuzzySimilarity(a, b);
   return 0.5 * jac + 0.5 * fuzz;
 }
+
+/**
+ * -------- Spreadsheet & value normalization helpers (shared) --------
+ */
+
+/**
+ * Normalize a header key by lowercasing and stripping non-alphanumerics.
+ * @param {string} k
+ * @returns {string}
+ */
+export const normalizeHeaderKey = k =>
+  String(k)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+/**
+ * Resolve a field value from a row given candidate header names.
+ * - First tries exact normalized match.
+ * - Then tries fuzzy includes (header contains candidate token or vice versa).
+ * @param {Record<string, any>} row
+ * @param {string[]} candidates
+ * @returns {any}
+ */
+export function getFieldFromRow(row, candidates) {
+  if (!row || typeof row !== 'object') return undefined;
+  const keys = Object.keys(row);
+  const normMap = new Map(keys.map(k => [normalizeHeaderKey(k), k]));
+  // 1) Exact normalized match
+  for (const c of candidates) {
+    const hit = normMap.get(normalizeHeaderKey(c));
+    if (hit !== undefined) return row[hit];
+  }
+  // 2) Fuzzy includes
+  const wanted = candidates.map(c => normalizeHeaderKey(c));
+  for (const [normK, origK] of normMap.entries()) {
+    if (wanted.some(w => normK.includes(w) || w.includes(normK))) {
+      return row[origK];
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Convert an Excel serial to a Date (UTC), accounting for 1904 date system if needed.
+ * @param {number|string} serial
+ * @param {boolean} [isDate1904=false]
+ * @returns {Date|null}
+ */
+export function excelSerialToDate(serial, isDate1904 = false) {
+  let days = Number(serial);
+  if (!Number.isFinite(days)) return null;
+  // Excel's base (with 1900 leap year bug) aligns using 1899-12-30
+  const base = Date.UTC(1899, 11, 30);
+  if (isDate1904) days += 1462; // shift for 1904 system
+  const ms = base + Math.round(days * 86400 * 1000);
+  return new Date(ms);
+}
+
+/**
+ * Normalize an Excel date-like value to YYYY-MM-DD.
+ * Accepts Date objects, serials (number/number-like string), or common date strings.
+ * @param {any} val
+ * @param {{ date1904?: boolean }} [opts]
+ * @returns {string|null}
+ */
+export function normalizeExcelDate(val, opts = {}) {
+  const { date1904 = false } = opts;
+  if (!val && val !== 0) return null;
+  if (typeof val === 'object' && val !== null) {
+    if (Object.prototype.hasOwnProperty.call(val, 'result')) return normalizeExcelDate(val.result, opts);
+    if (Object.prototype.hasOwnProperty.call(val, 'text')) return normalizeExcelDate(val.text, opts);
+    if (Array.isArray(val.richText)) return normalizeExcelDate(val.richText.map(rt => rt.text || '').join(''), opts);
+  }
+  if (val instanceof Date) {
+    return val.toISOString().slice(0, 10);
+  }
+  if (typeof val === 'number') {
+    const d = excelSerialToDate(val, date1904);
+    return d ? d.toISOString().slice(0, 10) : null;
+  }
+  if (typeof val === 'string') {
+    const s = val.trim();
+    // Fast-path ISO-like date strings
+    const isoLike = /^\d{4}-\d{2}-\d{2}$/;
+    if (isoLike.test(s)) return s;
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+    const asNum = Number(s);
+    if (Number.isFinite(asNum)) {
+      const d = excelSerialToDate(asNum, date1904);
+      return d ? d.toISOString().slice(0, 10) : null;
+    }
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Normalize a unit price value from various spreadsheet cell types/strings to a number.
+ * Handles currency symbols, parentheses for negatives, thousands separators, and decimal detection.
+ * Returns null when not coercible.
+ * @param {any} val
+ * @returns {number|null}
+ */
+export function normalizeUnitPrice(val) {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  if (typeof val === 'object' && val !== null) {
+    if (Object.prototype.hasOwnProperty.call(val, 'result')) return normalizeUnitPrice(val.result);
+    if (Object.prototype.hasOwnProperty.call(val, 'text')) return normalizeUnitPrice(val.text);
+    if (Array.isArray(val.richText)) return normalizeUnitPrice(val.richText.map(rt => rt.text || '').join(''));
+  }
+  if (typeof val === 'string') {
+    let s = val.trim();
+    if (s === '-' || s === '—') return 0;
+    // Keep digits, separators, minus, and parentheses; strip currency and text
+    s = s.replace(/[^0-9,\.\-()]/g, '');
+    let negative = false;
+    if (s.startsWith('(') && s.endsWith(')')) {
+      negative = true;
+      s = s.slice(1, -1);
+    }
+    const hasComma = s.includes(',');
+    const hasDot = s.includes('.');
+    if (hasComma && hasDot) {
+      // Determine decimal separator by last occurrence
+      if (s.lastIndexOf('.') > s.lastIndexOf(',')) {
+        // Dot is decimal, remove thousands commas
+        s = s.replace(/,/g, '');
+      } else {
+        // Comma is decimal, remove thousands dots then convert comma to dot
+        s = s.replace(/\./g, '');
+        s = s.replace(',', '.');
+      }
+    } else if (hasComma && !hasDot) {
+      // Likely comma decimal; convert to dot
+      s = s.replace(',', '.');
+    }
+    const num = Number(s);
+    if (!Number.isFinite(num)) return null;
+    return negative ? -num : num;
+  }
+  return null;
+}
+
+/**
+ * Coerce a unit-of-measure value to a trimmed string while handling typical spreadsheet cell object shapes.
+ * @param {any} v
+ * @returns {string|any}
+ */
+export function coerceUnit(v) {
+  if (v === null || v === undefined) return v;
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'object') {
+    if (Object.prototype.hasOwnProperty.call(v, 'text')) return String(v.text).trim();
+    if (Object.prototype.hasOwnProperty.call(v, 'result')) return String(v.result).trim();
+    if (Array.isArray(v.richText))
+      return v.richText
+        .map(rt => rt.text || '')
+        .join('')
+        .trim();
+  }
+  return String(v).trim();
+}

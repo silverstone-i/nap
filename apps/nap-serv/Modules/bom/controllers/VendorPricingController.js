@@ -12,6 +12,7 @@
 // BaseController provides standard CRUD/bulk/import helpers used across modules
 import BaseController from '../../../src/utils/BaseController.js';
 import { parseWorksheet } from '../../../src/utils/xlsUtils.js';
+import { getFieldFromRow, normalizeExcelDate, normalizeUnitPrice, coerceUnit } from '../utils/embeddingUtils.js';
 import db from '../../../src/db/db.js';
 import logger from '../../../src/utils/logger.js';
 
@@ -50,36 +51,15 @@ class VendorPricingController extends BaseController {
         return res.status(400).json({ error: 'No pricing rows found in spreadsheet' });
       }
 
-      // Resolve flexible header names per row (supports varied labels like "Unit Price ($)")
-      const normalizeKey = k =>
-        String(k)
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, '');
-      const getField = (row, candidates) => {
-        const keys = Object.keys(row);
-        const normMap = new Map(keys.map(k => [normalizeKey(k), k]));
-        // 1) Exact normalized match
-        for (const c of candidates) {
-          const hit = normMap.get(normalizeKey(c));
-          if (hit !== undefined) return row[hit];
-        }
-        // 2) Fuzzy includes: if header contains any candidate token
-        const wanted = candidates.map(c => normalizeKey(c));
-        for (const [normK, origK] of normMap.entries()) {
-          if (wanted.some(w => normK.includes(w) || w.includes(normK))) {
-            return row[origK];
-          }
-        }
-        return undefined;
-      };
+      // Resolve flexible header names per row (supports varied labels like "Unit Price ($)") via shared helper
 
       // Normalize raw rows to a consistent shape used by downstream logic
       const resolved = rows.map(r => {
-        const vendor_code = getField(r, ['vendor_code', 'vendor code', 'Vendor Code', 'VendorCode']);
-        const vendor_sku = getField(r, ['vendor_sku', 'vendor sku', 'Vendor SKU', 'VendorSku', 'sku']);
-        const unit_price_raw = getField(r, ['unit_price', 'unit price', 'Unit Price', 'price', 'cost']);
-        const unit = getField(r, ['unit', 'Unit', 'uom', 'UOM']);
-        const effective_date_raw = getField(r, ['effective_date', 'effective date', 'Effective Date', 'date', 'Date']);
+        const vendor_code = getFieldFromRow(r, ['vendor_code', 'vendor code', 'Vendor Code', 'VendorCode']);
+        const vendor_sku = getFieldFromRow(r, ['vendor_sku', 'vendor sku', 'Vendor SKU', 'VendorSku', 'sku']);
+        const unit_price_raw = getFieldFromRow(r, ['unit_price', 'unit price', 'Unit Price', 'price', 'cost']);
+        const unit = getFieldFromRow(r, ['unit', 'Unit', 'uom', 'UOM']);
+        const effective_date_raw = getFieldFromRow(r, ['effective_date', 'effective date', 'Effective Date', 'date', 'Date']);
         return {
           vendor_code: typeof vendor_code === 'string' ? vendor_code.trim() : vendor_code,
           vendor_sku: typeof vendor_sku === 'string' ? vendor_sku.trim() : vendor_sku,
@@ -123,120 +103,13 @@ class VendorPricingController extends BaseController {
         return res.status(400).json({ error: `Unknown vendor_sku for given vendor_code. Sample: ${sample}` });
       }
 
-      // Helpers to normalize Excel date values (Date objects, serials, strings)
-      const excelSerialToDate = (serial, isDate1904 = false) => {
-        // Excel's day 1 is 1899-12-31 (actually 1899-12-30 due to the 1900 leap year bug)
-        // Using 1899-12-30 as base aligns most serial values correctly
-        const base = Date.UTC(1899, 11, 30);
-        let days = Number(serial);
-        if (!Number.isFinite(days)) return null;
-        if (isDate1904) {
-          // Shift for 1904 date system (difference between systems)
-          days += 1462;
-        }
-        const ms = base + Math.round(days * 86400 * 1000);
-        return new Date(ms);
-      };
-
-      const normalizeExcelDate = val => {
-        if (!val && val !== 0) return null;
-        if (typeof val === 'object' && val !== null) {
-          if (Object.prototype.hasOwnProperty.call(val, 'result')) return normalizeExcelDate(val.result);
-          if (Object.prototype.hasOwnProperty.call(val, 'text')) return normalizeExcelDate(val.text);
-          if (Array.isArray(val.richText)) return normalizeExcelDate(val.richText.map(rt => rt.text || '').join(''));
-        }
-        if (val instanceof Date) {
-          return val.toISOString().slice(0, 10);
-        }
-        if (typeof val === 'number') {
-          const d = excelSerialToDate(val, date1904);
-          return d ? d.toISOString().slice(0, 10) : null;
-        }
-        if (typeof val === 'string') {
-          // Fast-path ISO-like date strings
-          const isoLike = /^\d{4}-\d{2}-\d{2}$/;
-          if (isoLike.test(val)) return val;
-
-          // Try parsing common formats; avoid time
-          const parsed = new Date(val);
-          if (!isNaN(parsed.getTime())) {
-            return parsed.toISOString().slice(0, 10);
-          }
-          // Numeric-as-string (serial)
-          const asNum = Number(val);
-          if (Number.isFinite(asNum)) {
-            const d = excelSerialToDate(asNum, date1904);
-            return d ? d.toISOString().slice(0, 10) : null;
-          }
-          return null;
-        }
-        return null;
-      };
-
-      // Pre-validate and convert date and unit_price fields
+      // Pre-validate and convert date and unit_price fields using shared helpers
       const invalidDateRows = [];
       const invalidPriceRows = [];
 
-      const normalizeUnitPrice = val => {
-        if (val === null || val === undefined || val === '') return null;
-        if (typeof val === 'number' && Number.isFinite(val)) return val;
-        if (typeof val === 'object' && val !== null) {
-          if (Object.prototype.hasOwnProperty.call(val, 'result')) return normalizeUnitPrice(val.result);
-          if (Object.prototype.hasOwnProperty.call(val, 'text')) return normalizeUnitPrice(val.text);
-          if (Array.isArray(val.richText)) return normalizeUnitPrice(val.richText.map(rt => rt.text || '').join(''));
-        }
-        if (typeof val === 'string') {
-          let s = val.trim();
-          if (s === '-' || s === '—') return 0;
-          // Keep digits, separators, minus, and parentheses; strip currency and text
-          s = s.replace(/[^0-9,\.\-()]/g, '');
-          let negative = false;
-          if (s.startsWith('(') && s.endsWith(')')) {
-            negative = true;
-            s = s.slice(1, -1);
-          }
-          const hasComma = s.includes(',');
-          const hasDot = s.includes('.');
-          if (hasComma && hasDot) {
-            // Determine decimal separator by last occurrence
-            if (s.lastIndexOf('.') > s.lastIndexOf(',')) {
-              // Dot is decimal, remove thousands commas
-              s = s.replace(/,/g, '');
-            } else {
-              // Comma is decimal, remove thousands dots then convert comma to dot
-              s = s.replace(/\./g, '');
-              s = s.replace(',', '.');
-            }
-          } else if (hasComma && !hasDot) {
-            // Likely comma decimal; convert to dot
-            s = s.replace(',', '.');
-          } // else: dot or none already fine
-
-          const num = Number(s);
-          if (!Number.isFinite(num)) return null;
-          return negative ? -num : num;
-        }
-        return null;
-      };
-      const coerceUnit = v => {
-        if (v === null || v === undefined) return v;
-        if (typeof v === 'string') return v.trim();
-        if (typeof v === 'number') return String(v);
-        if (typeof v === 'object') {
-          if (Object.prototype.hasOwnProperty.call(v, 'text')) return String(v.text).trim();
-          if (Object.prototype.hasOwnProperty.call(v, 'result')) return String(v.result).trim();
-          if (Array.isArray(v.richText))
-            return v.richText
-              .map(rt => rt.text || '')
-              .join('')
-              .trim();
-        }
-        return String(v).trim();
-      };
-
       // Build DTOs for bulk insert
       const dto = resolved.map((r, idx) => {
-        const eff = normalizeExcelDate(r.effective_date_raw);
+        const eff = normalizeExcelDate(r.effective_date_raw, { date1904 });
         if (!eff) invalidDateRows.push(idx + 2); // +2 to account for header row and 1-based indexing
         const price = normalizeUnitPrice(r.unit_price_raw);
         if (price === null) invalidPriceRows.push(idx + 2);
