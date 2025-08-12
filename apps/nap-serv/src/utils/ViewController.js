@@ -71,7 +71,7 @@ class ViewController {
           continue;
         }
 
-        if (!['limit', 'orderBy', 'columnWhitelist', 'includeDeactivated'].includes(key)) {
+        if (!['limit', 'orderBy', 'columnWhitelist', 'includeDeactivated', 'conditions'].includes(key)) {
           filters[key] = value;
         }
       }
