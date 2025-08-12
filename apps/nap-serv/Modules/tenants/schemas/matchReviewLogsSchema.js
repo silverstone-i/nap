@@ -29,6 +29,7 @@ const matchReviewLogsSchema = {
     { name: 'catalog_description', type: 'text', notNull: false },
     { name: 'catalog_description_normalized', type: 'text', notNull: false },
     { name: 'confidence', type: 'float', notNull: false },
+    { name: 'match_threshold', type: 'float', notNull: false },
     { name: 'event_type', type: 'varchar(10)', notNull: true },
     { name: 'status', type: 'varchar(30)', notNull: true, default: "'ok'" },
     { name: 'notes', type: 'text', notNull: false },
