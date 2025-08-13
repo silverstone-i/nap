@@ -249,7 +249,6 @@ class VendorSkusController extends BaseController {
       // --- Helper: Build match review log ---
       const MATCH_THRESHOLD = req.user?.match_threshold || 0.8;
 
-      
       const buildMatchReviewLog = u => {
         const vendor_id = vendorCodeMap[u.vendor_code];
         const catalog = catalogSkuMap[u.catalog_sku];
@@ -304,7 +303,77 @@ class VendorSkusController extends BaseController {
    */
   async getUnmatchedVendorSkus(req, res) {
     try {
-    } catch (err) {}
+      const { schema } = req;
+
+      // Pagination and sorting
+      const limit = req.query.limit !== undefined ? Number(req.query.limit) : 50;
+      const offset = req.query.offset !== undefined ? Number(req.query.offset) : 0;
+      let orderBy = req.query.orderBy ?? ['vendor_id', 'vendor_sku'];
+      if (typeof orderBy === 'string') {
+        try {
+          const parsed = JSON.parse(orderBy);
+          if (Array.isArray(parsed)) orderBy = parsed;
+          else throw new Error('not array');
+        } catch {
+          orderBy = orderBy.split(',').map(s => s.trim());
+        }
+      }
+
+      const options = { limit, offset, orderBy };
+
+      if (req.query.columnWhitelist) {
+        options.columnWhitelist = JSON.parse(req.query.columnWhitelist);
+      }
+      if (req.query.includeDeactivated === 'true') {
+        options.includeDeactivated = true;
+      }
+
+      // Base condition: unmatched only
+      const conditions = [{ catalog_sku_id: null }];
+
+      // Optional vendor filters: vendor_id or vendor_code(s)
+      let vendorIds = [];
+      if (req.query.vendor_id) {
+        const v = Array.isArray(req.query.vendor_id) ? req.query.vendor_id : String(req.query.vendor_id).split(',');
+        vendorIds = v.map(x => Number(x)).filter(n => Number.isFinite(n));
+      } else if (req.query.vendor_code || req.query.vendor_codes) {
+        const raw = req.query.vendor_code || req.query.vendor_codes;
+        const vendorCodes = Array.isArray(raw)
+          ? raw
+          : String(raw)
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
+        if (vendorCodes.length > 0) {
+          const vendors = await db('vendors', schema).findWhere([{ vendor_code: { $in: vendorCodes } }], 'AND', { columnWhitelist: ['id', 'vendor_code'] });
+          vendorIds = vendors.map(v => v.id);
+          // If none match provided codes, return empty quickly
+          if (vendorIds.length === 0) {
+            return res.json({ records: [], pagination: { total: 0, limit, offset } });
+          }
+        }
+      }
+      if (vendorIds.length > 0) {
+        conditions.push({ vendor_id: { $in: vendorIds } });
+      }
+
+      // Search across vendor_sku, description, description_normalized
+      if (req.query.q && String(req.query.q).trim()) {
+        const q = String(req.query.q).trim();
+        const pattern = `%${q}%`;
+        conditions.push({ $or: [{ vendor_sku: { $ilike: pattern } }, { description: { $ilike: pattern } }, { description_normalized: { $ilike: pattern } }] });
+      }
+
+      const [records, total] = await Promise.all([this.model(schema).findWhere(conditions, 'AND', options), this.model(schema).countWhere ? this.model(schema).countWhere(conditions, 'AND', options) : Promise.resolve(null)]);
+
+      return res.json({
+        records,
+        pagination: total !== null ? { total, limit, offset } : undefined,
+      });
+    } catch (err) {
+      logger.error('Error fetching unmatched vendor SKUs', { error: err?.message });
+      return res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
   }
 
   /**
