@@ -61,6 +61,8 @@ This installs all dependencies for `nap-serv`, `nap-client`, and `packages/share
 
 ### 2. Enable Husky Git hooks
 
+Husky is used in this project to enforce commit rules and maintain a clean history across the monorepo. The hooks automatically run when you create a commit (whether from the terminal or VS Code). They ensure that you don’t accidentally commit changes to both `apps/nap-serv` and `apps/nap-client` in the same commit, and they can also be extended to enforce Conventional Commit message formats or run linting/formatting checks.
+
 Ensure pre-commit hooks are executable:
 
 ```bash
@@ -68,6 +70,25 @@ chmod +x .husky/pre-commit
 ```
 
 This enforces commit checks (e.g. blocking mixed commits across apps).
+
+#### Commit message conventions
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/). Use scopes to indicate which part of the monorepo you are changing:
+
+- `feat(serv): ...` for backend changes
+- `feat(client): ...` for frontend changes
+- `feat(shared): ...` for shared package changes
+- `chore: ...`, `docs: ...`, `test: ...` for general updates
+
+This makes it easy to see from history what part of the system a change belongs to.
+
+#### Overriding Husky for mixed commits
+
+By default, Husky will block commits that stage changes to both `apps/nap-serv` and `apps/nap-client`. This keeps histories clean. If you intentionally need to commit changes across both apps in one commit, bypass Husky with:
+
+```bash
+git commit -m "refactor: coordinated change" --no-verify
+```
 
 ### 3. Start development servers
 
