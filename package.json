@@ -16,7 +16,8 @@
     "build": "npm -w apps/nap-serv run build && npm -w apps/nap-client run build",
     "lint": "eslint .",
     "test": "npm -w apps/nap-serv test && npm -w apps/nap-client test",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:hooks": "echo 'hook test' && git commit --allow-empty -m 'chore: hook test' || echo 'hook blocked'"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
