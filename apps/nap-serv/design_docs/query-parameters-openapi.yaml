@@ -1,0 +1,126 @@
+openapi: 3.0.0
+info:
+  title: BaseController API
+  version: 1.0.0
+
+paths:
+  /api/{resource}:
+    get:
+      summary: Get records with cursor pagination
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Max number of records to return
+        - in: query
+          name: orderBy
+          schema:
+            type: string
+          description: Comma-separated or JSON array of columns to sort by
+        - in: query
+          name: includeDeactivated
+          schema:
+            type: boolean
+          description: Include archived records
+        - in: query
+          name: columnWhitelist
+          schema:
+            type: string
+          description: Comma-separated list of columns to return
+        - in: query
+          name: conditions
+          schema:
+            type: string
+            format: json
+          description: JSON-encoded array of condition objects
+        - in: query
+          name: cursor.{field}
+          schema:
+            type: string
+          description: Cursor value for specified field
+        - in: query
+          name: {field}
+          schema:
+            type: string
+          description: Filter by arbitrary field
+      responses:
+        '200':
+          description: A list of records
+
+  /api/{resource}/where:
+    get:
+      summary: Get records with offset pagination and filtering
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: offset
+          schema:
+            type: integer
+        - in: query
+          name: orderBy
+          schema:
+            type: string
+        - in: query
+          name: includeDeactivated
+          schema:
+            type: boolean
+        - in: query
+          name: columnWhitelist
+          schema:
+            type: string
+        - in: query
+          name: conditions
+          schema:
+            type: string
+            format: json
+        - in: query
+          name: joinType
+          schema:
+            type: string
+            enum: [AND, OR]
+        - in: query
+          name: {field}
+          schema:
+            type: string
+          description: Filter by arbitrary field
+      responses:
+        '200':
+          description: A list of records with pagination metadata
+
+  /api/{resource}/archived:
+    get:
+      summary: Get archived (soft-deleted) records
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+        - in: query
+          name: offset
+          schema:
+            type: integer
+        - in: query
+          name: orderBy
+          schema:
+            type: string
+        - in: query
+          name: columnWhitelist
+          schema:
+            type: string
+        - in: query
+          name: joinType
+          schema:
+            type: string
+            enum: [AND, OR]
+        - in: query
+          name: {field}
+          schema:
+            type: string
+          description: Filter by arbitrary field
+      responses:
+        '200':
+          description: A list of archived records

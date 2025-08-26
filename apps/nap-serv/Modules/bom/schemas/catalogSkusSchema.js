@@ -1,0 +1,43 @@
+// @ts-check
+
+/*
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
+
+/** @typedef {import('pg-schemata/src/schemaTypes').TableSchema} TableSchema */
+
+/** @type {TableSchema} */
+const schema = {
+  dbSchema: 'tenantid',
+  table: 'catalog_skus',
+  hasAuditFields: true,
+  softDelete: true,
+  version: '1.0.0',
+  columns: [
+    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true, colProps: { cnd: true } },
+    { name: 'tenant_code', type: 'varchar(6)', notNull: true },
+    { name: 'catalog_sku', type: 'varchar(64)', notNull: true },
+    { name: 'description', type: 'text', notNull: true },
+    { name: 'description_normalized', type: 'text', notNull: true },
+    { name: 'category', type: 'varchar(64)', notNull: false },
+    { name: 'sub_category', type: 'varchar(64)', notNull: false },
+    { name: 'model', type: 'varchar(32)', notNull: false },
+    { name: 'embedding', type: 'vector(3072)', notNull: false },
+  ],
+  constraints: {
+    primaryKey: ['id'],
+    unique: [['catalog_sku']],
+    indexes: [
+      { type: 'Index', columns: ['catalog_sku'] },
+      { type: 'Index', columns: ['category'] },
+      { type: 'Index', columns: ['sub_category'] },
+    ],
+  },
+};
+
+export default schema;
