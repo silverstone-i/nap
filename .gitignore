@@ -1,3 +1,82 @@
+##############
+# Monorepo root ignores for Node/JS projects
+##############
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node modules (root and nested)
 node_modules/
+**/node_modules/
+
+# Build outputs (root and nested)
 dist/
-.env*
+**/dist/
+build/
+**/build/
+out/
+**/out/
+
+# Coverage and instrumentation
+coverage/
+**/coverage/
+.nyc_output/
+
+# TypeScript metadata
+*.tsbuildinfo
+**/*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Tool caches
+.eslintcache
+.cache/
+**/.cache/
+.vite/
+**/.vite/
+.rollup.cache
+**/.rollup.cache
+.turbo/
+.pnp/
+.pnp.js
+.bun/
+
+# Framework-specific (common in monorepos)
+.next/
+.nuxt/
+storybook-static/
+**/storybook-static/
+
+# Test artifacts
+test-results/
+playwright-report/
+cypress/screenshots/
+cypress/videos/
+
+# Environment files (root and nested)
+.env
+.env.*
+.env.local
+.env.*.local
+**/.env
+**/.env.*
+**/.env.local
+**/.env.*.local
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.history/
+*.swp
+
+# Temp
+tmp/
+temp/
+*.tgz
