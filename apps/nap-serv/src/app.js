@@ -15,8 +15,9 @@ import apiRoutes from './apiRoutes.js';
 
 import cookieParser from 'cookie-parser';
 import { authenticateJwt } from '../modules/tenants/middlewares/authenticateJwt.js';
+import { context } from './middlewares/context.js';
 
-import logger, { apiLogger } from './utils/logger.js';
+import { apiLogger } from './utils/logger.js';
 
 import morgan from 'morgan';
 
@@ -33,7 +34,7 @@ app.use(cookieParser());
 // Morgan middleware to write structured logs
 app.use(
   morgan(
-    (tokens, req, res) => {      
+    (tokens, req, res) => {
       const logData = {
         method: tokens.method(req, res),
         url: tokens.url(req, res),
@@ -46,13 +47,13 @@ app.use(
     },
     {
       stream: {
-        write: message => {
+        write: (message) => {
           const log = JSON.parse(message);
           apiLogger.info('API request log', log);
         },
       },
-    }
-  )
+    },
+  ),
 );
 
 app.use((req, res, next) => {
@@ -68,6 +69,9 @@ app.use((req, res, next) => {
 
   return authenticateJwt(req, res, next);
 });
+
+// Populate request context (user, tenant, roles)
+app.use(context);
 
 // Mount each module's router under /api
 app.use('/api', apiRoutes);
