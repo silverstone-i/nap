@@ -42,6 +42,7 @@
     "test:unit": "cross-env NODE_ENV=test vitest run tests/unit",
     "test:integration": "cross-env NODE_ENV=test vitest run tests/integration",
     "test:contract": "cross-env NODE_ENV=test vitest run tests/contract",
+    "test:rbac": "cross-env NODE_ENV=test vitest run tests/rbac",
     "test:coverage": "cross-env NODE_ENV=test vitest run --coverage --reporter html",
     "test:coverage:unit": "cross-env NODE_ENV=test vitest run tests/unit --coverage --reporter html",
     "test:coverage:integration": "cross-env NODE_ENV=test vitest run tests/integration --coverage --reporter html",
