@@ -15,12 +15,11 @@ const schema = {
   softDelete: false,
   version: '1.0.0',
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
-    { name: 'tenant_id', type: 'uuid', nullable: true },
-    { name: 'tenant_code', type: 'text', nullable: true },
-    { name: 'role_id', type: 'uuid', nullable: false },
-    { name: 'user_id', type: 'uuid', nullable: false },
-    { name: 'is_primary', type: 'boolean', default: false, nullable: false },
+    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+    { name: 'tenant_code', type: 'varchar(6)', default: null },
+    { name: 'role_id', type: 'uuid', notNull: true },
+    { name: 'user_id', type: 'uuid', notNull: true },
+    { name: 'is_primary', type: 'boolean', notNull: true, default: false },
   ],
   constraints: {
     primaryKey: ['id'],
