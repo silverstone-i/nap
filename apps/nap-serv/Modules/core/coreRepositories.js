@@ -16,6 +16,9 @@ import InterCompanies from './models/InterCompanies.js';
 import Clients from './models/Clients.js';
 import Employees from './models/Employees.js';
 import Sources from './models/Sources.js';
+import Roles from './models/Roles.js';
+import RoleMembers from './models/RoleMembers.js';
+import Policies from './models/Policies.js';
 
 const repositories = {
   vendors: Vendors,
@@ -25,5 +28,8 @@ const repositories = {
   clients: Clients,
   employees: Employees,
   sources: Sources,
+  roles: Roles,
+  roleMembers: RoleMembers,
+  policies: Policies,
 };
 export default repositories;
