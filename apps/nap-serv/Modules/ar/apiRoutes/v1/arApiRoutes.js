@@ -14,6 +14,7 @@ import receiptsApi from './receiptsApi.js';
 import clientsApi from './clientsApi.js';
 import arInvoicesApi from './arInvoicesApi.js';
 import arInvoiceLinesApi from './arInvoiceLinesApi.js';
+import invoicesRouter from './invoices.router.js';
 
 const router = express.Router();
 
@@ -22,6 +23,7 @@ router.use('/v1/receipts', receiptsApi);
 router.use('/v1/clients', clientsApi);
 router.use('/v1/ar-invoices', arInvoicesApi);
 router.use('/v1/ar-invoice-lines', arInvoiceLinesApi);
+router.use('/v1/invoices', invoicesRouter);
 
 console.log('AR API Routes loaded');
 
