@@ -27,7 +27,6 @@ const schema = {
     indexes: [
       { type: 'Index', columns: ['role_id'] },
       { type: 'Index', columns: ['user_id'] },
-      { type: 'Index', columns: ['tenant_id'] },
     ],
   },
 };

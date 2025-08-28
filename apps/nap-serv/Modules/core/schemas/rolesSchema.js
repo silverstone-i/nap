@@ -35,9 +35,8 @@ const schema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'code']],
+    unique: [['code']],
     indexes: [
-      { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['code'] },
     ],
   },
