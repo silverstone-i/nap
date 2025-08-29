@@ -11,7 +11,7 @@ You are working on a Node.js (ESM) monorepo project with Express and PostgreSQL 
   - Each tenant has a **dedicated PostgreSQL schema**
   - All queries must be **explicitly schema-qualified**
   - `pg-schemata` handles schema-specific table registration and connection logic
-  - `tenant_code` is included in each table **for informational purposes only** (e.g. super_admin views) — not used in query filtering
+  - `tenant_code` is included in each table **for informational purposes only** (e.g. superadmin views) — not used in query filtering
 - **ORM**: Use `pg-schemata`
   - Define tables with `defineTable`
   - Extend `TableModel` for model logic
@@ -115,4 +115,4 @@ Add routes under `/bom`:
 
 ## 🔁 Follow-Up Prompt
 
-> Start by generating the schema definitions and models for `vendor_skus`, `catalog_skus`, and `vendor_pricing`, using `defineTable` and extending `TableModel`. Ensure vector types are defined using `pgvector`, `tenant_code` is included (for super_admin use), and that `catalog_sku` is a foreign key. Once schema and models are complete, proceed to the controller logic for inserting a new vendor SKU — which must normalize the description, embed it, and attempt to match against existing catalog SKUs.
+> Start by generating the schema definitions and models for `vendor_skus`, `catalog_skus`, and `vendor_pricing`, using `defineTable` and extending `TableModel`. Ensure vector types are defined using `pgvector`, `tenant_code` is included (for superadmin use), and that `catalog_sku` is a foreign key. Once schema and models are complete, proceed to the controller logic for inserting a new vendor SKU — which must normalize the description, embed it, and attempt to match against existing catalog SKUs.
