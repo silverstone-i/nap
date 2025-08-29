@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../api/client.js';
 
 // Create a context to hold authentication state and actions.  This
 // wrapper centralises login/logout logic and allows the rest of the
@@ -11,44 +12,50 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On mount, check local storage for a saved session.  This
-  // simplistic approach illustrates how you might persist
-  // authentication across page reloads.  Replace with secure
-  // storage/token management as needed.
+  // Load current session on mount via /api/v1/auth/me. Cookies are httpOnly
+  // so the server controls session; we just derive a user object for UI.
   useEffect(() => {
-    const storedUser = localStorage.getItem('nap-user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await api.me();
+        if (!cancelled) {
+          const u = me?.user || null;
+          const tenantName = me?.tenant?.name || me?.tenant?.tenant_code || null;
+          setUser(u ? { ...u, tenant: tenantName } : null);
+        }
+      } catch (_err) {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Perform a login by sending credentials to the server.  For the
-  // skeleton we simply accept any credentials and set a dummy
-  // user.  Replace this logic with a call to your /auth/login
-  // endpoint.  The returned user object should include at least the
-  // user's role and tenant information.
-  const login = async (credentials) => {
-    // TODO: call real API
-    const fakeUser = { email: credentials.email, role: 'admin', tenant: 'Demo Co' };
-    setUser(fakeUser);
-    localStorage.setItem('nap-user', JSON.stringify(fakeUser));
-    return fakeUser;
+  // Login: POST credentials, then fetch /me to populate user.
+  const login = async ({ email, password }) => {
+    await api.login(email, password);
+    const me = await api.me();
+    const u = me?.user || null;
+    const tenantName = me?.tenant?.name || me?.tenant?.tenant_code || null;
+    setUser(u ? { ...u, tenant: tenantName } : null);
+    return u;
   };
 
-  // Remove user and session information.  Implement a call to
-  // /auth/logout if your backend provides one.  Always clear any
-  // tokens or sensitive information from storage on logout.
-  const logout = () => {
+  // Logout: clear server cookies and local state
+  const logout = async () => {
+    try {
+      await api.logout();
+    } catch (_e) {
+      /* ignore */
+    }
     setUser(null);
-    localStorage.removeItem('nap-user');
   };
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
 };
 
 // Custom hook to access the auth context.  Components can call

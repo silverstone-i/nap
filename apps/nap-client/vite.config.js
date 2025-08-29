@@ -8,9 +8,17 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    open: true
+    open: true,
+    proxy: {
+      // Forward API calls to the backend so cookies work in dev
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   build: {
-    sourcemap: true
-  }
+    sourcemap: true,
+  },
 });

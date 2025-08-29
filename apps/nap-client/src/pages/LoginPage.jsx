@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+/* eslint-disable no-unused-vars */
+import { useState } from 'react';
 import { Avatar, Box, Button, TextField, Typography, Paper, Alert } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -29,7 +30,8 @@ export default function LoginPage() {
       await login(formState);
       navigate('/', { replace: true });
     } catch (err) {
-      setError('Invalid credentials');
+      const message = err?.data?.message || err?.message || 'Invalid credentials';
+      setError(message);
     }
   };
 
@@ -41,7 +43,7 @@ export default function LoginPage() {
         alignItems: 'center',
         justifyContent: 'center',
         height: '100vh',
-        bgcolor: 'background.default'
+        bgcolor: 'background.default',
       }}
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 400, width: '100%' }}>
@@ -80,12 +82,7 @@ export default function LoginPage() {
               value={formState.password}
               onChange={handleChange}
             />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-            >
+            <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>
               Sign In
             </Button>
           </Box>
