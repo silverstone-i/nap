@@ -20,7 +20,7 @@ export function authenticateJwt(req, res, next) {
     if (err) return res.status(401).json({ message: 'Unauthorized' });
 
     req.user = decoded;
-    if (decoded.role === 'super_admin') {
+    if (decoded.role === 'superadmin') {
       req.schema = req.headers['x-tenant-schema']?.toLowerCase() || req.params?.schema?.toLowerCase() || 'admin';
     } else {
       req.schema = decoded.schema_name?.toLowerCase() || decoded.tenant_code?.toLowerCase();

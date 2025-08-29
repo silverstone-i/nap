@@ -42,7 +42,7 @@ async function bootstrapSuperAdmin() {
       console.log('✅ NapSoft tenant already exists.');
     }
 
-    const existingUsers = await db.napUsers.findWhere([{ role: 'super_admin' }]);
+    const existingUsers = await db.napUsers.findWhere([{ role: 'superadmin' }]);
 
     if (existingUsers.length > 0) {
       console.log('✅ Super admin already exists. Aborting.');
@@ -56,7 +56,7 @@ async function bootstrapSuperAdmin() {
       schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'napsft',
       email: ROOT_EMAIL,
       password_hash: passwordHash,
-      role: 'super_admin',
+      role: 'superadmin',
       user_name: 'administrator',
       created_by: 'administrator',
     };

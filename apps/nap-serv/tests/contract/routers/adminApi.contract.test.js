@@ -5,7 +5,7 @@ import adminApi from '../../../modules/tenants/apiRoutes/v1/admin.router.js';
 describe('adminApi contract test', () => {
   const app = express();
   app.use((req, res, next) => {
-    req.user = { user_name: 'contract_test_user', role: 'super_admin' };
+    req.user = { user_name: 'contract_test_user', role: 'superadmin' };
     req.schema = 'admin';
     next();
   });
@@ -24,7 +24,7 @@ describe('adminApi contract test', () => {
     expect(res.body).toEqual({ message: 'Schema switched to test' });
   });
 
-  it('POST /switch-schema/:schema → 403 (for non-super_admin)', async () => {
+  it('POST /switch-schema/:schema → 403 (for non-superadmin)', async () => {
     const appWithNonAdmin = express();
     appWithNonAdmin.use((req, res, next) => {
       req.user = { user_name: 'regular_user', role: 'admin' };

@@ -10,7 +10,8 @@
  */
 
 import { db, pgp } from '../src/db/db.js';
-import { loadViews } from './loadViews.js';
+// import { loadViews } from './loadViews.js';
+const { seedRbac } = await import('../src/seeds/seed_rbac.js');
 
 // Extracts table dependencies from model's foreign keys
 function getTableDependencies(model) {
@@ -21,15 +22,15 @@ function getTableDependencies(model) {
 
   return Array.from(
     new Set(
-      schema.constraints.foreignKeys.map(fk => {
+      schema.constraints.foreignKeys.map((fk) => {
         // console.log('FK:', fk.references);
         const [schemaName, tableName] = fk.references.table.includes('.')
           ? fk.references.table.split('.')
           : [model.schema.dbSchema, fk.references.table];
         // console.log('schemaName:', schemaName, 'tableName:', tableName);
         return `${schemaName}.${tableName}`.toLowerCase();
-      })
-    )
+      }),
+    ),
   );
 }
 
@@ -99,20 +100,10 @@ function writeDependencyGraph(models, sortedKeys) {
   // console.log('\nDependency graph written to table-dependencies.dot\n');
 }
 
-async function migrateTenants({
-  schemaList = [],
-  dbOverride = db,
-  pgpOverride = pgp,
-  testFlag = false,
-} = {}) {
-  console.log('schemaList:', schemaList);
-  
+async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = pgp, testFlag = false } = {}) {
   // Check if schema exists in the database
   async function schemaExists(schemaName) {
-    const result = await dbOverride.oneOrNone(
-      `SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`,
-      [schemaName]
-    );
+    const result = await dbOverride.oneOrNone(`SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1`, [schemaName]);
     return !!result;
   }
 
@@ -145,7 +136,7 @@ async function migrateTenants({
     for (const schemaName of schemaList) {
       const createdAdminTables = new Set();
 
-      const allowedAdminTables = new Set(adminTables.map(t => t.toLowerCase()));
+      const allowedAdminTables = new Set(adminTables.map((t) => t.toLowerCase()));
 
       const modelsForSchema = Object.fromEntries(
         Object.entries(dbOverride)
@@ -171,11 +162,8 @@ async function migrateTenants({
             const isAdminTable = allowedAdminTables.has(originalSchema);
             const effectiveSchema = isAdminTable ? 'admin' : schemaName;
             const schemaScopedModel = dbOverride(model, effectiveSchema);
-            return [
-              `${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase(),
-              schemaScopedModel,
-            ];
-          })
+            return [`${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase(), schemaScopedModel];
+          }),
       );
       // console.log('✅ Models for schema', schemaName, Object.keys(modelsForSchema));
       const keys = topoSortModels(modelsForSchema);
@@ -196,13 +184,16 @@ async function migrateTenants({
       const createdAdminTablesSet = new Set(keys);
 
       // Only bootstrap super admin if admin.nap_users and admin.tenants were created
-      if (
-        schemaName === 'admin' &&
-        createdAdminTablesSet.has('admin.nap_users') &&
-        createdAdminTablesSet.has('admin.tenants')
-      ) {
+      if (schemaName === 'admin' && createdAdminTablesSet.has('admin.nap_users') && createdAdminTablesSet.has('admin.tenants')) {
         const { bootstrapSuperAdmin } = await import('./bootstrapSuperAdmin.js');
         await bootstrapSuperAdmin(dbOverride);
+      }
+
+      // Seed default system roles (idempotent)
+      try {
+        await seedRbac({ schemaName, createdBy: 'migrateTenants' });
+      } catch (e) {
+        console.warn('Warning: failed seeding default roles:', e?.message || e);
       }
 
       // await loadViews(dbOverride, schemaName);

@@ -23,7 +23,7 @@ export async function getAllSchemas(req, res) {
 }
 
 export function switchSchema(req, res) {
-  if (req.user.role !== 'super_admin') {
+  if (req.user.role !== 'superadmin') {
     return res.status(403).json({ error: 'Forbidden' });
   }
 

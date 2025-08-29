@@ -9,7 +9,7 @@ describe('admin.controller integration', () => {
     server = app.listen();
     await setupAdminSchemaAndUser();
     await setupAdditionalSchemasAndUsers();
-    process.env.TEST_SUPER_ADMIN_JWT = generateTestToken({ role: 'super_admin' });
+    process.env.TEST_superadmin_JWT = generateTestToken({ role: 'superadmin' });
     process.env.TEST_REGULAR_USER_JWT = generateTestToken({ role: 'admin' });
   });
 
@@ -20,7 +20,7 @@ describe('admin.controller integration', () => {
   test('GET /admin/schemas - should return all schema names', async () => {
     const res = await request(server)
       .get('/api/tenants/v1/admin/schemas')
-      .set('Cookie', [`auth_token=${process.env.TEST_SUPER_ADMIN_JWT}`]);
+      .set('Cookie', [`auth_token=${process.env.TEST_superadmin_JWT}`]);
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -29,16 +29,16 @@ describe('admin.controller integration', () => {
     expect(res.body).toContain('ciq');
   });
 
-  test('GET /admin/switch-schema/:schema - should switch schema for super_admin', async () => {
+  test('GET /admin/switch-schema/:schema - should switch schema for superadmin', async () => {
     const res = await request(server)
       .post('/api/tenants/v1/admin/switch-schema/nap')
-      .set('Cookie', [`auth_token=${process.env.TEST_SUPER_ADMIN_JWT}`]);
+      .set('Cookie', [`auth_token=${process.env.TEST_superadmin_JWT}`]);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ message: 'Schema switched to nap' });
   });
 
-  test('GET /admin/switch-schema/:schema - should reject non-super_admin', async () => {
+  test('GET /admin/switch-schema/:schema - should reject non-superadmin', async () => {
     const res = await request(server)
       .post('/api/tenants/v1/admin/switch-schema/ciq')
       .set('Cookie', [`auth_token=${process.env.TEST_REGULAR_USER_JWT}`]);

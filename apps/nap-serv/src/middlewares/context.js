@@ -22,7 +22,7 @@ export async function context(req, res, next) {
 
     // Map system roles from legacy JWT roles
     const system_roles = [];
-    if (user.role === 'super_admin') system_roles.push('superadmin');
+    if (user.role === 'superadmin') system_roles.push('superadmin');
     if (user.role === 'admin') system_roles.push('admin');
 
     // Resolve nap_user id by email when present
