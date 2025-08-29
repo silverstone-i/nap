@@ -92,6 +92,7 @@ export default [
         navigator: 'readonly',
         localStorage: 'readonly',
         sessionStorage: 'readonly',
+        fetch: 'readonly',
       },
     },
   },
