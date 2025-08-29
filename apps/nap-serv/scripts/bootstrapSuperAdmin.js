@@ -27,12 +27,12 @@ async function bootstrapSuperAdmin() {
     console.log('🔐 Checking for existing super admin...');
 
     console.log('🏢 Ensuring NapSoft tenant exists...');
-    const existingTenant = await db.tenants.findWhere([{ tenant_code: NAPSOFT_TENANT || 'NAPSFT' }]);
+    const existingTenant = await db.tenants.findWhere([{ tenant_code: NAPSOFT_TENANT || 'ADMIN' }]);
 
     if (existingTenant.length === 0) {
       await db.tenants.insert({
-        tenant_code: NAPSOFT_TENANT || 'NAPSFT',
-        schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'napsft',
+        tenant_code: NAPSOFT_TENANT || 'ADMIN',
+        schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'admin',
         company: 'NapSoft',
         is_active: true,
         created_by: 'bootstrap',
@@ -52,19 +52,19 @@ async function bootstrapSuperAdmin() {
     const passwordHash = await bcrypt.hash(ROOT_PASSWORD, 10);
 
     const userDto = {
-      tenant_code: NAPSOFT_TENANT || 'NAPSFT',
-      schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'napsft',
+      tenant_code: NAPSOFT_TENANT || 'ADMIN',
+      schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'admin',
       email: ROOT_EMAIL,
       password_hash: passwordHash,
       role: 'superadmin',
-      user_name: 'administrator',
-      created_by: 'administrator',
+      user_name: 'superadmin',
+      created_by: 'bootstrap',
     };
 
     await db.napUsers.insert(userDto);
-    console.log('✅ Super admin created successfully.');
+    console.log('✅ superadmin created successfully.');
   } catch (err) {
-    console.error('❌ Error bootstrapping super admin:', err);
+    console.error('❌ Error bootstrapping superadmin:', err);
     process.exit(1);
   }
 }
