@@ -19,22 +19,22 @@ export const login = (req, res, next) => {
     if (err || !user) {
       return res.status(400).json({ message: info?.message || 'Login failed' });
     }
-
-    const isTest = process.env.NODE_ENV === 'test';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieSecure = isProduction || process.env.COOKIE_SECURE === 'true';
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
     res.cookie('auth_token', accessToken, {
       httpOnly: true,
-      secure: !isTest,
+      secure: cookieSecure,
       sameSite: 'Strict',
       maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: !isTest,
+      secure: cookieSecure,
       sameSite: 'Strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
@@ -49,8 +49,8 @@ export const refreshToken = async (req, res) => {
 
   jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
     if (err) return res.status(403).json({ message: 'Invalid refresh token' });
-
-    const isTest = process.env.NODE_ENV === 'test';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieSecure = isProduction || process.env.COOKIE_SECURE === 'true';
 
     try {
       const user = await db('napUsers', 'admin').findOneBy([{ email: decoded.email }]);
@@ -61,14 +61,14 @@ export const refreshToken = async (req, res) => {
 
       res.cookie('auth_token', newAccessToken, {
         httpOnly: true,
-        secure: !isTest,
+        secure: cookieSecure,
         sameSite: 'Strict',
         maxAge: 15 * 60 * 1000,
       });
 
       res.cookie('refresh_token', newRefreshToken, {
         httpOnly: true,
-        secure: !isTest,
+        secure: cookieSecure,
         sameSite: 'Strict',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
