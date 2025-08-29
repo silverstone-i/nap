@@ -279,11 +279,10 @@ class VendorSkusController extends BaseController {
       }
 
       // --- Transaction: bulk update and log ---
-      let result;
       await db.tx(async t => {
         const vendorModel = this.model(schema);
         vendorModel.tx = t;
-        result = await vendorModel.bulkUpdate(updatePayloads);
+        await vendorModel.bulkUpdate(updatePayloads);
         if (matchReviewLogs.length > 0) {
           const matchModel = db('matchReviewLogs', 'admin');
           matchModel.tx = t;

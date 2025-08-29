@@ -13,6 +13,8 @@ import 'dotenv/config';
 import express from 'express';
 
 import coreRoutes from '../Modules/core/apiRoutes/v1/coreApiRoutes.js';
+import coreAuthRouter from '../modules/core/apiRoutes/v1/auth.router.js';
+import coreAdminRouter from '../modules/core/apiRoutes/v1/admin.router.js';
 import activitiesRoutes from '../Modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
 import tenantsRoutes from '../Modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
 import arRoutes from '../Modules/ar/apiRoutes/v1/arApiRoutes.js';
@@ -25,6 +27,9 @@ import systemV1 from './apiRoutes.v1.system.js';
 const router = express.Router();
 
 router.use('/core', coreRoutes);
+// Step 1: unchanged external paths under /api/v1
+router.use('/v1/auth', coreAuthRouter);
+router.use('/v1/admin', coreAdminRouter);
 router.use('/activities', activitiesRoutes);
 router.use('/tenants', tenantsRoutes);
 router.use('/ar', arRoutes);

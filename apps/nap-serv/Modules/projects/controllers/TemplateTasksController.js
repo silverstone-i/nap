@@ -12,7 +12,6 @@
 import BaseController from '../../../src/utils/BaseController.js';
 import { db } from '../../../src/db/db.js';
 import fs from 'fs';
-import { writeFile } from '../../../src/utils/xlsUtils.js';
 import logger from '../../../src/utils/logger.js';
 
 class TemplateTasksController extends BaseController {
@@ -44,6 +43,7 @@ class TemplateTasksController extends BaseController {
         }
 
         // Remove unit_name and version from the final row
+        // eslint-disable-next-line no-unused-vars
         const { unit_name, version, ...rest } = row;
         return {
           ...rest,

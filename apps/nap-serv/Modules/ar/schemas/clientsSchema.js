@@ -9,8 +9,6 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import { v4 as uuid } from 'uuid';
-
 const schema = {
   dbSchema: 'tenantid',
   table: 'clients',

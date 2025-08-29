@@ -20,7 +20,6 @@ async function loadSql({ schemas = [], version = 'v1' } = {}) {
   
   const folders = [`views/${version}`, `functions/${version}`];
   for (const folderPath of folders) {
-    const folder = folderPath.split('/')[0];
     console.log(`Loading SQL files from ${folderPath}`);
     const dir = path.join(sqlRoot, folderPath);
     console.log('Directory:', dir);

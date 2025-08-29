@@ -10,10 +10,9 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import db, { DB } from '../../../src/db/db.js';
+import db from '../../../src/db/db.js';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
-import { writeFile } from '../../../src/utils/xlsUtils.js';
 import logger from '../../../src/utils/logger.js';
 
 class TemplateCostItemsController extends BaseController {
@@ -23,11 +22,11 @@ class TemplateCostItemsController extends BaseController {
 
   async importXls(req, res) {
     try {
-      const tenantCode = req.user?.tenant_code;
-      const createdBy = req.user?.user_name || req.user?.email;
+      const tenantCode = req.ctx?.tenant_code || req.user?.tenant_code;
+      const createdBy = req.ctx?.user?.user_name || req.ctx?.user?.email || req.user?.user_name || req.user?.email;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
-      const schema = req.schema;
+      const schema = req.ctx?.schema || req.schema;
 
       if (!file) {
         return res.status(400).json({ error: 'No file uploaded' });
@@ -55,13 +54,13 @@ class TemplateCostItemsController extends BaseController {
         rows.push(rowData);
       });
 
-      const keys = rows.map(r => `${r.unit_name}|${r.unit_version}|${r.task_code}`);
+      const keys = rows.map((r) => `${r.unit_name}|${r.unit_version}|${r.task_code}`);
       const uniqueKeys = [...new Set(keys)];
 
       const conditions = [];
       const values = [];
 
-      uniqueKeys.forEach((key, i) => {
+      uniqueKeys.forEach((key, _i) => {
         const [unit_name, unit_version, task_code] = key.split('|');
         conditions.push(`(u.name = $${values.length + 1} AND u.version = $${values.length + 2} AND t.task_code = $${values.length + 3})`);
         values.push(unit_name, unit_version, task_code);
@@ -76,17 +75,17 @@ class TemplateCostItemsController extends BaseController {
 
       const taskRecords = await db.any(query, values);
 
-      const taskMap = new Map(taskRecords.map(r => [`${r.name}|${r.version}|${r.task_code}`, r.task_id]));
+      const taskMap = new Map(taskRecords.map((r) => [`${r.name}|${r.version}|${r.task_code}`, r.task_id]));
 
       // Step 3: Import with transformed rows
-      const result = await this.model(schema).importFromSpreadsheet(file.path, index, row => {
+      const result = await this.model(schema).importFromSpreadsheet(file.path, index, (row) => {
         const key = `${row.unit_name}|${row.unit_version}|${row.task_code}`;
         const template_task_id = taskMap.get(key);
         if (!template_task_id) {
           throw new Error(`No template_task found for ${key}`);
         }
 
-        const { unit_name, unit_version, task_code, ...rest } = row;
+        const { unit_name: _unit_name, unit_version: _unit_version, task_code: _task_code, ...rest } = row;
         return {
           ...rest,
           template_task_id,
@@ -102,19 +101,21 @@ class TemplateCostItemsController extends BaseController {
   }
 
   async exportXls(req, res) {
+    try {
       const timestamp = Date.now();
       const filePath = `/tmp/template_cost_items_${timestamp}.xlsx`;
       const where = req.body.where || [];
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
+      const schema = req.ctx?.schema || req.schema;
 
-      await db('exportTemplateCostItems', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
+      await db('exportTemplateCostItems', schema).exportToSpreadsheet(filePath, where, joinType, options);
 
-      res.download(filePath, `template_cost_items_${timestamp}.xlsx`, err => {
+      res.download(filePath, `template_cost_items_${timestamp}.xlsx`, (err) => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }
-        fs.unlink(filePath, err => {
+        fs.unlink(filePath, (err) => {
           if (err) logger.error(`Failed to delete exported file: ${err.message}`);
         });
       });
@@ -122,7 +123,7 @@ class TemplateCostItemsController extends BaseController {
       res.status(400).json({ error: err.message });
     }
   }
-
+}
 
 const instance = new TemplateCostItemsController();
 

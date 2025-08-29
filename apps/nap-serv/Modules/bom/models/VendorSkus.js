@@ -1,6 +1,6 @@
 import { TableModel } from 'pg-schemata';
 import vendorSkusSchema from '../schemas/vendorSkusSchema.js';
-import { normalizeDescription, generateEmbedding, matchToCatalog } from '../utils/embeddingUtils.js';
+import { normalizeDescription, generateEmbedding } from '../utils/embeddingUtils.js';
 
 /**
  * @typedef {string} uuid

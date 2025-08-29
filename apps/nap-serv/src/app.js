@@ -14,7 +14,8 @@ import cors from 'cors';
 import apiRoutes from './apiRoutes.js';
 
 import cookieParser from 'cookie-parser';
-import { authenticateJwt } from '../modules/tenants/middlewares/authenticateJwt.js';
+import { auth as coreAuth } from '../modules/core/middlewares/auth.js';
+import { tenantContext } from '../modules/core/middlewares/tenantContext.js';
 import { context } from './middlewares/context.js';
 
 import { apiLogger } from './utils/logger.js';
@@ -58,21 +59,26 @@ app.use(
 
 app.use((req, res, next) => {
   const publicRoutes = [
+    // legacy tenants endpoints (shim)
     '/api/tenants/v1/auth/login',
     '/api/tenants/v1/auth/refresh',
-    '/api/tenants/v1/auth/logout',
-    // '/api/tenants/v1/tenants/ping'
+    // '/api/tenants/v1/auth/logout', // protected
+    // new core endpoints
+    '/api/v1/auth/login',
+    '/api/v1/auth/refresh',
+    // '/api/v1/auth/logout', // protected
   ];
 
   if (publicRoutes.includes(req.path)) {
     return next();
   }
 
-  return authenticateJwt(req, res, next);
+  return coreAuth(req, res, next);
 });
 
 // Populate request context (user, tenant, roles)
 app.use(context);
+app.use(tenantContext);
 
 // Mount each module's router under /api
 app.use('/api', apiRoutes);

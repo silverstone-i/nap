@@ -5,16 +5,7 @@ import { loadPoliciesForUserTenant } from './utils/RbacPolicies.js';
 
 const router = express.Router();
 
-// GET /api/v1/auth/me
-router.get('/auth/me', (req, res) => {
-  const ctx = req.ctx || {};
-  const user = ctx.user || req.user || null;
-  const tenant = ctx.tenant || null;
-  const system_roles = ctx.system_roles || user?.system_roles || [];
-  const tenant_roles = ctx.tenant_roles || [];
-  const policy_etag = ctx.policy_etag || null;
-  res.json({ user, tenant, system_roles, tenant_roles, policy_etag });
-});
+// NOTE: /api/v1/auth/me is handled by core auth router now.
 
 // GET /api/v1/rbac/effective
 router.get('/rbac/effective', async (req, res) => {

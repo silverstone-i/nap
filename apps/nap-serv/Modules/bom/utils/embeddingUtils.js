@@ -38,7 +38,12 @@ export const ABBREVIATION_MAP = {
   LVL: 'laminated veneer lumber',
 };
 
-const MARKETING_NOISE_PATTERNS = [/\bused for\b.*?(\.|$)/gi, /\bideal for\b.*?(\.|$)/gi, /\bperfect for\b.*?(\.|$)/gi, /\bcan be used for\b.*?(\.|$)/gi];
+const MARKETING_NOISE_PATTERNS = [
+  /\bused for\b.*?(\.|$)/gi,
+  /\bideal for\b.*?(\.|$)/gi,
+  /\bperfect for\b.*?(\.|$)/gi,
+  /\bcan be used for\b.*?(\.|$)/gi,
+];
 
 export function normalizeDescription(raw) {
   try {
@@ -123,8 +128,8 @@ export function normalizeDescription(raw) {
     const unitOrder = ['ft', 'in', 'lb', 'oz'];
     const parts = desc.split(' ');
     parts.sort((a, b) => {
-      const aIdx = unitOrder.findIndex(u => a.endsWith(u));
-      const bIdx = unitOrder.findIndex(u => b.endsWith(u));
+      const aIdx = unitOrder.findIndex((u) => a.endsWith(u));
+      const bIdx = unitOrder.findIndex((u) => b.endsWith(u));
       if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
       return 0;
     });
@@ -190,7 +195,7 @@ export function cosineSimilarity(a, b) {
  * @param {number} threshold
  * @returns {{id: string, confidence: number}|null}
  */
-export function matchToCatalog(vendorEmbedding, catalogRows, threshold = 0.85) {
+export function matchToCatalog(vendorEmbedding, catalogRows, _threshold = 0.85) {
   let best = null;
   for (const row of catalogRows) {
     if (!row.embedding) continue;
@@ -231,7 +236,7 @@ export function combinedSimilarity(a, b) {
  * @param {string} k
  * @returns {string}
  */
-export const normalizeHeaderKey = k =>
+export const normalizeHeaderKey = (k) =>
   String(k)
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
@@ -247,16 +252,16 @@ export const normalizeHeaderKey = k =>
 export function getFieldFromRow(row, candidates) {
   if (!row || typeof row !== 'object') return undefined;
   const keys = Object.keys(row);
-  const normMap = new Map(keys.map(k => [normalizeHeaderKey(k), k]));
+  const normMap = new Map(keys.map((k) => [normalizeHeaderKey(k), k]));
   // 1) Exact normalized match
   for (const c of candidates) {
     const hit = normMap.get(normalizeHeaderKey(c));
     if (hit !== undefined) return row[hit];
   }
   // 2) Fuzzy includes
-  const wanted = candidates.map(c => normalizeHeaderKey(c));
+  const wanted = candidates.map((c) => normalizeHeaderKey(c));
   for (const [normK, origK] of normMap.entries()) {
-    if (wanted.some(w => normK.includes(w) || w.includes(normK))) {
+    if (wanted.some((w) => normK.includes(w) || w.includes(normK))) {
       return row[origK];
     }
   }
@@ -292,7 +297,7 @@ export function normalizeExcelDate(val, opts = {}) {
   if (typeof val === 'object' && val !== null) {
     if (Object.prototype.hasOwnProperty.call(val, 'result')) return normalizeExcelDate(val.result, opts);
     if (Object.prototype.hasOwnProperty.call(val, 'text')) return normalizeExcelDate(val.text, opts);
-    if (Array.isArray(val.richText)) return normalizeExcelDate(val.richText.map(rt => rt.text || '').join(''), opts);
+    if (Array.isArray(val.richText)) return normalizeExcelDate(val.richText.map((rt) => rt.text || '').join(''), opts);
   }
   if (val instanceof Date) {
     return val.toISOString().slice(0, 10);
@@ -331,13 +336,13 @@ export function normalizeUnitPrice(val) {
   if (typeof val === 'object' && val !== null) {
     if (Object.prototype.hasOwnProperty.call(val, 'result')) return normalizeUnitPrice(val.result);
     if (Object.prototype.hasOwnProperty.call(val, 'text')) return normalizeUnitPrice(val.text);
-    if (Array.isArray(val.richText)) return normalizeUnitPrice(val.richText.map(rt => rt.text || '').join(''));
+    if (Array.isArray(val.richText)) return normalizeUnitPrice(val.richText.map((rt) => rt.text || '').join(''));
   }
   if (typeof val === 'string') {
     let s = val.trim();
     if (s === '-' || s === '—') return 0;
     // Keep digits, separators, minus, and parentheses; strip currency and text
-    s = s.replace(/[^0-9,\.\-()]/g, '');
+    s = s.replace(/[^0-9,().-]/g, '');
     let negative = false;
     if (s.startsWith('(') && s.endsWith(')')) {
       negative = true;
@@ -380,7 +385,7 @@ export function coerceUnit(v) {
     if (Object.prototype.hasOwnProperty.call(v, 'result')) return String(v.result).trim();
     if (Array.isArray(v.richText))
       return v.richText
-        .map(rt => rt.text || '')
+        .map((rt) => rt.text || '')
         .join('')
         .trim();
   }

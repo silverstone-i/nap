@@ -10,7 +10,6 @@
  */
 
 import BaseController from '../../../src/utils/BaseController.js';
-import db from '../../../src/db/db.js';
 
 class MatchReviewLogsController extends BaseController {
   constructor() {

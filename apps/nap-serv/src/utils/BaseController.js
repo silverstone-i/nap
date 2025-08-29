@@ -1,19 +1,18 @@
 'use strict';
 
 /*
-* Copyright © 2024-present, Ian Silverstone
-*
-* See the LICENSE file at the top-level directory of this distribution
-* for licensing information.
-*
-* Removal or modification of this copyright notice is prohibited.
-*/
+ * Copyright © 2024-present, Ian Silverstone
+ *
+ * See the LICENSE file at the top-level directory of this distribution
+ * for licensing information.
+ *
+ * Removal or modification of this copyright notice is prohibited.
+ */
 
-import { ClientRequest } from 'http';
-import { db } from '../db/db.js';
+// import { ClientRequest } from 'http';
+// import { db } from '../db/db.js';
 import logger from './logger.js';
 import ViewController from './ViewController.js';
-
 
 class BaseController extends ViewController {
   constructor(modelName, errorLabel = null) {
@@ -21,15 +20,16 @@ class BaseController extends ViewController {
   }
 
   injectTenantCode(req) {
-    const tenantCode = req.user?.tenant_code;
+    // TODO: migrate to req.ctx.tenant_code after full rollout
+    const tenantCode = req.ctx?.tenant_code || req.user?.tenant_code;
     const userName = req.user?.user_name || req.user?.email;
     if (!tenantCode) return;
 
     if (Array.isArray(req.body)) {
-      req.body = req.body.map(row => ({ ...row, tenant_code: tenantCode, created_by: userName }));
+      req.body = req.body.map((row) => ({ ...row, tenant_code: tenantCode, created_by: userName }));
     } else if (typeof req.body === 'object' && req.body !== null) {
       if (req.body.updates && Array.isArray(req.body.updates)) {
-        req.body.updates = req.body.updates.map(row => ({ ...row, tenant_code: tenantCode, updated_by: userName }));
+        req.body.updates = req.body.updates.map((row) => ({ ...row, tenant_code: tenantCode, updated_by: userName }));
       } else {
         req.body.tenant_code = tenantCode;
         req.body.created_by = userName;
@@ -160,7 +160,7 @@ class BaseController extends ViewController {
     }
     try {
       const tenantCode = req.user?.tenant_code;
-      const result = await this.model(req.schema).importFromSpreadsheet(file.path, index, row => ({
+      const result = await this.model(req.schema).importFromSpreadsheet(file.path, index, (row) => ({
         ...row,
         tenant_code: tenantCode,
         created_by: req.user?.user_name || req.user?.email,

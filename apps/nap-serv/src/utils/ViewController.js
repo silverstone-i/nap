@@ -48,7 +48,7 @@ class ViewController {
     });
     try {
       const limit = req.query.limit !== undefined ? Number(req.query.limit) : 50;
-      const joinType = req.query.joinType || 'AND';
+      const _joinType = req.query.joinType || 'AND';
 
       let orderBy = req.query.orderBy ?? ['id'];
       if (typeof orderBy === 'string') {
@@ -56,7 +56,7 @@ class ViewController {
           orderBy = JSON.parse(orderBy);
           if (!Array.isArray(orderBy)) throw new Error();
         } catch {
-          orderBy = orderBy.split(',').map(s => s.trim());
+          orderBy = orderBy.split(',').map((s) => s.trim());
         }
       }
 
@@ -80,7 +80,7 @@ class ViewController {
       console.log('ViewController get options:', options);
 
       if (req.query.columnWhitelist) {
-        options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
+        options.columnWhitelist = req.query.columnWhitelist.split(',').map((s) => s.trim());
       }
 
       if (req.query.includeDeactivated === 'true') {
@@ -117,7 +117,7 @@ class ViewController {
 
   async getWhere(req, res) {
     console.log('schema:', req.schema); // Debugging line
-    
+
     logger.info(`[ViewController] getWhere`, {
       model: this.errorLabel,
       user: req.user?.email,
@@ -136,7 +136,7 @@ class ViewController {
           orderBy = JSON.parse(orderBy);
           if (!Array.isArray(orderBy)) throw new Error();
         } catch {
-          orderBy = orderBy.split(',').map(s => s.trim());
+          orderBy = orderBy.split(',').map((s) => s.trim());
         }
       }
 
@@ -150,14 +150,13 @@ class ViewController {
             if (Array.isArray(parsed)) {
               conditions.push(...parsed);
             }
-          } catch {}
+          } catch {
+            // ignore JSON parse errors; treat as no additional conditions
+          }
           continue;
         }
 
-        if (
-          key.startsWith('cursor.') ||
-          ['limit', 'offset', 'orderBy', 'columnWhitelist', 'includeDeactivated', 'joinType'].includes(key)
-        ) {
+        if (key.startsWith('cursor.') || ['limit', 'offset', 'orderBy', 'columnWhitelist', 'includeDeactivated', 'joinType'].includes(key)) {
           continue;
         }
 
@@ -172,7 +171,7 @@ class ViewController {
       };
 
       if (req.query.columnWhitelist) {
-        options.columnWhitelist = req.query.columnWhitelist.split(',').map(s => s.trim());
+        options.columnWhitelist = req.query.columnWhitelist.split(',').map((s) => s.trim());
       }
 
       if (req.query.includeDeactivated === 'true') {
@@ -218,11 +217,11 @@ class ViewController {
 
     try {
       const result = await this.model(req.schema).exportToSpreadsheet(path, where, joinType, options);
-      res.download(result.filePath, `${this.errorLabel}_${timestamp}.xlsx`, err => {
+      res.download(result.filePath, `${this.errorLabel}_${timestamp}.xlsx`, (err) => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }
-        fs.unlink(result.filePath, err => {
+        fs.unlink(result.filePath, (err) => {
           if (err) logger.error(`Failed to delete exported file: ${err.message}`);
         });
       });
