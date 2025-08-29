@@ -20,6 +20,10 @@ export default [
       '**/out/',
       'coverage/',
       '**/coverage/',
+      // Vendored/static assets and generated site content
+      'apps/nap-serv/html/**',
+      'apps/nap-serv/logs/**',
+      'apps/nap-serv/coverage/**',
       '.nyc_output/',
       'playwright-report/',
       '**/playwright-report/',
@@ -142,6 +146,8 @@ export default [
     },
     rules: {
       'no-unused-vars': 'off',
+      // Allow package subpath imports used by vitest config
+      'import/no-unresolved': 'off',
     },
   },
 ];
