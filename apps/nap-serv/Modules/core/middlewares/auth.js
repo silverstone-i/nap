@@ -25,9 +25,6 @@ export function auth(req, res, next) {
 
     // Back-compat: also expose req.user used elsewhere
     req.user = { ...decoded };
-    console.log('User authenticated:', req.user);
-    console.log('User auth:', req.auth);
-
 
     next();
   });

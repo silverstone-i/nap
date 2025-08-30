@@ -3,13 +3,15 @@
 import crypto from 'crypto';
 import db from '../db/db.js';
 
-// Compute a stable hash over roles/role_members/policies rows for a tenant
-export async function computePolicyEtag(tenantId) {
+// Compute a stable hash over roles/role_members/policies rows for a tenant schema
+// Note: RBAC tables live per-tenant schema; pass schemaName (usually the tenant_code)
+export async function computePolicyEtag(schemaName) {
   try {
+    if (!schemaName) return null;
     const [roles, roleMembers, policies] = await Promise.all([
-      db('roles', 'public').findWhere([{ tenant_id: tenantId }], 'AND', { columnWhitelist: ['id', 'updated_at'] }),
-      db('roleMembers', 'public').findWhere([{ tenant_id: tenantId }], 'AND', { columnWhitelist: ['id', 'updated_at'] }),
-      db('policies', 'public').findWhere([{ tenant_id: tenantId }], 'AND', { columnWhitelist: ['id', 'updated_at'] }),
+      db('roles', schemaName).findWhere([], 'AND', { columnWhitelist: ['id', 'updated_at'] }),
+      db('roleMembers', schemaName).findWhere([], 'AND', { columnWhitelist: ['id', 'updated_at'] }),
+      db('policies', schemaName).findWhere([], 'AND', { columnWhitelist: ['id', 'updated_at'] }),
     ]);
     const payload = JSON.stringify({
       r: roles?.map((r) => [r.id, r.updated_at]) ?? [],

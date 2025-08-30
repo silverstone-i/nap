@@ -12,19 +12,13 @@
 import express from 'express';
 import TenantsRouter from './TenantsRouter.js';
 import NapUsersRouter from './NapUsersRouter.js';
-import authRouter from './auth.router.js';
-import adminRouter from './admin.router.js';
 import matchReviewLogsRouter from './matchReviewLogsRouter.js';
-import rbacRouter from './rbac.router.js';
 
 const router = express.Router();
 
 router.use('/v1/nap-users', NapUsersRouter);
 router.use('/v1/tenants', TenantsRouter);
-router.use('/v1/auth', authRouter);
-router.use('/v1/admin', adminRouter);
 router.use('/v1/match-review-logs', matchReviewLogsRouter);
-router.use('/v1', rbacRouter);
 
 console.log('Loaded tenants modules router');
 

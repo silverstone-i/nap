@@ -59,11 +59,11 @@ app.use(
 
 app.use((req, res, next) => {
   const publicRoutes = [
-    // legacy tenants endpoints (shim)
-    '/api/cor/v1/auth/login',
-    '/api/tenants/v1/auth/refresh',
     // '/api/tenants/v1/auth/logout', // protected
     // new core endpoints
+    // '/api/v1/auth/login',
+    // '/api/v1/auth/refresh',
+    // canonical alias
     '/api/core/v1/auth/login',
     '/api/core/v1/auth/refresh',
     // '/api/v1/auth/logout', // protected

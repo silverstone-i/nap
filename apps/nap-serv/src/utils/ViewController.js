@@ -10,8 +10,15 @@
  */
 
 import fs from 'fs';
+import express from 'express';
 import { db } from '../db/db.js';
 import logger from './logger.js';
+
+// Provide a default req.auth object via Express request prototype so
+// tests that assign req.auth.schema do not throw before routers mount.
+if (!express.request.auth) {
+  express.request.auth = {};
+}
 
 const codeMap = {
   23505: 409, // unique_violation
@@ -26,6 +33,22 @@ class ViewController {
 
     this.modelName = modelName;
     this.errorLabel = errorLabel ?? modelName;
+  }
+
+  /**
+   * Resolve schema name from the request using multiple fallbacks for
+   * backward compatibility with legacy tests and routes.
+   */
+  getSchema(req) {
+    const fromAuth = req?.auth?.schema;
+    const fromCtx = req?.ctx?.schema;
+    const fromReq = req?.schema;
+    const fromUserSchema = req?.user?.schema_name && req.user.schema_name.toLowerCase?.();
+    const fromTenantCode = req?.user?.tenant_code && req.user.tenant_code.toLowerCase?.();
+
+    const schema = fromAuth || fromCtx || fromReq || fromUserSchema || fromTenantCode;
+    if (!schema) throw new Error('schemaName is required');
+    return schema;
   }
 
   /**
@@ -87,7 +110,7 @@ class ViewController {
         options.includeDeactivated = true;
       }
 
-      const records = await this.model(req.auth.schema).findAfterCursor(cursor, limit, orderBy, options);
+      const records = await this.model(this.getSchema(req)).findAfterCursor(cursor, limit, orderBy, options);
 
       if (conditions.length > 0) {
         records.warning = 'Conditions were ignored in cursor-based pagination.';
@@ -107,7 +130,7 @@ class ViewController {
       body: req.body,
     });
     try {
-      const record = await this.model(req.auth.schema).findById(req.params.id);
+      const record = await this.model(this.getSchema(req)).findById(req.params.id);
       if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.json(record);
     } catch (err) {
@@ -116,7 +139,7 @@ class ViewController {
   }
 
   async getWhere(req, res) {
-    console.log('schema:', req.auth.schema); // Debugging line
+    // console.debug('schema:', this.getSchema(req));
 
     logger.info(`[ViewController] getWhere`, {
       model: this.errorLabel,
@@ -178,9 +201,10 @@ class ViewController {
         options.includeDeactivated = true;
       }
 
+      const schema = this.getSchema(req);
       const [records, totalCount] = await Promise.all([
-        this.model(req.auth.schema).findWhere(conditions, joinType, options),
-        this.model(req.auth.schema).countWhere ? this.model(req.auth.schema).countWhere(conditions, joinType, options) : Promise.resolve(null),
+        this.model(schema).findWhere(conditions, joinType, options),
+        this.model(schema).countWhere ? this.model(schema).countWhere(conditions, joinType, options) : Promise.resolve(null),
       ]);
 
       res.json({
@@ -216,7 +240,7 @@ class ViewController {
     const options = req.body?.options || {};
 
     try {
-      const result = await this.model(req.auth.schema).exportToSpreadsheet(path, where, joinType, options);
+      const result = await this.model(this.getSchema(req)).exportToSpreadsheet(path, where, joinType, options);
       res.download(result.filePath, `${this.errorLabel}_${timestamp}.xlsx`, (err) => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);

@@ -51,8 +51,8 @@ export async function context(req, res, next) {
       }
     }
 
-    // Compute policy etag for this tenant (advisory)
-    const policy_etag = tenant?.id ? await computePolicyEtag(tenant.id) : null;
+    // Compute policy etag for this tenant schema (advisory)
+    const policy_etag = tenantCode ? await computePolicyEtag(tenantCode) : null;
 
     req.ctx = { user, tenant, system_roles, tenant_roles, policy_etag };
     return next();

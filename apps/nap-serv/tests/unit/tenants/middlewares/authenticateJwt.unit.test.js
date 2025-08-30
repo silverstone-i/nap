@@ -24,10 +24,9 @@ describe('authenticateJwt middleware', () => {
     req.headers.authorization = `Bearer ${mockToken}`;
     jwt.verify.mockImplementation((token, secret, callback) => callback(null, decoded));
 
-    authenticateJwt(req, res, () => {
-      expect(req.user).toEqual(decoded);
-      expect(next).toHaveBeenCalled();
-    });
+    authenticateJwt(req, res, next);
+    expect(req.user).toEqual(decoded);
+    expect(next).toHaveBeenCalled();
   });
 
   it('should return 401 if no Authorization header is present', () => {

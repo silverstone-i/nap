@@ -12,24 +12,27 @@
 import 'dotenv/config';
 import express from 'express';
 
-import coreRoutes from '../Modules/core/apiRoutes/v1/coreApiRoutes.js';
+import coreRoutes from '../modules/core/apiRoutes/v1/coreApiRoutes.js';
 import coreAuthRouter from '../modules/core/apiRoutes/v1/auth.router.js';
 import coreAdminRouter from '../modules/core/apiRoutes/v1/admin.router.js';
-import activitiesRoutes from '../Modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
-import tenantsRoutes from '../Modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
-import arRoutes from '../Modules/ar/apiRoutes/v1/arApiRoutes.js';
-import apRoutes from '../Modules/ap/apiRoutes/v1/apApiRoutes.js';
-import accountingRoutes from '../Modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
-import projectsRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.js';
-import bomApiRoutes from '../Modules/bom/apiRoutes/v1/bomApiRoutes.js';
+import activitiesRoutes from '../modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
+import tenantsRoutes from '../modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
+import arRoutes from '../modules/ar/apiRoutes/v1/arApiRoutes.js';
+import apRoutes from '../modules/ap/apiRoutes/v1/apApiRoutes.js';
+import accountingRoutes from '../modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
+import projectsRoutes from '../modules/projects/apiRoutes/v1/projectsApiRoutes.js';
+import bomApiRoutes from '../modules/bom/apiRoutes/v1/bomApiRoutes.js';
 import systemV1 from './apiRoutes.v1.system.js';
 
 const router = express.Router();
 
 router.use('/core', coreRoutes);
-// Step 1: unchanged external paths under /api/v1
-router.use('/v1/auth', coreAuthRouter);
-router.use('/v1/admin', coreAdminRouter);
+// // Step 1: unchanged external paths under /api/v1
+// router.use('/v1/auth', coreAuthRouter);
+// router.use('/v1/admin', coreAdminRouter);
+// // New canonical core paths (alias) for clients migrating off tenants shims
+// router.use('/core/v1/auth', coreAuthRouter);
+// router.use('/core/v1/admin', coreAdminRouter);
 router.use('/activities', activitiesRoutes);
 router.use('/tenants', tenantsRoutes);
 router.use('/ar', arRoutes);
