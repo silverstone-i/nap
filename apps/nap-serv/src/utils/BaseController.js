@@ -39,7 +39,7 @@ class BaseController extends ViewController {
 
   async create(req, res) {
     try {
-      const record = await this.model(req.schema).insert(req.body);
+      const record = await this.model(req.auth.schema).insert(req.body);
       res.status(201).json(record);
     } catch (err) {
       if (err.name === 'SchemaDefinitionError') {
@@ -57,7 +57,7 @@ class BaseController extends ViewController {
       body: req.body,
     });
     try {
-      const count = await this.model(req.schema).updateWhere([{ ...req.query }], req.body);
+      const count = await this.model(req.auth.schema).updateWhere([{ ...req.query }], req.body);
 
       if (!count) {
         return res.status(404).json({ error: `${this.errorLabel} not found` });
@@ -84,7 +84,7 @@ class BaseController extends ViewController {
     // const filters = [{ deactivated_at: {$is: null} }, { ...req.query }];
 
     try {
-      const count = await this.model(req.schema).updateWhere(req.query, req.body);
+      const count = await this.model(req.auth.schema).updateWhere(req.query, req.body);
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
@@ -103,7 +103,7 @@ class BaseController extends ViewController {
     const filters = [{ deactivated_at: { $not: null } }, { ...req.query }];
 
     try {
-      const count = await this.model(req.schema).updateWhere(filters, req.body, { includeDeactivated: true });
+      const count = await this.model(req.auth.schema).updateWhere(filters, req.body, { includeDeactivated: true });
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
 
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
@@ -121,7 +121,7 @@ class BaseController extends ViewController {
       body: req.body,
     });
     try {
-      const result = await this.model(req.schema).bulkInsert(req.body);
+      const result = await this.model(req.auth.schema).bulkInsert(req.body);
       res.status(201).json(result);
     } catch (err) {
       this.handleError(err, res, 'bulk inserting', this.errorLabel);
@@ -139,7 +139,7 @@ class BaseController extends ViewController {
     try {
       const filters = req.body.filters || [];
       const updates = req.body.updates || {};
-      const result = await this.model(req.schema).bulkUpdate(filters, updates);
+      const result = await this.model(req.auth.schema).bulkUpdate(filters, updates);
       res.status(200).json(result);
     } catch (err) {
       this.handleError(err, res, 'bulk updating', this.errorLabel);
@@ -160,7 +160,7 @@ class BaseController extends ViewController {
     }
     try {
       const tenantCode = req.user?.tenant_code;
-      const result = await this.model(req.schema).importFromSpreadsheet(file.path, index, (row) => ({
+      const result = await this.model(req.auth.schema).importFromSpreadsheet(file.path, index, (row) => ({
         ...row,
         tenant_code: tenantCode,
         created_by: req.user?.user_name || req.user?.email,

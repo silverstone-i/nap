@@ -38,7 +38,7 @@ describe('BaseController + createRouter integration', () => {
     await db.none('DROP SCHEMA IF EXISTS test CASCADE; CREATE SCHEMA test');
 
     try {
-      db['testItem'] = schema => {
+      db['testItem'] = (schema) => {
         return new TestItemModel(DB.db, pgp);
       };
       model = db.testItem;
@@ -62,7 +62,7 @@ describe('BaseController + createRouter integration', () => {
         user_name: 'test-user',
         email: 'test@example.com',
       };
-      req.schema = 'test'; // Set schema for BaseController to use
+      req.auth.schema = 'test'; // Set schema for BaseController to use
 
       next();
     });
@@ -88,7 +88,7 @@ describe('BaseController + createRouter integration', () => {
 
   it('should update a record', async () => {
     const inserted = await db.one(
-      "SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('old', 'test-user') RETURNING id"
+      "SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('old', 'test-user') RETURNING id",
     );
 
     const res = await request(app)
@@ -109,7 +109,7 @@ describe('BaseController + createRouter integration', () => {
 
   it('should soft delete a record', async () => {
     const inserted = await db.one(
-      "SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('to-delete', 'test-user') RETURNING id"
+      "SET search_path TO test; INSERT INTO test_items (name, created_by) VALUES ('to-delete', 'test-user') RETURNING id",
     );
     const res = await request(app).delete('/items/archive?id=' + inserted.id);
     expect(res.statusCode).toBe(200);
@@ -118,7 +118,7 @@ describe('BaseController + createRouter integration', () => {
 
   it('should restore a record', async () => {
     const inserted = await db.one(
-      "SET search_path TO test; INSERT INTO test_items (name, is_active, deactivated_at, created_by) VALUES ('inactive', false, now(), 'test-user') RETURNING id"
+      "SET search_path TO test; INSERT INTO test_items (name, is_active, deactivated_at, created_by) VALUES ('inactive', false, now(), 'test-user') RETURNING id",
     );
     const res = await request(app).patch('/items/restore?id=' + inserted.id);
     expect(res.statusCode).toBe(200);

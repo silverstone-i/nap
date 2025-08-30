@@ -6,7 +6,7 @@ describe('adminApi contract test', () => {
   const app = express();
   app.use((req, res, next) => {
     req.user = { user_name: 'contract_test_user', role: 'superadmin' };
-    req.schema = 'admin';
+    req.auth.schema = 'admin';
     next();
   });
   app.use(express.json());
@@ -28,7 +28,7 @@ describe('adminApi contract test', () => {
     const appWithNonAdmin = express();
     appWithNonAdmin.use((req, res, next) => {
       req.user = { user_name: 'regular_user', role: 'admin' };
-      req.schema = 'admin';
+      req.auth.schema = 'admin';
       next();
     });
     appWithNonAdmin.use(express.json());

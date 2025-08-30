@@ -26,7 +26,7 @@ class TemplateCostItemsController extends BaseController {
       const createdBy = req.ctx?.user?.user_name || req.ctx?.user?.email || req.user?.user_name || req.user?.email;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
-      const schema = req.ctx?.schema || req.schema;
+      const schema = req.ctx?.schema || req.auth.schema;
 
       if (!file) {
         return res.status(400).json({ error: 'No file uploaded' });
@@ -107,7 +107,7 @@ class TemplateCostItemsController extends BaseController {
       const where = req.body.where || [];
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
-      const schema = req.ctx?.schema || req.schema;
+      const schema = req.ctx?.schema || req.auth.schema;
 
       await db('exportTemplateCostItems', schema).exportToSpreadsheet(filePath, where, joinType, options);
 

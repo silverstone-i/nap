@@ -37,13 +37,13 @@ class AddressesController extends BaseController {
       const createdBy = req.user?.user_name || req.user?.email;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
-      const schema = req.schema;
+      const schema = req.auth.schema;
 
       if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
       const rows = await parseWorksheet(file.path, index);
 
-      await db.tx(async t => {
+      await db.tx(async (t) => {
         const addressesModel = this.model(schema);
         addressesModel.tx = t;
         const sourcesModel = db('sources', schema);
@@ -72,13 +72,13 @@ class AddressesController extends BaseController {
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
 
-      await db('exportAddresses', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
+      await db('exportAddresses', req.auth.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
-      res.download(filePath, `addresses_${timestamp}.xlsx`, err => {
+      res.download(filePath, `addresses_${timestamp}.xlsx`, (err) => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }
-        fs.unlink(filePath, err => {
+        fs.unlink(filePath, (err) => {
           if (err) logger.error(`Failed to delete exported file: ${err.message}`);
         });
       });

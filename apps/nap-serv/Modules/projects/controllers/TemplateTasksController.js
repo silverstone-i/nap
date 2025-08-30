@@ -31,11 +31,11 @@ class TemplateTasksController extends BaseController {
       }
 
       // Step 1: preload template_units into a lookup
-      const units = await db('templateUnits', req.schema).findAll();
-      const lookup = new Map(units.map(u => [`${u.name}|${u.version}`, u.id]));
+      const units = await db('templateUnits', req.auth.schema).findAll();
+      const lookup = new Map(units.map((u) => [`${u.name}|${u.version}`, u.id]));
 
       // Step 2: import and transform each row
-      const result = await this.model(req.schema).importFromSpreadsheet(file.path, index, row => {
+      const result = await this.model(req.auth.schema).importFromSpreadsheet(file.path, index, (row) => {
         const key = `${row.unit_name}|${row.version}`;
         const template_unit_id = lookup.get(key);
         if (!template_unit_id) {
@@ -67,13 +67,13 @@ class TemplateTasksController extends BaseController {
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
 
-      await db('exportTemplateTasks', req.schema).exportToSpreadsheet(filePath, where, joinType, options);
+      await db('exportTemplateTasks', req.auth.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
-      res.download(filePath, `template_tasks_${timestamp}.xlsx`, err => {
+      res.download(filePath, `template_tasks_${timestamp}.xlsx`, (err) => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
         }
-        fs.unlink(filePath, err => {
+        fs.unlink(filePath, (err) => {
           if (err) logger.error(`Failed to delete exported file: ${err.message}`);
         });
       });

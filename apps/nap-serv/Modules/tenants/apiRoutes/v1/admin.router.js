@@ -35,8 +35,8 @@ router.post('/switch-schema/:schema', deprecate, (req, res) => {
   const role = req.user?.role || req.auth?.roles || req.auth?.role;
   const isSuper = role === 'superadmin' || (Array.isArray(role) && role.includes('superadmin'));
   if (!isSuper) return res.status(403).json({ error: 'Forbidden' });
-  req.schema = req.params.schema.toLowerCase();
-  res.json({ message: `Schema switched to ${req.schema}` });
+  req.auth.schema = req.params.schema.toLowerCase();
+  res.json({ message: `Schema switched to ${req.auth.schema}` });
 });
 
 // New endpoints (proxy to core)

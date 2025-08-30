@@ -1,4 +1,3 @@
-
 # Authentication & Authorization Strategy for `nap-serv` and `nap-client`
 
 ## Overview
@@ -10,11 +9,13 @@ This document outlines the authentication and authorization strategy used for th
 ## 🔐 Requirements Summary
 
 ### nap-client (React App)
+
 - Needs to know user's `role` to configure the UI.
 - Must remain logged in while active.
 - Auto-logout after 15 minutes of inactivity.
 
 ### nap-serve (Express.js API)
+
 - Authenticates via `email` and `password`.
 - Requires `email`, `user_name`, `tenant_code`, `role`, and `schema` in middleware.
 - Authorizes routes based on `role`.
@@ -24,11 +25,13 @@ This document outlines the authentication and authorization strategy used for th
 ## 🧩 JWT Token Structure
 
 ### Access Token
+
 - **Lifetime**: 15 minutes
 - **Stored in**: `HttpOnly`, `Secure`, `SameSite=Strict` cookie (`auth_token`)
 - **Used for**: API request authentication
 
 ### Refresh Token
+
 - **Lifetime**: 7 days (sliding expiration)
 - **Stored in**: `HttpOnly`, `Secure`, `SameSite=Strict` cookie (`refresh_token`)
 - **Used for**: Getting new access tokens
@@ -57,7 +60,7 @@ export function authenticateJwt(req, res, next) {
 
     req.user = decoded;
     req.tenantId = decoded.tenant_code;
-    req.schema = decoded.tenant_code.toLowerCase();
+    req.auth.schema = decoded.tenant_code.toLowerCase();
     next();
   });
 }
@@ -90,10 +93,10 @@ router.get('/auth/user', authenticateJwt, (req, res) => {
 
 ## ✅ Security Summary
 
-| Feature              | Strategy |
-|----------------------|----------|
-| Token storage        | Secure, `HttpOnly` cookies |
-| Access token expiry  | 15 minutes |
-| Refresh token expiry | 7 days (sliding) |
+| Feature              | Strategy                           |
+| -------------------- | ---------------------------------- |
+| Token storage        | Secure, `HttpOnly` cookies         |
+| Access token expiry  | 15 minutes                         |
+| Refresh token expiry | 7 days (sliding)                   |
 | Frontend access      | Exposes safe data via `/auth/user` |
-| Logout               | Clears cookies via `/auth/logout` |
+| Logout               | Clears cookies via `/auth/logout`  |

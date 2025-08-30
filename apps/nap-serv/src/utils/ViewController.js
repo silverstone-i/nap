@@ -87,7 +87,7 @@ class ViewController {
         options.includeDeactivated = true;
       }
 
-      const records = await this.model(req.schema).findAfterCursor(cursor, limit, orderBy, options);
+      const records = await this.model(req.auth.schema).findAfterCursor(cursor, limit, orderBy, options);
 
       if (conditions.length > 0) {
         records.warning = 'Conditions were ignored in cursor-based pagination.';
@@ -107,7 +107,7 @@ class ViewController {
       body: req.body,
     });
     try {
-      const record = await this.model(req.schema).findById(req.params.id);
+      const record = await this.model(req.auth.schema).findById(req.params.id);
       if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
       res.json(record);
     } catch (err) {
@@ -116,7 +116,7 @@ class ViewController {
   }
 
   async getWhere(req, res) {
-    console.log('schema:', req.schema); // Debugging line
+    console.log('schema:', req.auth.schema); // Debugging line
 
     logger.info(`[ViewController] getWhere`, {
       model: this.errorLabel,
@@ -179,8 +179,8 @@ class ViewController {
       }
 
       const [records, totalCount] = await Promise.all([
-        this.model(req.schema).findWhere(conditions, joinType, options),
-        this.model(req.schema).countWhere ? this.model(req.schema).countWhere(conditions, joinType, options) : Promise.resolve(null),
+        this.model(req.auth.schema).findWhere(conditions, joinType, options),
+        this.model(req.auth.schema).countWhere ? this.model(req.auth.schema).countWhere(conditions, joinType, options) : Promise.resolve(null),
       ]);
 
       res.json({
@@ -216,7 +216,7 @@ class ViewController {
     const options = req.body?.options || {};
 
     try {
-      const result = await this.model(req.schema).exportToSpreadsheet(path, where, joinType, options);
+      const result = await this.model(req.auth.schema).exportToSpreadsheet(path, where, joinType, options);
       res.download(result.filePath, `${this.errorLabel}_${timestamp}.xlsx`, (err) => {
         if (err) {
           logger.error(`Error sending file: ${err.message}`);
