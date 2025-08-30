@@ -1,7 +1,7 @@
 'use strict';
 
-import db from '../db/db.js';
-import { computePolicyEtag } from '../utils/policyEtag.js';
+import db from '../src/db/db.js';
+import { computePolicyEtag } from '../src/utils/policyEtag.js';
 
 // Populate req.ctx with { user, tenant, system_roles, tenant_roles, policy_etag }
 export async function context(req, res, next) {

@@ -1,7 +1,7 @@
 'use strict';
 
-import { loadPoliciesForUserTenant } from '../utils/RbacPolicies.js';
-import logger from '../utils/logger.js';
+import { loadPoliciesForUserTenant } from '../src/utils/RbacPolicies.js';
+import logger from '../src/utils/logger.js';
 
 const order = { none: 0, view: 1, full: 2 };
 
