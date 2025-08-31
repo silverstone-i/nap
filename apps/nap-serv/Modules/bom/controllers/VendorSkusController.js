@@ -15,6 +15,9 @@ import db from '../../../src/db/db.js';
 import { normalizeDescription, generateEmbedding, matchToCatalog } from '../utils/embeddingUtils.js';
 import logger from '../../../src/utils/logger.js';
 
+const enable_match_logging = process.env.ENABLE_MATCH_LOGGING === 'true';
+const match_threshold = process.env.MATCH_THRESHOLD ? parseFloat(process.env.MATCH_THRESHOLD) : 0.75;
+
 class VendorSkusController extends BaseController {
   constructor() {
     super('vendorSkus');
@@ -37,7 +40,7 @@ class VendorSkusController extends BaseController {
       const rows = await parseWorksheet(file.path, index);
 
       // Add tenant and creator info to each row
-      const dto = rows.map(row => ({
+      const dto = rows.map((row) => ({
         ...row,
         tenant_code: user.tenant_code,
         created_by: user.user_name,
@@ -64,7 +67,7 @@ class VendorSkusController extends BaseController {
       const startTime = Date.now();
       // --- Constants ---
       const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-large';
-      const MATCH_THRESHOLD = req.user?.match_threshold || 0.8;
+      const MATCH_THRESHOLD = match_threshold || 0.8;
 
       // --- Extract request data ---
       const { schema } = req;
@@ -76,14 +79,14 @@ class VendorSkusController extends BaseController {
       }
 
       // --- Vendor code map and validation ---
-      const vendorCodes = [...new Set(skus.map(s => s.vendor_code))];
+      const vendorCodes = [...new Set(skus.map((s) => s.vendor_code))];
       if (vendorCodes.length === 0) {
         return res.status(400).json({ error: 'No vendor codes found in SKUs' });
       }
       const vendorQueryConditions = [{ vendor_code: { $in: vendorCodes } }];
       const vendors = await db('vendors', schema).findWhere(vendorQueryConditions, 'AND', { columnWhitelist: ['id', 'vendor_code'] });
-      const vendorCodeMap = Object.fromEntries(vendors.map(v => [v.vendor_code, v.id]));
-      const missingVendors = vendorCodes.filter(code => !vendorCodeMap[code]);
+      const vendorCodeMap = Object.fromEntries(vendors.map((v) => [v.vendor_code, v.id]));
+      const missingVendors = vendorCodes.filter((code) => !vendorCodeMap[code]);
       if (missingVendors.length > 0) {
         return res.status(400).json({ error: `Unknown vendor_code(s): ${missingVendors.join(', ')}` });
       }
@@ -93,10 +96,10 @@ class VendorSkusController extends BaseController {
       if (!Array.isArray(catalogEmbeddings)) {
         throw new Error('Catalog embeddings must be an array');
       }
-      const catalogEmbeddingMap = new Map(catalogEmbeddings.map(row => [row.id, row]));
+      const catalogEmbeddingMap = new Map(catalogEmbeddings.map((row) => [row.id, row]));
 
       // --- Helper: Build match review log ---
-      const buildMatchReviewLog = sku => {
+      const buildMatchReviewLog = (sku) => {
         const match = sku.catalog_sku_id ? catalogEmbeddingMap.get(sku.catalog_sku_id) : null;
         return {
           tenant_code: req.user.tenant_code,
@@ -118,7 +121,7 @@ class VendorSkusController extends BaseController {
 
       // --- Normalize SKUs, validate, generate embedding, match ---
       const normalizedSkus = await Promise.all(
-        skus.map(async sku => {
+        skus.map(async (sku) => {
           // Validate description
           if (typeof sku.description !== 'string') {
             throw new Error(`Missing or invalid description for SKU ${sku.vendor_sku}`);
@@ -137,15 +140,15 @@ class VendorSkusController extends BaseController {
             catalog_sku_id: match?.id ?? null,
             confidence: match?.confidence ?? null,
           };
-        })
+        }),
       );
 
       // --- Logging for inserted and unmatched SKUs ---
       const insertedCount = normalizedSkus.length;
-      const unmatchedCount = normalizedSkus.filter(s => !s.catalog_sku_id).length;
+      const unmatchedCount = normalizedSkus.filter((s) => !s.catalog_sku_id).length;
 
       // --- Optional match review logging ---
-      if (req.user?.enable_match_logging === true) {
+      if (enable_match_logging === true) {
         const matchReviewLogs = normalizedSkus.map(buildMatchReviewLog);
         await db('matchReviewLogs', 'admin').bulkInsert(matchReviewLogs);
       }
@@ -194,47 +197,53 @@ class VendorSkusController extends BaseController {
       }
 
       // --- Vendor code map and validation ---
-      const vendorCodes = [...new Set(updates.map(u => u.vendor_code))];
+      const vendorCodes = [...new Set(updates.map((u) => u.vendor_code))];
       if (vendorCodes.length === 0) {
         return res.status(400).json({ error: 'No vendor codes found in updates' });
       }
-      const vendors = await db('vendors', schema).findWhere([{ vendor_code: { $in: vendorCodes } }], 'AND', { columnWhitelist: ['id', 'vendor_code'] });
-      const vendorCodeMap = Object.fromEntries(vendors.map(v => [v.vendor_code, v.id]));
-      const missingVendors = vendorCodes.filter(code => !vendorCodeMap[code]);
+      const vendors = await db('vendors', schema).findWhere([{ vendor_code: { $in: vendorCodes } }], 'AND', {
+        columnWhitelist: ['id', 'vendor_code'],
+      });
+      const vendorCodeMap = Object.fromEntries(vendors.map((v) => [v.vendor_code, v.id]));
+      const missingVendors = vendorCodes.filter((code) => !vendorCodeMap[code]);
       if (missingVendors.length > 0) {
         return res.status(400).json({ error: `Unknown vendor_code(s): ${missingVendors.join(', ')}` });
       }
 
       // --- Catalog SKU map and validation ---
-      const catalogSkus = [...new Set(updates.map(u => u.catalog_sku))];
+      const catalogSkus = [...new Set(updates.map((u) => u.catalog_sku))];
       if (catalogSkus.length === 0) {
         return res.status(400).json({ error: 'No catalog_sku values found in updates' });
       }
-      const catalogRows = await db('catalogSkus', schema).findWhere([{ catalog_sku: { $in: catalogSkus } }], 'AND', { columnWhitelist: ['id', 'catalog_sku', 'description', 'description_normalized'] });
-      const catalogSkuMap = Object.fromEntries(catalogRows.map(r => [r.catalog_sku, r]));
-      const missingCatalogs = catalogSkus.filter(sku => !catalogSkuMap[sku]);
+      const catalogRows = await db('catalogSkus', schema).findWhere([{ catalog_sku: { $in: catalogSkus } }], 'AND', {
+        columnWhitelist: ['id', 'catalog_sku', 'description', 'description_normalized'],
+      });
+      const catalogSkuMap = Object.fromEntries(catalogRows.map((r) => [r.catalog_sku, r]));
+      const missingCatalogs = catalogSkus.filter((sku) => !catalogSkuMap[sku]);
       if (missingCatalogs.length > 0) {
         return res.status(400).json({ error: `Unknown catalog_sku(s): ${missingCatalogs.join(', ')}` });
       }
 
       // --- Vendor SKU map and validation ---
-      const vendorSkuTuples = updates.map(u => ({
+      const vendorSkuTuples = updates.map((u) => ({
         vendor_id: vendorCodeMap[u.vendor_code],
         vendor_sku: u.vendor_sku,
       }));
       const vendorSkuRows = await db('vendorSkus', schema).findWhere(
         vendorSkuTuples.map(({ vendor_id, vendor_sku }) => ({ vendor_id, vendor_sku })),
         'OR',
-        { columnWhitelist: ['id', 'vendor_id', 'vendor_sku', 'description', 'description_normalized'] }
+        { columnWhitelist: ['id', 'vendor_id', 'vendor_sku', 'description', 'description_normalized'] },
       );
-      const vendorSkuMap = new Map(vendorSkuRows.map(r => [`${r.vendor_id}|${r.vendor_sku}`, r]));
+      const vendorSkuMap = new Map(vendorSkuRows.map((r) => [`${r.vendor_id}|${r.vendor_sku}`, r]));
       const missingVendorSkus = vendorSkuTuples.filter(({ vendor_id, vendor_sku }) => !vendorSkuMap.has(`${vendor_id}|${vendor_sku}`));
       if (missingVendorSkus.length > 0) {
-        return res.status(400).json({ error: `Unknown vendor_sku(s): ${missingVendorSkus.map(x => `${x.vendor_id || ''}:${x.vendor_sku}`).join(', ')}` });
+        return res
+          .status(400)
+          .json({ error: `Unknown vendor_sku(s): ${missingVendorSkus.map((x) => `${x.vendor_id || ''}:${x.vendor_sku}`).join(', ')}` });
       }
 
       // --- Prepare update payloads ---
-      const updatePayloads = updates.map(u => {
+      const updatePayloads = updates.map((u) => {
         const vendor_id = vendorCodeMap[u.vendor_code];
         const catalog = catalogSkuMap[u.catalog_sku];
         const vendorSku = vendorSkuMap.get(`${vendor_id}|${u.vendor_sku}`);
@@ -247,9 +256,9 @@ class VendorSkusController extends BaseController {
       });
 
       // --- Helper: Build match review log ---
-      const MATCH_THRESHOLD = req.user?.match_threshold || 0.8;
+      const MATCH_THRESHOLD = match_threshold || 0.8;
 
-      const buildMatchReviewLog = u => {
+      const buildMatchReviewLog = (u) => {
         const vendor_id = vendorCodeMap[u.vendor_code];
         const catalog = catalogSkuMap[u.catalog_sku];
         const vendorSku = vendorSkuMap.get(`${vendor_id}|${u.vendor_sku}`);
@@ -274,12 +283,12 @@ class VendorSkusController extends BaseController {
 
       // --- Optional match review logging ---
       let matchReviewLogs = [];
-      if (user?.enable_match_logging === true) {
+      if (enable_match_logging === true) {
         matchReviewLogs = updates.map(buildMatchReviewLog);
       }
 
       // --- Transaction: bulk update and log ---
-      await db.tx(async t => {
+      await db.tx(async (t) => {
         const vendorModel = this.model(schema);
         vendorModel.tx = t;
         await vendorModel.bulkUpdate(updatePayloads);
@@ -314,7 +323,7 @@ class VendorSkusController extends BaseController {
           if (Array.isArray(parsed)) orderBy = parsed;
           else throw new Error('not array');
         } catch {
-          orderBy = orderBy.split(',').map(s => s.trim());
+          orderBy = orderBy.split(',').map((s) => s.trim());
         }
       }
 
@@ -334,18 +343,20 @@ class VendorSkusController extends BaseController {
       let vendorIds = [];
       if (req.query.vendor_id) {
         const v = Array.isArray(req.query.vendor_id) ? req.query.vendor_id : String(req.query.vendor_id).split(',');
-        vendorIds = v.map(x => Number(x)).filter(n => Number.isFinite(n));
+        vendorIds = v.map((x) => Number(x)).filter((n) => Number.isFinite(n));
       } else if (req.query.vendor_code || req.query.vendor_codes) {
         const raw = req.query.vendor_code || req.query.vendor_codes;
         const vendorCodes = Array.isArray(raw)
           ? raw
           : String(raw)
               .split(',')
-              .map(s => s.trim())
+              .map((s) => s.trim())
               .filter(Boolean);
         if (vendorCodes.length > 0) {
-          const vendors = await db('vendors', schema).findWhere([{ vendor_code: { $in: vendorCodes } }], 'AND', { columnWhitelist: ['id', 'vendor_code'] });
-          vendorIds = vendors.map(v => v.id);
+          const vendors = await db('vendors', schema).findWhere([{ vendor_code: { $in: vendorCodes } }], 'AND', {
+            columnWhitelist: ['id', 'vendor_code'],
+          });
+          vendorIds = vendors.map((v) => v.id);
           // If none match provided codes, return empty quickly
           if (vendorIds.length === 0) {
             return res.json({ records: [], pagination: { total: 0, limit, offset } });
@@ -360,10 +371,15 @@ class VendorSkusController extends BaseController {
       if (req.query.q && String(req.query.q).trim()) {
         const q = String(req.query.q).trim();
         const pattern = `%${q}%`;
-        conditions.push({ $or: [{ vendor_sku: { $ilike: pattern } }, { description: { $ilike: pattern } }, { description_normalized: { $ilike: pattern } }] });
+        conditions.push({
+          $or: [{ vendor_sku: { $ilike: pattern } }, { description: { $ilike: pattern } }, { description_normalized: { $ilike: pattern } }],
+        });
       }
 
-      const [records, total] = await Promise.all([this.model(schema).findWhere(conditions, 'AND', options), this.model(schema).countWhere ? this.model(schema).countWhere(conditions, 'AND', options) : Promise.resolve(null)]);
+      const [records, total] = await Promise.all([
+        this.model(schema).findWhere(conditions, 'AND', options),
+        this.model(schema).countWhere ? this.model(schema).countWhere(conditions, 'AND', options) : Promise.resolve(null),
+      ]);
 
       return res.json({
         records,
@@ -385,7 +401,7 @@ class VendorSkusController extends BaseController {
     const user = req.user;
     const body = req.body || {};
     const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-large';
-    const MATCH_THRESHOLD = req.user?.match_threshold || 0.8;
+    const MATCH_THRESHOLD = match_threshold || 0.8;
 
     try {
       // --- Locate target record by id or vendor_code + vendor_sku ---
@@ -394,7 +410,9 @@ class VendorSkusController extends BaseController {
       if (req.query?.id) {
         filters = [{ id: req.query.id }];
       } else if (req.query?.vendor_code && req.query?.vendor_sku) {
-        const vendors = await db('vendors', schema).findWhere([{ vendor_code: req.query.vendor_code }], 'AND', { columnWhitelist: ['id', 'vendor_code'] });
+        const vendors = await db('vendors', schema).findWhere([{ vendor_code: req.query.vendor_code }], 'AND', {
+          columnWhitelist: ['id', 'vendor_code'],
+        });
         const vendor = vendors[0];
         if (!vendor) return res.status(404).json({ error: 'Unknown vendor_code' });
         filters = [{ vendor_id: vendor.id }, { vendor_sku: req.query.vendor_sku }];
@@ -403,7 +421,18 @@ class VendorSkusController extends BaseController {
       }
 
       const rows = await db('vendorSkus', schema).findWhere(filters, 'AND', {
-        columnWhitelist: ['id', 'tenant_code', 'vendor_id', 'vendor_sku', 'description', 'description_normalized', 'catalog_sku_id', 'confidence', 'model', 'embedding'],
+        columnWhitelist: [
+          'id',
+          'tenant_code',
+          'vendor_id',
+          'vendor_sku',
+          'description',
+          'description_normalized',
+          'catalog_sku_id',
+          'confidence',
+          'model',
+          'embedding',
+        ],
       });
       target = rows?.[0];
       if (!target) return res.status(404).json({ error: 'vendor_sku not found' });
@@ -415,7 +444,9 @@ class VendorSkusController extends BaseController {
       if (typeof body.vendor_sku === 'string' && body.vendor_sku.trim() && body.vendor_sku.trim() !== target.vendor_sku) {
         const newSku = body.vendor_sku.trim();
         // Uniqueness check: (vendor_id, vendor_sku)
-        const conflict = await db('vendorSkus', schema).findWhere([{ vendor_id: target.vendor_id }, { vendor_sku: newSku }], 'AND', { columnWhitelist: ['id'] });
+        const conflict = await db('vendorSkus', schema).findWhere([{ vendor_id: target.vendor_id }, { vendor_sku: newSku }], 'AND', {
+          columnWhitelist: ['id'],
+        });
         if (conflict.length && conflict[0].id !== target.id) {
           return res.status(409).json({ error: 'vendor_sku already exists for this vendor' });
         }
@@ -467,7 +498,7 @@ class VendorSkusController extends BaseController {
         if (newConfidence !== undefined) updates.confidence = newConfidence;
 
         // Optional match review logging
-        if (user?.enable_match_logging === true) {
+        if (enable_match_logging === true) {
           let catalogSkuRow = null;
           if (target.catalog_sku_id) {
             const rows = await db('catalogSkus', schema).findWhere([{ id: target.catalog_sku_id }], 'AND', {
@@ -475,7 +506,9 @@ class VendorSkusController extends BaseController {
             });
             catalogSkuRow = rows?.[0] || null;
           }
-          const logNotes = embeddingGenerated ? 'description updated; catalog link unchanged' : 'description updated; embedding failed; catalog link unchanged';
+          const logNotes = embeddingGenerated
+            ? 'description updated; catalog link unchanged'
+            : 'description updated; embedding failed; catalog link unchanged';
           matchLogs.push({
             tenant_code: user.tenant_code,
             vendor_id: target.vendor_id,
@@ -502,7 +535,7 @@ class VendorSkusController extends BaseController {
 
       // --- Execute update (and log) in a transaction ---
       let updatedCount = 0;
-      await db.tx(async t => {
+      await db.tx(async (t) => {
         const model = this.model(schema);
         model.tx = t;
         updatedCount = await model.updateWhere([{ id: target.id }], updates);

@@ -22,10 +22,20 @@ export async function loadPoliciesForUserTenant({ schemaName, userId }) {
     columnWhitelist: ['module', 'router', 'action', 'level'],
   });
 
+  // Combine by taking the maximum level across roles: none < view < full
+  const order = { none: 0, view: 1, full: 2 };
+  const invert = ['none', 'view', 'full'];
   const map = {};
   for (const p of policies) {
     const key = `${p.module ?? ''}::${p.router ?? ''}::${p.action ?? ''}`;
-    map[key] = p.level;
+    const current = map[key];
+    if (!current) {
+      map[key] = p.level;
+      continue;
+    }
+    const have = order[current] ?? 0;
+    const next = order[p.level] ?? 0;
+    map[key] = invert[Math.max(have, next)];
   }
   return map;
 }

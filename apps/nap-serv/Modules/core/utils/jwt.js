@@ -13,8 +13,6 @@ export function signAccessToken(user, extras = {}) {
     tenant_code: user.tenant_code,
     role: user.role,
     schema_name: user.schema_name?.toLowerCase?.() || user.tenant_code?.toLowerCase?.() || null,
-    enable_match_logging: process.env.ENABLE_MATCH_LOGGING === 'true',
-    match_threshold: process.env.MATCH_THRESHOLD ? parseFloat(process.env.MATCH_THRESHOLD) : 0.75,
     ...extras,
   };
   return jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
