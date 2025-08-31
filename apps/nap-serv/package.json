@@ -37,7 +37,7 @@
     "docs": "jsdoc -c jsdoc.json README.md && cp LICENSE docs/ && mkdir -p docs/images && cp docs-pages/images/nap-logo.png docs/images/",
     "lint": "eslint .",
     "seed": "cross-env NODE_ENV=development node ./scripts/seedPhase2.js",
-    "seed:rbac": "cross-env NODE_ENV=development node -e \"import('./src/seeds/seed_rbac.js').then(m=>m.seedRbac({tenantId:process.env.SEED_TENANT_ID,tenantCode:process.env.SEED_TENANT_CODE})).catch(e=>{console.error(e);process.exit(1);})\"",
+    "seed:rbac": "cross-env NODE_ENV=development node -e \"import('./src/seeds/seed_rbac.js').then(m=>m.seedRbac({schemaName:process.env.SEED_SCHEMA || (process.env.SEED_TENANT_CODE||'').toLowerCase()})).catch(e=>{console.error(e);process.exit(1);})\"",
     "test": "cross-env NODE_ENV=test vitest",
     "test:unit": "cross-env NODE_ENV=test vitest run tests/unit",
     "test:integration": "cross-env NODE_ENV=test vitest run tests/integration",
