@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    title AuthZ on API Request
+    participant Client
+    participant API
+    participant Redis
+    participant Postgres as PG
+
+    Client->>API: GET /api/v1/... (+ access token)
+    API->>API: Verify JWT (iss/aud/exp/sig)
+    API->>Redis: GET perm:<uid>:<tenant>
+    alt hit
+        API->>API: Compare JWT.ph === Redis.hash
+        alt match
+            API-->>Client: 200 (use Redis perms)
+        else mismatch (stale token)
+            API-->>Client: 200 + X-Token-Stale: 1 (or 401 TOKEN_STALE)
+        end
+    else miss
+        API->>PG: Load roles/policy → build perms
+        API->>API: calc perm_hash
+        API->>Redis: SET perm:<uid>:<tenant> = {perms, hash}
+        API-->>Client: 200 (with current perms)
+    end
