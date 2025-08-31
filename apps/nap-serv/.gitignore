@@ -147,3 +147,9 @@ dist
 # ignored project files
 flattenedApiPaths.json
 test-data/
+
+# Redis persistence files
+dump.rdb
+appendonly.aof
+*.rdb
+*.aof
