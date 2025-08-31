@@ -2,7 +2,7 @@
 
 import express from 'express';
 import { withMeta } from '../../../../src/utils/routeMeta.js';
-import { rbac } from '../../../../middlewares/rbac.js';
+import { rbac } from '../../../../middlewares/rbac/rbac.js';
 
 const router = express.Router();
 const base = { module: 'ar', router: 'invoices' };

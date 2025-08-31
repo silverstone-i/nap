@@ -9,7 +9,7 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-import passport from '../auth/passport.js';
+import passport from '../utils/passport.js';
 import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookies.js';
 import jwt from 'jsonwebtoken';
