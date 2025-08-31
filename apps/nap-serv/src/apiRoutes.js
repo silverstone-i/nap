@@ -27,12 +27,14 @@ import systemV1 from './apiRoutes.v1.system.js';
 const router = express.Router();
 
 router.use('/core', coreRoutes);
-// // Step 1: unchanged external paths under /api/v1
-// router.use('/v1/auth', coreAuthRouter);
-// router.use('/v1/admin', coreAdminRouter);
-// // New canonical core paths (alias) for clients migrating off tenants shims
-// router.use('/core/v1/auth', coreAuthRouter);
-// router.use('/core/v1/admin', coreAdminRouter);
+// Step 1: compatibility mounts under /api/v1 (tests expect these)
+router.use('/v1/auth', coreAuthRouter);
+router.use('/v1/admin', coreAdminRouter);
+// Canonical core paths (alias) for clients migrating off tenants shims
+router.use('/core/v1/auth', coreAuthRouter);
+router.use('/core/v1/admin', coreAdminRouter);
+// Tenants alias for auth (back-compat for older clients and tests)
+router.use('/tenants/v1/auth', coreAuthRouter);
 router.use('/activities', activitiesRoutes);
 router.use('/tenants', tenantsRoutes);
 router.use('/ar', arRoutes);

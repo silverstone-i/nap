@@ -1,4 +1,13 @@
 'use strict';
 
-// Legacy shim re-exporting core token utilities for tests
-export { signAccessToken as generateAccessToken, signRefreshToken as generateRefreshToken } from '../../../Modules/core/utils/jwt.js';
+import { signAccessToken, signRefreshToken } from '../../core/utils/jwt.js';
+
+export function generateAccessToken(user) {
+  return signAccessToken(user);
+}
+
+export function generateRefreshToken(user) {
+  return signRefreshToken(user);
+}
+
+export default { generateAccessToken, generateRefreshToken };

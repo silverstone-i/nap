@@ -14,9 +14,7 @@ import cors from 'cors';
 import apiRoutes from './apiRoutes.js';
 
 import cookieParser from 'cookie-parser';
-import { auth as coreAuth } from '../modules/core/middlewares/auth.js';
-import { tenantContext } from '../modules/core/middlewares/tenantContext.js';
-import { context } from '../middlewares/context.js';
+import { requestContext } from '../modules/core/middlewares/requestContext.js';
 
 import { apiLogger } from './utils/logger.js';
 
@@ -57,28 +55,8 @@ app.use(
   ),
 );
 
-app.use((req, res, next) => {
-  const publicRoutes = [
-    // '/api/tenants/v1/auth/logout', // protected
-    // new core endpoints
-    // '/api/v1/auth/login',
-    // '/api/v1/auth/refresh',
-    // canonical alias
-    '/api/core/v1/auth/login',
-    '/api/core/v1/auth/refresh',
-    // '/api/v1/auth/logout', // protected
-  ];
-
-  if (publicRoutes.includes(req.path)) {
-    return next();
-  }
-
-  return coreAuth(req, res, next);
-});
-
-// Populate request context (user, tenant, roles)
-app.use(context);
-app.use(tenantContext);
+// Single-source auth + request context
+app.use(requestContext);
 
 // Mount each module's router under /api
 app.use('/api', apiRoutes);

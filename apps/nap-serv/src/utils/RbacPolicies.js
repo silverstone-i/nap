@@ -7,9 +7,10 @@ import db from '../db/db.js';
  * Returns map of "module::router::action" => level
  * router or action can be empty string for broader scopes.
  */
-export async function loadPoliciesForUserTenant({ tenantId, userId }) {
-  // Find all roles for this user in this tenant (tenant roles only)
-  const tenantRoles = await db('roleMembers', 'public').findWhere([{ tenant_id: tenantId }, { user_id: userId }], 'AND', {
+export async function loadPoliciesForUserTenant({ schemaName, userId }) {
+  if (!schemaName || !userId) return {};
+  // Find all roles for this user in this tenant schema (tenant roles only)
+  const tenantRoles = await db('roleMembers', schemaName).findWhere([{ user_id: userId }], 'AND', {
     columnWhitelist: ['role_id'],
   });
 
@@ -17,7 +18,7 @@ export async function loadPoliciesForUserTenant({ tenantId, userId }) {
 
   const roleIds = tenantRoles.map((r) => r.role_id);
 
-  const policies = await db('policies', 'public').findWhere([{ role_id: { $in: roleIds } }], 'AND', {
+  const policies = await db('policies', schemaName).findWhere([{ role_id: { $in: roleIds } }], 'AND', {
     columnWhitelist: ['module', 'router', 'action', 'level'],
   });
 

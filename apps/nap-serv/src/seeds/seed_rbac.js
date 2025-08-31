@@ -9,7 +9,12 @@ export async function seedRbac({ schemaName, createdBy = 'seed-rbac' }) {
   const schema = schemaName ? schemaName.toLowerCase() : 'public';
   const tenantCode = schemaName.toUpperCase() ?? null;
 
-  const existing = await db('roles', schema).findWhere([ { code: { $in: ['superadmin', 'admin'] } }], 'AND');
+  // Ensure RBAC tables exist in target schema
+  await db('roles', schema).createTable();
+  await db('roleMembers', schema).createTable();
+  await db('policies', schema).createTable();
+
+  const existing = await db('roles', schema).findWhere([{ code: { $in: ['superadmin', 'admin'] } }], 'AND');
   const haveCodes = new Set(existing.map((r) => r.code));
 
   if (!haveCodes.has('superadmin')) {

@@ -9,11 +9,11 @@ const router = express.Router();
 
 // GET /api/v1/rbac/effective
 router.get('/rbac/effective', async (req, res) => {
-  const tenantId = req.query.tenantId || req.ctx?.tenant?.id || req.user?.tenant_id || null;
+  const schemaName = req.ctx?.schema || req.user?.schema_name || null;
   const user = req.ctx?.user || req.user || null;
-  if (!tenantId || !user?.id) return res.status(400).json({ error: 'tenantId and user context required' });
+  if (!schemaName || !user?.id) return res.status(400).json({ error: 'schema and user context required' });
 
-  const caps = await loadPoliciesForUserTenant({ tenantId, userId: user.id });
+  const caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
   const policy_etag = req.ctx?.policy_etag || null;
   res.json({ policy_etag, caps });
 });

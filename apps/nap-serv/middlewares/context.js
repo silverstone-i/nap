@@ -1,63 +1,25 @@
 'use strict';
 
-import db from '../src/db/db.js';
-import { computePolicyEtag } from '../src/utils/policyEtag.js';
-
-// Populate req.ctx with { user, tenant, system_roles, tenant_roles, policy_etag }
+// Minimal context: expose user and basic role flags; do not hit DB.
 export async function context(req, res, next) {
   try {
-    const user = req.user || null;
-    if (!user) return next();
+    const auth = req.auth || req.user || null;
+    const user = req.user || auth || null;
 
-    // Resolve tenant by tenant_code from JWT
-    const tenantCode = user.tenant_code?.toLowerCase?.() || null;
-    let tenant = null;
-    if (tenantCode) {
-      try {
-        tenant = await db('tenants', 'admin').findOneWhere([{ tenant_code: tenantCode }]);
-      } catch {
-        tenant = null;
-      }
-    }
+    const roles = (auth?.roles || []).map((x) => x?.toLowerCase?.()).filter(Boolean);
+    const role = auth?.role?.toLowerCase?.();
+    const is_superadmin = roles.includes('superadmin') || role === 'superadmin';
+    const is_admin = roles.includes('admin') || role === 'admin';
 
-    // Map system roles from legacy JWT roles
-    const system_roles = [];
-    if (user.role === 'superadmin') system_roles.push('superadmin');
-    if (user.role === 'admin') system_roles.push('admin');
+    req.ctx = {
+      ...(req.ctx || {}),
+      user,
+      is_superadmin,
+      is_admin,
+    };
 
-    // Resolve nap_user id by email when present
-    let napUserId = null;
-    if (user.email) {
-      try {
-        const napUser = await db('napUsers', 'admin').findOneWhere([{ email: user.email }], undefined, {
-          columnWhitelist: ['id'],
-        });
-        napUserId = napUser?.id || null;
-      } catch {
-        napUserId = null;
-      }
-    }
-
-    // Resolve tenant role memberships when tenant + user id known
-    let tenant_roles = [];
-    if (tenant?.id && napUserId) {
-      try {
-        const memberships = await db('roleMembers', 'public').findWhere([{ tenant_id: tenant.id }, { user_id: napUserId }], 'AND', {
-          columnWhitelist: ['role_id'],
-        });
-        tenant_roles = memberships?.map((m) => m.role_id) || [];
-      } catch {
-        tenant_roles = [];
-      }
-    }
-
-    // Compute policy etag for this tenant schema (advisory)
-    const policy_etag = tenantCode ? await computePolicyEtag(tenantCode) : null;
-
-    req.ctx = { user, tenant, system_roles, tenant_roles, policy_etag };
     return next();
   } catch {
-    // Non-fatal: proceed without ctx
     return next();
   }
 }

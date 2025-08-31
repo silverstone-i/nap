@@ -23,9 +23,6 @@ export function auth(req, res, next) {
       on_behalf_of: decoded.on_behalf_of || null,
     };
 
-    // Back-compat: also expose req.user used elsewhere
-    req.user = { ...decoded };
-
     next();
   });
 }

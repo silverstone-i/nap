@@ -13,7 +13,7 @@ export const rbac = (requiredHint) => {
   return async (req, res, next) => {
     try {
       const user = req.ctx?.user || req.user || null;
-      const tenantId = req.ctx?.tenant?.id || req.user?.tenant_id || null;
+      const schemaName = req.ctx?.schema || req.user?.schema_name || null;
       const resource = req.resource || {};
 
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
@@ -28,8 +28,8 @@ export const rbac = (requiredHint) => {
       }
 
       let caps = {};
-      if (tenantId && user?.id) {
-        caps = await loadPoliciesForUserTenant({ tenantId, userId: user.id });
+      if (schemaName && user?.id) {
+        caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
       }
 
       const have = resolveLevel(caps, moduleName, routerName, actionName);
