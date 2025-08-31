@@ -57,3 +57,6 @@ yarn.lock
 *.svg
 *.min.js
 *.map
+
+# VS Code workspace files
+*.code-workspace
