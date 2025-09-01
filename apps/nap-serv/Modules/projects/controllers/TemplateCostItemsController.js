@@ -23,10 +23,10 @@ class TemplateCostItemsController extends BaseController {
   async importXls(req, res) {
     try {
       const tenantCode = req.ctx?.tenant_code || req.user?.tenant_code;
-      const createdBy = req.ctx?.user?.user_name || req.ctx?.user?.email || req.user?.user_name || req.user?.email;
+      const createdBy = req.ctx?.user_id || req.user?.id;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
-      const schema = req.ctx?.schema || req.auth.schema;
+      const schema = req.ctx?.schema;
 
       if (!file) {
         return res.status(400).json({ error: 'No file uploaded' });
@@ -107,7 +107,7 @@ class TemplateCostItemsController extends BaseController {
       const where = req.body.where || [];
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
-      const schema = req.ctx?.schema || req.auth.schema;
+      const schema = req.ctx?.schema;
 
       await db('exportTemplateCostItems', schema).exportToSpreadsheet(filePath, where, joinType, options);
 

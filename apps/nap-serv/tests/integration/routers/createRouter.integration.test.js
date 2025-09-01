@@ -57,12 +57,15 @@ describe('BaseController + createRouter integration', () => {
     app = express();
     app.use(express.json());
     app.use((req, res, next) => {
+      // align with refactored context model
       req.user = {
-        user_id: 'test-user',
+        id: 'test-user-id',
         user_name: 'test-user',
         email: 'test@example.com',
+        tenant_code: 'test',
+        schema_name: 'test',
       };
-      req.auth.schema = 'test'; // Set schema for BaseController to use
+      req.ctx = { schema: 'test', user_id: 'test-user-id', tenant_code: 'test' };
 
       next();
     });

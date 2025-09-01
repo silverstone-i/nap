@@ -22,7 +22,7 @@ class BaseController extends ViewController {
   injectTenantCode(req) {
     // TODO: migrate to req.ctx.tenant_code after full rollout
     const tenantCode = req.ctx?.tenant_code || req.user?.tenant_code;
-    const userName = req.user?.user_name || req.user?.email;
+    const userName = req.user?.user_name || req.user?.email || req.ctx?.user_id || req.user?.user_id;
     if (!tenantCode) return;
 
     if (Array.isArray(req.body)) {

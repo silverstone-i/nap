@@ -33,11 +33,11 @@ class ContactsController extends BaseController {
    */
   async importXls(req, res) {
     try {
-      const tenantCode = req.user?.tenant_code;
-      const createdBy = req.user?.user_name || req.user?.email;
+      const tenantCode = req.ctx?.tenant_code || req.user?.tenant_code;
+      const createdBy = req.ctx?.user_id || req.user?.id;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
-      const schema = req.auth.schema;
+      const schema = req.ctx?.schema;
 
       if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -72,7 +72,7 @@ class ContactsController extends BaseController {
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
 
-      await db('exportContacts', req.auth.schema).exportToSpreadsheet(filePath, where, joinType, options);
+      await db('exportContacts', req.ctx?.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
       res.download(filePath, `contacts_${timestamp}.xlsx`, (err) => {
         if (err) {

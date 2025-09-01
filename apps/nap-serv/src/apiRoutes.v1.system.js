@@ -2,8 +2,14 @@
 
 import express from 'express';
 import { loadPoliciesForUserTenant } from './utils/RbacPolicies.js';
+import authRouter from '../modules/core/apiRoutes/v1/auth.router.js';
+import adminRouter from '../modules/core/apiRoutes/v1/admin.router.js';
 
 const router = express.Router();
+
+// Mount auth endpoints at /api/v1/auth
+router.use('/auth', authRouter);
+router.use('/admin', adminRouter);
 
 // NOTE: /api/v1/auth/me is handled by core auth router now.
 

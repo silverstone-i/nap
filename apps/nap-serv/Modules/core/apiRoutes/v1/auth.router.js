@@ -9,5 +9,8 @@ router.post('/login', login);
 router.post('/refresh', refresh);
 router.post('/logout', logout);
 router.get('/me', me);
+router.get('/check', (req, res) =>
+  req.user ? res.status(200).json({ message: 'Token is valid', user: req.user }) : res.status(401).json({ message: 'Unauthorized' }),
+);
 
 export default router;

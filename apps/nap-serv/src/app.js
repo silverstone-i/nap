@@ -14,7 +14,7 @@ import cors from 'cors';
 import apiRoutes from './apiRoutes.js';
 
 import cookieParser from 'cookie-parser';
-import { requestContext } from '../modules/core/middlewares/requestContext.js';
+import { authRedis } from './middlewares/authRedis.js';
 
 import { apiLogger } from './utils/logger.js';
 
@@ -40,7 +40,7 @@ app.use(
         statusCode: parseInt(tokens.status(req, res), 10),
         responseTime: parseFloat(tokens['response-time'](req, res)),
         tenantId: req.tenantId || null,
-        userName: req.user?.user_name || null,
+        userId: req.ctx?.user_id || null,
       };
       return JSON.stringify(logData);
     },
@@ -55,8 +55,8 @@ app.use(
   ),
 );
 
-// Single-source auth + request context
-app.use(requestContext);
+// Single-source auth + request context (Redis-backed)
+app.use(authRedis());
 
 // Mount each module's router under /api
 app.use('/api', apiRoutes);

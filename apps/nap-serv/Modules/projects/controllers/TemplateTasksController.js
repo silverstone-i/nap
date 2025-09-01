@@ -21,8 +21,8 @@ class TemplateTasksController extends BaseController {
 
   async importXls(req, res) {
     try {
-      const tenantCode = req.user?.tenant_code;
-      const createdBy = req.user?.user_name || req.user?.email;
+      const tenantCode = req.ctx?.tenant_code || req.user?.tenant_code;
+      const createdBy = req.ctx?.user_id || req.user?.id;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
 
@@ -31,11 +31,11 @@ class TemplateTasksController extends BaseController {
       }
 
       // Step 1: preload template_units into a lookup
-      const units = await db('templateUnits', req.auth.schema).findAll();
+      const units = await db('templateUnits', req.ctx?.schema).findAll();
       const lookup = new Map(units.map((u) => [`${u.name}|${u.version}`, u.id]));
 
       // Step 2: import and transform each row
-      const result = await this.model(req.auth.schema).importFromSpreadsheet(file.path, index, (row) => {
+      const result = await this.model(req.ctx?.schema).importFromSpreadsheet(file.path, index, (row) => {
         const key = `${row.unit_name}|${row.version}`;
         const template_unit_id = lookup.get(key);
         if (!template_unit_id) {
@@ -67,7 +67,7 @@ class TemplateTasksController extends BaseController {
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
 
-      await db('exportTemplateTasks', req.auth.schema).exportToSpreadsheet(filePath, where, joinType, options);
+      await db('exportTemplateTasks', req.ctx?.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
       res.download(filePath, `template_tasks_${timestamp}.xlsx`, (err) => {
         if (err) {

@@ -23,6 +23,8 @@ import multer from 'multer';
 export default function createRouter(controller, extendRoutes, options = {}) {
   const router = express.Router();
 
+  // Context is expected via req.ctx/req.user; no legacy req.auth shim
+
   const {
     postMiddlewares = [], // e.g. [authenticateJwt, requireNapsoftUser]
     getMiddlewares = [],
@@ -43,7 +45,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
     disableGetArchived = false, // If true, disables the /archive endpoint
   } = options;
 
-  const safePostMiddlewares = postMiddlewares.includes(addAuditFields) ? postMiddlewares : [addAuditFields, ...postMiddlewares];  
+  const safePostMiddlewares = postMiddlewares.includes(addAuditFields) ? postMiddlewares : [addAuditFields, ...postMiddlewares];
 
   const safePutMiddlewares = putMiddlewares.includes(addAuditFields) ? putMiddlewares : [addAuditFields, ...putMiddlewares];
 

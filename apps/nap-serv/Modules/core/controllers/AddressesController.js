@@ -33,11 +33,11 @@ class AddressesController extends BaseController {
    */
   async importXls(req, res) {
     try {
-      const tenantCode = req.user?.tenant_code;
-      const createdBy = req.user?.user_name || req.user?.email;
+      const tenantCode = req.ctx?.tenant_code || req.user?.tenant_code;
+      const createdBy = req.ctx?.user_id || req.user?.id;
       const index = parseInt(req.body.index || '0', 10);
       const file = req.file;
-      const schema = req.auth.schema;
+      const schema = req.ctx?.schema;
 
       if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -72,7 +72,7 @@ class AddressesController extends BaseController {
       const joinType = req.body.joinType || 'AND';
       const options = req.body.options || {};
 
-      await db('exportAddresses', req.auth.schema).exportToSpreadsheet(filePath, where, joinType, options);
+      await db('exportAddresses', req.ctx?.schema).exportToSpreadsheet(filePath, where, joinType, options);
 
       res.download(filePath, `addresses_${timestamp}.xlsx`, (err) => {
         if (err) {

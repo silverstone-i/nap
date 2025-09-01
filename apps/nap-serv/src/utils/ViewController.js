@@ -10,15 +10,11 @@
  */
 
 import fs from 'fs';
-import express from 'express';
+// import express from 'express';
 import { db } from '../db/db.js';
 import logger from './logger.js';
 
-// Provide a default req.auth object via Express request prototype so
-// tests that assign req.auth.schema do not throw before routers mount.
-if (!express.request.auth) {
-  express.request.auth = {};
-}
+// req.auth is deprecated; rely on req.ctx/req.user populated by auth middleware
 
 const codeMap = {
   23505: 409, // unique_violation
@@ -40,13 +36,11 @@ class ViewController {
    * backward compatibility with legacy tests and routes.
    */
   getSchema(req) {
-    const fromAuth = req?.auth?.schema;
     const fromCtx = req?.ctx?.schema;
-    const fromReq = req?.schema;
     const fromUserSchema = req?.user?.schema_name && req.user.schema_name.toLowerCase?.();
     const fromTenantCode = req?.user?.tenant_code && req.user.tenant_code.toLowerCase?.();
-
-    const schema = fromAuth || fromCtx || fromReq || fromUserSchema || fromTenantCode;
+    const fromReq = req?.schema; // legacy fallback
+    const schema = fromCtx || fromUserSchema || fromTenantCode || fromReq;
     if (!schema) throw new Error('schemaName is required');
     return schema;
   }
@@ -65,7 +59,7 @@ class ViewController {
   async get(req, res) {
     logger.info(`[ViewController] get`, {
       model: this.errorLabel,
-      user: req.user?.email,
+      user: req.ctx?.user_id || req.user?.id || null,
       query: req.query,
       body: req.body,
     });
@@ -125,7 +119,7 @@ class ViewController {
   async getById(req, res) {
     logger.info(`[BaseController] getById`, {
       model: this.errorLabel,
-      user: req.user?.email,
+      user: req.ctx?.user_id || req.user?.id || null,
       query: req.query,
       body: req.body,
     });
@@ -143,7 +137,7 @@ class ViewController {
 
     logger.info(`[ViewController] getWhere`, {
       model: this.errorLabel,
-      user: req.user?.email,
+      user: req.ctx?.user_id || req.user?.id || null,
       query: req.query,
       body: req.body,
     });
@@ -226,7 +220,7 @@ class ViewController {
   async exportXls(req, res) {
     logger.info(`[BaseController] exportXls`, {
       model: this.errorLabel,
-      user: req.user?.email,
+      user: req.ctx?.user_id || req.user?.id || null,
       query: req.query,
       body: req.body,
     });
