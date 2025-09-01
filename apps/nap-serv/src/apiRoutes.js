@@ -29,11 +29,8 @@ router.use('/ap', apRoutes);
 router.use('/ar', arRoutes);
 router.use('/bom', bomApiRoutes);
 router.use('/core', coreRoutes);
-// Core module also delivers global v1 APIs; mount at root so internal '/v1/*' maps to '/api/v1/*'
-router.use('/', coreRoutes);
 router.use('/projects', projectsRoutes);
 router.use('/tenants', tenantsRoutes);
-// Note: global v1 routes are delivered by the core module
 // Add more routes as needed
 
 export default router;

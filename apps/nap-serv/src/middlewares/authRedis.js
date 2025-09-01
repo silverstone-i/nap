@@ -46,9 +46,9 @@ export function authRedis() {
         uid = 'test-user-id';
       }
       // For tenants admin API and core admin API, allow requests with a valid JWT even if schema is absent.
-      const isAdminArea = fullPath.includes('/api/tenants/v1/admin') || fullPath.includes('/api/v1/admin');
-      // For core auth self endpoints like /api/v1/auth/me, do not require schema or RBAC.
-      const isCoreAuthSelf = fullPath.includes('/api/v1/auth/me');
+      const isAdminArea = fullPath.includes('/api/tenants/v1/admin') || fullPath.includes('/api/core/v1/admin');
+      // For core auth self endpoints like /api/core/v1/auth/me, do not require schema or RBAC.
+      const isCoreAuthSelf = fullPath.includes('/api/core/v1/auth/me');
       if (!schemaName && isAdminArea) {
         schemaName = 'admin';
       }
