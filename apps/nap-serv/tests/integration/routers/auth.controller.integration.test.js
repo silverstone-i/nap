@@ -16,27 +16,27 @@ describe('Auth Controller Integration', () => {
   });
 
   it('POST /auth/login - should return 400 on missing credentials', async () => {
-    const res = await request(server).post('/api/tenants/v1/auth/login').send({});
+  const res = await request(server).post('/api/v1/auth/login').send({});
     expect(res.status).toBe(400);
   });
 
   it('POST /auth/refresh - should return 401 without refresh token', async () => {
-    const res = await request(server).post('/api/tenants/v1/auth/refresh');
+  const res = await request(server).post('/api/v1/auth/refresh');
     expect(res.status).toBe(401);
   });
 
   it('POST /auth/logout - should return 401 if not authenticated', async () => {
-    const res = await request(server).post('/api/tenants/v1/auth/logout');
+  const res = await request(server).post('/api/v1/auth/logout');
     expect(res.status).toBe(401);
   });
 
   it('GET /auth/check - should return 401 if no JWT is provided', async () => {
-    const res = await request(server).get('/api/tenants/v1/auth/check');
+  const res = await request(server).get('/api/v1/auth/check');
     expect(res.status).toBe(401);
   });
 
   it('POST /auth/login - should succeed with valid credentials', async () => {
-    const res = await request(server).post('/api/tenants/v1/auth/login').send({
+  const res = await request(server).post('/api/v1/auth/login').send({
       email: 'testuser@example.com',
       password: 'TestPassword123',
     });
@@ -49,14 +49,14 @@ describe('Auth Controller Integration', () => {
   });
 
   it('POST /auth/refresh - should succeed with valid refresh token', async () => {
-    const login = await request(server).post('/api/tenants/v1/auth/login').send({
+  const login = await request(server).post('/api/v1/auth/login').send({
       email: 'testuser@example.com',
       password: 'TestPassword123',
     });
 
     const refreshCookie = login.headers['set-cookie'].find(c => c.includes('refresh_token'));
     const res = await request(server)
-      .post('/api/tenants/v1/auth/refresh')
+  .post('/api/v1/auth/refresh')
       .set('Cookie', refreshCookie);
 
     expect(res.status).toBe(200);
@@ -65,14 +65,14 @@ describe('Auth Controller Integration', () => {
   });
 
   it('POST /auth/logout - should clear cookies after login', async () => {
-    const login = await request(server).post('/api/tenants/v1/auth/login').send({
+  const login = await request(server).post('/api/v1/auth/login').send({
       email: 'testuser@example.com',
       password: 'TestPassword123',
     });
 
     const authCookies = login.headers['set-cookie'];
     const res = await request(server)
-      .post('/api/tenants/v1/auth/logout')
+  .post('/api/v1/auth/logout')
       .set('Cookie', authCookies);
 
     expect(res.status).toBe(200);

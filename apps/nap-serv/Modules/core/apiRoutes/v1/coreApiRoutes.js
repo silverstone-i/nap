@@ -18,6 +18,7 @@ import clientsRouter from './clientsRouter.js';
 import employeesRouter from './employeesRouter.js';
 import authRouter from './auth.router.js';
 import adminRouter from './admin.router.js';
+import rbacRouter from './rbac.router.js';
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ router.use('/v1/clients', clientsRouter);
 router.use('/v1/employees', employeesRouter);
 router.use('/v1/auth', authRouter);
 router.use('/v1/admin', adminRouter);
+router.use('/v1/rbac', rbacRouter);
 
 console.log('Loaded core modules router');
 

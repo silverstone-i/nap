@@ -20,7 +20,6 @@ import bomApiRoutes from '../modules/bom/apiRoutes/v1/bomApiRoutes.js';
 import coreRoutes from '../modules/core/apiRoutes/v1/coreApiRoutes.js';
 import projectsRoutes from '../modules/projects/apiRoutes/v1/projectsApiRoutes.js';
 import tenantsRoutes from '../modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
-import systemV1 from './apiRoutes.v1.system.js';
 
 const router = express.Router();
 
@@ -30,9 +29,11 @@ router.use('/ap', apRoutes);
 router.use('/ar', arRoutes);
 router.use('/bom', bomApiRoutes);
 router.use('/core', coreRoutes);
+// Core module also delivers global v1 APIs; mount at root so internal '/v1/*' maps to '/api/v1/*'
+router.use('/', coreRoutes);
 router.use('/projects', projectsRoutes);
 router.use('/tenants', tenantsRoutes);
-router.use('/v1', systemV1);
+// Note: global v1 routes are delivered by the core module
 // Add more routes as needed
 
 export default router;

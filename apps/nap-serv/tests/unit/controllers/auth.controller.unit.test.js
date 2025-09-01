@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import * as fullAuthController from '../../../modules/tenants/controllers/auth.controller.js';
+import * as fullAuthController from '../../../modules/core/controllers/auth.controller.js';
 let authController;
-import * as jwtUtils from '../../../modules/tenants/auth/jwt.js';
+import * as jwtUtils from '../../../modules/tenants/auth/jwt.js'; // legacy utils used only in this test; can be cleaned later
 vi.mock('jsonwebtoken', async () => {
   const actual = await vi.importActual('jsonwebtoken');
   return {
     ...actual,
-    verify: vi.fn()
+    verify: vi.fn(),
   };
 });
 import * as jwt from 'jsonwebtoken';
@@ -15,7 +15,6 @@ vi.mock('../../../modules/tenants/auth/jwt.js', () => ({
   generateAccessToken: vi.fn(() => 'access'),
   generateRefreshToken: vi.fn(() => 'refresh'),
 }));
-
 
 const mockRes = () => {
   const res = {};
@@ -63,8 +62,8 @@ describe('auth.controller.js', () => {
         return {};
       });
 
-      const controllerModule = await import('../../../modules/tenants/controllers/auth.controller.js');
-      authController = controllerModule.refreshToken;
+      const controllerModule = await import('../../../modules/core/controllers/auth.controller.js');
+      authController = controllerModule.refresh;
       res = mockRes();
     });
 
@@ -95,7 +94,8 @@ describe('auth.controller.js', () => {
 
   describe('logout()', () => {
     it('should clear cookies and respond', () => {
-      const req = {}, res = mockRes();
+      const req = {},
+        res = mockRes();
       fullAuthController.logout(req, res);
       expect(res.clearCookie).toHaveBeenCalledWith('auth_token');
       expect(res.clearCookie).toHaveBeenCalledWith('refresh_token');
@@ -105,7 +105,8 @@ describe('auth.controller.js', () => {
 
   describe('checkToken()', () => {
     it('should respond with 200 and user info', () => {
-      const req = { user: { id: 1 } }, res = mockRes();
+      const req = { user: { id: 1 } },
+        res = mockRes();
       fullAuthController.checkToken(req, res);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ message: 'Token is valid', user: { id: 1 } });
