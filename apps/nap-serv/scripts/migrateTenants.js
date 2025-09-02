@@ -13,93 +13,9 @@ import { db, pgp } from '../src/db/db.js';
 // import { loadViews } from './loadViews.js';
 const { seedRbac } = await import('../src/seeds/seed_rbac.js');
 const { bootstrapSuperAdmin } = await import('./bootstrapSuperAdmin.js');
+import { isValidModel, topoSortModels } from './lib/models.js';
 
-// Extracts table dependencies from model's foreign keys
-function getTableDependencies(model) {
-  const schema = model.schema;
-  if (!schema?.constraints?.foreignKeys) return [];
-
-  // console.log(`Model: ${schema.dbSchema}.${schema.table}, FK references:`, schema.constraints.foreignKeys.map(fk => fk.references));
-
-  return Array.from(
-    new Set(
-      schema.constraints.foreignKeys.map((fk) => {
-        // console.log('FK:', fk.references);
-        const [schemaName, tableName] = fk.references.table.includes('.')
-          ? fk.references.table.split('.')
-          : [model.schema.dbSchema, fk.references.table];
-        // console.log('schemaName:', schemaName, 'tableName:', tableName);
-        return `${schemaName}.${tableName}`.toLowerCase();
-      }),
-    ),
-  );
-}
-
-// Performs topological sort to respect foreign key dependencies
-function topoSortModels(models) {
-  const sorted = [];
-  const visited = new Set();
-
-  function visit(key, visiting = new Set()) {
-    const model = models[key];
-    const deps = getTableDependencies(model);
-    if (visited.has(key)) return;
-    if (visiting.has(key)) {
-      throw new Error(`Cyclic dependency detected: ${Array.from(visiting).join(' -> ')} -> ${key}`);
-    }
-
-    visiting.add(key);
-    for (const dep of deps) {
-      if (dep === key) continue; // Skip self-referencing dependencies
-      if (models[dep]) visit(dep, visiting);
-    }
-
-    visiting.delete(key);
-    visited.add(key);
-    sorted.push(key);
-  }
-
-  for (const key of Object.keys(models)) {
-    visit(key);
-  }
-
-  return sorted;
-}
-import fs from 'fs';
-
-function isValidModel(model) {
-  return typeof model?.createTable === 'function' && model.schema?.dbSchema && model.schema?.table;
-}
-
-function writeDependencyGraph(models, sortedKeys) {
-  const edges = new Set();
-
-  for (const key of sortedKeys) {
-    const model = models[key];
-    const schema = model.schema;
-    if (!schema?.constraints?.foreignKeys) continue;
-
-    for (const fk of schema.constraints.foreignKeys) {
-      const from = `${schema.dbSchema}.${schema.table}`;
-      let refSchema = schema.dbSchema;
-      let refTable = fk.references.table;
-
-      if (refTable.includes('.')) {
-        [refSchema, refTable] = refTable.split('.');
-      } else if (fk.references.schema) {
-        refSchema = fk.references.schema;
-      }
-
-      const to = `${refSchema}.${refTable}`;
-      edges.add(`  "${from}" -> "${to}";`);
-    }
-  }
-
-  const dot = ['digraph TableDependencies {', '  rankdir=LR;', ...Array.from(edges), '}'].join('\n');
-
-  fs.writeFileSync('./table-dependencies.dot', dot);
-  // console.log('\nDependency graph written to table-dependencies.dot\n');
-}
+// Helpers moved to ./lib/models.js
 
 async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = pgp, testFlag = false } = {}) {
   // Check if schema exists in the database
@@ -108,10 +24,15 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
     return !!result;
   }
 
-  let sortedKeys = [];
   const adminTables = ['admin.tenants', 'admin.nap_users', 'admin.match_review_logs'];
-  let validModels = {};
+  // dependency graph disabled for now
   try {
+    // Acquire advisory lock to prevent concurrent migrations (use a stable key)
+    const lockKey = 424242; // arbitrary app-wide lock id
+    const gotLock = await dbOverride.one(`SELECT pg_try_advisory_lock($1) AS locked`, [lockKey]);
+    if (!gotLock.locked) {
+      throw new Error('Another migration is currently running (advisory lock not acquired).');
+    }
     // Rule 1: If admin schema does not exist, run bootstrapSuperAdmin which creates tables and seeds RBAC
     const adminExists = await schemaExists('admin');
     if (!adminExists) {
@@ -119,11 +40,16 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
       await bootstrapSuperAdmin();
     }
 
-    // Rule 2: For each schema in input list, DROP CASCADE the schema (including admin if passed), then load non-admin tables
+    // Quote identifiers safely
+    const qn = (name) => pgp.as.name(name);
+
+    // Rule 2 + desired behavior: If admin is in the list, drop it and re-bootstrap after
+    const willResetAdmin = schemaList.includes('admin');
+
     for (const schemaName of schemaList) {
       console.log(`🧨 Dropping schema if exists: ${schemaName}`);
-      await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE;`);
-      await dbOverride.none(`CREATE SCHEMA IF NOT EXISTS ${schemaName};`);
+      await dbOverride.none(`DROP SCHEMA IF EXISTS ${qn(schemaName)} CASCADE;`);
+      await dbOverride.none(`CREATE SCHEMA IF NOT EXISTS ${qn(schemaName)};`);
     }
 
     for (const schemaName of schemaList) {
@@ -163,30 +89,38 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
       const keys = topoSortModels(modelsForSchema);
       // console.log('🧭 Sorted model keys for', schemaName, keys);
 
-      for (const key of keys) {
-        const model = modelsForSchema[key];
-        const isAdminTable = model.schema.dbSchema === 'admin';
-        if (model?.constructor?.isViewModel) continue;
-        if (isAdminTable && schemaName !== 'admin') continue; // never create admin tables in tenant schemas
-        if (!isAdminTable && schemaName === 'admin') continue; // only admin tables in admin schema
-        // console.log(`🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`);
-        await dbOverride(model, schemaName).createTable();
-        if (schemaName === 'admin') {
-          createdAdminTables.add(key);
+      // Run table creation inside a transaction per schema
+      await dbOverride.tx(async (_t) => {
+        for (const key of keys) {
+          const model = modelsForSchema[key];
+          const isAdminTable = model.schema.dbSchema === 'admin';
+          if (model?.constructor?.isViewModel) continue;
+          if (isAdminTable && schemaName !== 'admin') continue; // never create admin tables in tenant schemas
+          if (!isAdminTable && schemaName === 'admin') continue; // only admin tables in admin schema
+          await dbOverride(model, schemaName).createTable();
+          if (schemaName === 'admin') {
+            createdAdminTables.add(key);
+          }
         }
-      }
+      });
 
       // createdAdminTablesSet not needed after RBAC seeding adjustment
 
       // Rule 3: Seed RBAC for every schema added (including admin)
       try {
-        await seedRbac({ schemaName, createdBy: 'migrateTenants' });
+        if (!(schemaName === 'admin' && willResetAdmin)) {
+          await seedRbac({ schemaName, createdBy: 'migrateTenants' });
+        }
       } catch (e) {
         console.warn(`Warning: failed seeding RBAC for schema ${schemaName}:`, e?.message || e);
       }
 
       // await loadViews(dbOverride, schemaName);
       // console.log(`Views loaded for schema: ${schemaName}`);
+    }
+    // If admin was reset, re-bootstrap to restore root user and default tenant
+    if (willResetAdmin) {
+      await bootstrapSuperAdmin();
     }
   } catch (error) {
     console.error('Error during migration:', error.message);
@@ -195,7 +129,13 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
       throw error;
     }
   } finally {
-    writeDependencyGraph(validModels, sortedKeys);
+    // Release advisory lock
+    try {
+      await dbOverride.none(`SELECT pg_advisory_unlock($1)`, [424242]);
+    } catch {
+      // ignore unlock errors
+    }
+    // writeDependencyGraph can be re-enabled when needed
     if (!testFlag) {
       await pgpOverride.end();
     }

@@ -61,7 +61,24 @@ export async function seedRbac({ schemaName, createdBy = 'seed-rbac' }) {
       { tenant_code: tenantCode, role_id: pm.id, module: 'ar', router: 'invoices', action: 'approve', level: 'none' },
     ];
     for (const p of policies) {
-      await db('policies', schema).insert({ ...p, created_by: createdBy });
+      // Upsert to avoid unique violations on re-seed
+      const data = { ...p, created_by: createdBy };
+      // pg-schemata TableModel supports insert with conflict? If not, manual query fallback:
+      try {
+        await db('policies', schema).insert(data);
+      } catch (e) {
+        // Try ON CONFLICT DO NOTHING via raw SQL if insert fails on unique
+        if (e?.code === '23505') {
+          await db.none(
+            `INSERT INTO ${schema}.policies (id, tenant_code, role_id, module, router, action, level, created_by)
+             VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (role_id, module, router, action) DO NOTHING`,
+            [data.tenant_code, data.role_id, data.module, data.router, data.action, data.level, data.created_by],
+          );
+        } else {
+          throw e;
+        }
+      }
     }
   }
 }

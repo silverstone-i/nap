@@ -15,47 +15,9 @@ import bcrypt from 'bcrypt';
 import { db } from '../src/db/db.js'; // DB accessor with schema-aware models
 import { fileURLToPath } from 'url';
 const { seedRbac } = await import('../src/seeds/seed_rbac.js');
+import { isValidModel, topoSortModels } from './lib/models.js';
 
-// Helpers to compute table creation order by foreign key deps
-function getTableDependencies(model) {
-  const schema = model.schema;
-  if (!schema?.constraints?.foreignKeys) return [];
-  return Array.from(
-    new Set(
-      schema.constraints.foreignKeys.map((fk) => {
-        const [schemaName, tableName] = fk.references.table.includes('.')
-          ? fk.references.table.split('.')
-          : [model.schema.dbSchema, fk.references.table];
-        return `${schemaName}.${tableName}`.toLowerCase();
-      }),
-    ),
-  );
-}
-
-function topoSortModels(models) {
-  const sorted = [];
-  const visited = new Set();
-  function visit(key, visiting = new Set()) {
-    const model = models[key];
-    const deps = getTableDependencies(model);
-    if (visited.has(key)) return;
-    if (visiting.has(key)) throw new Error(`Cyclic dependency detected: ${Array.from(visiting).join(' -> ')} -> ${key}`);
-    visiting.add(key);
-    for (const dep of deps) {
-      if (dep === key) continue;
-      if (models[dep]) visit(dep, visiting);
-    }
-    visiting.delete(key);
-    visited.add(key);
-    sorted.push(key);
-  }
-  for (const key of Object.keys(models)) visit(key);
-  return sorted;
-}
-
-function isValidModel(model) {
-  return typeof model?.createTable === 'function' && model.schema?.dbSchema && model.schema?.table;
-}
+// Helpers now imported from ./lib/models.js
 
 async function bootstrapSuperAdmin() {
   const { ROOT_EMAIL, ROOT_PASSWORD, NAPSOFT_TENANT } = process.env;
