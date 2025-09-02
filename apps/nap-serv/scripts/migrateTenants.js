@@ -185,8 +185,8 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
 
       // Only bootstrap super admin if admin.nap_users and admin.tenants were created
       if (schemaName === 'admin' && createdAdminTablesSet.has('admin.nap_users') && createdAdminTablesSet.has('admin.tenants')) {
-        const { bootstrapsuper_admin } = await import('./bootstrapsuper_admin.js');
-        await bootstrapsuper_admin(dbOverride);
+        const { bootstrapSuperAdmin } = await import('./bootstrapSuperAdmin.js');
+        await bootstrapSuperAdmin(dbOverride);
       }
 
       // Seed default system roles (idempotent)
