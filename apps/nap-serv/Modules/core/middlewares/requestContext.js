@@ -47,13 +47,13 @@ export function requestContext(req, res, next) {
 
       // Derive base fields from token
       const roles = rolesFrom(decoded);
-      const is_superadmin = hasRole(decoded, 'superadmin');
+      const is_super_admin = hasRole(decoded, 'super_admin');
       const is_admin = hasRole(decoded, 'admin');
 
-      // Tenant resolution with optional superadmin override header
+      // Tenant resolution with optional super_admin override header
       let tenant_code = decoded?.tenant_code || null;
       const override = req.headers['x-tenant-code'];
-      if (is_superadmin && typeof override === 'string' && override.trim()) {
+      if (is_super_admin && typeof override === 'string' && override.trim()) {
         tenant_code = override.trim();
       }
 
@@ -67,7 +67,7 @@ export function requestContext(req, res, next) {
         tenant_code: tenant_code,
         schema,
         roles,
-        is_superadmin,
+        is_super_admin,
         is_admin,
       };
 

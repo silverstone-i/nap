@@ -7,7 +7,7 @@ const router = express.Router();
 // Admin assumption is schema-less; middleware should allow admin path without schema
 router.post('/assume-tenant', (req, res) => {
   const { tenant_code, reason } = req.body || {};
-  // Minimal validation; in real impl we'd verify superadmin and issue a short-lived token
+  // Minimal validation; in real impl we'd verify super_admin and issue a short-lived token
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   if (!tenant_code) return res.status(400).json({ error: 'tenant_code required' });
   // Stash assumption context on req.ctx for downstream; token rotation omitted for test scope

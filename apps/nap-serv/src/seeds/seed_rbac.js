@@ -14,12 +14,12 @@ export async function seedRbac({ schemaName, createdBy = 'seed-rbac' }) {
   await db('roleMembers', schema).createTable();
   await db('policies', schema).createTable();
 
-  const existing = await db('roles', schema).findWhere([{ code: { $in: ['superadmin', 'admin'] } }], 'AND');
+  const existing = await db('roles', schema).findWhere([{ code: { $in: ['super_admin', 'admin'] } }], 'AND');
   const haveCodes = new Set(existing.map((r) => r.code));
 
-  if (!haveCodes.has('superadmin')) {
+  if (!haveCodes.has('super_admin')) {
     await db('roles', schema).insert({
-      code: 'superadmin',
+      code: 'super_admin',
       name: 'Super Admin',
       tenant_code: tenantCode,
       is_system: true,

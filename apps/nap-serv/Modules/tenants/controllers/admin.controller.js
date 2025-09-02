@@ -17,7 +17,7 @@ export async function getAllSchemas(req, res) {
 }
 
 export function switchSchema(req, res) {
-  const isSuper = req.ctx?.is_superadmin || req.user?.role?.toLowerCase?.() === 'superadmin';
+  const isSuper = req.ctx?.is_super_admin || req.user?.role?.toLowerCase?.() === 'super_admin';
   if (!isSuper) return res.status(403).json({ error: 'Forbidden' });
   const { schema } = req.params;
   return res.json({ message: `Schema switched to ${schema}` });

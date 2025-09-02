@@ -31,7 +31,7 @@ export async function setupAdminSchemaAndUser() {
     email: 'testuser@example.com',
     password_hash: passwordHash,
     user_name: 'Test User',
-    role: 'superadmin',
+    role: 'super_admin',
   });
 }
 

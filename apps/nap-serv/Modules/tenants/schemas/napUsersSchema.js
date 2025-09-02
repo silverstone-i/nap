@@ -91,7 +91,7 @@ const schema = {
       { type: 'Check', expression: `char_length(email) > 3` },
 
       /* TODO: Valid roles need to be checked in the tenant employees table
-    // { type: 'Check', expression: `role IN ('superadmin', 'admin', 'support', 'user')` }, */
+    // { type: 'Check', expression: `role IN ('super_admin', 'admin', 'support', 'user')` }, */
     ],
     indexes: [
       { type: 'Index', columns: ['email'] },

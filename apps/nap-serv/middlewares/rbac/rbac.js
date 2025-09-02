@@ -13,8 +13,8 @@ export const rbac = (requiredHint) => {
       const tenantId = ctx.tenant?.id || req.user?.tenant_id || null;
       const systemRoles = ctx.system_roles || user.system_roles || [];
 
-      // Short-circuit: superadmin bypass
-      if (Array.isArray(systemRoles) && systemRoles.includes('superadmin')) return next();
+      // Short-circuit: super_admin bypass
+      if (Array.isArray(systemRoles) && systemRoles.includes('super_admin')) return next();
 
       // Short-circuit: tenant admin bypass for non-tenants module
       if (Array.isArray(systemRoles) && systemRoles.includes('admin')) {

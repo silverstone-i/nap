@@ -1,4 +1,3 @@
-
 # RBAC (“brace”) Table Schemas — nap-serv
 
 Short, explicit pg‑schemata definitions for **roles**, **role_members**, and **policies**, plus reference DDL.
@@ -18,9 +17,11 @@ Use these as-is under `apps/nap-serv/core/schema/*`.
 ## 1) roles
 
 ### Purpose
-Holds both **system roles** (`tenant_id NULL`, e.g. `superadmin`, `admin`) and **tenant roles** (scoped to a tenant).
+
+Holds both **system roles** (`tenant_id NULL`, e.g. `super_admin`, `admin`) and **tenant roles** (scoped to a tenant).
 
 ### pg-schemata (ESM)
+
 ```js
 // apps/nap-serv/core/schema/roles.schema.js
 export const rolesSchema = {
@@ -30,14 +31,20 @@ export const rolesSchema = {
   hasAuditFields: true,
   softDelete: false,
   columns: [
-    { name: 'id',          type: 'uuid', default: 'uuid_generate_v7()', nullable: false, immutable: true },
-    { name: 'tenant_id',   type: 'uuid', nullable: true },
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuid_generate_v7()',
+      nullable: false,
+      immutable: true,
+    },
+    { name: 'tenant_id', type: 'uuid', nullable: true },
     { name: 'tenant_code', type: 'text', nullable: true },
-    { name: 'code',        type: 'text', nullable: false }, // stable key, e.g. 'project_manager'
-    { name: 'name',        type: 'text', nullable: false }, // display label
-    { name: 'description', type: 'text', nullable: true },  // optional help text
-    { name: 'is_system',   type: 'boolean', default: false, nullable: false },
-    { name: 'is_immutable',type: 'boolean', default: false, nullable: false },
+    { name: 'code', type: 'text', nullable: false }, // stable key, e.g. 'project_manager'
+    { name: 'name', type: 'text', nullable: false }, // display label
+    { name: 'description', type: 'text', nullable: true }, // optional help text
+    { name: 'is_system', type: 'boolean', default: false, nullable: false },
+    { name: 'is_immutable', type: 'boolean', default: false, nullable: false },
   ],
   indexes: [
     { name: 'roles_tenant_id_idx', columns: ['tenant_id'] },
@@ -51,6 +58,7 @@ export default rolesSchema;
 ```
 
 ### Reference DDL
+
 ```sql
 CREATE TABLE roles (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v7(),
@@ -76,9 +84,11 @@ CREATE INDEX roles_code_idx ON roles(code);
 ## 2) role_members
 
 ### Purpose
+
 Assigns users to roles (system or tenant), scoped by tenant when applicable.
 
 ### pg-schemata (ESM)
+
 ```js
 // apps/nap-serv/core/schema/role_members.schema.js
 export const roleMembersSchema = {
@@ -88,14 +98,20 @@ export const roleMembersSchema = {
   hasAuditFields: true,
   softDelete: false,
   columns: [
-    { name: 'id',          type: 'uuid', default: 'uuid_generate_v7()', nullable: false, immutable: true },
-    { name: 'tenant_id',   type: 'uuid', nullable: true },
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuid_generate_v7()',
+      nullable: false,
+      immutable: true,
+    },
+    { name: 'tenant_id', type: 'uuid', nullable: true },
     { name: 'tenant_code', type: 'text', nullable: true },
 
-    { name: 'role_id',     type: 'uuid', nullable: false }, // -> roles.id
-    { name: 'user_id',     type: 'uuid', nullable: false }, // -> nap_users.id (global)
+    { name: 'role_id', type: 'uuid', nullable: false }, // -> roles.id
+    { name: 'user_id', type: 'uuid', nullable: false }, // -> nap_users.id (global)
 
-    { name: 'is_primary',  type: 'boolean', default: false, nullable: false },
+    { name: 'is_primary', type: 'boolean', default: false, nullable: false },
   ],
   indexes: [
     { name: 'role_members_role_id_idx', columns: ['role_id'] },
@@ -110,6 +126,7 @@ export default roleMembersSchema;
 ```
 
 ### Reference DDL
+
 ```sql
 CREATE TABLE role_members (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v7(),
@@ -134,10 +151,12 @@ CREATE INDEX role_members_tenant_id_idx ON role_members(tenant_id);
 ## 3) policies
 
 ### Purpose
+
 Grants a **level** (`none|view|full`) to a role over a resource scope triple `(module, router?, action?)`.
 Most-specific wins at evaluation time: `action → router → module → default none`.
 
 ### pg-schemata (ESM)
+
 ```js
 // apps/nap-serv/core/schema/policies.schema.js
 export const policiesSchema = {
@@ -147,31 +166,44 @@ export const policiesSchema = {
   hasAuditFields: true,
   softDelete: false,
   columns: [
-    { name: 'id',          type: 'uuid', default: 'uuid_generate_v7()', nullable: false, immutable: true },
-    { name: 'tenant_id',   type: 'uuid', nullable: true },
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'uuid_generate_v7()',
+      nullable: false,
+      immutable: true,
+    },
+    { name: 'tenant_id', type: 'uuid', nullable: true },
     { name: 'tenant_code', type: 'text', nullable: true },
 
-    { name: 'role_id',     type: 'uuid', nullable: false },   // -> roles.id (tenant roles)
-    { name: 'module',      type: 'text', nullable: false },   // e.g. 'projects','gl','ar'
-    { name: 'router',      type: 'text', nullable: true },    // e.g. 'invoices'
-    { name: 'action',      type: 'text', nullable: true },    // e.g. 'approve','export'
-    { name: 'level',       type: 'text', nullable: false },   // 'none'|'view'|'full'
+    { name: 'role_id', type: 'uuid', nullable: false }, // -> roles.id (tenant roles)
+    { name: 'module', type: 'text', nullable: false }, // e.g. 'projects','gl','ar'
+    { name: 'router', type: 'text', nullable: true }, // e.g. 'invoices'
+    { name: 'action', type: 'text', nullable: true }, // e.g. 'approve','export'
+    { name: 'level', type: 'text', nullable: false }, // 'none'|'view'|'full'
   ],
   indexes: [
     { name: 'policies_role_id_idx', columns: ['role_id'] },
     { name: 'policies_scope_idx', columns: ['module', 'router', 'action'] },
   ],
   uniques: [
-    { name: 'policies_role_scope_uk', columns: ['role_id', 'module', 'router', 'action'] },
+    {
+      name: 'policies_role_scope_uk',
+      columns: ['role_id', 'module', 'router', 'action'],
+    },
   ],
   checks: [
-    { name: 'policies_level_chk', expression: "(level IN ('none','view','full'))" },
+    {
+      name: 'policies_level_chk',
+      expression: "(level IN ('none','view','full'))",
+    },
   ],
 };
 export default policiesSchema;
 ```
 
 ### Reference DDL
+
 ```sql
 CREATE TABLE policies (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v7(),
@@ -199,7 +231,7 @@ CREATE INDEX policies_scope_idx ON policies(module, router, action);
 ```sql
 -- System roles (tenant_id NULL)
 INSERT INTO roles (tenant_id, tenant_code, code, name, is_system, is_immutable)
-VALUES (NULL, NULL, 'superadmin', 'Super Admin', true, true),
+VALUES (NULL, NULL, 'super_admin', 'Super Admin', true, true),
        (NULL, NULL, 'admin', 'Tenant Admin', true, true);
 
 -- Tenant role
@@ -222,12 +254,12 @@ INSERT INTO policies (tenant_id, tenant_code, role_id, module, router, action, l
 - Server middleware resolves most‑specific match first: `(m,r,a)` → `(m,r,NULL)` → `(m,NULL,NULL)` → default `none`.
 - “View” implies GET/HEAD plus any route explicitly tagged `rbac('view')` (e.g., `export`).
 - “Full” required for writes and privileged actions (approve/post/close).
-- System shortcuts: `superadmin` bypasses checks; tenant `admin` bypasses for their tenant except `tenants` module.
+- System shortcuts: `super_admin` bypasses checks; tenant `admin` bypasses for their tenant except `tenants` module.
 
 ---
 
 **File placement**
+
 - `apps/nap-serv/core/schema/roles.schema.js`
 - `apps/nap-serv/core/schema/role_members.schema.js`
 - `apps/nap-serv/core/schema/policies.schema.js`
-

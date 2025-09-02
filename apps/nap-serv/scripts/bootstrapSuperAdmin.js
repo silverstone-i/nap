@@ -9,13 +9,13 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-// scripts/bootstrapSuperAdmin.js
+// scripts/bootstrapsuper_admin.js
 import 'dotenv/config.js';
 import bcrypt from 'bcrypt';
 import { db } from '../src/db/db.js'; // Adjust the import path as necessary
 import { fileURLToPath } from 'url';
 
-async function bootstrapSuperAdmin() {
+async function bootstrapsuper_admin() {
   const { ROOT_EMAIL, ROOT_PASSWORD, NAPSOFT_TENANT } = process.env;
 
   if (!ROOT_EMAIL || !ROOT_PASSWORD) {
@@ -42,7 +42,7 @@ async function bootstrapSuperAdmin() {
       console.log('✅ NapSoft tenant already exists.');
     }
 
-    const existingUsers = await db.napUsers.findWhere([{ role: 'superadmin' }]);
+    const existingUsers = await db.napUsers.findWhere([{ role: 'super_admin' }]);
 
     if (existingUsers.length > 0) {
       console.log('✅ Super admin already exists. Aborting.');
@@ -56,21 +56,21 @@ async function bootstrapSuperAdmin() {
       schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'admin',
       email: ROOT_EMAIL,
       password_hash: passwordHash,
-      role: 'superadmin',
-      user_name: 'superadmin',
+      role: 'super_admin',
+      user_name: 'super_admin',
       created_by: 'bootstrap',
     };
 
     await db.napUsers.insert(userDto);
-    console.log('✅ superadmin created successfully.');
+    console.log('✅ super_admin created successfully.');
   } catch (err) {
-    console.error('❌ Error bootstrapping superadmin:', err);
+    console.error('❌ Error bootstrapping super_admin:', err);
     process.exit(1);
   }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  bootstrapSuperAdmin();
+  bootstrapsuper_admin();
 }
 
-export { bootstrapSuperAdmin };
+export { bootstrapsuper_admin };
