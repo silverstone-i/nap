@@ -12,10 +12,52 @@
 // scripts/bootstrapsuper_admin.js
 import 'dotenv/config.js';
 import bcrypt from 'bcrypt';
-import { db } from '../src/db/db.js'; // Adjust the import path as necessary
+import { db } from '../src/db/db.js'; // DB accessor with schema-aware models
 import { fileURLToPath } from 'url';
+const { seedRbac } = await import('../src/seeds/seed_rbac.js');
 
-async function bootstrapsuper_admin() {
+// Helpers to compute table creation order by foreign key deps
+function getTableDependencies(model) {
+  const schema = model.schema;
+  if (!schema?.constraints?.foreignKeys) return [];
+  return Array.from(
+    new Set(
+      schema.constraints.foreignKeys.map((fk) => {
+        const [schemaName, tableName] = fk.references.table.includes('.')
+          ? fk.references.table.split('.')
+          : [model.schema.dbSchema, fk.references.table];
+        return `${schemaName}.${tableName}`.toLowerCase();
+      }),
+    ),
+  );
+}
+
+function topoSortModels(models) {
+  const sorted = [];
+  const visited = new Set();
+  function visit(key, visiting = new Set()) {
+    const model = models[key];
+    const deps = getTableDependencies(model);
+    if (visited.has(key)) return;
+    if (visiting.has(key)) throw new Error(`Cyclic dependency detected: ${Array.from(visiting).join(' -> ')} -> ${key}`);
+    visiting.add(key);
+    for (const dep of deps) {
+      if (dep === key) continue;
+      if (models[dep]) visit(dep, visiting);
+    }
+    visiting.delete(key);
+    visited.add(key);
+    sorted.push(key);
+  }
+  for (const key of Object.keys(models)) visit(key);
+  return sorted;
+}
+
+function isValidModel(model) {
+  return typeof model?.createTable === 'function' && model.schema?.dbSchema && model.schema?.table;
+}
+
+async function bootstrapSuperAdmin() {
   const { ROOT_EMAIL, ROOT_PASSWORD, NAPSOFT_TENANT } = process.env;
 
   if (!ROOT_EMAIL || !ROOT_PASSWORD) {
@@ -24,15 +66,52 @@ async function bootstrapsuper_admin() {
   }
 
   try {
+    const tenantCode = (NAPSOFT_TENANT || 'ADMIN').toUpperCase();
+    const tenantSchema = tenantCode.toLowerCase();
+
+    // Ensure schemas exist
+    await db.none(`CREATE SCHEMA IF NOT EXISTS admin;`);
+    await db.none(`CREATE SCHEMA IF NOT EXISTS ${tenantSchema};`);
+
+    // Create tables for admin-scoped models in admin schema
+    const adminModels = Object.fromEntries(
+      Object.entries(db)
+        .filter(([, model]) => isValidModel(model) && model.schema?.dbSchema === 'admin')
+        .map(([, model]) => {
+          const m = db(model, 'admin');
+          return [`${m.schema.dbSchema}.${m.schema.table}`.toLowerCase(), m];
+        }),
+    );
+    const adminOrder = topoSortModels(adminModels);
+    for (const key of adminOrder) {
+      await adminModels[key].createTable();
+    }
+
+    // Create tables for tenant-scoped models in tenant schema
+    const tenantModels = Object.fromEntries(
+      Object.entries(db)
+        .filter(([, model]) => isValidModel(model) && model.schema?.dbSchema !== 'admin')
+        .map(([, model]) => {
+          const m = db(model, tenantSchema);
+          return [`${m.schema.dbSchema}.${m.schema.table}`.toLowerCase(), m];
+        }),
+    );
+    const tenantOrder = topoSortModels(tenantModels);
+    for (const key of tenantOrder) {
+      // Views have no createTable; skip if flagged by model class
+      if (tenantModels[key]?.constructor?.isViewModel) continue;
+      await tenantModels[key].createTable();
+    }
+
     console.log('🔐 Checking for existing super admin...');
 
     console.log('🏢 Ensuring NapSoft tenant exists...');
-    const existingTenant = await db.tenants.findWhere([{ tenant_code: NAPSOFT_TENANT || 'ADMIN' }]);
+    const existingTenant = await db.tenants.findWhere([{ tenant_code: tenantCode }]);
 
     if (existingTenant.length === 0) {
       await db.tenants.insert({
-        tenant_code: NAPSOFT_TENANT || 'ADMIN',
-        schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'admin',
+        tenant_code: tenantCode,
+        schema_name: tenantSchema,
         company: 'NapSoft',
         is_active: true,
         created_by: 'bootstrap',
@@ -52,8 +131,8 @@ async function bootstrapsuper_admin() {
     const passwordHash = await bcrypt.hash(ROOT_PASSWORD, 10);
 
     const userDto = {
-      tenant_code: NAPSOFT_TENANT || 'ADMIN',
-      schema_name: NAPSOFT_TENANT?.toLocaleLowerCase() || 'admin',
+      tenant_code: tenantCode,
+      schema_name: tenantSchema,
       email: ROOT_EMAIL,
       password_hash: passwordHash,
       role: 'super_admin',
@@ -63,6 +142,14 @@ async function bootstrapsuper_admin() {
 
     await db.napUsers.insert(userDto);
     console.log('✅ super_admin created successfully.');
+
+    // Seed RBAC for admin only
+    try {
+      await seedRbac({ schemaName: 'admin', createdBy: 'bootstrap' });
+      console.log('✅ RBAC seeded for admin');
+    } catch (e) {
+      console.warn('⚠️ RBAC seeding during bootstrap failed:', e?.message || e);
+    }
   } catch (err) {
     console.error('❌ Error bootstrapping super_admin:', err);
     process.exit(1);
@@ -70,7 +157,7 @@ async function bootstrapsuper_admin() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  bootstrapsuper_admin();
+  bootstrapSuperAdmin();
 }
 
-export { bootstrapsuper_admin };
+export { bootstrapSuperAdmin };

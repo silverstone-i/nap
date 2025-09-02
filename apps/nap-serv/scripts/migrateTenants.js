@@ -12,6 +12,7 @@
 import { db, pgp } from '../src/db/db.js';
 // import { loadViews } from './loadViews.js';
 const { seedRbac } = await import('../src/seeds/seed_rbac.js');
+const { bootstrapSuperAdmin } = await import('./bootstrapSuperAdmin.js');
 
 // Extracts table dependencies from model's foreign keys
 function getTableDependencies(model) {
@@ -111,26 +112,18 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
   const adminTables = ['admin.tenants', 'admin.nap_users', 'admin.match_review_logs'];
   let validModels = {};
   try {
-    // Check if we need to create the admin tables
-    // Rule 1: remove 'admin' if it exists in both schema and list
-    // Rule 2: add 'admin' if it doesn't exist in schema and isn't in the list
-    // Rule 3: do nothing if !exists && already in the list
-
-    const exists = await schemaExists('admin');
-    const index = schemaList.indexOf('admin');
-
-    if (exists && index !== -1) {
-      schemaList.splice(index, 1); // Rule 1
-    } else if (!exists && index === -1) {
-      schemaList.unshift('admin'); // Rule 2
+    // Rule 1: If admin schema does not exist, run bootstrapSuperAdmin which creates tables and seeds RBAC
+    const adminExists = await schemaExists('admin');
+    if (!adminExists) {
+      console.log('🧰 Admin schema missing. Bootstrapping super admin and base schemas...');
+      await bootstrapSuperAdmin();
     }
-    // Rule 3: list remains unchanged
 
-    // Drop all schemas except 'admin'
+    // Rule 2: For each schema in input list, DROP CASCADE the schema (including admin if passed), then load non-admin tables
     for (const schemaName of schemaList) {
-      if (schemaName !== 'admin') {
-        await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE;`);
-      }
+      console.log(`🧨 Dropping schema if exists: ${schemaName}`);
+      await dbOverride.none(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE;`);
+      await dbOverride.none(`CREATE SCHEMA IF NOT EXISTS ${schemaName};`);
     }
 
     for (const schemaName of schemaList) {
@@ -148,12 +141,13 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
             const schemaScopedModel = dbOverride(model, effectiveSchema);
             const fullName = `${schemaScopedModel.schema.dbSchema}.${schemaScopedModel.schema.table}`.toLowerCase();
 
+            // Rule 2b: load all tables where table schema is not 'admin'
             if (schemaName === 'admin') {
-              return allowedAdminTables.has(fullName);
+              // For admin schema, only include admin tables
+              return fullName.startsWith('admin.');
             }
 
-            if (isAdminTable) return false;
-            if (fullName.startsWith('admin.')) return false;
+            if (fullName.startsWith('admin.')) return false; // skip admin tables for tenant schemas
 
             return true;
           })
@@ -173,7 +167,8 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
         const model = modelsForSchema[key];
         const isAdminTable = model.schema.dbSchema === 'admin';
         if (model?.constructor?.isViewModel) continue;
-        if (isAdminTable && !allowedAdminTables.has(key)) continue;
+        if (isAdminTable && schemaName !== 'admin') continue; // never create admin tables in tenant schemas
+        if (!isAdminTable && schemaName === 'admin') continue; // only admin tables in admin schema
         // console.log(`🔨 Creating table: ${model.schema.dbSchema}.${model.schema.table}`);
         await dbOverride(model, schemaName).createTable();
         if (schemaName === 'admin') {
@@ -181,19 +176,13 @@ async function migrateTenants({ schemaList = [], dbOverride = db, pgpOverride = 
         }
       }
 
-      const createdAdminTablesSet = new Set(keys);
+      // createdAdminTablesSet not needed after RBAC seeding adjustment
 
-      // Only bootstrap super admin if admin.nap_users and admin.tenants were created
-      if (schemaName === 'admin' && createdAdminTablesSet.has('admin.nap_users') && createdAdminTablesSet.has('admin.tenants')) {
-        const { bootstrapSuperAdmin } = await import('./bootstrapSuperAdmin.js');
-        await bootstrapSuperAdmin(dbOverride);
-      }
-
-      // Seed default system roles (idempotent)
+      // Rule 3: Seed RBAC for every schema added (including admin)
       try {
         await seedRbac({ schemaName, createdBy: 'migrateTenants' });
       } catch (e) {
-        console.warn('Warning: failed seeding default roles:', e?.message || e);
+        console.warn(`Warning: failed seeding RBAC for schema ${schemaName}:`, e?.message || e);
       }
 
       // await loadViews(dbOverride, schemaName);

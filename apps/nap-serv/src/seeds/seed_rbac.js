@@ -7,17 +7,18 @@ export async function seedRbac({ schemaName, createdBy = 'seed-rbac' }) {
 
   // System roles (tenant_code NULL)
   const schema = schemaName ? schemaName.toLowerCase() : 'public';
-  const tenantCode = schemaName.toUpperCase() ?? null;
+  // For admin schema, system roles should have tenant_code NULL; for others, use tenant code
+  const tenantCode = schema === 'admin' ? null : (schemaName?.toUpperCase() ?? null);
+  const isAdminSchema = schema === 'admin';
 
   // Ensure RBAC tables exist in target schema
-  await db('roles', schema).createTable();
-  await db('roleMembers', schema).createTable();
-  await db('policies', schema).createTable();
+  // Tables must already exist; migrations/bootstrap create them
 
-  const existing = await db('roles', schema).findWhere([{ code: { $in: ['super_admin', 'admin'] } }], 'AND');
+  const roleCodesToCheck = (isAdminSchema ? ['super_admin', 'admin'] : ['admin']).concat(tenantCode ? ['project_manager'] : []);
+  const existing = await db('roles', schema).findWhere([{ code: { $in: roleCodesToCheck } }], 'AND');
   const haveCodes = new Set(existing.map((r) => r.code));
 
-  if (!haveCodes.has('super_admin')) {
+  if (isAdminSchema && !haveCodes.has('super_admin')) {
     await db('roles', schema).insert({
       code: 'super_admin',
       name: 'Super Admin',
@@ -40,12 +41,17 @@ export async function seedRbac({ schemaName, createdBy = 'seed-rbac' }) {
 
   if (tenantCode) {
     // Create tenant role project_manager
-    const pm = await db('roles', schema).insert({
-      tenant_code: tenantCode,
-      code: 'project_manager',
-      name: 'Project Manager',
-      created_by: createdBy,
-    });
+    let pm;
+    if (!haveCodes.has('project_manager')) {
+      pm = await db('roles', schema).insert({
+        tenant_code: tenantCode,
+        code: 'project_manager',
+        name: 'Project Manager',
+        created_by: createdBy,
+      });
+    } else {
+      pm = await db('roles', schema).findOneBy([{ code: 'project_manager' }]);
+    }
 
     // Seed policies per prompt
     const policies = [
