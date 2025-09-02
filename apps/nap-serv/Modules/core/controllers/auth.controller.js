@@ -23,30 +23,43 @@ export const login = (req, res, next) => {
       return res.status(400).json({ message: info?.message || 'Login failed' });
     }
 
-    let accessToken;
-    if ((process.env.AUTH_MODE || '').toLowerCase() === 'redis') {
-      const schemaName = user.schema_name?.toLowerCase?.() || user.tenant_code?.toLowerCase?.();
-      let canon = { caps: {} };
-      try {
-        const { loadPoliciesForUserTenant } = await import('../../../src/utils/RbacPolicies.js');
-        const caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
-        canon = { caps };
-      } catch {
-        // If RBAC tables are missing in tests, proceed with empty caps
-        canon = { caps: {} };
-      }
-      const ph = calcPermHash(canon);
-      try {
-        const redis = await getRedis();
-        const permKey = `perm:${user.id}:${user.tenant_code?.toLowerCase?.() || schemaName}`;
-        await redis.set(permKey, JSON.stringify({ hash: ph, version: 1, updatedAt: Date.now(), perms: canon }));
-      } catch {
-        // Redis unavailable? still issue token; middleware will treat as no-cache
-      }
-      accessToken = signAccessToken(user, { sub: user.id, ph });
-    } else {
-      accessToken = signAccessToken(user);
+    const schemaName = user.schema_name?.toLowerCase?.() || user.tenant_code?.toLowerCase?.();
+    let canon = { caps: {} };
+    try {
+      const { loadPoliciesForUserTenant } = await import('../../../src/utils/RbacPolicies.js');
+      const caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
+      canon = { caps };
+    } catch {
+      // If RBAC tables are missing in tests, proceed with empty caps
+      canon = { caps: {} };
     }
+
+    const ph = calcPermHash(canon);
+    try {
+      const redis = await getRedis();
+      const permKey = `perm:${user.id}:${user.tenant_code?.toLowerCase?.() || schemaName}`;
+      await redis.set(
+        permKey,
+        JSON.stringify({
+          hash: ph,
+          version: 1,
+          updatedAt: Date.now(),
+          perms: canon,
+          user: {
+            id: user.id,
+            tenant_code: user.tenant_code,
+            schema: user.schema_name,
+            email: user.email,
+            user_name: user.user_name,
+            roles: user.roles || user.system_roles || [],
+          },
+        }),
+      );
+    } catch {
+      // Redis unavailable? still issue token; middleware will treat as no-cache
+    }
+
+    const accessToken = signAccessToken(user, { sub: user.id, ph });
     const refreshToken = signRefreshToken(user);
 
     setAuthCookies(res, { accessToken, refreshToken });
@@ -87,7 +100,23 @@ export const refresh = async (req, res) => {
         try {
           const redis = await getRedis();
           const permKey = `perm:${user.id}:${user.tenant_code?.toLowerCase?.() || schemaName}`;
-          await redis.set(permKey, JSON.stringify({ hash: ph, version: 1, updatedAt: Date.now(), perms: canon }));
+          await redis.set(
+            permKey,
+            JSON.stringify({
+              hash: ph,
+              version: 1,
+              updatedAt: Date.now(),
+              perms: canon,
+              user: {
+                id: user.id,
+                tenant_code: user.tenant_code,
+                schema: user.schema_name,
+                email: user.email,
+                user_name: user.user_name,
+                roles: user.roles || user.system_roles || [],
+              },
+            }),
+          );
         } catch {
           // ignore redis issues during tests
         }

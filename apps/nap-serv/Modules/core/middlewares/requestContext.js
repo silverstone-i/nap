@@ -71,9 +71,9 @@ export function requestContext(req, res, next) {
         is_admin,
       };
 
-      // Optionally expose raw decoded and legacy req.user for now (can be removed later)
-      req.auth = decoded;
-      req.user = { ...decoded };
+      // // Optionally expose raw decoded and legacy req.user for now (can be removed later)
+      // req.auth = decoded;
+      // req.user = { ...decoded };
 
       next();
     });
