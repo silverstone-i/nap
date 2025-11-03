@@ -33,10 +33,10 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
 
 export const api = {
   // Auth endpoints
-  login: (email, password) => request('/api/tenants/v1/auth/login', { method: 'POST', body: { email, password } }),
-  logout: () => request('/api/tenants/v1/auth/logout', { method: 'POST' }),
-  refresh: () => request('/api/tenants/v1/auth/refresh', { method: 'POST' }),
-  me: () => request('/api/v1/auth/me'),
+  login: (email, password) => request('/api/auth/login', { method: 'POST', body: { email, password } }),
+  logout: () => request('/api/auth/logout', { method: 'POST' }),
+  refresh: () => request('/api/auth/refresh', { method: 'POST' }),
+  me: () => request('/api/auth/me'),
 };
 
 export default api;
