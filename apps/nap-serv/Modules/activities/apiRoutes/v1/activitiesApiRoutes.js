@@ -33,6 +33,4 @@ router.use('/v1/budgets', budgetsApi);
 router.use('/v1/deliverables', deliverablesApi);
 router.use('/v1/vendor-parts', vendorPartsApi);
 
-console.log('Loaded activities router');
-
 export default router;

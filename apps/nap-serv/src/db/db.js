@@ -35,16 +35,15 @@ if (!DATABASE_URL) {
 }
 
 if (!DB.db) {
-  console.log('\nInitializing database connection...');
+  logger.info('Initializing database connection...');
   DB.init(DATABASE_URL, repositories, logger);
-  console.log('Database connection established.\n');
+  logger.info('Database connection established.');
 }
 
 const rawDb = DB.db;
 const pgp = DB.pgp;
 
-// console.log('🔧 Loaded model keys:', Object.keys(rawDb));
-console.log('Database connection established.\n');
+logger.debug('Database connection ready.');
 
 // Defer callDb + db initialization until models are attached
 function createCallDb(rawDb) {

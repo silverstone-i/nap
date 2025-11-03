@@ -22,6 +22,4 @@ router.use('/v1/ap-invoice-lines', apInvoiceLinesApi);
 router.use('/v1/payments', paymentsApi);
 // Add any additional API routes here
 
-console.log('AP API Routes loaded');
-
 export default router;

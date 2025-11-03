@@ -22,6 +22,4 @@ router.use('/v1/tenants', TenantsRouter);
 router.use('/v1/match-review-logs', matchReviewLogsRouter);
 router.use('/v1/admin', AdminRouter);
 
-console.log('Loaded tenants modules router');
-
 export default router;

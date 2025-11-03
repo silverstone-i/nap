@@ -32,6 +32,4 @@ router.use('/v1/auth', authRouter);
 router.use('/v1/admin', adminRouter);
 router.use('/v1/rbac', rbacRouter);
 
-console.log('Loaded core modules router');
-
 export default router;

@@ -29,7 +29,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      exclude: ['design_docs/**', 'node_modules/**', 'vitest.config.js'],
+      exclude: ['docs/**', 'node_modules/**', 'vitest.config.js'],
     },
     exclude: ['node_modules', 'dist'],
   },

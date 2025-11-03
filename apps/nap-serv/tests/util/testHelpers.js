@@ -6,6 +6,9 @@ import jwt from 'jsonwebtoken';
 export async function setupAdminSchemaAndUser() {
   const adminDb = db.none;
 
+  await adminDb(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+  await adminDb(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+
   await adminDb(`DROP SCHEMA IF EXISTS admin CASCADE`);
   await adminDb(`CREATE SCHEMA admin`);
 
@@ -50,6 +53,9 @@ export function generateTestToken(payload = {}) {
 
 export async function setupAdditionalSchemasAndUsers() {
   const adminDb = db.none;
+
+  await adminDb(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+  await adminDb(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
   // Create a new schema "ciq"
   await adminDb(`DROP SCHEMA IF EXISTS ciq CASCADE`);

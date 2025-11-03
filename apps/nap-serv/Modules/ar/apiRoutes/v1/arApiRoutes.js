@@ -25,7 +25,5 @@ router.use('/v1/ar-invoices', arInvoicesApi);
 router.use('/v1/ar-invoice-lines', arInvoiceLinesApi);
 router.use('/v1/invoices', invoicesRouter);
 
-console.log('AR API Routes loaded');
-
 // Export the router
 export default router;

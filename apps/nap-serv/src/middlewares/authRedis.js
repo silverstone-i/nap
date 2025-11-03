@@ -1,77 +1,108 @@
 'use strict';
 
 import jwt from 'jsonwebtoken';
+import logger from '../utils/logger.js';
 import { getRedis } from '../utils/redis.js';
 import { calcPermHash } from '../utils/permHash.js';
 
-// Build canonical perms from DB for a given user+tenant schema
+const AUTH_BYPASS_SEGMENTS = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/check'];
+
 async function buildCanon({ schemaName, userId }) {
-  // Reuse existing loader: flatten policies to caps map
   const { loadPoliciesForUserTenant } = await import('../utils/RbacPolicies.js');
   const caps = await loadPoliciesForUserTenant({ schemaName, userId });
   return { caps };
 }
 
+function shouldBypassAuth(path, fullPath) {
+  const normalizedPath = (path || '').toLowerCase();
+  const normalizedFullPath = (fullPath || '').toLowerCase();
+  if (normalizedPath === '/') return true;
+
+  return AUTH_BYPASS_SEGMENTS.some(
+    segment => normalizedPath.includes(segment) || normalizedFullPath.includes(segment),
+  );
+}
+
+function resolveTenantContext({ headers, claims, fullPath }) {
+  const lowerFullPath = (fullPath || '').toLowerCase();
+  const headerTenant = headers['x-tenant-code'] || headers['x-tenant'];
+  const claimTenant = claims?.tenant_code || claims?.tenantId;
+  const tenantCode = (headerTenant || claimTenant || '').toLowerCase();
+  let schemaName = claims?.schema_name?.toLowerCase?.() || tenantCode || null;
+
+  const isAdminArea =
+    lowerFullPath.includes('/api/tenants/v1/admin') ||
+    lowerFullPath.includes('/api/core/v1/admin');
+  const isCoreAuthSelf =
+    lowerFullPath.includes('/api/core/v1/auth/me') ||
+    lowerFullPath.includes('/api/auth/me');
+
+  if (!schemaName && isAdminArea) {
+    schemaName = 'admin';
+  }
+
+  return { tenantCode, schemaName, isAdminArea, isCoreAuthSelf };
+}
+
+async function loadPermissions({ userId, schemaName, tenantCode, bypassRbac }) {
+  if (bypassRbac) {
+    return { hash: null, version: 1, updatedAt: Date.now(), perms: { caps: {} } };
+  }
+
+  const redis = await getRedis();
+  const permKey = `perm:${userId}:${tenantCode || schemaName}`;
+  let record = await redis.get(permKey).then(value => (value ? JSON.parse(value) : null));
+
+  if (!record) {
+    const canon = await buildCanon({ schemaName, userId });
+    const hash = calcPermHash(canon);
+    record = { hash, version: 1, updatedAt: Date.now(), perms: canon };
+    await redis.set(permKey, JSON.stringify(record));
+  }
+
+  return record;
+}
+
 export function authRedis() {
   return async (req, res, next) => {
     try {
-      // Allow public auth endpoints to proceed without auth
-      const path = (req.path || '').toLowerCase();
-      const fullPath = (req.originalUrl || req.url || '').toLowerCase();
-      if (
-        path.includes('/auth/login') ||
-        path.includes('/auth/refresh') ||
-        path.includes('/auth/logout') ||
-        path.includes('/auth/check') ||
-        path === '/'
-      ) {
+      const path = req.path || '';
+      const fullPath = req.originalUrl || req.url || '';
+
+      if (shouldBypassAuth(path, fullPath)) {
         return next();
       }
-      const token = req.cookies?.auth_token;
-      if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
-      // Verify using HS256 for now (matches existing); spec suggests RS256 later
+      const token = req.cookies?.auth_token;
+      if (!token) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const claims = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      // Accept legacy tests that sign tokens without sub
       let uid = claims?.sub || claims?.id;
       const tokenHash = claims?.ph || null;
 
-      // Derive tenant from ctx override header or legacy claims
-      const headerTenant = req.headers['x-tenant-code'] || req.headers['x-tenant'];
-      const claimTenant = claims?.tenant_code || claims?.tenantId;
-      const tenantCode = (headerTenant || claimTenant || '').toLowerCase();
-      let schemaName = claims?.schema_name?.toLowerCase?.() || tenantCode || null;
       if (!uid && claims?.email) {
-        // Allow legacy tokens that have email only for admin endpoints; map to fake id
         uid = 'test-user-id';
       }
-      // For tenants admin API and core admin API, allow requests with a valid JWT even if schema is absent.
-      const isAdminArea = fullPath.includes('/api/tenants/v1/admin') || fullPath.includes('/api/core/v1/admin');
-      // For core auth self endpoints like /api/core/v1/auth/me, do not require schema or RBAC.
-      const isCoreAuthSelf = fullPath.includes('/api/core/v1/auth/me') || fullPath.includes('/api/auth/me');
-      if (!schemaName && isAdminArea) {
-        schemaName = 'admin';
-      }
-      if (!uid || (!schemaName && !isCoreAuthSelf)) return res.status(401).json({ error: 'Unauthorized' });
 
-      let rec = null;
-      if (!isAdminArea && !isCoreAuthSelf) {
-        const redis = await getRedis();
-        const permKey = `perm:${uid}:${tenantCode || schemaName}`;
-        rec = await redis.get(permKey).then((v) => (v ? JSON.parse(v) : null));
-        if (!rec) {
-          const canon = await buildCanon({ schemaName, userId: uid });
-          const hash = calcPermHash(canon);
-          rec = { hash, version: 1, updatedAt: Date.now(), perms: canon };
-          await redis.set(permKey, JSON.stringify(rec));
-        }
-      } else {
-        // On admin area, avoid hitting Redis/RBAC DB during tests; attach empty perms and no hash
-        rec = { hash: null, version: 1, updatedAt: Date.now(), perms: { caps: {} } };
+      const { tenantCode, schemaName, isAdminArea, isCoreAuthSelf } = resolveTenantContext({
+        headers: req.headers,
+        claims,
+        fullPath,
+      });
+
+      if (!uid || (!schemaName && !isCoreAuthSelf)) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      // Attach minimal user context for downstream use
-      // Populate minimal req.user compatible with legacy tests
+      const permsRecord = await loadPermissions({
+        userId: uid,
+        schemaName,
+        tenantCode,
+        bypassRbac: isAdminArea || isCoreAuthSelf,
+      });
+
       req.user = {
         id: uid,
         email: claims?.email,
@@ -79,22 +110,24 @@ export function authRedis() {
         role: claims?.role,
         tenant_code: tenantCode || null,
         schema_name: schemaName,
-        perms: rec.perms,
+        perms: permsRecord.perms,
       };
+
       req.ctx = {
         ...(req.ctx || {}),
         user_id: uid,
         tenant_code: tenantCode || null,
         schema: schemaName || null,
-        perms: rec.perms,
+        perms: permsRecord.perms,
       };
 
-      if (tokenHash && rec?.hash && tokenHash !== rec.hash) {
+      if (tokenHash && permsRecord?.hash && tokenHash !== permsRecord.hash) {
         res.setHeader('X-Token-Stale', '1');
       }
 
       return next();
-    } catch {
+    } catch (error) {
+      logger.warn('authRedis rejected request', { error: error?.message });
       return res.status(401).json({ error: 'Unauthorized' });
     }
   };

@@ -33,6 +33,4 @@ router.use('/v1/ledger-balances', ledgerBalancesApi);
 router.use('/v1/posting-queues', postingQueuesApi);
 // Add more routes as needed
 
-console.log('Loaded accounting API router');
-
 export default router;
