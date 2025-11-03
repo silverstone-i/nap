@@ -1,7 +1,9 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react';
-import { Avatar, Box, Button, TextField, Typography, Paper, Alert } from '@mui/material';
+import { Avatar, Box, Button, TextField, Typography, Paper, Alert, IconButton, InputAdornment } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,6 +17,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [formState, setFormState] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormState({ ...formState, [e.target.name]: e.target.value });
@@ -33,6 +36,10 @@ export default function LoginPage() {
       const message = err?.data?.message || err?.message || 'Invalid credentials';
       setError(message);
     }
+  };
+
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword(prev => !prev);
   };
 
   return (
@@ -76,11 +83,24 @@ export default function LoginPage() {
               fullWidth
               name="password"
               label="Password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               id="password"
               autoComplete="current-password"
               value={formState.password}
               onChange={handleChange}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={handleTogglePasswordVisibility}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>
               Sign In
