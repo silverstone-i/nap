@@ -1,88 +1,85 @@
 # nap-serv
 
-_Not Another Program_ — Project Costing & Profitability Server
-
-[![npm version](https://img.shields.io/npm/v/nap-serv.svg)](https://www.npmjs.com/package/nap-serv)
-[![build status](https://img.shields.io/github/actions/workflow/status/your-username/pg-schemata/ci.yml?branch=main)](https://github.com/your-username/nap-serv/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![node](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
-[![postgresql](https://img.shields.io/badge/PostgreSQL-✔️-blue)](https://www.postgresql.org/)
-[![node](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
-[![Coverage Status](https://coveralls.io/repos/github/your-org/nap-serv/badge.svg?branch=main)](https://coveralls.io/github/your-org/nap-serv?branch=main)
-[![Docs](https://img.shields.io/badge/docs-online-brightgreen)](https://your-org.github.io/nap-serv/)
+`nap-serv` powers the Next-Gen Accounting Platform (NAP). It is a Node.js/Express API backed by
+PostgreSQL with strict tenant isolation and feature modules for projects, budgeting, accounting, and
+RBAC-controlled workflows.
 
 ---
 
-## Overview
+## Where This Module Lives
 
-`nap-serv` is the backend server for a PERN-stack project-based cost management platform. It supports multi-tenant operations, project budgeting vs. actual cost tracking, double-entry accounting, and centralized user authentication via `nap_users`.
+This project is part of the NAP monorepo (`apps/nap-serv`). Related workspaces:
 
-Dynamic route loading was deprecated in favor of static registration to support ESM testing with Jest.
+- `apps/nap-client` – React/Vite frontend
+- `packages/shared` – shared utilities and constants
 
-## Features
+---
 
-- 🧑‍💼 Multi-tenant architecture with per-tenant PostgreSQL schemas
-- 🔐 Centralized authentication with JWT/session and `nap_users` table
-- 📊 Project-level budgeting, costing, and profitability tracking
-- 🛠️ Activity-based cost rollups and actual vs. budget comparisons
-- 💰 Double-entry bookkeeping system:
-  - General Ledger
-  - Accounts Payable / Receivable
-- 📆 Schedule management and billing cycle integration
-- 📦 Static route registration (ESM- and Jest-compatible; dynamic loading deprecated)
-- 🧠 Planned: AI-powered reporting and cost estimation tools
+## Prerequisites
 
-## Tech Stack
+- Node.js 20+
+- PostgreSQL 14+ accessible to the application
+- Redis (for auth + permissions cache)
+- pnpm/npm (the repo uses npm workspaces)
 
-- **Backend:** Node.js (ESM), Express
-- **Database:** PostgreSQL
-- **Frontend:** [nap-client](https://github.com/your-org/nap-client)
-- **ORM Layer:** [`pg-schemata`](https://www.npmjs.com/package/pg-schemata) – schema-driven PostgreSQL wrapper with static module integration
+Ensure environment variables are configured (copy `.env.example` when available).
 
-## Monorepo Structure
+---
 
-```plaintext
-nap/
-├── nap-server/         # Backend API (this repo)
-├── nap-client/         # React frontend
-└── nap-common/         # Shared utilities, types, etc.
-```
+## Local Setup
 
-## Getting Started
+1. Install dependencies from the repo root:
+   ```bash
+   npm install
+   ```
+2. Start the backend (with optional client):
+   ```bash
+   npm run dev              # full stack
+   npm run dev -- --filter apps/nap-serv  # server only
+   ```
+3. Run migrations for a local tenant:
+   ```bash
+   npm run migrate:dev
+   ```
 
-```bash
-git clone https://github.com/your-org/nap-serv.git
-cd nap-serv
-npm install
-npm run dev
-```
+The API listens on the port specified by `NAP_SERV_PORT` (default `4000`).
 
-## Scripts
+---
 
-- `npm run dev` – Start server in dev mode
-- `npm run test` – Run unit and integration tests
-- `npm run lint` – Lint the codebase
-- `npm run migrate:dev` – Run tenant/admin schema migrations via the pg-schemata migrator
-- `npm run migrate:test` – Execute migrations against the test database
-- `npm run docs` – Generate JSDoc documentation to `docs/`
+## Useful Scripts
+
+| Command                     | Description                                                |
+|-----------------------------|------------------------------------------------------------|
+| `npm run dev`               | Start server with nodemon                                  |
+| `npm run start`             | Production start                                           |
+| `npm run lint`              | Run ESLint                                                 |
+| `npm test`                  | Run the full Vitest suite                                  |
+| `npm run test:unit`         | Unit tests only                                            |
+| `npm run test:integration`  | Integration tests                                          |
+| `npm run migrate:dev`       | Execute pg-schemata migrations for development schemas     |
+| `npm run migrate:test`      | Run migrations against the test database                   |
+| `npm run seed:rbac`         | Seed default RBAC roles/policies (uses `seed_rbac.js`)     |
+
+---
 
 ## Documentation
 
-Autogenerated using [JSDoc](https://jsdoc.app) + [docdash](https://github.com/clenemt/docdash)
+Authoritative docs now live under `apps/nap-serv/docs/`:
 
-```bash
-npm run docs
-```
+- `developer-guide.md` – coding standards, project structure, testing strategy
+- `architecture.md` – runtime topology, tenancy, module registry
+- `domain-model.md` – budgeting, costing, AP/AR, and reporting rules
+- `auth-rbac.md` – authentication lifecycle, permission cache, RBAC schemas
 
-Documentation is published at:  
-👉 [https://your-org.github.io/nap-serv](https://your-org.github.io/nap-serv)
+Update these documents when behaviour changes; do not resurrect the old scattered Markdown files.
 
-## License
+---
 
-MIT © 2025 Ian Silverstone
+## Support & Contributions
 
-# 🚀 Contributions Welcome
+- Follow [Conventional Commits](https://www.conventionalcommits.org/) with scopes like
+  `feat(serv)` and `fix(activities)`.
+- Run lint/test suites before submitting pull requests.
+- Coordinate schema changes with migration updates and docs.
 
-Feel free to open issues, suggest features, or submit pull requests!
-
-- 📄 [Detailed test setup guide](./design_docs/test-setup.md)
+Licensed under the MIT License.
