@@ -18,6 +18,7 @@ import apRoutes from '../modules/ap/apiRoutes/v1/apApiRoutes.js';
 import arRoutes from '../modules/ar/apiRoutes/v1/arApiRoutes.js';
 import bomApiRoutes from '../modules/bom/apiRoutes/v1/bomApiRoutes.js';
 import coreRoutes from '../modules/core/apiRoutes/v1/coreApiRoutes.js';
+import coreAuthRouter from '../modules/core/apiRoutes/v1/auth.router.js';
 import projectsRoutes from '../modules/projects/apiRoutes/v1/projectsApiRoutes.js';
 import tenantsRoutes from '../modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
 
@@ -29,6 +30,7 @@ router.use('/ap', apRoutes);
 router.use('/ar', arRoutes);
 router.use('/bom', bomApiRoutes);
 router.use('/core', coreRoutes);
+router.use('/auth', coreAuthRouter);
 router.use('/projects', projectsRoutes);
 router.use('/tenants', tenantsRoutes);
 // Add more routes as needed
