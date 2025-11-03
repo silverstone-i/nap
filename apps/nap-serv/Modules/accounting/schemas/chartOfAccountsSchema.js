@@ -27,7 +27,7 @@ const chartOfAccountsSchema = {
     {
       name: 'id',
       type: 'uuid',
-      default: 'uuidv7()',
+      default: 'gen_random_uuid()',
       nullable: false,
       immutable: true,
     },

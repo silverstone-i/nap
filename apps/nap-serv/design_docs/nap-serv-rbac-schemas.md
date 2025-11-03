@@ -8,7 +8,7 @@ Use these as-is under `apps/nap-serv/core/schema/*`.
 ## Conventions
 
 - All tables include `tenant_id` and `tenant_code`.
-- Primary keys use **UUIDv7** (`uuid_generate_v7()`); replace with `gen_random_uuid()` if needed.
+- Primary keys use **gen_random_uuid()** for decentralized IDs.
 - Never include `tenant_code` in PK/UK/FK.
 - Deny-by-default: absence of a policy ⇒ `none`.
 
@@ -34,7 +34,7 @@ export const rolesSchema = {
     {
       name: 'id',
       type: 'uuid',
-      default: 'uuid_generate_v7()',
+      default: 'gen_random_uuid()',
       nullable: false,
       immutable: true,
     },
@@ -61,7 +61,7 @@ export default rolesSchema;
 
 ```sql
 CREATE TABLE roles (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v7(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NULL,
   tenant_code text NULL,
   code text NOT NULL,
@@ -101,7 +101,7 @@ export const roleMembersSchema = {
     {
       name: 'id',
       type: 'uuid',
-      default: 'uuid_generate_v7()',
+      default: 'gen_random_uuid()',
       nullable: false,
       immutable: true,
     },
@@ -129,7 +129,7 @@ export default roleMembersSchema;
 
 ```sql
 CREATE TABLE role_members (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v7(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NULL,
   tenant_code text NULL,
   role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
@@ -169,7 +169,7 @@ export const policiesSchema = {
     {
       name: 'id',
       type: 'uuid',
-      default: 'uuid_generate_v7()',
+      default: 'gen_random_uuid()',
       nullable: false,
       immutable: true,
     },
@@ -206,7 +206,7 @@ export default policiesSchema;
 
 ```sql
 CREATE TABLE policies (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v7(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NULL,
   tenant_code text NULL,
   role_id uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,

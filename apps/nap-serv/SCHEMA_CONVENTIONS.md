@@ -22,7 +22,7 @@ This document defines how database schemas should be designed and managed in nap
   - `*_at` for timestamps
   - `*_count`, `*_flag`, `*_status` for booleans or state
 - Common fields:
-  - `id UUID PRIMARY KEY DEFAULT uuidv7()`
+  - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
   - `created_at TIMESTAMP DEFAULT now()`
   - `updated_at TIMESTAMP DEFAULT now()`
   - `deleted_at TIMESTAMP NULL` (for soft deletes)

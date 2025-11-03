@@ -39,7 +39,7 @@ projects
 ```js
 // costLinesSchema.js (excerpt)
 columns: [
-  { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false },
+  { name: 'id', type: 'uuid', default: 'gen_random_uuid()', nullable: false },
   { name: 'project_id', type: 'uuid', nullable: false },
   { name: 'category_id', type: 'uuid', nullable: false },
   { name: 'amount', type: 'numeric(12,2)', nullable: false },
@@ -106,6 +106,6 @@ GROUP BY p.id, c.name, ab.amount;
 
 ## 📌 Notes
 
-- `uuidv7()` is used for all IDs for sortable, decentralized primary keys.
+- `gen_random_uuid()` is used for all IDs for decentralized primary keys.
 - All tables include `tenant_id` for multi-tenant isolation.
 - Reports may be filtered by `project_code`, `category`, or `date ranges`.

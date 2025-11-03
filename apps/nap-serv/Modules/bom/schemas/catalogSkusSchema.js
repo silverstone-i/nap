@@ -19,7 +19,7 @@ const schema = {
   softDelete: true,
   version: '1.0.0',
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true, colProps: { cnd: true } },
+    { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true, colProps: { cnd: true } },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true },
     { name: 'catalog_sku', type: 'varchar(64)', notNull: true },
     { name: 'description', type: 'text', notNull: true },

@@ -22,7 +22,7 @@ const schema = {
   softDelete: false,
 
   columns: [
-    { name: 'id', type: 'uuid', notNull: true, default: 'uuidv7()', immutable: true },
+    { name: 'id', type: 'uuid', notNull: true, default: 'gen_random_uuid()', immutable: true },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Used for filtering/partitioning but not for indexing or uniqueness
     { name: 'task_group_code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } },
     { name: 'code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } }, // Used for filtering/partitioning but not for indexing or uniqueness

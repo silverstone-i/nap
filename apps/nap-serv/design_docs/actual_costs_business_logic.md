@@ -27,7 +27,7 @@ Tracks real-world, approved incurred expenses tied to `cost_lines`.
 
 | Field              | Behavior                                            |
 |--------------------|-----------------------------------------------------|
-| `id`               | Auto-generated (`uuidv7()`)                         |
+| `id`               | Auto-generated (`gen_random_uuid()`)               |
 | `tenant_id`        | Required from session/request context               |
 | `cost_line_id`     | Must exist and belong to same `tenant_id`           |
 | `amount`           | Must be ≤ remaining budget, unless overage is allowed |

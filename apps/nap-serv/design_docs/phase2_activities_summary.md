@@ -4,7 +4,7 @@
 
 - **Stack**: PERN (PostgreSQL, Express, React, Node.js)
 - **ORM**: `pg-schemata` (schema-driven)
-- **IDs**: `uuid_generate_v7()` used as PK in all tables
+- **IDs**: `gen_random_uuid()` used as PK in all tables
 - **Multitenancy**: `tenant_id` field in all tables (6–8 char, e.g., AST, WEG, PRU)
 
 ---

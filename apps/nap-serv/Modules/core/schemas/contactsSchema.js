@@ -19,7 +19,7 @@ const schema = {
   version: '1.0.0', // Always use version 1.0.0
   softDelete: true, // Enable soft delete
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
+    { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true }, // Primary key
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant association
     { name: 'source_id', type: 'uuid', notNull: true }, // Foreign key to sources table
     { name: 'label', type: 'varchar(64)', notNull: true }, // e.g., 'sales', 'accounting'

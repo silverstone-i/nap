@@ -20,7 +20,7 @@ const schema = {
   hasAuditFields: true,
   softDelete: true,
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+    { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
     {
       name: 'tenant_code',
       type: 'varchar(6)',

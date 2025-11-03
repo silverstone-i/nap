@@ -39,7 +39,7 @@ const paymentsSchema = {
   },
 
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', nullable: false, immutable: true },
+    { name: 'id', type: 'uuid', default: 'gen_random_uuid()', nullable: false, immutable: true },
     { name: 'tenant_id', type: 'uuid', nullable: false },
 
     { name: 'vendor_id', type: 'uuid', nullable: false },

@@ -20,7 +20,7 @@ The `change_order_lines` table tracks approved changes to project unit activity 
 
 | Field          | Description                                                              |
 |----------------|---------------------------------------------------------------------------|
-| `id`           | Unique change order line ID (`uuidv7`)                                   |
+| `id`           | Unique change order line ID (`gen_random_uuid()`)                        |
 | `unit_id`      | The unit of work this change applies to                               |
 | `activity_id`  | The activity whose budget is being altered                               |
 | `change_amount`| The amount of the change (positive or negative)                          |

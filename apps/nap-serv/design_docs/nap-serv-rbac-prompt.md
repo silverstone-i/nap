@@ -53,19 +53,19 @@ apps/nap-serv/
 Implement **exactly**:
 
 - `roles.schema.js`
-  - PK `id uuid default uuid_generate_v7()`
+  - PK `id uuid default gen_random_uuid()`
   - `tenant_id uuid NULL`, `tenant_code text NULL`
   - `code text NOT NULL` (stable key), `name text NOT NULL`, `description text NULL`
   - `is_system boolean NOT NULL default false`, `is_immutable boolean NOT NULL default false`
   - UK `(tenant_id, code)`; indexes on `tenant_id`, `code`
 - `role_members.schema.js`
-  - PK `id uuid default uuid_generate_v7()`
+  - PK `id uuid default gen_random_uuid()`
   - `tenant_id`, `tenant_code`
   - `role_id uuid NOT NULL` (→ roles.id), `user_id uuid NOT NULL` (→ global `nap_users.id`)
   - `is_primary boolean NOT NULL default false`
   - UK `(role_id, user_id)`; indexes on `role_id`, `user_id`, `tenant_id`
 - `policies.schema.js`
-  - PK `id uuid default uuid_generate_v7()`
+  - PK `id uuid default gen_random_uuid()`
   - `tenant_id`, `tenant_code`
   - `role_id uuid NOT NULL` (tenant role)
   - `module text NOT NULL`, `router text NULL`, `action text NULL`

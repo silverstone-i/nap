@@ -19,7 +19,7 @@ const matchReviewLogsSchema = {
   hasAuditFields: true,
   softDelete: false,
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+    { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true },
     { name: 'vendor_id', type: 'uuid', notNull: true },
     { name: 'vendor_sku', type: 'varchar(100)', notNull: true },

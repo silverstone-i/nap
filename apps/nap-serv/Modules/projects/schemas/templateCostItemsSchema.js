@@ -21,7 +21,7 @@ const schema = {
   softDelete: true,
 
   columns: [
-    { name: 'id', type: 'uuid', notNull: true, immutable: true, default: 'uuidv7()' },
+    { name: 'id', type: 'uuid', notNull: true, immutable: true, default: 'gen_random_uuid()' },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } },
     { name: 'template_task_id', type: 'uuid', notNull: true },
     { name: 'parent_code', type: 'varchar(50)', default: null },

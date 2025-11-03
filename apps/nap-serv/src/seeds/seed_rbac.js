@@ -71,7 +71,7 @@ export async function seedRbac({ schemaName, createdBy = 'seed-rbac' }) {
         if (e?.code === '23505') {
           await db.none(
             `INSERT INTO ${schema}.policies (id, tenant_code, role_id, module, router, action, level, created_by)
-             VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7)
+             VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
              ON CONFLICT (role_id, module, router, action) DO NOTHING`,
             [data.tenant_code, data.role_id, data.module, data.router, data.action, data.level, data.created_by],
           );

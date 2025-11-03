@@ -17,7 +17,7 @@
 ## 2) Data Model (given)
 User table (relevant fields):
 ```sql
-id uuid primary key default uuidv7() not null,
+id uuid primary key default gen_random_uuid() not null,
 tenant_code varchar(6) not null unique,
 schema_name varchar(6) not null unique,
 email varchar(255) not null,
@@ -39,7 +39,7 @@ Notes:
 ### 3.1 Access Token Claims
 ```json
 {
-  "sub": "<user_uuid>",            // REQUIRED: user id (UUIDv7)
+  "sub": "<user_uuid>",            // REQUIRED: user id (UUID4-style)
   "ph":  "<sha256_perm_hash>",     // REQUIRED: permissions hash (see §4)
   "sid": "<session_id>",           // OPTIONAL: for cache keying/revocation
   "iss": "nap-serv",

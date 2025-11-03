@@ -40,7 +40,7 @@
 ## 4. Schema Structure Guidelines
 
 - All tenant-local tables **must include**:
-  - `id`: primary key (`uuidv7()`)
+  - `id`: primary key (`gen_random_uuid()`)
   - `tenant_id`: always present for audit integrity and possible shared-model fallback
 - Tables will **not include `tenant_id` in UNIQUE constraints** because:
   - Schemas already isolate data

@@ -19,7 +19,7 @@ const employeesSchema = {
   softDelete: true, // Enable soft delete
   version: '1.0.0', // Always use version 1.0.0
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true }, // Primary key
+    { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true }, // Primary key
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } }, // Tenant association
     { name: 'employee_code', type: 'varchar(12)', notNull: true }, // Unique employee code
     { name: 'first_name', type: 'varchar(255)', notNull: true }, // Employee first name

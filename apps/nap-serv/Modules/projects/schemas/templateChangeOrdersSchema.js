@@ -25,7 +25,7 @@ const schema = {
       type: 'uuid',
       notNull: true,
       immutable: true,
-      default: 'uuidv7()',
+      default: 'gen_random_uuid()',
     },
     {
       name: 'tenant_code',

@@ -15,7 +15,7 @@ const schema = {
   softDelete: false,
   version: '1.0.0',
   columns: [
-    { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+    { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
     { name: 'tenant_code', type: 'varchar(6)', default: null },
     { name: 'role_id', type: 'uuid', notNull: true },
     { name: 'user_id', type: 'uuid', notNull: true },

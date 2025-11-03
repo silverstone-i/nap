@@ -22,7 +22,7 @@ const schema = {
   softDelete: true,
 
   columns: [
-    { name: 'id', type: 'uuid', notNull: true, immutable: true, default: 'uuidv7()' },
+    { name: 'id', type: 'uuid', notNull: true, immutable: true, default: 'gen_random_uuid()' },
     { name: 'tenant_code', type: 'varchar(6)', notNull: true, colProps: { skip: c => !c.exists } },
     { name: 'template_unit_id', type: 'uuid', notNull: true },
     { name: 'task_code', type: 'varchar(50)', notNull: true, colProps: { validator: z.coerce.string() } },

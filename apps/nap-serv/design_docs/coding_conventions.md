@@ -117,7 +117,7 @@ This document describes the coding conventions used throughout the project to en
     version: '1.0.0',
     softDelete: true,
     columns: [
-      { name: 'id', type: 'uuid', default: 'uuidv7()', notNull: true, immutable: true },
+      { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
       { name: 'tenant_code', type: 'varchar(6)', notNull: true },
       // ...
     ],
