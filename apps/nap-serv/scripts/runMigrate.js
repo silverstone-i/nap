@@ -24,14 +24,17 @@ import { migrateTenants } from './migrateTenants.js';
 
 const args = process.argv.slice(2);
 const testFlag = process.env.NODE_ENV === 'test' || args.includes('--test');
+const dryRun = args.includes('--dry-run') || testFlag;
 const schemaList = args.filter(arg => !arg.startsWith('--'));
+
 console.log('Running migration with the following parameters:');
 console.log(`  Test mode: ${testFlag}`);
-console.log(`  Schemas: ${schemaList.length > 0 ? schemaList.join(', ') : 'all'}`); 
+console.log(`  Dry run: ${dryRun}`);
+console.log(`  Schemas: ${schemaList.length > 0 ? schemaList.join(', ') : 'none (supply schema names to migrate)'}`); 
 
 (async () => {
   try {
-    await migrateTenants({ schemaList, testFlag });
+    await migrateTenants({ schemaList, testFlag, dryRun });
   } catch (err) {
     console.error(err);
     process.exit(1);

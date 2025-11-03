@@ -9,18 +9,14 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-const enabledModules = ['tenants','core', 'views', 'projects', 'bom']; // TODO: Load dynamically per tenant or env config
+import moduleRegistry from './moduleRegistry.js';
+
+export const enabledModules = moduleRegistry.map(module => module.name);
 
 const repositories = {};
 
-for (const moduleName of enabledModules) {
-  // Use dynamic import to load the module
-  const modulePath = `../../modules/${moduleName}/${moduleName}Repositories.js`;
-
-  const { default: moduleRepositories } = await import(modulePath);
-  Object.assign(repositories, moduleRepositories);
-  // console.log('Loaded repositories:', Object.keys(moduleRepositories));
-  // console.log('Current repositories:', Object.keys(repositories));
+for (const module of moduleRegistry) {
+  Object.assign(repositories, module.repositories);
 }
 
 export default repositories;

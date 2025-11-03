@@ -4,6 +4,9 @@
 
 Extend the bootstrap script so the **ADMIN** tenant (NapSoft) is provisioned with the **exact modules it needs**, seeded super_admin users, and idempotent re-runs. Use ESM, pg‑schemata, and our module-scoped migration pattern.
 
+> **Update (pg-schemata migrator)**  
+> The `src/db/migrations` registry now coordinates module-scoped migrations and records history in `pgschemata.migrations`. Use `npm run migrate:dev -w apps/nap-serv` to invoke the new runner when testing bootstrap flows.
+
 ## Preconditions (from Step 1)
 
 - Auth/admin routers & middlewares live under `modules/core`.

@@ -11,6 +11,12 @@ export async function seedRbac({ schemaName, createdBy = 'seed-rbac' }) {
   const tenantCode = schema === 'admin' ? null : (schemaName?.toUpperCase() ?? null);
   const isAdminSchema = schema === 'admin';
 
+  const rolesRegclass = await db.oneOrNone(`SELECT to_regclass($1) AS exists`, [`${schema}.roles`]);
+  if (!rolesRegclass?.exists) {
+    console.warn(`⚠️ Skipping RBAC seeding for schema "${schema}" because roles table is missing.`);
+    return;
+  }
+
   // Ensure RBAC tables exist in target schema
   // Tables must already exist; migrations/bootstrap create them
 

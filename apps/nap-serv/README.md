@@ -62,6 +62,8 @@ npm run dev
 - `npm run dev` – Start server in dev mode
 - `npm run test` – Run unit and integration tests
 - `npm run lint` – Lint the codebase
+- `npm run migrate:dev` – Run tenant/admin schema migrations via the pg-schemata migrator
+- `npm run migrate:test` – Execute migrations against the test database
 - `npm run docs` – Generate JSDoc documentation to `docs/`
 
 ## Documentation

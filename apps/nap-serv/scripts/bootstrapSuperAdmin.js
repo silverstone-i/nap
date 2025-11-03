@@ -15,9 +15,8 @@ import bcrypt from 'bcrypt';
 import { db } from '../src/db/db.js'; // DB accessor with schema-aware models
 import { fileURLToPath } from 'url';
 const { seedRbac } = await import('../src/seeds/seed_rbac.js');
-import { isValidModel, topoSortModels } from './lib/models.js';
-
-// Helpers now imported from ./lib/models.js
+import migrator from '../src/db/migrations/index.js';
+import { getModulesForSchema } from '../src/db/migrations/moduleScopes.js';
 
 async function bootstrapSuperAdmin() {
   const { ROOT_EMAIL, ROOT_PASSWORD, NAPSOFT_TENANT } = process.env;
@@ -35,34 +34,20 @@ async function bootstrapSuperAdmin() {
     await db.none(`CREATE SCHEMA IF NOT EXISTS admin;`);
     await db.none(`CREATE SCHEMA IF NOT EXISTS ${tenantSchema};`);
 
-    // Create tables for admin-scoped models in admin schema
-    const adminModels = Object.fromEntries(
-      Object.entries(db)
-        .filter(([, model]) => isValidModel(model) && model.schema?.dbSchema === 'admin')
-        .map(([, model]) => {
-          const m = db(model, 'admin');
-          return [`${m.schema.dbSchema}.${m.schema.table}`.toLowerCase(), m];
-        }),
-    );
-    const adminOrder = topoSortModels(adminModels);
-    for (const key of adminOrder) {
-      await adminModels[key].createTable();
-    }
+    console.log('🧱 Ensuring admin schema migrations have run...');
+    await migrator.run({
+      schema: 'admin',
+      modules: getModulesForSchema('admin'),
+      advisoryLock: 424242,
+    });
 
-    // Create tables for tenant-scoped models in tenant schema
-    const tenantModels = Object.fromEntries(
-      Object.entries(db)
-        .filter(([, model]) => isValidModel(model) && model.schema?.dbSchema !== 'admin')
-        .map(([, model]) => {
-          const m = db(model, tenantSchema);
-          return [`${m.schema.dbSchema}.${m.schema.table}`.toLowerCase(), m];
-        }),
-    );
-    const tenantOrder = topoSortModels(tenantModels);
-    for (const key of tenantOrder) {
-      // Views have no createTable; skip if flagged by model class
-      if (tenantModels[key]?.constructor?.isViewModel) continue;
-      await tenantModels[key].createTable();
+    if (tenantSchema !== 'admin') {
+      console.log(`🏗️ Ensuring tenant schema "${tenantSchema}" migrations have run...`);
+      await migrator.run({
+        schema: tenantSchema,
+        modules: getModulesForSchema(tenantSchema),
+        advisoryLock: 424242,
+      });
     }
 
     console.log('🔐 Checking for existing super admin...');
