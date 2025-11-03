@@ -21,9 +21,19 @@ import { apiLogger } from './utils/logger.js';
 import morgan from 'morgan';
 
 const app = express();
+const defaultOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
 // Middleware
-app.use(cors(/* options */));
+app.use(
+  cors({
+    origin: allowedOrigins.length > 0 ? allowedOrigins : defaultOrigin,
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 app.use(express.urlencoded({ extended: true }));
