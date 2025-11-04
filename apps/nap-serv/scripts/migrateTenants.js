@@ -26,9 +26,14 @@ async function migrateTenants({ schemaList = [], dryRun = false, testFlag = fals
 
   try {
     for (const schemaName of schemaList) {
-      const moduleSelection = modulesBySchema[schemaName] ?? getModulesForSchema(schemaName);
+      const modulesSource = modulesBySchema[schemaName] ?? getModulesForSchema(schemaName) ?? [];
+      const moduleSelection = Array.isArray(modulesSource) ? modulesSource : [modulesSource].filter(Boolean);
 
-      console.log(`🚀 Running migrations for schema "${schemaName}" with modules: ${moduleSelection.join(', ') || '(none)'}`);
+      console.log(
+        `🚀 Running migrations for schema "${schemaName}" with modules: ${
+          moduleSelection.length ? moduleSelection.join(', ') : '(none)'
+        }`
+      );
 
       const outcome = await migrator.run({
         schema: schemaName,

@@ -15,11 +15,15 @@ import bcrypt from 'bcrypt';
 import { db } from '../src/db/db.js'; // DB accessor with schema-aware models
 import { fileURLToPath } from 'url';
 const { seedRbac } = await import('../src/seeds/seed_rbac.js');
-import migrator from '../src/db/migrations/index.js';
-import { getModulesForSchema } from '../src/db/migrations/moduleScopes.js';
 
-async function bootstrapSuperAdmin() {
-  const { ROOT_EMAIL, ROOT_PASSWORD, NAPSOFT_TENANT } = process.env;
+function resolveTenantCode(overrideTenantCode) {
+  if (overrideTenantCode) return overrideTenantCode.toUpperCase();
+  const { NAPSOFT_TENANT } = process.env;
+  return (NAPSOFT_TENANT || 'ADMIN').toUpperCase();
+}
+
+async function bootstrapSuperAdmin({ tenantCode: overrideTenantCode } = {}) {
+  const { ROOT_EMAIL, ROOT_PASSWORD } = process.env;
 
   if (!ROOT_EMAIL || !ROOT_PASSWORD) {
     console.error('❌ Missing ROOT_EMAIL or ROOT_PASSWORD in .env');
@@ -27,28 +31,8 @@ async function bootstrapSuperAdmin() {
   }
 
   try {
-    const tenantCode = (NAPSOFT_TENANT || 'ADMIN').toUpperCase();
+    const tenantCode = resolveTenantCode(overrideTenantCode);
     const tenantSchema = tenantCode.toLowerCase();
-
-    // Ensure schemas exist
-    await db.none(`CREATE SCHEMA IF NOT EXISTS admin;`);
-    await db.none(`CREATE SCHEMA IF NOT EXISTS ${tenantSchema};`);
-
-    console.log('🧱 Ensuring admin schema migrations have run...');
-    await migrator.run({
-      schema: 'admin',
-      modules: getModulesForSchema('admin'),
-      advisoryLock: 424242,
-    });
-
-    if (tenantSchema !== 'admin') {
-      console.log(`🏗️ Ensuring tenant schema "${tenantSchema}" migrations have run...`);
-      await migrator.run({
-        schema: tenantSchema,
-        modules: getModulesForSchema(tenantSchema),
-        advisoryLock: 424242,
-      });
-    }
 
     console.log('🔐 Checking for existing super admin...');
 
@@ -104,7 +88,20 @@ async function bootstrapSuperAdmin() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  bootstrapSuperAdmin();
+  const tenantCode = resolveTenantCode();
+  const tenantSchema = tenantCode.toLowerCase();
+  const schemaList = new Set(['admin', tenantSchema]);
+
+  try {
+    const { migrateTenants } = await import('./migrateTenants.js');
+    await migrateTenants({ schemaList: Array.from(schemaList) });
+    console.log('✅ Migrations complete; super admin ensured.');
+  } catch (err) {
+    console.error('❌ Error running migrations during bootstrap:', err?.message || err);
+    process.exit(1);
+  }
+
+  process.exit(0);
 }
 
 export { bootstrapSuperAdmin };
