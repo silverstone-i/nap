@@ -20,11 +20,16 @@ Useful scripts (`apps/nap-serv/package.json`):
 
 | Script                | Description                                     |
 |-----------------------|-------------------------------------------------|
-| `npm run dev`         | Starts the API with nodemon                     |
-| `npm run start`       | Production entry point                          |
-| `npm run lint`        | ESLint across the module                        |
-| `npm test`            | Vitest test suite (unit, integration, contract) |
-| `npm run migrate:dev` | Runs pg-schemata migrations for dev tenants     |
+| `npm run dev`          | Starts the API with nodemon                     |
+| `npm run start`        | Production entry point                          |
+| `npm run lint`         | ESLint across the module                        |
+| `npm test`             | Vitest test suite (unit, integration, contract) |
+| `npm run setupAdmin:dev` | Migrates the `admin` schema via `runMigrate.js` |
+| `npm run migrate:dev`  | Runs pg-schemata migrations for dev tenants     |
+
+`node ./scripts/bootstrapSuperAdmin.js` shells into `runMigrate.js` for both the `admin` schema and
+the resolved tenant schema before seeding the super admin account. Prefer that script—or the
+`setupAdmin:*` npm shortcuts—when bootstrapping local data.
 
 ---
 

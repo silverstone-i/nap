@@ -56,6 +56,7 @@ The API listens on the port specified by `NAP_SERV_PORT` (default `4000`).
 | `npm test`                  | Run the full Vitest suite                                  |
 | `npm run test:unit`         | Unit tests only                                            |
 | `npm run test:integration`  | Integration tests                                          |
+| `npm run setupAdmin:dev`    | Run migrations for the `admin` schema via `runMigrate.js`  |
 | `npm run migrate:dev`       | Execute pg-schemata migrations for development schemas     |
 | `npm run migrate:test`      | Run migrations against the test database                   |
 | `npm run seed:rbac`         | Seed default RBAC roles/policies (uses `seed_rbac.js`)     |
@@ -72,6 +73,10 @@ Authoritative docs now live under `apps/nap-serv/docs/`:
 - `auth-rbac.md` – authentication lifecycle, permission cache, RBAC schemas
 
 Update these documents when behaviour changes; do not resurrect the old scattered Markdown files.
+
+> **Heads-up:** `node ./scripts/bootstrapSuperAdmin.js` now shells into `runMigrate.js` to ensure both
+> `admin` and tenant schemas are up to date before seeding the super admin user. Prefer that entry
+> point—or the `setupAdmin:*` npm scripts—over legacy loaders that no longer exist.
 
 ---
 
