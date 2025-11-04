@@ -9,4 +9,6 @@
  * Removal or modification of this copyright notice is prohibited.
  */
 
-export default [];
+import loadSqlViews from './202502120060_loadSqlViews.js';
+
+export default [loadSqlViews];

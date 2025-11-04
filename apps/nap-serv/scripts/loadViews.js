@@ -14,8 +14,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_MODULES_DIR = path.resolve(__dirname, '../modules');
 
-export async function loadViews(db, schemaName, modulesDir = path.join(__dirname, '../../modules')) {
+export async function loadViews(db, schemaName, modulesDir = DEFAULT_MODULES_DIR) {
   if (schemaName === 'admin') {
     console.warn('⚠️ Admin schema does not support custom views. Skipping view loading.');
     return;

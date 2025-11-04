@@ -23,12 +23,6 @@ const moduleRegistry = [
     migrations: (await import('../../modules/core/schema/migrations/index.js')).default,
   },
   {
-    name: 'views',
-    scope: 'tenant',
-    repositories: (await import('../../modules/views/viewsRepositories.js')).default,
-    migrations: (await import('../../modules/views/schema/migrations/index.js')).default,
-  },
-  {
     name: 'projects',
     scope: 'tenant',
     repositories: (await import('../../modules/projects/projectsRepositories.js')).default,
@@ -39,6 +33,12 @@ const moduleRegistry = [
     scope: 'tenant',
     repositories: (await import('../../modules/bom/bomRepositories.js')).default,
     migrations: (await import('../../modules/bom/schema/migrations/index.js')).default,
+  },
+  {
+    name: 'views',
+    scope: 'tenant',
+    repositories: (await import('../../modules/views/viewsRepositories.js')).default,
+    migrations: (await import('../../modules/views/schema/migrations/index.js')).default,
   },
 ];
 
