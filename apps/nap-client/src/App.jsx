@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRoutes, Link, useLocation } from 'react-router-dom';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
   IconButton,
   Drawer,
   List,
@@ -12,7 +9,7 @@ import {
   ListItemIcon,
   ListItemText,
   Box,
-  Avatar,
+  Typography,
   Divider,
   Tooltip
 } from '@mui/material';
@@ -30,6 +27,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { routes } from './routes.jsx';
 import { useAuth } from './context/AuthContext.jsx';
+import napLogo from './assets/nap-logo.png';
 
 const drawerWidth = 240;
 
@@ -62,56 +60,73 @@ export default function App() {
     setMobileOpen(!mobileOpen);
   };
 
+  const activeNavItem = useMemo(() => {
+    return navItems.find(
+      (item) => location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/')
+    );
+  }, [location.pathname]);
+
   const drawer = (
-    <div>
-      <Toolbar sx={{ bgcolor: theme.palette.primary.main, color: theme.palette.primary.contrastText }}>
-        <Typography variant="h6" noWrap component="div">
-          {user?.tenant || 'nap-serv'}
-        </Typography>
-      </Toolbar>
-      <Divider />
-      <List>
-        {navItems.map((item) => (
-          <ListItem key={item.label} disablePadding>
-            <ListItemButton
-              component={Link}
-              to={item.path}
-              selected={location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/')}
-            >
-              <ListItemIcon sx={{ color: 'inherit' }}>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box
+        sx={{
+          height: 120,
+          borderBottom: '1px solid',
+          borderColor: theme.palette.primary.light,
+          backgroundColor: theme.palette.primary.dark,
+          px: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <Box
+          component="img"
+          src={napLogo}
+          alt="NAP logo"
+          sx={{ width: '100%', maxWidth: 160, maxHeight: 120, objectFit: 'contain' }}
+        />
+      </Box>
+      <Divider sx={{ borderColor: theme.palette.primary.light, opacity: 0.4 }} />
+      <List sx={{ flexGrow: 1, py: 2 }}>
+        {navItems.map((item) => {
+          const selected =
+            location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/');
+
+          return (
+            <ListItem key={item.label} disablePadding>
+              <ListItemButton
+                component={Link}
+                to={item.path}
+                selected={selected}
+                onClick={() => setMobileOpen(false)}
+                sx={{
+                  mx: 1,
+                  mb: 0.5,
+                  borderRadius: 1,
+                  color: theme.palette.primary.contrastText,
+                  '& .MuiListItemIcon-root': { color: 'inherit', minWidth: 36 },
+                  '&.Mui-selected': {
+                    backgroundColor: theme.palette.primary.light,
+                    color: theme.palette.getContrastText(theme.palette.primary.light)
+                  },
+                  '&.Mui-selected:hover': {
+                    backgroundColor: theme.palette.primary.light
+                  }
+                }}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
-    </div>
+    </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {user ? `Welcome, ${user.email}` : 'nap-serv'}
-          </Typography>
-          {user && (
-            <Tooltip title="Log out">
-              <IconButton color="inherit" onClick={logout}>
-                <LogoutIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Toolbar>
-      </AppBar>
+    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="navigation">
         {/* Mobile drawer */}
         <Drawer
@@ -138,12 +153,76 @@ export default function App() {
           {drawer}
         </Drawer>
       </Box>
-      <Box
-        component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
-      >
-        <Toolbar />
-        {element}
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <Box
+          component="header"
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: theme.zIndex.drawer + 1,
+            backgroundColor: 'background.paper',
+            borderBottom: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              height: 64,
+              px: { xs: 2, md: 4 },
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: 'background.paper'
+            }}
+          >
+            {user && (
+              <Tooltip title="Log out">
+                <IconButton color="primary" onClick={logout} size="large">
+                  <LogoutIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                {user?.tenant || ''}
+              </Typography>
+              {user?.email && (
+                <Typography variant="body2" color="text.secondary">
+                  {user.email}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}>
+            </Box>
+            <IconButton
+              color="inherit"
+              aria-label="open navigation"
+              onClick={handleDrawerToggle}
+              sx={{ display: { sm: 'none' }, color: 'text.primary' }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Box>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              height: 56,
+              px: { xs: 2, md: 4 },
+              backgroundColor: 'background.paper'
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              {activeNavItem ? activeNavItem.label : ''}
+            </Typography>
+          </Box>
+        </Box>
+        <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+          {element}
+        </Box>
       </Box>
     </Box>
   );

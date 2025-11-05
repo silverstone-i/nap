@@ -1,14 +1,7 @@
 import { createTheme } from '@mui/material/styles';
 
-// Create a Material‑UI theme that matches the design language
-// described in the specification.  The palette uses a deep navy
-// primary colour and a warm orange secondary colour.  Additional
-// semantic colours (success, warning, error) reflect typical
-// statuses in a cost management system.  The shape and component
-// overrides set consistent border radii and elevations.
-const theme = createTheme({
-  palette: {
-    mode: 'light',
+const paletteByMode = {
+  light: {
     primary: {
       main: '#003e6b',
       contrastText: '#ffffff'
@@ -31,9 +24,42 @@ const theme = createTheme({
       main: '#d32f2f'
     },
     text: {
-      primary: '#212121'
-    }
+      primary: '#212121',
+      secondary: '#424242'
+    },
+    divider: '#d1d9e6'
   },
+  dark: {
+    primary: {
+      main: '#66b2ff',
+      contrastText: '#0a1929'
+    },
+    secondary: {
+      main: '#ffb74d',
+      contrastText: '#1c1c1c'
+    },
+    background: {
+      default: '#0f172a',
+      paper: '#111827'
+    },
+    success: {
+      main: '#81c784'
+    },
+    warning: {
+      main: '#ffb74d'
+    },
+    error: {
+      main: '#ef5350'
+    },
+    text: {
+      primary: '#f1f5ff',
+      secondary: '#c7d3e6'
+    },
+    divider: '#2b3648'
+  }
+};
+
+const baseThemeOptions = {
   typography: {
     fontFamily: 'Roboto, sans-serif',
     h1: {
@@ -71,6 +97,17 @@ const theme = createTheme({
       }
     }
   }
-});
+};
 
-export default theme;
+export const createAppTheme = (mode = 'light') => {
+  const palette = paletteByMode[mode] || paletteByMode.light;
+  return createTheme({
+    ...baseThemeOptions,
+    palette: {
+      mode,
+      ...palette
+    }
+  });
+};
+
+export default createAppTheme;

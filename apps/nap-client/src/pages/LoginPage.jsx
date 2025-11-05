@@ -1,11 +1,11 @@
 /* eslint-disable no-unused-vars */
 import { useState } from 'react';
 import { Avatar, Box, Button, TextField, Typography, Paper, Alert, IconButton, InputAdornment } from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
+import napLogo from '../assets/nap-logo.png';
 
 // Login page provides fields for email and password.  Upon
 // submission it calls the auth context's login() function.  Basic
@@ -55,9 +55,20 @@ export default function LoginPage() {
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 400, width: '100%' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-            <LockOutlinedIcon />
-          </Avatar>
+          <Avatar
+            src={napLogo}
+            alt="NAP"
+            variant="rounded"
+            sx={{
+              m: 1,
+              width: 80,
+              height: 80,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              p: 1
+            }}
+          />
           <Typography component="h1" variant="h5">
             Sign in
           </Typography>
