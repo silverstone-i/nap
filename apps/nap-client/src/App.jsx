@@ -28,7 +28,7 @@ import { useTheme } from '@mui/material/styles';
 import { routes } from './routes.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import napLogo from './assets/nap-logo.png';
-import napLogoDark from './assets/nap-logo-dark.png';
+import napLogoDark from './assets/nap-logo-dark.svg';
 
 const drawerWidth = 240;
 
@@ -102,7 +102,7 @@ export default function App() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: theme.palette.background.surface
+              backgroundColor: theme.palette.mode === 'dark' ? 'transparent' : theme.palette.background.surface
             }}
           >
           <Box

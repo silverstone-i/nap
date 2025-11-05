@@ -6,7 +6,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import napLogo from '../assets/nap-logo.png';
-import napLogoDark from '../assets/nap-logo-dark.png';
+import napLogoDark from '../assets/nap-logo-dark.svg';
 import { useTheme } from '@mui/material/styles';
 
 // Login page provides fields for email and password.  Upon
@@ -65,7 +65,7 @@ export default function LoginPage() {
               m: 1,
               width: 80,
               height: 80,
-              bgcolor: 'background.paper'
+              bgcolor: theme.palette.mode === 'dark' ? 'transparent' : 'background.paper'
             }}
           />
           <Typography component="h1" variant="h5">
