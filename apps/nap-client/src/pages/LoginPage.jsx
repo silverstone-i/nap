@@ -6,6 +6,8 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import napLogo from '../assets/nap-logo.png';
+import napLogoDark from '../assets/nap-logo-dark.png';
+import { useTheme } from '@mui/material/styles';
 
 // Login page provides fields for email and password.  Upon
 // submission it calls the auth context's login() function.  Basic
@@ -15,6 +17,7 @@ import napLogo from '../assets/nap-logo.png';
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
   const [formState, setFormState] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -56,15 +59,13 @@ export default function LoginPage() {
       <Paper elevation={3} sx={{ p: 4, maxWidth: 400, width: '100%' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Avatar
-            src={napLogo}
+            src={theme.palette.mode === 'dark' ? napLogoDark : napLogo}
             alt="NAP"
             sx={{
               m: 1,
               width: 80,
               height: 80,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider'
+              bgcolor: 'background.paper'
             }}
           />
           <Typography component="h1" variant="h5">

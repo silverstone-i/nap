@@ -28,6 +28,7 @@ import { useTheme } from '@mui/material/styles';
 import { routes } from './routes.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import napLogo from './assets/nap-logo.png';
+import napLogoDark from './assets/nap-logo-dark.png';
 
 const drawerWidth = 240;
 
@@ -73,8 +74,8 @@ export default function App() {
         sx={{
           height: 120,
           borderBottom: '1px solid',
-          borderColor: theme.palette.primary.light,
-          backgroundColor: theme.palette.primary.dark,
+          borderColor: theme.palette.divider,
+          backgroundColor: theme.palette.background.sidebar,
           px: 2,
           display: 'flex',
           alignItems: 'center',
@@ -83,27 +84,37 @@ export default function App() {
       >
         <Box
           sx={{
+            position: 'relative',
             width: 96,
             height: 96,
             borderRadius: '50%',
-            overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            border: '2px solid',
-            borderColor: theme.palette.primary.light,
-            backgroundColor: theme.palette.background.paper
+            justifyContent: 'center'
           }}
         >
           <Box
+            sx={{
+              width: 88,
+              height: 88,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.palette.background.surface
+            }}
+          >
+          <Box
             component="img"
-            src={napLogo}
+            src={theme.palette.mode === 'dark' ? napLogoDark : napLogo}
             alt="NAP logo"
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
+          </Box>
         </Box>
       </Box>
-      <Divider sx={{ borderColor: theme.palette.primary.light, opacity: 0.4 }} />
+      <Divider sx={{ borderColor: theme.palette.divider, opacity: 0.6 }} />
       <List sx={{ flexGrow: 1, py: 2 }}>
         {navItems.map((item) => {
           const selected =
@@ -120,14 +131,26 @@ export default function App() {
                   mx: 1,
                   mb: 0.5,
                   borderRadius: 1,
-                  color: theme.palette.primary.contrastText,
+                  minHeight: 48,
+                  fontWeight: selected ? 600 : 500,
+                  color: theme.palette.text.secondary,
                   '& .MuiListItemIcon-root': { color: 'inherit', minWidth: 36 },
                   '&.Mui-selected': {
-                    backgroundColor: theme.palette.primary.light,
-                    color: theme.palette.getContrastText(theme.palette.primary.light)
+                    backgroundColor: theme.palette.primary.main,
+                    color: theme.palette.primary.contrastText,
+                    '& .MuiListItemIcon-root': {
+                      color: theme.palette.primary.contrastText
+                    }
                   },
                   '&.Mui-selected:hover': {
-                    backgroundColor: theme.palette.primary.light
+                    backgroundColor: theme.palette.primary.main
+                  },
+                  '&:hover': {
+                    backgroundColor: theme.palette.action.hover,
+                    color: theme.palette.text.primary,
+                    '& .MuiListItemIcon-root': {
+                      color: theme.palette.text.primary
+                    }
                   }
                 }}
               >
@@ -156,7 +179,14 @@ export default function App() {
           ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: 'primary.main', color: 'primary.contrastText' }
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+              bgcolor: 'background.sidebar',
+              color: 'text.primary',
+              borderRight: '1px solid',
+              borderColor: 'divider'
+            }
           }}
         >
           {drawer}
@@ -166,7 +196,14 @@ export default function App() {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: 'primary.main', color: 'primary.contrastText' }
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+              bgcolor: 'background.sidebar',
+              color: 'text.primary',
+              borderRight: '1px solid',
+              borderColor: 'divider'
+            }
           }}
           open
         >
