@@ -55,6 +55,7 @@ export default function App() {
   const location = useLocation();
   const theme = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isLoginRoute = location.pathname === '/login';
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -81,11 +82,26 @@ export default function App() {
         }}
       >
         <Box
-          component="img"
-          src={napLogo}
-          alt="NAP logo"
-          sx={{ width: '100%', maxWidth: 160, maxHeight: 120, objectFit: 'contain' }}
-        />
+          sx={{
+            width: 96,
+            height: 96,
+            borderRadius: '50%',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '2px solid',
+            borderColor: theme.palette.primary.light,
+            backgroundColor: theme.palette.background.paper
+          }}
+        >
+          <Box
+            component="img"
+            src={napLogo}
+            alt="NAP logo"
+            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        </Box>
       </Box>
       <Divider sx={{ borderColor: theme.palette.primary.light, opacity: 0.4 }} />
       <List sx={{ flexGrow: 1, py: 2 }}>
@@ -124,6 +140,10 @@ export default function App() {
       </List>
     </Box>
   );
+
+  if (isLoginRoute) {
+    return <>{element}</>;
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>

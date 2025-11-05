@@ -58,15 +58,13 @@ export default function LoginPage() {
           <Avatar
             src={napLogo}
             alt="NAP"
-            variant="rounded"
             sx={{
               m: 1,
               width: 80,
               height: 80,
               bgcolor: 'background.paper',
               border: '1px solid',
-              borderColor: 'divider',
-              p: 1
+              borderColor: 'divider'
             }}
           />
           <Typography component="h1" variant="h5">
