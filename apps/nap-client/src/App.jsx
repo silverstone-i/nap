@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { Fragment, useMemo, useState } from 'react';
 import { useRoutes, Link, useLocation } from 'react-router-dom';
 import {
   IconButton,
   Drawer,
   List,
+  Collapse,
   ListItem,
   ListItemButton,
   ListItemIcon,
@@ -22,18 +23,23 @@ import {
   Assessment as AssessmentIcon,
   ListAlt as ListAltIcon,
   Settings as SettingsIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  PeopleAlt as PeopleAltIcon,
+  ExpandLess,
+  ExpandMore
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { routes } from './routes.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import napLogo from './assets/nap-logo.png';
 import napLogoDark from './assets/nap-logo-dark.svg';
+import ModuleBar from './components/ModuleBar.jsx';
+import { isNapsoftEmployee } from './utils/isNapsoftEmployee.js';
 
 const drawerWidth = 240;
 
 // List of navigation items corresponding to the high level modules
-const navItems = [
+const baseNavItems = [
   { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { label: 'Projects', path: '/projects', icon: <BusinessIcon /> },
   { label: 'Budgets', path: '/budgets', icon: <ListAltIcon /> },
@@ -56,17 +62,62 @@ export default function App() {
   const location = useLocation();
   const theme = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openMenus, setOpenMenus] = useState({});
   const isLoginRoute = location.pathname === '/login';
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const isNapsoftUser = useMemo(() => isNapsoftEmployee(user), [user]);
+
+  const navItems = useMemo(() => {
+    const items = [...baseNavItems];
+    if (isNapsoftUser) {
+      const tenantsMenu = {
+        label: 'Tenants',
+        icon: <PeopleAltIcon />,
+        children: [
+          { label: 'Manage Tenants', path: '/tenants/manage' },
+          { label: 'Manage Users', path: '/tenants/users' }
+        ]
+      };
+      const settingsIndex = items.findIndex((item) => item.path === '/settings');
+      const insertIndex = settingsIndex >= 0 ? settingsIndex : items.length;
+      items.splice(insertIndex, 0, tenantsMenu);
+    }
+    return items;
+  }, [isNapsoftUser]);
+
+  const moduleBarActions = useMemo(() => {
+    const path = location.pathname;
+    if (isNapsoftUser && (path.startsWith('/tenants/manage') || path.startsWith('/tenants/users'))) {
+      return ['Create', 'View', 'Update', 'Archive', 'Restore'].map((label) => ({
+        label,
+        size: 'small'
+      }));
+    }
+    return null;
+  }, [location.pathname, isNapsoftUser]);
+
   const activeNavItem = useMemo(() => {
-    return navItems.find(
-      (item) => location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/')
-    );
-  }, [location.pathname]);
+    for (const item of navItems) {
+      const isDashboardRoute =
+        item.path === '/dashboard' && (location.pathname === '/' || location.pathname === '/dashboard');
+
+      if (item.path && (location.pathname === item.path || isDashboardRoute)) {
+        return item;
+      }
+
+      if (item.children) {
+        const childMatch = item.children.find((child) => location.pathname.startsWith(child.path));
+        if (childMatch) {
+          return childMatch;
+        }
+      }
+    }
+    return null;
+  }, [location.pathname, navItems]);
 
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -117,47 +168,120 @@ export default function App() {
       <Divider sx={{ borderColor: theme.palette.divider, opacity: 0.6 }} />
       <List sx={{ flexGrow: 1, py: 2 }}>
         {navItems.map((item) => {
-          const selected =
-            location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/');
+          const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+          const isDashboardRoute =
+            item.path === '/dashboard' && (location.pathname === '/' || location.pathname === '/dashboard');
+          const isExactMatch = item.path && (location.pathname === item.path || isDashboardRoute);
+          const childMatch = hasChildren
+            ? item.children.some((child) => location.pathname.startsWith(child.path))
+            : false;
+          const manualToggle = openMenus[item.label];
+          const isExpanded =
+            hasChildren && typeof manualToggle === 'boolean' ? manualToggle : hasChildren ? childMatch : false;
+          const selected = !hasChildren && isExactMatch;
+          const parentActive = hasChildren && childMatch;
+
+          const handleParentClick = () => {
+            if (hasChildren) {
+              setOpenMenus((prev) => ({
+                ...prev,
+                [item.label]: !isExpanded
+              }));
+            } else {
+              setMobileOpen(false);
+            }
+          };
 
           return (
-            <ListItem key={item.label} disablePadding>
-              <ListItemButton
-                component={Link}
-                to={item.path}
-                selected={selected}
-                onClick={() => setMobileOpen(false)}
-                sx={{
-                  mx: 1,
-                  mb: 0.5,
-                  borderRadius: 1,
-                  minHeight: 48,
-                  fontWeight: selected ? 600 : 500,
-                  color: theme.palette.text.secondary,
-                  '& .MuiListItemIcon-root': { color: 'inherit', minWidth: 36 },
-                  '&.Mui-selected': {
-                    backgroundColor: theme.palette.primary.main,
-                    color: theme.palette.primary.contrastText,
-                    '& .MuiListItemIcon-root': {
-                      color: theme.palette.primary.contrastText
-                    }
-                  },
-                  '&.Mui-selected:hover': {
-                    backgroundColor: theme.palette.primary.main
-                  },
-                  '&:hover': {
-                    backgroundColor: theme.palette.action.hover,
-                    color: theme.palette.text.primary,
-                    '& .MuiListItemIcon-root': {
-                      color: theme.palette.text.primary
-                    }
-                  }
-                }}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            </ListItem>
+            <Fragment key={item.label}>
+              <ListItem disablePadding>
+                <ListItemButton
+                  component={!hasChildren ? Link : undefined}
+                  to={!hasChildren ? item.path : undefined}
+                  selected={selected}
+                  onClick={handleParentClick}
+                  sx={{
+                    mx: 1,
+                    mb: 0.5,
+                    borderRadius: 1,
+                    minHeight: 48,
+                    fontWeight: selected ? 600 : 500,
+                    color: theme.palette.text.secondary,
+                    '& .MuiListItemIcon-root': { color: 'inherit', minWidth: 36 },
+                    '&.Mui-selected': {
+                      backgroundColor: theme.palette.primary.main,
+                      color: theme.palette.primary.contrastText,
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.primary.contrastText
+                      }
+                    },
+                    '&.Mui-selected:hover': {
+                      backgroundColor: theme.palette.primary.main
+                    },
+                    '&:hover': {
+                      backgroundColor: theme.palette.action.hover,
+                      color: theme.palette.text.primary,
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.text.primary
+                      }
+                    },
+                    ...(parentActive
+                      ? {
+                          backgroundColor: theme.palette.action.selected,
+                          color: theme.palette.text.primary,
+                          '& .MuiListItemIcon-root': {
+                            color: theme.palette.text.primary
+                          }
+                        }
+                      : {})
+                  }}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.label} />
+                  {hasChildren ? (isExpanded ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />) : null}
+                </ListItemButton>
+              </ListItem>
+              {hasChildren && (
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {item.children.map((child) => {
+                      const childSelected = location.pathname.startsWith(child.path);
+                      return (
+                        <ListItemButton
+                          key={child.label}
+                          component={Link}
+                          to={child.path}
+                          selected={childSelected}
+                          onClick={() => setMobileOpen(false)}
+                          sx={{
+                            mx: 2,
+                            mb: 0.5,
+                            borderRadius: 1,
+                            minHeight: 44,
+                            pl: 7,
+                            fontWeight: childSelected ? 600 : 500,
+                            color: theme.palette.text.secondary,
+                            '&.Mui-selected': {
+                              backgroundColor: theme.palette.primary.main,
+                              color: theme.palette.primary.contrastText
+                            },
+                            '&.Mui-selected:hover': {
+                              backgroundColor: theme.palette.primary.main
+                            },
+                            '&:hover': {
+                              backgroundColor: theme.palette.action.hover,
+                              color: theme.palette.text.primary
+                            }
+                          }}
+                        >
+                          <ListItemText primary={child.label} />
+                        </ListItemButton>
+                      );
+                    })}
+                  </List>
+                </Collapse>
+              )}
+            </Fragment>
           );
         })}
       </List>
@@ -275,6 +399,9 @@ export default function App() {
             <Typography variant="subtitle2" sx={{ fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase' }}>
               {activeNavItem ? activeNavItem.label : ''}
             </Typography>
+            {moduleBarActions ? (
+              <ModuleBar actions={moduleBarActions} sx={{ mb: 0, justifyContent: 'flex-end' }} spacing={1} />
+            ) : null}
           </Box>
         </Box>
         <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
