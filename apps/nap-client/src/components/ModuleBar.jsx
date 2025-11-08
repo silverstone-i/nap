@@ -9,7 +9,21 @@ export default function ModuleBar({ actions = [], sx = {}, spacing = 1.5 }) {
   );
 
   return (
-    <Stack direction="row" spacing={spacing} sx={{ mb: 3, flexWrap: 'wrap', ...sx }}>
+    <Stack
+      direction="row"
+      spacing={spacing}
+      sx={[
+        {
+          mb: 3,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          width: '100%',
+          minWidth: 0,
+          maxWidth: '100%'
+        },
+        sx
+      ]}
+    >
       {normalizedActions.map((action, index) => (
         <Button
           key={action.label}

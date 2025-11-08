@@ -12,7 +12,8 @@ import {
   Box,
   Typography,
   Divider,
-  Tooltip
+  Tooltip,
+  useMediaQuery
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -34,6 +35,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import napLogo from './assets/nap-logo.png';
 import napLogoDark from './assets/nap-logo-dark.svg';
 import ModuleBar from './components/ModuleBar.jsx';
+import { ModuleActionsContext } from './context/ModuleActionsContext.jsx';
 import { isNapsoftEmployee } from './utils/isNapsoftEmployee.js';
 
 const drawerWidth = 240;
@@ -61,8 +63,10 @@ export default function App() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const theme = useTheme();
+  const isCompactModuleBar = useMediaQuery(theme.breakpoints.down('lg'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
+  const [moduleActionOverrides, setModuleActionOverrides] = useState(null);
   const isLoginRoute = location.pathname === '/login';
 
   const handleDrawerToggle = () => {
@@ -99,6 +103,7 @@ export default function App() {
     }
     return null;
   }, [location.pathname, isNapsoftUser]);
+  const resolvedModuleActions = moduleActionOverrides ?? moduleBarActions;
 
   const activeNavItem = useMemo(() => {
     for (const item of navItems) {
@@ -293,7 +298,8 @@ export default function App() {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>
+    <ModuleActionsContext.Provider value={{ actions: moduleActionOverrides, setActions: setModuleActionOverrides }}>
+      <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: 'background.default' }}>
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="navigation">
         {/* Mobile drawer */}
         <Drawer
@@ -334,7 +340,7 @@ export default function App() {
           {drawer}
         </Drawer>
       </Box>
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', minWidth: 0 }}>
         <Box
           component="header"
           sx={{
@@ -343,40 +349,27 @@ export default function App() {
             zIndex: theme.zIndex.drawer + 1,
             backgroundColor: 'background.paper',
             borderBottom: '1px solid',
-            borderColor: 'divider'
+            borderColor: 'divider',
+            overflowX: 'hidden',
+            width: '100%',
+            boxSizing: 'border-box'
           }}
         >
           <Box
             sx={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: { xs: 'auto minmax(0, 1fr) auto', sm: 'auto minmax(0, 1fr) auto' },
               alignItems: 'center',
               gap: 2,
-              height: 64,
+              minHeight: 64,
               px: { xs: 2, md: 4 },
               borderBottom: '1px solid',
               borderColor: 'divider',
-              backgroundColor: 'background.paper'
+              backgroundColor: 'background.paper',
+              width: '100%',
+              boxSizing: 'border-box'
             }}
           >
-            {user && (
-              <Tooltip title="Log out">
-                <IconButton color="primary" onClick={logout} size="large">
-                  <LogoutIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                {user?.tenant || ''}
-              </Typography>
-              {user?.email && (
-                <Typography variant="body2" color="text.secondary">
-                  {user.email}
-                </Typography>
-              )}
-            </Box>
-            <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}>
-            </Box>
             <IconButton
               color="inherit"
               aria-label="open navigation"
@@ -385,29 +378,101 @@ export default function App() {
             >
               <MenuIcon />
             </IconButton>
+            <Box sx={{ minWidth: 0, overflow: 'hidden' }}>
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+              >
+                {user?.tenant || ''}
+              </Typography>
+              {user?.email && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+                >
+                  {user.email}
+                </Typography>
+              )}
+            </Box>
+            {user && (
+              <Tooltip title="Log out" sx={{ justifySelf: 'end' }}>
+                <IconButton color="primary" onClick={logout} size="large">
+                  <LogoutIcon />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
           <Box
             sx={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              height: 56,
+              flexDirection: isCompactModuleBar ? 'column' : 'row',
+              alignItems: isCompactModuleBar ? 'flex-start' : 'center',
+              gap: isCompactModuleBar ? 1.5 : 2,
               px: { xs: 2, md: 4 },
-              backgroundColor: 'background.paper'
+              py: 1.5,
+              backgroundColor: 'background.paper',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              width: '100%',
+              boxSizing: 'border-box'
             }}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 600,
+                letterSpacing: 0.8,
+                textTransform: 'uppercase',
+                flexShrink: 0
+              }}
+            >
               {activeNavItem ? activeNavItem.label : ''}
             </Typography>
-            {moduleBarActions ? (
-              <ModuleBar actions={moduleBarActions} sx={{ mb: 0, justifyContent: 'flex-end' }} spacing={1} />
+            {resolvedModuleActions ? (
+              <Box
+                sx={{
+                  flexGrow: 1,
+                  minWidth: 0,
+                  width: '100%',
+                  maxWidth: '100%'
+                }}
+              >
+                <ModuleBar
+                  actions={resolvedModuleActions}
+                  sx={{
+                    mb: 0,
+                    width: '100%',
+                    minWidth: 0,
+                    flexWrap: 'wrap',
+                    justifyContent: isCompactModuleBar ? 'flex-start' : 'flex-end',
+                    gap: 1,
+                    rowGap: 1,
+                    maxWidth: '100%'
+                  }}
+                  spacing={isCompactModuleBar ? 1 : 1.5}
+                />
+              </Box>
             ) : null}
           </Box>
         </Box>
-        <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 }, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: { xs: 2, md: 4 },
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            boxSizing: 'border-box',
+            overflowX: 'hidden'
+          }}
+        >
           {element}
         </Box>
       </Box>
-    </Box>
+      </Box>
+    </ModuleActionsContext.Provider>
   );
 }
