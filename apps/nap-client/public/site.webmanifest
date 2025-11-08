@@ -1,7 +1,30 @@
 {
-  "name": "nap-client",
+  "name": "Next-Gen Accounting Platform",
   "short_name": "nap",
+  "description": "Secure client for the Next-Gen Accounting Platform, giving finance teams streamlined access to accounting workflows.",
+  "start_url": "/",
+  "orientation": "portrait",
+  "categories": [
+    "finance",
+    "productivity"
+  ],
   "icons": [
+    {
+      "src": "/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
     {
       "src": "/favicon-64x64.png",
       "sizes": "64x64",
