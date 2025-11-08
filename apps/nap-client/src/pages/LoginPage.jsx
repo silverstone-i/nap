@@ -4,7 +4,6 @@ import { Avatar, Box, Button, TextField, Typography, Paper, Alert, IconButton, I
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useNavigate } from 'react-router-dom';
 import napLogo from '../assets/nap-logo.png';
 import napLogoDark from '../assets/nap-logo-dark.svg';
 import { useTheme } from '@mui/material/styles';
@@ -16,10 +15,10 @@ import { useTheme } from '@mui/material/styles';
 // returned by your backend when implementing.
 export default function LoginPage() {
   const { login } = useAuth();
-  const navigate = useNavigate();
   const theme = useTheme();
   const [formState, setFormState] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
@@ -34,10 +33,12 @@ export default function LoginPage() {
         return;
       }
       await login(formState);
-      navigate('/', { replace: true });
+      setSuccess('Signed in successfully.');
+      setError(null);
     } catch (err) {
       const message = err?.data?.message || err?.message || 'Invalid credentials';
       setError(message);
+      setSuccess(null);
     }
   };
 
@@ -74,6 +75,11 @@ export default function LoginPage() {
           {error && (
             <Alert severity="error" sx={{ mt: 2, width: '100%' }}>
               {error}
+            </Alert>
+          )}
+          {success && !error && (
+            <Alert severity="success" sx={{ mt: 2, width: '100%' }}>
+              {success}
             </Alert>
           )}
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>

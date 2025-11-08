@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, useMediaQuery } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.jsx';
@@ -13,8 +12,7 @@ const queryClient = new QueryClient();
 
 // The root element for rendering our React application.  It wraps
 // the application with providers for React Query, Material UI theming
-// and authentication context.  The BrowserRouter enables client side
-// navigation between pages.
+// and authentication context.
 function ThemedApp() {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const theme = useMemo(() => createAppTheme(prefersDarkMode ? 'dark' : 'light'), [prefersDarkMode]);
@@ -23,9 +21,7 @@ function ThemedApp() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <App />
       </AuthProvider>
     </ThemeProvider>
   );
