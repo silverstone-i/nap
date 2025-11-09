@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fullAuthController from '../../../modules/core/controllers/auth.controller.js';
 let authController;
-import * as jwtUtils from '../../../modules/tenants/auth/jwt.js'; // legacy utils used only in this test; can be cleaned later
+import * as jwtUtils from '../../../modules/core/auth/jwt.js'; // legacy utils used only in this test; can be cleaned later
 vi.mock('jsonwebtoken', async () => {
   const actual = await vi.importActual('jsonwebtoken');
   return {
@@ -11,7 +11,7 @@ vi.mock('jsonwebtoken', async () => {
 });
 import * as jwt from 'jsonwebtoken';
 import * as dbModule from '../../../src/db/db.js';
-vi.mock('../../../modules/tenants/auth/jwt.js', () => ({
+vi.mock('../../../modules/core/auth/jwt.js', () => ({
   generateAccessToken: vi.fn(() => 'access'),
   generateRefreshToken: vi.fn(() => 'refresh'),
 }));

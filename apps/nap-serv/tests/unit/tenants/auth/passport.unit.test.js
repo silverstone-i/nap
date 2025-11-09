@@ -1,4 +1,4 @@
-import passport from '../../../../modules/tenants/auth/passport.js';
+import passport from '../../../../modules/core/auth/passport.js';
 import { db } from '../../../../src/db/db.js';
 import bcrypt from 'bcrypt';
 

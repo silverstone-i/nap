@@ -26,7 +26,7 @@ const apiMap = {
     'v1/deliverables',
     'v1/vendor-parts',
   ],
-  tenants: ['v1/nap-users', 'v1/tenants', 'v1/auth'],
+  tenants: ['v1/nap-users', 'v1/tenants'],
   ar: ['v1/receipts', 'v1/clients', 'v1/ar-invoices', 'v1/ar-invoice-lines'],
   ap: ['v1/ap-credit-memos', 'v1/ap-invoices', 'v1/ap-invoice-lines', 'v1/payments'],
   accounting: [

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { describe, it, expect, beforeAll } from 'vitest';
 import jwt from 'jsonwebtoken';
-import { generateAccessToken, generateRefreshToken } from '../../../../modules/tenants/auth/jwt.js';
+import { generateAccessToken, generateRefreshToken } from '../../../../modules/core/auth/jwt.js';
 
 const user = {
   email: 'test@example.com',
