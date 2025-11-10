@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.jsx';
 import { createAppTheme } from './theme.js';
 import { AuthProvider } from './context/AuthContext.jsx';
+import { ModuleToolbarProvider } from './context/ModuleActionsContext.jsx';
 
 // Create a React Query client to manage API calls and caching.  This
 // instance will be shared throughout the application.
@@ -21,7 +22,9 @@ function ThemedApp() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <App />
+        <ModuleToolbarProvider>
+          <App />
+        </ModuleToolbarProvider>
       </AuthProvider>
     </ThemeProvider>
   );

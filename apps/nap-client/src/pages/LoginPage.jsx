@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import napLogo from '../assets/nap-logo.png';
 import napLogoDark from '../assets/nap-logo-dark.svg';
 import { useTheme } from '@mui/material/styles';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 // Login page provides fields for email and password.  Upon
 // submission it calls the auth context's login() function.  Basic
@@ -16,10 +17,13 @@ import { useTheme } from '@mui/material/styles';
 export default function LoginPage() {
   const { login } = useAuth();
   const theme = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [formState, setFormState] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleChange = (e) => {
     setFormState({ ...formState, [e.target.name]: e.target.value });
@@ -35,6 +39,7 @@ export default function LoginPage() {
       await login(formState);
       setSuccess('Signed in successfully.');
       setError(null);
+      navigate(from, { replace: true });
     } catch (err) {
       const message = err?.data?.message || err?.message || 'Invalid credentials';
       setError(message);
