@@ -16,8 +16,9 @@ import {
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
-const SIDEBAR_WIDTH = 264;
-const SIDEBAR_COLLAPSED_WIDTH = 80;
+const SIDEBAR_WIDTH = 242;
+const SIDEBAR_COLLAPSED_WIDTH = 110;
+const LOGO_SIZE = 64;
 
 export default function Sidebar({
   logo,
@@ -100,15 +101,25 @@ export default function Sidebar({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          p: 2,
-          minHeight: 72,
+          justifyContent: 'space-between',
+          height: 96,
+          px: collapsed ? 0.5 : 2,
+          gap: collapsed ? 0.5 : 1.5,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Box component="img" src={logo} alt="NAP" sx={{ height: 40, width: 'auto', opacity: 0.9 }} />
+        <Box
+          sx={{
+            flexShrink: 0,
+            width: collapsed ? LOGO_SIZE : 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 80,
+          }}
+        >
+          <Box component="img" src={logo} alt="NAP" sx={{ height: LOGO_SIZE, width: 'auto', opacity: 0.9 }} />
         </Box>
-        <IconButton aria-label="Toggle sidebar" size="small" onClick={onToggleCollapse} sx={{ ml: 1 }}>
+        <IconButton aria-label="Toggle sidebar" size="small" onClick={onToggleCollapse} sx={{ flexShrink: 0 }}>
           {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
         </IconButton>
       </Box>

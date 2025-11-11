@@ -14,7 +14,7 @@ import {
 import { useMemo } from 'react';
 import { useModuleActionsContext } from '../context/ModuleActionsContext.jsx';
 
-export default function ModuleBar({ offsetTop = 64 }) {
+export default function ModuleBar({ offsetTop = 48 }) {
   const { tabs = [], filters = [], primaryActions = [] } = useModuleActionsContext();
   const hasContent = Boolean((tabs && tabs.length) || (filters && filters.length) || (primaryActions && primaryActions.length));
 
@@ -26,16 +26,16 @@ export default function ModuleBar({ offsetTop = 64 }) {
         position: 'sticky',
         top: offsetTop,
         zIndex: (theme) => theme.zIndex.appBar - 1,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
         bgcolor: 'background.paper',
+        height: 48,
+        py: 1,
       }}
     >
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         justifyContent="space-between"
         spacing={sectionGap}
-        sx={{ px: 3, py: 1.5, minHeight: 64 }}
+        sx={{ px: 3, height: '100%' }}
       >
         <Stack direction={{ xs: 'column', lg: 'row' }} spacing={sectionGap} alignItems="center">
           {tabs?.map((tab) => (
@@ -52,6 +52,12 @@ export default function ModuleBar({ offsetTop = 64 }) {
                 value={tab.value}
                 onChange={(_event, value) => {
                   if (value !== null && tab.onChange) tab.onChange(value);
+                }}
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    height: 32,
+                    py: 0,
+                  },
                 }}
               >
                 {(tab.options || []).map((option) => (
@@ -72,6 +78,8 @@ export default function ModuleBar({ offsetTop = 64 }) {
                   value={filter.value ?? ''}
                   placeholder={filter.placeholder}
                   onChange={(event) => filter.onChange?.(event.target.value)}
+                  InputProps={{ sx: { height: 32, '& .MuiOutlinedInput-input': { p: 1 } } }}
+                  sx={{ '& .MuiOutlinedInput-root': { height: 32 } }}
                 />
               ) : (
                 <FormControl fullWidth size="small">
@@ -81,6 +89,7 @@ export default function ModuleBar({ offsetTop = 64 }) {
                     label={filter.label}
                     value={filter.value ?? ''}
                     onChange={(event) => filter.onChange?.(event.target.value)}
+                    sx={{ height: 32, '& .MuiSelect-select': { py: 0.25 } }}
                   >
                     {(filter.options || []).map((option) => (
                       <MenuItem value={option.value} key={option.value}>
@@ -107,6 +116,7 @@ export default function ModuleBar({ offsetTop = 64 }) {
               color={action.color || 'primary'}
               onClick={action.onClick}
               disabled={action.disabled}
+              sx={{ height: 32 }}
             >
               {action.label}
             </Button>

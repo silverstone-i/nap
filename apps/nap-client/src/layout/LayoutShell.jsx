@@ -4,11 +4,11 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import TenantBar from './TenantBar.jsx';
 import ModuleBar from './ModuleBar.jsx';
-import napLogo from '../assets/nap-logo.png';
+import napLogo from '../assets/nap-logo-dark.svg';
 import { buildNavigationConfig } from '../nav/navigationConfig.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
-const TENANT_BAR_HEIGHT = 64;
+const TENANT_BAR_HEIGHT = 48;
 
 export default function LayoutShell() {
   const { user, loading, logout } = useAuth();
