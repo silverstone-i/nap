@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Collapse,
@@ -8,8 +8,10 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Paper,
   Tooltip,
   Typography,
+  Popper,
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -30,6 +32,51 @@ export default function Sidebar({
   const width = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
 
   const activePrimaryItem = useMemo(() => items.find((item) => item.id === activePrimaryId), [items, activePrimaryId]);
+  const [flyout, setFlyout] = useState({ anchorEl: null, primary: null });
+  const closeTimerRef = useRef(null);
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const scheduleCloseFlyout = () => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      setFlyout({ anchorEl: null, primary: null });
+    }, 180);
+  };
+
+  const openFlyout = (anchorEl, primary) => {
+    if (!primary?.modules?.length) {
+      setFlyout({ anchorEl: null, primary: null });
+      return;
+    }
+    clearCloseTimer();
+    setFlyout({ anchorEl, primary });
+  };
+
+  const handlePrimaryMouseEnter = (event, item) => {
+    if (!collapsed) return;
+    openFlyout(event.currentTarget, item);
+  };
+
+  const handlePrimaryMouseLeave = () => {
+    if (!collapsed) return;
+    scheduleCloseFlyout();
+  };
+
+  useEffect(() => {
+    if (!collapsed) {
+      setFlyout({ anchorEl: null, primary: null });
+      clearCloseTimer();
+    }
+    return () => {
+      clearCloseTimer();
+    };
+  }, [collapsed]);
 
   return (
     <Box
@@ -73,10 +120,16 @@ export default function Sidebar({
             const isActive = item.id === activePrimaryId;
             return (
               <Box key={item.id}>
-                <Tooltip title={collapsed ? item.label : ''} placement="right">
+                <Tooltip
+                  title={collapsed && flyout.primary?.id !== item.id ? item.label : ''}
+                  placement="right"
+                  disableInteractive
+                >
                   <ListItemButton
                     selected={isActive}
                     onClick={() => onPrimarySelect?.(item)}
+                    onMouseEnter={(event) => handlePrimaryMouseEnter(event, item)}
+                    onMouseLeave={handlePrimaryMouseLeave}
                     sx={{
                       py: 1,
                       px: collapsed ? 2 : 3,
@@ -118,6 +171,32 @@ export default function Sidebar({
           </Typography>
         </Box>
       )}
+      <Popper
+        open={collapsed && Boolean(flyout.anchorEl && flyout.primary)}
+        anchorEl={flyout.anchorEl}
+        placement="right-start"
+        modifiers={[{ name: 'offset', options: { offset: [0, -16] } }]}
+        onMouseEnter={clearCloseTimer}
+        onMouseLeave={scheduleCloseFlyout}
+        sx={{ zIndex: (theme) => theme.zIndex.tooltip + 1 }}
+      >
+        <Paper elevation={4} sx={{ minWidth: 200 }}>
+          <List dense>
+            {(flyout.primary?.modules || []).map((module) => (
+              <ListItemButton
+                key={module.id}
+                selected={module.id === activeModuleId}
+                onClick={() => {
+                  onModuleSelect?.(module);
+                  setFlyout({ anchorEl: null, primary: null });
+                }}
+              >
+                <ListItemText primary={<Typography variant="body2">{module.label}</Typography>} />
+              </ListItemButton>
+            ))}
+          </List>
+        </Paper>
+      </Popper>
     </Box>
   );
 }
