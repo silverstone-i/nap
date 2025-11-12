@@ -141,10 +141,20 @@ export default function Sidebar({
                     onClick={() => onPrimarySelect?.(item)}
                     onMouseEnter={(event) => handlePrimaryMouseEnter(event, item)}
                     onMouseLeave={handlePrimaryMouseLeave}
-                    sx={{
+                    sx={(theme) => ({
                       py: 1,
                       px: collapsed ? 2 : 3,
-                    }}
+                      '&.Mui-selected': {
+                        bgcolor: theme.palette.primary.main,
+                        color: theme.palette.primary.contrastText,
+                        '& .MuiListItemIcon-root': {
+                          color: theme.palette.primary.contrastText,
+                        },
+                      },
+                      '&.Mui-selected:hover': {
+                        bgcolor: theme.palette.primary.main,
+                      },
+                    })}
                   >
                     {Icon && (
                       <ListItemIcon sx={{ minWidth: collapsed ? 0 : 36, color: 'text.primary' }}>
@@ -162,7 +172,17 @@ export default function Sidebar({
                           key={module.id}
                           selected={module.id === activeModuleId}
                           onClick={() => onModuleSelect?.(module)}
-                          sx={{ pl: 7, py: 0.75 }}
+                          sx={(theme) => ({
+                            pl: 7,
+                            py: 0.75,
+                            '&.Mui-selected': {
+                              bgcolor: theme.palette.primary.main,
+                              color: theme.palette.primary.contrastText,
+                            },
+                            '&.Mui-selected:hover': {
+                              bgcolor: theme.palette.primary.main,
+                            },
+                          })}
                         >
                           <ListItemText primary={<Typography variant="body2">{module.label}</Typography>} />
                         </ListItemButton>
@@ -201,6 +221,15 @@ export default function Sidebar({
                   onModuleSelect?.(module);
                   setFlyout({ anchorEl: null, primary: null });
                 }}
+                sx={(theme) => ({
+                  '&.Mui-selected': {
+                    bgcolor: theme.palette.primary.main,
+                    color: theme.palette.primary.contrastText,
+                  },
+                  '&.Mui-selected:hover': {
+                    bgcolor: theme.palette.primary.main,
+                  },
+                })}
               >
                 <ListItemText primary={<Typography variant="body2">{module.label}</Typography>} />
               </ListItemButton>
