@@ -1,0 +1,62 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+build
+**/build
+dist
+**/dist
+out
+**/out
+
+# Coverage and test artifacts
+coverage
+**/coverage
+.nyc_output
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+cypress
+**/cypress
+
+# Tool caches
+.vite
+**/.vite
+.turbo
+**/.turbo
+.rollup.cache
+**/.rollup.cache
+
+# Framework outputs
+.next
+.nuxt
+storybook-static
+**/storybook-static
+
+# Docs (generated)
+docs
+**/docs
+
+# Misc
+*.tsbuildinfo
+**/*.tsbuildinfo
+.pnp
+.pnp.*
+.idea
+.vscode
+.DS_Store
+
+# Lockfiles & large assets
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+*.lock
+*.snap
+*.svg
+*.min.js
+*.map
+
+# VS Code workspace files
+*.code-workspace

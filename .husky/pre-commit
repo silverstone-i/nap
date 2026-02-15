@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run lint-staged if present (optional)
+[ -f node_modules/.bin/lint-staged ] && npx lint-staged
+
+changed="$(git diff --cached --name-only || true)"
+[ -z "$changed" ] && exit 0
+
+filtered="$(echo "$changed" | grep -E '^(apps/nap-serv/|apps/nap-client/)' || true)"
+[ -z "$filtered" ] && exit 0
+
+client_changed="$(echo "$filtered" | grep -E '^apps/nap-client/' || true)"
+serv_changed="$(echo "$filtered" | grep -E '^apps/nap-serv/' || true)"
+
+if [[ -n "$client_changed" && -n "$serv_changed" ]]; then
+  echo "Mixed commit detected:"
+  echo "   Staged changes touch BOTH apps/nap-client and apps/nap-serv."
+  echo "   Split into two commits, or bypass once with: git commit --no-verify"
+  exit 1
+fi
+
+exit 0
