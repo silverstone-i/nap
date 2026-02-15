@@ -1,88 +1,79 @@
-# OS files - macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-._*
-.Spotlight-V100
-.Trashes
-
-# OS files - Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-*.lnk
-
-# PostgreSQL
-*.sql.bak
-*.pgdata
-
-# React build output
-build/
-
 # Logs
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 lerna-debug.log*
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage
-*.lcov
-
-# nyc test coverage
-.nyc_output
-
-# Compiled binary addons (https://nodejs.org/api/addons.html)
-build/Release
-
-# Dependency directories
+# Node modules (root and nested)
 node_modules/
+**/node_modules/
 
-# TypeScript cache
+# Build outputs (root and nested)
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+
+# Coverage and instrumentation
+coverage/
+**/coverage/
+.nyc_output/
+
+# TypeScript metadata
 *.tsbuildinfo
+**/*.tsbuildinfo
+tsconfig.tsbuildinfo
 
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
+# Tool caches
 .eslintcache
+.cache/
+**/.cache/
+.vite/
+**/.vite/
+.rollup.cache
+**/.rollup.cache
+.turbo/
+.pnp/
+.pnp.js
+.bun/
 
-# Optional stylelint cache
-.stylelintcache
+# Framework-specific (common in monorepos)
+.next/
+.nuxt/
+storybook-static/
+**/storybook-static/
 
-# Optional REPL history
-.node_repl_history
+# Test artifacts
+test-results/
+playwright-report/
+cypress/screenshots/
+cypress/videos/
 
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variable files
+# Environment files (root and nested)
 .env
 .env.*
+.env.local
+.env.*.local
+**/.env
+**/.env.*
+**/.env.local
+**/.env.*.local
 !.env.example
 
-# Vite
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.history/
+*.swp
 
-# VitePress build output
-**/.vitepress/dist
-**/.vitepress/cache
-
-# Docusaurus cache and generated files
-.docusaurus
+# Temp
+tmp/
+temp/
+*.tgz

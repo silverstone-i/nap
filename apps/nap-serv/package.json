@@ -1,0 +1,53 @@
+{
+  "name": "nap-serv",
+  "version": "0.1.0",
+  "description": "NAP backend — project costing, profitability, and payments with double-entry accounting.",
+  "license": "MIT",
+  "author": "Ian Silverstone",
+  "type": "module",
+  "imports": {
+    "#db/*": "./src/db/*"
+  },
+  "main": "server.js",
+  "scripts": {
+    "setupAdmin:dev": "cross-env NODE_ENV=development node ./scripts/runMigrate.js admin",
+    "setupAdmin:test": "cross-env NODE_ENV=test node ./scripts/runMigrate.js admin",
+    "migrate:dev": "cross-env NODE_ENV=development node ./scripts/runMigrate.js",
+    "migrate:test": "cross-env NODE_ENV=test node ./scripts/runMigrate.js",
+    "seed": "cross-env NODE_ENV=development node ./scripts/seedPhase2.js",
+    "seed:rbac": "cross-env NODE_ENV=development node -e \"import('./src/seeds/seed_rbac.js').then(m=>m.seedRbac({schemaName:process.env.SEED_SCHEMA || (process.env.SEED_TENANT_CODE||'').toLowerCase()})).catch(e=>{console.error(e);process.exit(1);})\"",
+    "lint": "eslint .",
+    "test": "cross-env NODE_ENV=test vitest",
+    "test:unit": "cross-env NODE_ENV=test vitest run tests/unit",
+    "test:integration": "cross-env NODE_ENV=test vitest run tests/integration",
+    "test:contract": "cross-env NODE_ENV=test vitest run tests/contract",
+    "test:rbac": "cross-env NODE_ENV=test vitest run tests/rbac",
+    "test:coverage": "cross-env NODE_ENV=test vitest run --coverage --reporter html",
+    "dev": "cross-env NODE_ENV=development nodemon --delay 5 server.js",
+    "start": "cross-env NODE_ENV=production node server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.1",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "pg-schemata": "^1.3.0",
+    "winston": "^3.17.0",
+    "zod": "^3.25.74"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.1.4",
+    "eslint": "^9.26.0",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.1.0",
+    "vitest": "^3.1.4"
+  }
+}
