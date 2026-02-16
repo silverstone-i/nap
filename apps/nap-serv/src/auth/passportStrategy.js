@@ -1,0 +1,41 @@
+/**
+ * @file Passport.js Local Strategy — validates email/password against admin.nap_users
+ * @module nap-serv/auth/passportStrategy
+ *
+ * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ */
+
+import passport from 'passport';
+import { Strategy as LocalStrategy } from 'passport-local';
+import bcrypt from 'bcrypt';
+import db from '../db/db.js';
+
+passport.use(
+  new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
+    try {
+      const user = await db('napUsers', 'admin').findOneBy([{ email }]);
+
+      if (!user) return done(null, false, { message: 'Incorrect email.' });
+
+      // Soft delete check
+      if (user.deactivated_at !== null) {
+        return done(null, false, { message: 'User account is inactive.' });
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      if (!isMatch) return done(null, false, { message: 'Incorrect password.' });
+
+      // Verify tenant is active
+      const tenant = await db('tenants', 'admin').findOneBy([{ tenant_code: user.tenant_code }]);
+      if (!tenant || tenant.deactivated_at !== null) {
+        return done(null, false, { message: 'Tenant is inactive.' });
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err);
+    }
+  }),
+);
+
+export default passport;
