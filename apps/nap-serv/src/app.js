@@ -1,5 +1,5 @@
 /**
- * @file Express application setup with middleware and health check
+ * @file Express application setup with middleware, auth, and route mounting
  * @module nap-serv/app
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -9,6 +9,8 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
+import { authRedis } from './middleware/authRedis.js';
+import authRouter from './modules/auth/apiRoutes/v1/authRouter.js';
 
 const app = express();
 
@@ -30,10 +32,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 
-// Health check
+// Health check (before auth)
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
+
+// Auth middleware — applied to all /api/* routes
+// Bypasses: /auth/login, /auth/refresh, /auth/logout, /auth/check, /api/health
+app.use(authRedis());
+
+// Auth routes
+app.use('/api/auth', authRouter);
 
 // Root route
 app.get('/', (_req, res) => {
