@@ -10,7 +10,7 @@ import migrator from '../src/db/migrations/index.js';
 import { getModulesForSchema } from '../src/db/migrations/moduleScopes.js';
 
 const { seedRbac } = await import('../src/modules/core/seeds/seed_rbac.js');
-const { bootstrapSuperAdmin } = await import('./bootstrapSuperAdmin.js');
+const { bootstrapSuperUser } = await import('./bootstrapSuperUser.js');
 
 async function migrateTenants({ schemaList = [], dryRun = false, testFlag = false, modulesBySchema = {} } = {}) {
   if (!Array.isArray(schemaList) || schemaList.length === 0) {
@@ -42,7 +42,7 @@ async function migrateTenants({ schemaList = [], dryRun = false, testFlag = fals
 
       try {
         if (schemaName === 'admin') {
-          await bootstrapSuperAdmin();
+          await bootstrapSuperUser();
         } else {
           await seedRbac({ schemaName });
         }

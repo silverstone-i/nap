@@ -11,8 +11,8 @@ import db from '../../../db/db.js';
  * GET /schemas — list all tenant schemas (super_user only)
  */
 export async function getAllSchemas(req, res) {
-  const isSuperAdmin = req.user?.role === 'super_admin';
-  if (!isSuperAdmin) return res.status(403).json({ error: 'Forbidden: super_user only' });
+  const isSuperUser = req.user?.role === 'super_user';
+  if (!isSuperUser) return res.status(403).json({ error: 'Forbidden: super_user only' });
 
   try {
     const tenants = await db('tenants', 'admin').findWhere([], 'AND', {
@@ -31,8 +31,8 @@ export async function getAllSchemas(req, res) {
  * POST /switch-schema/:schema — switch tenant context
  */
 export function switchSchema(req, res) {
-  const isSuperAdmin = req.user?.role === 'super_admin';
-  if (!isSuperAdmin) return res.status(403).json({ error: 'Forbidden: super_user only' });
+  const isSuperUser = req.user?.role === 'super_user';
+  if (!isSuperUser) return res.status(403).json({ error: 'Forbidden: super_user only' });
 
   const { schema } = req.params;
   if (!schema) return res.status(400).json({ error: 'schema parameter required' });

@@ -19,12 +19,9 @@ import {
   Typography,
   Alert,
   CircularProgress,
-  InputAdornment,
-  IconButton,
 } from '@mui/material';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import PasswordField from '../../components/shared/PasswordField.jsx';
 
 export default function LoginPage() {
   const { user, loading: authLoading, login } = useAuth();
@@ -34,7 +31,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [emailAutofilled, setEmailAutofilled] = useState(false);
   const [passwordAutofilled, setPasswordAutofilled] = useState(false);
 
@@ -104,9 +100,8 @@ export default function LoginPage() {
               InputLabelProps={{ shrink: emailAutofilled || !!email }}
               inputProps={{ onAnimationStart: handleAutofill(setEmailAutofilled) }}
             />
-            <TextField
+            <PasswordField
               label="Password"
-              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               fullWidth
@@ -116,21 +111,6 @@ export default function LoginPage() {
               size="small"
               InputLabelProps={{ shrink: passwordAutofilled || !!password }}
               inputProps={{ onAnimationStart: handleAutofill(setPasswordAutofilled) }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword((s) => !s)}
-                      onMouseDown={(e) => e.preventDefault()}
-                      edge="end"
-                      size="small"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
             />
             <Button
               type="submit"

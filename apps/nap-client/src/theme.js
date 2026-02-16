@@ -122,6 +122,49 @@ const commonOptions = {
         },
       ],
     },
+
+    /* ── DialogActions ─────────────────────────────────────────── */
+    MuiDialogActions: {
+      styleOverrides: {
+        root: { paddingLeft: 24, paddingRight: 24, paddingBottom: 16 },
+      },
+    },
+
+    /* ── DialogContent — gap for stacked form fields ──────────── */
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          '&.MuiDialogContent-dividers': { paddingTop: 16 },
+        },
+      },
+    },
+
+    /* ── DataGrid — compact density polish ────────────────────── */
+    MuiDataGrid: {
+      defaultProps: {
+        density: 'compact',
+        disableColumnMenu: true,
+      },
+      styleOverrides: {
+        root: ({ theme }) => ({
+          border: 'none',
+          '& .MuiDataGrid-columnHeaders': {
+            backgroundColor: theme.palette.background.surface,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          },
+          '& .MuiDataGrid-cell': {
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          },
+          '& .MuiDataGrid-footerContainer': {
+            borderTop: `1px solid ${theme.palette.divider}`,
+          },
+          /* Archived / deactivated rows — muted text + subtle bg tint */
+          '& .row-archived': {
+            opacity: 0.5,
+          },
+        }),
+      },
+    },
   },
 };
 

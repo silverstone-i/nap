@@ -144,6 +144,7 @@ export default function ModuleBar() {
             variant={action.variant || 'contained'}
             size="small"
             color={action.color || 'primary'}
+            disabled={!!action.disabled}
             onClick={action.onClick}
             startIcon={action.icon || null}
           >

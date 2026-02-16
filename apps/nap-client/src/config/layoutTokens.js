@@ -63,6 +63,44 @@ export const sidebarPaperSx = (width) => ({
   transition: SIDEBAR_TRANSITION,
 });
 
+/* ── Page containers ────────────────────────────────────────── */
+
+/** Full-height flex column — standard page wrapper for DataGrid pages. */
+export const pageContainerSx = {
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+/* ── Form layout ───────────────────────────────────────────── */
+
+/** Two-column grid for form sections inside dialogs. */
+export const formGridSx = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 2,
+};
+
+/** Single element spanning full width of a formGridSx container. */
+export const formFullSpanSx = { gridColumn: '1 / -1' };
+
+/** Bordered card for repeatable address/phone groups inside forms. */
+export const formGroupCardSx = {
+  ...formGridSx,
+  p: 2,
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 1,
+  position: 'relative',
+};
+
+/** Row with space-between for section header + add button. */
+export const formSectionHeaderSx = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+};
+
 /* ── Convenience exports ────────────────────────────────────── */
 
 const layoutTokens = {
@@ -78,6 +116,11 @@ const layoutTokens = {
   tenantBarSx,
   moduleBarSx,
   sidebarPaperSx,
+  pageContainerSx,
+  formGridSx,
+  formFullSpanSx,
+  formGroupCardSx,
+  formSectionHeaderSx,
 };
 
 export default layoutTokens;

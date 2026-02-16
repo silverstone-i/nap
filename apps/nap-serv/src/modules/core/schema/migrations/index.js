@@ -6,5 +6,6 @@
  */
 
 import coreTables from './202502110010_coreTables.js';
+import coreEntityTables from './202502110011_coreEntityTables.js';
 
-export default [coreTables];
+export default [coreTables, coreEntityTables];

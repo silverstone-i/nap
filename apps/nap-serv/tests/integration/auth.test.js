@@ -29,7 +29,7 @@ const mockUser = {
   password_hash: testPasswordHash,
   tenant_code: 'NAP',
   tenant_id: '660e8400-e29b-41d4-a716-446655440001',
-  role: 'super_admin',
+  role: 'super_user',
   status: 'active',
   deactivated_at: null,
 };

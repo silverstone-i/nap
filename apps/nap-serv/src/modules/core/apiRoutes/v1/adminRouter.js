@@ -15,7 +15,7 @@ const router = Router();
 router.post('/assume-tenant', (req, res) => {
   const { tenant_code, reason } = req.body || {};
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  if (req.user.role !== 'super_admin') return res.status(403).json({ error: 'Forbidden: super_user only' });
+  if (req.user.role !== 'super_user') return res.status(403).json({ error: 'Forbidden: super_user only' });
   if (!tenant_code) return res.status(400).json({ error: 'tenant_code required' });
 
   req.ctx = { ...(req.ctx || {}), assumed_tenant: tenant_code, assumption_reason: reason || null };
