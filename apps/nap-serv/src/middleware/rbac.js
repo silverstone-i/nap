@@ -90,8 +90,8 @@ export function rbac(requiredHint) {
       const schemaName = ctx.schema || user.schema_name || null;
       const systemRole = user.role || null;
 
-      // Short-circuit: super_admin bypasses all checks
-      if (systemRole === 'super_admin') return next();
+      // Short-circuit: super_user bypasses all checks
+      if (systemRole === 'super_user') return next();
 
       // Short-circuit: tenant admin bypasses all except tenants module
       if (systemRole === 'admin') {

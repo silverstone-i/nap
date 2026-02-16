@@ -13,17 +13,17 @@ import { setAuthCookies, clearAuthCookies } from '../../../auth/cookies.js';
 import db from '../../../db/db.js';
 
 /**
- * Build a full-access capability map for super_admin users.
- * super_admin has no schema-based policies — they get all module caps.
+ * Build a full-access capability map for super_user users.
+ * super_user has no schema-based policies — they get all module caps.
  */
-const SUPER_ADMIN_MODULES = [
+const SUPER_USER_MODULES = [
   'tenants', 'projects', 'budgets', 'actual-costs', 'change-orders',
   'ap', 'ar', 'accounting', 'reports',
 ];
 
-function buildSuperAdminCaps() {
+function buildSuperUserCaps() {
   const caps = {};
-  for (const mod of SUPER_ADMIN_MODULES) {
+  for (const mod of SUPER_USER_MODULES) {
     caps[`${mod}::::full`] = 'full';
   }
   return caps;
@@ -41,9 +41,9 @@ export const login = (req, res, next) => {
     const schemaName = user.tenant_code?.toLowerCase?.();
     let canon = { caps: {} };
 
-    // super_admin gets full access to all modules — they don't have schema-based policies
-    if (user.role === 'super_admin') {
-      canon = { caps: buildSuperAdminCaps() };
+    // super_user gets full access to all modules — they don't have schema-based policies
+    if (user.role === 'super_user') {
+      canon = { caps: buildSuperUserCaps() };
     } else {
       try {
         const { loadPoliciesForUserTenant } = await import('../../../utils/RbacPolicies.js');
@@ -109,10 +109,10 @@ export const refresh = async (req, res) => {
 
     const schemaName = user.tenant_code?.toLowerCase?.();
 
-    // Reload RBAC policies (super_admin gets full caps automatically)
+    // Reload RBAC policies (super_user gets full caps automatically)
     let canon = { caps: {} };
-    if (user.role === 'super_admin') {
-      canon = { caps: buildSuperAdminCaps() };
+    if (user.role === 'super_user') {
+      canon = { caps: buildSuperUserCaps() };
     } else {
       try {
         const { loadPoliciesForUserTenant } = await import('../../../utils/RbacPolicies.js');

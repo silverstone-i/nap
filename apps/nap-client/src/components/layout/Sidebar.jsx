@@ -47,9 +47,10 @@ export default function Sidebar() {
 
   const width = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
-  // Filter nav items based on user capabilities
+  // Filter nav items based on user capabilities (super_user sees everything)
   const filteredNav = useMemo(() => {
     if (!user) return [];
+    if (user.role === 'super_user') return NAV_ITEMS;
     const caps = user.perms?.caps || {};
     return NAV_ITEMS.map((group) => {
       const visibleChildren = group.children.filter((child) => {

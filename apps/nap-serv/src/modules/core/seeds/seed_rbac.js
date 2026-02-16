@@ -20,15 +20,15 @@ export async function seedRbac({ schemaName, createdBy = null }) {
     return;
   }
 
-  const roleCodesToCheck = isAdminSchema ? ['super_admin', 'admin'] : ['admin', 'project_manager'];
+  const roleCodesToCheck = isAdminSchema ? ['super_user', 'admin'] : ['admin', 'project_manager'];
   const existing = await db('roles', schema).findWhere([{ code: { $in: roleCodesToCheck } }], 'AND');
   const haveCodes = new Set(existing.map((r) => r.code));
 
   // System roles
-  if (isAdminSchema && !haveCodes.has('super_admin')) {
+  if (isAdminSchema && !haveCodes.has('super_user')) {
     await db('roles', schema).insert({
-      code: 'super_admin',
-      name: 'Super Admin',
+      code: 'super_user',
+      name: 'Super User',
       is_system: true,
       is_immutable: true,
       created_by: createdBy,
@@ -61,7 +61,7 @@ export async function seedRbac({ schemaName, createdBy = null }) {
     // Seed policies per PRD §3.7 RBAC hierarchy
     const policies = [
       { role_id: pm.id, module: 'projects', router: null, action: null, level: 'full' },
-      { role_id: pm.id, module: 'gl', router: null, action: null, level: 'view' },
+      { role_id: pm.id, module: 'accounting', router: null, action: null, level: 'view' },
       { role_id: pm.id, module: 'ar', router: null, action: null, level: 'view' },
       { role_id: pm.id, module: 'ar', router: 'invoices', action: 'approve', level: 'none' },
     ];

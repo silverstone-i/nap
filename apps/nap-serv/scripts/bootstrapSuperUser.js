@@ -1,8 +1,8 @@
 /**
- * @file Bootstrap script — creates NapSoft tenant & super_admin user, seeds RBAC
- * @module nap-serv/scripts/bootstrapSuperAdmin
+ * @file Bootstrap script — creates NapSoft tenant & super_user user, seeds RBAC
+ * @module nap-serv/scripts/bootstrapSuperUser
  *
- * Can be executed directly: node scripts/bootstrapSuperAdmin.js
+ * Can be executed directly: node scripts/bootstrapSuperUser.js
  * When run directly, it also triggers migrations for the admin and tenant schemas.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -21,7 +21,7 @@ function resolveTenantCode(overrideTenantCode) {
   return (NAPSOFT_TENANT || 'NAP').toUpperCase();
 }
 
-async function bootstrapSuperAdmin({ tenantCode: overrideTenantCode } = {}) {
+async function bootstrapSuperUser({ tenantCode: overrideTenantCode } = {}) {
   const { ROOT_EMAIL, ROOT_PASSWORD, BCRYPT_ROUNDS } = process.env;
 
   if (!ROOT_EMAIL || !ROOT_PASSWORD) {
@@ -54,11 +54,11 @@ async function bootstrapSuperAdmin({ tenantCode: overrideTenantCode } = {}) {
       console.log('NapSoft tenant already exists.');
     }
 
-    // 2) Ensure super_admin user exists
-    const existingUsers = await db.napUsers.findWhere([{ role: 'super_admin' }]);
+    // 2) Ensure super_user user exists
+    const existingUsers = await db.napUsers.findWhere([{ role: 'super_user' }]);
 
     if (existingUsers.length > 0) {
-      console.log('Super admin already exists. Skipping user creation.');
+      console.log('Super user already exists. Skipping user creation.');
     } else {
       const passwordHash = await bcrypt.hash(ROOT_PASSWORD, rounds);
 
@@ -67,14 +67,14 @@ async function bootstrapSuperAdmin({ tenantCode: overrideTenantCode } = {}) {
         tenant_code: tenantCode,
         email: ROOT_EMAIL,
         password_hash: passwordHash,
-        role: 'super_admin',
-        user_name: 'super_admin',
-        full_name: 'Super Admin',
+        role: 'super_user',
+        user_name: 'super_user',
+        full_name: 'Super User',
         status: 'active',
         tenant_role: 'admin',
         created_by: null,
       });
-      console.log('super_admin created with tenant_role=admin.');
+      console.log('super_user created with tenant_role=admin.');
     }
 
     // 3) Seed RBAC for admin schema
@@ -85,7 +85,7 @@ async function bootstrapSuperAdmin({ tenantCode: overrideTenantCode } = {}) {
       console.warn('RBAC seeding during bootstrap failed:', e?.message || e);
     }
   } catch (err) {
-    console.error('Error bootstrapping super_admin:', err);
+    console.error('Error bootstrapping super_user:', err);
     process.exit(1);
   }
 }
@@ -99,7 +99,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const { migrateTenants } = await import('./migrateTenants.js');
     await migrateTenants({ schemaList });
-    console.log('Migrations complete; super admin ensured.');
+    console.log('Migrations complete; super user ensured.');
   } catch (err) {
     console.error('Error running migrations during bootstrap:', err?.message || err);
     process.exit(1);
@@ -108,4 +108,4 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   process.exit(0);
 }
 
-export { bootstrapSuperAdmin };
+export { bootstrapSuperUser };

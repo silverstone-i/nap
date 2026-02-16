@@ -48,7 +48,7 @@ export function useModuleToolbarRegistration(config) {
     if (config) ctx.register(config);
     return () => ctx.clear();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(config)]);
+  }, [config]);
 }
 
 export function useModuleActions() {

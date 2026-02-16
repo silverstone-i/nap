@@ -12,6 +12,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LayoutShell from './components/layout/LayoutShell.jsx';
 import LoginPage from './pages/Auth/LoginPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
+import ManageTenantsPage from './pages/Tenant/ManageTenantsPage.jsx';
+import ManageUsersPage from './pages/Tenant/ManageUsersPage.jsx';
 
 export default function App() {
   return (
@@ -68,8 +70,8 @@ export default function App() {
           <Route path="/reports/balance-sheet" element={<PlaceholderPage title="Balance Sheet" />} />
 
           {/* Tenants */}
-          <Route path="/tenant/manage-tenants" element={<PlaceholderPage title="Manage Tenants" />} />
-          <Route path="/tenant/manage-users" element={<PlaceholderPage title="Manage Users" />} />
+          <Route path="/tenant/manage-tenants" element={<ManageTenantsPage />} />
+          <Route path="/tenant/manage-users" element={<ManageUsersPage />} />
           <Route path="/tenant/settings" element={<PlaceholderPage title="Tenant Settings" />} />
 
           {/* User account */}

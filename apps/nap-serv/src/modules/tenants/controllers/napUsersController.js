@@ -4,8 +4,10 @@
  *
  * Overrides:
  *   register → custom registration with bcrypt hashing, address/phone creation
- *   archive → prevents self-archival and super_user archival
- *   restore → checks parent tenant is active before restoring
+ *   getById  → enriches response with phones and addresses
+ *   update   → supports phone / address replacement alongside user field updates
+ *   archive  → prevents self-archival and super_user archival
+ *   restore  → checks parent tenant is active before restoring
  * Standard POST is disabled; must use /register endpoint.
  * Never returns password_hash in responses.
  *
@@ -15,6 +17,7 @@
 import bcrypt from 'bcrypt';
 import BaseController from '../../../lib/BaseController.js';
 import db from '../../../db/db.js';
+import logger from '../../../utils/logger.js';
 
 class NapUsersController extends BaseController {
   constructor() {
@@ -28,8 +31,60 @@ class NapUsersController extends BaseController {
     return 'admin';
   }
 
+  /* ── Helper: insert phone rows for a user ──────────────────────── */
+
+  async #insertPhones(userId, phones, auditUserId) {
+    if (!Array.isArray(phones)) return;
+    for (const ph of phones) {
+      if (!ph.phone_number) continue;
+      await db('napUserPhones', 'admin').insert({
+        user_id: userId,
+        phone_number: ph.phone_number,
+        phone_type: ph.phone_type || 'cell',
+        is_primary: ph.is_primary ?? false,
+        created_by: auditUserId,
+      });
+    }
+  }
+
+  /* ── Helper: insert address rows for a user ────────────────────── */
+
+  async #insertAddresses(userId, addresses, auditUserId) {
+    if (!Array.isArray(addresses)) return;
+    for (const addr of addresses) {
+      if (!addr.address_line_1) continue;
+      await db('napUserAddresses', 'admin').insert({
+        user_id: userId,
+        address_type: addr.address_type || 'home',
+        address_line_1: addr.address_line_1 || null,
+        address_line_2: addr.address_line_2 || null,
+        address_line_3: addr.address_line_3 || null,
+        city: addr.city || null,
+        state_province: addr.state_province || null,
+        postal_code: addr.postal_code || null,
+        country_code: addr.country_code || null,
+        is_primary: addr.is_primary ?? false,
+        created_by: auditUserId,
+      });
+    }
+  }
+
+  /* ── Helper: delete-then-insert replacement for child rows ─────── */
+
+  async #replacePhones(userId, phones, auditUserId) {
+    await db.none('DELETE FROM admin.nap_user_phones WHERE user_id = $1', [userId]);
+    await this.#insertPhones(userId, phones, auditUserId);
+  }
+
+  async #replaceAddresses(userId, addresses, auditUserId) {
+    await db.none('DELETE FROM admin.nap_user_addresses WHERE user_id = $1', [userId]);
+    await this.#insertAddresses(userId, addresses, auditUserId);
+  }
+
   /**
-   * POST /register — register a new user with password hashing
+   * POST /register — register a new user with password hashing.
+   * Accepts phones as an array of { phone_number, phone_type, is_primary }
+   * OR the legacy flat fields phone_1 / phone_2.
    */
   register = async (req, res) => {
     const {
@@ -43,6 +98,7 @@ class NapUsersController extends BaseController {
       phone_1_type,
       phone_2,
       phone_2_type,
+      phones: phonesArray,
       addresses,
       tax_id,
       notes,
@@ -80,44 +136,35 @@ class NapUsersController extends BaseController {
         created_by: req.user?.id || null,
       });
 
-      // Create phone records if provided
-      if (phone_1) {
-        await db('napUserPhones', 'admin').insert({
-          user_id: user.id,
-          phone_number: phone_1,
-          phone_type: phone_1_type || 'cell',
-          is_primary: true,
-          created_by: req.user?.id || null,
-        });
-      }
-      if (phone_2) {
-        await db('napUserPhones', 'admin').insert({
-          user_id: user.id,
-          phone_number: phone_2,
-          phone_type: phone_2_type || 'cell',
-          is_primary: false,
-          created_by: req.user?.id || null,
-        });
-      }
+      const auditId = req.user?.id || null;
 
-      // Create address records if provided
-      if (Array.isArray(addresses)) {
-        for (const addr of addresses) {
-          await db('napUserAddresses', 'admin').insert({
+      // Create phone records — prefer the new array format; fall back to legacy flat fields
+      if (Array.isArray(phonesArray) && phonesArray.length) {
+        await this.#insertPhones(user.id, phonesArray, auditId);
+      } else {
+        // Legacy flat fields
+        if (phone_1) {
+          await db('napUserPhones', 'admin').insert({
             user_id: user.id,
-            address_type: addr.address_type || 'home',
-            address_line_1: addr.address_line_1 || null,
-            address_line_2: addr.address_line_2 || null,
-            address_line_3: addr.address_line_3 || null,
-            city: addr.city || null,
-            state_province: addr.state_province || null,
-            postal_code: addr.postal_code || null,
-            country_code: addr.country_code || null,
-            is_primary: addr.is_primary || false,
-            created_by: req.user?.id || null,
+            phone_number: phone_1,
+            phone_type: phone_1_type || 'cell',
+            is_primary: true,
+            created_by: auditId,
+          });
+        }
+        if (phone_2) {
+          await db('napUserPhones', 'admin').insert({
+            user_id: user.id,
+            phone_number: phone_2,
+            phone_type: phone_2_type || 'cell',
+            is_primary: false,
+            created_by: auditId,
           });
         }
       }
+
+      // Create address records if provided
+      await this.#insertAddresses(user.id, addresses, auditId);
 
       // Return user without password_hash
       const { password_hash: _ph, ...safeUser } = user;
@@ -129,6 +176,7 @@ class NapUsersController extends BaseController {
       if (err.name === 'SchemaDefinitionError') {
         return res.status(400).json({ message: 'Invalid input data', details: err.cause });
       }
+      logger.error('Error registering user:', { error: err.message });
       res.status(500).json({ message: 'Error registering user' });
     }
   };
@@ -142,16 +190,64 @@ class NapUsersController extends BaseController {
     return super.get(req, res);
   }
 
+  /**
+   * GET /:id — enriches the user record with phones and addresses.
+   */
   async getById(req, res) {
-    const origJson = res.json.bind(res);
-    res.json = (data) => origJson(this.#stripPassword(data));
-    return super.getById(req, res);
+    try {
+      const record = await this.model('admin').findById(req.params.id);
+      if (!record) return res.status(404).json({ error: `${this.errorLabel} not found` });
+
+      const [phones, addresses] = await Promise.all([
+        db('napUserPhones', 'admin').findWhere([{ user_id: record.id }]),
+        db('napUserAddresses', 'admin').findWhere([{ user_id: record.id }]),
+      ]);
+
+      const safe = this.#stripPassword(record);
+      res.json({ ...safe, phones: phones || [], addresses: addresses || [] });
+    } catch (err) {
+      this.handleError(err, res, 'fetching', this.errorLabel);
+    }
   }
 
   async getWhere(req, res) {
     const origJson = res.json.bind(res);
     res.json = (data) => origJson(this.#stripPasswords(data));
     return super.getWhere(req, res);
+  }
+
+  /**
+   * PUT /update — update user fields plus optional phone/address replacement.
+   * Body may include `phones` (array) and/or `addresses` (array) alongside
+   * scalar user-column changes.  Child rows are fully replaced (delete + insert).
+   */
+  async update(req, res) {
+    const { phones, addresses, ...userChanges } = req.body;
+    const auditId = req.user?.id || null;
+
+    try {
+      // Update scalar user columns (if any besides phones/addresses)
+      if (Object.keys(userChanges).length) {
+        const count = await this.model('admin').updateWhere([{ ...req.query }], userChanges);
+        if (!count) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      }
+
+      // Resolve the target user id for child-row replacement
+      const userId = req.query.id;
+      if (userId) {
+        if (Array.isArray(phones)) {
+          await this.#replacePhones(userId, phones, auditId);
+        }
+        if (Array.isArray(addresses)) {
+          await this.#replaceAddresses(userId, addresses, auditId);
+        }
+      }
+
+      res.json({ message: `${this.errorLabel} updated` });
+    } catch (err) {
+      if (err.name === 'SchemaDefinitionError') err.message = 'Invalid input data';
+      this.handleError(err, res, 'updating', this.errorLabel);
+    }
   }
 
   /**
@@ -174,8 +270,8 @@ class NapUsersController extends BaseController {
       try {
         const filter = targetId ? { id: targetId } : { email: targetEmail };
         const target = await this.model('admin').findOneBy([filter]);
-        if (target?.role === 'super_admin') {
-          return res.status(403).json({ message: 'Cannot archive a super_admin user' });
+        if (target?.role === 'super_user') {
+          return res.status(403).json({ message: 'Cannot archive a super_user user' });
         }
       } catch {
         /* proceed, will fail below if not found */

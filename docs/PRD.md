@@ -53,7 +53,7 @@ nap/
 
 NAP uses **PostgreSQL schema-per-tenant** isolation powered by pg-schemata:
 
-- **`admin` schema**: System-wide tables (`tenants`, `nap_users`, `match_review_logs`)
+- **`admin` schema**: System-wide tables (`tenants`, `nap_users`, `nap_user_phones`, `nap_user_addresses`, `match_review_logs`)
 - **Tenant schemas** (e.g., `acme`, `nap`): Each customer gets a dedicated PostgreSQL schema containing all business tables (vendors, projects, accounting, etc.)
 - Tenant resolution is performed per-request via `x-tenant-code` header or JWT claims
 - All database access is schema-aware via pg-schemata's `setSchemaName()` — models bind queries to the correct tenant schema dynamically
@@ -227,14 +227,15 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 | `GET` | `/api/auth/check` | Lightweight session validation |
 
 **Token Claims:**
-- `sub` / `id`: User UUID
-- `tenant_code`: Current tenant
-- `schema_name`: Explicit schema override
-- `role`: Legacy role hint
-- `ph`: Permissions hash for cache validation
+- `sub`: User UUID
+- `ph`: Permissions hash for cache validation (nullable)
+- `iss`: Issuer (`'nap-serv'`)
+- `aud`: Audience (`'nap-serv-api'`)
+
+> **Note:** Tenant context (`tenant_code`, `schema_name`) and role are resolved at request time by the `authRedis` middleware via HTTP headers, Redis cache, and database lookup — they are NOT embedded in the JWT.
 
 **Client-Side Auth:**
-- `AuthContext` provides `{ user, loading, login, logout }` via React context
+- `AuthContext` provides `{ user, loading, login, logout, tenant }` via React context, where `tenant` is `null` or `{ tenant_code, schema_name }`
 - `LayoutShell` renders loading spinner while `loading=true`, redirects to `/login` if `user=null`
 - All API calls use `credentials: 'include'` for cookie transmission
 - No tokens stored in localStorage — fully cookie-based
@@ -242,9 +243,11 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 #### 3.1.2 Role-Based Access Control (RBAC)
 
 **Data Model:**
-- `roles`: Role definitions with `code`, `name`, `is_system`, `is_immutable` flags
-- `role_members`: User-to-role mappings with optional `is_primary` flag
-- `policies`: Permission grants with `(role_id, module, router, action, level)` dimensions
+- `roles`: Role definitions with `code`, `name`, `description` (optional), `is_system`, `is_immutable` flags, plus `tenant_code` for schema context
+- `role_members`: User-to-role mappings with optional `is_primary` flag, plus `tenant_code`
+- `policies`: Permission grants with `(role_id, module, router, action, level)` dimensions, plus `tenant_code`
+
+> **RBAC Schema Storage:** RBAC tables are defined with `dbSchema: 'public'` as a placeholder, but pg-schemata dynamically overrides the schema at bootstrap/migration time. Each tenant schema gets its own copy of the RBAC tables (`roles`, `role_members`, `policies`).
 
 **Permission Levels:** `none` (0) < `view` (1) < `full` (2)
 
@@ -260,7 +263,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 
 **Seeded Tenant Roles:**
 - `admin`: Tenant-level administrator
-- `project_manager`: Sample role with `projects: full`, `gl: view`, `ar: view`, `ar::invoices::approve: none`
+- `project_manager`: Sample role with `projects: full`, `accounting: view`, `ar: view`, `ar::invoices::approve: none`
 
 **Permission Caching:**
 - Permissions stored in Redis at `perm:{userId}:{tenantCode}`
@@ -281,7 +284,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 
 **Access Control:** Restricted to NapSoft employees via `requireNapsoftTenant` middleware.
 
-**Root Tenant:** NapSoft (tenant_code `NAP`) is the platform root tenant. It cannot be archived or deleted. The `super_user` system role can only be assigned to users belonging to the NapSoft tenant. The root tenant is created automatically during initial setup via `setupAdmin.js`.
+**Root Tenant:** NapSoft (tenant_code `NAP`) is the platform root tenant. It cannot be archived or deleted. The `super_user` system role can only be assigned to users belonging to the NapSoft tenant. The root tenant is created automatically during initial setup via the `202502110001_bootstrapAdmin` migration.
 
 #### 3.2.1 Manage Tenants
 
@@ -299,8 +302,6 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 | `allowed_modules` | jsonb | Module access whitelist |
 | `max_users` | integer | User limit (default 5) |
 | `billing_email` | varchar(128) | Billing contact |
-| `admin_user` | uuid | **Required** — FK to nap_users; the tenant's primary administrator |
-| `billing_user` | uuid | Optional — FK to nap_users; the tenant's billing contact |
 | `notes` | text | Internal notes |
 
 **Tenant Provisioning via pg-schemata:**
@@ -308,7 +309,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 - Extensions (e.g., `pgcrypto`, `vector`) are created per-schema as needed
 - `MigrationManager` applies any pending migrations to the new schema
 - Seed data (default roles, chart of accounts templates) is inserted via `bulkInsert()`
-- **Admin User Creation:** When creating a new tenant, the provided `admin_user` email, user_name, and password are used to register a new user in `admin.nap_users` with the `admin` role for that tenant. The new user's ID is stored as the tenant's `admin_user` FK. The `billing_user` may be set later to any user belonging to the tenant.
+- **Admin User Creation:** When creating a new tenant, the provided admin email, user_name, and password are used to register a new user in `admin.nap_users` with the `admin` role for that tenant. The new user's `tenant_role` is set to `'admin'`. A billing contact may be designated later by setting another user's `tenant_role` to `'billing'`.
 
 **UI Requirements:**
 - Data grid displaying: Code, Tenant Name, Status, Tier, Region, Active columns
@@ -324,7 +325,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/tenants/v1/tenants` | Create tenant (provisions schema, creates admin user from provided credentials) |
+| `POST` | `/api/tenants/v1/tenants` | Create tenant (provisions schema, creates admin user with `tenant_role='admin'`) |
 | `GET` | `/api/tenants/v1/tenants` | List tenants (cursor-based pagination) |
 | `GET` | `/api/tenants/v1/tenants/:id` | Get tenant by ID |
 | `PUT` | `/api/tenants/v1/tenants/update` | Update tenant |
@@ -345,24 +346,33 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 | `user_name` | varchar(128) | Display name / username |
 | `full_name` | varchar(255) | User's full legal name |
 | `password_hash` | text | bcrypt hash (not returned in API responses) |
-| `phone_1` | varchar(32) | Primary phone number (e.g., `770-331-1610`) |
-| `phone_1_type` | varchar(16) | Phone type: `cell`, `home`, `work`, `fax`, `other` |
-| `phone_2` | varchar(32) | Secondary phone number |
-| `phone_2_type` | varchar(16) | Phone type |
 | `tax_id` | varchar(32) | User's tax identifier (SSN, EIN, etc.) |
 | `notes` | text | Internal notes about the user |
-| `role` | varchar(32) | Legacy role field (default `member`) |
+| `role` | varchar(32) | System role (default `member`) |
 | `status` | varchar(20) | `active`, `invited`, `locked` |
+| `tenant_role` | varchar(16) | Nullable — `'admin'`, `'billing'`, or NULL. Designates whether the user is the tenant's primary administrator or billing contact. At most one admin and one billing user per tenant. |
 
-**User Addresses (`admin.nap_user_addresses`):**
+**User Phones (`admin.nap_user_phones`):**
 
-Users can have up to two addresses. Stored in a separate table linked by `user_id`:
+Users can have any number of phone numbers. Stored in a separate table linked by `user_id`:
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | uuid | Primary key |
-| `user_id` | uuid | FK to nap_users (CASCADE) |
-| `address_type` | varchar(16) | `home`, `work`, `mailing`, `other` |
+| `user_id` | uuid | FK to nap_users (CASCADE), not null |
+| `phone_type` | varchar(16) | `cell`, `home`, `work`, `fax`, `other` (default `cell`, not null) |
+| `phone_number` | varchar(32) | Phone number (e.g., `770-331-1610`), not null |
+| `is_primary` | boolean | Primary phone flag (default false, not null) |
+
+**User Addresses (`admin.nap_user_addresses`):**
+
+Users can have any number of addresses. Stored in a separate table linked by `user_id`:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | uuid | Primary key |
+| `user_id` | uuid | FK to nap_users (CASCADE), not null |
+| `address_type` | varchar(16) | `home`, `work`, `mailing`, `other` (default `home`, not null) |
 | `address_line_1` | varchar(255) | Street address or P.O. Box |
 | `address_line_2` | varchar(255) | Apt, suite, unit, building, floor, etc. |
 | `address_line_3` | varchar(255) | Additional address line (used internationally) |
@@ -377,16 +387,16 @@ Users can have up to two addresses. Stored in a separate table linked by `user_i
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/tenants/v1/nap-users/register` | Register new user (with password hashing) |
+| `POST` | `/api/tenants/v1/nap-users/register` | Register new user (with password hashing, phones, addresses) |
 | `GET` | `/api/tenants/v1/nap-users` | List users |
-| `GET` | `/api/tenants/v1/nap-users/:id` | Get user by ID |
-| `PUT` | `/api/tenants/v1/nap-users/update` | Update user |
+| `GET` | `/api/tenants/v1/nap-users/:id` | Get user by ID (enriched with phones and addresses arrays) |
+| `PUT` | `/api/tenants/v1/nap-users/update` | Update user (supports phone/address replacement via arrays in body) |
 | `DELETE` | `/api/tenants/v1/nap-users/archive` | Soft-delete user (prevents self-archival) |
 | `PATCH` | `/api/tenants/v1/nap-users/restore` | Restore user (checks tenant is active) |
 
 **Business Rules:**
 - Standard POST is disabled; users must be created via the `/register` endpoint
-- Registration collects: email, user_name, full_name, password, phone_1 + phone_1_type, phone_2 + phone_2_type (optional), address_1 + type (optional), address_2 + type (optional), tax_id (optional), notes (optional)
+- Registration collects: email, user_name, full_name, password, phones array (optional, each with phone_number + phone_type + is_primary), addresses array (optional, each with address fields + is_primary), tenant_role (optional), tax_id (optional), notes (optional)
 - Password automatically hashed with bcrypt on registration and XLS import
 - Email must be globally unique across all active users (enforced by partial unique index WHERE deactivated_at IS NULL)
 - Users cannot archive themselves
@@ -1390,15 +1400,16 @@ Defined in pg-schemata schemas with `generated: 'always'`, `stored: true`:
 - Separate migration directories for admin vs tenant schemas
 
 **Migration Order:**
-1. `202502110001` — Bootstrap admin (tenants, nap_users, match_review_logs)
-2. `202502110010` — Core tables (sources, vendors, clients, employees, contacts, addresses, inter_companies, RBAC)
-3. `202502110020` — Project tables (projects, units, tasks, cost items, change orders, templates)
-4. `202502110030` — BOM tables (catalog_skus, vendor_skus, vendor_pricing) with pgvector
-5. `202502110040` — Activity tables (categories, activities, deliverables, budgets, cost_lines, actual_costs, vendor_parts)
-6. `202502110050` — AP tables (ap_invoices, ap_invoice_lines, payments, ap_credit_memos)
-7. `202502110060` — AR tables (ar_clients, ar_invoices, ar_invoice_lines, receipts)
-8. `202502110070` — Accounting tables (chart_of_accounts, journal_entries, journal_entry_lines, ledger_balances, posting_queues, category_account_map, intercompany)
-9. `202502120080` — SQL views (export views, profitability views, cashflow views, aging views)
+1. `202502110001` — Bootstrap admin (tenants, nap_users, nap_user_phones, nap_user_addresses, match_review_logs)
+2. `202502110010` — Core RBAC tables (roles, role_members, policies)
+3. `202502110011` — Core entity tables (sources, vendors, clients, employees, contacts, addresses, inter_companies)
+4. `202502110020` — Project tables (projects, units, tasks, cost items, change orders, templates)
+5. `202502110030` — BOM tables (catalog_skus, vendor_skus, vendor_pricing) with pgvector
+6. `202502110040` — Activity tables (categories, activities, deliverables, budgets, cost_lines, actual_costs, vendor_parts)
+7. `202502110050` — AP tables (ap_invoices, ap_invoice_lines, payments, ap_credit_memos)
+8. `202502110060` — AR tables (ar_clients, ar_invoices, ar_invoice_lines, receipts)
+9. `202502110070` — Accounting tables (chart_of_accounts, journal_entries, journal_entry_lines, ledger_balances, posting_queues, category_account_map, intercompany)
+10. `202502120080` — SQL views (export views, profitability views, cashflow views, aging views)
 
 ---
 
@@ -1461,6 +1472,11 @@ Composite sx presets (spread into component `sx`):
 | `tenantBarSx` | `bgcolor`, `height` | TenantBar AppBar root |
 | `moduleBarSx` | `position`, `top`, `bgcolor`, `borderBottom`, `minHeight` | ModuleBar sticky container |
 | `sidebarPaperSx(width)` | `width`, `transition` | Sidebar Drawer paper |
+| `pageContainerSx` | `height: 100%`, `display: flex`, `flexDirection: column` | Full-height flex column for DataGrid page wrapper |
+| `formGridSx` | `display: grid`, `gridTemplateColumns: 1fr 1fr`, `gap: 2` | Two-column grid layout for form sections |
+| `formFullSpanSx` | `gridColumn: 1 / -1` | Full-width span inside formGridSx |
+| `formGroupCardSx` | Extends `formGridSx` + `p: 2`, `border`, `borderRadius` | Bordered card for repeatable form groups (addresses, phones) |
+| `formSectionHeaderSx` | `display: flex`, `justifyContent: space-between` | Header row + add button layout |
 
 #### 6.1.3 Theme Overrides Reference
 
@@ -1478,6 +1494,9 @@ All MUI component overrides defined in `theme.js`:
 | `MuiListItemIcon` | styleOverrides | `minWidth: 36` | Sidebar ListItemIcon `minWidth: 36` |
 | `MuiChip` | styleOverrides (sizeSmall) | `fontWeight: 600`, `fontSize: 0.75rem` | TenantBar Chip sx |
 | `MuiAvatar` | named variant `"header"` | 32 × 32, primary colours, cursor pointer, 0.8rem bold | TenantBar Avatar sx block |
+| `MuiDialogActions` | styleOverrides | `paddingLeft: 24`, `paddingRight: 24`, `paddingBottom: 16` | Dialog button row padding |
+| `MuiDialogContent` | styleOverrides (dividers) | `paddingTop: 16` for divider variant | Spacing for dialog content with divider |
+| `MuiDataGrid` | defaultProps + styleOverrides | `density: compact`, `disableColumnMenu`, border removal, column/footer dividers, `.row-archived { opacity: 0.5 }` | Compact grid with row muting |
 
 ### 6.2 Navigation System
 

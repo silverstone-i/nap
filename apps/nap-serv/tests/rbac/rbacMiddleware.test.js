@@ -59,10 +59,10 @@ describe('rbac middleware', () => {
   });
 
   describe('super_user bypass', () => {
-    it('should bypass all checks for super_admin role', async () => {
+    it('should bypass all checks for super_user role', async () => {
       const middleware = rbac('full');
       const { req, res, next } = createMockReqRes({
-        user: { id: 'u1', role: 'super_admin', schema_name: 'nap' },
+        user: { id: 'u1', role: 'super_user', schema_name: 'nap' },
         resource: { module: 'tenants', router: '', action: '' },
       });
       await middleware(req, res, next);
