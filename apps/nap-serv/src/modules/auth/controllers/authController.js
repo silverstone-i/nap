@@ -49,6 +49,7 @@ export const login = (req, res, next) => {
             tenant_code: user.tenant_code,
             email: user.email,
             user_name: user.user_name,
+            role: user.role,
           },
         }),
       );
@@ -113,6 +114,7 @@ export const refresh = async (req, res) => {
             tenant_code: user.tenant_code,
             email: user.email,
             user_name: user.user_name,
+            role: user.role,
           },
         }),
       );
