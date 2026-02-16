@@ -17,7 +17,12 @@ export function addAuditFields(req, res, next) {
 
   const path = req.originalUrl || '';
   let tenantCode = req.user?.tenant_code;
-  if (path.endsWith('tenants/') || path.endsWith('nap-users/register')) {
+
+  // For tenant creation and user registration, prefer the tenant_code from the
+  // request body (the target tenant), not the authenticated user's tenant.
+  const isTenantCreate = /\/tenants\/?$/.test(path) && req.method === 'POST';
+  const isUserRegister = path.includes('nap-users/register');
+  if (isTenantCreate || isUserRegister) {
     tenantCode = req.body?.tenant_code || tenantCode;
   }
 

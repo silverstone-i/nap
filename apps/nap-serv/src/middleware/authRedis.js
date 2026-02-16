@@ -128,12 +128,33 @@ export function authRedis() {
         bypassRbac: isAdminArea || isCoreAuthSelf,
       });
 
+      // Hydrate user profile from Redis cache or DB (JWT is minimal: sub + ph only)
+      let userProfile = permsRecord?.user || null;
+      if (!userProfile) {
+        try {
+          const dbMod = await import('../db/db.js');
+          const dbFn = dbMod.default || dbMod.db;
+          const full = await dbFn('napUsers', 'admin').findOneBy([{ id: uid }]);
+          if (full) {
+            userProfile = {
+              id: full.id,
+              email: full.email,
+              user_name: full.user_name,
+              role: full.role,
+              tenant_code: full.tenant_code,
+            };
+          }
+        } catch {
+          // proceed with minimal user
+        }
+      }
+
       req.user = {
         id: uid,
-        email: claims?.email,
-        user_name: claims?.user_name,
-        role: claims?.role,
-        tenant_code: tenantCode || null,
+        email: userProfile?.email || claims?.email,
+        user_name: userProfile?.user_name || claims?.user_name,
+        role: userProfile?.role || claims?.role,
+        tenant_code: tenantCode || userProfile?.tenant_code || null,
         schema_name: schemaName,
         perms: permsRecord.perms,
       };

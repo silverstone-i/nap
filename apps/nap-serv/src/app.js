@@ -11,6 +11,7 @@ import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import { authRedis } from './middleware/authRedis.js';
 import authRouter from './modules/auth/apiRoutes/v1/authRouter.js';
+import apiRoutes from './apiRoutes.js';
 
 const app = express();
 
@@ -43,6 +44,9 @@ app.use(authRedis());
 
 // Auth routes
 app.use('/api/auth', authRouter);
+
+// Module routes
+app.use('/api', apiRoutes);
 
 // Root route
 app.get('/', (_req, res) => {
