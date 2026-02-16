@@ -13,6 +13,23 @@ import { setAuthCookies, clearAuthCookies } from '../../../auth/cookies.js';
 import db from '../../../db/db.js';
 
 /**
+ * Build a full-access capability map for super_admin users.
+ * super_admin has no schema-based policies — they get all module caps.
+ */
+const SUPER_ADMIN_MODULES = [
+  'tenants', 'projects', 'budgets', 'actual-costs', 'change-orders',
+  'ap', 'ar', 'accounting', 'reports',
+];
+
+function buildSuperAdminCaps() {
+  const caps = {};
+  for (const mod of SUPER_ADMIN_MODULES) {
+    caps[`${mod}::::full`] = 'full';
+  }
+  return caps;
+}
+
+/**
  * POST /api/auth/login — Authenticate with email/password
  */
 export const login = (req, res, next) => {
@@ -23,12 +40,18 @@ export const login = (req, res, next) => {
 
     const schemaName = user.tenant_code?.toLowerCase?.();
     let canon = { caps: {} };
-    try {
-      const { loadPoliciesForUserTenant } = await import('../../../utils/RbacPolicies.js');
-      const caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
-      canon = { caps };
-    } catch {
-      canon = { caps: {} };
+
+    // super_admin gets full access to all modules — they don't have schema-based policies
+    if (user.role === 'super_admin') {
+      canon = { caps: buildSuperAdminCaps() };
+    } else {
+      try {
+        const { loadPoliciesForUserTenant } = await import('../../../utils/RbacPolicies.js');
+        const caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
+        canon = { caps };
+      } catch {
+        canon = { caps: {} };
+      }
     }
 
     const ph = calcPermHash(canon);
@@ -86,14 +109,18 @@ export const refresh = async (req, res) => {
 
     const schemaName = user.tenant_code?.toLowerCase?.();
 
-    // Reload RBAC policies
+    // Reload RBAC policies (super_admin gets full caps automatically)
     let canon = { caps: {} };
-    try {
-      const { loadPoliciesForUserTenant } = await import('../../../utils/RbacPolicies.js');
-      const caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
-      canon = { caps };
-    } catch {
-      canon = { caps: {} };
+    if (user.role === 'super_admin') {
+      canon = { caps: buildSuperAdminCaps() };
+    } else {
+      try {
+        const { loadPoliciesForUserTenant } = await import('../../../utils/RbacPolicies.js');
+        const caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
+        canon = { caps };
+      } catch {
+        canon = { caps: {} };
+      }
     }
 
     const ph = calcPermHash(canon);
