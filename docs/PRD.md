@@ -1420,6 +1420,65 @@ Dual-mode theming with automatic OS preference detection:
 
 Custom background tokens: `sidebar`, `header`, `surface` for layout zones.
 
+#### 6.1.1 Component Override Strategy
+
+Styling decisions follow a three-tier hierarchy:
+
+1. **Theme overrides** (`theme.js` → `components`): Repeatable visual defaults that apply globally — border radius, elevation, font sizes, colour, border treatments. These eliminate the need for identical `sx` props across multiple component instances.
+2. **Layout tokens** (`layoutTokens.js`): Structural dimensions (widths, heights, positions) and composite `sx` presets for layout chrome. Tokens hold **no visual styling** — only geometry, spacing, and `position`/`z-index` that vary by layout context.
+3. **Inline `sx`**: Dynamic, conditional, or one-off values — active-state highlighting, per-instance spacing overrides, responsive breakpoints. Used only when the value cannot be determined at theme-build time.
+
+**Decision tree — where does a style belong?**
+
+| Question | Yes → | No → |
+|---|---|---|
+| Is it used on 3 + instances of the same MUI component? | Theme override | ↓ |
+| Is it a structural dimension or position for layout chrome? | Layout token | ↓ |
+| Is it dynamic (depends on props, state, or route)? | Inline `sx` | Theme override |
+
+#### 6.1.2 Design Tokens (`layoutTokens.js`)
+
+Structural constants consumed by layout components:
+
+| Token | Value | Used By |
+|---|---|---|
+| `SIDEBAR_WIDTH_EXPANDED` | `242` | Sidebar, LayoutShell |
+| `SIDEBAR_WIDTH_COLLAPSED` | `110` | Sidebar, LayoutShell |
+| `TENANT_BAR_HEIGHT` | `48` | TenantBar, ModuleBar (sticky offset), theme (Toolbar dense) |
+| `MODULE_BAR_HEIGHT` | `42` | ModuleBar |
+| `SIDEBAR_TRANSITION` | `'width 0.2s ease'` | Sidebar Drawer paper |
+| `BORDER` / `borderBottom` / `borderRight` | Divider border shorthands | ModuleBar, general usage |
+| `FONT.navGroup` | `{ fontSize: '0.85rem' }` | Sidebar group labels |
+| `FONT.navItem` | `{ fontSize: '0.8rem' }` | Sidebar child labels |
+| `FONT.toolbar` | `{ fontSize: '0.85rem' }` | ModuleBar breadcrumbs |
+| `FONT.toolbarAction` | `{ fontSize: '0.8rem' }` | ModuleBar filter inputs |
+| `FONT.caption` | `{ fontSize: '0.75rem' }` | Small captions |
+
+Composite sx presets (spread into component `sx`):
+
+| Preset | Contains | Purpose |
+|---|---|---|
+| `tenantBarSx` | `bgcolor`, `height` | TenantBar AppBar root |
+| `moduleBarSx` | `position`, `top`, `bgcolor`, `borderBottom`, `minHeight` | ModuleBar sticky container |
+| `sidebarPaperSx(width)` | `width`, `transition` | Sidebar Drawer paper |
+
+#### 6.1.3 Theme Overrides Reference
+
+All MUI component overrides defined in `theme.js`:
+
+| Component | Override Type | What It Sets | Replaces |
+|---|---|---|---|
+| `MuiAppBar` | defaultProps + styleOverrides | `elevation: 0`, bottom divider border | Per-instance `elevation={0}` |
+| `MuiToolbar` | styleOverrides (dense) | `minHeight: 48` | Toolbar sx `minHeight` |
+| `MuiDrawer` | styleOverrides (paper) | `boxSizing`, `backgroundColor`, `borderRight`, `overflowX` | Sidebar paper sx visual props |
+| `MuiCard` | defaultProps + styleOverrides | `elevation: 1`, `borderRadius: 8` | Per-card sx |
+| `MuiButton` | styleOverrides | `textTransform: 'none'`, small `fontSize: 0.8rem` | Button sx `textTransform`, `FONT.toolbarAction` |
+| `MuiToggleButton` | styleOverrides | `textTransform: 'none'`, small `fontSize`, `padding` | ToggleButton sx in ModuleBar |
+| `MuiListItemButton` | styleOverrides | `borderRadius: 8` | Sidebar ListItemButton `borderRadius: 1` |
+| `MuiListItemIcon` | styleOverrides | `minWidth: 36` | Sidebar ListItemIcon `minWidth: 36` |
+| `MuiChip` | styleOverrides (sizeSmall) | `fontWeight: 600`, `fontSize: 0.75rem` | TenantBar Chip sx |
+| `MuiAvatar` | named variant `"header"` | 32 × 32, primary colours, cursor pointer, 0.8rem bold | TenantBar Avatar sx block |
+
 ### 6.2 Navigation System
 
 Navigation is configured via `navigationConfig.js` with capability-based filtering:
@@ -1452,6 +1511,30 @@ The Module Bar has two zones:
 | `@mui/x-charts` | ^6.4.0 | Charting library (cashflow charts, profitability charts) |
 | `@tanstack/react-query` | ^5.28.0 | Server state management |
 | `react-router-dom` | ^7.9.6 | Client-side routing |
+
+### 6.5 Reusable Component Patterns
+
+Guidelines for maintaining consistency as the UI grows:
+
+**sx Prop Guidelines:**
+- Never duplicate a style in `sx` that the theme already provides. Check `theme.js` overrides first.
+- Use `sx` only for: (a) conditional/dynamic values driven by props or state, (b) structural positioning (`position`, `top`, `zIndex`), (c) per-instance spacing (`px`, `py`, `mb`, `gap`).
+- Spread layout token presets (e.g., `...moduleBarSx`) instead of inlining the same values.
+
+**Typography in Navigation:**
+- Sidebar group labels: spread `FONT.navGroup` into `primaryTypographyProps`.
+- Sidebar child labels: spread `FONT.navItem` into `primaryTypographyProps`.
+- ModuleBar breadcrumbs: use `FONT.toolbar`.
+- Active-state font weight (`fontWeight: 600`) stays in `sx` because it is conditional.
+
+**Named Variants:**
+- Use MUI named variants for component "shapes" that differ from the global default but recur in multiple places (e.g., `variant="header"` on `Avatar`).
+- Define new variants in `theme.js` → `components.Mui*.variants[]`.
+
+**Future Extraction Rules:**
+- When three or more pages share the same layout pattern (e.g., list + detail pane), extract a shared wrapper component.
+- Data-grid column definitions that repeat across modules should be centralised in a `columnDefs/` config folder.
+- Form field groupings that appear in multiple create/edit dialogs should become reusable form section components.
 
 ---
 

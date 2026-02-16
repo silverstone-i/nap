@@ -238,10 +238,13 @@ class NapUsersController extends BaseController {
 
   #stripPasswords(data) {
     if (Array.isArray(data)) return data.map((r) => this.#stripPassword(r));
+    // cursor-based pagination — pg-schemata returns { rows: [...], nextCursor, ... }
+    if (data?.rows && Array.isArray(data.rows)) {
+      return { ...data, rows: data.rows.map((r) => this.#stripPassword(r)) };
+    }
     if (data?.records) {
       return { ...data, records: data.records.map((r) => this.#stripPassword(r)) };
     }
-    // cursor-based pagination returns { data: [...], ... }
     if (data?.data && Array.isArray(data.data)) {
       return { ...data, data: data.data.map((r) => this.#stripPassword(r)) };
     }

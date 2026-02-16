@@ -49,7 +49,7 @@ function resolveTenantContext({ headers, claims, fullPath }) {
   let schemaName = claims?.schema_name?.toLowerCase?.() || tenantCode || null;
 
   const isAdminArea =
-    lowerFullPath.includes('/api/tenants/v1/admin') ||
+    lowerFullPath.includes('/api/tenants/v1/') ||
     lowerFullPath.includes('/api/core/v1/admin');
   const isCoreAuthSelf =
     lowerFullPath.includes('/api/core/v1/auth/me') ||
@@ -67,22 +67,28 @@ function resolveTenantContext({ headers, claims, fullPath }) {
  * Load permissions from Redis cache or build fresh from DB.
  */
 async function loadPermissions({ userId, schemaName, tenantCode, bypassRbac }) {
-  if (bypassRbac) {
-    return { hash: null, version: 1, updatedAt: Date.now(), perms: { caps: {} } };
-  }
+  const empty = { hash: null, version: 1, updatedAt: Date.now(), perms: { caps: {} } };
 
   const redis = await getRedis();
   const key = `perm:${userId}:${tenantCode || schemaName}`;
   let record = await redis.get(key).then((value) => (value ? JSON.parse(value) : null));
 
-  if (!record) {
+  // Return cached record if available (even for bypassRbac endpoints like /me)
+  if (record) return record;
+
+  // If bypassing RBAC (e.g. /me or /check) and no cache exists yet, return empty
+  // gracefully — don't attempt a DB rebuild that may fail without a schema context.
+  if (bypassRbac) return empty;
+
+  try {
     const canon = await buildCanon({ schemaName, userId });
     const hash = calcPermHash(canon);
     record = { hash, version: 1, updatedAt: Date.now(), perms: canon };
     await redis.set(key, JSON.stringify(record));
+    return record;
+  } catch {
+    return empty;
   }
-
-  return record;
 }
 
 /**
