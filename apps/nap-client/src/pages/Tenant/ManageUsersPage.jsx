@@ -23,6 +23,8 @@ import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { DataGrid } from '@mui/x-data-grid';
 
@@ -47,6 +49,10 @@ import {
   formGroupCardSx,
   formSectionHeaderSx,
 } from '../../config/layoutTokens.js';
+import {
+  buildMutualExclusionHandler,
+  deriveSelectionState,
+} from '../../utils/selectionUtils.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -96,7 +102,16 @@ const BLANK_EDIT = {
   tenant_role: '',
   tax_id: '',
   notes: '',
+  password: '',
 };
+
+const PW_RULES = [
+  { label: 'At least 8 characters', test: (p) => p.length >= 8 },
+  { label: 'An uppercase letter', test: (p) => /[A-Z]/.test(p) },
+  { label: 'A lowercase letter', test: (p) => /[a-z]/.test(p) },
+  { label: 'A digit', test: (p) => /[0-9]/.test(p) },
+  { label: 'A special character', test: (p) => /[^A-Za-z0-9]/.test(p) },
+];
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
@@ -159,12 +174,27 @@ export default function ManageUsersPage() {
   const archiveMut = useArchiveUser();
   const restoreMut = useRestoreUser();
 
-  /* ── selection ───────────────────────────────────────────── */
+  /* ── selection (multi-select with root-user mutual exclusion) */
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
-  const isSelf = selected?.id === currentUser?.id;
-  const isSuperUser = selected?.role === 'super_user';
+
+  const {
+    selectedRows,
+    selected,
+    isSingle,
+    hasSelection,
+    hasRootSelected,
+    allActive,
+    allArchived,
+  } = deriveSelectionState(selectionModel, rows, 'user');
+
+  const hasSelfSelected = selectedRows.some((r) => r.id === currentUser?.id);
+
+  const handleSelectionChange = buildMutualExclusionHandler({
+    rows,
+    prevModel: selectionModel,
+    setModel: setSelectionModel,
+    entityType: 'user',
+  });
 
   /* ── dialog state ────────────────────────────────────────── */
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -298,11 +328,13 @@ export default function ManageUsersPage() {
 
   const handleUpdate = async () => {
     try {
+      const { password, ...fields } = editForm;
       const changes = {
-        ...editForm,
-        tenant_role: editForm.tenant_role || null,
+        ...fields,
+        tenant_role: fields.tenant_role || null,
         phones: editPhones.filter((p) => p.phone_number),
         addresses: editAddresses.filter((a) => a.address_line_1),
+        ...(password ? { password } : {}),
       };
       await updateMut.mutateAsync({ filter: { id: selected.id }, changes });
       toast('User updated');
@@ -315,8 +347,11 @@ export default function ManageUsersPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('User archived');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) {
+        await archiveMut.mutateAsync({ id: row.id });
+      }
+      toast(targets.length === 1 ? 'User archived' : `${targets.length} users archived`);
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -326,13 +361,29 @@ export default function ManageUsersPage() {
 
   const handleRestore = async () => {
     try {
-      await restoreMut.mutateAsync({ id: selected.id });
-      toast('User restored');
+      const targets = selectedRows.filter((r) => !!r.deactivated_at);
+      let warnTenant = false;
+      for (const row of targets) {
+        try {
+          await restoreMut.mutateAsync({ id: row.id });
+        } catch (err) {
+          const msg = errMsg(err);
+          if (msg?.includes('Tenant')) {
+            warnTenant = true;
+          } else {
+            throw err;
+          }
+        }
+      }
+      if (warnTenant) {
+        toast('Some users could not be restored — parent tenant inactive', 'warning');
+      } else {
+        toast(targets.length === 1 ? 'User restored' : `${targets.length} users restored`);
+      }
       setRestoreOpen(false);
       setSelectionModel([]);
     } catch (err) {
-      const msg = errMsg(err);
-      toast(msg, msg?.includes('Tenant') ? 'warning' : 'error');
+      toast(errMsg(err), 'error');
     }
   };
 
@@ -352,12 +403,24 @@ export default function ManageUsersPage() {
           color: 'primary',
           onClick: () => { setRegForm(BLANK_REGISTER); setRegPhones([{ ...BLANK_PHONE }]); setRegAddresses([{ ...BLANK_ADDRESS }]); setRegisterOpen(true); },
         },
-        { label: 'Edit User', variant: 'outlined', disabled: !selected, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived || isSelf || isSuperUser, onClick: () => setArchiveOpen(true) },
-        { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+        { label: 'Edit User', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        {
+          label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+          variant: 'outlined',
+          color: 'error',
+          disabled: !hasSelection || !allActive || hasRootSelected || hasSelfSelected,
+          onClick: () => setArchiveOpen(true),
+        },
+        {
+          label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+          variant: 'outlined',
+          color: 'success',
+          disabled: !hasSelection || !allArchived || hasRootSelected,
+          onClick: () => setRestoreOpen(true),
+        },
       ],
     }),
-    [selected, isArchived, isSelf, isSuperUser, viewFilter, openEdit],
+    [selected, isSingle, hasSelection, hasRootSelected, hasSelfSelected, allActive, allArchived, selectedRows.length, viewFilter, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -370,9 +433,8 @@ export default function ManageUsersPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={handleSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(params) => (params.row.deactivated_at ? 'row-archived' : '')}
@@ -468,6 +530,7 @@ export default function ManageUsersPage() {
         maxWidth="md"
         submitLabel="Save Changes"
         loading={updateMut.isPending}
+        submitDisabled={!!editForm.password && !PW_RULES.every((r) => r.test(editForm.password))}
         onSubmit={handleUpdate}
         onCancel={() => { setEditOpen(false); setEditUserId(null); }}
       >
@@ -493,6 +556,35 @@ export default function ManageUsersPage() {
           <TextField label="Tax ID" value={editForm.tax_id} onChange={onEditField('tax_id')} />
           <TextField label="Notes" multiline minRows={2} value={editForm.notes} onChange={onEditField('notes')} sx={formFullSpanSx} />
         </Box>
+
+        <Divider />
+        <Typography variant="subtitle2" color="text.secondary">Reset Password</Typography>
+        <Box sx={formGridSx}>
+          <PasswordField
+            label="New Password"
+            value={editForm.password}
+            onChange={onEditField('password')}
+            autoComplete="new-password"
+            helperText="Leave blank to keep current password"
+          />
+        </Box>
+        {editForm.password && (
+          <Box sx={{ mt: 0.5, mb: 1 }}>
+            {PW_RULES.map((r) => {
+              const pass = r.test(editForm.password);
+              return (
+                <Box key={r.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+                  {pass
+                    ? <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                    : <CloseIcon sx={{ fontSize: 16, color: 'text.disabled' }} />}
+                  <Typography variant="caption" color={pass ? 'success.main' : 'text.secondary'}>
+                    {r.label}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
 
         <Divider />
         <Box sx={formSectionHeaderSx}>
@@ -555,8 +647,10 @@ export default function ManageUsersPage() {
         open={archiveOpen}
         title="Archive User"
         message={
-          selected
-            ? `Are you sure you want to archive "${selected.email}"? They will no longer be able to log in.`
+          hasSelection
+            ? selectedRows.length === 1
+              ? `Are you sure you want to archive "${selectedRows[0].email}"? They will no longer be able to log in.`
+              : `Are you sure you want to archive ${selectedRows.length} users? They will no longer be able to log in.`
             : ''
         }
         confirmLabel="Archive"
@@ -571,8 +665,10 @@ export default function ManageUsersPage() {
         open={restoreOpen}
         title="Restore User"
         message={
-          selected
-            ? `Restore "${selected.email}"? If the parent tenant is inactive this will be rejected by the server.`
+          hasSelection
+            ? selectedRows.length === 1
+              ? `Restore "${selectedRows[0].email}"? If the parent tenant is inactive this will be rejected by the server.`
+              : `Restore ${selectedRows.length} users? Users whose parent tenant is inactive will be rejected by the server.`
             : ''
         }
         confirmLabel="Restore"

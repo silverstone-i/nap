@@ -13,6 +13,8 @@ export const authApi = {
   refresh: () => client.post('/auth/refresh'),
   getMe: () => client.get('/auth/me'),
   check: () => client.get('/auth/check'),
+  changePassword: (currentPassword, newPassword) =>
+    client.post('/auth/change-password', { currentPassword, newPassword }),
 };
 
 export default authApi;

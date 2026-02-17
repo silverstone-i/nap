@@ -24,9 +24,11 @@ import {
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
+import LockResetIcon from '@mui/icons-material/LockReset';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { tenantBarSx } from '../../config/layoutTokens.js';
+import ChangePasswordDialog from '../shared/ChangePasswordDialog.jsx';
 
 function userInitials(user) {
   if (!user) return '?';
@@ -40,6 +42,7 @@ export default function TenantBar() {
   const { user, logout, tenant } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
+  const [changePwOpen, setChangePwOpen] = useState(false);
 
   const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -120,6 +123,18 @@ export default function TenantBar() {
             Settings
           </MenuItem>
 
+          <MenuItem
+            onClick={() => {
+              handleMenuClose();
+              setChangePwOpen(true);
+            }}
+          >
+            <ListItemIcon>
+              <LockResetIcon fontSize="small" />
+            </ListItemIcon>
+            Change Password
+          </MenuItem>
+
           <Divider />
 
           <MenuItem onClick={handleSignOut}>
@@ -130,6 +145,12 @@ export default function TenantBar() {
           </MenuItem>
         </Menu>
       </Toolbar>
+
+      <ChangePasswordDialog
+        open={changePwOpen}
+        onClose={() => setChangePwOpen(false)}
+        onSuccess={() => setChangePwOpen(false)}
+      />
     </AppBar>
   );
 }

@@ -222,18 +222,40 @@ class NapUsersController extends BaseController {
    * scalar user-column changes.  Child rows are fully replaced (delete + insert).
    */
   async update(req, res) {
-    const { phones, addresses, ...userChanges } = req.body;
+    const { phones, addresses, password, ...userChanges } = req.body;
     const auditId = req.user?.id || null;
 
     try {
-      // Update scalar user columns (if any besides phones/addresses)
+      const userId = req.query.id;
+
+      // Handle admin password reset if provided
+      if (password) {
+        const pwRules = [
+          { test: (p) => p.length >= 8, msg: 'at least 8 characters' },
+          { test: (p) => /[A-Z]/.test(p), msg: 'an uppercase letter' },
+          { test: (p) => /[a-z]/.test(p), msg: 'a lowercase letter' },
+          { test: (p) => /[0-9]/.test(p), msg: 'a digit' },
+          { test: (p) => /[^A-Za-z0-9]/.test(p), msg: 'a special character' },
+        ];
+        const failures = pwRules.filter((r) => !r.test(password)).map((r) => r.msg);
+        if (failures.length) {
+          return res.status(400).json({ error: `Password must contain ${failures.join(', ')}` });
+        }
+        const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+        const hash = await bcrypt.hash(password, rounds);
+        await db.none(
+          'UPDATE admin.nap_users SET password_hash = $/hash/ WHERE id = $/id/',
+          { hash, id: userId },
+        );
+      }
+
+      // Update scalar user columns (if any besides phones/addresses/password)
       if (Object.keys(userChanges).length) {
         const count = await this.model('admin').updateWhere([{ ...req.query }], userChanges);
-        if (!count) return res.status(404).json({ error: `${this.errorLabel} not found` });
+        if (!count && !password) return res.status(404).json({ error: `${this.errorLabel} not found` });
       }
 
       // Resolve the target user id for child-row replacement
-      const userId = req.query.id;
       if (userId) {
         if (Array.isArray(phones)) {
           await this.#replacePhones(userId, phones, auditId);

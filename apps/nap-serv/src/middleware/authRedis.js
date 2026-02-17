@@ -54,7 +54,8 @@ function resolveTenantContext({ headers, claims, fullPath }) {
   const isCoreAuthSelf =
     lowerFullPath.includes('/api/core/v1/auth/me') ||
     lowerFullPath.includes('/api/auth/me') ||
-    lowerFullPath.includes('/api/auth/check');
+    lowerFullPath.includes('/api/auth/check') ||
+    lowerFullPath.includes('/api/auth/change-password');
 
   if (!schemaName && isAdminArea) {
     schemaName = 'admin';
@@ -147,6 +148,7 @@ export function authRedis() {
               email: full.email,
               user_name: full.user_name,
               role: full.role,
+              status: full.status,
               tenant_code: full.tenant_code,
             };
           }
@@ -160,6 +162,7 @@ export function authRedis() {
         email: userProfile?.email || claims?.email,
         user_name: userProfile?.user_name || claims?.user_name,
         role: userProfile?.role || claims?.role,
+        status: userProfile?.status || null,
         tenant_code: tenantCode || userProfile?.tenant_code || null,
         schema_name: schemaName,
         perms: permsRecord.perms,

@@ -22,9 +22,10 @@ import {
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import PasswordField from '../../components/shared/PasswordField.jsx';
+import ChangePasswordDialog from '../../components/shared/ChangePasswordDialog.jsx';
 
 export default function LoginPage() {
-  const { user, loading: authLoading, login } = useAuth();
+  const { user, loading: authLoading, login, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -33,6 +34,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [emailAutofilled, setEmailAutofilled] = useState(false);
   const [passwordAutofilled, setPasswordAutofilled] = useState(false);
+  const [forceChange, setForceChange] = useState(false);
 
   // Detect browser autofill — Chrome fires an animation on :-webkit-autofill
   const handleAutofill = (setter) => (e) => {
@@ -51,8 +53,12 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      await login(email, password);
-      navigate('/dashboard', { replace: true });
+      const res = await login(email, password);
+      if (res?.forcePasswordChange) {
+        setForceChange(true);
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       setError(err.payload?.message || err.message || 'Login failed');
     } finally {
@@ -124,6 +130,16 @@ export default function LoginPage() {
           </Box>
         </CardContent>
       </Card>
+
+      <ChangePasswordDialog
+        open={forceChange}
+        forced
+        onSuccess={async () => {
+          await refreshUser();
+          setForceChange(false);
+          navigate('/dashboard', { replace: true });
+        }}
+      />
     </Box>
   );
 }

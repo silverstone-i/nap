@@ -47,11 +47,15 @@ export default function Sidebar() {
 
   const width = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
-  // Filter nav items based on user capabilities (super_user sees everything)
+  // Filter nav items based on user capabilities.
+  // super_user always sees everything. When perms.caps is not yet populated
+  // (e.g. /me response omits it), fall back to showing all items so the
+  // sidebar isn't empty while the server-side RBAC still enforces access.
   const filteredNav = useMemo(() => {
     if (!user) return [];
     if (user.role === 'super_user') return NAV_ITEMS;
     const caps = user.perms?.caps || {};
+    if (Object.keys(caps).length === 0) return NAV_ITEMS;
     return NAV_ITEMS.map((group) => {
       const visibleChildren = group.children.filter((child) => {
         if (!child.capability) return true;

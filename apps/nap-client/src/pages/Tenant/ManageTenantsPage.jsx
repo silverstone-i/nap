@@ -14,7 +14,6 @@ import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
@@ -40,6 +39,10 @@ import {
 } from '../../hooks/useTenants.js';
 import { useUsers } from '../../hooks/useUsers.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
+import {
+  buildMutualExclusionHandler,
+  deriveSelectionState,
+} from '../../utils/selectionUtils.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -127,10 +130,25 @@ export default function ManageTenantsPage() {
   const archiveMut = useArchiveTenant();
   const restoreMut = useRestoreTenant();
 
-  /* ── selection ───────────────────────────────────────────── */
+  /* ── selection (multi-select with root-tenant mutual exclusion) */
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+
+  const {
+    selectedRows,
+    selected,
+    isSingle,
+    hasSelection,
+    hasRootSelected,
+    allActive,
+    allArchived,
+  } = deriveSelectionState(selectionModel, rows, 'tenant');
+
+  const handleSelectionChange = buildMutualExclusionHandler({
+    rows,
+    prevModel: selectionModel,
+    setModel: setSelectionModel,
+    entityType: 'tenant',
+  });
 
   /* ── dialog state ────────────────────────────────────────── */
   const [createOpen, setCreateOpen] = useState(false);
@@ -216,8 +234,15 @@ export default function ManageTenantsPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Tenant archived — users deactivated');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) {
+        await archiveMut.mutateAsync({ id: row.id });
+      }
+      toast(
+        targets.length === 1
+          ? 'Tenant archived — all users deactivated'
+          : `${targets.length} tenants archived — all users deactivated`,
+      );
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -227,8 +252,15 @@ export default function ManageTenantsPage() {
 
   const handleRestore = async () => {
     try {
-      await restoreMut.mutateAsync({ id: selected.id });
-      toast('Tenant restored — users reactivated');
+      const targets = selectedRows.filter((r) => !!r.deactivated_at);
+      for (const row of targets) {
+        await restoreMut.mutateAsync({ id: row.id });
+      }
+      toast(
+        targets.length === 1
+          ? 'Tenant restored — users remain archived'
+          : `${targets.length} tenants restored — users remain archived`,
+      );
       setRestoreOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -247,13 +279,25 @@ export default function ManageTenantsPage() {
       filters: [],
       primaryActions: [
         { label: 'Create Tenant', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'View Details', variant: 'outlined', disabled: !selected, onClick: () => { setDetailTenant(selected); setDetailOpen(true); } },
-        { label: 'Edit Tenant', variant: 'outlined', disabled: !selected, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-        { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+        { label: 'View Details', variant: 'outlined', disabled: !isSingle, onClick: () => { setDetailTenant(selected); setDetailOpen(true); } },
+        { label: 'Edit Tenant', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        {
+          label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+          variant: 'outlined',
+          color: 'error',
+          disabled: !hasSelection || !allActive || hasRootSelected,
+          onClick: () => setArchiveOpen(true),
+        },
+        {
+          label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+          variant: 'outlined',
+          color: 'success',
+          disabled: !hasSelection || !allArchived || hasRootSelected,
+          onClick: () => setRestoreOpen(true),
+        },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit],
+    [selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived, selectedRows.length, viewFilter, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -266,9 +310,8 @@ export default function ManageTenantsPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={handleSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(params) => (params.row.deactivated_at ? 'row-archived' : '')}
@@ -276,7 +319,12 @@ export default function ManageTenantsPage() {
 
       {/* ── View Details ───────────────────────────────────── */}
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Tenant Details</DialogTitle>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
+          <span>Tenant Details</span>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" onClick={() => setDetailOpen(false)}>Close</Button>
+          </Box>
+        </DialogTitle>
         <DialogContent dividers>
           {detailTenant && (
             <Grid container spacing={2}>
@@ -344,9 +392,6 @@ export default function ManageTenantsPage() {
             </Grid>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDetailOpen(false)}>Close</Button>
-        </DialogActions>
       </Dialog>
 
       {/* ── Create Dialog ──────────────────────────────────── */}
@@ -416,8 +461,10 @@ export default function ManageTenantsPage() {
         open={archiveOpen}
         title="Archive Tenant"
         message={
-          selected
-            ? `Are you sure you want to archive "${selected.company}" (${selected.tenant_code})? All users belonging to this tenant will be deactivated.`
+          hasSelection
+            ? selectedRows.length === 1
+              ? `Are you sure you want to archive "${selectedRows[0].company}" (${selectedRows[0].tenant_code})? All users belonging to this tenant will be deactivated.`
+              : `Are you sure you want to archive ${selectedRows.length} tenants? All users belonging to these tenants will be deactivated.`
             : ''
         }
         confirmLabel="Archive"
@@ -432,8 +479,10 @@ export default function ManageTenantsPage() {
         open={restoreOpen}
         title="Restore Tenant"
         message={
-          selected
-            ? `Restore "${selected.company}" (${selected.tenant_code})? All previously deactivated users will be reactivated.`
+          hasSelection
+            ? selectedRows.length === 1
+              ? `Restore "${selectedRows[0].company}" (${selectedRows[0].tenant_code})? Users will remain archived and must be restored individually.`
+              : `Restore ${selectedRows.length} tenants? Users will remain archived and must be restored individually.`
             : ''
         }
         confirmLabel="Restore"

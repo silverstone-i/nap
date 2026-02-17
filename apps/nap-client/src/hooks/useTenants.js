@@ -48,12 +48,17 @@ export function useUpdateTenant() {
   });
 }
 
+const USERS_KEY = ['nap-users'];
+
 /** Archive (soft-delete) a tenant. Expects filter: {id} or {tenant_code}. */
 export function useArchiveTenant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => tenantApi.archive(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TENANTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TENANTS_KEY });
+      qc.invalidateQueries({ queryKey: USERS_KEY });
+    },
   });
 }
 
@@ -62,6 +67,9 @@ export function useRestoreTenant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => tenantApi.restore(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TENANTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TENANTS_KEY });
+      qc.invalidateQueries({ queryKey: USERS_KEY });
+    },
   });
 }

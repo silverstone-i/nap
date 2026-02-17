@@ -123,13 +123,6 @@ const commonOptions = {
       ],
     },
 
-    /* ── DialogActions ─────────────────────────────────────────── */
-    MuiDialogActions: {
-      styleOverrides: {
-        root: { paddingLeft: 24, paddingRight: 24, paddingBottom: 16 },
-      },
-    },
-
     /* ── DialogContent — gap for stacked form fields ──────────── */
     MuiDialogContent: {
       styleOverrides: {
