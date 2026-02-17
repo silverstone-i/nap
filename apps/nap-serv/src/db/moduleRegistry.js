@@ -24,6 +24,12 @@ const moduleRegistry = [
     repositories: (await import('../../Modules/projects/projectsRepositories.js')).default,
     migrations: (await import('../../Modules/projects/schema/migrations/index.js')).default,
   },
+  {
+    name: 'activities',
+    scope: 'tenant',
+    repositories: (await import('../../Modules/activities/activitiesRepositories.js')).default,
+    migrations: (await import('../../Modules/activities/schema/migrations/index.js')).default,
+  },
 ];
 
 export default moduleRegistry;
