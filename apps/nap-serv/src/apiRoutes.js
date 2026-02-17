@@ -12,6 +12,7 @@ import projectsRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.j
 import activitiesRoutes from '../Modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
 import bomRoutes from '../Modules/bom/apiRoutes/v1/bomApiRoutes.js';
 import apRoutes from '../Modules/ap/apiRoutes/v1/apApiRoutes.js';
+import arRoutes from '../Modules/ar/apiRoutes/v1/arApiRoutes.js';
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use('/projects', projectsRoutes);
 router.use('/activities', activitiesRoutes);
 router.use('/bom', bomRoutes);
 router.use('/ap', apRoutes);
+router.use('/ar', arRoutes);
 
 export default router;
