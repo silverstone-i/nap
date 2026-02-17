@@ -3,13 +3,14 @@
  * @module ar/controllers/arInvoicesController
  *
  * Status workflow: open → sent → paid → voided
- * On sending: placeholder GL journal entry (debit AR, credit Revenue) — Phase 13
+ * On sending: GL journal entry (debit AR, credit Revenue)
  * project_id links invoice to project for profitability tracking.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../src/lib/BaseController.js';
+import { postARInvoice } from '../../accounting/services/postingService.js';
 import logger from '../../../src/utils/logger.js';
 
 const VALID_TRANSITIONS = {
@@ -51,9 +52,16 @@ class ArInvoicesController extends BaseController {
             });
           }
 
-          // On sending: GL posting placeholder
+          // On sending: create GL journal entry (debit AR, credit Revenue)
           if (req.body.status === 'sent') {
-            logger.info(`AR Invoice ${id} sent — GL journal entry hook (Phase 13 placeholder): debit AR, credit Revenue`);
+            try {
+              await postARInvoice(schema, current, {
+                arReceivableAccountId: req.body.ar_receivable_account_id || current.ar_receivable_account_id,
+                revenueAccountId: req.body.revenue_account_id || current.revenue_account_id,
+              });
+            } catch (glErr) {
+              logger.error(`GL posting failed for AR Invoice ${id}: ${glErr.message}`);
+            }
           }
         }
       } catch (err) {

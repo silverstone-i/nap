@@ -4,12 +4,13 @@
  *
  * Approval workflow: pending -> approved | rejected
  * Validation: amounts checked against approved budget + tolerance.
- * Approval triggers GL posting hook (placeholder — wired in Phase 13).
+ * Approval triggers GL posting (debit Expense/WIP, credit AP/Accrual).
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../src/lib/BaseController.js';
+import { postActualCost } from '../../accounting/services/postingService.js';
 import logger from '../../../src/utils/logger.js';
 
 const VALID_TRANSITIONS = {
@@ -46,9 +47,18 @@ class ActualCostsController extends BaseController {
             });
           }
 
-          // On approval, log GL posting placeholder
+          // On approval: create GL journal entry (debit Expense/WIP, credit AP/Accrual)
           if (req.body.approval_status === 'approved') {
-            logger.info(`Actual cost ${id} approved — GL posting hook (Phase 13 placeholder)`);
+            try {
+              await postActualCost(schema, current, {
+                expenseAccountId: req.body.expense_account_id || current.expense_account_id,
+                accrualAccountId: req.body.accrual_account_id || current.accrual_account_id,
+                companyId: current.company_id,
+                tenantId: current.tenant_id,
+              });
+            } catch (glErr) {
+              logger.error(`GL posting failed for Actual Cost ${id}: ${glErr.message}`);
+            }
           }
         }
       } catch (err) {
