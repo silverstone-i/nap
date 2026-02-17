@@ -14,6 +14,8 @@ import bomRoutes from '../Modules/bom/apiRoutes/v1/bomApiRoutes.js';
 import apRoutes from '../Modules/ap/apiRoutes/v1/apApiRoutes.js';
 import arRoutes from '../Modules/ar/apiRoutes/v1/arApiRoutes.js';
 import accountingRoutes from '../Modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
+import reportsRoutes from '../Modules/reports/apiRoutes/v1/reportsApiRoutes.js';
+import viewsRoutes from '../Modules/views/apiRoutes/v1/viewsApiRoutes.js';
 
 const router = Router();
 
@@ -25,5 +27,7 @@ router.use('/bom', bomRoutes);
 router.use('/ap', apRoutes);
 router.use('/ar', arRoutes);
 router.use('/accounting', accountingRoutes);
+router.use('/reports', reportsRoutes);
+router.use('/views', viewsRoutes);
 
 export default router;

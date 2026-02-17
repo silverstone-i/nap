@@ -54,6 +54,18 @@ const moduleRegistry = [
     repositories: (await import('../../Modules/accounting/accountingRepositories.js')).default,
     migrations: (await import('../../Modules/accounting/schema/migrations/index.js')).default,
   },
+  {
+    name: 'reports',
+    scope: 'tenant',
+    repositories: (await import('../../Modules/reports/reportsRepositories.js')).default,
+    migrations: (await import('../../Modules/reports/schema/migrations/index.js')).default,
+  },
+  {
+    name: 'views',
+    scope: 'tenant',
+    repositories: (await import('../../Modules/views/viewsRepositories.js')).default,
+    migrations: [],
+  },
 ];
 
 export default moduleRegistry;
