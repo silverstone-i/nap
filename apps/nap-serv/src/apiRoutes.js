@@ -8,10 +8,12 @@
 import { Router } from 'express';
 import tenantsRoutes from './modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
 import coreRoutes from './modules/core/apiRoutes/v1/coreApiRoutes.js';
+import projectsRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.js';
 
 const router = Router();
 
 router.use('/tenants', tenantsRoutes);
 router.use('/core', coreRoutes);
+router.use('/projects', projectsRoutes);
 
 export default router;

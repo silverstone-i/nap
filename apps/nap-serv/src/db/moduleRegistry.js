@@ -18,6 +18,12 @@ const moduleRegistry = [
     repositories: (await import('../modules/core/coreRepositories.js')).default,
     migrations: (await import('../modules/core/schema/migrations/index.js')).default,
   },
+  {
+    name: 'projects',
+    scope: 'tenant',
+    repositories: (await import('../../Modules/projects/projectsRepositories.js')).default,
+    migrations: (await import('../../Modules/projects/schema/migrations/index.js')).default,
+  },
 ];
 
 export default moduleRegistry;

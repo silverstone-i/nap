@@ -1669,25 +1669,48 @@ const { max_by_groups } = rule;
 
 **Keep modules small and focused.** Each file should have a single, clear responsibility.
 
-**Server-side module layout:**
+**Server-side module layout has two tiers:**
+
+`src/modules/` contains the **core platform modules** that are always required and glue the application together:
+
+- **`auth`** — authentication (login, JWT, session management)
+- **`tenants`** — multi-tenant administration (tenants, nap_users tables)
+- **`core`** — tables required by all optional modules (sources, vendors, clients, employees, contacts, addresses, inter_companies, RBAC)
+
+`Modules/` (at the `nap-serv` root, sibling to `src/`) contains **optional feature modules** that tenants enable based on their needs:
+
+- **`projects`** — Project management, units, tasks, cost items, change orders, templates
+- **`activities`** *(planned)* — Activity tracking
+- **`bom`** *(planned)* — Bill of Materials
+- **`ar`** *(planned)* — Accounts Receivable
+- **`ap`** *(planned)* — Accounts Payable
+- **`accounting`** *(planned)* — General Ledger, Chart of Accounts
+- **`cashflow`** *(planned)* — Cashflow & Profitability
+- **`reports`** *(planned)* — Reporting
+
+Both tiers follow the same internal layout:
+
 ```
-Modules/
-  <module>/                    # e.g., ap, ar, projects, accounting
-    schemas/                   # pg-schemata schema definitions (one per table)
-      apInvoicesSchema.js
-      apInvoiceLinesSchema.js
-    models/                    # TableModel subclasses (one per table)
-      ApInvoices.js
-      ApInvoiceLines.js
-    controllers/               # Business logic (one per resource)
-      apInvoicesController.js
-    apiRoutes/
-      v1/                      # Versioned route definitions
-        apInvoicesRouter.js
-    services/                  # Cross-cutting business logic (optional)
-      postingService.js
-    index.js                   # Module registration (routes, models, migrations)
+<module>/                        # Inside src/modules/ or Modules/
+  schemas/                       # pg-schemata schema definitions (one per table)
+    apInvoicesSchema.js
+    apInvoiceLinesSchema.js
+  models/                        # TableModel subclasses (one per table)
+    ApInvoices.js
+    ApInvoiceLines.js
+  controllers/                   # Business logic (one per resource)
+    apInvoicesController.js
+  apiRoutes/
+    v1/                          # Versioned route definitions
+      apInvoicesRouter.js
+  services/                      # Cross-cutting business logic (optional)
+    postingService.js
+  <module>Repositories.js        # Repository map for moduleRegistry
+  schema/migrations/             # Module-specific migrations
+    index.js
 ```
+
+Optional modules in `Modules/` import core platform code via relative paths to `src/` (e.g., `../../../src/lib/BaseController.js`). All modules — core and optional — are registered in `src/db/moduleRegistry.js` and mounted in `src/apiRoutes.js`.
 
 **Client-side page layout:**
 ```
