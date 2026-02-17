@@ -3,12 +3,13 @@
  * @module ap/controllers/apInvoicesController
  *
  * Status workflow: open → approved → paid → voided
- * On approval: placeholder GL journal entry (debit Expense/WIP, credit AP Liability) — Phase 13
+ * On approval: GL journal entry (debit Expense/WIP, credit AP Liability)
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../src/lib/BaseController.js';
+import { postAPInvoice } from '../../accounting/services/postingService.js';
 import logger from '../../../src/utils/logger.js';
 
 const VALID_TRANSITIONS = {
@@ -50,9 +51,17 @@ class ApInvoicesController extends BaseController {
             });
           }
 
-          // On approval: GL posting placeholder
+          // On approval: create GL journal entry (debit Expense/WIP, credit AP Liability)
           if (req.body.status === 'approved') {
-            logger.info(`AP Invoice ${id} approved — GL journal entry hook (Phase 13 placeholder): debit Expense/WIP, credit AP Liability`);
+            try {
+              await postAPInvoice(schema, current, {
+                expenseAccountId: req.body.expense_account_id || current.expense_account_id,
+                apLiabilityAccountId: req.body.ap_liability_account_id || current.ap_liability_account_id,
+              });
+            } catch (glErr) {
+              logger.error(`GL posting failed for AP Invoice ${id}: ${glErr.message}`);
+              // Non-blocking: invoice still transitions, GL error logged
+            }
           }
         }
       } catch (err) {

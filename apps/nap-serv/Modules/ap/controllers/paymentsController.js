@@ -3,13 +3,14 @@
  * @module ap/controllers/paymentsController
  *
  * Records payments against AP invoices. Supports partial payments.
- * On payment: updates invoice balance_due and status, GL entry placeholder (Phase 13).
+ * On payment: updates invoice balance_due and status, creates GL entry (debit AP Liability, credit Cash/Bank).
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../src/lib/BaseController.js';
 import db from '../../../src/db/db.js';
+import { postAPPayment } from '../../accounting/services/postingService.js';
 import logger from '../../../src/utils/logger.js';
 
 const VALID_METHODS = ['check', 'ach', 'wire'];
@@ -81,7 +82,20 @@ class PaymentsController extends BaseController {
           logger.info(`AP Invoice ${invoiceId} fully paid`);
         }
 
-        logger.info(`Payment recorded for AP Invoice ${invoiceId} — GL entry hook (Phase 13 placeholder): debit AP Liability, credit Cash/Bank`);
+        // GL entry: debit AP Liability, credit Cash/Bank
+        try {
+          await postAPPayment(schema, {
+            ...req.body, id: res.body?.id,
+            tenant_id: invoice.tenant_id, company_id: invoice.company_id,
+            payment_date: req.body.payment_date || new Date().toISOString().split('T')[0],
+          }, {
+            apLiabilityAccountId: req.body.ap_liability_account_id,
+            cashAccountId: req.body.cash_account_id,
+            companyId: invoice.company_id,
+          });
+        } catch (glErr) {
+          logger.error(`GL posting failed for AP Payment on Invoice ${invoiceId}: ${glErr.message}`);
+        }
       } catch (err) {
         logger.error(`Failed to update invoice balance after payment: ${err.message}`);
       }

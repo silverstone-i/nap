@@ -3,13 +3,14 @@
  * @module ar/controllers/receiptsController
  *
  * Records receipts against AR invoices. Supports partial payments.
- * On receipt: updates invoice balance_due and status, GL entry placeholder (Phase 13).
+ * On receipt: updates invoice balance_due and status, creates GL entry (debit Cash/Bank, credit AR).
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../src/lib/BaseController.js';
 import db from '../../../src/db/db.js';
+import { postARReceipt } from '../../accounting/services/postingService.js';
 import logger from '../../../src/utils/logger.js';
 
 const VALID_METHODS = ['check', 'ach', 'wire'];
@@ -81,7 +82,20 @@ class ReceiptsController extends BaseController {
           logger.info(`AR Invoice ${invoiceId} fully paid`);
         }
 
-        logger.info(`Receipt recorded for AR Invoice ${invoiceId} — GL entry hook (Phase 13 placeholder): debit Cash/Bank, credit AR`);
+        // GL entry: debit Cash/Bank, credit AR
+        try {
+          await postARReceipt(schema, {
+            ...req.body, id: res.body?.id,
+            tenant_id: invoice.tenant_id,
+            receipt_date: req.body.receipt_date || new Date().toISOString().split('T')[0],
+          }, {
+            cashAccountId: req.body.cash_account_id,
+            arReceivableAccountId: req.body.ar_receivable_account_id,
+            companyId: invoice.company_id,
+          });
+        } catch (glErr) {
+          logger.error(`GL posting failed for AR Receipt on Invoice ${invoiceId}: ${glErr.message}`);
+        }
       } catch (err) {
         logger.error(`Failed to update invoice balance after receipt: ${err.message}`);
       }
