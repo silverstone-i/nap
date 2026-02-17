@@ -36,6 +36,12 @@ const moduleRegistry = [
     repositories: (await import('../../Modules/bom/bomRepositories.js')).default,
     migrations: (await import('../../Modules/bom/schema/migrations/index.js')).default,
   },
+  {
+    name: 'ap',
+    scope: 'tenant',
+    repositories: (await import('../../Modules/ap/apRepositories.js')).default,
+    migrations: (await import('../../Modules/ap/schema/migrations/index.js')).default,
+  },
 ];
 
 export default moduleRegistry;
