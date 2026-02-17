@@ -14,10 +14,11 @@ import { Box, CircularProgress } from '@mui/material';
 import Sidebar from './Sidebar.jsx';
 import TenantBar from './TenantBar.jsx';
 import ModuleBar from './ModuleBar.jsx';
+import ChangePasswordDialog from '../shared/ChangePasswordDialog.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
 export default function LayoutShell() {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
 
   if (loading) {
     return (
@@ -29,6 +30,15 @@ export default function LayoutShell() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Invited users see only the forced password dialog — no app chrome
+  if (user.status === 'invited') {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: 'background.default' }}>
+        <ChangePasswordDialog open forced onSuccess={refreshUser} />
+      </Box>
+    );
   }
 
   return (

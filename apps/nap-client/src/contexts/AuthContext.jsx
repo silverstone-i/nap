@@ -36,7 +36,19 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    await authApi.login(email, password);
+    const loginRes = await authApi.login(email, password);
+    // Skip hydrating user when a forced password change is required so the
+    // caller can show the change-password dialog without the early-redirect
+    // (user === truthy) kicking in.  The httpOnly cookie is already set, so
+    // the /change-password endpoint will still authenticate.
+    if (!loginRes?.forcePasswordChange) {
+      const data = await authApi.getMe();
+      setUser(data.user ?? null);
+    }
+    return loginRes;
+  }, []);
+
+  const refreshUser = useCallback(async () => {
     const data = await authApi.getMe();
     setUser(data.user ?? null);
   }, []);
@@ -59,8 +71,8 @@ export function AuthProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ user, loading, login, logout, tenant }),
-    [user, loading, login, logout, tenant],
+    () => ({ user, loading, login, logout, refreshUser, tenant }),
+    [user, loading, login, logout, refreshUser, tenant],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

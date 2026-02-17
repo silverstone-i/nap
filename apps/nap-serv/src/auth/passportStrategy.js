@@ -22,6 +22,11 @@ passport.use(
         return done(null, false, { message: 'User account is inactive.' });
       }
 
+      // Locked status check
+      if (user.status === 'locked') {
+        return done(null, false, { message: 'Account is locked. Contact your administrator.' });
+      }
+
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) return done(null, false, { message: 'Incorrect password.' });
 

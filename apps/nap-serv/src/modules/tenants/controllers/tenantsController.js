@@ -138,14 +138,15 @@ class TenantsController extends BaseController {
       }
     }
 
-    req.body.deactivated_at = new Date();
+    const now = new Date();
+    req.body.deactivated_at = now;
 
     try {
       // Archive the tenant
       const count = await this.model('admin').updateWhere([{ ...req.query }], req.body);
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
 
-      // Cascade: deactivate all users belonging to this tenant
+      // Cascade: deactivate only currently-active users (preserve individually-archived users)
       const tenantFilter = req.query.tenant_code
         ? { tenant_code: req.query.tenant_code }
         : req.query.id
@@ -153,10 +154,10 @@ class TenantsController extends BaseController {
           : {};
 
       if (Object.keys(tenantFilter).length > 0) {
-        await db('napUsers', 'admin').updateWhere([tenantFilter], {
-          deactivated_at: new Date(),
-          updated_by: req.user?.id || null,
-        });
+        await db('napUsers', 'admin').updateWhere(
+          [{ deactivated_at: null }, tenantFilter],
+          { deactivated_at: now, updated_by: req.user?.id || null },
+        );
       }
 
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
@@ -166,31 +167,15 @@ class TenantsController extends BaseController {
   }
 
   /**
-   * PATCH /restore — reactivate tenant and all associated users
+   * PATCH /restore — reactivate tenant only (users remain archived)
    */
   async restore(req, res) {
     req.body.deactivated_at = null;
     const filters = [{ deactivated_at: { $not: null } }, { ...req.query }];
 
     try {
-      // Restore the tenant
       const count = await this.model('admin').updateWhere(filters, req.body, { includeDeactivated: true });
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
-
-      // Cascade: reactivate all users belonging to this tenant
-      const tenantFilter = req.query.tenant_code
-        ? { tenant_code: req.query.tenant_code }
-        : req.query.id
-          ? { tenant_id: req.query.id }
-          : {};
-
-      if (Object.keys(tenantFilter).length > 0) {
-        await db('napUsers', 'admin').updateWhere(
-          [{ deactivated_at: { $not: null } }, tenantFilter],
-          { deactivated_at: null, updated_by: req.user?.id || null },
-          { includeDeactivated: true },
-        );
-      }
 
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {

@@ -25,6 +25,24 @@ const COLOR_MAP = {
   super_user: 'secondary',
   /* tenant_role */
   billing: 'warning',
+  /* project status */
+  planning: 'info',
+  on_hold: 'warning',
+  completed: 'success',
+  cancelled: 'default',
+  /* invoice / memo / document status */
+  draft: 'default',
+  submitted: 'info',
+  approved: 'success',
+  rejected: 'error',
+  voided: 'default',
+  sent: 'info',
+  paid: 'success',
+  open: 'warning',
+  applied: 'success',
+  /* journal / GL status */
+  posted: 'success',
+  reversed: 'error',
 };
 
 const label = (s) =>
