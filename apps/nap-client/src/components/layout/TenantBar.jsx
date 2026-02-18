@@ -26,9 +26,12 @@ import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import LogoutIcon from '@mui/icons-material/Logout';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { tenantBarSx } from '../../config/layoutTokens.js';
 import ChangePasswordDialog from '../shared/ChangePasswordDialog.jsx';
+import TenantPicker from './TenantPicker.jsx';
+import ImpersonateDialog from './ImpersonateDialog.jsx';
 
 function userInitials(user) {
   if (!user) return '?';
@@ -39,10 +42,11 @@ function userInitials(user) {
 }
 
 export default function TenantBar() {
-  const { user, logout, tenant } = useAuth();
+  const { user, logout, tenant, isNapSoftUser, impersonation } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePwOpen, setChangePwOpen] = useState(false);
+  const [impersonateOpen, setImpersonateOpen] = useState(false);
 
   const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -61,12 +65,16 @@ export default function TenantBar() {
       <Toolbar variant="dense" sx={{ px: 2, justifyContent: 'space-between' }}>
         {/* Left: Tenant context */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Chip
-            label={tenant?.tenant_code?.toUpperCase() || 'NO TENANT'}
-            size="small"
-            color="primary"
-            variant="outlined"
-          />
+          {isNapSoftUser && !impersonation?.active ? (
+            <TenantPicker />
+          ) : (
+            <Chip
+              label={tenant?.tenant_code?.toUpperCase() || 'NO TENANT'}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          )}
         </Box>
 
         {/* Right: User avatar */}
@@ -135,6 +143,23 @@ export default function TenantBar() {
             Change Password
           </MenuItem>
 
+          {isNapSoftUser && !impersonation?.active && (
+            <>
+              <Divider />
+              <MenuItem
+                onClick={() => {
+                  handleMenuClose();
+                  setImpersonateOpen(true);
+                }}
+              >
+                <ListItemIcon>
+                  <SupervisorAccountIcon fontSize="small" />
+                </ListItemIcon>
+                Impersonate User...
+              </MenuItem>
+            </>
+          )}
+
           <Divider />
 
           <MenuItem onClick={handleSignOut}>
@@ -150,6 +175,11 @@ export default function TenantBar() {
         open={changePwOpen}
         onClose={() => setChangePwOpen(false)}
         onSuccess={() => setChangePwOpen(false)}
+      />
+
+      <ImpersonateDialog
+        open={impersonateOpen}
+        onClose={() => setImpersonateOpen(false)}
       />
     </AppBar>
   );

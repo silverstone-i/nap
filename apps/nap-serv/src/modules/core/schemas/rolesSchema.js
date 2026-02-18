@@ -20,10 +20,12 @@ const rolesSchema = {
     { name: 'description', type: 'varchar(255)', default: null },
     { name: 'is_system', type: 'boolean', notNull: true, default: false },
     { name: 'is_immutable', type: 'boolean', notNull: true, default: false },
+    { name: 'scope', type: 'varchar(32)', notNull: true, default: 'all_projects' },
   ],
   constraints: {
     primaryKey: ['id'],
     unique: [['code']],
+    checks: [{ type: 'Check', expression: "scope IN ('all_projects','assigned_companies','assigned_projects')" }],
     indexes: [{ type: 'Index', columns: ['code'] }],
   },
 };

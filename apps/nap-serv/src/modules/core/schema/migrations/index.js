@@ -7,5 +7,6 @@
 
 import coreTables from './202502110010_coreTables.js';
 import coreEntityTables from './202502110011_coreEntityTables.js';
+import rbacScopeTables from './202502180012_rbacScopeTables.js';
 
-export default [coreTables, coreEntityTables];
+export default [coreTables, coreEntityTables, rbacScopeTables];

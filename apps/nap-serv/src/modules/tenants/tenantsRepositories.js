@@ -10,6 +10,7 @@ import NapUsers from './models/NapUsers.js';
 import NapUserAddresses from './models/NapUserAddresses.js';
 import NapUserPhones from './models/NapUserPhones.js';
 import MatchReviewLogs from './models/MatchReviewLogs.js';
+import ImpersonationLogs from './models/ImpersonationLogs.js';
 
 const repositories = {
   tenants: Tenants,
@@ -17,6 +18,7 @@ const repositories = {
   napUserAddresses: NapUserAddresses,
   napUserPhones: NapUserPhones,
   matchReviewLogs: MatchReviewLogs,
+  impersonationLogs: ImpersonationLogs,
 };
 
 export default repositories;

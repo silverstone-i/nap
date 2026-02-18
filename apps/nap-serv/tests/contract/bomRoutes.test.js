@@ -88,7 +88,7 @@ vi.mock('../../src/db/db.js', () => {
 
   // Register all model names the proxy needs to resolve
   const modelNames = [
-    'tenants', 'napUsers', 'roleMembers', 'policies', 'napUserPhones', 'napUserAddresses',
+    'tenants', 'napUsers', 'roles', 'roleMembers', 'policies', 'policyCatalog', 'napUserPhones', 'napUserAddresses',
     // Projects module
     'projects', 'units', 'tasks', 'taskGroups', 'tasksMaster',
     'costItems', 'changeOrders',
@@ -105,6 +105,7 @@ vi.mock('../../src/db/db.js', () => {
     dbProxy[name] = model;
   }
   dbProxy.none = vi.fn();
+  dbProxy.result = vi.fn(async () => ({ rowCount: 1 }));
   dbProxy.manyOrNone = vi.fn(async () => []);
   return { default: dbProxy, db: dbProxy };
 });

@@ -1,7 +1,7 @@
 # 0004. Three-Level RBAC (none/view/full) over Boolean Permissions
 
 **Date:** 2025-02-17
-**Status:** accepted
+**Status:** superseded by [ADR-0013](./0013-four-layer-scoped-rbac.md)
 **Author:** NapSoft
 
 ## Context

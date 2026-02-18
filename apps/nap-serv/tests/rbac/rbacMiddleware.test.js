@@ -8,9 +8,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { rbac, withMeta } from '../../src/middleware/rbac.js';
 
-// Mock loadPoliciesForUserTenant
+// Mock loadPoliciesForUserTenant — returns full 4-layer canon
+const { EMPTY_CANON } = vi.hoisted(() => ({
+  EMPTY_CANON: { caps: {}, scope: 'all_projects', projectIds: null, companyIds: null, stateFilters: {}, fieldGroups: {} },
+}));
+
 vi.mock('../../src/utils/RbacPolicies.js', () => ({
-  loadPoliciesForUserTenant: vi.fn().mockResolvedValue({}),
+  loadPoliciesForUserTenant: vi.fn().mockResolvedValue({ ...EMPTY_CANON }),
 }));
 
 function createMockReqRes({ user = {}, resource = {}, method = 'GET', ctx = {} } = {}) {
@@ -32,10 +36,10 @@ function createMockReqRes({ user = {}, resource = {}, method = 'GET', ctx = {} }
 
 describe('withMeta', () => {
   it('should set req.resource with module, router, and action', () => {
-    const middleware = withMeta({ module: 'ar', router: 'invoices', action: 'approve' });
+    const middleware = withMeta({ module: 'ar', router: 'ar-invoices', action: 'approve' });
     const { req, res, next } = createMockReqRes();
     middleware(req, res, next);
-    expect(req.resource).toEqual({ module: 'ar', router: 'invoices', action: 'approve' });
+    expect(req.resource).toEqual({ module: 'ar', router: 'ar-invoices', action: 'approve' });
     expect(next).toHaveBeenCalled();
   });
 
@@ -55,7 +59,7 @@ describe('rbac middleware', () => {
     const mod = await import('../../src/utils/RbacPolicies.js');
     loadPoliciesForUserTenant = mod.loadPoliciesForUserTenant;
     loadPoliciesForUserTenant.mockReset();
-    loadPoliciesForUserTenant.mockResolvedValue({});
+    loadPoliciesForUserTenant.mockResolvedValue({ ...EMPTY_CANON });
   });
 
   describe('super_user bypass', () => {
@@ -97,7 +101,7 @@ describe('rbac middleware', () => {
 
   describe('policy resolution', () => {
     it('should allow when policy level meets required level', async () => {
-      loadPoliciesForUserTenant.mockResolvedValue({ 'projects::::': 'full' });
+      loadPoliciesForUserTenant.mockResolvedValue({ ...EMPTY_CANON, caps: { 'projects::::': 'full' } });
 
       const middleware = rbac('view');
       const { req, res, next } = createMockReqRes({
@@ -110,7 +114,7 @@ describe('rbac middleware', () => {
     });
 
     it('should deny when policy level is below required', async () => {
-      loadPoliciesForUserTenant.mockResolvedValue({ 'projects::::': 'view' });
+      loadPoliciesForUserTenant.mockResolvedValue({ ...EMPTY_CANON, caps: { 'projects::::': 'view' } });
 
       const middleware = rbac('full');
       const { req, res, next } = createMockReqRes({
@@ -125,14 +129,14 @@ describe('rbac middleware', () => {
 
     it('should deny action-level override even when module is full', async () => {
       loadPoliciesForUserTenant.mockResolvedValue({
-        'ar::::': 'view',
-        'ar::invoices::approve': 'none',
+        ...EMPTY_CANON,
+        caps: { 'ar::::': 'view', 'ar::ar-invoices::approve': 'none' },
       });
 
       const middleware = rbac('view');
       const { req, res, next } = createMockReqRes({
         user: { id: 'u1', role: 'member', schema_name: 'acme' },
-        resource: { module: 'ar', router: 'invoices', action: 'approve' },
+        resource: { module: 'ar', router: 'ar-invoices', action: 'approve' },
         ctx: { schema: 'acme' },
       });
       await middleware(req, res, next);
@@ -143,7 +147,7 @@ describe('rbac middleware', () => {
 
   describe('method-based defaults', () => {
     it('should default to "view" for GET when no hint given', async () => {
-      loadPoliciesForUserTenant.mockResolvedValue({ 'projects::::': 'view' });
+      loadPoliciesForUserTenant.mockResolvedValue({ ...EMPTY_CANON, caps: { 'projects::::': 'view' } });
 
       const middleware = rbac();
       const { req, res, next } = createMockReqRes({
@@ -157,7 +161,7 @@ describe('rbac middleware', () => {
     });
 
     it('should default to "full" for POST when no hint given', async () => {
-      loadPoliciesForUserTenant.mockResolvedValue({ 'projects::::': 'view' });
+      loadPoliciesForUserTenant.mockResolvedValue({ ...EMPTY_CANON, caps: { 'projects::::': 'view' } });
 
       const middleware = rbac();
       const { req, res, next } = createMockReqRes({
@@ -174,7 +178,7 @@ describe('rbac middleware', () => {
 
   describe('deny payload', () => {
     it('should include detailed deny information', async () => {
-      loadPoliciesForUserTenant.mockResolvedValue({});
+      loadPoliciesForUserTenant.mockResolvedValue({ ...EMPTY_CANON });
 
       const middleware = rbac('full');
       const { req, res, next } = createMockReqRes({

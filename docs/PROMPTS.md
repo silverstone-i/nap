@@ -77,10 +77,12 @@ The Phase 1 project scaffold is complete. Now build the database layer:
    - setAuditActorResolver() integration with AsyncLocalStorage for per-request user tracking
 
 2. Create the admin schema models (PRD §3.2.1, §3.2.2):
-   - Modules/tenants/schemas/tenantsSchema.js — admin.tenants table definition (includes admin_user uuid FK required, billing_user uuid FK optional)
-   - Modules/tenants/schemas/napUsersSchema.js — admin.nap_users table definition (includes full_name, phone_1/phone_1_type, phone_2/phone_2_type, tax_id, notes; email has global unique partial index WHERE deactivated_at IS NULL)
+   - Modules/tenants/schemas/tenantsSchema.js — admin.tenants table definition (admin/billing contacts determined via nap_users.tenant_role, not FK)
+   - Modules/tenants/schemas/napUsersSchema.js — admin.nap_users table definition (includes full_name, tax_id, notes, status, tenant_role, employee_id FK; email has global unique partial index WHERE deactivated_at IS NULL)
+   - Modules/tenants/schemas/napUserPhonesSchema.js — admin.nap_user_phones table (user_id FK, phone_type, phone_number, is_primary)
    - Modules/tenants/schemas/napUserAddressesSchema.js — admin.nap_user_addresses table (user_id FK, address_type, address_line_1/2/3, city, state_province, postal_code, country_code ISO 3166-1 alpha-2, is_primary)
    - Modules/tenants/schemas/matchReviewLogsSchema.js — admin.match_review_logs
+   - Modules/tenants/schemas/impersonationLogsSchema.js — admin.impersonation_logs (impersonation audit trail)
    - Modules/tenants/models/Tenants.js — extends TableModel
    - Modules/tenants/models/NapUsers.js — extends TableModel (with password hash exclusion)
    - Modules/tenants/models/MatchReviewLogs.js — extends TableModel
@@ -90,7 +92,7 @@ The Phase 1 project scaffold is complete. Now build the database layer:
    - apps/nap-serv/src/migrations/admin/ directory for admin schema migrations
    - apps/nap-serv/src/migrations/tenant/ directory for tenant schema migrations
    - Migration runner script that uses pg-schemata's MigrationManager
-   - First migration (202502110001): bootstrap admin schema — creates tenants, nap_users, match_review_logs tables
+   - First migration (202502110001): bootstrap admin schema — creates tenants, nap_users, nap_user_phones, nap_user_addresses, match_review_logs, impersonation_logs tables
 
 4. Create the bootstrap/setup script:
    - setupAdmin.js: Creates admin schema, runs migrations, seeds root super user (from ROOT_EMAIL/ROOT_PASSWORD env vars)
@@ -141,7 +143,7 @@ Phases 1-2 are complete — the database layer, admin schema, and RBAC tables ex
    - apps/nap-serv/src/auth/jwt.js
    - signTokens(user, permissions): creates auth_token (15min) and refresh_token (7-day) with claims per PRD §3.1.1
    - verifyToken(token, secret): verifies and decodes JWT
-   - Token claims: sub, id, tenant_code, schema_name, role, ph (permissions hash)
+   - Token claims: sub, ph (permissions hash), iss ('nap-serv'), aud ('nap-serv-api'). Tenant context and role are NOT in the JWT — resolved at request time by authRedis middleware.
 
 3. Redis permission caching:
    - apps/nap-serv/src/auth/permissionCache.js
@@ -171,7 +173,8 @@ Phases 1-2 are complete — the database layer, admin schema, and RBAC tables ex
    - POST /api/auth/login — authenticate, cache permissions in Redis, set httpOnly cookies
    - POST /api/auth/refresh — full token rotation
    - POST /api/auth/logout — clear cookies, invalidate Redis cache
-   - GET /api/auth/me — return user context with tenant, roles, permissions
+   - POST /api/auth/change-password — change password (validates current password, enforces strength rules)
+   - GET /api/auth/me — return user context with tenant, roles, permissions, impersonation state
    - GET /api/auth/check — lightweight session validation
 
 7. Cookie configuration:
@@ -229,20 +232,20 @@ Phases 1-3 are complete — auth, RBAC, and database foundation are working. Now
 
 3. Tenant CRUD:
    - Modules/tenants/controllers/tenantsController.js
-   - Overrides create to: insert tenant record in admin schema → provision tenant schema via bootstrap() → seed default roles/policies/chart of accounts → create the tenant Admin user from the provided admin_user email, user_name, and password (hash password with bcrypt, assign `admin` role, store user ID as the tenant's `admin_user` FK)
+   - Overrides create to: insert tenant record in admin schema → provision tenant schema via bootstrap() → seed default roles/policies/chart of accounts → create the Administrator user from the provided admin_user email, user_name, and password (hash password with bcrypt, assign `admin` role, set `tenant_role='admin'` on the user record)
    - Overrides archive to: cascade deactivate all tenant users via removeWhere(); reject archival of the root tenant (NAP) with 403
    - Overrides restore to: reactivate tenant and all associated users via restoreWhere()
    - Modules/tenants/apiRoutes/v1/tenantsRouter.js — uses createRouter with tenant-specific overrides
 
 4. NapSoft-only access:
    - apps/nap-serv/src/middleware/requireNapsoftTenant.js
-   - Checks req.user against isNapsoftEmployee() utility (tenant_code, company, email domain)
+   - Checks req.user.tenant_code against NAPSOFT_TENANT env var
    - Returns 403 for non-NapSoft users
    - Applied to all tenant management routes
 
 5. User CRUD:
    - Modules/tenants/controllers/napUsersController.js
-   - Custom /register endpoint: collects email, user_name, full_name, password, phone_1 + phone_1_type, phone_2 + phone_2_type, address(es) with type, tax_id, notes. Hashes password with bcrypt, creates user record, and optionally creates nap_user_addresses records for provided addresses.
+   - Custom /register endpoint: collects email, user_name, full_name, password, phones array (each with phone_number, phone_type, is_primary), addresses array (each with address fields, is_primary), tenant_role, tax_id, notes. Hashes password with bcrypt, creates user record, and creates nap_user_phones/nap_user_addresses records for provided arrays.
    - Email must be globally unique across all active users (partial unique index WHERE deactivated_at IS NULL)
    - Disables standard POST (must use /register)
    - Archive: prevents self-archival; prevents archival of super_user role holders
@@ -252,11 +255,11 @@ Phases 1-3 are complete — auth, RBAC, and database foundation are working. Now
 
 6. Admin operations:
    - Modules/tenants/apiRoutes/v1/adminRouter.js
-   - GET /schemas — list all tenant schemas (super_user only)
-   - POST /switch-schema/:schema — switch tenant context
-   - Modules/core/apiRoutes/v1/adminRouter.js
-   - POST /assume-tenant — assume another tenant's context
-   - POST /exit-assumption — exit assumption
+   - GET /schemas — list all active tenants (NapSoft users only, returns full tenant objects)
+   - POST /impersonate — start impersonation session (requires target_user_id, NapSoft users only)
+   - POST /exit-impersonation — end active impersonation session
+   - GET /impersonation-status — check current impersonation state
+   - Cross-tenant access: NapSoft users send `x-tenant-code` header to switch tenant context (no endpoint needed — handled by `authRedis` middleware)
 
 7. Module registration:
    - apps/nap-serv/src/moduleRegistry.js — central registry that mounts all module routes
@@ -304,7 +307,7 @@ Phases 1-4 are complete — the server API is working with auth, RBAC, and tenan
 
 3. Auth context (PRD §3.1.1 client-side):
    - src/contexts/AuthContext.jsx
-   - Provides { user, loading, login, logout, tenant }
+   - Provides { user, loading, login, logout, refreshUser, tenant, isNapSoftUser, assumedTenant, assumeTenant, exitAssumption, impersonation, startImpersonation, endImpersonation }
    - On mount: calls getMe() to hydrate session from cookie
    - login(email, password): calls API, sets user state
    - logout(): calls API, clears user state, redirects to /login
@@ -332,12 +335,12 @@ Phases 1-4 are complete — the server API is working with auth, RBAC, and tenan
        - Divider
        - "Sign Out" action (calls logout)
    - src/components/layout/ModuleBar.jsx — sticky dynamic toolbar
-     - Left zone: current module name + breadcrumb trail (e.g., `Tenants > Manage Users`). Module name derived from active nav group; breadcrumb segments are clickable links for back-navigation.
+     - Left zone: current module name + breadcrumb trail (e.g., `Settings > Manage Employees`). Module name derived from active nav group; breadcrumb segments are clickable links for back-navigation.
      - Right zone: renders tabs, filters, and primary action buttons from ModuleActionsContext
 
 6. Navigation config (PRD §7):
    - src/config/navigationConfig.js — NAV_ITEMS array per PRD §7 navigation structure
-   - Groups: Dashboard, Projects, Budgets, Actual Costs, Change Orders, AP, AR, Accounting & GL, Reports, Tenants
+   - Groups: Dashboard, Projects, Budgets, Actual Costs, Change Orders, AP, AR, Accounting & GL, Reports, Settings
    - Each item: { label, icon, path, children?, capability? }
    - Capability-based filtering (hide items user doesn't have permission for)
 

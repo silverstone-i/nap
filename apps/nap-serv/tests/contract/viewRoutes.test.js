@@ -84,7 +84,7 @@ vi.mock('../../src/db/db.js', () => {
   const dbProxy = (name, schema) => model.setSchemaName(schema);
 
   const modelNames = [
-    'tenants', 'napUsers', 'roleMembers', 'policies', 'napUserPhones', 'napUserAddresses',
+    'tenants', 'napUsers', 'roles', 'roleMembers', 'policies', 'policyCatalog', 'napUserPhones', 'napUserAddresses',
     'projects', 'units', 'tasks', 'taskGroups', 'tasksMaster',
     'costItems', 'changeOrders',
     'templateUnits', 'templateTasks', 'templateCostItems', 'templateChangeOrders',
@@ -101,6 +101,7 @@ vi.mock('../../src/db/db.js', () => {
     dbProxy[name] = model;
   }
   dbProxy.none = vi.fn();
+  dbProxy.result = vi.fn(async () => ({ rowCount: 1 }));
   dbProxy.manyOrNone = vi.fn(async () => []);
   dbProxy.oneOrNone = vi.fn(async () => null);
   dbProxy.tx = vi.fn(async (fn) => {

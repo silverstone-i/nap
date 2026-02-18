@@ -17,7 +17,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import ApartmentIcon from '@mui/icons-material/Apartment';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 export const NAV_ITEMS = [
   {
@@ -102,12 +102,12 @@ export const NAV_ITEMS = [
     ],
   },
   {
-    label: 'Tenants',
-    icon: ApartmentIcon,
+    label: 'Settings',
+    icon: SettingsIcon,
     children: [
       { label: 'Manage Tenants', path: '/tenant/manage-tenants', capability: 'tenants::' },
-      { label: 'Manage Users', path: '/tenant/manage-users', capability: 'tenants::' },
-      { label: 'Settings', path: '/tenant/settings' },
+      { label: 'Manage Employees', path: '/tenant/manage-employees', capability: 'core::employees' },
+      { label: 'Manage Roles', path: '/tenant/manage-roles', capability: 'core::roles' },
     ],
   },
 ];

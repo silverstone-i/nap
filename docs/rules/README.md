@@ -21,7 +21,7 @@ Example: `BR-RBAC-004`, `BR-AP-012`, `BR-GL-003`
 
 | Domain | File | Rule Count | Status |
 |---|---|---|---|
-| RBAC (Auth & Permissions) | [rbac.md](./rbac.md) | 21 | Active |
+| RBAC (Auth & Permissions) | [rbac.md](./rbac.md) | 36 | Active |
 | UI Visibility (cross-cutting) | [ui-visibility.md](./ui-visibility.md) | 1 | Active |
 | AP (Accounts Payable) | ap.md | — | Not started |
 | AR (Accounts Receivable) | ar.md | — | Not started |

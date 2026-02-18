@@ -21,6 +21,8 @@ const employeesSchema = {
     { name: 'code', type: 'varchar(16)' },
     { name: 'position', type: 'varchar(64)' },
     { name: 'department', type: 'varchar(64)' },
+    { name: 'email', type: 'varchar(128)', default: null },
+    { name: 'is_app_user', type: 'boolean', notNull: true, default: false },
     { name: 'is_active', type: 'boolean', notNull: true, default: true },
   ],
   constraints: {
@@ -37,6 +39,7 @@ const employeesSchema = {
     indexes: [
       { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['tenant_id', 'code'], unique: true, where: 'deactivated_at IS NULL' },
+      { type: 'Index', columns: ['tenant_id', 'email'], unique: true, where: 'email IS NOT NULL AND deactivated_at IS NULL' },
     ],
   },
 };

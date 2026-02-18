@@ -4,7 +4,7 @@
  *
  * Includes RBAC enforcement for the approve action per PRD §3.1.2.
  * The withMeta middleware annotates req.resource so that the
- * ar::invoices::approve policy can restrict approval rights.
+ * ar::ar-invoices::approve policy can restrict approval rights.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -19,11 +19,11 @@ import arInvoicesController from '../../controllers/arInvoicesController.js';
 const router = Router();
 
 // RBAC-gated approval endpoint: PUT /approve
-// Requires ar::invoices::approve at 'full' level
+// Requires ar::ar-invoices::approve at 'full' level
 router.put(
   '/approve',
   addAuditFields,
-  withMeta({ module: 'ar', router: 'invoices', action: 'approve' }),
+  withMeta({ module: 'ar', router: 'ar-invoices', action: 'approve' }),
   rbac('full'),
   (req, res) => {
     // Set status to 'sent' (approval = sending the invoice to the client)

@@ -55,12 +55,23 @@ export default function Sidebar() {
     if (!user) return [];
     if (user.role === 'super_user') return NAV_ITEMS;
     const caps = user.perms?.caps || {};
-    if (Object.keys(caps).length === 0) return NAV_ITEMS;
+    const capKeys = Object.keys(caps);
+    if (capKeys.length === 0) return NAV_ITEMS;
     return NAV_ITEMS.map((group) => {
       const visibleChildren = group.children.filter((child) => {
         if (!child.capability) return true;
-        const moduleKey = child.capability.split('::')[0];
-        return Object.keys(caps).some((k) => k.startsWith(`${moduleKey}::`));
+        const parts = child.capability.split('::');
+        const moduleKey = parts[0];
+        const routerKey = parts[1] || '';
+        if (routerKey) {
+          // Router-specific: check for caps matching module::router::*
+          return capKeys.some((k) => {
+            const [m, r] = k.split('::');
+            return m === moduleKey && r === routerKey;
+          });
+        }
+        // Module-level: any cap in the module
+        return capKeys.some((k) => k.startsWith(`${moduleKey}::`));
       });
       return { ...group, children: visibleChildren };
     }).filter((group) => group.children.length > 0);

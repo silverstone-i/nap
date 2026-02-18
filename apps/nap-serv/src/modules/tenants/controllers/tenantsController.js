@@ -106,6 +106,22 @@ class TenantsController extends BaseController {
         created_by: req.user?.id || null,
       });
 
+      // 4. Assign admin user to the tenant's RBAC admin role
+      try {
+        const adminRole = await db('roles', schemaName).findOneBy([{ code: 'admin' }]);
+        if (adminRole) {
+          await db('roleMembers', schemaName).insert({
+            role_id: adminRole.id,
+            user_id: adminUser.id,
+            is_primary: true,
+            tenant_code: tenant_code.toUpperCase(),
+            created_by: req.user?.id || null,
+          });
+        }
+      } catch (roleErr) {
+        logger.warn(`Failed to assign admin role in "${schemaName}":`, roleErr?.message);
+      }
+
       // Return the created tenant with admin user id
       res.status(201).json({ ...tenant, admin_user: adminUser.id });
     } catch (err) {

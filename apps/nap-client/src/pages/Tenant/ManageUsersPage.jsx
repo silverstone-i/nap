@@ -42,6 +42,7 @@ import {
   useArchiveUser,
   useRestoreUser,
 } from '../../hooks/useUsers.js';
+import { useRoles } from '../../hooks/useRbac.js';
 import {
   pageContainerSx,
   formGridSx,
@@ -76,6 +77,7 @@ const BLANK_REGISTER = {
   password: '',
   role: 'member',
   tenant_role: '',
+  role_id: '',
   tax_id: '',
   notes: '',
 };
@@ -159,6 +161,9 @@ export default function ManageUsersPage() {
   /* ── queries ─────────────────────────────────────────────── */
   const { data: usersRes, isLoading } = useUsers();
   const allRows = usersRes?.rows ?? [];
+
+  const { data: rolesRes } = useRoles({ limit: 200 });
+  const availableRoles = useMemo(() => (rolesRes?.rows ?? []).filter((r) => !r.deactivated_at), [rolesRes]);
 
   /* ── view filter ─────────────────────────────────────────── */
   const [viewFilter, setViewFilter] = useState('active');
@@ -312,6 +317,7 @@ export default function ManageUsersPage() {
         ...regForm,
         tenant_code: regForm.tenant_code.toUpperCase(),
         tenant_role: regForm.tenant_role || null,
+        role_id: regForm.role_id || undefined,
         phones: regPhones.filter((p) => p.phone_number),
         addresses: regAddresses.filter((a) => a.address_line_1),
       };
@@ -462,6 +468,10 @@ export default function ManageUsersPage() {
           </TextField>
           <TextField label="Tenant Role" select value={regForm.tenant_role} onChange={onRegField('tenant_role')}>
             {TENANT_ROLE_OPTS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+          </TextField>
+          <TextField label="RBAC Role" select value={regForm.role_id} onChange={onRegField('role_id')} helperText="Assign tenant RBAC role on creation">
+            <MenuItem value="">None</MenuItem>
+            {availableRoles.map((r) => <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>)}
           </TextField>
           <TextField label="Tax ID" value={regForm.tax_id} onChange={onRegField('tax_id')} />
           <TextField label="Notes" multiline minRows={2} value={regForm.notes} onChange={onRegField('notes')} sx={formFullSpanSx} />

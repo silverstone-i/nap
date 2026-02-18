@@ -12,6 +12,15 @@
 const BASE = '/api';
 
 let refreshPromise = null;
+let _assumedTenantCode = null;
+
+export function setAssumedTenant(code) {
+  _assumedTenantCode = code ? code.toLowerCase() : null;
+}
+
+export function getAssumedTenant() {
+  return _assumedTenantCode;
+}
 
 function doFetch(method, url, headers, body, opts) {
   return fetch(url, {
@@ -26,6 +35,10 @@ function doFetch(method, url, headers, body, opts) {
 async function request(method, path, body, opts = {}) {
   const url = `${BASE}${path}`;
   const headers = { ...(opts.headers || {}) };
+
+  if (_assumedTenantCode) {
+    headers['x-tenant-code'] = _assumedTenantCode;
+  }
 
   if (body && !(body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';

@@ -6,7 +6,8 @@
  *   catalog_skus → vendor_skus → vendor_pricing
  *
  * Ensures pgvector extension is enabled before creating tables with vector columns.
- * Also creates HNSW indexes on embedding columns for efficient similarity search.
+ * Embedding indexes are deferred — pgvector ≤ 0.8.x caps HNSW/IVFFlat at 2000 dims
+ * and our embeddings are 3072-dim.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -19,8 +20,10 @@ export default defineMigration({
   id: '202502110030-bom-tables',
   description: 'Create BOM module tables (catalog_skus, vendor_skus, vendor_pricing) with pgvector',
 
-  async up({ schema, models, db }) {
+  async up({ schema, models, db, ensureExtensions }) {
     if (schema === 'admin') return;
+
+    await ensureExtensions(['vector']);
 
     // Create tables in FK order
     for (const key of BOM_MODELS) {
@@ -30,21 +33,18 @@ export default defineMigration({
       }
     }
 
-    // Create HNSW indexes on embedding columns for efficient cosine similarity search
-    await db.none(`
-      CREATE INDEX IF NOT EXISTS idx_catalog_skus_embedding
-      ON ${schema}.catalog_skus USING hnsw (embedding vector_cosine_ops)
-    `);
-    await db.none(`
-      CREATE INDEX IF NOT EXISTS idx_vendor_skus_embedding
-      ON ${schema}.vendor_skus USING hnsw (embedding vector_cosine_ops)
-    `);
+    // NOTE: HNSW and IVFFlat indexes are limited to 2000 dimensions in pgvector ≤ 0.8.x.
+    // Our embeddings are 3072-dim (OpenAI text-embedding-3-large), so we skip the index
+    // for now. Sequential scan is fine at low volume. When data grows, options include:
+    //   - Reduce to 1536-dim via `text-embedding-3-large` with `dimensions: 1536`
+    //   - Use halfvec cast: USING hnsw ((embedding::halfvec(3072)) halfvec_cosine_ops)
+    //   - Upgrade pgvector when higher-dim indexes are supported
   },
 
   async down({ schema, models, db }) {
     if (schema === 'admin') return;
 
-    // Drop HNSW indexes
+    // Drop embedding indexes if they exist (currently skipped due to 2000-dim limit)
     await db.none(`DROP INDEX IF EXISTS ${schema}.idx_catalog_skus_embedding`);
     await db.none(`DROP INDEX IF EXISTS ${schema}.idx_vendor_skus_embedding`);
 

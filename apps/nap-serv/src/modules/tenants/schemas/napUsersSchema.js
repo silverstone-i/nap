@@ -25,6 +25,7 @@ const napUsersSchema = {
     { name: 'role', type: 'varchar(32)', notNull: true, default: 'member' },
     { name: 'status', type: 'varchar(20)', notNull: true, default: 'active' },
     { name: 'tenant_role', type: 'varchar(16)', default: null },
+    { name: 'employee_id', type: 'uuid', default: null },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -39,6 +40,7 @@ const napUsersSchema = {
       { type: 'Index', columns: ['email'], unique: true, where: 'deactivated_at IS NULL' },
       { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['tenant_code'] },
+      { type: 'Index', columns: ['employee_id'], where: 'employee_id IS NOT NULL' },
     ],
   },
 };

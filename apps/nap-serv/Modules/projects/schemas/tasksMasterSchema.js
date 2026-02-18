@@ -26,8 +26,8 @@ const tasksMasterSchema = {
     foreignKeys: [
       {
         type: 'ForeignKey',
-        columns: ['task_group_code'],
-        references: { table: 'task_groups', columns: ['code'] },
+        columns: ['tenant_id', 'task_group_code'],
+        references: { table: 'task_groups', columns: ['tenant_id', 'code'] },
         onDelete: 'RESTRICT',
       },
     ],

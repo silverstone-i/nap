@@ -14,6 +14,7 @@ import { Box, CircularProgress } from '@mui/material';
 import Sidebar from './Sidebar.jsx';
 import TenantBar from './TenantBar.jsx';
 import ModuleBar from './ModuleBar.jsx';
+import ImpersonationBanner from './ImpersonationBanner.jsx';
 import ChangePasswordDialog from '../shared/ChangePasswordDialog.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -48,6 +49,7 @@ export default function LayoutShell() {
 
       {/* Main content area — TenantBar + ModuleBar + Data Viewport */}
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <ImpersonationBanner />
         <TenantBar />
         <ModuleBar />
 

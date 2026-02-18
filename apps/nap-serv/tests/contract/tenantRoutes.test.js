@@ -88,6 +88,9 @@ vi.mock('../../src/db/db.js', () => {
   dbProxy.policies = model;
   dbProxy.napUserPhones = model;
   dbProxy.napUserAddresses = model;
+  dbProxy.impersonationLogs = model;
+  dbProxy.none = vi.fn(async () => undefined);
+  dbProxy.oneOrNone = vi.fn(async () => null);
   return { default: dbProxy, db: dbProxy };
 });
 
@@ -154,28 +157,23 @@ describe('Tenant Routes Contract', () => {
       expect(Array.isArray(res.body)).toBe(true);
     });
 
-    it('POST /api/core/v1/admin/assume-tenant requires tenant_code', async () => {
+    it('POST /api/tenants/v1/admin/impersonate requires target_user_id', async () => {
       const cookies = await getAuthCookies();
-      const res = await request.post('/api/core/v1/admin/assume-tenant').set('Cookie', cookies).set('x-tenant-code', 'NAP').send({});
+      const res = await request.post('/api/tenants/v1/admin/impersonate').set('Cookie', cookies).set('x-tenant-code', 'NAP').send({});
       expect(res.status).toBe(400);
     });
 
-    it('POST /api/core/v1/admin/assume-tenant succeeds with tenant_code', async () => {
+    it('GET /api/tenants/v1/admin/impersonation-status returns status', async () => {
       const cookies = await getAuthCookies();
-      const res = await request
-        .post('/api/core/v1/admin/assume-tenant')
-        .set('Cookie', cookies)
-        .set('x-tenant-code', 'NAP')
-        .send({ tenant_code: 'ACME', reason: 'testing' });
+      const res = await request.get('/api/tenants/v1/admin/impersonation-status').set('Cookie', cookies).set('x-tenant-code', 'NAP');
       expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Assumed tenant');
+      expect(res.body).toHaveProperty('active');
     });
 
-    it('POST /api/core/v1/admin/exit-assumption succeeds', async () => {
+    it('POST /api/tenants/v1/admin/exit-impersonation returns success', async () => {
       const cookies = await getAuthCookies();
-      const res = await request.post('/api/core/v1/admin/exit-assumption').set('Cookie', cookies).set('x-tenant-code', 'NAP');
+      const res = await request.post('/api/tenants/v1/admin/exit-impersonation').set('Cookie', cookies).set('x-tenant-code', 'NAP');
       expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Exited assumption');
     });
   });
 });

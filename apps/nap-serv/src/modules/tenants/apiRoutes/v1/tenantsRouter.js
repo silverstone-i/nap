@@ -8,17 +8,20 @@
 import tenantsController from '../../controllers/tenantsController.js';
 import createRouter from '../../../../lib/createRouter.js';
 import { requireNapsoftTenant } from '../../../../middleware/requireNapsoftTenant.js';
+import { withMeta, rbac } from '../../../../middleware/rbac.js';
+
+const meta = withMeta({ module: 'tenants', router: 'tenants' });
 
 export default createRouter(
   tenantsController,
   (router) => {
-    router.get('/:id/modules', requireNapsoftTenant, (req, res) => tenantsController.getAllowedModules(req, res));
+    router.get('/:id/modules', requireNapsoftTenant, meta, rbac('view'), (req, res) => tenantsController.getAllowedModules(req, res));
   },
   {
-    postMiddlewares: [requireNapsoftTenant],
-    getMiddlewares: [requireNapsoftTenant],
-    putMiddlewares: [requireNapsoftTenant],
-    deleteMiddlewares: [requireNapsoftTenant],
-    patchMiddlewares: [requireNapsoftTenant],
+    postMiddlewares: [requireNapsoftTenant, meta, rbac('full')],
+    getMiddlewares: [requireNapsoftTenant, meta, rbac('view')],
+    putMiddlewares: [requireNapsoftTenant, meta, rbac('full')],
+    deleteMiddlewares: [requireNapsoftTenant, meta, rbac('full')],
+    patchMiddlewares: [requireNapsoftTenant, meta, rbac('full')],
   },
 );

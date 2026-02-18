@@ -14,7 +14,7 @@ export default defineMigration({
   async up({ schema, models, ensureExtensions }) {
     if (schema !== 'admin') return;
 
-    await ensureExtensions(['pgcrypto', 'uuid-ossp']);
+    await ensureExtensions(['pgcrypto', 'uuid-ossp', 'vector']);
 
     const adminModels = Object.values(models)
       .filter(isTableModel)

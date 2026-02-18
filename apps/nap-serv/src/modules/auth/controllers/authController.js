@@ -18,14 +18,14 @@ import db from '../../../db/db.js';
  * super_user has no schema-based policies — they get all module caps.
  */
 const SUPER_USER_MODULES = [
-  'tenants', 'projects', 'budgets', 'actual-costs', 'change-orders',
+  'tenants', 'core', 'projects', 'budgets', 'actual-costs', 'change-orders',
   'ap', 'ar', 'accounting', 'reports',
 ];
 
 function buildSuperUserCaps() {
   const caps = {};
   for (const mod of SUPER_USER_MODULES) {
-    caps[`${mod}::::full`] = 'full';
+    caps[`${mod}::::`] = 'full';
   }
   return caps;
 }
@@ -217,10 +217,41 @@ export const me = async (req, res) => {
   // client-side sidebar can filter nav items by capability.
   const perms = req.user?.perms || ctx.perms || { caps: {} };
 
+  // Load assigned RBAC roles for the user in their tenant schema
+  let assignedRoles = [];
+  const tenantSchemaName = user?.tenant_code?.toLowerCase?.();
+  if (user?.id && tenantSchemaName && tenantSchemaName !== 'admin') {
+    try {
+      const memberships = await db('roleMembers', tenantSchemaName).findWhere(
+        [{ user_id: user.id }],
+        'AND',
+        { columnWhitelist: ['role_id', 'is_primary'] },
+      );
+      if (memberships?.length) {
+        const roleIds = memberships.map((m) => m.role_id);
+        const roles = await db('roles', tenantSchemaName).findWhere(
+          [{ id: { $in: roleIds } }],
+          'AND',
+          { columnWhitelist: ['id', 'code', 'name', 'scope'] },
+        );
+        assignedRoles = roles.map((r) => ({
+          ...r,
+          is_primary: memberships.find((m) => m.role_id === r.id)?.is_primary || false,
+        }));
+      }
+    } catch {
+      // Tenant schema may not exist yet or roles table missing
+    }
+  }
+
   // Strip password_hash from response
   const { password_hash: _ph, ...safeUser } = user;
 
-  return res.json({ user: { ...safeUser, perms }, tenant, system_roles, tenant_roles, policy_etag });
+  const impersonation = req.user?.is_impersonating
+    ? { active: true, impersonated_by: req.user.impersonated_by }
+    : { active: false };
+
+  return res.json({ user: { ...safeUser, perms, roles: assignedRoles }, tenant, system_roles, tenant_roles, policy_etag, impersonation });
 };
 
 /**

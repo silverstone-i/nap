@@ -9,7 +9,6 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import { loadPoliciesForUserTenant } from '../utils/RbacPolicies.js';
 import logger from '../utils/logger.js';
 
 const LEVEL_ORDER = { none: 0, view: 1, full: 2 };
@@ -85,15 +84,13 @@ function deny(res, user, req, needed, have, note) {
 export function rbac(requiredHint) {
   return async (req, res, next) => {
     try {
-      const ctx = req.ctx || {};
-      const user = ctx.user || req.user || {};
-      const schemaName = ctx.schema || user.schema_name || null;
+      const user = req.user || {};
       const systemRole = user.role || null;
 
       // Short-circuit: super_user bypasses all checks
       if (systemRole === 'super_user') return next();
 
-      // Short-circuit: tenant admin bypasses all except tenants module
+      // Short-circuit: administrator bypasses all except tenants module
       if (systemRole === 'admin') {
         if (req?.resource?.module !== 'tenants') return next();
         return deny(res, user, req, 'full', 'none', 'admin cannot access tenants module');
@@ -107,10 +104,15 @@ export function rbac(requiredHint) {
       // Determine required level
       const required = requiredHint || (req.method === 'GET' || req.method === 'HEAD' ? 'view' : 'full');
 
-      // Load effective policies for this user/tenant
-      let caps = {};
-      if (schemaName && user?.id) {
-        caps = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
+      // Use caps already cached by authRedis; fall back to DB only if empty
+      let caps = user.perms?.caps || {};
+      if (Object.keys(caps).length === 0) {
+        const schemaName = user.rbac_schema || req.ctx?.schema || user.schema_name || null;
+        if (schemaName && user.id) {
+          const { loadPoliciesForUserTenant } = await import('../utils/RbacPolicies.js');
+          const canon = await loadPoliciesForUserTenant({ schemaName, userId: user.id });
+          caps = canon?.caps ?? canon ?? {};
+        }
       }
 
       const have = resolveLevel(caps, moduleName, routerName, actionName);

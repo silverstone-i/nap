@@ -21,6 +21,11 @@ class ClientsController extends BaseController {
     try {
       const schema = this.getSchema(req);
 
+      // Inject tenant_id from authenticated session
+      if (!req.body.tenant_id && req.user?.tenant_id) {
+        req.body.tenant_id = req.user.tenant_id;
+      }
+
       const record = await db.tx(async (t) => {
         const clientsModel = this.model(schema);
         clientsModel.tx = t;

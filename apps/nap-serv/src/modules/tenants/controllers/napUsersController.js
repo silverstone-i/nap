@@ -18,6 +18,7 @@ import bcrypt from 'bcrypt';
 import BaseController from '../../../lib/BaseController.js';
 import db from '../../../db/db.js';
 import logger from '../../../utils/logger.js';
+import { invalidateUserPermissions } from '../../../utils/rbacCacheInvalidation.js';
 
 class NapUsersController extends BaseController {
   constructor() {
@@ -94,6 +95,7 @@ class NapUsersController extends BaseController {
       user_name,
       full_name,
       role,
+      role_id,
       phone_1,
       phone_1_type,
       phone_2,
@@ -165,6 +167,19 @@ class NapUsersController extends BaseController {
 
       // Create address records if provided
       await this.#insertAddresses(user.id, addresses, auditId);
+
+      // Assign tenant RBAC role if provided
+      if (role_id) {
+        await db('roleMembers', tenant_code).insert({
+          role_id,
+          user_id: user.id,
+          is_primary: true,
+          tenant_code,
+          created_by: auditId,
+          updated_by: auditId,
+        });
+        await invalidateUserPermissions(user.id, tenant_code);
+      }
 
       // Return user without password_hash
       const { password_hash: _ph, ...safeUser } = user;

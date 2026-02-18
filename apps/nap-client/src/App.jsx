@@ -16,6 +16,8 @@ import PlaceholderPage from './pages/PlaceholderPage.jsx';
 /* ── Tenant pages (existing) ──────────────────────────────────── */
 import ManageTenantsPage from './pages/Tenant/ManageTenantsPage.jsx';
 import ManageUsersPage from './pages/Tenant/ManageUsersPage.jsx';
+import ManageRolesPage from './pages/Tenant/ManageRolesPage.jsx';
+import ManageEmployeesPage from './pages/Tenant/ManageEmployeesPage.jsx';
 
 /* ── Dashboard pages ──────────────────────────────────────────── */
 import DashboardPage from './pages/Dashboard/DashboardPage.jsx';
@@ -113,7 +115,8 @@ export default function App() {
           {/* Tenants */}
           <Route path="/tenant/manage-tenants" element={<ManageTenantsPage />} />
           <Route path="/tenant/manage-users" element={<ManageUsersPage />} />
-          <Route path="/tenant/settings" element={<PlaceholderPage title="Tenant Settings" />} />
+          <Route path="/tenant/manage-roles" element={<ManageRolesPage />} />
+          <Route path="/tenant/manage-employees" element={<ManageEmployeesPage />} />
 
           {/* User account */}
           <Route path="/profile" element={<PlaceholderPage title="My Profile" />} />

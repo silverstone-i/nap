@@ -13,7 +13,7 @@ NAP (Next Generation Accounting Platform) is a **multi-tenant, modular construct
 | Persona | Description |
 |---|---|
 | **NapSoft Super User** | Platform operator managing tenants, user provisioning, and system configuration |
-| **Tenant Admin** | Customer organization admin managing users, roles, and tenant-level settings |
+| **Administrator** | Customer organization admin managing users, roles, and tenant-level settings |
 | **Project Manager** | Creates/manages projects, units, budgets, cost lines, change orders, and actual costs |
 | **Accountant / Controller** | Manages chart of accounts, journal entries, AP/AR invoices, and intercompany transactions |
 | **AP/AR Clerk** | Processes vendor invoices, payments, client invoices, and receipts |
@@ -53,7 +53,7 @@ nap/
 
 NAP uses **PostgreSQL schema-per-tenant** isolation powered by pg-schemata:
 
-- **`admin` schema**: System-wide tables (`tenants`, `nap_users`, `nap_user_phones`, `nap_user_addresses`, `match_review_logs`)
+- **`admin` schema**: System-wide tables (`tenants`, `nap_users`, `nap_user_phones`, `nap_user_addresses`, `match_review_logs`, `impersonation_logs`)
 - **Tenant schemas** (e.g., `acme`, `nap`): Each customer gets a dedicated PostgreSQL schema containing all business tables (vendors, projects, accounting, etc.)
 - Tenant resolution is performed per-request via `x-tenant-code` header or JWT claims
 - All database access is schema-aware via pg-schemata's `setSchemaName()` — models bind queries to the correct tenant schema dynamically
@@ -185,7 +185,7 @@ The UI follows a four-zone layout architecture:
 ```
 
 - **Tenant Bar**: Tenant selector dropdown, user avatar with profile/settings dropdown
-- **Module Bar**: Displays the current module name on the left with breadcrumb navigation (e.g., `Tenants > Manage Users`), plus dynamic toolbar actions (tabs, filters, primary action buttons) on the right
+- **Module Bar**: Displays the current module name on the left with breadcrumb navigation (e.g., `Settings > Manage Employees`), plus dynamic toolbar actions (tabs, filters, primary action buttons) on the right
 - **Sidebar**: Collapsible navigation with primary groups and sub-module items; supports flyout menus when collapsed
 - **Data Viewport**: Main content area where page components render
 
@@ -223,7 +223,8 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 | `POST` | `/api/auth/login` | Authenticate with email/password |
 | `POST` | `/api/auth/refresh` | Rotate tokens (full rotation) |
 | `POST` | `/api/auth/logout` | Clear auth cookies |
-| `GET` | `/api/auth/me` | Get current user context, tenant, roles, permissions |
+| `POST` | `/api/auth/change-password` | Change password (validates current password, enforces strength rules) |
+| `GET` | `/api/auth/me` | Get current user context, tenant, roles, permissions, impersonation state |
 | `GET` | `/api/auth/check` | Lightweight session validation |
 
 **Token Claims:**
@@ -235,46 +236,87 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 > **Note:** Tenant context (`tenant_code`, `schema_name`) and role are resolved at request time by the `authRedis` middleware via HTTP headers, Redis cache, and database lookup — they are NOT embedded in the JWT.
 
 **Client-Side Auth:**
-- `AuthContext` provides `{ user, loading, login, logout, tenant }` via React context, where `tenant` is `null` or `{ tenant_code, schema_name }`
+- `AuthContext` provides `{ user, loading, login, logout, refreshUser, tenant, isNapSoftUser, assumedTenant, assumeTenant, exitAssumption, impersonation, startImpersonation, endImpersonation }` via React context, where `tenant` is `null` or `{ tenant_code, schema_name }`
 - `LayoutShell` renders loading spinner while `loading=true`, redirects to `/login` if `user=null`
 - All API calls use `credentials: 'include'` for cookie transmission
 - No tokens stored in localStorage — fully cookie-based
 
 #### 3.1.2 Role-Based Access Control (RBAC)
 
-**Data Model:**
-- `roles`: Role definitions with `code`, `name`, `description` (optional), `is_system`, `is_immutable` flags, plus `tenant_code` for schema context
+> **ADR Reference:** [ADR-0013](./decisions/0013-four-layer-scoped-rbac.md) (supersedes [ADR-0004](./decisions/0004-three-level-rbac.md))
+
+RBAC uses a four-layer model where each layer narrows what the previous layer grants. Layers 2-4 never expand access beyond what Layer 1 allows.
+
+| Layer | Question | Mechanism |
+|-------|----------|-----------|
+| **1 — Role Policies** | What can this role DO? | `policies` table — `none`/`view`/`full` levels |
+| **2 — Data Scope** | HOW MUCH data? | `roles.scope` + `project_members` + `company_members` tables |
+| **3 — State Filters** | Which record STATES? | `state_filters` table |
+| **4 — Field Groups** | Which COLUMNS? | `field_group_definitions` + `field_group_grants` tables |
+
+**Layer 1 — Data Model:**
+- `roles`: Role definitions with `code`, `name`, `description` (optional), `is_system`, `is_immutable`, `scope` (`all_projects`, `assigned_companies`, or `assigned_projects`), plus `tenant_code`
 - `role_members`: User-to-role mappings with optional `is_primary` flag, plus `tenant_code`
 - `policies`: Permission grants with `(role_id, module, router, action, level)` dimensions, plus `tenant_code`
 
-> **RBAC Schema Storage:** RBAC tables are defined with `dbSchema: 'public'` as a placeholder, but pg-schemata dynamically overrides the schema at bootstrap/migration time. Each tenant schema gets its own copy of the RBAC tables (`roles`, `role_members`, `policies`).
+**Layer 2 — Data Model:**
+- `project_members`: Maps `(project_id, user_id)` with a `role` label (e.g., `member`, `lead`). When `roles.scope = 'assigned_projects'`, only data from the user's assigned projects is visible.
+- `company_members`: Maps `(company_id, user_id)`. When `roles.scope = 'assigned_companies'`, only data from projects belonging to the user's assigned inter-companies is visible. The permission loader eagerly resolves both `companyIds` and corresponding `projectIds`.
+- `policy_catalog`: Registry of valid `(module, router, action)` combinations for role configuration UI discovery. Seed-only reference data — no audit fields, no tenant_code.
 
-**Permission Levels:** `none` (0) < `view` (1) < `full` (2)
+**Layer 3 — Data Model:**
+- `state_filters`: `(role_id, module, router, visible_statuses[])`. Restricts which record statuses are visible per role per resource. Empty = no filtering (all statuses visible).
+
+**Layer 4 — Data Model:**
+- `field_group_definitions`: Named column groups per resource — e.g., `(module, router, group_name, columns[], is_default)`.
+- `field_group_grants`: Assigns field groups to roles. Definitions with `is_default = true` are granted to all roles automatically. Empty = all columns visible.
+
+> **RBAC Schema Storage:** RBAC tables are defined with `dbSchema: 'public'` as a placeholder, but pg-schemata dynamically overrides the schema at bootstrap/migration time. Each tenant schema gets its own copy of all RBAC tables.
+
+**Permission Levels (Layer 1):** `none` (0) < `view` (1) < `full` (2)
 
 **Policy Resolution (most specific to least):**
-1. `module::router::action` (e.g., `ar::invoices::approve`)
-2. `module::router::` (e.g., `ar::invoices::`)
+1. `module::router::action` (e.g., `ar::ar-invoices::approve`)
+2. `module::router::` (e.g., `ar::ar-invoices::`)
 3. `module::::` (e.g., `ar::::`)
 4. Default: `none`
 
+**Multi-role Merge:**
+- Layer 2 scope: most permissive wins — three-tier hierarchy: `all_projects` > `assigned_companies` > `assigned_projects`
+- Layer 3 statuses: union of visible statuses across roles
+- Layer 4 columns: union of granted columns across roles
+
 **Built-in System Roles:**
-- `super_user`: Bypasses all permission checks globally; can only be assigned to NapSoft tenant users
-- `admin`: Full control within tenant, blocked from `tenants` module
+- `super_user`: Bypasses all four layers globally; can only be assigned to NapSoft tenant users
+- `admin`: Full control within tenant, bypasses Layers 2-4, blocked from `tenants` module
 
 **Seeded Tenant Roles:**
-- `admin`: Tenant-level administrator
-- `project_manager`: Sample role with `projects: full`, `accounting: view`, `ar: view`, `ar::invoices::approve: none`
+- `admin`: Tenant-level administrator, `scope: 'all_projects'`
+- `project_manager`: `scope: 'assigned_projects'`; sample policies: `projects: full`, `accounting: view`, `ar: view`, `ar::ar-invoices::approve: none`; sample state filter: AR invoices restricted to `['approved', 'sent']`
+- `controller`: `scope: 'assigned_companies'`; policies: `accounting: full`, `ar: full`, `ap: full`, `projects: view`, `reports: view`. Used for financial controllers who manage accounting across their assigned inter-companies.
 
-**Permission Caching:**
-- Permissions stored in Redis at `perm:{userId}:{tenantCode}`
+**Tenant Configurability:** All roles except `super_user` and `admin` are tenant-configurable. Tenants define their own roles, assign scopes, create state filters, and build field groups.
+
+**Permission Canon (cached in Redis):**
+- Canonical form: `{ caps, scope, projectIds, companyIds, stateFilters, fieldGroups }`
+- Stored at `perm:{userId}:{tenantCode}`
 - SHA-256 permission hash embedded in JWT (`ph` claim)
 - `X-Token-Stale: 1` header signals client when cached permissions diverge from token hash
-- Policy ETag computation over all roles, role_members, and policies tables
 
-**RBAC Middleware:**
-- `withMeta({ module, router, action })` annotates `req.resource`
-- `rbac(requiredLevel)` enforces permission level; returns 403 with detailed deny payload on failure
-- GET/HEAD requests default to requiring `view`; mutations default to `full`
+**Enforcement:**
+- **Layer 1 (middleware):** `withMeta({ module, router, action })` annotates `req.resource` → `rbac(requiredLevel)` enforces; returns 403 on denial. GET/HEAD default to `view`; mutations default to `full`.
+- **Layers 2-4 (service layer):** `ViewController._applyRbacFilters()` applies scope, state, and field filters. Controllers opt in via `this.rbacConfig = { module, router, scopeColumn }`.
+
+**RBAC Management Endpoints (tenant-scope, under `/api/core/v1/`):**
+
+| Method | Path | Purpose |
+|---|---|---|
+| Standard CRUD | `/api/core/v1/roles` | Manage tenant roles (code, name, scope, is_system, is_immutable) |
+| Standard CRUD | `/api/core/v1/role-members` | Assign/remove users from roles |
+| Standard CRUD | `/api/core/v1/policies` | Manage per-role permission grants (module, router, action, level) |
+| Standard CRUD | `/api/core/v1/policy-catalog` | Read-only catalog of valid (module, router, action) combinations |
+
+> All RBAC management routes use `createRouter` with `withMeta({ module: 'core', router: '<resource>' })` and `rbac()` middleware.
 
 ---
 
@@ -351,6 +393,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 | `role` | varchar(32) | System role (default `member`) |
 | `status` | varchar(20) | `active`, `invited`, `locked` |
 | `tenant_role` | varchar(16) | Nullable — `'admin'`, `'billing'`, or NULL. Designates whether the user is the tenant's primary administrator or billing contact. At most one admin and one billing user per tenant. |
+| `employee_id` | uuid | Nullable FK — links the app user to a tenant-schema `employees` record. Set automatically during RBAC auto-assignment when the user's email matches an employee in the resolved tenant. Indexed WHERE NOT NULL. |
 
 **User Phones (`admin.nap_user_phones`):**
 
@@ -384,6 +427,8 @@ Users can have any number of addresses. Stored in a separate table linked by `us
 
 > **Address Design Note:** Fields follow global best practices for international address handling. `address_line_1/2/3` accommodate any country's format without rigid street/city/state assumptions. `state_province` covers US states, Canadian provinces, UK counties, Japanese prefectures, etc. `country_code` uses ISO 3166-1 alpha-2 for consistency. `postal_code` is varchar(20) to handle all global formats (US ZIP+4, UK postcodes, Japanese 〒 codes). This structure supports mailing label printing by concatenating non-empty lines in order.
 
+**Access Control:** All nap-users routes are gated by `requireNapsoftTenant` middleware and RBAC enforcement (`tenants::nap-users` capability). GET routes require `view` level; mutations require `full` level.
+
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
@@ -402,17 +447,27 @@ Users can have any number of addresses. Stored in a separate table linked by `us
 - Users cannot archive themselves
 - `super_user` role cannot be archived
 - Restoring a user requires the parent tenant to be active
-- `isNapsoftEmployee()` utility checks tenant_code, company name, or email domain against env vars
+- NapSoft membership is determined by `tenant_code` comparison: server uses `requireNapsoftTenant` middleware (checks `req.user.tenant_code` against `NAPSOFT_TENANT` env var); client uses `isNapSoftUser` computed flag in `AuthContext` (checks `tenant_code` against `VITE_NAPSOFT_TENANT`)
 
 #### 3.2.3 Admin Operations
 
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/api/tenants/v1/admin/schemas` | List all tenant schemas (super_user only) |
-| `POST` | `/api/tenants/v1/admin/switch-schema/:schema` | Switch to a different tenant schema |
-| `POST` | `/api/core/v1/admin/assume-tenant` | Assume another tenant's context |
-| `POST` | `/api/core/v1/admin/exit-assumption` | Exit tenant assumption |
+| `GET` | `/api/tenants/v1/admin/schemas` | List all active tenants (NapSoft users only) |
+| `POST` | `/api/tenants/v1/admin/impersonate` | Start impersonation session (requires `target_user_id`) |
+| `POST` | `/api/tenants/v1/admin/exit-impersonation` | End active impersonation session |
+| `GET` | `/api/tenants/v1/admin/impersonation-status` | Check current impersonation state |
+
+**Cross-tenant access:** NapSoft users send `x-tenant-code` header to switch tenant context — handled by `authRedis` middleware, no dedicated endpoint needed. See [BR-RBAC-043](./rules/rbac.md#br-rbac-043).
+
+**Impersonation Implementation:**
+- Audit trail: `admin.impersonation_logs` table records `impersonator_id`, `target_user_id`, `target_tenant_code`, `reason`, `started_at`, `ended_at`
+- Session state: active impersonation stored in Redis at `imp:{userId}` with TTL
+- Session uniqueness: partial unique index on `impersonation_logs (impersonator_id) WHERE ended_at IS NULL` prevents concurrent sessions; attempting a second session returns `409 Conflict`
+- `authRedis` middleware detects active impersonation via Redis key and swaps `req.user` to the target user, setting `req.user.is_impersonating = true` and `req.user.impersonated_by`
+- `/auth/me` response includes `impersonation: { active, impersonated_by }` for client-side UI state
+- See [BR-RBAC-044](./rules/rbac.md#br-rbac-044), [BR-RBAC-048](./rules/rbac.md#br-rbac-048)
 
 ---
 
@@ -511,7 +566,7 @@ The `sources` table implements a **discriminated union** pattern linking vendors
 > - `postal_code` as varchar(20) covers all known formats (US ZIP+4, UK postcodes, etc.)
 > - **Mailing label generation:** Concatenate non-empty address lines, then `city + state_province + postal_code` on one line, then country name (resolved from `country_code`). Country-specific formatting rules (e.g., Japanese address order reversal) can be applied via a locale-aware formatter.
 
-**Endpoints:** `/api/core/v1/contacts`, `/api/core/v1/addresses`
+**Endpoints:** `/api/core/v1/sources`, `/api/core/v1/contacts`, `/api/core/v1/addresses`
 
 #### 3.3.5 Inter-Companies
 
@@ -1256,6 +1311,14 @@ These views are created in each tenant schema at provisioning time and updated v
 | `vw_export_template_cost_items` | Template cost items with unit name, version, task hierarchy |
 | `vw_template_tasks_export` | Template tasks with unit name and version |
 
+**Export View Endpoints (`/api/views/v1/`):**
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/views/v1/contacts` | Query `vw_export_contacts` for current tenant |
+| `GET` | `/api/views/v1/addresses` | Query `vw_export_addresses` for current tenant |
+| `GET` | `/api/views/v1/template-cost-items` | Query `vw_export_template_cost_items` for current tenant |
+| `GET` | `/api/views/v1/template-tasks` | Query `vw_template_tasks_export` for current tenant |
+
 **Financial Views (see §3.10.4):**
 | View | Description |
 |---|---|
@@ -1504,9 +1567,10 @@ Navigation is configured via `navigationConfig.js` with capability-based filteri
 
 ```
 Primary Group -> Sub-modules
-  Tenant (ApartmentIcon)
+  Settings (SettingsIcon)
     +-- Manage Tenants (/tenant/manage-tenants)
-    +-- Manage Users (/tenant/manage-users)
+    +-- Manage Employees (/tenant/manage-employees)
+    +-- Manage Roles (/tenant/manage-roles)
 ```
 
 Extensible design: add new groups/modules to `NAV_ITEMS` array with optional `capability` guards.
@@ -1515,7 +1579,7 @@ Extensible design: add new groups/modules to `NAV_ITEMS` array with optional `ca
 
 The Module Bar has two zones:
 
-- **Left zone**: Current module name and breadcrumb trail (e.g., `Tenants > Manage Users > Edit`). The module name is derived from the active navigation group; breadcrumbs reflect the current route hierarchy. Breadcrumb segments are clickable links for back-navigation.
+- **Left zone**: Current module name and breadcrumb trail (e.g., `Settings > Manage Employees > Edit`). The module name is derived from the active navigation group; breadcrumbs reflect the current route hierarchy. Breadcrumb segments are clickable links for back-navigation.
 - **Right zone**: Dynamic toolbar actions registered by page components via `useModuleToolbarRegistration()`:
   - **Tabs**: Toggle button groups with exclusive/non-exclusive selection
   - **Filters**: Text fields or select dropdowns
@@ -1572,7 +1636,7 @@ Based on the sidebar navigation config and server module structure:
 | **AR** | Clients, AR Invoices, Receipts, AR Aging | `/ar` |
 | **Accounting & GL** | Chart of Accounts, Journal Entries, Ledger, Intercompany | `/accounting` |
 | **Reports** | Budget vs Actual, Profitability, Cashflow, Margin Analysis, P&L, Balance Sheet | `/reports` |
-| **Tenants** | Manage Tenants, Manage Users, Settings | `/tenant` |
+| **Settings** | Manage Tenants, Manage Employees, Manage Roles | `/tenant` |
 
 ---
 
@@ -1593,8 +1657,8 @@ Based on the sidebar navigation config and server module structure:
 | `BCRYPT_ROUNDS` | Password hashing cost | 12 |
 | `NAPSOFT_TENANT` | NapSoft tenant code for admin access | `NAP` |
 | `VITE_NAPSOFT_TENANT` | Client-side NapSoft tenant code | `NAP` |
-| `VITE_NAPSOFT_COMPANY` | Client-side NapSoft company name | `NapSoft` |
-| `VITE_NAPSOFT_EMAIL_DOMAIN` | Client-side NapSoft email domain | `napsoft.com` |
+| `VITE_NAPSOFT_COMPANY` | Client-side NapSoft company name (reserved, not currently used) | `NapSoft` |
+| `VITE_NAPSOFT_EMAIL_DOMAIN` | Client-side NapSoft email domain (reserved, not currently used) | `napsoft.com` |
 
 ---
 
