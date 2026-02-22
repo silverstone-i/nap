@@ -1,0 +1,28 @@
+{
+  "name": "nap",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:serv": "npm -w apps/nap-serv run dev",
+    "dev:client": "npm -w apps/nap-client run dev",
+    "dev": "npm run dev:serv & npm run dev:client",
+    "build": "npm -w apps/nap-serv run build && npm -w apps/nap-client run build",
+    "lint": "eslint .",
+    "test": "npm -w apps/nap-serv test",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.34.0",
+    "eslint": "^9.34.0",
+    "eslint-import-resolver-alias": "^1.1.2",
+    "eslint-plugin-import": "^2.32.0",
+    "husky": "^9.1.7"
+  }
+}
