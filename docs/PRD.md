@@ -234,7 +234,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 - `iss`: Issuer (`'nap-serv'`)
 - `aud`: Audience (`'nap-serv-api'`)
 
-> **Note:** Authentication is against `admin.nap_users` which contains only identity/auth fields (`id`, `tenant_id`, `employee_id`, `email`, `password_hash`, `status`). Tenant context (`tenant_code`, `schema_name`) and roles are resolved at request time by the `authRedis` middleware via HTTP headers, Redis cache, and database lookup — they are NOT embedded in the JWT. Roles are resolved from `role_members` tables, not from a column on `nap_users`.
+> **Note:** Authentication is against `admin.nap_users` which contains only identity/auth fields (`id`, `tenant_id`, `entity_type`, `entity_id`, `email`, `password_hash`, `status`). Tenant context (`tenant_code`, `schema_name`) and roles are resolved at request time by the `authRedis` middleware via HTTP headers, Redis cache, and database lookup — they are NOT embedded in the JWT. Roles are read from the entity record's `roles` text array (resolved via `entity_type` + `entity_id`), not from a column on `nap_users`.
 
 **Client-Side Auth:**
 - `AuthContext` provides `{ user, loading, login, logout, refreshUser, tenant, isNapSoftUser, assumedTenant, assumeTenant, exitAssumption, impersonation, startImpersonation, endImpersonation }` via React context, where `tenant` is `null` or `{ tenant_code, schema_name }`
@@ -256,13 +256,15 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 | **4 — Field Groups** | Which COLUMNS? | `field_group_definitions` + `field_group_grants` tables |
 
 **Layer 1 — Data Model:**
-- `roles`: Role definitions with `code`, `name`, `description` (optional), `is_system`, `is_immutable`, `scope` (`all_projects`, `assigned_companies`, or `assigned_projects`), plus `tenant_code`
-- `role_members`: User-to-role mappings with optional `is_primary` flag, plus `tenant_code`
+- `roles`: Role definitions with `code`, `name`, `description` (optional), `is_system`, `is_immutable`, `scope` (`all_projects`, `assigned_companies`, `assigned_projects`, or `self`), plus `tenant_code`
 - `policies`: Permission grants with `(role_id, module, router, action, level)` dimensions, plus `tenant_code`
+
+> **Role Assignment:** Roles are stored as a `roles` text array directly on each entity table (employees, vendors, clients, contacts) — there is no `role_members` junction table. The permission loader reads the `roles` array from the entity record (resolved via `nap_users.entity_type` + `entity_id`), then queries `policies` for matching role IDs. A SQL view can reconstruct "members by role" across entity tables when needed for admin reporting.
 
 **Layer 2 — Data Model:**
 - `project_members`: Maps `(project_id, user_id)` with a `role` label (e.g., `member`, `lead`). When `roles.scope = 'assigned_projects'`, only data from the user's assigned projects is visible.
 - `company_members`: Maps `(company_id, user_id)`. When `roles.scope = 'assigned_companies'`, only data from projects belonging to the user's assigned inter-companies is visible. The permission loader eagerly resolves both `companyIds` and corresponding `projectIds`.
+- **`self` scope:** When `roles.scope = 'self'`, the permission loader reads `entity_type` and `entity_id` from `nap_users`. The canon includes `entityType` and `entityId`. `_applyRbacFilters()` maps the entity type to the appropriate FK column on the queried resource (e.g., `vendor_id` for AP invoices, `client_id` for AR invoices, `employee_id` for timecards). This enables portal access where vendors/clients see only their own records.
 - `policy_catalog`: Registry of valid `(module, router, action)` combinations for role configuration UI discovery. Seed-only reference data — no audit fields, no tenant_code.
 
 **Layer 3 — Data Model:**
@@ -283,7 +285,7 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 4. Default: `none`
 
 **Multi-role Merge:**
-- Layer 2 scope: most permissive wins — three-tier hierarchy: `all_projects` > `assigned_companies` > `assigned_projects`
+- Layer 2 scope: most permissive wins — four-tier hierarchy: `all_projects` > `assigned_companies` > `assigned_projects` > `self`
 - Layer 3 statuses: union of visible statuses across roles
 - Layer 4 columns: union of granted columns across roles
 
@@ -295,7 +297,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - `admin` (all tenant schemas): Full access within that tenant's data. Seeded with `level: 'full'` policies for all modules. Same meaning in every schema. Goes through full RBAC policy resolution — no bypass.
 - `support` (NapSoft `nap` schema only): Cross-tenant access + impersonation + tenant management. No access to NapSoft financial modules (accounting, AR, AP). Seeded with `level: 'none'` for financial modules + `level: 'full'` for non-financial modules + cross-tenant and impersonation policies. Goes through full RBAC policy resolution.
 
-> **No RBAC Bypass:** The middleware does NOT short-circuit for `super_user` or `admin`. All users are authorized through the same `role_members` → `policies` resolution path. This ensures all access is auditable, configurable, and consistent.
+> **No RBAC Bypass:** The middleware does NOT short-circuit for `super_user` or `admin`. All users are authorized through the same entity `roles` array → `policies` resolution path. This ensures all access is auditable, configurable, and consistent.
 
 **Seeded Tenant Roles:**
 - `admin`: Tenant-level administrator, `scope: 'all_projects'`. Seeded with explicit `level: 'full'` policies for ALL modules. When new modules are added to the platform, the module migration seeds admin policies for all existing tenants (see Admin Policy Auto-Seeding below).
@@ -307,12 +309,12 @@ All roles — including system roles — go through the full RBAC policy resolut
 **Tenant Configurability:** All roles except `super_user`, `admin`, and `support` are tenant-configurable. Tenants define their own roles, assign scopes, create state filters, and build field groups.
 
 **Permission Canon (cached in Redis):**
-- Canonical form: `{ caps, scope, projectIds, companyIds, stateFilters, fieldGroups }`
+- Canonical form: `{ caps, scope, projectIds, companyIds, entityType, entityId, stateFilters, fieldGroups }`
 - Stored at `perm:{userId}:{tenantCode}`
 - SHA-256 permission hash embedded in JWT (`ph` claim)
 - `X-Token-Stale: 1` header signals client when cached permissions diverge from token hash
-- `authRedis` middleware derives roles from `role_members` (admin schema for `nap` system roles, tenant schema for tenant roles) — NOT from a `nap_users.role` column
-- `req.user.system_roles` (array from nap schema, e.g., `['super_user']`) and `req.user.tenant_roles` (array from tenant schema, e.g., `['admin', 'project_manager']`)
+- `authRedis` middleware reads the `roles` array from the entity record (resolved via `nap_users.entity_type` + `entity_id`), then queries `policies` for matching role IDs — NOT from a `nap_users.role` column or `role_members` table
+- `entityType` and `entityId` are included in the canon for `self` scope resolution
 
 **Module Entitlements:**
 - `admin.tenants.allowed_modules` (jsonb array of module names) controls which modules a tenant can access
@@ -323,8 +325,8 @@ All roles — including system roles — go through the full RBAC policy resolut
 
 **Enforcement:**
 - **Module Entitlement (middleware):** Checks `tenants.allowed_modules` before RBAC — if the tenant doesn't have the module enabled, return 403 regardless of user permissions
-- **Layer 1 (middleware):** `withMeta({ module, router, action })` annotates `req.resource` → `rbac(requiredLevel)` enforces; returns 403 on denial. GET/HEAD default to `view`; mutations default to `full`. Permissions are resolved from `role_members` → `policies` for ALL users — no role-based bypass or short-circuit.
-- **Layers 2-4 (service layer):** `ViewController._applyRbacFilters()` applies scope, state, and field filters. Controllers opt in via `this.rbacConfig = { module, router, scopeColumn }`.
+- **Layer 1 (middleware):** `withMeta({ module, router, action })` annotates `req.resource` → `rbac(requiredLevel)` enforces; returns 403 on denial. GET/HEAD default to `view`; mutations default to `full`. Permissions are resolved from entity `roles` array → `policies` for ALL users — no role-based bypass or short-circuit.
+- **Layers 2-4 (service layer):** `ViewController._applyRbacFilters()` applies scope, state, and field filters. Controllers opt in via `this.rbacConfig = { module, router, scopeColumn, entityScopeColumns }`. The `entityScopeColumns` mapping tells the `self` scope which FK column to filter for each entity type (e.g., `{ vendor: 'vendor_id', client: 'client_id', employee: 'employee_id' }`).
 
 **Admin Policy Auto-Seeding:**
 - When a new module is added to the platform, its migration seeds `level: 'full'` policies for the `admin` role in every existing tenant schema
@@ -336,9 +338,10 @@ All roles — including system roles — go through the full RBAC policy resolut
 | Method | Path | Purpose |
 |---|---|---|
 | Standard CRUD | `/api/core/v1/roles` | Manage tenant roles (code, name, scope, is_system, is_immutable) |
-| Standard CRUD | `/api/core/v1/role-members` | Assign/remove users from roles |
 | Standard CRUD | `/api/core/v1/policies` | Manage per-role permission grants (module, router, action, level) |
 | Standard CRUD | `/api/core/v1/policy-catalog` | Read-only catalog of valid (module, router, action) combinations |
+
+> **Role Assignment:** Roles are managed via entity CRUD endpoints (update the `roles` array on the employee/vendor/client/contact record). There is no separate `/role-members` endpoint.
 
 > All RBAC management routes use `createRouter` with `withMeta({ module: 'core', router: '<resource>' })` and `rbac()` middleware.
 
@@ -374,7 +377,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - Extensions (e.g., `pgcrypto`, `vector`) are created per-schema as needed
 - `MigrationManager` applies any pending migrations to the new schema
 - Seed data (default roles, chart of accounts templates) is inserted via `bulkInsert()`
-- **Admin User Creation:** Performed in a single transaction: (1) create an `employees` record in the tenant schema with `is_primary_contact = true`, (2) create a `nap_users` login in `admin.nap_users` linked via `employee_id`, (3) create a `role_members` entry assigning the `admin` role in the tenant schema. The employee must exist with roles assigned before the `nap_users` login is created.
+- **Admin User Creation:** Performed in a single transaction: (1) create an `employees` record in the tenant schema with `roles: ['admin']`, `is_app_user: true`, `is_primary_contact: true`, (2) create a `nap_users` login in `admin.nap_users` with `entity_type: 'employee'` and `entity_id` linking to the new employee. The employee must have `roles` assigned and `is_app_user = true` before the `nap_users` login is created.
 - **Contact Designation:** Primary and billing contacts are designated via `employees.is_primary_contact` and `employees.is_billing_contact` flags — there is no `tenant_role` column on `nap_users`.
 
 **UI Requirements:**
@@ -391,7 +394,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/tenants/v1/tenants` | Create tenant (provisions schema, creates employee + nap_users login + admin role_member in single transaction) |
+| `POST` | `/api/tenants/v1/tenants` | Create tenant (provisions schema, creates employee with `roles: ['admin']` + nap_users login in single transaction) |
 | `GET` | `/api/tenants/v1/tenants` | List tenants (cursor-based pagination) |
 | `GET` | `/api/tenants/v1/tenants/:id` | Get tenant by ID |
 | `PUT` | `/api/tenants/v1/tenants/update` | Update tenant |
@@ -403,25 +406,28 @@ All roles — including system roles — go through the full RBAC policy resolut
 
 **Data Model (`admin.nap_users`):**
 
-`nap_users` is a pure identity/authentication table. All personal information (name, phone, address, tax_id) lives on the tenant-schema `employees` record linked via `employee_id`. Roles are resolved from `role_members` tables — there is no `role` column.
+`nap_users` is a pure identity/authentication table. All personal information (name, phone, address, tax_id) lives on the linked entity record (employee, vendor, client, or contact) in the tenant schema. The link is polymorphic via `entity_type` + `entity_id`. Roles are stored as a `roles` text array on the entity record — there is no `role` column on `nap_users` and no `role_members` junction table.
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | uuid | Primary key |
 | `tenant_id` | uuid | FK to tenants |
-| `employee_id` | uuid | FK to tenant-schema `employees` record (cross-schema reference, not a database FK — enforced by business logic) |
+| `entity_type` | varchar(16) | Entity kind: `'employee'`, `'vendor'`, `'client'`, `'contact'` |
+| `entity_id` | uuid | Cross-schema reference to the tenant-schema entity record (not a database FK — enforced by business logic) |
 | `email` | varchar(128) | Login identifier, globally unique (partial index WHERE deactivated_at IS NULL) |
 | `password_hash` | text | bcrypt hash (never returned in API responses) |
 | `status` | varchar(20) | `active`, `invited`, `locked` |
 
-> **Removed from nap_users:** `tenant_code`, `user_name`, `full_name`, `tax_id`, `notes`, `role`, `tenant_role`. User identity data now lives on the `employees` record. Roles are resolved via `role_members`. Contact designation (primary/billing) is via `employees.is_primary_contact` / `is_billing_contact`. The `nap_user_phones` and `nap_user_addresses` tables have been removed — phone numbers and addresses for users are stored on their linked employee via the polymorphic `sources` → `phone_numbers` / `addresses` pattern.
+Partial unique index: `(entity_type, entity_id) WHERE deactivated_at IS NULL` — prevents duplicate logins for the same entity.
+
+> **Removed from nap_users:** `tenant_code`, `user_name`, `full_name`, `tax_id`, `notes`, `role`, `tenant_role`, `employee_id`. The `employee_id` column has been replaced by the polymorphic `entity_type` + `entity_id` pair, supporting logins for employees, vendors, clients, and contacts. User identity data lives on the entity record. Roles are stored as a `roles` text array on the entity record (not in a `role_members` junction table). Contact designation (primary/billing) is via `employees.is_primary_contact` / `is_billing_contact`. The `nap_user_phones` and `nap_user_addresses` tables have been removed — phone numbers and addresses are stored on the linked entity via the polymorphic `sources` → `phone_numbers` / `addresses` pattern.
 
 **Access Control:** All nap-users routes are gated by `requireNapsoftTenant` middleware and RBAC enforcement (`tenants::nap-users` capability). GET routes require `view` level; mutations require `full` level.
 
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/tenants/v1/nap-users/register` | Register new user (requires existing employee_id with roles assigned) |
+| `POST` | `/api/tenants/v1/nap-users/register` | Register new user (requires existing entity with `roles` assigned and `is_app_user = true`) |
 | `GET` | `/api/tenants/v1/nap-users` | List users |
 | `GET` | `/api/tenants/v1/nap-users/:id` | Get user by ID |
 | `PUT` | `/api/tenants/v1/nap-users/update` | Update user |
@@ -430,11 +436,11 @@ All roles — including system roles — go through the full RBAC policy resolut
 
 **Business Rules:**
 - Standard POST is disabled; users must be created via the `/register` endpoint
-- Registration collects: email, password, employee_id. The employee must already exist in the tenant schema with roles assigned and `is_app_user = true`
-- Roles must be assigned to the employee record before `is_app_user` can be set to true
+- Registration collects: `email`, `password`, `entity_type`, `entity_id`. The entity must already exist in the tenant schema with `roles` assigned and `is_app_user = true`
+- The entity's `roles` array must be non-empty before `is_app_user` can be set to true
 - `is_app_user` must be true before a `nap_users` login can be created
-- User creation (`nap_users` insert + `role_members` insert) must be a single database transaction
-- Deactivating an employee cascades to lock the corresponding `nap_users` login (business rule in controller, not FK — cross-schema)
+- User creation requires the entity to already have `roles` assigned and `is_app_user = true`
+- Deactivating an entity (employee, vendor, client, or contact) cascades to lock the corresponding `nap_users` login (business rule in controller, not FK — cross-schema)
 - Password automatically hashed with bcrypt on registration
 - Email must be globally unique across all active users (enforced by partial unique index WHERE deactivated_at IS NULL)
 - Users cannot archive themselves
@@ -479,6 +485,8 @@ All roles — including system roles — go through the full RBAC policy resolut
 | `code` | varchar(16) | Unique per tenant |
 | `tax_id` | varchar(32) | Tax identifier |
 | `payment_terms` | varchar(32) | Net terms |
+| `roles` | text[] | RBAC role codes assigned to this vendor (default `'{}'`). References `roles.code`. |
+| `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Requires `roles` to be non-empty. |
 | `is_active` | boolean | Default true |
 | `notes` | text | Internal notes |
 
@@ -495,6 +503,8 @@ All roles — including system roles — go through the full RBAC policy resolut
 | `code` | varchar(16) | Unique per tenant |
 | `email` | varchar(128) | Contact email |
 | `tax_id` | varchar(32) | Tax identifier |
+| `roles` | text[] | RBAC role codes assigned to this client (default `'{}'`). References `roles.code`. |
+| `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Requires `roles` to be non-empty. |
 | `is_active` | boolean | Default true |
 
 **Endpoint:** `/api/core/v1/clients`
@@ -511,7 +521,8 @@ All roles — including system roles — go through the full RBAC policy resolut
 | `code` | varchar(16) | Unique per tenant |
 | `position` | varchar(64) | Job title |
 | `department` | varchar(64) | Department |
-| `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Roles must be assigned via `role_members` before this can be set to true. |
+| `roles` | text[] | RBAC role codes assigned to this employee (default `'{}'`). References `roles.code`. |
+| `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Requires `roles` to be non-empty. |
 | `is_primary_contact` | boolean | Default false. Designates this employee as the tenant's primary contact. |
 | `is_billing_contact` | boolean | Default false. Designates this employee as the tenant's billing contact. |
 | `is_active` | boolean | Default true |
@@ -546,6 +557,8 @@ Contacts are first-class entities representing miscellaneous payees that don't f
 | `code` | varchar(16) | Unique per tenant |
 | `email` | varchar(128) | Contact email |
 | `tax_id` | varchar(32) | Tax identifier |
+| `roles` | text[] | RBAC role codes assigned to this contact (default `'{}'`). References `roles.code`. |
+| `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Requires `roles` to be non-empty. |
 | `is_active` | boolean | Default true |
 
 > **Note:** Contacts use the polymorphic `sources` pattern (with `source_type = 'contact'`) for linked addresses and phone numbers, just like vendors, clients, and employees.
@@ -1479,9 +1492,9 @@ Defined in pg-schemata schemas with `generated: 'always'`, `stored: true`:
 - Separate migration directories for admin vs tenant schemas
 
 **Migration Order:**
-1. `202502110001` — Bootstrap admin (tenants, nap_users, match_review_logs). Note: `nap_user_phones` and `nap_user_addresses` have been removed; `nap_users` is stripped to identity/auth fields only.
-2. `202502110010` — Core RBAC tables (roles, role_members, policies)
-3. `202502110011` — Core entity tables (sources, vendors, clients, employees, contacts, addresses, phone_numbers, inter_companies). Note: `contacts` is a first-class entity (miscellaneous payees); `sources` CHECK includes `'contact'`; `clients` includes `email` and `tax_id`; `employees` includes `is_app_user`, `is_primary_contact`, `is_billing_contact`.
+1. `202502110001` — Bootstrap admin (tenants, nap_users, match_review_logs). Note: `nap_users` uses polymorphic `entity_type`/`entity_id` instead of `employee_id`; `nap_user_phones` and `nap_user_addresses` removed.
+2. `202502110010` — Core RBAC tables (roles, policies). Note: `role_members` has been removed — role assignment is stored as a `roles` text array on entity tables.
+3. `202502110011` — Core entity tables (sources, vendors, clients, employees, contacts, addresses, phone_numbers, inter_companies). Note: all four entity tables include `roles` (text[]) and `is_app_user`; `contacts` is a first-class entity (miscellaneous payees); `sources` CHECK includes `'contact'`; `clients` includes `email` and `tax_id`; `employees` includes `is_primary_contact`, `is_billing_contact`.
 4. `202502110020` — Project tables (projects, project_clients, units, tasks, cost items, change orders, templates). Note: `projects.client_id` removed; replaced by `project_clients` junction table.
 5. `202502110030` — BOM tables (catalog_skus, vendor_skus, vendor_pricing) with pgvector
 6. `202502110040` — Activity tables (categories, activities, deliverables, budgets, cost_lines, actual_costs, vendor_parts)
@@ -1934,9 +1947,9 @@ import { vendorsSchema } from '../schemas/vendorsSchema.js';
 - Never return `password_hash` or internal fields in API responses — use `columnWhitelist` or DTO mapping
 - Environment secrets must never be committed — use `.env` files (gitignored) and validate required vars at startup
 - All authorization must flow through the RBAC policy engine — no role-based bypass in middleware
-- Employee deactivation must cascade to lock the corresponding `nap_users` login (business rule in controller, not FK — cross-schema)
-- User creation (`nap_users` insert + `role_members` insert) must be wrapped in a single database transaction
-- Roles must be assigned to an employee before the employee can be flagged as an app user (`is_app_user`)
+- Entity deactivation (employee, vendor, client, or contact) must cascade to lock the corresponding `nap_users` login (business rule in controller, not FK — cross-schema)
+- User creation (`nap_users` insert) requires the entity to already have `roles` assigned and `is_app_user = true`
+- Roles must be assigned to an entity (non-empty `roles` array) before it can be flagged as an app user (`is_app_user`)
 
 ---
 
