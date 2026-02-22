@@ -57,24 +57,34 @@ export default function Sidebar() {
     const caps = user.perms?.caps || {};
     const capKeys = Object.keys(caps);
     if (capKeys.length === 0) return NAV_ITEMS;
-    return NAV_ITEMS.map((group) => {
-      const visibleChildren = group.children.filter((child) => {
-        if (!child.capability) return true;
-        const parts = child.capability.split('::');
-        const moduleKey = parts[0];
-        const routerKey = parts[1] || '';
-        if (routerKey) {
-          // Router-specific: check for caps matching module::router::*
-          return capKeys.some((k) => {
-            const [m, r] = k.split('::');
-            return m === moduleKey && r === routerKey;
-          });
-        }
-        // Module-level: any cap in the module
-        return capKeys.some((k) => k.startsWith(`${moduleKey}::`));
-      });
-      return { ...group, children: visibleChildren };
-    }).filter((group) => group.children.length > 0);
+
+    const hasCap = (capability) => {
+      if (!capability) return true;
+      const parts = capability.split('::');
+      const moduleKey = parts[0];
+      const routerKey = parts[1] || '';
+      if (routerKey) {
+        return capKeys.some((k) => {
+          const [m, r] = k.split('::');
+          return m === moduleKey && r === routerKey;
+        });
+      }
+      return capKeys.some((k) => k.startsWith(`${moduleKey}::`));
+    };
+
+    const filterChildren = (children) =>
+      children
+        .map((child) => {
+          if (child.children) {
+            const filtered = filterChildren(child.children);
+            return filtered.length > 0 ? { ...child, children: filtered } : null;
+          }
+          return hasCap(child.capability) ? child : null;
+        })
+        .filter(Boolean);
+
+    return NAV_ITEMS.map((group) => ({ ...group, children: filterChildren(group.children) }))
+      .filter((group) => group.children.length > 0);
   }, [user]);
 
   const toggleGroup = (label) => {
@@ -126,7 +136,9 @@ export default function Sidebar() {
       <List component="nav" sx={{ px: collapsed ? 0.5 : 1, pt: 0 }}>
         {filteredNav.map((group) => {
           const GroupIcon = group.icon;
-          const isGroupActive = group.children.some((c) => isActive(c.path));
+          const isGroupActive = group.children.some((c) =>
+            c.children ? c.children.some((leaf) => isActive(leaf.path)) : isActive(c.path),
+          );
 
           return collapsed ? (
             /* Collapsed: icon-only with flyout */
@@ -169,27 +181,83 @@ export default function Sidebar() {
 
               <Collapse in={openGroups[group.label]} timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
-                  {group.children.map((child) => (
-                    <ListItemButton
-                      key={child.path}
-                      sx={{
-                        pl: 6,
-                        py: 0.5,
-                        mb: 0.25,
-                        bgcolor: isActive(child.path) ? 'action.selected' : 'transparent',
-                      }}
-                      onClick={() => navigate(child.path)}
-                    >
-                      <ListItemText
-                        primary={child.label}
-                        primaryTypographyProps={{
-                          ...FONT.navItem,
-                          fontWeight: isActive(child.path) ? 600 : 400,
-                          color: isActive(child.path) ? 'primary.main' : 'text.secondary',
+                  {group.children.map((child) =>
+                    child.children ? (
+                      /* Sub-group (3rd level) */
+                      <Box key={child.label}>
+                        <ListItemButton
+                          onClick={() => toggleGroup(`${group.label}/${child.label}`)}
+                          sx={{ pl: 6, py: 0.5, mb: 0.25 }}
+                        >
+                          <ListItemText
+                            primary={child.label}
+                            primaryTypographyProps={{
+                              ...FONT.navItem,
+                              fontWeight: child.children.some((leaf) => isActive(leaf.path)) ? 600 : 400,
+                              color: child.children.some((leaf) => isActive(leaf.path))
+                                ? 'primary.main'
+                                : 'text.secondary',
+                            }}
+                          />
+                          {openGroups[`${group.label}/${child.label}`] ? (
+                            <ExpandLess fontSize="small" sx={{ color: 'text.secondary' }} />
+                          ) : (
+                            <ExpandMore fontSize="small" sx={{ color: 'text.secondary' }} />
+                          )}
+                        </ListItemButton>
+                        <Collapse
+                          in={openGroups[`${group.label}/${child.label}`]}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <List component="div" disablePadding>
+                            {child.children.map((leaf) => (
+                              <ListItemButton
+                                key={leaf.path}
+                                sx={{
+                                  pl: 8,
+                                  py: 0.5,
+                                  mb: 0.25,
+                                  bgcolor: isActive(leaf.path) ? 'action.selected' : 'transparent',
+                                }}
+                                onClick={() => navigate(leaf.path)}
+                              >
+                                <ListItemText
+                                  primary={leaf.label}
+                                  primaryTypographyProps={{
+                                    ...FONT.navItem,
+                                    fontWeight: isActive(leaf.path) ? 600 : 400,
+                                    color: isActive(leaf.path) ? 'primary.main' : 'text.secondary',
+                                  }}
+                                />
+                              </ListItemButton>
+                            ))}
+                          </List>
+                        </Collapse>
+                      </Box>
+                    ) : (
+                      /* Leaf item (2nd level) */
+                      <ListItemButton
+                        key={child.path}
+                        sx={{
+                          pl: 6,
+                          py: 0.5,
+                          mb: 0.25,
+                          bgcolor: isActive(child.path) ? 'action.selected' : 'transparent',
                         }}
-                      />
-                    </ListItemButton>
-                  ))}
+                        onClick={() => navigate(child.path)}
+                      >
+                        <ListItemText
+                          primary={child.label}
+                          primaryTypographyProps={{
+                            ...FONT.navItem,
+                            fontWeight: isActive(child.path) ? 600 : 400,
+                            color: isActive(child.path) ? 'primary.main' : 'text.secondary',
+                          }}
+                        />
+                      </ListItemButton>
+                    ),
+                  )}
                 </List>
               </Collapse>
             </Box>
@@ -214,24 +282,53 @@ export default function Sidebar() {
                 primaryTypographyProps={{ fontWeight: 700, ...FONT.navGroup }}
               />
             </ListItemButton>
-            {flyout.group.children.map((child) => (
-              <ListItemButton
-                key={child.path}
-                onClick={() => {
-                  navigate(child.path);
-                  handleFlyoutClose();
-                }}
-                sx={{ bgcolor: isActive(child.path) ? 'action.selected' : 'transparent' }}
-              >
-                <ListItemText
-                  primary={child.label}
-                  primaryTypographyProps={{
-                    ...FONT.navItem,
-                    color: isActive(child.path) ? 'primary.main' : 'text.primary',
+            {flyout.group.children.map((child) =>
+              child.children ? (
+                <Box key={child.label}>
+                  <ListItemButton disabled sx={{ pt: 1 }}>
+                    <ListItemText
+                      primary={child.label}
+                      primaryTypographyProps={{ fontWeight: 600, ...FONT.navItem, color: 'text.secondary' }}
+                    />
+                  </ListItemButton>
+                  {child.children.map((leaf) => (
+                    <ListItemButton
+                      key={leaf.path}
+                      onClick={() => {
+                        navigate(leaf.path);
+                        handleFlyoutClose();
+                      }}
+                      sx={{ pl: 4, bgcolor: isActive(leaf.path) ? 'action.selected' : 'transparent' }}
+                    >
+                      <ListItemText
+                        primary={leaf.label}
+                        primaryTypographyProps={{
+                          ...FONT.navItem,
+                          color: isActive(leaf.path) ? 'primary.main' : 'text.primary',
+                        }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </Box>
+              ) : (
+                <ListItemButton
+                  key={child.path}
+                  onClick={() => {
+                    navigate(child.path);
+                    handleFlyoutClose();
                   }}
-                />
-              </ListItemButton>
-            ))}
+                  sx={{ bgcolor: isActive(child.path) ? 'action.selected' : 'transparent' }}
+                >
+                  <ListItemText
+                    primary={child.label}
+                    primaryTypographyProps={{
+                      ...FONT.navItem,
+                      color: isActive(child.path) ? 'primary.main' : 'text.primary',
+                    }}
+                  />
+                </ListItemButton>
+              ),
+            )}
           </List>
         )}
       </Popover>
