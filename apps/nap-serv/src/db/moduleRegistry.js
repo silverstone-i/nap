@@ -11,6 +11,8 @@
 
 import authRepositories from '../modules/auth/authRepositories.js';
 import bootstrapAdmin from '../modules/auth/schema/migrations/202502110001_bootstrapAdmin.js';
+import coreRepositories from '../modules/core/coreRepositories.js';
+import coreMigrations from '../modules/core/schema/migrations/index.js';
 
 const moduleRegistry = [
   {
@@ -18,6 +20,12 @@ const moduleRegistry = [
     scope: 'admin',
     repositories: authRepositories,
     migrations: [bootstrapAdmin],
+  },
+  {
+    name: 'core',
+    scope: 'tenant',
+    repositories: coreRepositories,
+    migrations: coreMigrations,
   },
 ];
 

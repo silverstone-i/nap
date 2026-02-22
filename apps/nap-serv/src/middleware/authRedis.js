@@ -1,17 +1,22 @@
 /**
- * @file Auth middleware — JWT verification, tenant resolution, permission stub
+ * @file Auth middleware — JWT verification, tenant resolution, RBAC permission loading
  * @module nap-serv/middleware/authRedis
  *
- * Phase 2: Verifies JWT from httpOnly cookie, resolves tenant context,
- * populates req.user. RBAC permission loading is stubbed (added in Phase 3).
+ * Verifies JWT from httpOnly cookie, resolves tenant context, loads RBAC
+ * permissions (from Redis cache or DB), detects stale tokens, and populates
+ * req.user with the full permission canon.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import jwt from 'jsonwebtoken';
 import logger from '../lib/logger.js';
+import { loadPermissions } from '../services/permissionLoader.js';
+import { calcPermHash } from '../lib/permHash.js';
+import { getRedis } from '../db/redis.js';
 
 const AUTH_BYPASS_SEGMENTS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+const PERM_CACHE_TTL = 900; // 15 minutes
 
 /**
  * Check if the request path should bypass authentication.
@@ -27,16 +32,42 @@ function shouldBypassAuth(path, fullPath) {
 }
 
 /**
+ * Try to read cached permissions from Redis.
+ * @returns {object|null} Cached permission canon, or null on miss/error
+ */
+async function getCachedPermissions(userId, tenantCode) {
+  try {
+    const redis = await getRedis();
+    const cached = await redis.get(`perm:${userId}:${tenantCode}`);
+    if (cached) return JSON.parse(cached);
+  } catch {
+    // Redis unavailable — fall through to DB
+  }
+  return null;
+}
+
+/**
+ * Cache permissions in Redis.
+ */
+async function cachePermissions(userId, tenantCode, canon) {
+  try {
+    const redis = await getRedis();
+    await redis.set(`perm:${userId}:${tenantCode}`, JSON.stringify(canon), 'EX', PERM_CACHE_TTL);
+  } catch {
+    // Redis unavailable — non-fatal
+  }
+}
+
+/**
  * Express middleware factory — returns the auth middleware function.
  *
- * Phase 2 simplified flow:
+ * Flow:
  * 1. Bypass auth for login/refresh/logout paths
  * 2. Verify JWT from httpOnly cookie
  * 3. Look up user + tenant from database
- * 4. Populate req.user
- *
- * Phase 3 will add: RBAC permission loading, Redis caching, stale token detection,
- * cross-tenant access, impersonation override.
+ * 4. Load RBAC permissions (Redis cache → DB fallback)
+ * 5. Detect stale tokens (ph claim vs computed hash)
+ * 6. Populate req.user with full permission canon
  */
 export function authRedis() {
   return async (req, res, next) => {
@@ -86,8 +117,30 @@ export function authRedis() {
 
       // Resolve tenant code from header or user's tenant
       const headerTenant = req.headers['x-tenant-code'];
-      const tenantCode = headerTenant ? headerTenant.toLowerCase() : tenantRecord.tenant_code.toLowerCase();
+      const homeTenantCode = tenantRecord.tenant_code.toLowerCase();
+      const tenantCode = headerTenant ? headerTenant.toLowerCase() : homeTenantCode;
 
+      // ── RBAC Permission Loading ─────────────────────────────────────────
+      const schemaName = tenantRecord.schema_name;
+      let permissions = await getCachedPermissions(uid, tenantCode);
+
+      if (!permissions) {
+        permissions = await loadPermissions({
+          schemaName,
+          userId: uid,
+          entityType: userRecord.entity_type,
+          entityId: userRecord.entity_id,
+        });
+        await cachePermissions(uid, tenantCode, permissions);
+      }
+
+      // ── Stale Token Detection ───────────────────────────────────────────
+      const permHash = calcPermHash(permissions);
+      if (claims.ph && claims.ph !== permHash) {
+        res.setHeader('X-Token-Stale', '1');
+      }
+
+      // ── Populate req.user ───────────────────────────────────────────────
       req.user = {
         id: uid,
         email: userRecord.email,
@@ -96,15 +149,17 @@ export function authRedis() {
         status: userRecord.status,
         tenant_id: userRecord.tenant_id,
         tenant_code: tenantCode,
-        schema_name: tenantRecord.schema_name,
-        // Phase 3 will add: perms, home_tenant, rbac_schema, is_cross_tenant
+        home_tenant: homeTenantCode,
+        schema_name: schemaName,
+        permissions,
       };
 
       req.ctx = {
         user_id: uid,
         tenant_code: tenantCode,
-        schema: tenantRecord.schema_name,
+        schema: schemaName,
         tenant: tenantRecord,
+        perms: permissions,
       };
 
       return next();
