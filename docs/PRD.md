@@ -12,8 +12,9 @@ NAP (Next Generation Accounting Platform) is a **multi-tenant, modular construct
 
 | Persona | Description |
 |---|---|
-| **NapSoft Super User** | Platform operator managing tenants, user provisioning, and system configuration |
-| **Administrator** | Customer organization admin managing users, roles, and tenant-level settings |
+| **NapSoft Super User** | Platform operator with full access to NapSoft data, cross-tenant access, impersonation, and tenant management |
+| **NapSoft Support** | Cross-tenant access, impersonation, and tenant management. No access to NapSoft financial data |
+| **Administrator** | Full access within their tenant's data. Same role meaning in every schema |
 | **Project Manager** | Creates/manages projects, units, budgets, cost lines, change orders, and actual costs |
 | **Accountant / Controller** | Manages chart of accounts, journal entries, AP/AR invoices, and intercompany transactions |
 | **AP/AR Clerk** | Processes vendor invoices, payments, client invoices, and receipts |
@@ -53,7 +54,7 @@ nap/
 
 NAP uses **PostgreSQL schema-per-tenant** isolation powered by pg-schemata:
 
-- **`admin` schema**: System-wide tables (`tenants`, `nap_users`, `nap_user_phones`, `nap_user_addresses`, `match_review_logs`, `impersonation_logs`)
+- **`admin` schema**: System-wide tables (`tenants`, `nap_users`, `match_review_logs`, `impersonation_logs`)
 - **Tenant schemas** (e.g., `acme`, `nap`): Each customer gets a dedicated PostgreSQL schema containing all business tables (vendors, projects, accounting, etc.)
 - Tenant resolution is performed per-request via `x-tenant-code` header or JWT claims
 - All database access is schema-aware via pg-schemata's `setSchemaName()` — models bind queries to the correct tenant schema dynamically
@@ -233,7 +234,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
 - `iss`: Issuer (`'nap-serv'`)
 - `aud`: Audience (`'nap-serv-api'`)
 
-> **Note:** Tenant context (`tenant_code`, `schema_name`) and role are resolved at request time by the `authRedis` middleware via HTTP headers, Redis cache, and database lookup — they are NOT embedded in the JWT.
+> **Note:** Authentication is against `admin.nap_users` which contains only identity/auth fields (`id`, `tenant_id`, `employee_id`, `email`, `password_hash`, `status`). Tenant context (`tenant_code`, `schema_name`) and roles are resolved at request time by the `authRedis` middleware via HTTP headers, Redis cache, and database lookup — they are NOT embedded in the JWT. Roles are resolved from `role_members` tables, not from a column on `nap_users`.
 
 **Client-Side Auth:**
 - `AuthContext` provides `{ user, loading, login, logout, refreshUser, tenant, isNapSoftUser, assumedTenant, assumeTenant, exitAssumption, impersonation, startImpersonation, endImpersonation }` via React context, where `tenant` is `null` or `{ tenant_code, schema_name }`
@@ -287,25 +288,48 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 - Layer 4 columns: union of granted columns across roles
 
 **Built-in System Roles:**
-- `super_user`: Bypasses all four layers globally; can only be assigned to NapSoft tenant users
-- `admin`: Full control within tenant, bypasses Layers 2-4, blocked from `tenants` module
+
+All roles — including system roles — go through the full RBAC policy resolution. There are no bypass or short-circuit paths in the middleware.
+
+- `super_user` (NapSoft `nap` schema only): Full access to all NapSoft data + cross-tenant access + impersonation + tenant management. Seeded with `level: 'full'` policies for all modules plus cross-tenant and impersonation policies. Goes through full RBAC policy resolution — no bypass.
+- `admin` (all tenant schemas): Full access within that tenant's data. Seeded with `level: 'full'` policies for all modules. Same meaning in every schema. Goes through full RBAC policy resolution — no bypass.
+- `support` (NapSoft `nap` schema only): Cross-tenant access + impersonation + tenant management. No access to NapSoft financial modules (accounting, AR, AP). Seeded with `level: 'none'` for financial modules + `level: 'full'` for non-financial modules + cross-tenant and impersonation policies. Goes through full RBAC policy resolution.
+
+> **No RBAC Bypass:** The middleware does NOT short-circuit for `super_user` or `admin`. All users are authorized through the same `role_members` → `policies` resolution path. This ensures all access is auditable, configurable, and consistent.
 
 **Seeded Tenant Roles:**
-- `admin`: Tenant-level administrator, `scope: 'all_projects'`
+- `admin`: Tenant-level administrator, `scope: 'all_projects'`. Seeded with explicit `level: 'full'` policies for ALL modules. When new modules are added to the platform, the module migration seeds admin policies for all existing tenants (see Admin Policy Auto-Seeding below).
 - `project_manager`: `scope: 'assigned_projects'`; sample policies: `projects: full`, `accounting: view`, `ar: view`, `ar::ar-invoices::approve: none`; sample state filter: AR invoices restricted to `['approved', 'sent']`
 - `controller`: `scope: 'assigned_companies'`; policies: `accounting: full`, `ar: full`, `ap: full`, `projects: view`, `reports: view`. Used for financial controllers who manage accounting across their assigned inter-companies.
 
-**Tenant Configurability:** All roles except `super_user` and `admin` are tenant-configurable. Tenants define their own roles, assign scopes, create state filters, and build field groups.
+**NapSoft-Only Policies:** Cross-tenant and impersonation policies are ONLY seeded in the `nap` schema on `super_user` and `support` roles. These policies cannot be assigned to other tenants' schemas.
+
+**Tenant Configurability:** All roles except `super_user`, `admin`, and `support` are tenant-configurable. Tenants define their own roles, assign scopes, create state filters, and build field groups.
 
 **Permission Canon (cached in Redis):**
 - Canonical form: `{ caps, scope, projectIds, companyIds, stateFilters, fieldGroups }`
 - Stored at `perm:{userId}:{tenantCode}`
 - SHA-256 permission hash embedded in JWT (`ph` claim)
 - `X-Token-Stale: 1` header signals client when cached permissions diverge from token hash
+- `authRedis` middleware derives roles from `role_members` (admin schema for `nap` system roles, tenant schema for tenant roles) — NOT from a `nap_users.role` column
+- `req.user.system_roles` (array from nap schema, e.g., `['super_user']`) and `req.user.tenant_roles` (array from tenant schema, e.g., `['admin', 'project_manager']`)
+
+**Module Entitlements:**
+- `admin.tenants.allowed_modules` (jsonb array of module names) controls which modules a tenant can access
+- Enforced by middleware after auth and before RBAC: if `req.resource.module` is not in the tenant's `allowed_modules`, return 403
+- Cached in Redis alongside tenant metadata
+- Default: empty array (no modules) — must be explicitly configured per tenant/tier
+- Managed by NapSoft `super_user` / `support` via tenant management UI
 
 **Enforcement:**
-- **Layer 1 (middleware):** `withMeta({ module, router, action })` annotates `req.resource` → `rbac(requiredLevel)` enforces; returns 403 on denial. GET/HEAD default to `view`; mutations default to `full`.
+- **Module Entitlement (middleware):** Checks `tenants.allowed_modules` before RBAC — if the tenant doesn't have the module enabled, return 403 regardless of user permissions
+- **Layer 1 (middleware):** `withMeta({ module, router, action })` annotates `req.resource` → `rbac(requiredLevel)` enforces; returns 403 on denial. GET/HEAD default to `view`; mutations default to `full`. Permissions are resolved from `role_members` → `policies` for ALL users — no role-based bypass or short-circuit.
 - **Layers 2-4 (service layer):** `ViewController._applyRbacFilters()` applies scope, state, and field filters. Controllers opt in via `this.rbacConfig = { module, router, scopeColumn }`.
+
+**Admin Policy Auto-Seeding:**
+- When a new module is added to the platform, its migration seeds `level: 'full'` policies for the `admin` role in every existing tenant schema
+- Ensures `admin` always has complete access without manual intervention
+- New tenant provisioning includes admin policies for all modules enabled by the tenant's `allowed_modules`
 
 **RBAC Management Endpoints (tenant-scope, under `/api/core/v1/`):**
 
@@ -326,7 +350,7 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 
 **Access Control:** Restricted to NapSoft employees via `requireNapsoftTenant` middleware.
 
-**Root Tenant:** NapSoft (tenant_code `NAP`) is the platform root tenant. It cannot be archived or deleted. The `super_user` system role can only be assigned to users belonging to the NapSoft tenant. The root tenant is created automatically during initial setup via the `202502110001_bootstrapAdmin` migration.
+**Root Tenant:** NapSoft (tenant_code `NAP`) is the platform root tenant. It cannot be archived or deleted. The `super_user` and `support` system roles can only be assigned to users belonging to the NapSoft tenant. The root tenant is created automatically during initial setup via the `202502110001_bootstrapAdmin` migration.
 
 #### 3.2.1 Manage Tenants
 
@@ -341,9 +365,8 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 | `status` | varchar(20) | `active`, `trial`, `suspended`, `pending` |
 | `tier` | varchar(20) | `enterprise`, `growth`, `starter` |
 | `region` | varchar(64) | Geographic region |
-| `allowed_modules` | jsonb | Module access whitelist |
+| `allowed_modules` | jsonb | Module access whitelist (enforced by module entitlement middleware — see §3.1.2) |
 | `max_users` | integer | User limit (default 5) |
-| `billing_email` | varchar(128) | Billing contact |
 | `notes` | text | Internal notes |
 
 **Tenant Provisioning via pg-schemata:**
@@ -351,14 +374,15 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 - Extensions (e.g., `pgcrypto`, `vector`) are created per-schema as needed
 - `MigrationManager` applies any pending migrations to the new schema
 - Seed data (default roles, chart of accounts templates) is inserted via `bulkInsert()`
-- **Admin User Creation:** When creating a new tenant, the provided admin email, user_name, and password are used to register a new user in `admin.nap_users` with the `admin` role for that tenant. The new user's `tenant_role` is set to `'admin'`. A billing contact may be designated later by setting another user's `tenant_role` to `'billing'`.
+- **Admin User Creation:** Performed in a single transaction: (1) create an `employees` record in the tenant schema with `is_primary_contact = true`, (2) create a `nap_users` login in `admin.nap_users` linked via `employee_id`, (3) create a `role_members` entry assigning the `admin` role in the tenant schema. The employee must exist with roles assigned before the `nap_users` login is created.
+- **Contact Designation:** Primary and billing contacts are designated via `employees.is_primary_contact` and `employees.is_billing_contact` flags — there is no `tenant_role` column on `nap_users`.
 
 **UI Requirements:**
 - Data grid displaying: Code, Tenant Name, Status, Tier, Region, Active columns
 - Row selection with checkbox (single and multi-select)
 - Module Bar actions: **Create Tenant**, **View Details**, **Edit Tenant**, **Archive**, **Restore**
 - Status badge display with color coding
-- Create tenant form includes admin user fields: email, user_name, and password (used to create the tenant's Admin user)
+- Create tenant form includes admin user fields: email and password (used to create the tenant's Administrator user and linked employee record)
 - Pagination with configurable rows-per-page (powered by `findAfterCursor()`)
 - Archive cascades to deactivate all associated users (via `removeWhere()`)
 - The root tenant (NapSoft, `NAP`) cannot be archived — server rejects the request with 403
@@ -367,7 +391,7 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/tenants/v1/tenants` | Create tenant (provisions schema, creates admin user with `tenant_role='admin'`) |
+| `POST` | `/api/tenants/v1/tenants` | Create tenant (provisions schema, creates employee + nap_users login + admin role_member in single transaction) |
 | `GET` | `/api/tenants/v1/tenants` | List tenants (cursor-based pagination) |
 | `GET` | `/api/tenants/v1/tenants/:id` | Get tenant by ID |
 | `PUT` | `/api/tenants/v1/tenants/update` | Update tenant |
@@ -379,70 +403,39 @@ RBAC uses a four-layer model where each layer narrows what the previous layer gr
 
 **Data Model (`admin.nap_users`):**
 
+`nap_users` is a pure identity/authentication table. All personal information (name, phone, address, tax_id) lives on the tenant-schema `employees` record linked via `employee_id`. Roles are resolved from `role_members` tables — there is no `role` column.
+
 | Field | Type | Description |
 |---|---|---|
 | `id` | uuid | Primary key |
 | `tenant_id` | uuid | FK to tenants |
-| `tenant_code` | varchar(6) | Tenant short code |
-| `email` | varchar(128) | Globally unique (partial index WHERE deactivated_at IS NULL), login identifier |
-| `user_name` | varchar(128) | Display name / username |
-| `full_name` | varchar(255) | User's full legal name |
-| `password_hash` | text | bcrypt hash (not returned in API responses) |
-| `tax_id` | varchar(32) | User's tax identifier (SSN, EIN, etc.) |
-| `notes` | text | Internal notes about the user |
-| `role` | varchar(32) | System role (default `member`) |
+| `employee_id` | uuid | FK to tenant-schema `employees` record (cross-schema reference, not a database FK — enforced by business logic) |
+| `email` | varchar(128) | Login identifier, globally unique (partial index WHERE deactivated_at IS NULL) |
+| `password_hash` | text | bcrypt hash (never returned in API responses) |
 | `status` | varchar(20) | `active`, `invited`, `locked` |
-| `tenant_role` | varchar(16) | Nullable — `'admin'`, `'billing'`, or NULL. Designates whether the user is the tenant's primary administrator or billing contact. At most one admin and one billing user per tenant. |
-| `employee_id` | uuid | Nullable FK — links the app user to a tenant-schema `employees` record. Set automatically during RBAC auto-assignment when the user's email matches an employee in the resolved tenant. Indexed WHERE NOT NULL. |
 
-**User Phones (`admin.nap_user_phones`):**
-
-Users can have any number of phone numbers. Stored in a separate table linked by `user_id`:
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | uuid | Primary key |
-| `user_id` | uuid | FK to nap_users (CASCADE), not null |
-| `phone_type` | varchar(16) | `cell`, `home`, `work`, `fax`, `other` (default `cell`, not null) |
-| `phone_number` | varchar(32) | Phone number (e.g., `770-331-1610`), not null |
-| `is_primary` | boolean | Primary phone flag (default false, not null) |
-
-**User Addresses (`admin.nap_user_addresses`):**
-
-Users can have any number of addresses. Stored in a separate table linked by `user_id`:
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | uuid | Primary key |
-| `user_id` | uuid | FK to nap_users (CASCADE), not null |
-| `address_type` | varchar(16) | `home`, `work`, `mailing`, `other` (default `home`, not null) |
-| `address_line_1` | varchar(255) | Street address or P.O. Box |
-| `address_line_2` | varchar(255) | Apt, suite, unit, building, floor, etc. |
-| `address_line_3` | varchar(255) | Additional address line (used internationally) |
-| `city` | varchar(128) | City / locality / town |
-| `state_province` | varchar(128) | State, province, region, prefecture, county |
-| `postal_code` | varchar(20) | ZIP / postal code |
-| `country_code` | char(2) | ISO 3166-1 alpha-2 country code (e.g., `US`, `GB`, `JP`) |
-| `is_primary` | boolean | Primary address flag (default false) |
-
-> **Address Design Note:** Fields follow global best practices for international address handling. `address_line_1/2/3` accommodate any country's format without rigid street/city/state assumptions. `state_province` covers US states, Canadian provinces, UK counties, Japanese prefectures, etc. `country_code` uses ISO 3166-1 alpha-2 for consistency. `postal_code` is varchar(20) to handle all global formats (US ZIP+4, UK postcodes, Japanese 〒 codes). This structure supports mailing label printing by concatenating non-empty lines in order.
+> **Removed from nap_users:** `tenant_code`, `user_name`, `full_name`, `tax_id`, `notes`, `role`, `tenant_role`. User identity data now lives on the `employees` record. Roles are resolved via `role_members`. Contact designation (primary/billing) is via `employees.is_primary_contact` / `is_billing_contact`. The `nap_user_phones` and `nap_user_addresses` tables have been removed — phone numbers and addresses for users are stored on their linked employee via the polymorphic `sources` → `phone_numbers` / `addresses` pattern.
 
 **Access Control:** All nap-users routes are gated by `requireNapsoftTenant` middleware and RBAC enforcement (`tenants::nap-users` capability). GET routes require `view` level; mutations require `full` level.
 
 **Endpoints:**
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/tenants/v1/nap-users/register` | Register new user (with password hashing, phones, addresses) |
+| `POST` | `/api/tenants/v1/nap-users/register` | Register new user (requires existing employee_id with roles assigned) |
 | `GET` | `/api/tenants/v1/nap-users` | List users |
-| `GET` | `/api/tenants/v1/nap-users/:id` | Get user by ID (enriched with phones and addresses arrays) |
-| `PUT` | `/api/tenants/v1/nap-users/update` | Update user (supports phone/address replacement via arrays in body) |
+| `GET` | `/api/tenants/v1/nap-users/:id` | Get user by ID |
+| `PUT` | `/api/tenants/v1/nap-users/update` | Update user |
 | `DELETE` | `/api/tenants/v1/nap-users/archive` | Soft-delete user (prevents self-archival) |
 | `PATCH` | `/api/tenants/v1/nap-users/restore` | Restore user (checks tenant is active) |
 
 **Business Rules:**
 - Standard POST is disabled; users must be created via the `/register` endpoint
-- Registration collects: email, user_name, full_name, password, phones array (optional, each with phone_number + phone_type + is_primary), addresses array (optional, each with address fields + is_primary), tenant_role (optional), tax_id (optional), notes (optional)
-- Password automatically hashed with bcrypt on registration and XLS import
+- Registration collects: email, password, employee_id. The employee must already exist in the tenant schema with roles assigned and `is_app_user = true`
+- Roles must be assigned to the employee record before `is_app_user` can be set to true
+- `is_app_user` must be true before a `nap_users` login can be created
+- User creation (`nap_users` insert + `role_members` insert) must be a single database transaction
+- Deactivating an employee cascades to lock the corresponding `nap_users` login (business rule in controller, not FK — cross-schema)
+- Password automatically hashed with bcrypt on registration
 - Email must be globally unique across all active users (enforced by partial unique index WHERE deactivated_at IS NULL)
 - Users cannot archive themselves
 - `super_user` role cannot be archived
@@ -473,7 +466,7 @@ Users can have any number of addresses. Stored in a separate table linked by `us
 
 ### 3.3 Core Entities
 
-**Purpose:** Shared reference data used across all modules — vendors, clients, employees, contacts, addresses, and intercompany entities.
+**Purpose:** Shared reference data used across all modules — vendors, clients, employees, contacts, addresses, phone numbers, and intercompany entities.
 
 #### 3.3.1 Vendors
 
@@ -500,9 +493,11 @@ Users can have any number of addresses. Stored in a separate table linked by `us
 | `source_id` | uuid | FK to sources (CASCADE) |
 | `name` | varchar(128) | Not null |
 | `code` | varchar(16) | Unique per tenant |
+| `email` | varchar(128) | Contact email |
+| `tax_id` | varchar(32) | Tax identifier |
 | `is_active` | boolean | Default true |
 
-**Endpoints:** `/api/core/v1/clients` (core) and `/api/ar/v1/clients` (AR-enriched with billing/physical addresses, tax_id, primary_contact)
+**Endpoint:** `/api/core/v1/clients`
 
 #### 3.3.3 Employees
 
@@ -516,13 +511,18 @@ Users can have any number of addresses. Stored in a separate table linked by `us
 | `code` | varchar(16) | Unique per tenant |
 | `position` | varchar(64) | Job title |
 | `department` | varchar(64) | Department |
+| `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Roles must be assigned via `role_members` before this can be set to true. |
+| `is_primary_contact` | boolean | Default false. Designates this employee as the tenant's primary contact. |
+| `is_billing_contact` | boolean | Default false. Designates this employee as the tenant's billing contact. |
 | `is_active` | boolean | Default true |
+
+> **Contact Designation:** Both `is_primary_contact` and `is_billing_contact` can be true on the same employee (e.g., small company owner is both primary and billing contact). These flags replace the former `nap_users.tenant_role` designation. When the primary contact leaves the tenant (deactivated), the tenant's account executive is responsible for designating a new primary contact.
 
 **Endpoint:** `/api/core/v1/employees`
 
-#### 3.3.4 Polymorphic Sources, Contacts & Addresses
+#### 3.3.4 Polymorphic Sources, Contacts, Addresses & Phone Numbers
 
-The `sources` table implements a **discriminated union** pattern linking vendors, clients, and employees to shared contacts and addresses:
+The `sources` table implements a **discriminated union** pattern linking vendors, clients, employees, and contacts to shared addresses and phone numbers:
 
 **Sources:**
 | Field | Type | Description |
@@ -530,19 +530,25 @@ The `sources` table implements a **discriminated union** pattern linking vendors
 | `id` | uuid | PK |
 | `tenant_id` | uuid | Not null |
 | `table_id` | uuid | References the parent entity |
-| `source_type` | varchar(32) | `vendor`, `client`, `employee` |
+| `source_type` | varchar(32) | `vendor`, `client`, `employee`, `contact` |
 | `label` | varchar(64) | Human-friendly label |
 
-**Contacts:**
+**Contacts (First-Class Entity — Miscellaneous Payees):**
+
+Contacts are first-class entities representing miscellaneous payees that don't fall into vendor, client, or employee categories — e.g., one-off commission payments or charitable donations. The contacts table mirrors the clients table structure:
+
 | Field | Type | Description |
 |---|---|---|
 | `id` | uuid | PK |
+| `tenant_id` | uuid | Not null |
 | `source_id` | uuid | FK to sources (CASCADE) |
-| `name` | varchar(128) | Contact name |
-| `email` | varchar(128) | Email address |
-| `phone`, `mobile`, `fax` | varchar(32) | Phone numbers |
-| `position` | varchar(64) | Role at the organization |
-| `is_primary` | boolean | Primary contact flag |
+| `name` | varchar(128) | Not null |
+| `code` | varchar(16) | Unique per tenant |
+| `email` | varchar(128) | Contact email |
+| `tax_id` | varchar(32) | Tax identifier |
+| `is_active` | boolean | Default true |
+
+> **Note:** Contacts use the polymorphic `sources` pattern (with `source_type = 'contact'`) for linked addresses and phone numbers, just like vendors, clients, and employees.
 
 **Addresses:**
 | Field | Type | Description |
@@ -559,14 +565,25 @@ The `sources` table implements a **discriminated union** pattern linking vendors
 | `country_code` | char(2) | ISO 3166-1 alpha-2 country code (e.g., `US`, `GB`, `JP`) |
 | `is_primary` | boolean | Primary address flag |
 
-> **Global Address Best Practices:** All address tables in NAP (both `addresses` and `nap_user_addresses`) follow the same internationally flexible schema:
+**Phone Numbers:**
+| Field | Type | Description |
+|---|---|---|
+| `id` | uuid | PK |
+| `source_id` | uuid | FK to sources (CASCADE), not null |
+| `phone_type` | varchar(16) | `cell`, `work`, `home`, `fax`, `other` (default `cell`) |
+| `phone_number` | varchar(32) | Not null |
+| `is_primary` | boolean | Default false |
+
+> **Note:** Phone numbers are available to vendors, clients, employees, and contacts via the polymorphic `sources` pattern.
+
+> **Global Address Best Practices:** The `addresses` table follows an internationally flexible schema:
 > - Three address lines accommodate any country's format without rigid field assumptions
 > - `state_province` is a generic region field (US states, UK counties, Japanese prefectures, etc.)
 > - `country_code` uses ISO 3166-1 alpha-2 for reliable lookup and localization
 > - `postal_code` as varchar(20) covers all known formats (US ZIP+4, UK postcodes, etc.)
 > - **Mailing label generation:** Concatenate non-empty address lines, then `city + state_province + postal_code` on one line, then country name (resolved from `country_code`). Country-specific formatting rules (e.g., Japanese address order reversal) can be applied via a locale-aware formatter.
 
-**Endpoints:** `/api/core/v1/sources`, `/api/core/v1/contacts`, `/api/core/v1/addresses`
+**Endpoints:** `/api/core/v1/sources`, `/api/core/v1/contacts`, `/api/core/v1/addresses`, `/api/core/v1/phone-numbers`
 
 #### 3.3.5 Inter-Companies
 
@@ -596,7 +613,6 @@ The `sources` table implements a **discriminated union** pattern linking vendors
 | `id` | uuid | PK |
 | `tenant_id` | uuid | Not null |
 | `company_id` | uuid | FK to inter_companies (RESTRICT) |
-| `client_id` | uuid | FK to clients (SET NULL) |
 | `address_id` | uuid | FK to addresses (SET NULL) |
 | `project_code` | varchar(32) | Unique per tenant |
 | `name` | varchar(255) | Project name |
@@ -606,6 +622,22 @@ The `sources` table implements a **discriminated union** pattern linking vendors
 | `contract_amount` | numeric(14,2) | Total contract value from client (for profitability) |
 
 **Endpoints:** `/api/projects/v1/projects` and `/api/activities/v1/projects`
+
+**Project Clients (Junction Table):**
+
+Associates multiple clients with a project contract. Replaces the former single `client_id` FK on projects.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | uuid | PK |
+| `project_id` | uuid | FK to projects (CASCADE) |
+| `client_id` | uuid | FK to clients (RESTRICT) |
+| `role` | varchar(32) | e.g., `buyer`, `co-buyer`, `guarantor` |
+| `is_primary` | boolean | Primary client on the contract |
+
+Unique constraint: `(project_id, client_id)`
+
+**Endpoint:** `/api/projects/v1/project-clients`
 
 #### 3.4.2 Units
 
@@ -955,25 +987,9 @@ Templates serve as reusable blueprints for project creation:
 
 **Purpose:** Manage client invoices, invoice lines, and payment receipts. AR is the primary revenue source for project profitability tracking.
 
-#### 3.8.1 AR Clients (Extended)
+> **Note:** The `ar_clients` table has been removed. The unified `clients` table (§3.3.2) with `email` and `tax_id` fields replaces it. Client addresses and phone numbers are available via the polymorphic `sources` pattern. AR invoices reference `clients.id` directly.
 
-Richer client model with billing/physical addresses, tax ID, and primary contact.
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | uuid | PK |
-| `client_code` | varchar(12) | Unique per tenant |
-| `name` | varchar(255) | Client name |
-| `email` | varchar(128) | Contact email |
-| `phone` | varchar(32) | Phone number |
-| `tax_id` | varchar(64) | Tax identifier |
-| `billing_address_id` | uuid | FK to addresses |
-| `physical_address_id` | uuid | FK to addresses |
-| `primary_contact_id` | uuid | FK to contacts |
-
-**Endpoint:** `/api/ar/v1/clients`
-
-#### 3.8.2 AR Invoices
+#### 3.8.1 AR Invoices
 
 | Field | Type | Description |
 |---|---|---|
@@ -996,7 +1012,7 @@ Richer client model with billing/physical addresses, tax ID, and primary contact
 
 **Endpoint:** `/api/ar/v1/ar-invoices`
 
-#### 3.8.3 AR Invoice Lines
+#### 3.8.2 AR Invoice Lines
 
 | Field | Type | Description |
 |---|---|---|
@@ -1007,7 +1023,7 @@ Richer client model with billing/physical addresses, tax ID, and primary contact
 
 **Endpoint:** `/api/ar/v1/ar-invoice-lines`
 
-#### 3.8.4 Receipts
+#### 3.8.3 Receipts
 
 | Field | Type | Description |
 |---|---|---|
@@ -1463,14 +1479,14 @@ Defined in pg-schemata schemas with `generated: 'always'`, `stored: true`:
 - Separate migration directories for admin vs tenant schemas
 
 **Migration Order:**
-1. `202502110001` — Bootstrap admin (tenants, nap_users, nap_user_phones, nap_user_addresses, match_review_logs)
+1. `202502110001` — Bootstrap admin (tenants, nap_users, match_review_logs). Note: `nap_user_phones` and `nap_user_addresses` have been removed; `nap_users` is stripped to identity/auth fields only.
 2. `202502110010` — Core RBAC tables (roles, role_members, policies)
-3. `202502110011` — Core entity tables (sources, vendors, clients, employees, contacts, addresses, inter_companies)
-4. `202502110020` — Project tables (projects, units, tasks, cost items, change orders, templates)
+3. `202502110011` — Core entity tables (sources, vendors, clients, employees, contacts, addresses, phone_numbers, inter_companies). Note: `contacts` is a first-class entity (miscellaneous payees); `sources` CHECK includes `'contact'`; `clients` includes `email` and `tax_id`; `employees` includes `is_app_user`, `is_primary_contact`, `is_billing_contact`.
+4. `202502110020` — Project tables (projects, project_clients, units, tasks, cost items, change orders, templates). Note: `projects.client_id` removed; replaced by `project_clients` junction table.
 5. `202502110030` — BOM tables (catalog_skus, vendor_skus, vendor_pricing) with pgvector
 6. `202502110040` — Activity tables (categories, activities, deliverables, budgets, cost_lines, actual_costs, vendor_parts)
 7. `202502110050` — AP tables (ap_invoices, ap_invoice_lines, payments, ap_credit_memos)
-8. `202502110060` — AR tables (ar_clients, ar_invoices, ar_invoice_lines, receipts)
+8. `202502110060` — AR tables (ar_invoices, ar_invoice_lines, receipts). Note: `ar_clients` removed — AR invoices reference the unified `clients` table directly.
 9. `202502110070` — Accounting tables (chart_of_accounts, journal_entries, journal_entry_lines, ledger_balances, posting_queues, category_account_map, intercompany)
 10. `202502120080` — SQL views (export views, profitability views, cashflow views, aging views)
 
@@ -1917,6 +1933,10 @@ import { vendorsSchema } from '../schemas/vendorsSchema.js';
 - Validate all input at the API boundary — pg-schemata's Zod validators cover schema validation; add business rule validation in controllers
 - Never return `password_hash` or internal fields in API responses — use `columnWhitelist` or DTO mapping
 - Environment secrets must never be committed — use `.env` files (gitignored) and validate required vars at startup
+- All authorization must flow through the RBAC policy engine — no role-based bypass in middleware
+- Employee deactivation must cascade to lock the corresponding `nap_users` login (business rule in controller, not FK — cross-schema)
+- User creation (`nap_users` insert + `role_members` insert) must be wrapped in a single database transaction
+- Roles must be assigned to an employee before the employee can be flagged as an app user (`is_app_user`)
 
 ---
 
