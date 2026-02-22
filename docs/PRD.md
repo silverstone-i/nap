@@ -186,8 +186,8 @@ The UI follows a four-zone layout architecture:
 ```
 
 - **Tenant Bar**: Tenant selector dropdown, user avatar with profile/settings dropdown
-- **Module Bar**: Displays the current module name on the left with breadcrumb navigation (e.g., `Settings > Manage Employees`), plus dynamic toolbar actions (tabs, filters, primary action buttons) on the right
-- **Sidebar**: Collapsible navigation with primary groups and sub-module items; supports flyout menus when collapsed
+- **Module Bar**: Displays the current module name on the left with breadcrumb navigation (e.g., `Admin > Manage Employees`), plus dynamic toolbar actions (tabs, filters, primary action buttons) on the right
+- **Sidebar**: Collapsible navigation with up to 3 levels of nesting (group → sub-module → leaf item); supports flyout menus when collapsed
 - **Data Viewport**: Main content area where page components render
 
 ### 2.4 Request Flow
@@ -1592,23 +1592,25 @@ All MUI component overrides defined in `theme.js`:
 
 ### 6.2 Navigation System
 
-Navigation is configured via `navigationConfig.js` with capability-based filtering:
+Navigation is configured via `navigationConfig.js` with capability-based filtering. The sidebar supports up to 3 levels of nesting: a child item with a `children` array (no `path`) renders as a collapsible sub-group; a child with a `path` (no `children`) renders as a leaf nav item.
 
 ```
-Primary Group -> Sub-modules
-  Settings (SettingsIcon)
-    +-- Manage Tenants (/tenant/manage-tenants)
+Primary Group -> Sub-modules -> Leaf items
+  Admin (AdminPanelSettingsIcon)
     +-- Manage Employees (/tenant/manage-employees)
-    +-- Manage Roles (/tenant/manage-roles)
+    +-- Roles (/tenant/manage-roles)
+    +-- Tenants (sub-group, NAP only)
+        +-- Manage Tenants (/tenant/manage-tenants)
+        +-- Manage Users (/tenant/manage-users)
 ```
 
-Extensible design: add new groups/modules to `NAV_ITEMS` array with optional `capability` guards.
+Extensible design: add new groups/modules to `NAV_ITEMS` array with optional `capability` guards. Sub-groups inherit capability filtering recursively — a sub-group is visible if any of its children pass the capability check.
 
 ### 6.3 Module Bar (Dynamic Toolbar)
 
 The Module Bar has two zones:
 
-- **Left zone**: Current module name and breadcrumb trail (e.g., `Settings > Manage Employees > Edit`). The module name is derived from the active navigation group; breadcrumbs reflect the current route hierarchy. Breadcrumb segments are clickable links for back-navigation.
+- **Left zone**: Current module name and breadcrumb trail (e.g., `Admin > Manage Employees > Edit`). The module name is derived from the active navigation group; breadcrumbs reflect the current route hierarchy. Breadcrumb segments are clickable links for back-navigation.
 - **Right zone**: Dynamic toolbar actions registered by page components via `useModuleToolbarRegistration()`:
   - **Tabs**: Toggle button groups with exclusive/non-exclusive selection
   - **Filters**: Text fields or select dropdowns
@@ -1665,7 +1667,7 @@ Based on the sidebar navigation config and server module structure:
 | **AR** | Clients, AR Invoices, Receipts, AR Aging | `/ar` |
 | **Accounting & GL** | Chart of Accounts, Journal Entries, Ledger, Intercompany | `/accounting` |
 | **Reports** | Budget vs Actual, Profitability, Cashflow, Margin Analysis, P&L, Balance Sheet | `/reports` |
-| **Settings** | Manage Tenants, Manage Employees, Manage Roles | `/tenant` |
+| **Admin** | Manage Employees, Roles, **Tenants** (Manage Tenants, Manage Users — NAP only) | `/tenant` |
 
 ---
 
