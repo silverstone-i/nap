@@ -1,10 +1,11 @@
 import js from '@eslint/js';
 import eslintPluginImport from 'eslint-plugin-import';
+import eslintPluginReact from 'eslint-plugin-react';
 
 /**
  * Root ESLint flat config for the monorepo.
- * - Minimal, no extra plugins (works with Node + React JSX via Espree)
  * - Per-package environment tweaks
+ * - React plugin for JSX detection in client code
  */
 export default [
   // Ignore heavy/generated paths
@@ -84,6 +85,9 @@ export default [
   // Client (React, Vite)
   {
     files: ['apps/nap-client/**/*.{js,jsx}'],
+    plugins: {
+      react: eslintPluginReact,
+    },
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -95,7 +99,18 @@ export default [
         localStorage: 'readonly',
         sessionStorage: 'readonly',
         fetch: 'readonly',
+        FormData: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
       },
+    },
+    settings: {
+      react: { version: 'detect' },
+    },
+    rules: {
+      'react/jsx-uses-react': 'error',
+      'react/jsx-uses-vars': 'error',
+      'react/react-in-jsx-scope': 'off',
     },
   },
 
