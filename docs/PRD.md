@@ -42,6 +42,7 @@ nap/
   apps/
     nap-client/     # React SPA frontend
     nap-serv/       # Express API backend
+  docs/             # Project documentation  
   packages/
     shared/         # Shared utilities/constants
 ```
