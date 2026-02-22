@@ -9,6 +9,16 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-const moduleRegistry = [];
+import authRepositories from '../modules/auth/authRepositories.js';
+import bootstrapAdmin from '../modules/auth/schema/migrations/202502110001_bootstrapAdmin.js';
+
+const moduleRegistry = [
+  {
+    name: 'auth',
+    scope: 'admin',
+    repositories: authRepositories,
+    migrations: [bootstrapAdmin],
+  },
+];
 
 export default moduleRegistry;

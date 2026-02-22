@@ -20,10 +20,10 @@ describe('GET /api/health', () => {
 });
 
 describe('GET /unknown-route', () => {
-  it('should return 404 for unknown routes', async () => {
+  it('should return 401 for unauthenticated requests to unknown routes', async () => {
     const res = await request(app).get('/api/nonexistent');
 
-    expect(res.status).toBe(404);
-    expect(res.body.error).toBe('Not Found');
+    // Auth middleware intercepts before the 404 handler
+    expect(res.status).toBe(401);
   });
 });

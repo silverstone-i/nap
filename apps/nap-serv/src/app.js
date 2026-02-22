@@ -1,5 +1,5 @@
 /**
- * @file Express application setup — middleware chain and health endpoint
+ * @file Express application setup — middleware chain, auth, and route mounting
  * @module nap-serv/app
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -9,6 +9,8 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
+import { authRedis } from './middleware/authRedis.js';
+import apiRoutes from './apiRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -35,6 +37,12 @@ app.use(morgan('dev'));
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
+
+// Auth middleware — JWT verify, tenant resolution (bypasses login/refresh/logout)
+app.use('/api', authRedis());
+
+// API routes
+app.use('/api', apiRoutes);
 
 // Root route
 app.get('/', (_req, res) => {
