@@ -7,5 +7,74 @@
 
 export const SIDEBAR_WIDTH_OPEN = 242;
 export const SIDEBAR_WIDTH_COLLAPSED = 110;
+export const SIDEBAR_WIDTH_EXPANDED = SIDEBAR_WIDTH_OPEN;
 export const TENANT_BAR_HEIGHT = 48;
 export const MODULE_BAR_HEIGHT = 48;
+
+/* ── Font tokens ──────────────────────────────────────────────── */
+
+export const FONT = {
+  navGroup: { fontSize: '0.8125rem', letterSpacing: '0.02em' },
+  navItem: { fontSize: '0.8125rem' },
+  toolbar: { fontSize: '0.8125rem' },
+  toolbarAction: { fontSize: '0.8125rem' },
+};
+
+/* ── Composite sx presets ─────────────────────────────────────── */
+
+export const sidebarPaperSx = (width) => ({
+  width,
+  transition: 'width 0.2s ease-in-out',
+  overflowX: 'hidden',
+  boxSizing: 'border-box',
+  borderRight: 1,
+  borderColor: 'divider',
+});
+
+export const tenantBarSx = {
+  height: TENANT_BAR_HEIGHT,
+  minHeight: TENANT_BAR_HEIGHT,
+  bgcolor: 'background.paper',
+  borderBottom: 1,
+  borderColor: 'divider',
+  boxShadow: 'none',
+  color: 'text.primary',
+};
+
+export const moduleBarSx = {
+  height: MODULE_BAR_HEIGHT,
+  minHeight: MODULE_BAR_HEIGHT,
+  bgcolor: 'background.paper',
+  borderBottom: 1,
+  borderColor: 'divider',
+};
+
+export const pageContainerSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%',
+  gap: 2,
+};
+
+export const formGridSx = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, 1fr)',
+  gap: 2,
+};
+
+export const formFullSpanSx = {
+  gridColumn: '1 / -1',
+};
+
+export const formGroupCardSx = {
+  gridColumn: '1 / -1',
+  p: 2,
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 1,
+};
+
+export const formSectionHeaderSx = {
+  gridColumn: '1 / -1',
+  mb: -1,
+};

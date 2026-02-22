@@ -140,26 +140,66 @@ export function authRedis() {
         res.setHeader('X-Token-Stale', '1');
       }
 
+      // ── Impersonation Detection ────────────────────────────────────────
+      let isImpersonating = false;
+      let impersonatedBy = null;
+      let effectiveUser = userRecord;
+      let effectiveTenantCode = tenantCode;
+      let effectiveSchemaName = schemaName;
+      let effectivePermissions = permissions;
+
+      try {
+        const redis = await getRedis();
+        const impData = await redis.get(`imp:${uid}`);
+        if (impData) {
+          const parsed = JSON.parse(impData);
+          isImpersonating = true;
+          impersonatedBy = uid;
+
+          // Load target user data
+          const dbMod2 = await import('../db/db.js');
+          const db2 = dbMod2.default || dbMod2.db;
+          const targetUser = await db2('napUsers', 'admin').findOneBy([{ id: parsed.targetUserId }]);
+          if (targetUser) {
+            effectiveUser = targetUser;
+            effectiveTenantCode = parsed.targetTenantCode || tenantCode;
+            effectiveSchemaName = parsed.targetSchemaName || schemaName;
+
+            // Re-load permissions for target user
+            effectivePermissions = await loadPermissions({
+              schemaName: effectiveSchemaName,
+              userId: targetUser.id,
+              entityType: targetUser.entity_type,
+              entityId: targetUser.entity_id,
+            });
+          }
+        }
+      } catch {
+        // Redis unavailable — proceed without impersonation
+      }
+
       // ── Populate req.user ───────────────────────────────────────────────
       req.user = {
-        id: uid,
-        email: userRecord.email,
-        entity_type: userRecord.entity_type,
-        entity_id: userRecord.entity_id,
-        status: userRecord.status,
-        tenant_id: userRecord.tenant_id,
-        tenant_code: tenantCode,
+        id: isImpersonating ? impersonatedBy : uid,
+        email: effectiveUser.email,
+        entity_type: effectiveUser.entity_type,
+        entity_id: effectiveUser.entity_id,
+        status: effectiveUser.status,
+        tenant_id: effectiveUser.tenant_id,
+        tenant_code: effectiveTenantCode,
         home_tenant: homeTenantCode,
-        schema_name: schemaName,
-        permissions,
+        schema_name: effectiveSchemaName,
+        permissions: effectivePermissions,
+        is_impersonating: isImpersonating,
+        impersonated_by: impersonatedBy,
       };
 
       req.ctx = {
-        user_id: uid,
-        tenant_code: tenantCode,
-        schema: schemaName,
+        user_id: isImpersonating ? impersonatedBy : uid,
+        tenant_code: effectiveTenantCode,
+        schema: effectiveSchemaName,
         tenant: tenantRecord,
-        perms: permissions,
+        perms: effectivePermissions,
       };
 
       return next();

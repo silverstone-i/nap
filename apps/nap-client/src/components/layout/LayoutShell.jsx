@@ -1,27 +1,31 @@
 /**
- * @file LayoutShell — auth guard layout per PRD §2.3
+ * @file LayoutShell — main layout wrapper with auth guard per PRD §2.3
  * @module nap-client/components/layout/LayoutShell
  *
  * Guards authenticated routes (redirects to /login if no user).
  * Shows loading spinner while auth is hydrating.
- *
- * Phase 2: Minimal layout (auth guard + Outlet). Phase 3+ adds
- * Sidebar, TenantBar, ModuleBar, ImpersonationBanner.
+ * Renders: Sidebar | ImpersonationBanner + TenantBar + ModuleBar + Outlet
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import { Navigate, Outlet } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
-import { useAuth } from '../../contexts/AuthContext.jsx';
+import Sidebar from './Sidebar.jsx';
+import TenantBar from './TenantBar.jsx';
+import ModuleBar from './ModuleBar.jsx';
+import ImpersonationBanner from './ImpersonationBanner.jsx';
 import ChangePasswordDialog from '../shared/ChangePasswordDialog.jsx';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 
 export default function LayoutShell() {
   const { user, loading, refreshUser } = useAuth();
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -50,8 +54,16 @@ export default function LayoutShell() {
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Phase 3+ will add: Sidebar, TenantBar, ModuleBar, ImpersonationBanner */}
+      {/* Sidebar — sticky left, full height */}
+      <Sidebar />
+
+      {/* Main content area — TenantBar + ModuleBar + Data Viewport */}
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <ImpersonationBanner />
+        <TenantBar />
+        <ModuleBar />
+
+        {/* Data Viewport */}
         <Box
           component="main"
           sx={{

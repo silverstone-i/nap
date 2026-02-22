@@ -1,19 +1,16 @@
 /**
- * @file Auth context — user session, login/logout, tenant resolution
+ * @file Auth context — user session, login/logout, tenant resolution, impersonation
  * @module nap-client/contexts/AuthContext
  *
- * Provides { user, loading, login, logout, refreshUser, tenant, isNapSoftUser }
- * to the component tree. On mount, hydrates the session from the httpOnly
- * cookie via getMe().
- *
- * Phase 2: Basic auth. Phase 3+ adds impersonation and cross-tenant assumption.
+ * Provides { user, loading, login, logout, tenant, impersonation, ... } to the component tree.
+ * On mount, hydrates the session from the httpOnly cookie via getMe().
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import authApi from '../services/authApi.js';
-import { setAssumedTenant } from '../services/client.js';
+import client, { setAssumedTenant } from '../services/client.js';
 
 const NAPSOFT_TENANT = (import.meta.env.VITE_NAPSOFT_TENANT || 'nap').toLowerCase();
 
@@ -21,8 +18,9 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [tenant, setTenant] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [assumedTenantState, setAssumedTenantState] = useState(null);
+  const [impersonation, setImpersonation] = useState({ active: false });
 
   // Hydrate session on mount
   useEffect(() => {
@@ -31,17 +29,13 @@ export function AuthProvider({ children }) {
       try {
         const data = await authApi.getMe();
         if (!cancelled) {
-          setUser(data.user ?? null);
-          setTenant(data.tenant ?? null);
-          if (data.tenant?.tenant_code) {
-            setAssumedTenant(data.tenant.tenant_code);
-          }
+          const u = data.user ?? null;
+          if (u?.tenant_code) setAssumedTenant(u.tenant_code);
+          setUser(u);
+          setImpersonation(data.impersonation ?? { active: false });
         }
       } catch {
-        if (!cancelled) {
-          setUser(null);
-          setTenant(null);
-        }
+        if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -55,11 +49,10 @@ export function AuthProvider({ children }) {
     const loginRes = await authApi.login(email, password);
     if (!loginRes?.forcePasswordChange) {
       const data = await authApi.getMe();
-      setUser(data.user ?? null);
-      setTenant(data.tenant ?? null);
-      if (data.tenant?.tenant_code) {
-        setAssumedTenant(data.tenant.tenant_code);
-      }
+      const u = data.user ?? null;
+      if (u?.tenant_code) setAssumedTenant(u.tenant_code);
+      setUser(u);
+      setImpersonation(data.impersonation ?? { active: false });
     }
     return loginRes;
   }, []);
@@ -67,7 +60,7 @@ export function AuthProvider({ children }) {
   const refreshUser = useCallback(async () => {
     const data = await authApi.getMe();
     setUser(data.user ?? null);
-    setTenant(data.tenant ?? null);
+    setImpersonation(data.impersonation ?? { active: false });
   }, []);
 
   const logout = useCallback(async () => {
@@ -77,14 +70,64 @@ export function AuthProvider({ children }) {
       // best-effort
     }
     setAssumedTenant(null);
-    setTenant(null);
+    setAssumedTenantState(null);
+    setImpersonation({ active: false });
     setUser(null);
   }, []);
 
-  const isNapSoftUser = useMemo(
-    () => tenant?.tenant_code?.toLowerCase() === NAPSOFT_TENANT,
-    [tenant],
+  // ── Cross-tenant assumption (NapSoft users only) ─────────────────
+  const assumeTenant = useCallback(
+    async (tenantObj) => {
+      setAssumedTenant(tenantObj.tenant_code);
+      setAssumedTenantState(tenantObj);
+      await refreshUser();
+    },
+    [refreshUser],
   );
+
+  const exitAssumption = useCallback(async () => {
+    setAssumedTenant(null);
+    setAssumedTenantState(null);
+    await refreshUser();
+  }, [refreshUser]);
+
+  // ── Impersonation (NapSoft users only) ───────────────────────────
+  const startImpersonation = useCallback(
+    async (targetUserId, reason) => {
+      const result = await client.post('/tenants/v1/admin/impersonate', {
+        target_user_id: targetUserId,
+        reason,
+      });
+      await refreshUser();
+      return result;
+    },
+    [refreshUser],
+  );
+
+  const endImpersonation = useCallback(async () => {
+    await client.post('/tenants/v1/admin/exit-impersonation');
+    await refreshUser();
+  }, [refreshUser]);
+
+  const isNapSoftUser = useMemo(
+    () =>
+      user?.tenant_code?.toLowerCase() === NAPSOFT_TENANT ||
+      user?.home_tenant?.toLowerCase() === NAPSOFT_TENANT,
+    [user],
+  );
+
+  const tenant = useMemo(() => {
+    if (!user) return null;
+    if (assumedTenantState) {
+      return {
+        tenant_code: assumedTenantState.tenant_code,
+        schema_name: assumedTenantState.schema_name || assumedTenantState.tenant_code,
+        company: assumedTenantState.company,
+        is_assumed: true,
+      };
+    }
+    return { tenant_code: user.tenant_code, schema_name: user.schema_name };
+  }, [user, assumedTenantState]);
 
   const value = useMemo(
     () => ({
@@ -95,10 +138,28 @@ export function AuthProvider({ children }) {
       refreshUser,
       tenant,
       isNapSoftUser,
-      // Phase 3+ will add: assumedTenant, assumeTenant, exitAssumption,
-      // impersonation, startImpersonation, endImpersonation
+      assumedTenant: assumedTenantState,
+      assumeTenant,
+      exitAssumption,
+      impersonation,
+      startImpersonation,
+      endImpersonation,
     }),
-    [user, loading, login, logout, refreshUser, tenant, isNapSoftUser],
+    [
+      user,
+      loading,
+      login,
+      logout,
+      refreshUser,
+      tenant,
+      isNapSoftUser,
+      assumedTenantState,
+      assumeTenant,
+      exitAssumption,
+      impersonation,
+      startImpersonation,
+      endImpersonation,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

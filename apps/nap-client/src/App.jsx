@@ -12,6 +12,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LayoutShell from './components/layout/LayoutShell.jsx';
 import LoginPage from './pages/Auth/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
+import ManageTenantsPage from './pages/Tenant/ManageTenantsPage.jsx';
+import ManageUsersPage from './pages/Tenant/ManageUsersPage.jsx';
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
         {/* Protected routes — guarded by LayoutShell */}
         <Route element={<LayoutShell />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/tenant/manage-tenants" element={<ManageTenantsPage />} />
+          <Route path="/tenant/manage-users" element={<ManageUsersPage />} />
 
           {/* Default redirect */}
           <Route index element={<Navigate to="/dashboard" replace />} />

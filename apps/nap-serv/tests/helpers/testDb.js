@@ -63,15 +63,16 @@ export async function bootstrapAdmin() {
   await db.none('CREATE SCHEMA IF NOT EXISTS admin');
   await db.none('CREATE SCHEMA IF NOT EXISTS pgschemata');
 
-  // Create migration history table
+  // Create migration history table (must match createMigrator.js schema)
   await db.none(`
     CREATE TABLE IF NOT EXISTS pgschemata.migrations (
-      id TEXT NOT NULL,
       schema_name TEXT NOT NULL,
+      module_name TEXT NOT NULL,
+      migration_id TEXT NOT NULL,
+      checksum TEXT,
       description TEXT,
-      checksum TEXT NOT NULL,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      PRIMARY KEY (id, schema_name)
+      PRIMARY KEY (schema_name, module_name, migration_id)
     )
   `);
 
@@ -104,6 +105,18 @@ export async function bootstrapAdmin() {
  */
 export async function cleanupTestDb() {
   const db = await initTestDb();
+
+  // Drop any test-created tenant schemas (provisioned during tests)
+  const testSchemas = await db.manyOrNone(
+    `SELECT schema_name FROM information_schema.schemata
+     WHERE schema_name NOT IN ('public', 'admin', 'pgschemata', 'pg_catalog',
+                                'information_schema', 'pg_toast')
+       AND schema_name NOT LIKE 'pg_%'`,
+  );
+  for (const row of testSchemas) {
+    await db.none(`DROP SCHEMA IF EXISTS ${db.$config.pgp.as.name(row.schema_name)} CASCADE`);
+  }
+
   await db.none('DROP SCHEMA IF EXISTS admin CASCADE');
   await db.none('DROP SCHEMA IF EXISTS pgschemata CASCADE');
 }

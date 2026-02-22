@@ -86,10 +86,7 @@ export const logout = async (req, res) => {
 };
 
 /**
- * GET /api/auth/me — Return user context with tenant info
- *
- * Phase 2: Returns user identity + tenant. Phase 3 adds roles, permissions,
- * impersonation state.
+ * GET /api/auth/me — Return user context with tenant and impersonation info
  */
 export const me = async (req, res) => {
   const user = req.user;
@@ -111,6 +108,9 @@ export const me = async (req, res) => {
     entity_id: user.entity_id,
     status: user.status,
     tenant_id: user.tenant_id,
+    tenant_code: user.tenant_code,
+    home_tenant: user.home_tenant,
+    schema_name: user.schema_name,
   };
 
   const tenantContext = tenant
@@ -125,10 +125,28 @@ export const me = async (req, res) => {
       }
     : null;
 
+  // Check impersonation status via Redis
+  let impersonation = { active: false };
+  try {
+    const { getRedis } = await import('../../../db/redis.js');
+    const redis = await getRedis();
+    const impData = await redis.get(`imp:${user.id}`);
+    if (impData) {
+      const parsed = JSON.parse(impData);
+      impersonation = {
+        active: true,
+        target_user: parsed.targetUser,
+        log_id: parsed.logId,
+      };
+    }
+  } catch {
+    // Redis unavailable — impersonation status unknown
+  }
+
   return res.json({
     user: safeUser,
     tenant: tenantContext,
-    // Phase 3 will add: system_roles, tenant_roles, policy_etag, impersonation
+    impersonation,
   });
 };
 

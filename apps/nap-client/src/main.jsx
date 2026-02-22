@@ -13,6 +13,7 @@ import { ThemeProvider, CssBaseline, useMediaQuery } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createAppTheme } from './theme.js';
 import { AuthProvider } from './contexts/AuthContext.jsx';
+import { ModuleActionsProvider } from './contexts/ModuleActionsContext.jsx';
 import App from './App.jsx';
 
 const queryClient = new QueryClient({
@@ -33,7 +34,9 @@ function ThemedApp() {
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <App />
+          <ModuleActionsProvider>
+            <App />
+          </ModuleActionsProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
