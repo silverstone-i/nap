@@ -11,9 +11,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LayoutShell from './components/layout/LayoutShell.jsx';
 import LoginPage from './pages/Auth/LoginPage.jsx';
-import DashboardPage from './pages/DashboardPage.jsx';
+import DashboardPage from './pages/Dashboard/DashboardPage.jsx';
+import CompanyCashflowPage from './pages/Dashboard/CompanyCashflowPage.jsx';
 import ManageTenantsPage from './pages/Tenant/ManageTenantsPage.jsx';
 import ManageUsersPage from './pages/Tenant/ManageUsersPage.jsx';
+import ManageRolesPage from './pages/Tenant/ManageRolesPage.jsx';
 import VendorsPage from './pages/Core/VendorsPage.jsx';
 import ClientsPage from './pages/Core/ClientsPage.jsx';
 import EmployeesPage from './pages/Core/EmployeesPage.jsx';
@@ -34,6 +36,12 @@ import ReceiptsPage from './pages/AR/ReceiptsPage.jsx';
 import ChartOfAccountsPage from './pages/Accounting/ChartOfAccountsPage.jsx';
 import JournalEntriesPage from './pages/Accounting/JournalEntriesPage.jsx';
 import LedgerPage from './pages/Accounting/LedgerPage.jsx';
+import ProjectProfitabilityPage from './pages/Reports/ProjectProfitabilityPage.jsx';
+import ProjectCashflowPage from './pages/Reports/ProjectCashflowPage.jsx';
+import CostBreakdownPage from './pages/Reports/CostBreakdownPage.jsx';
+import ArAgingPage from './pages/Reports/ArAgingPage.jsx';
+import ApAgingPage from './pages/Reports/ApAgingPage.jsx';
+import MarginAnalysisPage from './pages/Reports/MarginAnalysisPage.jsx';
 
 export default function App() {
   return (
@@ -44,9 +52,14 @@ export default function App() {
 
         {/* Protected routes — guarded by LayoutShell */}
         <Route element={<LayoutShell />}>
+          {/* Dashboard */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/dashboard/cashflow" element={<CompanyCashflowPage />} />
+
+          {/* Tenant management */}
           <Route path="/tenant/manage-tenants" element={<ManageTenantsPage />} />
           <Route path="/tenant/manage-users" element={<ManageUsersPage />} />
+          <Route path="/tenant/manage-roles" element={<ManageRolesPage />} />
 
           {/* Core entity routes */}
           <Route path="/core/vendors" element={<VendorsPage />} />
@@ -73,16 +86,24 @@ export default function App() {
           <Route path="/ap/payments" element={<PaymentsPage />} />
           <Route path="/ap/credit-memos" element={<CreditMemosPage />} />
           <Route path="/ap/vendors" element={<Navigate to="/core/vendors" replace />} />
+          <Route path="/ap/aging" element={<ApAgingPage />} />
 
           {/* AR routes */}
           <Route path="/ar/invoices" element={<ArInvoicesPage />} />
           <Route path="/ar/receipts" element={<ReceiptsPage />} />
           <Route path="/ar/clients" element={<Navigate to="/core/clients" replace />} />
+          <Route path="/ar/aging" element={<ArAgingPage />} />
 
           {/* Accounting routes */}
           <Route path="/accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
           <Route path="/accounting/journal-entries" element={<JournalEntriesPage />} />
           <Route path="/accounting/ledger" element={<LedgerPage />} />
+
+          {/* Report routes */}
+          <Route path="/reports/profitability" element={<ProjectProfitabilityPage />} />
+          <Route path="/reports/cashflow" element={<ProjectCashflowPage />} />
+          <Route path="/reports/budget-vs-actual" element={<CostBreakdownPage />} />
+          <Route path="/reports/margin-analysis" element={<MarginAnalysisPage />} />
 
           {/* Default redirect */}
           <Route index element={<Navigate to="/dashboard" replace />} />

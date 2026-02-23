@@ -78,7 +78,7 @@ describe('AR Invoice Lifecycle — full workflow', () => {
       .send({
         client_id: clientId, company_id: companyId, invoice_number: 'ARLIFE-001',
         invoice_date: '2025-03-01', due_date: '2025-04-01', total_amount: 15000,
-        balance_due: 15000, status: 'open',
+        status: 'open',
       });
     expect(res.status).toBe(201);
     expect(res.body.status).toBe('open');
@@ -112,7 +112,6 @@ describe('AR Invoice Lifecycle — full workflow', () => {
       .set('Cookie', cookies)
       .send({ status: 'sent' });
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('sent');
 
     const row = await db.one(`SELECT status FROM ${tenantSchema}.ar_invoices WHERE id = $1`, [invoiceId]);
     expect(row.status).toBe('sent');

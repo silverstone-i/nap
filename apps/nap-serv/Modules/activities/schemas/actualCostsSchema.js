@@ -28,6 +28,9 @@ const actualCostsSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['approval_status'], expression: "approval_status IN ('pending', 'approved', 'rejected')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

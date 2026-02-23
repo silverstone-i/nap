@@ -25,6 +25,8 @@ import arRepositories from '../../Modules/ar/arRepositories.js';
 import arMigrations from '../../Modules/ar/schema/migrations/index.js';
 import accountingRepositories from '../../Modules/accounting/accountingRepositories.js';
 import accountingMigrations from '../../Modules/accounting/schema/migrations/index.js';
+import reportsRepositories from '../../Modules/reports/reportsRepositories.js';
+import reportsMigrations from '../../Modules/reports/schema/migrations/index.js';
 
 const moduleRegistry = [
   {
@@ -58,6 +60,12 @@ const moduleRegistry = [
     migrations: bomMigrations,
   },
   {
+    name: 'accounting',
+    scope: 'tenant',
+    repositories: accountingRepositories,
+    migrations: accountingMigrations,
+  },
+  {
     name: 'ap',
     scope: 'tenant',
     repositories: apRepositories,
@@ -70,10 +78,10 @@ const moduleRegistry = [
     migrations: arMigrations,
   },
   {
-    name: 'accounting',
+    name: 'reports',
     scope: 'tenant',
-    repositories: accountingRepositories,
-    migrations: accountingMigrations,
+    repositories: reportsRepositories,
+    migrations: reportsMigrations,
   },
 ];
 

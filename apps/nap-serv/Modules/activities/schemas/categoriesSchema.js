@@ -25,6 +25,9 @@ const categoriesSchema = {
   constraints: {
     primaryKey: ['id'],
     unique: [['tenant_id', 'code']],
+    checks: [
+      { type: 'Check', columns: ['type'], expression: "type IN ('labor', 'material', 'subcontract', 'equipment', 'other')" },
+    ],
     indexes: [
       { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['tenant_id', 'code'], unique: true, where: 'deactivated_at IS NULL' },

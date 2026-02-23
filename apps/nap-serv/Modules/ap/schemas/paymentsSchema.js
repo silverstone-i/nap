@@ -22,7 +22,7 @@ const paymentsSchema = {
     { name: 'ap_invoice_id', type: 'uuid' },
     { name: 'payment_date', type: 'date', notNull: true },
     { name: 'amount', type: 'numeric(14,2)', notNull: true, default: 0 },
-    { name: 'method', type: 'varchar(16)', notNull: true },
+    { name: 'method', type: 'varchar(24)', notNull: true },
     { name: 'reference', type: 'varchar(64)' },
     { name: 'notes', type: 'text' },
   ],

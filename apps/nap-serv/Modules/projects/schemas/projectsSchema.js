@@ -2,8 +2,9 @@
  * @file Schema definition for tenant-scope projects table
  * @module projects/schemas/projectsSchema
  *
- * Projects reference inter_companies (RESTRICT), clients (SET NULL),
- * and addresses (SET NULL) from the core module.
+ * Projects reference inter_companies (RESTRICT) and addresses (SET NULL)
+ * from the core module. Client associations are managed via the
+ * project_clients junction table.
  * Status workflow: planning → budgeting → released → complete.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -20,7 +21,6 @@ const projectsSchema = {
     { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true, colProps: { cnd: true } },
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'company_id', type: 'uuid' },
-    { name: 'client_id', type: 'uuid' },
     { name: 'address_id', type: 'uuid' },
     { name: 'project_code', type: 'varchar(32)', notNull: true },
     { name: 'name', type: 'varchar(255)', notNull: true },
@@ -41,12 +41,6 @@ const projectsSchema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['client_id'],
-        references: { table: 'clients', columns: ['id'] },
-        onDelete: 'SET NULL',
-      },
-      {
-        type: 'ForeignKey',
         columns: ['address_id'],
         references: { table: 'addresses', columns: ['id'] },
         onDelete: 'SET NULL',
@@ -56,7 +50,6 @@ const projectsSchema = {
       { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['tenant_id', 'project_code'], unique: true, where: 'deactivated_at IS NULL' },
       { type: 'Index', columns: ['company_id'] },
-      { type: 'Index', columns: ['client_id'] },
       { type: 'Index', columns: ['address_id'] },
     ],
   },

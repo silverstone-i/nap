@@ -17,6 +17,7 @@ import bomApiRoutes from '../Modules/bom/apiRoutes/v1/bomApiRoutes.js';
 import apApiRoutes from '../Modules/ap/apiRoutes/v1/apApiRoutes.js';
 import arApiRoutes from '../Modules/ar/apiRoutes/v1/arApiRoutes.js';
 import accountingApiRoutes from '../Modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
+import reportsApiRoutes from '../Modules/reports/apiRoutes/v1/reportsApiRoutes.js';
 
 const router = Router();
 
@@ -46,5 +47,8 @@ router.use('/ar', arApiRoutes);
 
 // Accounting module routes (tenant-scope: chart-of-accounts, journal-entries, ledger-balances, etc.)
 router.use('/accounting', accountingApiRoutes);
+
+// Reports module routes (tenant-scope: profitability, cashflow, aging, margin analysis)
+router.use('/reports', reportsApiRoutes);
 
 export default router;

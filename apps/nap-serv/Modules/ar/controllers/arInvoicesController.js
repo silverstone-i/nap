@@ -28,9 +28,6 @@ class ArInvoicesController extends BaseController {
     if (req.body.status && !VALID_TRANSITIONS[req.body.status]) {
       return res.status(400).json({ error: `Invalid invoice status: ${req.body.status}` });
     }
-    if (req.body.total_amount && !req.body.balance_due) {
-      req.body.balance_due = req.body.total_amount;
-    }
     return super.create(req, res);
   }
 

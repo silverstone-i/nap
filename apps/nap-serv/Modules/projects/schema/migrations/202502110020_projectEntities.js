@@ -25,6 +25,7 @@ const PROJECT_TABLES = new Set([
   'task_groups',
   'tasks_master',
   'projects',
+  'project_clients',
   'units',
   'tasks',
   'cost_items',

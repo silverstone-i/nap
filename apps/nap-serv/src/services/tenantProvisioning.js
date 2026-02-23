@@ -6,6 +6,7 @@
  *   1. Creates the PostgreSQL schema (CREATE SCHEMA IF NOT EXISTS)
  *   2. Runs all tenant-scope migrations to create tables
  *   3. Seeds default RBAC roles and policies
+ *   4. Seeds policy catalog (permission discovery for role-config UI)
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -14,6 +15,7 @@ import { DB } from 'pg-schemata';
 import migrator from '../db/migrations/index.js';
 import { tenantModules } from '../db/migrations/moduleScopes.js';
 import { seedSystemRoles } from '../modules/core/services/systemRoleSeeder.js';
+import { seedPolicyCatalog } from '../modules/core/services/policyCatalogSeeder.js';
 import logger from '../lib/logger.js';
 
 const NAPSOFT_TENANT = (process.env.NAPSOFT_TENANT || 'NAP').toUpperCase();
@@ -60,6 +62,13 @@ export async function provisionTenant({ schemaName, tenantCode, createdBy: _crea
     logger.info(`RBAC roles seeded for "${normalized}".`);
   } catch (err) {
     logger.warn(`RBAC seeding failed for "${normalized}":`, err?.message || err);
+  }
+
+  // 4. Seed policy catalog (permission discovery for role-config UI)
+  try {
+    await seedPolicyCatalog(DB.db, DB.pgp, normalized);
+  } catch (err) {
+    logger.warn(`Policy catalog seeding failed for "${normalized}":`, err?.message || err);
   }
 
   return result;

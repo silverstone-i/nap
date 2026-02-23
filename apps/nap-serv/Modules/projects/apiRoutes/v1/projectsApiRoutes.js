@@ -20,6 +20,7 @@ import templateUnitsRouter from './templateUnitsRouter.js';
 import templateTasksRouter from './templateTasksRouter.js';
 import templateCostItemsRouter from './templateCostItemsRouter.js';
 import templateChangeOrdersRouter from './templateChangeOrdersRouter.js';
+import projectClientsRouter from './projectClientsRouter.js';
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use('/v1/template-units', templateUnitsRouter);
 router.use('/v1/template-tasks', templateTasksRouter);
 router.use('/v1/template-cost-items', templateCostItemsRouter);
 router.use('/v1/template-change-orders', templateChangeOrdersRouter);
+router.use('/v1/project-clients', projectClientsRouter);
 
 export default router;

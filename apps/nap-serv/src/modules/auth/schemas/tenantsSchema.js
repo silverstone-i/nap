@@ -26,7 +26,6 @@ const tenantsSchema = {
     { name: 'region', type: 'varchar(64)', default: null },
     { name: 'allowed_modules', type: 'jsonb', default: '[]' },
     { name: 'max_users', type: 'integer', default: 5 },
-    { name: 'billing_email', type: 'varchar(128)', default: null },
     { name: 'notes', type: 'text', default: null },
   ],
   constraints: {

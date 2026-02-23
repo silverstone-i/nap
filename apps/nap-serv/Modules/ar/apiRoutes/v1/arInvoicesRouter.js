@@ -10,7 +10,8 @@
 import { Router } from 'express';
 import createRouter from '../../../../src/lib/createRouter.js';
 import { addAuditFields } from '../../../../src/middleware/addAuditFields.js';
-import { withMeta, rbac } from '../../../../src/middleware/rbac.js';
+import { withMeta } from '../../../../src/middleware/withMeta.js';
+import { rbac } from '../../../../src/middleware/rbac.js';
 import arInvoicesController from '../../controllers/arInvoicesController.js';
 
 const router = Router();

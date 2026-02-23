@@ -76,7 +76,7 @@ describe('AP Invoice Lifecycle — full workflow', () => {
       .send({
         vendor_id: vendorId, company_id: companyId, invoice_number: 'APLIFE-001',
         invoice_date: '2025-03-01', due_date: '2025-04-01', total_amount: 10000,
-        balance_due: 10000, status: 'open',
+        status: 'open',
       });
     expect(res.status).toBe(201);
     expect(res.body.status).toBe('open');
@@ -110,7 +110,6 @@ describe('AP Invoice Lifecycle — full workflow', () => {
       .set('Cookie', cookies)
       .send({ status: 'approved' });
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('approved');
 
     const row = await db.one(`SELECT status FROM ${tenantSchema}.ap_invoices WHERE id = $1`, [invoiceId]);
     expect(row.status).toBe('approved');

@@ -23,6 +23,7 @@ import Clients from './models/Clients.js';
 import Employees from './models/Employees.js';
 import Contacts from './models/Contacts.js';
 import Addresses from './models/Addresses.js';
+import PhoneNumbers from './models/PhoneNumbers.js';
 import InterCompanies from './models/InterCompanies.js';
 
 const repositories = {
@@ -43,6 +44,7 @@ const repositories = {
   employees: Employees,
   contacts: Contacts,
   addresses: Addresses,
+  phoneNumbers: PhoneNumbers,
   interCompanies: InterCompanies,
 };
 

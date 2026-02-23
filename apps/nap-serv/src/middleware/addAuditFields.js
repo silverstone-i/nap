@@ -27,9 +27,12 @@ export function addAuditFields(req, res, next) {
 
   if (!req.body) req.body = {};
 
+  const tenantId = req.user?.tenant_id;
+
   const applyAuditFields = (record) => {
     if (req.method === 'POST') {
       if (tenantCode && !skipTenantCode) record.tenant_code = tenantCode;
+      if (tenantId && !skipTenantCode && !record.tenant_id) record.tenant_id = tenantId;
       record.created_by = userId;
     }
     if (req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {

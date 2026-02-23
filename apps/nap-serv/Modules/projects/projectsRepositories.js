@@ -17,6 +17,7 @@ import TasksMaster from './models/TasksMaster.js';
 
 // Core project tables
 import Projects from './models/Projects.js';
+import ProjectClients from './models/ProjectClients.js';
 import Units from './models/Units.js';
 import Tasks from './models/Tasks.js';
 import CostItems from './models/CostItems.js';
@@ -35,6 +36,7 @@ const repositories = {
 
   // Project entities
   projects: Projects,
+  projectClients: ProjectClients,
   units: Units,
   tasks: Tasks,
   costItems: CostItems,

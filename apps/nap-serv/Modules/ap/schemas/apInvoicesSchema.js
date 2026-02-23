@@ -25,7 +25,6 @@ const apInvoicesSchema = {
     { name: 'invoice_date', type: 'date', notNull: true },
     { name: 'due_date', type: 'date' },
     { name: 'total_amount', type: 'numeric(14,2)', notNull: true, default: 0 },
-    { name: 'balance_due', type: 'numeric(14,2)', notNull: true, default: 0 },
     { name: 'currency', type: 'varchar(3)', notNull: true, default: 'USD' },
     { name: 'status', type: 'varchar(20)', notNull: true, default: 'open' },
     { name: 'notes', type: 'text' },

@@ -33,7 +33,7 @@ const cap = (s) => (s ? s.split('_').map((w) => w.charAt(0).toUpperCase() + w.sl
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
 
 const BLANK_CREATE = { client_id: '', invoice_number: '', invoice_date: '', due_date: '', total_amount: '', status: 'open', notes: '' };
-const BLANK_EDIT = { invoice_number: '', invoice_date: '', due_date: '', total_amount: '', balance_due: '', status: 'open', notes: '' };
+const BLANK_EDIT = { invoice_number: '', invoice_date: '', due_date: '', total_amount: '', status: 'open', notes: '' };
 
 const columns = [
   { field: 'invoice_number', headerName: 'Invoice #', width: 140 },
@@ -41,7 +41,6 @@ const columns = [
   { field: 'invoice_date', headerName: 'Date', width: 120, valueGetter: (params) => fmtDate(params.row.invoice_date) },
   { field: 'due_date', headerName: 'Due', width: 120, valueGetter: (params) => fmtDate(params.row.due_date) },
   { field: 'total_amount', headerName: 'Total', width: 140, renderCell: (params) => <CurrencyCell value={params.value} /> },
-  { field: 'balance_due', headerName: 'Balance', width: 140, renderCell: (params) => <CurrencyCell value={params.value} /> },
   { field: 'status', headerName: 'Status', width: 120, renderCell: ({ value }) => <StatusBadge status={value} /> },
 ];
 
@@ -89,20 +88,20 @@ export default function ArInvoicesPage() {
     setEditForm({
       invoice_number: selected.invoice_number ?? '', invoice_date: selected.invoice_date?.slice(0, 10) ?? '',
       due_date: selected.due_date?.slice(0, 10) ?? '', total_amount: selected.total_amount ?? '',
-      balance_due: selected.balance_due ?? '', status: selected.status ?? 'open', notes: selected.notes ?? '',
+      status: selected.status ?? 'open', notes: selected.notes ?? '',
     });
     setEditOpen(true);
   }, [selected]);
 
   const handleCreate = async () => {
     try {
-      await createMut.mutateAsync({ ...createForm, total_amount: Number(createForm.total_amount) || 0, balance_due: Number(createForm.total_amount) || 0 });
+      await createMut.mutateAsync({ ...createForm, total_amount: Number(createForm.total_amount) || 0 });
       toast('Invoice created'); setCreateOpen(false); setCreateForm(BLANK_CREATE);
     } catch (err) { toast(errMsg(err), 'error'); }
   };
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: { ...editForm, total_amount: Number(editForm.total_amount) || 0, balance_due: Number(editForm.balance_due) || 0 } });
+      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: { ...editForm, total_amount: Number(editForm.total_amount) || 0 } });
       toast('Invoice updated'); setEditOpen(false);
     } catch (err) { toast(errMsg(err), 'error'); }
   };
@@ -156,7 +155,6 @@ export default function ArInvoicesPage() {
         <TextField label="Invoice Date" type="date" value={editForm.invoice_date} onChange={onEditField('invoice_date')} InputLabelProps={{ shrink: true }} />
         <TextField label="Due Date" type="date" value={editForm.due_date} onChange={onEditField('due_date')} InputLabelProps={{ shrink: true }} />
         <TextField label="Total Amount" type="number" value={editForm.total_amount} onChange={onEditField('total_amount')} />
-        <TextField label="Balance Due" type="number" value={editForm.balance_due} onChange={onEditField('balance_due')} />
         <TextField label="Status" select value={editForm.status} onChange={onEditField('status')}>
           {STATUS_OPTS.map((s) => <MenuItem key={s} value={s}>{cap(s)}</MenuItem>)}
         </TextField>

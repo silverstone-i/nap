@@ -30,6 +30,10 @@ const costItemsSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['cost_class'], expression: "cost_class IN ('labor', 'material', 'subcontract', 'equipment', 'other')" },
+      { type: 'Check', columns: ['cost_source'], expression: "cost_source IN ('budget', 'change_order')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

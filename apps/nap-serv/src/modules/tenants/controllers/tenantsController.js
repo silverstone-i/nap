@@ -32,7 +32,7 @@ class TenantsController extends BaseController {
    * POST / — create tenant, provision schema, create admin user
    *
    * Body: { tenant_code, company, schema_name?, status?, tier?, region?,
-   *         allowed_modules?, max_users?, billing_email?, notes?,
+   *         allowed_modules?, max_users?, notes?,
    *         admin_email, admin_password }
    */
   async create(req, res) {
@@ -45,7 +45,6 @@ class TenantsController extends BaseController {
       region,
       allowed_modules,
       max_users,
-      billing_email,
       notes,
       admin_email,
       admin_password,
@@ -72,7 +71,6 @@ class TenantsController extends BaseController {
         region: region || null,
         allowed_modules: allowed_modules || [],
         max_users: max_users || 5,
-        billing_email: billing_email || null,
         notes: notes || null,
         created_by: req.user?.id || null,
       });

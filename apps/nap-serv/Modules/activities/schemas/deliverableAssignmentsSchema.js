@@ -36,6 +36,12 @@ const deliverableAssignmentsSchema = {
         references: { table: 'projects', columns: ['id'] },
         onDelete: 'CASCADE',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['employee_id'],
+        references: { table: 'employees', columns: ['id'] },
+        onDelete: 'SET NULL',
+      },
     ],
     indexes: [
       { type: 'Index', columns: ['deliverable_id'] },

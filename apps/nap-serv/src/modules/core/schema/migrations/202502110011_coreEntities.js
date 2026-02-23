@@ -2,7 +2,7 @@
  * @file Migration: create core entity tables in tenant schemas
  * @module core/schema/migrations/202502110011_coreEntities
  *
- * Creates: sources, vendors, clients, employees, contacts, addresses, inter_companies
+ * Creates: sources, vendors, clients, employees, contacts, addresses, phone_numbers, inter_companies
  *
  * These tables are FK-ordered via orderModels (sources first, then entities
  * that reference it, then contacts/addresses that reference sources).
@@ -21,6 +21,7 @@ const ENTITY_TABLES = new Set([
   'employees',
   'contacts',
   'addresses',
+  'phone_numbers',
   'inter_companies',
 ]);
 

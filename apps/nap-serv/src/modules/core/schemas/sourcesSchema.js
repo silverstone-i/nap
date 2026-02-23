@@ -2,8 +2,8 @@
  * @file Schema definition for tenant-scope sources table (polymorphic link)
  * @module core/schemas/sourcesSchema
  *
- * Discriminated union linking vendors, clients, and employees to shared
- * contacts and addresses via source_type + table_id.
+ * Discriminated union linking vendors, clients, employees, and contacts
+ * to shared addresses and phone numbers via source_type + table_id.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -26,7 +26,7 @@ const sourcesSchema = {
     primaryKey: ['id'],
     unique: [['table_id', 'source_type']],
     checks: [
-      { type: 'Check', columns: ['source_type'], expression: "source_type IN ('vendor', 'client', 'employee')" },
+      { type: 'Check', columns: ['source_type'], expression: "source_type IN ('vendor', 'client', 'employee', 'contact')" },
     ],
     indexes: [
       { type: 'Index', columns: ['table_id', 'source_type'] },

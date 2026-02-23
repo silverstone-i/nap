@@ -3,13 +3,15 @@
  * @module ap/controllers/apCreditMemosController
  *
  * Status workflow: open → applied → voided
- * Applied credit memos reduce the linked invoice's balance_due.
+ * Applied credit memos reduce the linked invoice's remaining balance.
+ * When remaining balance reaches zero, invoice auto-transitions to 'paid'.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../src/lib/BaseController.js';
 import db from '../../../src/db/db.js';
+import { computeRemainingBalance } from './paymentsController.js';
 import logger from '../../../src/lib/logger.js';
 
 const VALID_TRANSITIONS = {
@@ -47,23 +49,42 @@ class ApCreditMemosController extends BaseController {
           }
 
           if (req.body.status === 'applied' && current.ap_invoice_id) {
-            const creditAmount = parseFloat(current.amount) || 0;
-            const invoice = await db('apInvoices', schema).findById(current.ap_invoice_id);
-            if (invoice) {
-              const newBalance = Math.max(0, parseFloat(invoice.balance_due) - creditAmount);
-              await db.none(
-                `UPDATE ${schema}.ap_invoices SET balance_due = $1 WHERE id = $2`,
-                [newBalance, current.ap_invoice_id],
-              );
-              logger.info(`Credit memo ${id} applied — reduced invoice ${current.ap_invoice_id} balance by ${creditAmount}`);
-            }
+            logger.info(`Credit memo ${id} applied to invoice ${current.ap_invoice_id}`);
+
+            // Check if invoice is now fully paid after this credit is applied
+            // (the credit memo record is already updated by super.update below,
+            //  so we compute after the base update)
           }
         }
       } catch (err) {
         return this.handleError(err, res, 'validating status for', this.errorLabel);
       }
     }
-    return super.update(req, res);
+
+    const result = await super.update(req, res);
+
+    // After update: check if the linked invoice is now fully paid
+    if (req.body.status === 'applied' && res.statusCode === 200) {
+      try {
+        const schema = this.getSchema(req);
+        const id = req.query.id;
+        const current = await this.model(schema).findById(id);
+        if (current?.ap_invoice_id) {
+          const remaining = await computeRemainingBalance(schema, current.ap_invoice_id);
+          if (remaining <= 0) {
+            await db.none(
+              `UPDATE ${schema}.ap_invoices SET status = 'paid' WHERE id = $1`,
+              [current.ap_invoice_id],
+            );
+            logger.info(`AP Invoice ${current.ap_invoice_id} fully paid after credit memo ${id}`);
+          }
+        }
+      } catch (err) {
+        logger.error(`Failed to check invoice balance after credit memo: ${err.message}`);
+      }
+    }
+
+    return result;
   }
 }
 

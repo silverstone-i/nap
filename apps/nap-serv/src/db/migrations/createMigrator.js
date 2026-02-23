@@ -8,6 +8,7 @@
 import crypto from 'node:crypto';
 import { DB } from 'pg-schemata';
 import { sortMigrations } from './defineMigration.js';
+import { resolveModuleOrder } from './modelPlanner.js';
 
 const TENANT_PLACEHOLDER = /tenantid/i;
 const HISTORY_SCHEMA = 'pgschemata';
@@ -95,7 +96,7 @@ export function createMigrator({ modules = {}, logger = null } = {}) {
       throw new TypeError('migrator.run requires a target schema string');
     }
 
-    const selectedModuleNames = (moduleSubset?.length ? moduleSubset : Object.keys(modules)).filter(Boolean);
+    const requestedNames = new Set((moduleSubset?.length ? moduleSubset : Object.keys(modules)).filter(Boolean));
     const results = [];
 
     await DB.db.tx(async (t) => {
@@ -106,6 +107,10 @@ export function createMigrator({ modules = {}, logger = null } = {}) {
 
       await ensureHistoryTable(t);
       await ensureExtensions(t, ['pgcrypto', 'uuid-ossp']);
+
+      // Resolve module execution order from FK dependencies
+      const sortedAll = resolveModuleOrder(modules, schema, t, DB.pgp, logger);
+      const selectedModuleNames = sortedAll.filter((name) => requestedNames.has(name));
 
       for (const moduleName of selectedModuleNames) {
         const moduleDef = modules[moduleName];

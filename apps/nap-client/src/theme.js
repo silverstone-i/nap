@@ -48,7 +48,7 @@ const commonOptions = {
       },
     },
     MuiCard: {
-      defaultProps: { elevation: 1 },
+      defaultProps: { elevation: 0 },
       styleOverrides: { root: { borderRadius: 8 } },
     },
     MuiButton: {

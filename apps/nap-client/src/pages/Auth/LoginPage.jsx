@@ -99,6 +99,7 @@ export default function LoginPage() {
               fullWidth
               required
               inputRef={emailRef}
+              autoFocus
               autoComplete="email"
               margin="normal"
               size="small"
