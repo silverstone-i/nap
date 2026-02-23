@@ -23,6 +23,9 @@ const employeesSchema = {
     { name: 'department', type: 'varchar(64)' },
     { name: 'email', type: 'varchar(128)', default: null },
     { name: 'is_app_user', type: 'boolean', notNull: true, default: false },
+    { name: 'roles', type: 'text[]', notNull: true, default: '{}' },
+    { name: 'is_primary_contact', type: 'boolean', notNull: true, default: false },
+    { name: 'is_billing_contact', type: 'boolean', notNull: true, default: false },
     { name: 'is_active', type: 'boolean', notNull: true, default: true },
   ],
   constraints: {

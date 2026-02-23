@@ -1,8 +1,13 @@
 /**
- * @file Bootstrap admin schema — creates tables and seeds root tenant + super user
+ * @file Bootstrap admin schema and NapSoft tenant — creates tables and seeds root tenant + super user
  * @module nap-serv/scripts/setupAdmin
  *
  * Usage: npm -w apps/nap-serv run setupAdmin:dev
+ *
+ * Steps:
+ *   1. Creates admin schema + runs admin-scope migrations (tenants, nap_users, etc.)
+ *   2. Provisions the NapSoft tenant schema (CREATE SCHEMA + tenant-scope migrations + RBAC)
+ *   3. Seeds the root super user employee in the NapSoft tenant schema and links it to admin.nap_users
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -42,75 +47,101 @@ async function main() {
   await db.none('CREATE SCHEMA IF NOT EXISTS admin');
   logger.info('Admin schema ensured.');
 
-  // Create pgschemata schema for migration tracking
+  // ── Migrate old-format migration history table if present ──────────
+  // Previous setupAdmin used PK (id, schema_name); createMigrator uses
+  // PK (schema_name, module_name, migration_id). Detect and drop the old
+  // table so the migrator can recreate it with the correct structure.
   await db.none('CREATE SCHEMA IF NOT EXISTS pgschemata');
-  logger.info('pgschemata schema ensured.');
-
-  // Run admin-scope migrations
-  const { default: moduleRegistry } = await import('../src/db/moduleRegistry.js');
-
-  const adminModules = moduleRegistry.filter((m) => m.scope === 'admin' || m.scope === 'shared');
-  const allMigrations = adminModules.flatMap((m) => m.migrations || []);
-
-  if (!allMigrations.length) {
-    logger.info('No admin migrations to run.');
-    await db.$pool.end();
-    return;
-  }
-
-  // Ensure migration history table exists
-  await db.none(`
-    CREATE TABLE IF NOT EXISTS pgschemata.migrations (
-      id TEXT NOT NULL,
-      schema_name TEXT NOT NULL,
-      description TEXT,
-      checksum TEXT NOT NULL,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      PRIMARY KEY (id, schema_name)
-    )
+  const hasOldFormat = await db.oneOrNone(`
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'pgschemata' AND table_name = 'migrations' AND column_name = 'id'
+      AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'pgschemata' AND table_name = 'migrations' AND column_name = 'module_name'
+      )
   `);
-
-  // Check which migrations have already been applied
-  const applied = await db.manyOrNone(
-    "SELECT id FROM pgschemata.migrations WHERE schema_name = 'admin'",
-  );
-  const appliedIds = new Set(applied.map((r) => r.id));
-
-  // Instantiate models for the admin schema
-  const models = {};
-  for (const mod of adminModules) {
-    for (const [key, ModelClass] of Object.entries(mod.repositories)) {
-      models[key] = new ModelClass(db, DB.pgp, logger);
-    }
+  if (hasOldFormat) {
+    logger.info('Detected old-format migration history table — dropping for recreation...');
+    await db.none('DROP TABLE IF EXISTS pgschemata.migrations');
   }
 
-  // Run pending migrations
-  for (const migration of allMigrations) {
-    if (appliedIds.has(migration.id)) {
-      logger.info(`Migration ${migration.id} already applied, skipping.`);
-      continue;
+  // ── Run admin-scope migrations via migrator ────────────────────────
+  const { default: migrator } = await import('../src/db/migrations/index.js');
+  const { adminModules: adminModuleNames } = await import('../src/db/migrations/moduleScopes.js');
+
+  const adminResult = await migrator.run({
+    schema: 'admin',
+    modules: adminModuleNames,
+    dryRun: false,
+    advisoryLock: 424242,
+  });
+
+  for (const mod of adminResult.modules) {
+    if (mod.applied > 0) {
+      logger.info(`Admin migration module "${mod.module}": ${mod.applied} migration(s) applied`);
     }
+  }
+  logger.info('Admin migrations complete.');
 
-    logger.info(`Running migration: ${migration.id} — ${migration.description}`);
+  // ── Provision NapSoft tenant schema ────────────────────────────────
+  const rootTenantCode = process.env.ROOT_TENANT_CODE || process.env.NAPSOFT_TENANT || 'NAP';
+  const tenantSchema = rootTenantCode.toLowerCase();
 
-    await migration.up({
-      schema: 'admin',
-      models,
-      db,
-      ensureExtensions: async (exts) => {
-        for (const ext of exts) {
-          await db.none(`CREATE EXTENSION IF NOT EXISTS "${ext}" CASCADE`);
-        }
-      },
-    });
+  logger.info(`Provisioning NapSoft tenant schema "${tenantSchema}"...`);
 
-    await db.none(
-      `INSERT INTO pgschemata.migrations (id, schema_name, description, checksum)
-       VALUES ($1, 'admin', $2, $3)`,
-      [migration.id, migration.description, migration.checksum],
+  const { provisionTenant } = await import('../src/services/tenantProvisioning.js');
+  await provisionTenant({ schemaName: tenantSchema, tenantCode: rootTenantCode });
+
+  logger.info(`NapSoft tenant schema "${tenantSchema}" provisioned.`);
+
+  // ── Link root super user to an employee record ──────────────
+  const rootEmail = process.env.ROOT_EMAIL;
+  if (rootEmail) {
+    const superUser = await db.oneOrNone(
+      'SELECT id, entity_type FROM admin.nap_users WHERE email = $1 AND deactivated_at IS NULL',
+      [rootEmail],
     );
 
-    logger.info(`Migration ${migration.id} applied successfully.`);
+    if (superUser && !superUser.entity_type) {
+      logger.info('Linking root super user to employee record...');
+
+      const tenant = await db.oneOrNone('SELECT id FROM admin.tenants WHERE tenant_code = $1', [rootTenantCode]);
+
+      if (tenant) {
+        const s = DB.pgp.as.name(tenantSchema);
+
+        // 1. Insert employee with super_user role
+        const employee = await db.one(
+          `INSERT INTO ${s}.employees
+             (tenant_id, first_name, last_name, email, is_app_user, roles, is_primary_contact, is_active)
+           VALUES ($1, 'System', 'Administrator', $2, true, '{super_user}', true, true)
+           RETURNING id`,
+          [tenant.id, rootEmail],
+        );
+
+        // 2. Create polymorphic source record
+        const source = await db.one(
+          `INSERT INTO ${s}.sources (tenant_id, table_id, source_type, label)
+           VALUES ($1, $2, 'employee', 'System Administrator')
+           RETURNING id`,
+          [tenant.id, employee.id],
+        );
+
+        // 3. Link source back to employee
+        await db.none(`UPDATE ${s}.employees SET source_id = $1 WHERE id = $2`, [source.id, employee.id]);
+
+        // 4. Link nap_user to employee
+        await db.none("UPDATE admin.nap_users SET entity_type = 'employee', entity_id = $1 WHERE id = $2", [
+          employee.id,
+          superUser.id,
+        ]);
+
+        logger.info(`Root super user linked to employee ${employee.id}`);
+      }
+    } else if (superUser?.entity_type) {
+      logger.info('Root super user already linked to entity, skipping.');
+    }
   }
 
   logger.info('Admin setup complete.');

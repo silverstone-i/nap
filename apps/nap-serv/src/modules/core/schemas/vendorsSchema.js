@@ -21,6 +21,8 @@ const vendorsSchema = {
     { name: 'tax_id', type: 'varchar(32)' },
     { name: 'payment_terms', type: 'varchar(32)' },
     { name: 'is_active', type: 'boolean', notNull: true, default: true },
+    { name: 'roles', type: 'text[]', notNull: true, default: '{}' },
+    { name: 'is_app_user', type: 'boolean', notNull: true, default: false },
     { name: 'notes', type: 'text' },
   ],
   constraints: {

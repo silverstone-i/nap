@@ -4,7 +4,8 @@
  *
  * Creates admin schema tables (tenants, nap_users, impersonation_logs,
  * match_review_logs). Seeds the NapSoft root tenant and a bootstrap
- * super user (entity link is null until employees table exists in Phase 4+).
+ * super user. The entity link (entity_type, entity_id) is set by
+ * setupAdmin.js after tenant provisioning creates the employees table.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */

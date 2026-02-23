@@ -11,6 +11,7 @@ import { Router } from 'express';
 import authRouter from './modules/auth/apiRoutes/v1/authRouter.js';
 import tenantsApiRoutes from './modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
 import coreApiRoutes from './modules/core/apiRoutes/v1/coreApiRoutes.js';
+import projectsApiRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.js';
 
 const router = Router();
 
@@ -22,5 +23,8 @@ router.use('/tenants', tenantsApiRoutes);
 
 // Core entity routes (tenant-scope: vendors, clients, employees, contacts, etc.)
 router.use('/core', coreApiRoutes);
+
+// Projects module routes (tenant-scope: projects, units, tasks, cost-items, etc.)
+router.use('/projects', projectsApiRoutes);
 
 export default router;

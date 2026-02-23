@@ -25,6 +25,9 @@ const contactsSchema = {
     { name: 'fax', type: 'varchar(32)' },
     { name: 'position', type: 'varchar(64)' },
     { name: 'is_primary', type: 'boolean', notNull: true, default: false },
+    { name: 'roles', type: 'text[]', notNull: true, default: '{}' },
+    { name: 'is_app_user', type: 'boolean', notNull: true, default: false },
+    { name: 'is_active', type: 'boolean', notNull: true, default: true },
   ],
   constraints: {
     primaryKey: ['id'],
