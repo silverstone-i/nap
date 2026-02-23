@@ -18,6 +18,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import InventoryIcon from '@mui/icons-material/Inventory';
 import PeopleIcon from '@mui/icons-material/People';
 
 export const NAV_ITEMS = [
@@ -97,6 +98,14 @@ export const NAV_ITEMS = [
       { label: 'Margin Analysis', path: '/reports/margin-analysis', capability: 'reports::' },
       { label: 'P&L', path: '/reports/pnl', capability: 'reports::' },
       { label: 'Balance Sheet', path: '/reports/balance-sheet', capability: 'reports::' },
+    ],
+  },
+  {
+    label: 'BOM',
+    icon: InventoryIcon,
+    children: [
+      { label: 'Catalog SKUs', path: '/bom/catalog', capability: 'bom::catalog-skus' },
+      { label: 'Vendor SKU Matching', path: '/bom/vendor-matching', capability: 'bom::vendor-skus' },
     ],
   },
   {

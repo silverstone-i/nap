@@ -17,6 +17,8 @@ import projectsRepositories from '../../Modules/projects/projectsRepositories.js
 import projectsMigrations from '../../Modules/projects/schema/migrations/index.js';
 import activitiesRepositories from '../../Modules/activities/activitiesRepositories.js';
 import activitiesMigrations from '../../Modules/activities/schema/migrations/index.js';
+import bomRepositories from '../../Modules/bom/bomRepositories.js';
+import bomMigrations from '../../Modules/bom/schema/migrations/index.js';
 
 const moduleRegistry = [
   {
@@ -42,6 +44,12 @@ const moduleRegistry = [
     scope: 'tenant',
     repositories: activitiesRepositories,
     migrations: activitiesMigrations,
+  },
+  {
+    name: 'bom',
+    scope: 'tenant',
+    repositories: bomRepositories,
+    migrations: bomMigrations,
   },
 ];
 

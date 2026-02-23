@@ -24,6 +24,8 @@ import ChangeOrdersPage from './pages/Projects/ChangeOrdersPage.jsx';
 import DeliverablesPage from './pages/Activities/DeliverablesPage.jsx';
 import BudgetManagementPage from './pages/Activities/BudgetManagementPage.jsx';
 import CostTrackingPage from './pages/Activities/CostTrackingPage.jsx';
+import CatalogPage from './pages/BOM/CatalogPage.jsx';
+import VendorSkuMatchingPage from './pages/BOM/VendorSkuMatchingPage.jsx';
 
 export default function App() {
   return (
@@ -53,6 +55,10 @@ export default function App() {
           <Route path="/deliverables" element={<DeliverablesPage />} />
           <Route path="/budgets" element={<BudgetManagementPage />} />
           <Route path="/actual-costs" element={<CostTrackingPage />} />
+
+          {/* BOM routes */}
+          <Route path="/bom/catalog" element={<CatalogPage />} />
+          <Route path="/bom/vendor-matching" element={<VendorSkuMatchingPage />} />
 
           {/* Default redirect */}
           <Route index element={<Navigate to="/dashboard" replace />} />

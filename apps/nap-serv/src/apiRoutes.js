@@ -13,6 +13,7 @@ import tenantsApiRoutes from './modules/tenants/apiRoutes/v1/tenantsApiRoutes.js
 import coreApiRoutes from './modules/core/apiRoutes/v1/coreApiRoutes.js';
 import projectsApiRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.js';
 import activitiesApiRoutes from '../Modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
+import bomApiRoutes from '../Modules/bom/apiRoutes/v1/bomApiRoutes.js';
 
 const router = Router();
 
@@ -30,5 +31,8 @@ router.use('/projects', projectsApiRoutes);
 
 // Activities module routes (tenant-scope: categories, activities, deliverables, budgets, etc.)
 router.use('/activities', activitiesApiRoutes);
+
+// BOM module routes (tenant-scope: catalog-skus, vendor-skus, vendor-pricing)
+router.use('/bom', bomApiRoutes);
 
 export default router;
