@@ -14,6 +14,9 @@ import coreApiRoutes from './modules/core/apiRoutes/v1/coreApiRoutes.js';
 import projectsApiRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.js';
 import activitiesApiRoutes from '../Modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
 import bomApiRoutes from '../Modules/bom/apiRoutes/v1/bomApiRoutes.js';
+import apApiRoutes from '../Modules/ap/apiRoutes/v1/apApiRoutes.js';
+import arApiRoutes from '../Modules/ar/apiRoutes/v1/arApiRoutes.js';
+import accountingApiRoutes from '../Modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
 
 const router = Router();
 
@@ -34,5 +37,14 @@ router.use('/activities', activitiesApiRoutes);
 
 // BOM module routes (tenant-scope: catalog-skus, vendor-skus, vendor-pricing)
 router.use('/bom', bomApiRoutes);
+
+// AP module routes (tenant-scope: ap-invoices, ap-invoice-lines, payments, ap-credit-memos)
+router.use('/ap', apApiRoutes);
+
+// AR module routes (tenant-scope: ar-invoices, ar-invoice-lines, receipts)
+router.use('/ar', arApiRoutes);
+
+// Accounting module routes (tenant-scope: chart-of-accounts, journal-entries, ledger-balances, etc.)
+router.use('/accounting', accountingApiRoutes);
 
 export default router;

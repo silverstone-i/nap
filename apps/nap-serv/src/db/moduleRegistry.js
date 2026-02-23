@@ -19,6 +19,12 @@ import activitiesRepositories from '../../Modules/activities/activitiesRepositor
 import activitiesMigrations from '../../Modules/activities/schema/migrations/index.js';
 import bomRepositories from '../../Modules/bom/bomRepositories.js';
 import bomMigrations from '../../Modules/bom/schema/migrations/index.js';
+import apRepositories from '../../Modules/ap/apRepositories.js';
+import apMigrations from '../../Modules/ap/schema/migrations/index.js';
+import arRepositories from '../../Modules/ar/arRepositories.js';
+import arMigrations from '../../Modules/ar/schema/migrations/index.js';
+import accountingRepositories from '../../Modules/accounting/accountingRepositories.js';
+import accountingMigrations from '../../Modules/accounting/schema/migrations/index.js';
 
 const moduleRegistry = [
   {
@@ -50,6 +56,24 @@ const moduleRegistry = [
     scope: 'tenant',
     repositories: bomRepositories,
     migrations: bomMigrations,
+  },
+  {
+    name: 'ap',
+    scope: 'tenant',
+    repositories: apRepositories,
+    migrations: apMigrations,
+  },
+  {
+    name: 'ar',
+    scope: 'tenant',
+    repositories: arRepositories,
+    migrations: arMigrations,
+  },
+  {
+    name: 'accounting',
+    scope: 'tenant',
+    repositories: accountingRepositories,
+    migrations: accountingMigrations,
   },
 ];
 

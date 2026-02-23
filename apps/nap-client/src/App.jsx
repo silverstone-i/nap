@@ -26,6 +26,14 @@ import BudgetManagementPage from './pages/Activities/BudgetManagementPage.jsx';
 import CostTrackingPage from './pages/Activities/CostTrackingPage.jsx';
 import CatalogPage from './pages/BOM/CatalogPage.jsx';
 import VendorSkuMatchingPage from './pages/BOM/VendorSkuMatchingPage.jsx';
+import ApInvoicesPage from './pages/AP/ApInvoicesPage.jsx';
+import PaymentsPage from './pages/AP/PaymentsPage.jsx';
+import CreditMemosPage from './pages/AP/CreditMemosPage.jsx';
+import ArInvoicesPage from './pages/AR/ArInvoicesPage.jsx';
+import ReceiptsPage from './pages/AR/ReceiptsPage.jsx';
+import ChartOfAccountsPage from './pages/Accounting/ChartOfAccountsPage.jsx';
+import JournalEntriesPage from './pages/Accounting/JournalEntriesPage.jsx';
+import LedgerPage from './pages/Accounting/LedgerPage.jsx';
 
 export default function App() {
   return (
@@ -59,6 +67,22 @@ export default function App() {
           {/* BOM routes */}
           <Route path="/bom/catalog" element={<CatalogPage />} />
           <Route path="/bom/vendor-matching" element={<VendorSkuMatchingPage />} />
+
+          {/* AP routes */}
+          <Route path="/ap/invoices" element={<ApInvoicesPage />} />
+          <Route path="/ap/payments" element={<PaymentsPage />} />
+          <Route path="/ap/credit-memos" element={<CreditMemosPage />} />
+          <Route path="/ap/vendors" element={<Navigate to="/core/vendors" replace />} />
+
+          {/* AR routes */}
+          <Route path="/ar/invoices" element={<ArInvoicesPage />} />
+          <Route path="/ar/receipts" element={<ReceiptsPage />} />
+          <Route path="/ar/clients" element={<Navigate to="/core/clients" replace />} />
+
+          {/* Accounting routes */}
+          <Route path="/accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
+          <Route path="/accounting/journal-entries" element={<JournalEntriesPage />} />
+          <Route path="/accounting/ledger" element={<LedgerPage />} />
 
           {/* Default redirect */}
           <Route index element={<Navigate to="/dashboard" replace />} />
