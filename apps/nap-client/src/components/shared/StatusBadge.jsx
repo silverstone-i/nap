@@ -21,9 +21,17 @@ const COLOR_MAP = {
   locked: 'error',
   /* project status */
   planning: 'info',
+  budgeting: 'info',
+  released: 'success',
   on_hold: 'warning',
   completed: 'success',
+  complete: 'success',
+  finished: 'success',
   cancelled: 'default',
+  canceled: 'default',
+  in_progress: 'info',
+  /* cost line status */
+  change_order: 'info',
   /* invoice / memo / document status */
   draft: 'default',
   submitted: 'info',

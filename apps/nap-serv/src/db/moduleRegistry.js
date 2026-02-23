@@ -15,6 +15,8 @@ import coreRepositories from '../modules/core/coreRepositories.js';
 import coreMigrations from '../modules/core/schema/migrations/index.js';
 import projectsRepositories from '../../Modules/projects/projectsRepositories.js';
 import projectsMigrations from '../../Modules/projects/schema/migrations/index.js';
+import activitiesRepositories from '../../Modules/activities/activitiesRepositories.js';
+import activitiesMigrations from '../../Modules/activities/schema/migrations/index.js';
 
 const moduleRegistry = [
   {
@@ -34,6 +36,12 @@ const moduleRegistry = [
     scope: 'tenant',
     repositories: projectsRepositories,
     migrations: projectsMigrations,
+  },
+  {
+    name: 'activities',
+    scope: 'tenant',
+    repositories: activitiesRepositories,
+    migrations: activitiesMigrations,
   },
 ];
 

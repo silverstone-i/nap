@@ -21,6 +21,9 @@ import ContactsPage from './pages/Core/ContactsPage.jsx';
 import ProjectsPage from './pages/Projects/ProjectsPage.jsx';
 import ProjectDetailPage from './pages/Projects/ProjectDetailPage.jsx';
 import ChangeOrdersPage from './pages/Projects/ChangeOrdersPage.jsx';
+import DeliverablesPage from './pages/Activities/DeliverablesPage.jsx';
+import BudgetManagementPage from './pages/Activities/BudgetManagementPage.jsx';
+import CostTrackingPage from './pages/Activities/CostTrackingPage.jsx';
 
 export default function App() {
   return (
@@ -45,6 +48,11 @@ export default function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/change-orders" element={<ChangeOrdersPage />} />
+
+          {/* Activities & cost management routes */}
+          <Route path="/deliverables" element={<DeliverablesPage />} />
+          <Route path="/budgets" element={<BudgetManagementPage />} />
+          <Route path="/actual-costs" element={<CostTrackingPage />} />
 
           {/* Default redirect */}
           <Route index element={<Navigate to="/dashboard" replace />} />

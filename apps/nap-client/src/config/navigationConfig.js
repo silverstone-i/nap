@@ -41,12 +41,15 @@ export const NAV_ITEMS = [
   {
     label: 'Budgets',
     icon: AccountBalanceWalletIcon,
-    children: [{ label: 'Budget Management', path: '/budgets', capability: 'budgets::' }],
+    children: [
+      { label: 'Deliverables', path: '/deliverables', capability: 'activities::deliverables' },
+      { label: 'Budget Management', path: '/budgets', capability: 'activities::budgets' },
+    ],
   },
   {
     label: 'Actual Costs',
     icon: ReceiptLongIcon,
-    children: [{ label: 'Cost Tracking', path: '/actual-costs', capability: 'actual-costs::' }],
+    children: [{ label: 'Cost Tracking', path: '/actual-costs', capability: 'activities::actual-costs' }],
   },
   {
     label: 'Change Orders',

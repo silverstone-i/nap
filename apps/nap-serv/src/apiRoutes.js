@@ -12,6 +12,7 @@ import authRouter from './modules/auth/apiRoutes/v1/authRouter.js';
 import tenantsApiRoutes from './modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
 import coreApiRoutes from './modules/core/apiRoutes/v1/coreApiRoutes.js';
 import projectsApiRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.js';
+import activitiesApiRoutes from '../Modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
 
 const router = Router();
 
@@ -26,5 +27,8 @@ router.use('/core', coreApiRoutes);
 
 // Projects module routes (tenant-scope: projects, units, tasks, cost-items, etc.)
 router.use('/projects', projectsApiRoutes);
+
+// Activities module routes (tenant-scope: categories, activities, deliverables, budgets, etc.)
+router.use('/activities', activitiesApiRoutes);
 
 export default router;
