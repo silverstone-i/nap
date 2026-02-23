@@ -16,7 +16,17 @@ import FieldGroupGrants from './models/FieldGroupGrants.js';
 import ProjectMembers from './models/ProjectMembers.js';
 import CompanyMembers from './models/CompanyMembers.js';
 
+// Phase 5 — Core entity tables
+import Sources from './models/Sources.js';
+import Vendors from './models/Vendors.js';
+import Clients from './models/Clients.js';
+import Employees from './models/Employees.js';
+import Contacts from './models/Contacts.js';
+import Addresses from './models/Addresses.js';
+import InterCompanies from './models/InterCompanies.js';
+
 const repositories = {
+  // RBAC (Phase 3)
   roles: Roles,
   policies: Policies,
   policyCatalog: PolicyCatalog,
@@ -25,6 +35,15 @@ const repositories = {
   fieldGroupGrants: FieldGroupGrants,
   projectMembers: ProjectMembers,
   companyMembers: CompanyMembers,
+
+  // Core entities (Phase 5)
+  sources: Sources,
+  vendors: Vendors,
+  clients: Clients,
+  employees: Employees,
+  contacts: Contacts,
+  addresses: Addresses,
+  interCompanies: InterCompanies,
 };
 
 export default repositories;

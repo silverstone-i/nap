@@ -6,5 +6,6 @@
  */
 
 import coreRbac from './202502110010_coreRbac.js';
+import coreEntities from './202502110011_coreEntities.js';
 
-export default [coreRbac];
+export default [coreRbac, coreEntities];

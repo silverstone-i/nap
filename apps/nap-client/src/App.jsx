@@ -14,6 +14,10 @@ import LoginPage from './pages/Auth/LoginPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ManageTenantsPage from './pages/Tenant/ManageTenantsPage.jsx';
 import ManageUsersPage from './pages/Tenant/ManageUsersPage.jsx';
+import VendorsPage from './pages/Core/VendorsPage.jsx';
+import ClientsPage from './pages/Core/ClientsPage.jsx';
+import EmployeesPage from './pages/Core/EmployeesPage.jsx';
+import ContactsPage from './pages/Core/ContactsPage.jsx';
 
 export default function App() {
   return (
@@ -27,6 +31,12 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/tenant/manage-tenants" element={<ManageTenantsPage />} />
           <Route path="/tenant/manage-users" element={<ManageUsersPage />} />
+
+          {/* Core entity routes */}
+          <Route path="/core/vendors" element={<VendorsPage />} />
+          <Route path="/core/clients" element={<ClientsPage />} />
+          <Route path="/core/employees" element={<EmployeesPage />} />
+          <Route path="/core/contacts" element={<ContactsPage />} />
 
           {/* Default redirect */}
           <Route index element={<Navigate to="/dashboard" replace />} />

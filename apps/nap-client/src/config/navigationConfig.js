@@ -18,6 +18,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import PeopleIcon from '@mui/icons-material/People';
 
 export const NAV_ITEMS = [
   {
@@ -96,10 +97,19 @@ export const NAV_ITEMS = [
     ],
   },
   {
+    label: 'Core Data',
+    icon: PeopleIcon,
+    children: [
+      { label: 'Vendors', path: '/core/vendors', capability: 'core::vendors' },
+      { label: 'Clients', path: '/core/clients', capability: 'core::clients' },
+      { label: 'Employees', path: '/core/employees', capability: 'core::employees' },
+      { label: 'Contacts', path: '/core/contacts', capability: 'core::contacts' },
+    ],
+  },
+  {
     label: 'Admin',
     icon: AdminPanelSettingsIcon,
     children: [
-      { label: 'Manage Employees', path: '/tenant/manage-employees', capability: 'core::employees' },
       { label: 'Roles', path: '/tenant/manage-roles', capability: 'core::roles' },
       {
         label: 'Tenants',

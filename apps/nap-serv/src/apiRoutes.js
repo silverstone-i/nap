@@ -10,6 +10,7 @@
 import { Router } from 'express';
 import authRouter from './modules/auth/apiRoutes/v1/authRouter.js';
 import tenantsApiRoutes from './modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
+import coreApiRoutes from './modules/core/apiRoutes/v1/coreApiRoutes.js';
 
 const router = Router();
 
@@ -18,5 +19,8 @@ router.use('/auth', authRouter);
 
 // Tenant management routes (NapSoft-only: tenants, nap-users, admin operations)
 router.use('/tenants', tenantsApiRoutes);
+
+// Core entity routes (tenant-scope: vendors, clients, employees, contacts, etc.)
+router.use('/core', coreApiRoutes);
 
 export default router;
