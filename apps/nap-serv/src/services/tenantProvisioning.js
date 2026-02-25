@@ -17,6 +17,7 @@ import migrator from '../db/migrations/index.js';
 import { tenantModules } from '../db/migrations/moduleScopes.js';
 import { seedSystemRoles } from '../modules/core/services/systemRoleSeeder.js';
 import { seedPolicyCatalog } from '../modules/core/services/policyCatalogSeeder.js';
+import { seedNumberingConfig } from '../modules/core/services/numberingConfigSeeder.js';
 import logger from '../lib/logger.js';
 
 const NAPSOFT_TENANT = (process.env.NAPSOFT_TENANT || 'NAP').toUpperCase();
@@ -82,6 +83,16 @@ export async function provisionTenant({ schemaName, tenantCode, createdBy: _crea
     await seedPolicyCatalog(DB.db, DB.pgp, normalized);
   } catch (err) {
     logger.warn(`Policy catalog seeding failed for "${normalized}":`, err?.message || err);
+  }
+
+  // 6. Seed default numbering configuration (all disabled — opt-in)
+  try {
+    const tenant = await DB.db.oneOrNone('SELECT id FROM admin.tenants WHERE schema_name = $1', [normalized]);
+    if (tenant) {
+      await seedNumberingConfig(DB.db, DB.pgp, normalized, tenant.id);
+    }
+  } catch (err) {
+    logger.warn(`Numbering config seeding failed for "${normalized}":`, err?.message || err);
   }
 
   return result;

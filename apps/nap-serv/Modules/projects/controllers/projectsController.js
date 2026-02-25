@@ -8,6 +8,8 @@
  */
 
 import BaseController from '../../../src/lib/BaseController.js';
+import db from '../../../src/db/db.js';
+import { allocateNumber } from '../../../src/modules/core/services/numberingService.js';
 
 const VALID_TRANSITIONS = {
   planning: ['budgeting'],
@@ -22,13 +24,42 @@ class ProjectsController extends BaseController {
   }
 
   /**
-   * POST / — inject tenant_id from auth session before creating.
+   * POST / — inject tenant_id from auth session, auto-number project_code if not provided.
    */
   async create(req, res) {
-    if (!req.body.tenant_id && req.user?.tenant_id) {
-      req.body.tenant_id = req.user.tenant_id;
+    try {
+      if (!req.body.tenant_id && req.user?.tenant_id) {
+        req.body.tenant_id = req.user.tenant_id;
+      }
+
+      const schema = this.getSchema(req);
+
+      const record = await db.tx(async (t) => {
+        const projectsModel = this.model(schema);
+        projectsModel.tx = t;
+
+        const project = await projectsModel.insert(req.body);
+
+        // Auto-assign project_code via numbering service (if enabled and code not provided)
+        if (!project.project_code) {
+          const numbering = await allocateNumber(schema, 'project', null, new Date(), t);
+          if (numbering) {
+            await t.none(`UPDATE ${schema}.projects SET project_code = $1 WHERE id = $2`, [
+              numbering.displayId,
+              project.id,
+            ]);
+            project.project_code = numbering.displayId;
+          }
+        }
+
+        return project;
+      });
+
+      res.status(201).json(record);
+    } catch (err) {
+      if (err.name === 'SchemaDefinitionError') err.message = 'Invalid input data';
+      this.handleError(err, res, 'creating', this.errorLabel);
     }
-    return super.create(req, res);
   }
 
   /**

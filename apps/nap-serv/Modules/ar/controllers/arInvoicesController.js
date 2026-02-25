@@ -10,6 +10,7 @@
 
 import BaseController from '../../../src/lib/BaseController.js';
 import { postARInvoice } from '../../accounting/services/postingService.js';
+import { allocateNumber } from '../../../src/modules/core/services/numberingService.js';
 import logger from '../../../src/lib/logger.js';
 
 const VALID_TRANSITIONS = {
@@ -48,6 +49,18 @@ class ArInvoicesController extends BaseController {
           }
 
           if (req.body.status === 'sent') {
+            // Auto-assign invoice_number on send (if enabled and not already set)
+            if (!current.invoice_number) {
+              try {
+                const numbering = await allocateNumber(schema, 'ar_invoice', current.legal_entity_id || null, new Date());
+                if (numbering) {
+                  req.body.invoice_number = numbering.displayId;
+                }
+              } catch (numErr) {
+                logger.error(`Numbering failed for AR Invoice ${id}: ${numErr.message}`);
+              }
+            }
+
             try {
               await postARInvoice(schema, current, {
                 arReceivableAccountId: req.body.ar_receivable_account_id || current.ar_receivable_account_id,

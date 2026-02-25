@@ -22,6 +22,7 @@ import fieldGroupDefinitionsRouter from './fieldGroupDefinitionsRouter.js';
 import fieldGroupGrantsRouter from './fieldGroupGrantsRouter.js';
 import projectMembersRouter from './projectMembersRouter.js';
 import companyMembersRouter from './companyMembersRouter.js';
+import numberingConfigRouter from './numberingConfigRouter.js';
 
 const router = Router();
 
@@ -41,5 +42,6 @@ router.use('/v1/field-group-definitions', fieldGroupDefinitionsRouter);
 router.use('/v1/field-group-grants', fieldGroupGrantsRouter);
 router.use('/v1/project-members', projectMembersRouter);
 router.use('/v1/company-members', companyMembersRouter);
+router.use('/v1/numbering-config', numberingConfigRouter);
 
 export default router;

@@ -25,6 +25,8 @@ import Contacts from './models/Contacts.js';
 import Addresses from './models/Addresses.js';
 import PhoneNumbers from './models/PhoneNumbers.js';
 import InterCompanies from './models/InterCompanies.js';
+import TenantNumberingConfig from './models/TenantNumberingConfig.js';
+import TenantNumberSequenceState from './models/TenantNumberSequenceState.js';
 
 const repositories = {
   // RBAC (Phase 3)
@@ -46,6 +48,10 @@ const repositories = {
   addresses: Addresses,
   phoneNumbers: PhoneNumbers,
   interCompanies: InterCompanies,
+
+  // Numbering system
+  tenantNumberingConfig: TenantNumberingConfig,
+  tenantNumberSequenceState: TenantNumberSequenceState,
 };
 
 export default repositories;

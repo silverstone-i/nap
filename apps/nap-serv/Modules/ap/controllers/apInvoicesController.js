@@ -10,6 +10,7 @@
 
 import BaseController from '../../../src/lib/BaseController.js';
 import { postAPInvoice } from '../../accounting/services/postingService.js';
+import { allocateNumber } from '../../../src/modules/core/services/numberingService.js';
 import logger from '../../../src/lib/logger.js';
 
 const VALID_TRANSITIONS = {
@@ -48,6 +49,18 @@ class ApInvoicesController extends BaseController {
           }
 
           if (req.body.status === 'approved') {
+            // Auto-assign invoice_number on approval (if enabled and not already set)
+            if (!current.invoice_number) {
+              try {
+                const numbering = await allocateNumber(schema, 'ap_invoice', current.legal_entity_id || null, new Date());
+                if (numbering) {
+                  req.body.invoice_number = numbering.displayId;
+                }
+              } catch (numErr) {
+                logger.error(`Numbering failed for AP Invoice ${id}: ${numErr.message}`);
+              }
+            }
+
             try {
               await postAPInvoice(schema, current, {
                 expenseAccountId: req.body.expense_account_id || current.expense_account_id,

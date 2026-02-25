@@ -38,6 +38,7 @@ const CATALOG_ENTRIES = [
   { module: 'core', router: 'field-group-grants', action: null, label: 'Field Group Grants', description: 'Layer 4 field group assignments to roles', sort_order: 240 },
   { module: 'core', router: 'project-members', action: null, label: 'Project Members', description: 'Layer 2 user-to-project assignments', sort_order: 250 },
   { module: 'core', router: 'company-members', action: null, label: 'Company Members', description: 'Layer 2 user-to-company assignments', sort_order: 260 },
+  { module: 'core', router: 'numbering-config', action: null, label: 'Numbering Config', description: 'Auto-numbering format configuration per entity type', sort_order: 270 },
 
   // ── Projects ────────────────────────────────────────────────────
   { module: 'projects', router: null, action: null, label: 'Projects Module', description: 'Project structure, tasks, cost items, and templates', sort_order: 300 },

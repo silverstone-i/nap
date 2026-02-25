@@ -1404,6 +1404,121 @@ These views are created in each tenant schema at provisioning time and updated v
 
 ---
 
+### 3.13 Tenant-Scoped Numbering System
+
+**Purpose:** Configurable, transaction-safe auto-numbering for all business entities. Separates internal PKs (UUIDs) from human-readable business identifiers. Supports per-tenant formatting, optional sub-scope (e.g., legal entity for invoices), and period-based counter reset.
+
+#### 3.13.1 Design Principles
+
+1. Database primary keys (UUID) are not business identifiers
+2. Business numbers are generated per tenant (never global)
+3. Invoice numbers are generated per legal entity (scope_type = `legal_entity`)
+4. Reset behavior is implemented using a `period_key`, not by restarting sequences
+5. Display formatting is independent of serial allocation logic
+6. Issued invoice numbers are immutable
+
+#### 3.13.2 Numbering Configuration
+
+**Data Model (`tenant_numbering_config`):**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | uuid | PK |
+| `tenant_id` | uuid | Not null, immutable |
+| `id_type` | varchar(32) | `employee`, `vendor`, `client`, `contact`, `ar_invoice`, `ap_invoice`, `project` |
+| `prefix` | varchar(16) | Display prefix (e.g., `EMP`, `INV`) |
+| `suffix` | varchar(16) | Display suffix |
+| `date_mode` | varchar(16) | `none`, `year`, `year_month`, `ymd` |
+| `reset_mode` | varchar(16) | `never`, `yearly`, `monthly`, `daily` |
+| `padding` | integer | Zero-pad width (e.g., 4 → `0001`) |
+| `separator` | varchar(4) | Joins display parts (e.g., `-`) |
+| `uppercase` | boolean | Apply uppercase to final display ID |
+| `scope_type` | varchar(32) | `none`, `legal_entity`, `company`, `project` |
+| `is_enabled` | boolean | Enables auto-numbering for this entity type |
+
+**Unique Constraint:** `(tenant_id, id_type)` — one config row per entity type per tenant.
+
+Changing configuration affects future numbers only. Historical numbers are never rewritten.
+
+#### 3.13.3 Sequence State (Counter Storage)
+
+**Data Model (`tenant_number_sequence_state`):**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | uuid | PK |
+| `tenant_id` | uuid | Not null, immutable |
+| `id_type` | varchar(32) | Entity type |
+| `scope_id` | uuid | Scope entity UUID, or NIL UUID for global scope |
+| `period_key` | varchar(16) | Derived from `reset_mode`: `never` → `global`, `yearly` → `YYYY`, `monthly` → `YYYY-MM`, `daily` → `YYYY-MM-DD` |
+| `last_serial` | bigint | Current counter value |
+
+**Unique Constraint:** `(tenant_id, id_type, scope_id, period_key)`
+
+#### 3.13.4 Display ID Construction
+
+`display_id = prefix + separator + date_part + separator + padded(serial) + separator + suffix`
+
+- Only non-empty components are included
+- Date part derived from `issued_at` timestamp using `date_mode`
+- Padding applied to serial (e.g., padding=6 → `000123`)
+- Uppercase transformation applied if configured
+
+**Examples:** `EMP-0045`, `INV-2026-00123`, `VND-2026-02-0004`
+
+#### 3.13.5 Transaction-Safe Allocation
+
+1. Determine `period_key` from `reset_mode` and current date
+2. `BEGIN` transaction
+3. `SELECT ... FROM tenant_number_sequence_state FOR UPDATE` (row lock)
+4. If row not found → `INSERT` with `last_serial = 1`
+5. Else → `INCREMENT last_serial`
+6. Assign serial to entity record
+7. Compute `display_id` from config
+8. `COMMIT`
+
+This prevents race conditions and duplicate numbers under concurrent requests.
+
+#### 3.13.6 Reset Strategy
+
+Reset is achieved via `period_key` partitioning — no sequence objects are restarted manually.
+
+Example (yearly reset): 2025 → `period_key = '2025'`, serial 000001; 2026 → `period_key = '2026'`, serial resets to 000001 automatically.
+
+#### 3.13.7 Recommended Defaults
+
+| Entity Type | Prefix | Padding | Date Mode | Reset Mode | Scope |
+|---|---|---|---|---|---|
+| Employee | `EMP` | 4 | none | never | tenant |
+| Vendor | `VND` | 4 | none | never | tenant |
+| Client | `CLT` | 4 | none | never | tenant |
+| Contact | `CON` | 4 | none | never | tenant |
+| Project | `PRJ` | 4 | none | never | tenant |
+| AR Invoice | `INV` | 5 | year | yearly | legal_entity |
+| AP Invoice | `BILL` | 5 | year | yearly | legal_entity |
+
+All configs are seeded with `is_enabled = false` during tenant provisioning. Tenants opt in via the Settings UI.
+
+#### 3.13.8 Entity Integration
+
+Auto-numbering populates the entity's code/number field only when the user does not provide one. For AR/AP invoices, numbering fires only when `status` transitions to `issued` (immutable after issuance).
+
+| Entity | Code Field | Numbering Trigger |
+|---|---|---|
+| Vendor | `code` | On create (if code is null) |
+| Client | `code` | On create (if code is null) |
+| Employee | `code` | On create (if code is null) |
+| Contact | `code` | On create (if code is null) |
+| Project | `project_code` | On create (if code is null) |
+| AR Invoice | `invoice_number` | On status → `issued` |
+| AP Invoice | `invoice_number` | On status → `issued` |
+
+**Endpoint:** `/api/core/v1/numbering-config`
+
+**UI:** Settings > Numbering — card-based configuration page with per-entity-type enable/disable, format fields, and live preview.
+
+---
+
 ## 4. Standard API Patterns
 
 All API routes are built from scratch using pg-schemata's TableModel and QueryModel as the data layer.
