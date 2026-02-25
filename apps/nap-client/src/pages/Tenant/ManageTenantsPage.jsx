@@ -54,8 +54,9 @@ const BLANK_CREATE = {
   tier: 'starter',
   region: '',
   max_users: 5,
-  billing_email: '',
   notes: '',
+  admin_first_name: '',
+  admin_last_name: '',
   admin_email: '',
   admin_password: '',
 };
@@ -66,7 +67,6 @@ const BLANK_EDIT = {
   tier: 'starter',
   region: '',
   max_users: 5,
-  billing_email: '',
   notes: '',
 };
 
@@ -164,7 +164,6 @@ export default function ManageTenantsPage() {
       tier: selected.tier ?? 'starter',
       region: selected.region ?? '',
       max_users: selected.max_users ?? 5,
-      billing_email: selected.billing_email ?? '',
       notes: selected.notes ?? '',
     });
     setEditOpen(true);
@@ -385,12 +384,6 @@ export default function ManageTenantsPage() {
                 </Typography>
                 <Typography>{detailTenant.max_users ?? '\u2014'}</Typography>
               </Grid>
-              <Grid item xs={8}>
-                <Typography variant="caption" color="text.secondary">
-                  Billing Email
-                </Typography>
-                <Typography>{detailTenant.billing_email || '\u2014'}</Typography>
-              </Grid>
               <Grid item xs={6}>
                 <Typography variant="caption" color="text.secondary">
                   Schema
@@ -478,12 +471,6 @@ export default function ManageTenantsPage() {
           onChange={onCreateField('max_users')}
         />
         <TextField
-          label="Billing Email"
-          type="email"
-          value={createForm.billing_email}
-          onChange={onCreateField('billing_email')}
-        />
-        <TextField
           label="Notes"
           multiline
           minRows={2}
@@ -495,6 +482,18 @@ export default function ManageTenantsPage() {
         <Typography variant="subtitle2" color="text.secondary">
           Initial Admin User
         </Typography>
+        <TextField
+          label="First Name"
+          required
+          value={createForm.admin_first_name}
+          onChange={onCreateField('admin_first_name')}
+        />
+        <TextField
+          label="Last Name"
+          required
+          value={createForm.admin_last_name}
+          onChange={onCreateField('admin_last_name')}
+        />
         <TextField
           label="Admin Email"
           type="email"
@@ -556,12 +555,6 @@ export default function ManageTenantsPage() {
           type="number"
           value={editForm.max_users}
           onChange={onEditField('max_users')}
-        />
-        <TextField
-          label="Billing Email"
-          type="email"
-          value={editForm.billing_email}
-          onChange={onEditField('billing_email')}
         />
         <TextField
           label="Notes"
