@@ -42,6 +42,7 @@ import CostBreakdownPage from './pages/Reports/CostBreakdownPage.jsx';
 import ArAgingPage from './pages/Reports/ArAgingPage.jsx';
 import ApAgingPage from './pages/Reports/ApAgingPage.jsx';
 import MarginAnalysisPage from './pages/Reports/MarginAnalysisPage.jsx';
+import NumberingConfigPage from './pages/Settings/NumberingConfigPage.jsx';
 
 export default function App() {
   return (
@@ -104,6 +105,9 @@ export default function App() {
           <Route path="/reports/cashflow" element={<ProjectCashflowPage />} />
           <Route path="/reports/budget-vs-actual" element={<CostBreakdownPage />} />
           <Route path="/reports/margin-analysis" element={<MarginAnalysisPage />} />
+
+          {/* Settings routes */}
+          <Route path="/settings/numbering" element={<NumberingConfigPage />} />
 
           {/* Default redirect */}
           <Route index element={<Navigate to="/dashboard" replace />} />
