@@ -3,10 +3,11 @@
  * @module nap-serv/services/tenantProvisioning
  *
  * When a new tenant is created, this service:
- *   1. Creates the PostgreSQL schema (CREATE SCHEMA IF NOT EXISTS)
- *   2. Runs all tenant-scope migrations to create tables
- *   3. Seeds default RBAC roles and policies
- *   4. Seeds policy catalog (permission discovery for role-config UI)
+ *   1. Cleans up any stale schema/migration history from a prior failed attempt
+ *   2. Creates the PostgreSQL schema
+ *   3. Runs all tenant-scope migrations to create tables
+ *   4. Seeds default RBAC roles and policies
+ *   5. Seeds policy catalog (permission discovery for role-config UI)
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -41,10 +42,22 @@ export async function provisionTenant({ schemaName, tenantCode, createdBy: _crea
 
   logger.info(`Provisioning tenant schema "${normalized}"...`);
 
-  // 1. Create the PostgreSQL schema
-  await DB.db.none(`CREATE SCHEMA IF NOT EXISTS ${DB.pgp.as.name(normalized)}`);
+  // 1. Clean slate — drop any stale schema and migration history left by a
+  //    previous failed provisioning attempt.  This is safe because the caller
+  //    (tenantsController.create) has already inserted a new tenant record with
+  //    a unique tenant_code, so we know no active tenant owns this schema.
+  await DB.db.none(`DROP SCHEMA IF EXISTS ${DB.pgp.as.name(normalized)} CASCADE`);
+  try {
+    await DB.db.none('DELETE FROM pgschemata.migrations WHERE schema_name = $1', [normalized]);
+  } catch {
+    // pgschemata.migrations table may not exist on first-ever provisioning —
+    // the migrator will create it during the run below.
+  }
 
-  // 2. Run tenant-scope migrations
+  // 2. Create the PostgreSQL schema
+  await DB.db.none(`CREATE SCHEMA ${DB.pgp.as.name(normalized)}`);
+
+  // 3. Run tenant-scope migrations
   const result = await migrator.run({
     schema: normalized,
     modules: tenantModules,
@@ -54,7 +67,7 @@ export async function provisionTenant({ schemaName, tenantCode, createdBy: _crea
 
   logger.info(`Migrations applied for "${normalized}":`, result);
 
-  // 3. Seed default RBAC roles and policies
+  // 4. Seed default RBAC roles and policies
   const isNapsoft = tenantCode?.toUpperCase() === NAPSOFT_TENANT;
 
   try {
@@ -64,7 +77,7 @@ export async function provisionTenant({ schemaName, tenantCode, createdBy: _crea
     logger.warn(`RBAC seeding failed for "${normalized}":`, err?.message || err);
   }
 
-  // 4. Seed policy catalog (permission discovery for role-config UI)
+  // 5. Seed policy catalog (permission discovery for role-config UI)
   try {
     await seedPolicyCatalog(DB.db, DB.pgp, normalized);
   } catch (err) {

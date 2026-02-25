@@ -12,7 +12,7 @@
 
 import bcrypt from 'bcrypt';
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { provisionTenant } from '../../../services/tenantProvisioning.js';
 import logger from '../../../lib/logger.js';
 
@@ -46,12 +46,17 @@ class TenantsController extends BaseController {
       allowed_modules,
       max_users,
       notes,
+      admin_first_name,
+      admin_last_name,
       admin_email,
       admin_password,
     } = req.body;
 
     if (!tenant_code || !company) {
       return res.status(400).json({ error: 'tenant_code and company are required' });
+    }
+    if (!admin_first_name || !admin_last_name) {
+      return res.status(400).json({ error: 'admin_first_name and admin_last_name are required' });
     }
     if (!admin_email || !admin_password) {
       return res.status(400).json({ error: 'admin_email and admin_password are required' });
@@ -92,16 +97,34 @@ class TenantsController extends BaseController {
         return res.status(500).json({ error: `Schema provisioning failed: ${provisionErr.message}` });
       }
 
-      // 3. Create admin user for the tenant (pure identity — email + password only)
+      // 3. Create admin employee + nap_users login in a single transaction
+      //    PRD §3.2.1: employee record first (roles + is_app_user), then
+      //    nap_users linked via entity_type/entity_id.
       const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
       const passwordHash = await bcrypt.hash(admin_password, rounds);
+      const actorId = req.user?.id || null;
+      const sch = pgp.as.name(schemaName);
 
-      const adminUser = await db('napUsers', 'admin').insert({
-        tenant_id: tenant.id,
-        email: admin_email,
-        password_hash: passwordHash,
-        status: 'active',
-        created_by: req.user?.id || null,
+      const adminUser = await db.tx(async (t) => {
+        // 3a. Create employee record in the tenant schema
+        const emp = await t.one(
+          `INSERT INTO ${sch}.employees
+             (tenant_id, first_name, last_name, email, roles, is_app_user, is_primary_contact, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING *`,
+          [tenant.id, admin_first_name, admin_last_name, admin_email, '{admin}', true, true, actorId],
+        );
+
+        // 3b. Create nap_users login linked to the employee
+        const user = await t.one(
+          `INSERT INTO admin.nap_users
+             (tenant_id, entity_type, entity_id, email, password_hash, status, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING *`,
+          [tenant.id, 'employee', emp.id, admin_email, passwordHash, 'active', actorId],
+        );
+
+        return user;
       });
 
       // Return the created tenant with admin user id
