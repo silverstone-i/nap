@@ -8,43 +8,30 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import { useState, useEffect } from 'react';
 import { Select, MenuItem, Chip } from '@mui/material';
-import client from '../../services/client.js';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { useTenantSchemas, TENANT_SCHEMAS_KEY } from '../../hooks/useTenants.js';
 
 export default function TenantPicker() {
   const { tenant, user, assumeTenant, exitAssumption, assumedTenant } = useAuth();
-  const [tenants, setTenants] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await client.get('/tenants/v1/admin/schemas');
-        if (!cancelled) setTenants(list);
-      } catch {
-        // ignore — user may not have permission
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: tenants = [] } = useTenantSchemas();
+  const qc = useQueryClient();
 
   const currentCode =
     assumedTenant?.tenant_code?.toLowerCase() || user?.tenant_code?.toLowerCase() || '';
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     const code = e.target.value;
     if (code === '__exit__') {
-      exitAssumption();
-      return;
+      await exitAssumption();
+    } else {
+      const selected = tenants.find((t) => t.tenant_code?.toLowerCase() === code);
+      if (!selected) return;
+      await assumeTenant(selected);
     }
-    const selected = tenants.find((t) => t.tenant_code?.toLowerCase() === code);
-    if (selected) {
-      assumeTenant(selected);
-    }
+    // Tenant context changed — invalidate all entity queries so active observers refetch
+    qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== TENANT_SCHEMAS_KEY[0] });
   };
 
   if (!tenants.length) {

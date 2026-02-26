@@ -19,7 +19,7 @@ import ChangePasswordDialog from '../shared/ChangePasswordDialog.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
 export default function LayoutShell() {
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading, refreshUser, tenant } = useAuth();
 
   if (loading) {
     return (
@@ -73,7 +73,7 @@ export default function LayoutShell() {
             bgcolor: 'background.default',
           }}
         >
-          <Outlet />
+          <Outlet key={tenant?.tenant_code} />
         </Box>
       </Box>
     </Box>

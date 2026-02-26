@@ -172,11 +172,12 @@ export default function ManageTenantsPage() {
   /* ── CRUD handlers ───────────────────────────────────────── */
   const handleCreate = async () => {
     try {
-      await createMut.mutateAsync({
+      const payload = {
         ...createForm,
         tenant_code: createForm.tenant_code.toUpperCase(),
         max_users: Number(createForm.max_users) || 5,
-      });
+      };
+      await createMut.mutateAsync(payload);
       toast('Tenant created');
       setCreateOpen(false);
       setCreateForm(BLANK_CREATE);
