@@ -393,9 +393,9 @@ All roles — including system roles — go through the full RBAC policy resolut
 - Status badge display with color coding
 - Create tenant form includes admin user fields: first name, last name, email, and password (used to create the tenant's Administrator user and linked employee record)
 - Pagination with configurable rows-per-page (powered by `findAfterCursor()`)
-- Archive cascades to deactivate all associated users (via `removeWhere()`)
+- Archive cascades to deactivate all currently-active associated users
 - The root tenant (NapSoft, `NAP`) cannot be archived — server rejects the request with 403
-- Restore reactivates tenant and all associated users (via `restoreWhere()`)
+- Restore reactivates the tenant only — users remain archived and must be individually restored by an admin
 
 **Endpoints:**
 | Method | Path | Purpose |
