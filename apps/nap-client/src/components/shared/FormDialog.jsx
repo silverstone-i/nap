@@ -15,7 +15,9 @@ import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 
-const contentSx = { display: 'flex', flexDirection: 'column', gap: 2 };
+import { density } from '../../config/tokens.js';
+
+const contentSx = { display: 'flex', flexDirection: 'column', gap: `${density.fieldGap}px` };
 
 export default function FormDialog({
   open,
@@ -54,7 +56,7 @@ export default function FormDialog({
             </Button>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={contentSx}>
+        <DialogContent sx={contentSx}>
           {children}
         </DialogContent>
       </form>

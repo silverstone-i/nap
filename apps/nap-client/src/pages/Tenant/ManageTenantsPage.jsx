@@ -479,8 +479,8 @@ export default function ManageTenantsPage() {
           onChange={onCreateField('notes')}
         />
 
-        <Divider />
-        <Typography variant="subtitle2" color="text.secondary">
+        <Divider sx={{ mt: 1 }} />
+        <Typography variant="overline" color="text.secondary">
           Initial Admin User
         </Typography>
         <TextField

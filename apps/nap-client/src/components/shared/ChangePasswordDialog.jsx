@@ -96,7 +96,7 @@ export default function ChangePasswordDialog({ open, onClose, onSuccess, forced 
           </Button>
         </Box>
       </DialogTitle>
-      <DialogContent dividers>
+      <DialogContent>
         {forced && (
           <Alert severity="info" sx={{ mb: 2 }}>
             You must change your password before continuing.

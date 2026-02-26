@@ -90,29 +90,41 @@ export default function ModuleBar() {
       }}
     >
       {/* Left: Breadcrumbs */}
-      <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ flexShrink: 0 }}>
-        {crumbs.map((crumb, i) =>
-          crumb.path && i < crumbs.length - 1 ? (
+      <Breadcrumbs
+        separator={<NavigateNextIcon sx={{ fontSize: 16, color: 'text.disabled' }} />}
+        sx={{ flexShrink: 0 }}
+      >
+        {crumbs.map((crumb, i) => {
+          const isLast = i === crumbs.length - 1;
+          return crumb.path && !isLast ? (
             <Link
               key={crumb.label}
               component={RouterLink}
               to={crumb.path}
               underline="hover"
               color="text.secondary"
-              sx={FONT.toolbar}
+              sx={FONT.breadcrumb}
             >
               {crumb.label}
             </Link>
-          ) : (
+          ) : isLast ? (
             <Typography
               key={crumb.label}
-              sx={{ ...FONT.toolbar, fontWeight: 600 }}
+              sx={FONT.pageTitle}
               color="text.primary"
             >
               {crumb.label}
             </Typography>
-          ),
-        )}
+          ) : (
+            <Typography
+              key={crumb.label}
+              sx={FONT.breadcrumb}
+              color="text.secondary"
+            >
+              {crumb.label}
+            </Typography>
+          );
+        })}
       </Breadcrumbs>
 
       {/* Right: Dynamic toolbar actions */}
