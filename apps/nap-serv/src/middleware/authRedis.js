@@ -97,11 +97,11 @@ export function authRedis() {
       }
 
       // Hydrate user from DB (JWT is minimal: sub + ph only)
+      const dbMod = await import('../db/db.js');
+      const db = dbMod.default || dbMod.db;
       let userRecord = null;
       let tenantRecord = null;
       try {
-        const dbMod = await import('../db/db.js');
-        const db = dbMod.default || dbMod.db;
         userRecord = await db('napUsers', 'admin').findOneBy([{ id: uid }]);
         if (userRecord) {
           tenantRecord = await db('tenants', 'admin').findById(userRecord.tenant_id);
@@ -120,8 +120,25 @@ export function authRedis() {
       const homeTenantCode = tenantRecord.tenant_code.toLowerCase();
       const tenantCode = headerTenant ? headerTenant.toLowerCase() : homeTenantCode;
 
+      // ── Schema resolution ───────────────────────────────────────────────
+      // Permissions always load from the user's home tenant (where their roles live).
+      // Data queries use the assumed tenant's schema when the header is present.
+      const homeSchemaName = tenantRecord.schema_name;
+      let dataSchemaName = homeSchemaName;
+      if (headerTenant && tenantCode !== homeTenantCode) {
+        try {
+          const row = await db.oneOrNone(
+            'SELECT schema_name FROM admin.tenants WHERE LOWER(tenant_code) = $1 AND deactivated_at IS NULL',
+            [tenantCode],
+          );
+          if (row) dataSchemaName = row.schema_name;
+        } catch {
+          // Fall back to home schema if lookup fails
+        }
+      }
+
       // ── RBAC Permission Loading ─────────────────────────────────────────
-      const schemaName = tenantRecord.schema_name;
+      const schemaName = homeSchemaName;
       let permissions = await getCachedPermissions(uid, tenantCode);
 
       if (!permissions) {
@@ -145,7 +162,7 @@ export function authRedis() {
       let impersonatedBy = null;
       let effectiveUser = userRecord;
       let effectiveTenantCode = tenantCode;
-      let effectiveSchemaName = schemaName;
+      let effectiveSchemaName = dataSchemaName;
       let effectivePermissions = permissions;
 
       try {

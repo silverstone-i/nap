@@ -118,3 +118,42 @@ export async function allocateNumber(schema, idType, scopeId = null, issuedAt = 
   }
   return db.tx(exec);
 }
+
+/* ── Entity-type → table mapping ──────────────────────────────── */
+
+const ID_TYPE_TABLE = {
+  employee: 'employees',
+  vendor: 'vendors',
+  client: 'clients',
+  contact: 'contacts',
+};
+
+/**
+ * Backfill codes for existing records that have code IS NULL when numbering
+ * is first enabled for an entity type.  Must be called inside a transaction.
+ *
+ * @param {string} schema  Tenant schema name
+ * @param {string} idType  One of: employee, vendor, client, contact
+ * @param {object} tx      pg-promise transaction context
+ * @returns {Promise<number>} Count of records backfilled
+ */
+export async function backfillCodes(schema, idType, tx) {
+  const table = ID_TYPE_TABLE[idType];
+  if (!table) return 0;
+
+  const s = pgp.as.name(schema);
+  const rows = await tx.manyOrNone(
+    `SELECT id FROM ${s}.${table}
+     WHERE code IS NULL AND deactivated_at IS NULL
+     ORDER BY created_at`,
+  );
+
+  for (const row of rows) {
+    const numbering = await allocateNumber(schema, idType, null, new Date(), tx);
+    if (numbering) {
+      await tx.none(`UPDATE ${s}.${table} SET code = $1 WHERE id = $2`, [numbering.displayId, row.id]);
+    }
+  }
+
+  return rows.length;
+}

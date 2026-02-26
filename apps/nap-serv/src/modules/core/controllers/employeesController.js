@@ -34,6 +34,9 @@ class EmployeesController extends BaseController {
         req.body.tenant_id = req.user.tenant_id;
       }
 
+      // Normalize empty code to null — avoids unique constraint violation on ''
+      if (!req.body.code) delete req.body.code;
+
       const record = await db.tx(async (t) => {
         const employeesModel = this.model(schema);
         employeesModel.tx = t;
