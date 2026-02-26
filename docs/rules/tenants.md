@@ -13,9 +13,13 @@ Creating a tenant is a three-step atomic operation:
 
 1. **Insert tenant record** in `admin.tenants`
 2. **Provision schema** — creates a PostgreSQL schema, runs tenant-scope
-   migrations, and seeds system RBAC roles (`admin`, `manager`, `viewer`)
-3. **Create admin user** — inserts a `nap_user` with the provided email
-   and password, linked to the new tenant via `tenant_id`
+   migrations, seeds system RBAC roles (`admin`, `manager`, `viewer`),
+   and seeds `tenant_numbering_config` rows (all `is_enabled = false`)
+3. **Create admin user** — inserts an `employees` record with
+   `roles: ['admin']` and `is_app_user: true`, then a linked `nap_user`
+   with the provided email and password. The admin employee starts with
+   `code = NULL`; numbering is configured and backfilled later via
+   Settings (see PRD §3.13.9)
 
 If provisioning fails (step 2), the tenant record is soft-deleted as
 rollback. The caller receives a 500 with the provisioning error.

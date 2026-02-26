@@ -383,7 +383,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - Extensions (e.g., `pgcrypto`, `vector`) are created per-schema as needed
 - `MigrationManager` applies any pending migrations to the new schema
 - Seed data (default roles, chart of accounts templates) is inserted via `bulkInsert()`
-- **Admin User Creation:** Performed in a single transaction: (1) create an `employees` record in the tenant schema with `roles: ['admin']`, `is_app_user: true`, `is_primary_contact: true`, (2) create a `nap_users` login in `admin.nap_users` with `entity_type: 'employee'` and `entity_id` linking to the new employee. The employee must have `roles` assigned and `is_app_user = true` before the `nap_users` login is created.
+- **Admin User Creation:** Performed in a single transaction: (1) create an `employees` record in the tenant schema with `roles: ['admin']`, `is_app_user: true`, `is_primary_contact: true`, (2) create a `nap_users` login in `admin.nap_users` with `entity_type: 'employee'` and `entity_id` linking to the new employee. The employee must have `roles` assigned and `is_app_user = true` before the `nap_users` login is created. The admin employee is created with `code = NULL` because numbering is not yet configured; the code is backfilled when the tenant enables numbering via Settings (see §3.13.9).
 - **Contact Designation:** Primary and billing contacts are designated via `employees.is_primary_contact` and `employees.is_billing_contact` flags — there is no `tenant_role` column on `nap_users`.
 
 **UI Requirements:**
@@ -391,7 +391,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - Row selection with checkbox (single and multi-select)
 - Module Bar actions: **Create Tenant**, **View Details**, **Edit Tenant**, **Archive**, **Restore**
 - Status badge display with color coding
-- Create tenant form includes admin user fields: email and password (used to create the tenant's Administrator user and linked employee record)
+- Create tenant form includes admin user fields: first name, last name, email, and password (used to create the tenant's Administrator user and linked employee record)
 - Pagination with configurable rows-per-page (powered by `findAfterCursor()`)
 - Archive cascades to deactivate all associated users (via `removeWhere()`)
 - The root tenant (NapSoft, `NAP`) cannot be archived — server rejects the request with 403
@@ -1497,7 +1497,7 @@ Example (yearly reset): 2025 → `period_key = '2025'`, serial 000001; 2026 → 
 | AR Invoice | `INV` | 5 | year | yearly | legal_entity |
 | AP Invoice | `BILL` | 5 | year | yearly | legal_entity |
 
-All configs are seeded with `is_enabled = false` during tenant provisioning. Tenants opt in via the Settings UI.
+All configs are seeded with `is_enabled = false` during tenant provisioning. Tenants opt in via the Settings UI. When numbering is first enabled for an entity type, existing records with `code IS NULL` are backfilled in `created_at` order.
 
 #### 3.13.8 Entity Integration
 
@@ -1512,6 +1512,12 @@ Auto-numbering populates the entity's code/number field only when the user does 
 | Project | `project_code` | On create (if code is null) |
 | AR Invoice | `invoice_number` | On status → `issued` |
 | AP Invoice | `invoice_number` | On status → `issued` |
+
+#### 3.13.9 Backfill on Enable
+
+When a tenant enables numbering for an entity type (`is_enabled` transitions `false` → `true`), the system backfills all existing records of that type that have `code IS NULL AND deactivated_at IS NULL`, ordered by `created_at`. This ensures entities created before numbering was configured — including the admin employee created during tenant provisioning — receive codes matching the tenant's chosen pattern.
+
+The backfill runs atomically in a single transaction using the same `allocateNumber()` path as normal entity creation. The response includes `backfilledCodes` count so the UI can inform the user.
 
 **Endpoint:** `/api/core/v1/numbering-config`
 

@@ -43,6 +43,18 @@ Employees have an `is_app_user` boolean that controls whether they have a login 
 - The linked `nap_users` record is restored (`deactivated_at = NULL`)
 - Status is set to `active`
 
+## Auto-Numbering and Code Assignment
+
+Vendors, clients, employees, and contacts have a nullable `code` column populated by the tenant-scoped numbering system:
+
+- On entity creation, if `code` is not provided and numbering is enabled for that entity type, `allocateNumber()` assigns the next code in the configured format
+- If `code` is explicitly provided, it is used as-is (no auto-numbering)
+- If numbering is disabled, the entity is created with `code = NULL`
+
+### Backfill on Enable
+
+When a tenant first enables numbering for an entity type, all existing records with `code IS NULL AND deactivated_at IS NULL` are backfilled in `created_at` order. This includes the admin employee created during tenant provisioning. See PRD §3.13.9.
+
 ## Soft Delete Convention
 
 All entity tables use `softDelete: true` with a `deactivated_at` column:
