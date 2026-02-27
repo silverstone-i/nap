@@ -25,6 +25,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import ResetPasswordDialog from '../../components/shared/ResetPasswordDialog.jsx';
+import SetPasswordPopover from '../../components/shared/SetPasswordPopover.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
   useEmployees, useCreateEmployee, useUpdateEmployee, useArchiveEmployee, useRestoreEmployee,
@@ -36,11 +37,11 @@ import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '..
 
 const BLANK_CREATE = {
   first_name: '', last_name: '', code: '', position: '', department: '', email: '',
-  is_app_user: false, roles: [], is_primary_contact: false, is_billing_contact: false,
+  is_app_user: false, password: '', roles: [], is_primary_contact: false, is_billing_contact: false,
 };
 const BLANK_EDIT = {
   first_name: '', last_name: '', code: '', position: '', department: '', email: '',
-  is_app_user: false, roles: [], is_primary_contact: false, is_billing_contact: false,
+  is_app_user: false, password: '', roles: [], is_primary_contact: false, is_billing_contact: false,
 };
 
 const PHONE_TYPES = ['cell', 'work', 'home', 'fax', 'other'];
@@ -141,6 +142,31 @@ export default function EmployeesPage() {
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
   const onCreateCheck = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.checked }));
   const onEditCheck = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.checked }));
+
+  /* ── App-user password popover state ────────────────────────── */
+  const [pwAnchor, setPwAnchor] = useState(null);
+  const [pwTarget, setPwTarget] = useState(null); // 'create' | 'edit'
+
+  const handleAppUserToggle = (target, setForm) => (e) => {
+    if (e.target.checked) {
+      setPwTarget(target);
+      setPwAnchor(e.currentTarget);
+    } else {
+      setForm((p) => ({ ...p, is_app_user: false, password: '' }));
+    }
+  };
+
+  const handlePwConfirm = (password) => {
+    const setForm = pwTarget === 'create' ? setCreateForm : setEditForm;
+    setForm((p) => ({ ...p, is_app_user: true, password }));
+    setPwAnchor(null);
+    setPwTarget(null);
+  };
+
+  const handlePwCancel = () => {
+    setPwAnchor(null);
+    setPwTarget(null);
+  };
 
   /* ── Phone edit helpers ─────────────────────────────────────── */
   const updatePhone = (idx, field, value) =>
@@ -287,7 +313,7 @@ export default function EmployeesPage() {
         <TextField label="Position" value={createForm.position} onChange={onCreateField('position')} />
         <TextField label="Department" value={createForm.department} onChange={onCreateField('department')} />
         <TextField label="Email" type="email" value={createForm.email} onChange={onCreateField('email')} helperText={createForm.is_app_user && !createForm.email ? 'Email required for app users' : ''} error={createForm.is_app_user && !createForm.email} />
-        <FormControlLabel control={<Checkbox checked={createForm.is_app_user} onChange={onCreateCheck('is_app_user')} />} label="App User (creates login account)" />
+        <FormControlLabel control={<Checkbox checked={createForm.is_app_user} onChange={handleAppUserToggle('create', setCreateForm)} />} label="App User (creates login account)" />
         <Autocomplete
           multiple
           options={roleOptions}
@@ -310,7 +336,7 @@ export default function EmployeesPage() {
           <TextField label="Position" value={editForm.position} onChange={onEditField('position')} />
           <TextField label="Department" value={editForm.department} onChange={onEditField('department')} />
           <TextField label="Email" type="email" value={editForm.email} onChange={onEditField('email')} helperText={editForm.is_app_user && !editForm.email ? 'Email required for app users' : ''} error={editForm.is_app_user && !editForm.email} />
-          <FormControlLabel control={<Checkbox checked={editForm.is_app_user} onChange={onEditCheck('is_app_user')} />} label="App User (creates login account)" />
+          <FormControlLabel control={<Checkbox checked={editForm.is_app_user} onChange={handleAppUserToggle('edit', setEditForm)} />} label="App User (creates login account)" />
           <Autocomplete
             multiple
             options={roleOptions}
@@ -429,6 +455,8 @@ export default function EmployeesPage() {
         employeeId={selected?.id}
         employeeName={selected ? `${selected.first_name} ${selected.last_name}` : ''}
       />
+
+      <SetPasswordPopover anchorEl={pwAnchor} onConfirm={handlePwConfirm} onCancel={handlePwCancel} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>
