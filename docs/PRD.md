@@ -1723,6 +1723,7 @@ All MUI component overrides defined in `theme.js`:
 | `MuiListItemIcon` | styleOverrides | `minWidth: 36` | Sidebar ListItemIcon `minWidth: 36` |
 | `MuiChip` | styleOverrides (sizeSmall) | `fontWeight: 600`, `fontSize: 0.75rem` | TenantBar Chip sx |
 | `MuiAvatar` | named variant `"header"` | 32 × 32, primary colours, cursor pointer, 0.8rem bold | TenantBar Avatar sx block |
+| `MuiDialogTitle` | styleOverrides | `position: sticky`, `top: 0`, `zIndex: 1`, `backgroundColor: background.paper`, bottom border | Sticky header keeps title + action buttons visible when dialog content scrolls |
 | `MuiDialogActions` | styleOverrides | `paddingLeft: 24`, `paddingRight: 24`, `paddingBottom: 16` | Dialog button row padding |
 | `MuiDialogContent` | styleOverrides (dividers) | `paddingTop: 16` for divider variant | Spacing for dialog content with divider |
 | `MuiDataGrid` | defaultProps + styleOverrides | `density: compact`, `disableColumnMenu`, border removal, column/footer dividers, `.row-archived { opacity: 0.5 }` | Compact grid with row muting |
