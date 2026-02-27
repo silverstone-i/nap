@@ -37,6 +37,10 @@ class EmployeesController extends BaseController {
       // Normalize empty code to null — avoids unique constraint violation on ''
       if (!req.body.code) delete req.body.code;
 
+      // Extract password before insert — it's for nap_users, not the employees table
+      const suppliedPassword = req.body.password;
+      delete req.body.password;
+
       const record = await db.tx(async (t) => {
         const employeesModel = this.model(schema);
         employeesModel.tx = t;
@@ -76,9 +80,9 @@ class EmployeesController extends BaseController {
         return { ...employee, source_id: source.id };
       });
 
-      // 4. If is_app_user, create the nap_users login record
+      // 5. If is_app_user, create the nap_users login record
       if (record.is_app_user && record.email) {
-        await this.#provisionAppUser(record, req);
+        await this.#provisionAppUser(record, req, suppliedPassword);
       }
 
       res.status(201).json(record);
@@ -104,6 +108,10 @@ class EmployeesController extends BaseController {
       const before = await this.model(schema).findById(employeeId);
       if (!before) return res.status(404).json({ error: `${this.errorLabel} not found` });
 
+      // Extract password before update — it's for nap_users, not the employees table
+      const suppliedPassword = req.body.password;
+      delete req.body.password;
+
       // Apply the standard update
       const count = await this.model(schema).updateWhere([{ id: employeeId }], req.body);
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found` });
@@ -119,7 +127,7 @@ class EmployeesController extends BaseController {
           return res.status(400).json({ error: 'Email is required to enable app user access' });
         }
         const updatedEmployee = { ...before, ...req.body, id: before.id, email };
-        await this.#provisionAppUser(updatedEmployee, req);
+        await this.#provisionAppUser(updatedEmployee, req, suppliedPassword);
       } else if (wasAppUser && !isNowAppUser) {
         // Toggled OFF: archive the linked nap_user
         await this.#archiveAppUser(before.id, req);
@@ -242,9 +250,26 @@ class EmployeesController extends BaseController {
    * nap_users is a pure identity table: tenant_id, entity_type, entity_id,
    * email, password_hash, status. No role/full_name columns.
    */
-  async #provisionAppUser(employee, req) {
+  async #provisionAppUser(employee, req, suppliedPassword) {
     const tenantId = req.user?.tenant_id;
     if (!tenantId) throw new Error('Tenant context required to provision app user');
+
+    // Validate supplied password strength (if provided)
+    if (suppliedPassword) {
+      const pwRules = [
+        { test: (p) => p.length >= 8, msg: 'at least 8 characters' },
+        { test: (p) => /[A-Z]/.test(p), msg: 'an uppercase letter' },
+        { test: (p) => /[a-z]/.test(p), msg: 'a lowercase letter' },
+        { test: (p) => /[0-9]/.test(p), msg: 'a digit' },
+        { test: (p) => /[^A-Za-z0-9]/.test(p), msg: 'a special character' },
+      ];
+      const failures = pwRules.filter((r) => !r.test(suppliedPassword)).map((r) => r.msg);
+      if (failures.length) {
+        const err = new Error(`Password must contain ${failures.join(', ')}`);
+        err.status = 400;
+        throw err;
+      }
+    }
 
     // Check if an archived nap_user already exists for this employee
     const existing = await db.oneOrNone(
@@ -253,9 +278,9 @@ class EmployeesController extends BaseController {
       [employee.id],
     );
 
-    const tempPassword = crypto.randomBytes(12).toString('base64url');
+    const clearPassword = suppliedPassword || crypto.randomBytes(12).toString('base64url');
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
-    const passwordHash = await bcrypt.hash(tempPassword, rounds);
+    const passwordHash = await bcrypt.hash(clearPassword, rounds);
 
     if (existing) {
       // Restore the archived record
