@@ -85,3 +85,27 @@ export const formSectionHeaderSx = {
   gridColumn: '1 / -1',
   mb: -1,
 };
+
+/* ── Master-detail split ─────────────────────────────────────── */
+
+export const masterDetailSx = {
+  display: 'flex',
+  flexDirection: 'row',
+  height: '100%',
+  gap: `${density.sectionGap}px`,
+};
+
+export const masterPanelSx = {
+  width: '38%',
+  minWidth: 340,
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+export const detailPanelSx = {
+  flex: 1,
+  minWidth: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'auto',
+};
