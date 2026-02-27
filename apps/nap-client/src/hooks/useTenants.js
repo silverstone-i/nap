@@ -40,6 +40,15 @@ export function useTenant(id) {
   });
 }
 
+/** Fetch primary and billing contacts for a tenant. */
+export function useTenantContacts(tenantId) {
+  return useQuery({
+    queryKey: [...TENANTS_KEY, tenantId, 'contacts'],
+    queryFn: () => tenantApi.getContacts(tenantId),
+    enabled: !!tenantId,
+  });
+}
+
 /** Create a new tenant (with admin user + schema provisioning). */
 export function useCreateTenant() {
   const qc = useQueryClient();

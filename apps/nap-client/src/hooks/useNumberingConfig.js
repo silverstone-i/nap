@@ -23,6 +23,14 @@ export function useUpdateNumberingConfig() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ filter, changes }) => numberingConfigApi.update(filter, changes),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      // Enabling numbering triggers a server-side backfill of entity codes,
+      // so invalidate entity caches to pick up the new values.
+      qc.invalidateQueries({ queryKey: ['employees'] });
+      qc.invalidateQueries({ queryKey: ['vendors'] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+    },
   });
 }
