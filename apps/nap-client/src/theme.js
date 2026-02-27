@@ -112,12 +112,16 @@ const buildOptions = (t) => ({
 
     MuiDialogTitle: {
       styleOverrides: {
-        root: {
+        root: ({ theme }) => ({
           padding: 16,
           fontSize: 18,
           fontWeight: 650,
           borderBottom: `${t.border.width}px solid ${t.border.subtle}`,
-        },
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+          backgroundColor: theme.palette.background.paper,
+        }),
       },
     },
 
