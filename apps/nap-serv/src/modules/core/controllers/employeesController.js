@@ -186,6 +186,54 @@ class EmployeesController extends BaseController {
     }
   }
 
+  /**
+   * POST /:id/reset-password — admin reset password for an employee's app user account.
+   */
+  async resetPassword(req, res) {
+    const employeeId = req.params.id;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'password is required' });
+    }
+
+    const pwRules = [
+      { test: (p) => p.length >= 8, msg: 'at least 8 characters' },
+      { test: (p) => /[A-Z]/.test(p), msg: 'an uppercase letter' },
+      { test: (p) => /[a-z]/.test(p), msg: 'a lowercase letter' },
+      { test: (p) => /[0-9]/.test(p), msg: 'a digit' },
+      { test: (p) => /[^A-Za-z0-9]/.test(p), msg: 'a special character' },
+    ];
+    const failures = pwRules.filter((r) => !r.test(password)).map((r) => r.msg);
+    if (failures.length) {
+      return res.status(400).json({ error: `Password must contain ${failures.join(', ')}` });
+    }
+
+    try {
+      const napUser = await db.oneOrNone(
+        `SELECT id FROM admin.nap_users
+         WHERE entity_type = 'employee' AND entity_id = $1 AND deactivated_at IS NULL`,
+        [employeeId],
+      );
+
+      if (!napUser) {
+        return res.status(404).json({ error: 'No active app user account found for this employee' });
+      }
+
+      const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+      const hash = await bcrypt.hash(password, rounds);
+      await db.none(
+        'UPDATE admin.nap_users SET password_hash = $/hash/, updated_by = $/updatedBy/ WHERE id = $/id/',
+        { hash, updatedBy: req.user?.id || null, id: napUser.id },
+      );
+
+      logger.info(`Admin reset password for nap_user ${napUser.id} (employee ${employeeId})`);
+      res.json({ message: 'Password reset successfully' });
+    } catch (err) {
+      this.handleError(err, res, 'resetting password for', this.errorLabel);
+    }
+  }
+
   /* ── Private helpers ──────────────────────────────────── */
 
   /**

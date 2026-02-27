@@ -26,7 +26,6 @@ const employeesSchema = {
     { name: 'roles', type: 'text[]', notNull: true, default: '{}' },
     { name: 'is_primary_contact', type: 'boolean', notNull: true, default: false },
     { name: 'is_billing_contact', type: 'boolean', notNull: true, default: false },
-    { name: 'is_active', type: 'boolean', notNull: true, default: true },
   ],
   constraints: {
     primaryKey: ['id'],

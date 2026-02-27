@@ -23,6 +23,12 @@ export default createRouter(
       meta,
       (req, res) => tenantsController.getAllowedModules(req, res),
     );
+    router.get(
+      '/:id/contacts',
+      requireNapsoftTenant,
+      meta,
+      (req, res) => tenantsController.getContacts(req, res),
+    );
   },
   {
     postMiddlewares: [requireNapsoftTenant, meta],

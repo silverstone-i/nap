@@ -221,6 +221,46 @@ class TenantsController extends BaseController {
       res.status(500).json({ error: err.message });
     }
   }
+
+  /**
+   * GET /:id/contacts — primary and billing contacts with their primary phone/address
+   *
+   * Queries the tenant's schema for employees flagged as is_primary_contact
+   * or is_billing_contact, joining their primary phone number and address
+   * via the polymorphic sources table.
+   */
+  async getContacts(req, res) {
+    try {
+      const tenant = await this.model('admin').findById(req.params.id);
+      if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+      const sch = pgp.as.name(tenant.schema_name);
+
+      const contacts = await db.any(
+        `SELECT e.id, e.first_name, e.last_name, e.email,
+                e.is_primary_contact, e.is_billing_contact,
+                pn.phone_number AS primary_phone, pn.phone_type AS primary_phone_type,
+                a.address_line_1, a.address_line_2, a.city,
+                a.state_province, a.postal_code, a.country_code
+         FROM ${sch}.employees e
+         LEFT JOIN ${sch}.sources s
+           ON s.table_id = e.id AND s.source_type = 'employee' AND s.deactivated_at IS NULL
+         LEFT JOIN ${sch}.phone_numbers pn
+           ON pn.source_id = s.id AND pn.is_primary = true AND pn.deactivated_at IS NULL
+         LEFT JOIN ${sch}.addresses a
+           ON a.source_id = s.id AND a.is_primary = true AND a.deactivated_at IS NULL
+         WHERE (e.is_primary_contact = true OR e.is_billing_contact = true)
+           AND e.deactivated_at IS NULL`,
+      );
+
+      const primary = contacts.filter((c) => c.is_primary_contact);
+      const billing = contacts.filter((c) => c.is_billing_contact);
+
+      res.json({ primary, billing });
+    } catch (err) {
+      this.handleError(err, res, 'fetching contacts for', this.errorLabel);
+    }
+  }
 }
 
 const instance = new TenantsController();

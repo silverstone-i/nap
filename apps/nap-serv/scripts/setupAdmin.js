@@ -114,8 +114,8 @@ async function main() {
         // 1. Insert employee with super_user role
         const employee = await db.one(
           `INSERT INTO ${s}.employees
-             (tenant_id, first_name, last_name, email, is_app_user, roles, is_primary_contact, is_active)
-           VALUES ($1, 'System', 'Administrator', $2, true, '{super_user}', true, true)
+             (tenant_id, first_name, last_name, email, is_app_user, roles, is_primary_contact)
+           VALUES ($1, 'System', 'Administrator', $2, true, '{super_user}', true)
            RETURNING id`,
           [tenant.id, rootEmail],
         );
