@@ -396,6 +396,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - Archive cascades to deactivate all currently-active associated users
 - The root tenant (NapSoft, `NAP`) cannot be archived — server rejects the request with 403
 - Restore reactivates the tenant only — users remain archived and must be individually restored by an admin
+- **View Details dialog** (`maxWidth="md"`): displays tenant fields in a responsive 3-column grid of `FieldRow` components (label:value pairs). Fields: Code, Tier, Region, Status (rendered as `StatusBadge` chip), Max Users, Schema (monospace), Created, Updated, Notes (full-width). Below a divider, two `DataGrid` tables display **Primary Contacts** and **Billing Contacts** with Name, Email (mailto link), and Phone columns. Contact data is fetched via `useTenantContacts(tenantId)` hook.
 
 **Endpoints:**
 | Method | Path | Purpose |
@@ -407,6 +408,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 | `DELETE` | `/api/tenants/v1/tenants/archive` | Soft-delete tenant (cascades to users) |
 | `PATCH` | `/api/tenants/v1/tenants/restore` | Restore archived tenant |
 | `GET` | `/api/tenants/v1/tenants/:id/modules` | Get tenant's allowed modules |
+| `GET` | `/api/tenants/v1/tenants/:id/contacts` | Get primary and billing contacts with phone/address (cross-schema query into tenant's employees) |
 
 #### 3.2.2 Manage Users
 
@@ -532,11 +534,18 @@ Partial unique index: `(entity_type, entity_id) WHERE deactivated_at IS NULL` �
 | `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Requires `roles` to be non-empty. |
 | `is_primary_contact` | boolean | Default false. Designates this employee as the tenant's primary contact. |
 | `is_billing_contact` | boolean | Default false. Designates this employee as the tenant's billing contact. |
-| `is_active` | boolean | Default true |
 
-> **Contact Designation:** Both `is_primary_contact` and `is_billing_contact` can be true on the same employee (e.g., small company owner is both primary and billing contact). These flags replace the former `nap_users.tenant_role` designation. When the primary contact leaves the tenant (deactivated), the tenant's account executive is responsible for designating a new primary contact.
+> **Soft Delete:** Employees use the `deactivated_at` column (via pg-schemata `softDelete: true`) — there is no `is_active` boolean column.
 
-**Endpoint:** `/api/core/v1/employees`
+> **Contact Designation:** Both `is_primary_contact` and `is_billing_contact` can be true on the same employee (e.g., small company owner is both primary and billing contact). Multiple employees can share the same flag. These flags replace the former `nap_users.tenant_role` designation. When the primary contact leaves the tenant (deactivated), the tenant's account executive is responsible for designating a new primary contact.
+
+**Edit Dialog:** The employee edit dialog (`maxWidth="md"`) includes phone number and address management sections below the employee fields. Phone numbers are rendered as repeatable inline rows (type select, number, is_primary checkbox, delete). Addresses are rendered as bordered cards with a 2-column grid of address fields. Changes are diffed and persisted via the polymorphic `sources` → `phone_numbers` / `addresses` pattern.
+
+**Endpoints:**
+| Method | Path | Purpose |
+|---|---|---|
+| Standard CRUD | `/api/core/v1/employees` | List, get, create, update, archive, restore |
+| `GET` | `/api/core/v1/employees/:id/source-id` | Resolve the employee's polymorphic source_id for phone/address lookups |
 
 #### 3.3.4 Polymorphic Sources, Contacts, Addresses & Phone Numbers
 

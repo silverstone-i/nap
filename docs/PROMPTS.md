@@ -384,7 +384,7 @@ You are continuing the NAP build. Phases 1-4 established the monorepo, admin sch
 1. `sourcesSchema.js` — Polymorphic: id, tenant_id, table_id (uuid), source_type (CHECK: vendor/client/employee/contact), label
 2. `vendorsSchema.js` — id, tenant_id, source_id (FK sources CASCADE), name, code (unique per tenant), tax_id, payment_terms, roles (text[], default '{}'), is_app_user (bool, default false), is_active (bool), notes
 3. `clientsSchema.js` — id, tenant_id, source_id (FK sources CASCADE), name, code, email, tax_id, roles (text[]), is_app_user, is_active
-4. `employeesSchema.js` — id, tenant_id, source_id (FK sources CASCADE), first_name, last_name, code, position, department, roles (text[]), is_app_user, is_primary_contact (bool), is_billing_contact (bool), is_active
+4. `employeesSchema.js` — id, tenant_id, source_id (FK sources CASCADE), first_name, last_name, code, position, department, email, is_app_user, roles (text[]), is_primary_contact (bool), is_billing_contact (bool). Uses softDelete (`deactivated_at`), no `is_active` column.
 5. `contactsSchema.js` — id, tenant_id, source_id (FK sources CASCADE), name, code, email, tax_id, roles (text[]), is_app_user, is_active (miscellaneous payees)
 6. `addressesSchema.js` — id, source_id (FK sources CASCADE), label (billing/physical/mailing), address_line_1/2/3, city, state_province, postal_code, country_code (char 2), is_primary
 7. `phoneNumbersSchema.js` — id, source_id (FK sources CASCADE, NOT NULL), phone_type (cell/work/home/fax/other), phone_number, is_primary
@@ -396,12 +396,16 @@ Migration: `202502110011_coreEntities.js`
 - Entity deactivation cascades to lock nap_users login (cross-schema, enforced in controller not FK)
 - Roles array must be non-empty before is_app_user can be set to true
 - is_app_user must be true before nap_users login can be created
+- `GET employees/:id/source-id` resolves the polymorphic source record for phone/address lookups
+- `GET tenants/:id/contacts` cross-schema query returns primary/billing contacts with phone/address via LEFT JOIN on sources
 
 #### Client
 
-- `ManageEmployeesPage.jsx` — DataGrid with name, code, position, department, roles, is_app_user. Create/edit dialogs with address + phone sub-forms. Archive/restore.
+- `ManageEmployeesPage.jsx` — DataGrid with name, code, position, department, roles, is_app_user. Create/edit dialogs (`maxWidth="md"`) with phone number repeatable rows and address bordered cards below employee fields. Changes diffed on save (create new, update changed, archive deleted). Archive/restore.
+- `ManageTenantsPage.jsx` — View Details dialog uses `FieldRow` components in responsive 3-column grid, `StatusBadge` for status, two `DataGrid` tables for primary/billing contacts. `useTenantContacts(tenantId)` hook.
 - `ManageRolesPage.jsx` — Role CRUD + policy assignment grid (module × router × action matrix). System roles read-only.
-- Shared components: AddressForm (formGroupCardSx), PhoneForm, EntitySearchSelect
+- Shared components: `FieldRow` (label:value with CSS colon, used in detail views), AddressForm (`formGroupCardSx`), PhoneForm, EntitySearchSelect
+- API / hooks: `phoneNumberApi.js`, `usePhoneNumbers.js` (mirrors address pattern). `tenantApi.getContacts()`, `useTenantContacts()` for tenant contacts.
 
 #### Tests
 
