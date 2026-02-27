@@ -8,13 +8,25 @@
 import createRouter from '../../../../lib/createRouter.js';
 import fieldGroupGrantsController from '../../controllers/fieldGroupGrantsController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
+import { addAuditFields } from '../../../../middleware/addAuditFields.js';
 
 const meta = withMeta({ module: 'core', router: 'field-group-grants' });
 
-export default createRouter(fieldGroupGrantsController, null, {
-  getMiddlewares: [meta],
-  postMiddlewares: [meta],
-  putMiddlewares: [meta],
-  deleteMiddlewares: [meta],
-  patchMiddlewares: [meta],
-});
+export default createRouter(
+  fieldGroupGrantsController,
+  (router) => {
+    router.put(
+      '/sync-for-role',
+      addAuditFields,
+      meta,
+      (req, res) => fieldGroupGrantsController.syncForRole(req, res),
+    );
+  },
+  {
+    getMiddlewares: [meta],
+    postMiddlewares: [meta],
+    putMiddlewares: [meta],
+    deleteMiddlewares: [meta],
+    patchMiddlewares: [meta],
+  },
+);

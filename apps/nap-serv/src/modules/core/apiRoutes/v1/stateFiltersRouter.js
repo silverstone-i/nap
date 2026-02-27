@@ -8,13 +8,20 @@
 import createRouter from '../../../../lib/createRouter.js';
 import stateFiltersController from '../../controllers/stateFiltersController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
+import { addAuditFields } from '../../../../middleware/addAuditFields.js';
 
 const meta = withMeta({ module: 'core', router: 'state-filters' });
 
-export default createRouter(stateFiltersController, null, {
-  getMiddlewares: [meta],
-  postMiddlewares: [meta],
-  putMiddlewares: [meta],
-  deleteMiddlewares: [meta],
-  patchMiddlewares: [meta],
-});
+export default createRouter(
+  stateFiltersController,
+  (router) => {
+    router.put('/sync-for-role', addAuditFields, meta, (req, res) => stateFiltersController.syncForRole(req, res));
+  },
+  {
+    getMiddlewares: [meta],
+    postMiddlewares: [meta],
+    putMiddlewares: [meta],
+    deleteMiddlewares: [meta],
+    patchMiddlewares: [meta],
+  },
+);
