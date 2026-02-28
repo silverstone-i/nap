@@ -9,24 +9,24 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import authRepositories from '../modules/auth/authRepositories.js';
-import bootstrapAdmin from '../modules/auth/schema/migrations/202502110001_bootstrapAdmin.js';
-import coreRepositories from '../modules/core/coreRepositories.js';
-import coreMigrations from '../modules/core/schema/migrations/index.js';
-import projectsRepositories from '../../Modules/projects/projectsRepositories.js';
-import projectsMigrations from '../../Modules/projects/schema/migrations/index.js';
-import activitiesRepositories from '../../Modules/activities/activitiesRepositories.js';
-import activitiesMigrations from '../../Modules/activities/schema/migrations/index.js';
-import bomRepositories from '../../Modules/bom/bomRepositories.js';
-import bomMigrations from '../../Modules/bom/schema/migrations/index.js';
-import apRepositories from '../../Modules/ap/apRepositories.js';
-import apMigrations from '../../Modules/ap/schema/migrations/index.js';
-import arRepositories from '../../Modules/ar/arRepositories.js';
-import arMigrations from '../../Modules/ar/schema/migrations/index.js';
-import accountingRepositories from '../../Modules/accounting/accountingRepositories.js';
-import accountingMigrations from '../../Modules/accounting/schema/migrations/index.js';
-import reportsRepositories from '../../Modules/reports/reportsRepositories.js';
-import reportsMigrations from '../../Modules/reports/schema/migrations/index.js';
+import authRepositories from '../system/auth/authRepositories.js';
+import bootstrapAdmin from '../system/auth/schema/migrations/202502110001_bootstrapAdmin.js';
+import coreRepositories from '../system/core/coreRepositories.js';
+import coreMigrations from '../system/core/schema/migrations/index.js';
+import projectsRepositories from '../modules/projects/projectsRepositories.js';
+import projectsMigrations from '../modules/projects/schema/migrations/index.js';
+import activitiesRepositories from '../modules/activities/activitiesRepositories.js';
+import activitiesMigrations from '../modules/activities/schema/migrations/index.js';
+import bomRepositories from '../modules/bom/bomRepositories.js';
+import bomMigrations from '../modules/bom/schema/migrations/index.js';
+import apRepositories from '../modules/ap/apRepositories.js';
+import apMigrations from '../modules/ap/schema/migrations/index.js';
+import arRepositories from '../modules/ar/arRepositories.js';
+import arMigrations from '../modules/ar/schema/migrations/index.js';
+import accountingRepositories from '../modules/accounting/accountingRepositories.js';
+import accountingMigrations from '../modules/accounting/schema/migrations/index.js';
+import reportsRepositories from '../modules/reports/reportsRepositories.js';
+import reportsMigrations from '../modules/reports/schema/migrations/index.js';
 
 const moduleRegistry = [
   {

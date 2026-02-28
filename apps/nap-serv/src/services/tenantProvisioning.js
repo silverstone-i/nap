@@ -15,9 +15,9 @@
 import { DB } from 'pg-schemata';
 import migrator from '../db/migrations/index.js';
 import { tenantModules } from '../db/migrations/moduleScopes.js';
-import { seedSystemRoles } from '../modules/core/services/systemRoleSeeder.js';
-import { seedPolicyCatalog } from '../modules/core/services/policyCatalogSeeder.js';
-import { seedNumberingConfig } from '../modules/core/services/numberingConfigSeeder.js';
+import { seedSystemRoles } from '../system/core/services/systemRoleSeeder.js';
+import { seedPolicyCatalog } from '../system/core/services/policyCatalogSeeder.js';
+import { seedNumberingConfig } from '../system/core/services/numberingConfigSeeder.js';
 import logger from '../lib/logger.js';
 
 const NAPSOFT_TENANT = (process.env.NAPSOFT_TENANT || 'NAP').toUpperCase();

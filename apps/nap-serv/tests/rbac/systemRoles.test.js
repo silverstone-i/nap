@@ -12,7 +12,7 @@ vi.mock('../../src/lib/logger.js', () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const { seedSystemRoles } = await import('../../src/modules/core/services/systemRoleSeeder.js');
+const { seedSystemRoles } = await import('../../src/system/core/services/systemRoleSeeder.js');
 
 describe('System Role Seeding', () => {
   let mockDb;

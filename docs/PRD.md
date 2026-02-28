@@ -1932,7 +1932,7 @@ const { max_by_groups } = rule;
 - **`tenants`** — API layer for multi-tenant administration (controllers and routes for tenant CRUD, nap-user registration, impersonation, and match review logs). Tenants has **no schemas or models of its own** — controllers resolve models from the `auth` module's repositories via the global `db()` singleton. Routes are mounted at `/api/tenants/v1/`. This module is **not in the module registry** because it has no database artifacts; it is loaded directly in the route aggregator.
 - **`core`** — tables required by all optional modules (sources, vendors, clients, employees, contacts, addresses, inter_companies, RBAC)
 
-`Modules/` (at the `nap-serv` root, sibling to `src/`) contains **optional feature modules** that tenants enable based on their needs:
+`src/modules/` contains **optional feature modules** that tenants enable based on their needs:
 
 - **`projects`** — Project management, units, tasks, cost items, change orders, templates
 - **`activities`** — Activity tracking
@@ -1945,7 +1945,7 @@ const { max_by_groups } = rule;
 Both tiers follow the same internal layout:
 
 ```
-<module>/                        # Inside src/modules/ or Modules/
+<module>/                        # Inside src/system/ or src/modules/
   schemas/                       # pg-schemata schema definitions (one per table)
     apInvoicesSchema.js
     apInvoiceLinesSchema.js
@@ -1964,7 +1964,7 @@ Both tiers follow the same internal layout:
     index.js
 ```
 
-Optional modules in `Modules/` import core platform code via relative paths to `src/` (e.g., `../../../src/lib/BaseController.js`). All modules — core and optional — are registered in `src/db/moduleRegistry.js` and mounted in `src/apiRoutes.js`.
+Feature modules in `src/modules/` import platform code via relative paths (e.g., `../../../lib/BaseController.js`, `../../../system/core/` for platform modules). All modules — platform and feature — are registered in `src/db/moduleRegistry.js` and mounted in `src/apiRoutes.js`.
 
 **Client-side page layout:**
 ```
@@ -2539,7 +2539,7 @@ git pull origin develop
 git checkout -b feat/serv-cashflow-reports
 
 # 3. Make changes, commit with conventional commits
-git add apps/nap-serv/Modules/reports/
+git add apps/nap-serv/src/modules/reports/
 git commit -m "feat(serv): add project profitability SQL views"
 
 # 4. Push and create PR
@@ -2599,11 +2599,11 @@ The pre-commit hook enforces:
 
    ```bash
    # This will be REJECTED:
-   git add apps/nap-serv/Modules/ar/ apps/nap-client/src/pages/AR/
+   git add apps/nap-serv/src/modules/ar/ apps/nap-client/src/pages/AR/
    git commit -m "feat: add AR module"  # ❌ Mixed commit
 
    # Do this instead:
-   git add apps/nap-serv/Modules/ar/
+   git add apps/nap-serv/src/modules/ar/
    git commit -m "feat(serv): add AR module API routes and controllers"
 
    git add apps/nap-client/src/pages/AR/

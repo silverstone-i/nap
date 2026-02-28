@@ -8,16 +8,16 @@
  */
 
 import { Router } from 'express';
-import authRouter from './modules/auth/apiRoutes/v1/authRouter.js';
-import tenantsApiRoutes from './modules/tenants/apiRoutes/v1/tenantsApiRoutes.js';
-import coreApiRoutes from './modules/core/apiRoutes/v1/coreApiRoutes.js';
-import projectsApiRoutes from '../Modules/projects/apiRoutes/v1/projectsApiRoutes.js';
-import activitiesApiRoutes from '../Modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
-import bomApiRoutes from '../Modules/bom/apiRoutes/v1/bomApiRoutes.js';
-import apApiRoutes from '../Modules/ap/apiRoutes/v1/apApiRoutes.js';
-import arApiRoutes from '../Modules/ar/apiRoutes/v1/arApiRoutes.js';
-import accountingApiRoutes from '../Modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
-import reportsApiRoutes from '../Modules/reports/apiRoutes/v1/reportsApiRoutes.js';
+import authRouter from './system/auth/apiRoutes/v1/authRouter.js';
+import tenantsApiRoutes from './system/tenants/apiRoutes/v1/tenantsApiRoutes.js';
+import coreApiRoutes from './system/core/apiRoutes/v1/coreApiRoutes.js';
+import projectsApiRoutes from './modules/projects/apiRoutes/v1/projectsApiRoutes.js';
+import activitiesApiRoutes from './modules/activities/apiRoutes/v1/activitiesApiRoutes.js';
+import bomApiRoutes from './modules/bom/apiRoutes/v1/bomApiRoutes.js';
+import apApiRoutes from './modules/ap/apiRoutes/v1/apApiRoutes.js';
+import arApiRoutes from './modules/ar/apiRoutes/v1/arApiRoutes.js';
+import accountingApiRoutes from './modules/accounting/apiRoutes/v1/accountingApiRoutes.js';
+import reportsApiRoutes from './modules/reports/apiRoutes/v1/reportsApiRoutes.js';
 
 const router = Router();
 

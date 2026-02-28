@@ -112,7 +112,7 @@ The codebase has:
 - `src/lib/logger.js` — Winston logger
 - `src/middleware/errorHandler.js` — Maps DatabaseError/SchemaDefinitionError to HTTP codes
 
-#### Server — Auth Module (`src/modules/auth/`)
+#### Server — Auth Module (`src/system/auth/`)
 
 **Schemas** (in `schemas/`):
 
@@ -238,7 +238,7 @@ You are continuing the NAP build. Phases 1-2 established the monorepo, admin sch
 
 #### Server — RBAC Tables (PRD §3.1.2)
 
-**Core module** (`src/modules/core/`):
+**Core module** (`src/system/core/`):
 
 Schemas (in `schemas/`, all with `dbSchema: 'public'` — overridden at runtime by pg-schemata):
 
@@ -314,7 +314,7 @@ You are continuing the NAP build. Phases 1-3 established the monorepo, admin sch
 - System roles (super_user, admin, support) are seeded during tenant provisioning
 - `nap_users.entity_type` + `entity_id` link to entity records (null for bootstrap super user)
 
-#### Server — Tenants Module (`src/modules/tenants/`)
+#### Server — Tenants Module (`src/system/tenants/`)
 
 **Controllers:**
 - `tenantsController.js` — create (provisions schema: bootstrap tables + seed RBAC + seed admin role + create admin employee + create nap_user login in single tx), list (cursor pagination), get, update, archive (cascade deactivate all users), restore (reactivate users). Root tenant (NAP) cannot be archived → 403.
@@ -378,7 +378,7 @@ You are continuing the NAP build. Phases 1-4 established the monorepo, admin sch
 - Entity deactivation must cascade to lock corresponding nap_users login (cross-schema business rule)
 - Roles are stored as `text[]` on entity tables, not on nap_users
 
-#### Server — Core Module Additions (`src/modules/core/`)
+#### Server — Core Module Additions (`src/system/core/`)
 
 **Schemas** (all in tenant schemas with `dbSchema: 'public'`):
 
@@ -432,9 +432,9 @@ You are continuing the NAP build. Phases 1-5 established the full platform found
 - Entity tables have `roles` text[] and `is_app_user` columns
 - `project_members` and `company_members` tables exist (from Phase 3 RBAC) for scope resolution
 
-#### Server — Projects Module (`Modules/projects/`)
+#### Server — Projects Module (`src/modules/projects/`)
 
-**Note:** Optional feature modules live in `Modules/` (at nap-serv root, sibling to `src/`). They import core platform code via relative paths (e.g., `../../../src/lib/BaseController.js`). Register in `moduleRegistry.js` and mount in `apiRoutes.js`.
+**Note:** Feature modules live in `src/modules/`. They import platform code via relative paths (e.g., `../../../lib/BaseController.js`, `../../../system/core/` for platform modules). Register in `moduleRegistry.js` and mount in `apiRoutes.js`.
 
 **Schemas** (PRD §3.4):
 1. `projectsSchema.js` — id, tenant_id, company_id (FK inter_companies RESTRICT), address_id (FK addresses SET NULL), project_code (unique per tenant), name, description, notes, status (planning→budgeting→released→complete), contract_amount (numeric 14,2)
@@ -478,12 +478,12 @@ You are continuing the NAP build. Phases 1-6 established admin, auth, RBAC, tena
 
 #### Context from Phase 6
 
-- Projects module in `Modules/projects/` with projects, units, tasks, cost_items, change_orders
+- Projects module in `src/modules/projects/` with projects, units, tasks, cost_items, change_orders
 - `cost_items.amount` is a generated column (quantity * unit_cost)
 - Templates support project instantiation
 - Inter-companies, vendors, clients exist in core entities
 
-#### Server — Activities Module (`Modules/activities/`)
+#### Server — Activities Module (`src/modules/activities/`)
 
 **Schemas** (PRD §3.5):
 1. `categoriesSchema.js` — id, code, name, type (labor/material/subcontract/equipment/other)
@@ -529,7 +529,7 @@ You are continuing the NAP build. Phases 1-7 established admin, auth, RBAC, tena
 - `admin.match_review_logs` table exists from Phase 2
 - PG extension `vector` is created per-schema as needed
 
-#### Server — BOM Module (`Modules/bom/`)
+#### Server — BOM Module (`src/modules/bom/`)
 
 **Schemas** (PRD §3.6):
 1. `catalogSkusSchema.js` — id, catalog_sku (unique), description, description_normalized, category, sub_category, model (varchar 32), embedding (vector 3072)
@@ -569,7 +569,7 @@ You are continuing the NAP build. Phases 1-8 established admin, auth, RBAC, tena
 - `project_id` FKs on AP/AR invoices and journal entries enable cashflow tracking
 - Budget approval workflow is in place
 
-#### Server — AP Module (`Modules/ap/`)
+#### Server — AP Module (`src/modules/ap/`)
 
 **Schemas** (PRD §3.7):
 1. `apInvoicesSchema.js` — id, company_id (FK RESTRICT), vendor_id (FK RESTRICT), project_id (FK SET NULL), invoice_number, invoice_date, due_date, total_amount, status (open→approved→paid→voided)
@@ -581,7 +581,7 @@ You are continuing the NAP build. Phases 1-8 established admin, auth, RBAC, tena
 
 Migration: `202502110050_apTables.js`
 
-#### Server — AR Module (`Modules/ar/`)
+#### Server — AR Module (`src/modules/ar/`)
 
 **Schemas** (PRD §3.8):
 1. `arInvoicesSchema.js` — id, company_id (FK RESTRICT), client_id (FK RESTRICT), project_id (FK SET NULL), deliverable_id (FK SET NULL), invoice_number, invoice_date, due_date, total_amount, status (open→sent→paid→voided)
@@ -592,7 +592,7 @@ Migration: `202502110050_apTables.js`
 
 Migration: `202502110060_arTables.js`
 
-#### Server — Accounting Module (`Modules/accounting/`)
+#### Server — Accounting Module (`src/modules/accounting/`)
 
 **Schemas** (PRD §3.9):
 1. `chartOfAccountsSchema.js` — id, code, name, type (asset/liability/equity/income/expense/cash/bank), is_active, cash_basis, bank_account_number, routing_number, bank_name
@@ -650,7 +650,7 @@ You are continuing the NAP build. Phases 1-9 established the complete transactio
 - GL posting is operational; AP/AR hooks create journal entries automatically
 - Budget approval workflow with version management exists
 
-#### Server — Reports Module (`Modules/reports/`)
+#### Server — Reports Module (`src/modules/reports/`)
 
 **SQL Views Migration** (`202502120080_sqlViews.js`) — Creates in each tenant schema (PRD §3.10.4, §3.11):
 
@@ -667,7 +667,7 @@ You are continuing the NAP build. Phases 1-9 established the complete transactio
 - profitabilityController, cashflowController, agingController, marginController
 - All endpoints under `/api/reports/v1/` per PRD §3.10.5
 
-**Views Module** (`Modules/views/`):
+**Views Module** (`src/modules/views/`):
 - `/api/views/v1/contacts`, `/addresses`, `/template-cost-items`, `/template-tasks`
 
 #### Client
@@ -743,4 +743,4 @@ You are continuing the NAP build. Phases 1-9 established the complete transactio
   schema/migrations/ # Module-specific migrations
 ```
 
-Core modules in `src/modules/` (auth, tenants, core). Optional modules in `Modules/` at nap-serv root (projects, activities, bom, ap, ar, accounting, reports, views).
+Platform modules in `src/system/` (auth, tenants, core). Feature modules in `src/modules/` (projects, activities, bom, ap, ar, accounting, reports, views).
