@@ -26,6 +26,7 @@ import {
   useRefreshVendorEmbeddings,
 } from '../../hooks/useBom.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const confidenceColor = (val) => {
   if (val >= 0.85) return 'success';
@@ -70,7 +71,8 @@ export default function VendorSkuMatchingPage() {
   }, [viewMode, unmatchedRows, allRows]);
 
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
+  const { selected, isSingle } =
+    deriveSelectionState(selectionModel, rows);
 
   const [matchResults, setMatchResults] = useState([]);
   const [matchSelection, setMatchSelection] = useState([]);
@@ -143,13 +145,13 @@ export default function VendorSkuMatchingPage() {
       ],
       filters: [],
       primaryActions: [
-        { label: 'Find Matches', variant: 'contained', disabled: !selected || matchMut.isPending, onClick: handleFindMatches },
-        { label: 'Auto Match', variant: 'outlined', disabled: !selected || autoMatchMut.isPending, onClick: handleAutoMatch },
+        { label: 'Find Matches', variant: 'contained', disabled: !isSingle || matchMut.isPending, onClick: handleFindMatches },
+        { label: 'Auto Match', variant: 'outlined', disabled: !isSingle || autoMatchMut.isPending, onClick: handleAutoMatch },
         { label: 'Batch Match All', variant: 'outlined', color: 'secondary', disabled: batchMatchMut.isPending || unmatchedRows.length === 0, onClick: handleBatchMatch },
         { label: 'Refresh Embeddings', variant: 'outlined', disabled: refreshMut.isPending, onClick: handleRefreshEmbeddings },
       ],
     }),
-    [selected, viewMode, matchMut.isPending, autoMatchMut.isPending, batchMatchMut.isPending, refreshMut.isPending, unmatchedRows.length],
+    [selected, isSingle, viewMode, matchMut.isPending, autoMatchMut.isPending, batchMatchMut.isPending, refreshMut.isPending, unmatchedRows.length],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -177,7 +179,6 @@ export default function VendorSkuMatchingPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={setSelectionModel}
         pageSizeOptions={[25, 50, 100]}

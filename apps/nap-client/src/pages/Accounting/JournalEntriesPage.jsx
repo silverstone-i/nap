@@ -23,6 +23,7 @@ import {
   useArchiveJournalEntry, useRestoreJournalEntry,
 } from '../../hooks/useAccounting.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const STATUS_OPTS = ['pending', 'posted', 'reversed'];
 const cap = (s) => (s ? s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
@@ -58,8 +59,8 @@ export default function JournalEntriesPage() {
   const restoreMut = useRestoreJournalEntry();
 
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    deriveSelectionState(selectionModel, rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -98,10 +99,20 @@ export default function JournalEntriesPage() {
     try { await reverseMut.mutateAsync({ entry_id: selected.id }); toast('Entry reversed'); } catch (err) { toast(errMsg(err), 'error'); }
   }, [selected, reverseMut, toast]);
   const handleArchive = async () => {
-    try { await archiveMut.mutateAsync({ id: selected.id }); toast('Entry archived'); setArchiveOpen(false); setSelectionModel([]); } catch (err) { toast(errMsg(err), 'error'); }
+    try {
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Journal entry archived' : `${targets.length} journal entries archived`);
+      setArchiveOpen(false); setSelectionModel([]);
+    } catch (err) { toast(errMsg(err), 'error'); }
   };
   const handleRestore = async () => {
-    try { await restoreMut.mutateAsync({ id: selected.id }); toast('Entry restored'); setRestoreOpen(false); setSelectionModel([]); } catch (err) { toast(errMsg(err), 'error'); }
+    try {
+      const targets = selectedRows.filter((r) => !!r.deactivated_at);
+      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Journal entry restored' : `${targets.length} journal entries restored`);
+      setRestoreOpen(false); setSelectionModel([]);
+    } catch (err) { toast(errMsg(err), 'error'); }
   };
 
   const toolbar = useMemo(() => ({
@@ -113,18 +124,18 @@ export default function JournalEntriesPage() {
     filters: [],
     primaryActions: [
       { label: 'Create Entry', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-      { label: 'Edit', variant: 'outlined', disabled: !selected, onClick: openEdit },
-      { label: 'Post', variant: 'outlined', color: 'success', disabled: !selected || selected?.status !== 'pending', onClick: handlePost },
-      { label: 'Reverse', variant: 'outlined', color: 'warning', disabled: !selected || selected?.status !== 'posted', onClick: handleReverse },
-      { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-      { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+      { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+      { label: 'Post', variant: 'outlined', color: 'success', disabled: !isSingle || selected?.status !== 'pending', onClick: handlePost },
+      { label: 'Reverse', variant: 'outlined', color: 'warning', disabled: !isSingle || selected?.status !== 'posted', onClick: handleReverse },
+      { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
+      { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
     ],
-  }), [selected, isArchived, viewFilter, openEdit, handlePost, handleReverse]);
+  }), [selected, isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, handlePost, handleReverse]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection disableMultipleRowSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={setSelectionModel} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
+      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={setSelectionModel} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
 
       <FormDialog open={createOpen} title="Create Journal Entry" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Entry Date" type="date" required value={createForm.entry_date} onChange={onCreateField('entry_date')} InputLabelProps={{ shrink: true }} />
@@ -144,8 +155,8 @@ export default function JournalEntriesPage() {
         <TextField label="Source Type" value={editForm.source_type} onChange={onEditField('source_type')} />
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Entry" message="Archive this journal entry?" confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Entry" message="Restore this journal entry?" confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog open={archiveOpen} title="Archive Entry" message={hasSelection ? (selectedRows.length === 1 ? `Archive this journal entry?` : `Archive ${selectedRows.length} journal entries?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog open={restoreOpen} title="Restore Entry" message={hasSelection ? (selectedRows.length === 1 ? `Restore this journal entry?` : `Restore ${selectedRows.length} journal entries?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

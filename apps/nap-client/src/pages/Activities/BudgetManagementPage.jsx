@@ -24,6 +24,7 @@ import { useBudgets, useCreateBudget, useUpdateBudget, useArchiveBudget, useCrea
 import { useDeliverables } from '../../hooks/useDeliverables.js';
 import { useActivities } from '../../hooks/useActivities.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const BLANK_CREATE = { deliverable_id: '', activity_id: '', budgeted_amount: '', status: 'draft' };
 const BLANK_EDIT = { budgeted_amount: '', status: '' };
@@ -55,8 +56,8 @@ export default function BudgetManagementPage() {
   const newVersionMut = useCreateBudgetVersion();
 
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectedRows, selected, isSingle, hasSelection, allActive } =
+    deriveSelectionState(selectionModel, rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -102,8 +103,9 @@ export default function BudgetManagementPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Budget archived');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Budget archived' : `${targets.length} budgets archived`);
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -122,7 +124,7 @@ export default function BudgetManagementPage() {
     }
   };
 
-  const canNewVersion = selected && (selected.status === 'approved' || selected.status === 'locked');
+  const canNewVersion = isSingle && (selected?.status === 'approved' || selected?.status === 'locked');
 
   const columns = useMemo(
     () => [
@@ -170,12 +172,12 @@ export default function BudgetManagementPage() {
       filters: [],
       primaryActions: [
         { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected || isArchived, onClick: openEdit },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
         { label: 'New Version', variant: 'outlined', disabled: !canNewVersion, onClick: () => setVersionOpen(true) },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
+        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit, canNewVersion],
+    [selected, isSingle, hasSelection, allActive, selectedRows.length, viewFilter, openEdit, canNewVersion],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -187,7 +189,6 @@ export default function BudgetManagementPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={setSelectionModel}
         pageSizeOptions={[25, 50, 100]}
@@ -229,7 +230,7 @@ export default function BudgetManagementPage() {
         onCancel={() => setVersionOpen(false)}
       />
 
-      <ConfirmDialog open={archiveOpen} title="Archive Budget" message={selected ? `Archive budget v${selected.version}?` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog open={archiveOpen} title="Archive Budget" message={hasSelection ? (selectedRows.length === 1 ? `Archive budget v${selectedRows[0].version}?` : `Archive ${selectedRows.length} budgets?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

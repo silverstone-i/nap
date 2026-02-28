@@ -68,14 +68,23 @@ export function useArInvoiceLines(params = { limit: 200, includeDeactivated: 'tr
 
 export function useCreateArInvoiceLine() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: (body) => arInvoiceLineApi.create(body), onSuccess: () => qc.invalidateQueries({ queryKey: AR_LINES_KEY }) });
+  return useMutation({
+    mutationFn: (body) => arInvoiceLineApi.create(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AR_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AR_INVOICES_KEY });
+    },
+  });
 }
 
 export function useUpdateArInvoiceLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ filter, changes }) => arInvoiceLineApi.update(filter, changes),
-    onSuccess: () => qc.invalidateQueries({ queryKey: AR_LINES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AR_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AR_INVOICES_KEY });
+    },
   });
 }
 
@@ -83,7 +92,10 @@ export function useArchiveArInvoiceLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => arInvoiceLineApi.archive(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: AR_LINES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AR_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AR_INVOICES_KEY });
+    },
   });
 }
 
@@ -91,7 +103,10 @@ export function useRestoreArInvoiceLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => arInvoiceLineApi.restore(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: AR_LINES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AR_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AR_INVOICES_KEY });
+    },
   });
 }
 
@@ -132,7 +147,10 @@ export function useArchiveReceipt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => receiptApi.archive(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: RECEIPTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: RECEIPTS_KEY });
+      qc.invalidateQueries({ queryKey: AR_INVOICES_KEY });
+    },
   });
 }
 
@@ -140,6 +158,9 @@ export function useRestoreReceipt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => receiptApi.restore(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: RECEIPTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: RECEIPTS_KEY });
+      qc.invalidateQueries({ queryKey: AR_INVOICES_KEY });
+    },
   });
 }

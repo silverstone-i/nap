@@ -10,10 +10,11 @@ import { phoneNumberApi } from '../services/phoneNumberApi.js';
 
 const PHONE_NUMBERS_KEY = ['phoneNumbers'];
 
-export function usePhoneNumbers(params = { limit: 200, includeDeactivated: 'true' }) {
+export function usePhoneNumbers(params = { limit: 200, includeDeactivated: 'true' }, options = {}) {
   return useQuery({
     queryKey: [...PHONE_NUMBERS_KEY, params],
     queryFn: () => phoneNumberApi.list(params),
+    ...options,
   });
 }
 

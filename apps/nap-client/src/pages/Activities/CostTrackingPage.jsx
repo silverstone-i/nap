@@ -22,6 +22,7 @@ import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContex
 import { useActualCosts, useCreateActualCost, useUpdateActualCost, useArchiveActualCost } from '../../hooks/useActualCosts.js';
 import { useActivities } from '../../hooks/useActivities.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const BLANK_CREATE = { activity_id: '', project_id: '', amount: '', currency: 'USD', reference: '', incurred_on: '' };
 const BLANK_EDIT = { amount: '', currency: '', reference: '', approval_status: '', incurred_on: '' };
@@ -49,8 +50,8 @@ export default function CostTrackingPage() {
   const archiveMut = useArchiveActualCost();
 
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectedRows, selected, isSingle, hasSelection, allActive } =
+    deriveSelectionState(selectionModel, rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -101,8 +102,9 @@ export default function CostTrackingPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Actual cost archived');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Actual cost archived' : `${targets.length} actual costs archived`);
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -145,11 +147,11 @@ export default function CostTrackingPage() {
       filters: [],
       primaryActions: [
         { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected || isArchived, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit],
+    [selected, isSingle, hasSelection, allActive, selectedRows.length, viewFilter, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -161,7 +163,6 @@ export default function CostTrackingPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={setSelectionModel}
         pageSizeOptions={[25, 50, 100]}
@@ -195,7 +196,7 @@ export default function CostTrackingPage() {
         </Box>
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Actual Cost" message="Archive this actual cost record?" confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog open={archiveOpen} title="Archive Actual Cost" message={hasSelection ? (selectedRows.length === 1 ? 'Archive this actual cost record?' : `Archive ${selectedRows.length} actual costs?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

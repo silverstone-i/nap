@@ -5,7 +5,7 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -31,9 +31,14 @@ import {
   useEmployees, useCreateEmployee, useUpdateEmployee, useArchiveEmployee, useRestoreEmployee,
 } from '../../hooks/useEmployees.js';
 import { useRoles } from '../../hooks/useRoles.js';
-import { phoneNumberApi } from '../../services/phoneNumberApi.js';
-import { addressApi } from '../../services/addressApi.js';
+import {
+  usePhoneNumbers, useCreatePhoneNumber, useUpdatePhoneNumber, useArchivePhoneNumber,
+} from '../../hooks/usePhoneNumbers.js';
+import {
+  useAddresses, useCreateAddress, useUpdateAddress, useArchiveAddress,
+} from '../../hooks/useAddresses.js';
 import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const BLANK_CREATE = {
   first_name: '', last_name: '', code: '', position: '', department: '', email: '',
@@ -72,34 +77,6 @@ const columns = [
   },
 ];
 
-/* ── Phone / Address save helpers ────────────────────────────── */
-
-async function savePhones(phones, sourceId) {
-  for (const p of phones) {
-    if (p._deleted && p.id) {
-      await phoneNumberApi.archive({ id: p.id });
-    } else if (!p.id && !p._deleted) {
-      await phoneNumberApi.create({ source_id: sourceId, phone_type: p.phone_type, phone_number: p.phone_number, is_primary: p.is_primary });
-    } else if (p.id && !p._deleted) {
-      await phoneNumberApi.update({ id: p.id }, { phone_type: p.phone_type, phone_number: p.phone_number, is_primary: p.is_primary });
-    }
-  }
-}
-
-async function saveAddresses(addresses, sourceId) {
-  for (const a of addresses) {
-    if (a._deleted && a.id) {
-      await addressApi.archive({ id: a.id });
-    } else if (!a.id && !a._deleted) {
-      const { _deleted, ...rest } = a;
-      await addressApi.create({ ...rest, source_id: sourceId });
-    } else if (a.id && !a._deleted) {
-      const { id, source_id: _sid, created_at: _ca, updated_at: _ua, created_by: _cb, updated_by: _ub, deactivated_at: _da, ...changes } = a;
-      await addressApi.update({ id }, changes);
-    }
-  }
-}
-
 export default function EmployeesPage() {
   const { data: res, isLoading } = useEmployees();
   const allRows = res?.rows ?? [];
@@ -119,15 +96,26 @@ export default function EmployeesPage() {
   const archiveMut = useArchiveEmployee();
   const restoreMut = useRestoreEmployee();
 
+  const createPhoneMut = useCreatePhoneNumber();
+  const updatePhoneMut = useUpdatePhoneNumber();
+  const archivePhoneMut = useArchivePhoneNumber();
+  const createAddrMut = useCreateAddress();
+  const updateAddrMut = useUpdateAddress();
+  const archiveAddrMut = useArchiveAddress();
+
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    deriveSelectionState(selectionModel, rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [resetPwOpen, setResetPwOpen] = useState(false);
+
+  const [editSourceId, setEditSourceId] = useState(null);
+  const { data: phonesRes } = usePhoneNumbers({ source_id: editSourceId, includeDeactivated: 'false' }, { enabled: !!editSourceId });
+  const { data: addressesRes } = useAddresses({ source_id: editSourceId, includeDeactivated: 'false' }, { enabled: !!editSourceId });
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -182,7 +170,16 @@ export default function EmployeesPage() {
   const removeAddress = (idx) =>
     setEditAddresses((prev) => prev.map((a, i) => (i === idx ? { ...a, _deleted: true } : a)));
 
-  const openEdit = useCallback(async () => {
+  /* ── Sync query-fetched phones/addresses into edit state ───── */
+  useEffect(() => {
+    if (editOpen && phonesRes?.rows) setEditPhones(phonesRes.rows);
+  }, [editOpen, phonesRes]);
+
+  useEffect(() => {
+    if (editOpen && addressesRes?.rows) setEditAddresses(addressesRes.rows);
+  }, [editOpen, addressesRes]);
+
+  const openEdit = useCallback(() => {
     if (!selected) return;
     setEditForm({
       first_name: selected.first_name ?? '',
@@ -197,20 +194,8 @@ export default function EmployeesPage() {
       is_billing_contact: !!selected.is_billing_contact,
     });
 
-    if (selected.source_id) {
-      try {
-        const pRes = await phoneNumberApi.list({ source_id: selected.source_id });
-        setEditPhones((pRes?.rows ?? []).filter((p) => !p.deactivated_at));
-      } catch {
-        setEditPhones([]);
-      }
-      try {
-        const aRes = await addressApi.list({ source_id: selected.source_id });
-        setEditAddresses((aRes?.rows ?? []).filter((a) => !a.deactivated_at));
-      } catch {
-        setEditAddresses([]);
-      }
-    } else {
+    setEditSourceId(selected.source_id || null);
+    if (!selected.source_id) {
       setEditPhones([]);
       setEditAddresses([]);
     }
@@ -234,12 +219,31 @@ export default function EmployeesPage() {
       await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
 
       if (selected.source_id) {
-        await savePhones(editPhones, selected.source_id);
-        await saveAddresses(editAddresses, selected.source_id);
+        for (const p of editPhones) {
+          if (p._deleted && p.id) {
+            await archivePhoneMut.mutateAsync({ id: p.id });
+          } else if (!p.id && !p._deleted) {
+            await createPhoneMut.mutateAsync({ source_id: selected.source_id, phone_type: p.phone_type, phone_number: p.phone_number, is_primary: p.is_primary });
+          } else if (p.id && !p._deleted) {
+            await updatePhoneMut.mutateAsync({ filter: { id: p.id }, changes: { phone_type: p.phone_type, phone_number: p.phone_number, is_primary: p.is_primary } });
+          }
+        }
+        for (const a of editAddresses) {
+          if (a._deleted && a.id) {
+            await archiveAddrMut.mutateAsync({ id: a.id });
+          } else if (!a.id && !a._deleted) {
+            const { _deleted, ...rest } = a;
+            await createAddrMut.mutateAsync({ ...rest, source_id: selected.source_id });
+          } else if (a.id && !a._deleted) {
+            const { id, source_id: _sid, created_at: _ca, updated_at: _ua, created_by: _cb, updated_by: _ub, deactivated_at: _da, ...changes } = a;
+            await updateAddrMut.mutateAsync({ filter: { id }, changes });
+          }
+        }
       }
 
       toast('Employee updated');
       setEditOpen(false);
+      setEditSourceId(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -247,8 +251,9 @@ export default function EmployeesPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Employee archived');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Employee archived' : `${targets.length} employees archived`);
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -258,8 +263,9 @@ export default function EmployeesPage() {
 
   const handleRestore = async () => {
     try {
-      await restoreMut.mutateAsync({ id: selected.id });
-      toast('Employee restored');
+      const targets = selectedRows.filter((r) => !!r.deactivated_at);
+      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Employee restored' : `${targets.length} employees restored`);
       setRestoreOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -277,12 +283,12 @@ export default function EmployeesPage() {
       filters: [],
       primaryActions: [
         { label: 'Create Employee', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-        { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
+        { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit],
+    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -298,7 +304,6 @@ export default function EmployeesPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={setSelectionModel}
         pageSizeOptions={[25, 50, 100]}
@@ -328,7 +333,7 @@ export default function EmployeesPage() {
       </FormDialog>
 
       {/* ── Edit Employee Dialog ─────────────────────────────── */}
-      <FormDialog open={editOpen} title="Edit Employee" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)}>
+      <FormDialog open={editOpen} title="Edit Employee" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditSourceId(null); }}>
         <Box sx={formGridSx}>
           <TextField label="First Name" required value={editForm.first_name} onChange={onEditField('first_name')} />
           <TextField label="Last Name" required value={editForm.last_name} onChange={onEditField('last_name')} />
@@ -445,8 +450,8 @@ export default function EmployeesPage() {
         })}
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Employee" message={selected ? `Archive "${selected.first_name} ${selected.last_name}"? ${selected.is_app_user ? 'Their login account will also be locked.' : ''}` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Employee" message={selected ? `Restore "${selected.first_name} ${selected.last_name}"?` : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog open={archiveOpen} title="Archive Employee" message={hasSelection ? (selectedRows.length === 1 ? `Archive "${selectedRows[0].first_name} ${selectedRows[0].last_name}"?${selectedRows[0].is_app_user ? ' Their login account will also be locked.' : ''}` : `Archive ${selectedRows.length} employees?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog open={restoreOpen} title="Restore Employee" message={hasSelection ? (selectedRows.length === 1 ? `Restore "${selectedRows[0].first_name} ${selectedRows[0].last_name}"?` : `Restore ${selectedRows.length} employees?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
 
       <ResetPasswordDialog
         open={resetPwOpen}

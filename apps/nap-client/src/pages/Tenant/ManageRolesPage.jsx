@@ -28,6 +28,7 @@ import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useRoles, useCreateRole, useUpdateRole } from '../../hooks/useRoles.js';
 import { masterDetailSx, masterPanelSx, detailPanelSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 import PolicyEditor from './PolicyEditor.jsx';
 import StateFilterEditor from './StateFilterEditor.jsx';
@@ -88,8 +89,7 @@ export default function ManageRolesPage() {
 
   /* ── selection ───────────────────────────────────────────── */
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isSingle = selectionModel.length === 1 && !!selected;
+  const { selected, isSingle } = deriveSelectionState(selectionModel, rows);
   const isReadOnly = selected?.is_immutable || selected?.is_system;
 
   /* ── detail tab ────────────────────────────────────────────── */
@@ -162,12 +162,12 @@ export default function ManageRolesPage() {
         {
           label: 'Edit',
           variant: 'outlined',
-          disabled: !selected || !!selected?.is_immutable,
+          disabled: !isSingle || !!selected?.is_immutable,
           onClick: openEdit,
         },
       ],
     }),
-    [selected, openEdit],
+    [isSingle, selected, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -182,7 +182,6 @@ export default function ManageRolesPage() {
           getRowId={(r) => r.id}
           loading={isLoading}
           checkboxSelection
-          disableMultipleRowSelection
           rowSelectionModel={selectionModel}
           onRowSelectionModelChange={setSelectionModel}
           pageSizeOptions={[25, 50, 100]}

@@ -27,6 +27,7 @@ import {
   useRestoreDeliverable,
 } from '../../hooks/useDeliverables.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const BLANK_CREATE = { name: '', description: '', status: 'pending', start_date: '', end_date: '' };
 const BLANK_EDIT = { name: '', description: '', status: '', start_date: '', end_date: '' };
@@ -63,8 +64,8 @@ export default function DeliverablesPage() {
   const restoreMut = useRestoreDeliverable();
 
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    deriveSelectionState(selectionModel, rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -116,8 +117,9 @@ export default function DeliverablesPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Deliverable archived');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Deliverable archived' : `${targets.length} deliverables archived`);
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -127,8 +129,9 @@ export default function DeliverablesPage() {
 
   const handleRestore = async () => {
     try {
-      await restoreMut.mutateAsync({ id: selected.id });
-      toast('Deliverable restored');
+      const targets = selectedRows.filter((r) => !!r.deactivated_at);
+      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Deliverable restored' : `${targets.length} deliverables restored`);
       setRestoreOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -146,12 +149,12 @@ export default function DeliverablesPage() {
       filters: [],
       primaryActions: [
         { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-        { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
+        { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit],
+    [selected, isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -163,7 +166,6 @@ export default function DeliverablesPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={setSelectionModel}
         pageSizeOptions={[25, 50, 100]}
@@ -197,8 +199,8 @@ export default function DeliverablesPage() {
         </Box>
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Deliverable" message={selected ? `Archive "${selected.name}"?` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Deliverable" message={selected ? `Restore "${selected.name}"?` : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog open={archiveOpen} title="Archive Deliverable" message={hasSelection ? (selectedRows.length === 1 ? `Archive "${selectedRows[0].name}"?` : `Archive ${selectedRows.length} deliverables?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog open={restoreOpen} title="Restore Deliverable" message={hasSelection ? (selectedRows.length === 1 ? `Restore "${selectedRows[0].name}"?` : `Restore ${selectedRows.length} deliverables?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

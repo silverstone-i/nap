@@ -88,7 +88,7 @@ export function deriveSelectionState(selectionModel, rows, entityType) {
     selected: selectedRows.length === 1 ? selectedRows[0] : null,
     isSingle: selectedRows.length === 1,
     hasSelection: selectedRows.length > 0,
-    hasRootSelected: selectedRows.some((r) => isRootEntity(r, entityType)),
+    hasRootSelected: entityType ? selectedRows.some((r) => isRootEntity(r, entityType)) : false,
     allActive: selectedRows.length > 0 && selectedRows.every((r) => !r.deactivated_at),
     allArchived: selectedRows.length > 0 && selectedRows.every((r) => !!r.deactivated_at),
   };

@@ -10,10 +10,11 @@ import { addressApi } from '../services/addressApi.js';
 
 const ADDRESSES_KEY = ['addresses'];
 
-export function useAddresses(params = { limit: 200, includeDeactivated: 'true' }) {
+export function useAddresses(params = { limit: 200, includeDeactivated: 'true' }, options = {}) {
   return useQuery({
     queryKey: [...ADDRESSES_KEY, params],
     queryFn: () => addressApi.list(params),
+    ...options,
   });
 }
 

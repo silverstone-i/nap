@@ -102,6 +102,8 @@ export default [
         FormData: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
       },
     },
     settings: {

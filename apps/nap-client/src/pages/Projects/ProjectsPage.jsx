@@ -21,6 +21,7 @@ import {
   useProjects, useCreateProject, useUpdateProject, useArchiveProject, useRestoreProject,
 } from '../../hooks/useProjects.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const BLANK_CREATE = { project_code: '', name: '', description: '', notes: '', contract_amount: '' };
 const BLANK_EDIT = { project_code: '', name: '', description: '', notes: '', contract_amount: '' };
@@ -57,8 +58,8 @@ export default function ProjectsPage() {
   const restoreMut = useRestoreProject();
 
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    deriveSelectionState(selectionModel, rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -110,8 +111,9 @@ export default function ProjectsPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Project archived');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Project archived' : `${targets.length} projects archived`);
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -121,8 +123,9 @@ export default function ProjectsPage() {
 
   const handleRestore = async () => {
     try {
-      await restoreMut.mutateAsync({ id: selected.id });
-      toast('Project restored');
+      const targets = selectedRows.filter((r) => !!r.deactivated_at);
+      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Project restored' : `${targets.length} projects restored`);
       setRestoreOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -140,13 +143,13 @@ export default function ProjectsPage() {
       filters: [],
       primaryActions: [
         { label: 'Create Project', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Detail', variant: 'outlined', disabled: !selected, onClick: () => selected && navigate(`/projects/${selected.id}`) },
-        { label: 'Edit', variant: 'outlined', disabled: !selected, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-        { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+        { label: 'Detail', variant: 'outlined', disabled: !isSingle, onClick: () => selected && navigate(`/projects/${selected.id}`) },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
+        { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit, navigate],
+    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, navigate],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -158,7 +161,6 @@ export default function ProjectsPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={setSelectionModel}
         onRowDoubleClick={(p) => navigate(`/projects/${p.id}`)}
@@ -183,8 +185,8 @@ export default function ProjectsPage() {
         <TextField label="Notes" multiline minRows={2} value={editForm.notes} onChange={onEditField('notes')} />
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Project" message={selected ? `Archive "${selected.name}"? All units, tasks, and cost items will also be archived.` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Project" message={selected ? `Restore "${selected.name}"?` : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog open={archiveOpen} title="Archive Project" message={hasSelection ? (selectedRows.length === 1 ? `Archive "${selectedRows[0].name}"? All units, tasks, and cost items will also be archived.` : `Archive ${selectedRows.length} projects? All units, tasks, and cost items will also be archived.`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog open={restoreOpen} title="Restore Project" message={hasSelection ? (selectedRows.length === 1 ? `Restore "${selectedRows[0].name}"?` : `Restore ${selectedRows.length} projects?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

@@ -20,6 +20,7 @@ import {
   useChangeOrders, useCreateChangeOrder, useUpdateChangeOrder, useArchiveChangeOrder, useRestoreChangeOrder,
 } from '../../hooks/useChangeOrders.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
+import { deriveSelectionState } from '../../utils/selectionUtils.js';
 
 const BLANK_CREATE = { unit_id: '', co_number: '', title: '', reason: '', total_amount: '' };
 const BLANK_EDIT = { co_number: '', title: '', reason: '', total_amount: '' };
@@ -55,8 +56,8 @@ export default function ChangeOrdersPage() {
   const restoreMut = useRestoreChangeOrder();
 
   const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    deriveSelectionState(selectionModel, rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -107,8 +108,9 @@ export default function ChangeOrdersPage() {
 
   const handleArchive = async () => {
     try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Change order archived');
+      const targets = selectedRows.filter((r) => !r.deactivated_at);
+      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Change order archived' : `${targets.length} change orders archived`);
       setArchiveOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -118,8 +120,9 @@ export default function ChangeOrdersPage() {
 
   const handleRestore = async () => {
     try {
-      await restoreMut.mutateAsync({ id: selected.id });
-      toast('Change order restored');
+      const targets = selectedRows.filter((r) => !!r.deactivated_at);
+      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
+      toast(targets.length === 1 ? 'Change order restored' : `${targets.length} change orders restored`);
       setRestoreOpen(false);
       setSelectionModel([]);
     } catch (err) {
@@ -137,12 +140,12 @@ export default function ChangeOrdersPage() {
       filters: [],
       primaryActions: [
         { label: 'Create CO', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-        { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
+        { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit],
+    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -154,7 +157,6 @@ export default function ChangeOrdersPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={setSelectionModel}
         pageSizeOptions={[25, 50, 100]}
@@ -177,8 +179,8 @@ export default function ChangeOrdersPage() {
         <TextField label="Total Amount" type="number" value={editForm.total_amount} onChange={onEditField('total_amount')} />
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Change Order" message={selected ? `Archive "${selected.title}"?` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Change Order" message={selected ? `Restore "${selected.title}"?` : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog open={archiveOpen} title="Archive Change Order" message={hasSelection ? (selectedRows.length === 1 ? `Archive "${selectedRows[0].title}"?` : `Archive ${selectedRows.length} change orders?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog open={restoreOpen} title="Restore Change Order" message={hasSelection ? (selectedRows.length === 1 ? `Restore "${selectedRows[0].title}"?` : `Restore ${selectedRows.length} change orders?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>
