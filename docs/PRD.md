@@ -1792,6 +1792,18 @@ Guidelines for maintaining consistency as the UI grows:
 - Use MUI named variants for component "shapes" that differ from the global default but recur in multiple places (e.g., `variant="header"` on `Avatar`).
 - Define new variants in `theme.js` → `components.Mui*.variants[]`.
 
+**Shared DataGrid Hooks** (see ADR 0017):
+
+All 22 DataGrid CRUD pages compose three utilities for selection state, bulk actions, and archive/restore:
+
+| Utility | Location | Purpose |
+|---------|----------|---------|
+| `useDataGridSelection(rows, entityType?)` | `hooks/useDataGridSelection.js` | Selection state + derived booleans (`isSingle`, `hasSelection`, `allActive`, `allArchived`). Pass `entityType` for root-entity mutual exclusion (tenant/user pages). |
+| `useArchiveRestore(opts)` | `hooks/useArchiveRestore.js` | Archive/restore dialog state, async handlers (loops over `selectedRows`), ready-to-spread `ConfirmDialog` props. `restoreMut` optional for archive-only pages. |
+| `buildBulkActions(opts)` | `utils/selectionUtils.js` | Returns Archive/Restore toolbar button configs with count labels and disabled states. Spread into `primaryActions`. |
+
+**Critical:** Toolbar `useMemo` deps must use `selectedRows.length` (primitive), NOT `selectedRows` (array ref) — the latter causes infinite re-renders via the `ModuleActionsContext` registration cycle.
+
 **Future Extraction Rules:**
 - When three or more pages share the same layout pattern (e.g., list + detail pane), extract a shared wrapper component.
 - Data-grid column definitions that repeat across modules should be centralised in a `columnDefs/` config folder.

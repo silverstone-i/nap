@@ -341,6 +341,7 @@ You are continuing the NAP build. Phases 1-3 established the monorepo, admin sch
 - `ManageTenantsPage.jsx` — DataGrid: Code, Name, Status, Tier, Region. Module bar: Create, View, Edit, Archive, Restore. Create dialog includes admin user fields. Cursor pagination.
 - `ManageUsersPage.jsx` — DataGrid: Email, Entity Type, Status. Register dialog. Archive/restore.
 - Shared components: StatusChip, ConfirmDialog, FormDialog
+- Shared DataGrid hooks (used by all 22 DataGrid pages): `useDataGridSelection(rows, entityType?)` for multi-select state, `useArchiveRestore(opts)` for archive/restore dialogs + handlers, `buildBulkActions(opts)` from `selectionUtils.js` for toolbar buttons. Toolbar `useMemo` deps must use `selectedRows.length` not `selectedRows`.
 
 **Styling rules:** Use `layoutTokens.js` for structural layout, `theme.js` overrides for visual defaults, inline `sx` only for dynamic/conditional values. MUI X Data Grid v6: `valueGetter(params)` uses `params.row.field` — the `(value, row)` form is v7 only.
 
