@@ -26,7 +26,7 @@ import {
   useRefreshVendorEmbeddings,
 } from '../../hooks/useBom.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 
 const confidenceColor = (val) => {
   if (val >= 0.85) return 'success';
@@ -70,9 +70,8 @@ export default function VendorSkuMatchingPage() {
     return allRows.filter((r) => !r.deactivated_at);
   }, [viewMode, unmatchedRows, allRows]);
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const { selected, isSingle } =
-    deriveSelectionState(selectionModel, rows);
+  const { selectionModel, setSelectionModel, onSelectionChange, selected, isSingle } =
+    useDataGridSelection(rows);
 
   const [matchResults, setMatchResults] = useState([]);
   const [matchSelection, setMatchSelection] = useState([]);
@@ -151,7 +150,7 @@ export default function VendorSkuMatchingPage() {
         { label: 'Refresh Embeddings', variant: 'outlined', disabled: refreshMut.isPending, onClick: handleRefreshEmbeddings },
       ],
     }),
-    [selected, isSingle, viewMode, matchMut.isPending, autoMatchMut.isPending, batchMatchMut.isPending, refreshMut.isPending, unmatchedRows.length],
+    [selected, isSingle, viewMode, matchMut.isPending, autoMatchMut.isPending, batchMatchMut.isPending, refreshMut.isPending, unmatchedRows.length, setSelectionModel],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -180,7 +179,7 @@ export default function VendorSkuMatchingPage() {
         loading={isLoading}
         checkboxSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         sx={{ flex: matchResults.length > 0 ? '1 1 50%' : '1 1 auto' }}

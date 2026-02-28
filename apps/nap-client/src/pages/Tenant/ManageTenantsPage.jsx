@@ -40,7 +40,8 @@ import {
   useRestoreTenant,
 } from '../../hooks/useTenants.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { buildMutualExclusionHandler, deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -167,17 +168,8 @@ export default function ManageTenantsPage() {
   const restoreMut = useRestoreTenant();
 
   /* ── selection (multi-select with root-tenant mutual exclusion) */
-  const [selectionModel, setSelectionModel] = useState([]);
-
-  const { selectedRows, selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows, 'tenant');
-
-  const handleSelectionChange = buildMutualExclusionHandler({
-    rows,
-    prevModel: selectionModel,
-    setModel: setSelectionModel,
-    entityType: 'tenant',
-  });
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived } =
+    useDataGridSelection(rows, 'tenant');
 
   /* ── dialog state ────────────────────────────────────────── */
   const [createOpen, setCreateOpen] = useState(false);
@@ -330,33 +322,19 @@ export default function ManageTenantsPage() {
           },
         },
         { label: 'Edit Tenant', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        {
-          label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
-          variant: 'outlined',
-          color: 'error',
-          disabled: !hasSelection || !allActive || hasRootSelected,
-          onClick: () => setArchiveOpen(true),
-        },
-        {
-          label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
-          variant: 'outlined',
-          color: 'success',
-          disabled: !hasSelection || !allArchived || hasRootSelected,
-          onClick: () => setRestoreOpen(true),
-        },
+        ...buildBulkActions({
+          selectedRows,
+          hasSelection,
+          allActive,
+          allArchived,
+          onArchive: () => setArchiveOpen(true),
+          onRestore: () => setRestoreOpen(true),
+          archiveDisabled: hasRootSelected,
+          restoreDisabled: hasRootSelected,
+        }),
       ],
     }),
-    [
-      selected,
-      isSingle,
-      hasSelection,
-      hasRootSelected,
-      allActive,
-      allArchived,
-      selectedRows.length,
-      viewFilter,
-      openEdit,
-    ],
+    [selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -370,7 +348,7 @@ export default function ManageTenantsPage() {
         loading={isLoading}
         checkboxSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={handleSelectionChange}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(params) => (params.row.deactivated_at ? 'row-archived' : '')}

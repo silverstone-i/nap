@@ -93,3 +93,48 @@ export function deriveSelectionState(selectionModel, rows, entityType) {
     allArchived: selectedRows.length > 0 && selectedRows.every((r) => !!r.deactivated_at),
   };
 }
+
+/**
+ * Build standard Archive / Restore toolbar action objects.
+ *
+ * Returns an array that can be spread into `primaryActions`:
+ * ```js
+ * primaryActions: [
+ *   { label: 'Create', ... },
+ *   ...buildBulkActions({ ... }),
+ * ]
+ * ```
+ *
+ * @param {Object}   opts
+ * @param {Array}    opts.selectedRows
+ * @param {boolean}  opts.hasSelection
+ * @param {boolean}  opts.allActive
+ * @param {boolean}  [opts.allArchived]
+ * @param {Function} opts.onArchive      – called when Archive clicked (typically `() => setArchiveOpen(true)`)
+ * @param {Function} [opts.onRestore]    – omit to suppress Restore button
+ * @param {boolean}  [opts.archiveDisabled] – extra disabled condition for Archive
+ * @param {boolean}  [opts.restoreDisabled] – extra disabled condition for Restore
+ * @returns {Array}
+ */
+export function buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive, onRestore, archiveDisabled, restoreDisabled }) {
+  const actions = [];
+  if (onArchive) {
+    actions.push({
+      label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+      variant: 'outlined',
+      color: 'error',
+      disabled: !hasSelection || !allActive || !!archiveDisabled,
+      onClick: onArchive,
+    });
+  }
+  if (onRestore) {
+    actions.push({
+      label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+      variant: 'outlined',
+      color: 'success',
+      disabled: !hasSelection || !allArchived || !!restoreDisabled,
+      onClick: onRestore,
+    });
+  }
+  return actions;
+}

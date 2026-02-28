@@ -33,7 +33,8 @@ import {
 } from '../../hooks/useUsers.js';
 import { useTenants } from '../../hooks/useTenants.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { buildMutualExclusionHandler, deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -125,19 +126,10 @@ export default function ManageUsersPage() {
   const restoreMut = useRestoreUser();
 
   /* ── selection (multi-select with root-user mutual exclusion) */
-  const [selectionModel, setSelectionModel] = useState([]);
-
-  const { selectedRows, selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows, 'user');
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived } =
+    useDataGridSelection(rows, 'user');
 
   const hasSelfSelected = selectedRows.some((r) => r.id === currentUser?.id);
-
-  const handleSelectionChange = buildMutualExclusionHandler({
-    rows,
-    prevModel: selectionModel,
-    setModel: setSelectionModel,
-    entityType: 'user',
-  });
 
   /* ── dialog state ────────────────────────────────────────── */
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -285,34 +277,19 @@ export default function ManageUsersPage() {
           },
         },
         { label: 'Edit User', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        {
-          label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
-          variant: 'outlined',
-          color: 'error',
-          disabled: !hasSelection || !allActive || hasRootSelected || hasSelfSelected,
-          onClick: () => setArchiveOpen(true),
-        },
-        {
-          label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
-          variant: 'outlined',
-          color: 'success',
-          disabled: !hasSelection || !allArchived || hasRootSelected,
-          onClick: () => setRestoreOpen(true),
-        },
+        ...buildBulkActions({
+          selectedRows,
+          hasSelection,
+          allActive,
+          allArchived,
+          onArchive: () => setArchiveOpen(true),
+          onRestore: () => setRestoreOpen(true),
+          archiveDisabled: hasRootSelected || hasSelfSelected,
+          restoreDisabled: hasRootSelected,
+        }),
       ],
     }),
-    [
-      selected,
-      isSingle,
-      hasSelection,
-      hasRootSelected,
-      hasSelfSelected,
-      allActive,
-      allArchived,
-      selectedRows.length,
-      viewFilter,
-      openEdit,
-    ],
+    [selected, isSingle, hasSelection, hasRootSelected, hasSelfSelected, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -326,7 +303,7 @@ export default function ManageUsersPage() {
         loading={isLoading}
         checkboxSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={handleSelectionChange}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(params) => (params.row.deactivated_at ? 'row-archived' : '')}

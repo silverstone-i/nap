@@ -38,7 +38,9 @@ import {
   useAddresses, useCreateAddress, useUpdateAddress, useArchiveAddress,
 } from '../../hooks/useAddresses.js';
 import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = {
   first_name: '', last_name: '', code: '', position: '', department: '', email: '',
@@ -103,14 +105,11 @@ export default function EmployeesPage() {
   const updateAddrMut = useUpdateAddress();
   const archiveAddrMut = useArchiveAddress();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows);
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
   const [resetPwOpen, setResetPwOpen] = useState(false);
 
   const [editSourceId, setEditSourceId] = useState(null);
@@ -249,29 +248,10 @@ export default function EmployeesPage() {
     }
   };
 
-  const handleArchive = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !r.deactivated_at);
-      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Employee archived' : `${targets.length} employees archived`);
-      setArchiveOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
-
-  const handleRestore = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !!r.deactivated_at);
-      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Employee restored' : `${targets.length} employees restored`);
-      setRestoreOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
+  const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, restoreMut, entityName: 'employee', setSelectionModel, toast, errMsg,
+    getLabel: (r) => `${r.first_name} ${r.last_name}`,
+  });
 
   const toolbar = useMemo(
     () => ({
@@ -284,11 +264,10 @@ export default function EmployeesPage() {
       primaryActions: [
         { label: 'Create Employee', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
         { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
-        { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
+        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
       ],
     }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit],
+    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -305,7 +284,7 @@ export default function EmployeesPage() {
         loading={isLoading}
         checkboxSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
@@ -450,8 +429,8 @@ export default function EmployeesPage() {
         })}
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Employee" message={hasSelection ? (selectedRows.length === 1 ? `Archive "${selectedRows[0].first_name} ${selectedRows[0].last_name}"?${selectedRows[0].is_app_user ? ' Their login account will also be locked.' : ''}` : `Archive ${selectedRows.length} employees?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Employee" message={hasSelection ? (selectedRows.length === 1 ? `Restore "${selectedRows[0].first_name} ${selectedRows[0].last_name}"?` : `Restore ${selectedRows.length} employees?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
+      <ConfirmDialog {...restoreConfirmProps} />
 
       <ResetPasswordDialog
         open={resetPwOpen}

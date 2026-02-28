@@ -23,7 +23,9 @@ import {
   useContacts, useCreateContact, useUpdateContact, useArchiveContact, useRestoreContact,
 } from '../../hooks/useContacts.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { source_id: '', name: '', email: '', phone: '', mobile: '', fax: '', position: '', is_primary: false };
 const BLANK_EDIT = { name: '', email: '', phone: '', mobile: '', fax: '', position: '', is_primary: false };
@@ -58,14 +60,11 @@ export default function ContactsPage() {
   const archiveMut = useArchiveContact();
   const restoreMut = useRestoreContact();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows);
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -114,29 +113,9 @@ export default function ContactsPage() {
     }
   };
 
-  const handleArchive = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !r.deactivated_at);
-      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Contact archived' : `${targets.length} contacts archived`);
-      setArchiveOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
-
-  const handleRestore = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !!r.deactivated_at);
-      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Contact restored' : `${targets.length} contacts restored`);
-      setRestoreOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
+  const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, restoreMut, entityName: 'contact', setSelectionModel, toast, errMsg,
+  });
 
   const toolbar = useMemo(
     () => ({
@@ -149,11 +128,10 @@ export default function ContactsPage() {
       primaryActions: [
         { label: 'Create Contact', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
         { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
-        { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
+        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
       ],
     }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit],
+    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -166,7 +144,7 @@ export default function ContactsPage() {
         loading={isLoading}
         checkboxSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
@@ -193,8 +171,8 @@ export default function ContactsPage() {
         <FormControlLabel control={<Checkbox checked={editForm.is_primary} onChange={onEditCheck('is_primary')} />} label="Primary Contact" />
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Contact" message={hasSelection ? (selectedRows.length === 1 ? `Archive "${selectedRows[0].name}"?` : `Archive ${selectedRows.length} contacts?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Contact" message={hasSelection ? (selectedRows.length === 1 ? `Restore "${selectedRows[0].name}"?` : `Restore ${selectedRows.length} contacts?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
+      <ConfirmDialog {...restoreConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

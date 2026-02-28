@@ -27,7 +27,9 @@ import {
 } from '../../hooks/useAr.js';
 import { useClients } from '../../hooks/useClients.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const STATUS_OPTS = ['open', 'sent', 'paid', 'voided'];
 const cap = (s) => (s ? s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
@@ -65,14 +67,11 @@ export default function ArInvoicesPage() {
   const restoreMut = useRestoreArInvoice();
   const approveMut = useApproveArInvoice();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows);
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -109,22 +108,10 @@ export default function ArInvoicesPage() {
   const handleApprove = async () => {
     try { await approveMut.mutateAsync({ id: selected.id }); toast('Invoice approved and sent'); } catch (err) { toast(errMsg(err), 'error'); }
   };
-  const handleArchive = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !r.deactivated_at);
-      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Invoice archived' : `${targets.length} invoices archived`);
-      setArchiveOpen(false); setSelectionModel([]);
-    } catch (err) { toast(errMsg(err), 'error'); }
-  };
-  const handleRestore = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !!r.deactivated_at);
-      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Invoice restored' : `${targets.length} invoices restored`);
-      setRestoreOpen(false); setSelectionModel([]);
-    } catch (err) { toast(errMsg(err), 'error'); }
-  };
+
+  const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, restoreMut, entityName: 'invoice', setSelectionModel, toast, errMsg, getLabel: (r) => r.invoice_number,
+  });
 
   const toolbar = useMemo(() => ({
     tabs: [
@@ -137,15 +124,14 @@ export default function ArInvoicesPage() {
       { label: 'Create Invoice', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
       { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
       { label: 'Approve / Send', variant: 'outlined', color: 'success', disabled: !isSingle || selected?.status !== 'open', onClick: handleApprove },
-      { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
-      { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
+      ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
     ],
-  }), [selected, isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, handleApprove]);
+  }), [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, selected, handleApprove, setSelectionModel, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={setSelectionModel} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
+      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={onSelectionChange} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
 
       <FormDialog open={createOpen} title="Create AR Invoice" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Client" select required value={createForm.client_id} onChange={onCreateField('client_id')}>
@@ -172,8 +158,8 @@ export default function ArInvoicesPage() {
         <TextField label="Notes" multiline minRows={2} value={editForm.notes} onChange={onEditField('notes')} />
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Invoice" message={hasSelection ? (selectedRows.length === 1 ? `Archive invoice "${selected.invoice_number}"?` : `Archive ${selectedRows.length} invoices?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Invoice" message={hasSelection ? (selectedRows.length === 1 ? `Restore invoice "${selected.invoice_number}"?` : `Restore ${selectedRows.length} invoices?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
+      <ConfirmDialog {...restoreConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

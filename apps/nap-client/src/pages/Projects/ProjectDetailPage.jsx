@@ -27,7 +27,7 @@ import { useUnits, useCreateUnit, useUpdateUnit, useArchiveUnit, useRestoreUnit 
 import { useTasks, useCreateTask, useUpdateTask, useArchiveTask, useRestoreTask } from '../../hooks/useTasks.js';
 import { useCostItems, useCreateCostItem, useUpdateCostItem, useArchiveCostItem, useRestoreCostItem } from '../../hooks/useCostItems.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 
 /* ── column definitions ───────────────────────── */
 const unitCols = [
@@ -71,9 +71,8 @@ export default function ProjectDetailPage() {
   const archiveUnitMut = useArchiveUnit();
   const _restoreUnitMut = useRestoreUnit();
 
-  const [unitSel, setUnitSel] = useState([]);
-  const { selectedRows: unitSelectedRows, selected: selectedUnit, isSingle: unitIsSingle, hasSelection: unitHasSelection, allActive: unitAllActive } =
-    deriveSelectionState(unitSel, unitRows);
+  const { selectionModel: unitSel, setSelectionModel: setUnitSel, onSelectionChange: onUnitSelChange, selectedRows: unitSelectedRows, selected: selectedUnit, isSingle: unitIsSingle, hasSelection: unitHasSelection, allActive: unitAllActive } =
+    useDataGridSelection(unitRows);
   const [unitCreateOpen, setUnitCreateOpen] = useState(false);
   const [unitEditOpen, setUnitEditOpen] = useState(false);
   const [unitArchiveOpen, setUnitArchiveOpen] = useState(false);
@@ -90,9 +89,8 @@ export default function ProjectDetailPage() {
   const archiveTaskMut = useArchiveTask();
   const _restoreTaskMut = useRestoreTask();
 
-  const [taskSel, setTaskSel] = useState([]);
-  const { selectedRows: taskSelectedRows, selected: selectedTask, isSingle: taskIsSingle, hasSelection: taskHasSelection, allActive: taskAllActive } =
-    deriveSelectionState(taskSel, taskRows);
+  const { selectionModel: taskSel, setSelectionModel: setTaskSel, onSelectionChange: onTaskSelChange, selectedRows: taskSelectedRows, selected: selectedTask, isSingle: taskIsSingle, hasSelection: taskHasSelection, allActive: taskAllActive } =
+    useDataGridSelection(taskRows);
   const [taskCreateOpen, setTaskCreateOpen] = useState(false);
   const [taskEditOpen, setTaskEditOpen] = useState(false);
   const [taskArchiveOpen, setTaskArchiveOpen] = useState(false);
@@ -109,9 +107,8 @@ export default function ProjectDetailPage() {
   const archiveCostMut = useArchiveCostItem();
   const _restoreCostMut = useRestoreCostItem();
 
-  const [costSel, setCostSel] = useState([]);
-  const { selectedRows: costSelectedRows, selected: selectedCost, isSingle: costIsSingle, hasSelection: costHasSelection, allActive: costAllActive } =
-    deriveSelectionState(costSel, costRows);
+  const { selectionModel: costSel, setSelectionModel: setCostSel, onSelectionChange: onCostSelChange, selectedRows: costSelectedRows, selected: selectedCost, isSingle: costIsSingle, hasSelection: costHasSelection, allActive: costAllActive } =
+    useDataGridSelection(costRows);
   const [costCreateOpen, setCostCreateOpen] = useState(false);
   const [costEditOpen, setCostEditOpen] = useState(false);
   const [costArchiveOpen, setCostArchiveOpen] = useState(false);
@@ -236,7 +233,7 @@ export default function ProjectDetailPage() {
             <Chip label="Edit" size="small" variant="outlined" disabled={!unitIsSingle} onClick={() => { if (selectedUnit) { setUnitEditForm({ unit_code: selectedUnit.unit_code ?? '', name: selectedUnit.name ?? '' }); setUnitEditOpen(true); } }} />
             <Chip label={unitSelectedRows.length > 1 ? `Archive (${unitSelectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!unitHasSelection || !unitAllActive} onClick={() => setUnitArchiveOpen(true)} />
           </Box>
-          <DataGrid rows={unitRows} columns={unitCols} getRowId={(r) => r.id} loading={unitsLoading} checkboxSelection rowSelectionModel={unitSel} onRowSelectionModelChange={setUnitSel} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
+          <DataGrid rows={unitRows} columns={unitCols} getRowId={(r) => r.id} loading={unitsLoading} checkboxSelection rowSelectionModel={unitSel} onRowSelectionModelChange={onUnitSelChange} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
         </Box>
       )}
 
@@ -251,7 +248,7 @@ export default function ProjectDetailPage() {
             <Chip label="Edit" size="small" variant="outlined" disabled={!taskIsSingle} onClick={() => { if (selectedTask) { setTaskEditForm({ task_code: selectedTask.task_code ?? '', name: selectedTask.name ?? '', duration_days: selectedTask.duration_days ?? '' }); setTaskEditOpen(true); } }} />
             <Chip label={taskSelectedRows.length > 1 ? `Archive (${taskSelectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!taskHasSelection || !taskAllActive} onClick={() => setTaskArchiveOpen(true)} />
           </Box>
-          <DataGrid rows={taskRows} columns={taskCols} getRowId={(r) => r.id} loading={tasksLoading} checkboxSelection rowSelectionModel={taskSel} onRowSelectionModelChange={setTaskSel} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
+          <DataGrid rows={taskRows} columns={taskCols} getRowId={(r) => r.id} loading={tasksLoading} checkboxSelection rowSelectionModel={taskSel} onRowSelectionModelChange={onTaskSelChange} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
         </Box>
       )}
 
@@ -266,7 +263,7 @@ export default function ProjectDetailPage() {
             <Chip label="Edit" size="small" variant="outlined" disabled={!costIsSingle} onClick={() => { if (selectedCost) { setCostEditForm({ item_code: selectedCost.item_code ?? '', description: selectedCost.description ?? '', cost_class: selectedCost.cost_class ?? 'labor', quantity: selectedCost.quantity ?? '', unit_cost: selectedCost.unit_cost ?? '' }); setCostEditOpen(true); } }} />
             <Chip label={costSelectedRows.length > 1 ? `Archive (${costSelectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!costHasSelection || !costAllActive} onClick={() => setCostArchiveOpen(true)} />
           </Box>
-          <DataGrid rows={costRows} columns={costItemCols} getRowId={(r) => r.id} loading={costLoading} checkboxSelection rowSelectionModel={costSel} onRowSelectionModelChange={setCostSel} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
+          <DataGrid rows={costRows} columns={costItemCols} getRowId={(r) => r.id} loading={costLoading} checkboxSelection rowSelectionModel={costSel} onRowSelectionModelChange={onCostSelChange} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
         </Box>
       )}
 

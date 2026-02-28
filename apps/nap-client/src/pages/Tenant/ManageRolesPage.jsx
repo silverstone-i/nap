@@ -28,7 +28,7 @@ import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useRoles, useCreateRole, useUpdateRole } from '../../hooks/useRoles.js';
 import { masterDetailSx, masterPanelSx, detailPanelSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 
 import PolicyEditor from './PolicyEditor.jsx';
 import StateFilterEditor from './StateFilterEditor.jsx';
@@ -88,8 +88,7 @@ export default function ManageRolesPage() {
   const updateMut = useUpdateRole();
 
   /* ── selection ───────────────────────────────────────────── */
-  const [selectionModel, setSelectionModel] = useState([]);
-  const { selected, isSingle } = deriveSelectionState(selectionModel, rows);
+  const { selectionModel, onSelectionChange, selected, isSingle } = useDataGridSelection(rows);
   const isReadOnly = selected?.is_immutable || selected?.is_system;
 
   /* ── detail tab ────────────────────────────────────────────── */
@@ -183,7 +182,7 @@ export default function ManageRolesPage() {
           loading={isLoading}
           checkboxSelection
           rowSelectionModel={selectionModel}
-          onRowSelectionModelChange={setSelectionModel}
+          onRowSelectionModelChange={onSelectionChange}
           pageSizeOptions={[25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         />

@@ -21,7 +21,9 @@ import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContex
 import { useApCreditMemos, useCreateApCreditMemo, useUpdateApCreditMemo, useArchiveApCreditMemo, useRestoreApCreditMemo } from '../../hooks/useAp.js';
 import { useVendors } from '../../hooks/useVendors.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const STATUS_OPTS = ['open', 'applied', 'voided'];
 const cap = (s) => (s ? s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
@@ -58,14 +60,11 @@ export default function CreditMemosPage() {
   const archiveMut = useArchiveApCreditMemo();
   const restoreMut = useRestoreApCreditMemo();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows);
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -92,22 +91,10 @@ export default function CreditMemosPage() {
   const handleUpdate = async () => {
     try { await updateMut.mutateAsync({ filter: { id: selected.id }, changes: { ...editForm, amount: Number(editForm.amount) || 0 } }); toast('Credit memo updated'); setEditOpen(false); } catch (err) { toast(errMsg(err), 'error'); }
   };
-  const handleArchive = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !r.deactivated_at);
-      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Credit memo archived' : `${targets.length} credit memos archived`);
-      setArchiveOpen(false); setSelectionModel([]);
-    } catch (err) { toast(errMsg(err), 'error'); }
-  };
-  const handleRestore = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !!r.deactivated_at);
-      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Credit memo restored' : `${targets.length} credit memos restored`);
-      setRestoreOpen(false); setSelectionModel([]);
-    } catch (err) { toast(errMsg(err), 'error'); }
-  };
+
+  const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, restoreMut, entityName: 'credit memo', entityNamePlural: 'credit memos', setSelectionModel, toast, errMsg, getLabel: (r) => r.credit_number,
+  });
 
   const toolbar = useMemo(() => ({
     tabs: [
@@ -119,15 +106,14 @@ export default function CreditMemosPage() {
     primaryActions: [
       { label: 'Create Memo', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
       { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-      { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
-      { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
+      ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
     ],
-  }), [selected, isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit]);
+  }), [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={setSelectionModel} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
+      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={onSelectionChange} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
 
       <FormDialog open={createOpen} title="Create Credit Memo" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Vendor" select required value={createForm.vendor_id} onChange={onCreateField('vendor_id')}>
@@ -153,8 +139,8 @@ export default function CreditMemosPage() {
         <TextField label="Reason" multiline minRows={2} value={editForm.reason} onChange={onEditField('reason')} />
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Memo" message={hasSelection ? (selectedRows.length === 1 ? `Archive memo "${selectedRows[0].credit_number}"?` : `Archive ${selectedRows.length} credit memos?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Memo" message={hasSelection ? (selectedRows.length === 1 ? `Restore memo "${selectedRows[0].credit_number}"?` : `Restore ${selectedRows.length} credit memos?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
+      <ConfirmDialog {...restoreConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

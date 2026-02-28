@@ -20,7 +20,9 @@ import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContex
 import { usePayments, useCreatePayment, useUpdatePayment, useArchivePayment, useRestorePayment } from '../../hooks/useAp.js';
 import { useVendors } from '../../hooks/useVendors.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const METHOD_OPTS = ['check', 'ach', 'wire'];
 const cap = (s) => (s ? s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : '');
@@ -57,14 +59,11 @@ export default function PaymentsPage() {
   const archiveMut = useArchivePayment();
   const restoreMut = useRestorePayment();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const { selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows);
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -91,22 +90,10 @@ export default function PaymentsPage() {
   const handleUpdate = async () => {
     try { await updateMut.mutateAsync({ filter: { id: selected.id }, changes: { ...editForm, amount: Number(editForm.amount) || 0 } }); toast('Payment updated'); setEditOpen(false); } catch (err) { toast(errMsg(err), 'error'); }
   };
-  const handleArchive = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !r.deactivated_at);
-      for (const row of targets) await archiveMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Payment archived' : `${targets.length} payments archived`);
-      setArchiveOpen(false); setSelectionModel([]);
-    } catch (err) { toast(errMsg(err), 'error'); }
-  };
-  const handleRestore = async () => {
-    try {
-      const targets = selectedRows.filter((r) => !!r.deactivated_at);
-      for (const row of targets) await restoreMut.mutateAsync({ id: row.id });
-      toast(targets.length === 1 ? 'Payment restored' : `${targets.length} payments restored`);
-      setRestoreOpen(false); setSelectionModel([]);
-    } catch (err) { toast(errMsg(err), 'error'); }
-  };
+
+  const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, restoreMut, entityName: 'payment', setSelectionModel, toast, errMsg,
+  });
 
   const toolbar = useMemo(() => ({
     tabs: [
@@ -118,15 +105,14 @@ export default function PaymentsPage() {
     primaryActions: [
       { label: 'Record Payment', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
       { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-      { label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive', variant: 'outlined', color: 'error', disabled: !hasSelection || !allActive, onClick: () => setArchiveOpen(true) },
-      { label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore', variant: 'outlined', color: 'success', disabled: !hasSelection || !allArchived, onClick: () => setRestoreOpen(true) },
+      ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
     ],
-  }), [selected, isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit]);
+  }), [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={setSelectionModel} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
+      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={onSelectionChange} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
 
       <FormDialog open={createOpen} title="Record Payment" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Vendor" select required value={createForm.vendor_id} onChange={onCreateField('vendor_id')}>
@@ -152,8 +138,8 @@ export default function PaymentsPage() {
         <TextField label="Notes" multiline minRows={2} value={editForm.notes} onChange={onEditField('notes')} />
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Payment" message={hasSelection ? (selectedRows.length === 1 ? 'Archive this payment record?' : `Archive ${selectedRows.length} payments?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Payment" message={hasSelection ? (selectedRows.length === 1 ? 'Restore this payment record?' : `Restore ${selectedRows.length} payments?`) : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
+      <ConfirmDialog {...restoreConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>
