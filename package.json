@@ -16,7 +16,18 @@
     "build": "npm -w apps/nap-serv run build && npm -w apps/nap-client run build",
     "lint": "eslint .",
     "test": "npm -w apps/nap-serv test",
+    "arch": "node scripts/arch/runAll.js",
+    "arch:check": "node scripts/arch/runAll.js --check",
+    "arch:ai": "node scripts/arch/aiInterpret.js",
     "prepare": "husky"
+  },
+  "lint-staged": {
+    "apps/nap-serv/**/*.js": [
+      "eslint --fix"
+    ],
+    "apps/nap-client/**/*.{js,jsx}": [
+      "eslint --fix"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
@@ -24,6 +35,7 @@
     "eslint-import-resolver-alias": "^1.1.2",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.1"
   }
 }
