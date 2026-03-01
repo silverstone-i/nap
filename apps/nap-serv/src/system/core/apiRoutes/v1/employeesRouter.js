@@ -8,6 +8,7 @@
 import createRouter from '../../../../lib/createRouter.js';
 import employeesController from '../../controllers/employeesController.js';
 import { addAuditFields } from '../../../../middleware/addAuditFields.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
 const meta = withMeta({ module: 'core', router: 'employees' });
@@ -18,6 +19,7 @@ export default createRouter(
     router.post(
       '/:id/reset-password',
       meta,
+      moduleEntitlement,
       addAuditFields,
       (req, res) => employeesController.resetPassword(req, res),
     );

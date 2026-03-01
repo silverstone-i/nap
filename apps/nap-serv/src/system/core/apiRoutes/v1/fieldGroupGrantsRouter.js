@@ -9,6 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import fieldGroupGrantsController from '../../controllers/fieldGroupGrantsController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 import { addAuditFields } from '../../../../middleware/addAuditFields.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
 
 const meta = withMeta({ module: 'core', router: 'field-group-grants' });
 
@@ -19,6 +20,7 @@ export default createRouter(
       '/sync-for-role',
       addAuditFields,
       meta,
+      moduleEntitlement,
       (req, res) => fieldGroupGrantsController.syncForRole(req, res),
     );
   },

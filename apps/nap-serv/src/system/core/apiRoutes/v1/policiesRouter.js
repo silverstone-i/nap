@@ -9,13 +9,14 @@ import createRouter from '../../../../lib/createRouter.js';
 import policiesController from '../../controllers/policiesController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 import { addAuditFields } from '../../../../middleware/addAuditFields.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
 
 const meta = withMeta({ module: 'core', router: 'policies' });
 
 export default createRouter(
   policiesController,
   (router) => {
-    router.put('/sync-for-role', addAuditFields, meta, (req, res) => policiesController.syncForRole(req, res));
+    router.put('/sync-for-role', addAuditFields, meta, moduleEntitlement, (req, res) => policiesController.syncForRole(req, res));
   },
   {
     getMiddlewares: [meta],
