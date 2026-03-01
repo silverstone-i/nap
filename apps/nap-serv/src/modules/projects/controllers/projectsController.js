@@ -9,7 +9,7 @@
 
 import BaseController from '../../../lib/BaseController.js';
 import db from '../../../db/db.js';
-import { allocateNumber } from '../../../system/core/services/numberingService.js';
+import { allocateNumber } from '../../../system/core/services/index.js';
 
 const VALID_TRANSITIONS = {
   planning: ['budgeting'],

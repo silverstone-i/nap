@@ -9,8 +9,8 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import { postARInvoice } from '../../accounting/services/postingService.js';
-import { allocateNumber } from '../../../system/core/services/numberingService.js';
+import { postARInvoice } from '../../accounting/services/index.js';
+import { allocateNumber } from '../../../system/core/services/index.js';
 import logger from '../../../lib/logger.js';
 
 const VALID_TRANSITIONS = {

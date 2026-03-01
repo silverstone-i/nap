@@ -11,7 +11,7 @@
 
 import BaseController from '../../../lib/BaseController.js';
 import db from '../../../db/db.js';
-import { postAPPayment } from '../../accounting/services/postingService.js';
+import { postAPPayment } from '../../accounting/services/index.js';
 import logger from '../../../lib/logger.js';
 
 const VALID_METHODS = ['check', 'ach', 'wire'];
