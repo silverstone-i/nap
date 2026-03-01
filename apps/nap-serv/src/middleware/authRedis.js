@@ -123,15 +123,20 @@ export function authRedis() {
       // ── Schema resolution ───────────────────────────────────────────────
       // Permissions always load from the user's home tenant (where their roles live).
       // Data queries use the assumed tenant's schema when the header is present.
+      // effectiveTenantRecord tracks the tenant whose data the request operates on.
       const homeSchemaName = tenantRecord.schema_name;
       let dataSchemaName = homeSchemaName;
+      let effectiveTenantRecord = tenantRecord;
       if (headerTenant && tenantCode !== homeTenantCode) {
         try {
           const row = await db.oneOrNone(
-            'SELECT schema_name FROM admin.tenants WHERE LOWER(tenant_code) = $1 AND deactivated_at IS NULL',
+            'SELECT * FROM admin.tenants WHERE LOWER(tenant_code) = $1 AND deactivated_at IS NULL',
             [tenantCode],
           );
-          if (row) dataSchemaName = row.schema_name;
+          if (row) {
+            dataSchemaName = row.schema_name;
+            effectiveTenantRecord = row;
+          }
         } catch {
           // Fall back to home schema if lookup fails
         }
@@ -182,6 +187,12 @@ export function authRedis() {
             effectiveTenantCode = parsed.targetTenantCode || tenantCode;
             effectiveSchemaName = parsed.targetSchemaName || schemaName;
 
+            // Resolve the impersonated user's tenant record
+            if (targetUser.tenant_id !== tenantRecord.id) {
+              const targetTenant = await db2('tenants', 'admin').findById(targetUser.tenant_id);
+              if (targetTenant) effectiveTenantRecord = targetTenant;
+            }
+
             // Re-load permissions for target user
             effectivePermissions = await loadPermissions({
               schemaName: effectiveSchemaName,
@@ -215,7 +226,7 @@ export function authRedis() {
         user_id: isImpersonating ? impersonatedBy : uid,
         tenant_code: effectiveTenantCode,
         schema: effectiveSchemaName,
-        tenant: tenantRecord,
+        tenant: effectiveTenantRecord,
         perms: effectivePermissions,
       };
 
