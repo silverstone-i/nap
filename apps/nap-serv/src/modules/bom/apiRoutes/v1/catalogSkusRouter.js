@@ -8,10 +8,20 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import catalogSkusController from '../../controllers/catalogSkusController.js';
 
-const router = createRouter(catalogSkusController);
+const meta = withMeta({ module: 'bom', router: 'catalog-skus' });
 
-router.post('/refresh-embeddings', (req, res) => catalogSkusController.refreshEmbeddings(req, res));
+const router = createRouter(catalogSkusController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});
+
+router.post('/refresh-embeddings', meta, moduleEntitlement, (req, res) => catalogSkusController.refreshEmbeddings(req, res));
 
 export default router;

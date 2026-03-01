@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import vendorPricingController from '../../controllers/vendorPricingController.js';
 
-export default createRouter(vendorPricingController);
+const meta = withMeta({ module: 'bom', router: 'vendor-pricing' });
+
+export default createRouter(vendorPricingController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

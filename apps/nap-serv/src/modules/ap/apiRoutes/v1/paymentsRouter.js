@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import paymentsController from '../../controllers/paymentsController.js';
 
-export default createRouter(paymentsController);
+const meta = withMeta({ module: 'ap', router: 'payments' });
+
+export default createRouter(paymentsController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

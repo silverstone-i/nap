@@ -7,5 +7,14 @@
 
 import createRouter from '../../../../lib/createRouter.js';
 import interCompanyAccountsController from '../../controllers/interCompanyAccountsController.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 
-export default createRouter(interCompanyAccountsController);
+const meta = withMeta({ module: 'accounting', router: 'inter-company-accounts' });
+
+export default createRouter(interCompanyAccountsController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

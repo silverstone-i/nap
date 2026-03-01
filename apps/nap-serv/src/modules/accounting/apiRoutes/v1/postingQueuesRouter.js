@@ -10,12 +10,21 @@
 import { Router } from 'express';
 import createRouter from '../../../../lib/createRouter.js';
 import { addAuditFields } from '../../../../middleware/addAuditFields.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
 import postingQueuesController from '../../controllers/postingQueuesController.js';
 
 const router = Router();
+const meta = withMeta({ module: 'accounting', router: 'posting-queues' });
 
-router.post('/retry', addAuditFields, (req, res) => postingQueuesController.retry(req, res));
+router.post('/retry', meta, moduleEntitlement, addAuditFields, (req, res) => postingQueuesController.retry(req, res));
 
-router.use('/', createRouter(postingQueuesController));
+router.use('/', createRouter(postingQueuesController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+}));
 
 export default router;

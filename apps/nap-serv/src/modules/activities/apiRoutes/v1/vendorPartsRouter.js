@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import vendorPartsController from '../../controllers/vendorPartsController.js';
 
-export default createRouter(vendorPartsController);
+const meta = withMeta({ module: 'activities', router: 'vendor-parts' });
+
+export default createRouter(vendorPartsController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

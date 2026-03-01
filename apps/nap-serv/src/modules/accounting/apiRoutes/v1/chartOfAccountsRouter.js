@@ -7,5 +7,14 @@
 
 import createRouter from '../../../../lib/createRouter.js';
 import chartOfAccountsController from '../../controllers/chartOfAccountsController.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 
-export default createRouter(chartOfAccountsController);
+const meta = withMeta({ module: 'accounting', router: 'chart-of-accounts' });
+
+export default createRouter(chartOfAccountsController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

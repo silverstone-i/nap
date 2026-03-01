@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import deliverableAssignmentsController from '../../controllers/deliverableAssignmentsController.js';
 
-export default createRouter(deliverableAssignmentsController);
+const meta = withMeta({ module: 'activities', router: 'deliverable-assignments' });
+
+export default createRouter(deliverableAssignmentsController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

@@ -10,18 +10,21 @@
 import { Router } from 'express';
 import createRouter from '../../../../lib/createRouter.js';
 import { addAuditFields } from '../../../../middleware/addAuditFields.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 import { rbac } from '../../../../middleware/rbac.js';
 import arInvoicesController from '../../controllers/arInvoicesController.js';
 
 const router = Router();
+const meta = withMeta({ module: 'ar', router: 'ar-invoices' });
 
 // RBAC-gated approval endpoint: PUT /approve
 // Requires ar::ar-invoices::approve at 'full' level
 router.put(
   '/approve',
-  addAuditFields,
   withMeta({ module: 'ar', router: 'ar-invoices', action: 'approve' }),
+  moduleEntitlement,
+  addAuditFields,
   rbac('full'),
   (req, res) => {
     req.body.status = 'sent';
@@ -29,6 +32,12 @@ router.put(
   },
 );
 
-router.use('/', createRouter(arInvoicesController));
+router.use('/', createRouter(arInvoicesController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+}));
 
 export default router;

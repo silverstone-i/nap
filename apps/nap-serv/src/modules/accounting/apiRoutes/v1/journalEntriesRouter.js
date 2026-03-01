@@ -11,13 +11,22 @@
 import { Router } from 'express';
 import createRouter from '../../../../lib/createRouter.js';
 import { addAuditFields } from '../../../../middleware/addAuditFields.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
 import journalEntriesController from '../../controllers/journalEntriesController.js';
 
 const router = Router();
+const meta = withMeta({ module: 'accounting', router: 'journal-entries' });
 
-router.post('/post', addAuditFields, (req, res) => journalEntriesController.post(req, res));
-router.post('/reverse', addAuditFields, (req, res) => journalEntriesController.reverse(req, res));
+router.post('/post', meta, moduleEntitlement, addAuditFields, (req, res) => journalEntriesController.post(req, res));
+router.post('/reverse', meta, moduleEntitlement, addAuditFields, (req, res) => journalEntriesController.reverse(req, res));
 
-router.use('/', createRouter(journalEntriesController));
+router.use('/', createRouter(journalEntriesController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+}));
 
 export default router;

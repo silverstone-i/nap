@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import deliverablesController from '../../controllers/deliverablesController.js';
 
-export default createRouter(deliverablesController);
+const meta = withMeta({ module: 'activities', router: 'deliverables' });
+
+export default createRouter(deliverablesController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

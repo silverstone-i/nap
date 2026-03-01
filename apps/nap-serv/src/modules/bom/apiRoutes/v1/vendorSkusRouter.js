@@ -13,20 +13,29 @@
 
 import { Router } from 'express';
 import createRouter from '../../../../lib/createRouter.js';
+import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import vendorSkusController from '../../controllers/vendorSkusController.js';
 
 const router = Router();
+const meta = withMeta({ module: 'bom', router: 'vendor-skus' });
 
 // Custom GET routes MUST come before createRouter's /:id catch-all
-router.get('/unmatched', (req, res) => vendorSkusController.getUnmatched(req, res));
+router.get('/unmatched', meta, moduleEntitlement, (req, res) => vendorSkusController.getUnmatched(req, res));
 
 // Custom POST routes (not caught by /:id, but grouped here for clarity)
-router.post('/match', (req, res) => vendorSkusController.match(req, res));
-router.post('/auto-match', (req, res) => vendorSkusController.autoMatchEndpoint(req, res));
-router.post('/batch-match', (req, res) => vendorSkusController.batchMatchEndpoint(req, res));
-router.post('/refresh-embeddings', (req, res) => vendorSkusController.refreshEmbeddings(req, res));
+router.post('/match', meta, moduleEntitlement, (req, res) => vendorSkusController.match(req, res));
+router.post('/auto-match', meta, moduleEntitlement, (req, res) => vendorSkusController.autoMatchEndpoint(req, res));
+router.post('/batch-match', meta, moduleEntitlement, (req, res) => vendorSkusController.batchMatchEndpoint(req, res));
+router.post('/refresh-embeddings', meta, moduleEntitlement, (req, res) => vendorSkusController.refreshEmbeddings(req, res));
 
 // Standard CRUD routes
-router.use('/', createRouter(vendorSkusController));
+router.use('/', createRouter(vendorSkusController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+}));
 
 export default router;

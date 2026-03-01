@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import apInvoiceLinesController from '../../controllers/apInvoiceLinesController.js';
 
-export default createRouter(apInvoiceLinesController);
+const meta = withMeta({ module: 'ap', router: 'ap-invoice-lines' });
+
+export default createRouter(apInvoiceLinesController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

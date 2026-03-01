@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import apCreditMemosController from '../../controllers/apCreditMemosController.js';
 
-export default createRouter(apCreditMemosController);
+const meta = withMeta({ module: 'ap', router: 'ap-credit-memos' });
+
+export default createRouter(apCreditMemosController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

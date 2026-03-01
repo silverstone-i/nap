@@ -7,5 +7,14 @@
 
 import createRouter from '../../../../lib/createRouter.js';
 import categoryAccountMapController from '../../controllers/categoryAccountMapController.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 
-export default createRouter(categoryAccountMapController);
+const meta = withMeta({ module: 'accounting', router: 'category-account-map' });
+
+export default createRouter(categoryAccountMapController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});

@@ -6,6 +6,15 @@
  */
 
 import createRouter from '../../../../lib/createRouter.js';
+import { withMeta } from '../../../../middleware/withMeta.js';
 import receiptsController from '../../controllers/receiptsController.js';
 
-export default createRouter(receiptsController);
+const meta = withMeta({ module: 'ar', router: 'receipts' });
+
+export default createRouter(receiptsController, null, {
+  getMiddlewares: [meta],
+  postMiddlewares: [meta],
+  putMiddlewares: [meta],
+  deleteMiddlewares: [meta],
+  patchMiddlewares: [meta],
+});
