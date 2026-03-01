@@ -11,7 +11,7 @@ The application needs project management capabilities: projects containing units
 
 ### Feature Module Pattern (src/system/ vs src/modules/)
 
-Feature modules live in `apps/nap-serv/src/modules/` (lowercase), separate from core platform code in `src/system/`. Each module is self-contained with its own schemas, models, controllers, routers, and migrations. Modules import platform code via relative paths (e.g., `../../../lib/BaseController.js`, `../../../system/core/` for platform modules).
+Feature modules live in `apps/nap-serv/src/modules/` (lowercase), separate from core platform code in `src/system/`. Each module is self-contained with its own schemas, models, controllers, routers, and migrations. Modules import platform code via relative paths (e.g., `../../../lib/BaseController.js`). Cross-boundary service imports use barrel `services/index.js` files for a stable API surface (see ADR-0019).
 
 Registration happens in `src/db/moduleRegistry.js` with `{ name, scope, repositories, migrations }`. This keeps module code decoupled from the platform while still leveraging shared infrastructure (BaseController, createRouter, pg-schemata, defineMigration).
 

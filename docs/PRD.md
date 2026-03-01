@@ -198,7 +198,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
   -> CORS -> JSON/Cookie parsing -> Morgan logging
   -> authRedis() [JWT verify, tenant resolve, permission load]
   -> /api/<module>/v1/<resource>
-  -> [addAuditFields] -> [rbac()] -> Controller -> pg-schemata Model (schema-aware)
+  -> [withMeta] -> [moduleEntitlement] -> [addAuditFields] -> [rbac()] -> Controller -> pg-schemata Model (schema-aware)
   -> Response
 ```
 
@@ -321,7 +321,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - `admin.tenants.allowed_modules` (jsonb array of module names) controls which modules a tenant can access
 - Enforced by middleware after auth and before RBAC: if `req.resource.module` is not in the tenant's `allowed_modules`, return 403
 - Cached in Redis alongside tenant metadata
-- Default: empty array (no modules) — must be explicitly configured per tenant/tier
+- Default: empty array means **all modules allowed** — entitlement enforcement activates per-tenant as their `allowed_modules` arrays are populated
 - Managed by NapSoft `super_user` / `support` via tenant management UI
 
 **Enforcement:**
