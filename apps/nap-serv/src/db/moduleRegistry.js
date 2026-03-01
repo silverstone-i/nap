@@ -10,7 +10,7 @@
  */
 
 import authRepositories from '../system/auth/authRepositories.js';
-import bootstrapAdmin from '../system/auth/schema/migrations/202502110001_bootstrapAdmin.js';
+import authMigrations from '../system/auth/schema/migrations/index.js';
 import coreRepositories from '../system/core/coreRepositories.js';
 import coreMigrations from '../system/core/schema/migrations/index.js';
 import projectsRepositories from '../modules/projects/projectsRepositories.js';
@@ -33,7 +33,7 @@ const moduleRegistry = [
     name: 'auth',
     scope: 'admin',
     repositories: authRepositories,
-    migrations: [bootstrapAdmin],
+    migrations: authMigrations,
   },
   {
     name: 'core',
