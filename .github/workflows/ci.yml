@@ -24,9 +24,7 @@ jobs:
   arch-check:
     name: Architecture Check
     runs-on: ubuntu-latest
-    # Only run when backend source or arch scripts change
-    if: >-
-      github.event_name == 'pull_request'
+    # Runs on every PR — fast enough that path filtering is unnecessary
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
