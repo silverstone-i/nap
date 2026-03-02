@@ -144,7 +144,7 @@ export function authRedis() {
 
       // ── RBAC Permission Loading ─────────────────────────────────────────
       const schemaName = homeSchemaName;
-      let permissions = await getCachedPermissions(uid, tenantCode);
+      let permissions = await getCachedPermissions(uid, homeTenantCode);
 
       if (!permissions) {
         permissions = await loadPermissions({
@@ -153,7 +153,7 @@ export function authRedis() {
           entityType: userRecord.entity_type,
           entityId: userRecord.entity_id,
         });
-        await cachePermissions(uid, tenantCode, permissions);
+        await cachePermissions(uid, homeTenantCode, permissions);
       }
 
       // ── Stale Token Detection ───────────────────────────────────────────
