@@ -38,6 +38,8 @@ async function provisionTenant(cookies) {
       company: 'InterCo Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@ictest.com',
       admin_password: 'IctestPass123!',
     });

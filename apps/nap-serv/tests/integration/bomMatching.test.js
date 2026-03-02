@@ -51,6 +51,8 @@ describe('BOM matching workflow — embed, find similar, auto-match, audit log',
         company: 'BOM Match Corp',
         status: 'active',
         tier: 'starter',
+        admin_first_name: 'Test',
+        admin_last_name: 'Admin',
         admin_email: 'admin@bmtest.com',
         admin_password: 'BmtestPass123!',
       });

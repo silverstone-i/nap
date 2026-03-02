@@ -47,6 +47,8 @@ async function provisionAndLogin() {
       company: 'AR Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: TENANT_ADMIN_EMAIL,
       admin_password: TENANT_ADMIN_PASSWORD,
     });

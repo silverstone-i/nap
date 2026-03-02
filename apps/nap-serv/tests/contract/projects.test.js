@@ -42,6 +42,8 @@ async function provisionTenant(cookies) {
       company: 'Project Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@ptest.com',
       admin_password: 'PtestPass123!',
     });

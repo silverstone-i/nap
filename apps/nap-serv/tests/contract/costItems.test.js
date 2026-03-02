@@ -41,6 +41,8 @@ async function provisionTenant(cookies) {
       company: 'Cost Item Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@citest.com',
       admin_password: 'CitestPass123!',
     });

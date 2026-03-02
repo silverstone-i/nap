@@ -42,6 +42,8 @@ async function provisionTenant(cookies) {
       company: 'BOM Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@btest.com',
       admin_password: 'BtestPass123!',
     });
