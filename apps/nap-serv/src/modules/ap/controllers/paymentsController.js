@@ -10,7 +10,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { postAPPayment } from '../../accounting/services/index.js';
 import logger from '../../../lib/logger.js';
 
@@ -24,17 +24,18 @@ const VALID_METHODS = ['check', 'ach', 'wire'];
  * @returns {Promise<number>} Remaining balance
  */
 async function computeRemainingBalance(schema, invoiceId) {
+  const s = pgp.as.name(schema);
   const row = await db.one(
     `
     SELECT
       i.total_amount
-        - COALESCE((SELECT SUM(p.amount) FROM ${schema}.payments p
+        - COALESCE((SELECT SUM(p.amount) FROM ${s}.payments p
                     WHERE p.ap_invoice_id = $1 AND p.deactivated_at IS NULL), 0)
-        - COALESCE((SELECT SUM(cm.amount) FROM ${schema}.ap_credit_memos cm
+        - COALESCE((SELECT SUM(cm.amount) FROM ${s}.ap_credit_memos cm
                     WHERE cm.ap_invoice_id = $1 AND cm.status = 'applied'
                       AND cm.deactivated_at IS NULL), 0)
       AS remaining
-    FROM ${schema}.ap_invoices i
+    FROM ${s}.ap_invoices i
     WHERE i.id = $1
     `,
     [invoiceId],
@@ -86,12 +87,13 @@ class PaymentsController extends BaseController {
     if (invoiceId && paymentAmount > 0 && res.statusCode === 201) {
       try {
         const schema = this.getSchema(req);
+        const s = pgp.as.name(schema);
         const invoice = await db('apInvoices', schema).findById(invoiceId);
         const newBalance = await computeRemainingBalance(schema, invoiceId);
 
         if (newBalance <= 0) {
           await db.none(
-            `UPDATE ${schema}.ap_invoices SET status = 'paid' WHERE id = $1`,
+            `UPDATE ${s}.ap_invoices SET status = 'paid' WHERE id = $1`,
             [invoiceId],
           );
           logger.info(`AP Invoice ${invoiceId} fully paid`);

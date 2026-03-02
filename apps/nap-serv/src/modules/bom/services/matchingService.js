@@ -8,7 +8,7 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import logger from '../../../lib/logger.js';
 
 /**
@@ -19,6 +19,7 @@ import logger from '../../../lib/logger.js';
  * @returns {Promise<{ catalog_sku_id: string, catalog_sku: string, description: string, similarity: number }[]>}
  */
 export async function findSimilarCatalogSkus(schema, vendorSkuId, topK = 5) {
+  const s = pgp.as.name(schema);
   const vendorSku = await db('vendorSkus', schema).findById(vendorSkuId);
   if (!vendorSku) throw new Error(`Vendor SKU ${vendorSkuId} not found`);
 
@@ -26,8 +27,8 @@ export async function findSimilarCatalogSkus(schema, vendorSkuId, topK = 5) {
   const results = await db.manyOrNone(
     `SELECT cs.id AS catalog_sku_id, cs.catalog_sku, cs.description,
             1 - (vs.embedding <=> cs.embedding) AS similarity
-     FROM ${schema}.vendor_skus vs
-     CROSS JOIN ${schema}.catalog_skus cs
+     FROM ${s}.vendor_skus vs
+     CROSS JOIN ${s}.catalog_skus cs
      WHERE vs.id = $1
        AND vs.embedding IS NOT NULL
        AND cs.embedding IS NOT NULL
@@ -52,6 +53,7 @@ export async function findSimilarCatalogSkus(schema, vendorSkuId, topK = 5) {
  * @returns {Promise<{ matched: boolean, catalog_sku_id: string|null, confidence: number|null }>}
  */
 export async function autoMatch(schema, vendorSkuId, confidenceThreshold = 0.85, reviewerId = null) {
+  const s = pgp.as.name(schema);
   const matches = await findSimilarCatalogSkus(schema, vendorSkuId, 1);
 
   if (matches.length === 0 || matches[0].similarity < confidenceThreshold) {
@@ -75,7 +77,7 @@ export async function autoMatch(schema, vendorSkuId, confidenceThreshold = 0.85,
   const bestMatch = matches[0];
 
   // Update vendor SKU with matched catalog SKU and confidence
-  await db.none(`UPDATE ${schema}.vendor_skus SET catalog_sku_id = $1, confidence = $2 WHERE id = $3`, [
+  await db.none(`UPDATE ${s}.vendor_skus SET catalog_sku_id = $1, confidence = $2 WHERE id = $3`, [
     bestMatch.catalog_sku_id,
     bestMatch.similarity,
     vendorSkuId,

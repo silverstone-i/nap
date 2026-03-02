@@ -9,7 +9,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import logger from '../../../lib/logger.js';
 
 const VALID_TRANSITIONS = {
@@ -82,6 +82,7 @@ class BudgetsController extends BaseController {
   async createNewVersion(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
       const { budget_id } = req.body;
 
       if (!budget_id) {
@@ -98,7 +99,7 @@ class BudgetsController extends BaseController {
       }
 
       // Mark old version as not current via raw SQL to avoid ColumnSet reset
-      await db.none(`UPDATE ${schema}.budgets SET is_current = false WHERE id = $1`, [budget_id]);
+      await db.none(`UPDATE ${s}.budgets SET is_current = false WHERE id = $1`, [budget_id]);
 
       // Create new draft version
       const newBudget = await this.model(schema).insert({

@@ -8,7 +8,7 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import logger from '../../../lib/logger.js';
 import { createJournalEntry } from './postingService.js';
 
@@ -21,6 +21,7 @@ const VALID_MODULES = ['ar', 'ap', 'je'];
  * @returns {Promise<object>} The created intercompany transaction
  */
 async function createIntercompanyTransaction(schema, data) {
+  const s = pgp.as.name(schema);
   const {
     tenant_id, source_company_id, target_company_id,
     module, amount, description,
@@ -64,7 +65,7 @@ async function createIntercompanyTransaction(schema, data) {
     });
 
     const txn = await t.one(
-      `INSERT INTO ${schema}.inter_company_transactions
+      `INSERT INTO ${s}.inter_company_transactions
        (tenant_id, source_company_id, target_company_id, source_journal_entry_id, target_journal_entry_id, module, amount, status, description)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8)
        RETURNING *`,

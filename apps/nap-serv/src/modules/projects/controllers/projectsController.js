@@ -8,7 +8,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { allocateNumber } from '../../../system/core/services/index.js';
 
 const VALID_TRANSITIONS = {
@@ -33,6 +33,7 @@ class ProjectsController extends BaseController {
       }
 
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
 
       const record = await db.tx(async (t) => {
         const projectsModel = this.model(schema);
@@ -44,7 +45,7 @@ class ProjectsController extends BaseController {
         if (!project.project_code) {
           const numbering = await allocateNumber(schema, 'project', null, new Date(), t);
           if (numbering) {
-            await t.none(`UPDATE ${schema}.projects SET project_code = $1 WHERE id = $2`, [
+            await t.none(`UPDATE ${s}.projects SET project_code = $1 WHERE id = $2`, [
               numbering.displayId,
               project.id,
             ]);

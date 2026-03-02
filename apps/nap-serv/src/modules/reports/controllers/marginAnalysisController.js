@@ -10,7 +10,7 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import ReportController from './reportController.js';
 
 const SORT_WHITELIST = new Set([
@@ -32,6 +32,7 @@ class MarginAnalysisController extends ReportController {
   async getAll(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
       const sortBy = req.query.sortBy || 'gross_margin_pct';
       const sortDir = req.query.sortDir?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -40,7 +41,7 @@ class MarginAnalysisController extends ReportController {
       }
 
       const rows = await db.manyOrNone(
-        `SELECT * FROM ${schema}.vw_project_profitability ORDER BY ${sortBy} ${sortDir}`,
+        `SELECT * FROM ${s}.vw_project_profitability ORDER BY ${sortBy} ${sortDir}`,
       );
       res.json(rows);
     } catch (err) {

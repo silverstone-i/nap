@@ -6,7 +6,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { normalizeDescription, generateEmbedding } from '../services/embeddingService.js';
 import logger from '../../../lib/logger.js';
 
@@ -45,10 +45,11 @@ class CatalogSkusController extends BaseController {
   async refreshEmbeddings(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
 
       // Find catalog SKUs missing embeddings
       const skus = await db.manyOrNone(
-        `SELECT id, description_normalized FROM ${schema}.catalog_skus
+        `SELECT id, description_normalized FROM ${s}.catalog_skus
          WHERE description_normalized IS NOT NULL
            AND embedding IS NULL
            AND deactivated_at IS NULL
@@ -65,7 +66,7 @@ class CatalogSkusController extends BaseController {
         try {
           const embedding = await generateEmbedding(sku.description_normalized);
           const vecString = `[${embedding.join(',')}]`;
-          await db.none(`UPDATE ${schema}.catalog_skus SET embedding = $1::vector WHERE id = $2`, [vecString, sku.id]);
+          await db.none(`UPDATE ${s}.catalog_skus SET embedding = $1::vector WHERE id = $2`, [vecString, sku.id]);
           refreshed++;
         } catch (err) {
           logger.error(`Failed to generate embedding for catalog SKU ${sku.id}: ${err.message}`);

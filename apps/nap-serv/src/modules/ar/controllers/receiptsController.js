@@ -10,7 +10,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { postARReceipt } from '../../accounting/services/index.js';
 import logger from '../../../lib/logger.js';
 
@@ -21,12 +21,13 @@ const VALID_METHODS = ['check', 'ach', 'wire'];
  *   total_amount − SUM(receipts)
  */
 async function computeRemainingBalance(schema, invoiceId) {
+  const s = pgp.as.name(schema);
   const row = await db.one(
     `SELECT i.total_amount
-        - COALESCE((SELECT SUM(r.amount) FROM ${schema}.receipts r
+        - COALESCE((SELECT SUM(r.amount) FROM ${s}.receipts r
                     WHERE r.ar_invoice_id = $1 AND r.deactivated_at IS NULL), 0)
       AS remaining
-     FROM ${schema}.ar_invoices i WHERE i.id = $1`,
+     FROM ${s}.ar_invoices i WHERE i.id = $1`,
     [invoiceId],
   );
   return parseFloat(row.remaining) || 0;
@@ -76,12 +77,13 @@ class ReceiptsController extends BaseController {
     if (invoiceId && receiptAmount > 0 && res.statusCode === 201) {
       try {
         const schema = this.getSchema(req);
+        const s = pgp.as.name(schema);
         const invoice = await db('arInvoices', schema).findById(invoiceId);
 
         const remaining = await computeRemainingBalance(schema, invoiceId);
         if (remaining <= 0) {
           await db.none(
-            `UPDATE ${schema}.ar_invoices SET status = 'paid' WHERE id = $1`,
+            `UPDATE ${s}.ar_invoices SET status = 'paid' WHERE id = $1`,
             [invoiceId],
           );
           logger.info(`AR Invoice ${invoiceId} fully paid`);

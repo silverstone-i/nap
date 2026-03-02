@@ -10,7 +10,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { computeRemainingBalance } from './paymentsController.js';
 import logger from '../../../lib/logger.js';
 
@@ -67,13 +67,14 @@ class ApCreditMemosController extends BaseController {
     if (req.body.status === 'applied' && res.statusCode === 200) {
       try {
         const schema = this.getSchema(req);
+        const s = pgp.as.name(schema);
         const id = req.query.id;
         const current = await this.model(schema).findById(id);
         if (current?.ap_invoice_id) {
           const remaining = await computeRemainingBalance(schema, current.ap_invoice_id);
           if (remaining <= 0) {
             await db.none(
-              `UPDATE ${schema}.ap_invoices SET status = 'paid' WHERE id = $1`,
+              `UPDATE ${s}.ap_invoices SET status = 'paid' WHERE id = $1`,
               [current.ap_invoice_id],
             );
             logger.info(`AP Invoice ${current.ap_invoice_id} fully paid after credit memo ${id}`);

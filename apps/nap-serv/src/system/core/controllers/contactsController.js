@@ -6,7 +6,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { allocateNumber } from '../services/numberingService.js';
 
 class ContactsController extends BaseController {
@@ -20,6 +20,7 @@ class ContactsController extends BaseController {
   async create(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
 
       if (!req.body.tenant_id && req.user?.tenant_id) {
         req.body.tenant_id = req.user.tenant_id;
@@ -35,7 +36,7 @@ class ContactsController extends BaseController {
         if (!contact.code) {
           const numbering = await allocateNumber(schema, 'contact', null, new Date(), t);
           if (numbering) {
-            await t.none(`UPDATE ${schema}.contacts SET code = $1 WHERE id = $2`, [numbering.displayId, contact.id]);
+            await t.none(`UPDATE ${s}.contacts SET code = $1 WHERE id = $2`, [numbering.displayId, contact.id]);
             contact.code = numbering.displayId;
           }
         }

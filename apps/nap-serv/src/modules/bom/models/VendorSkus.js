@@ -28,10 +28,10 @@ export default class VendorSkus extends TableModel {
    * @returns {Promise<object[]>}
    */
   async getUnmatched() {
-    const schema = this.schemaName;
-    const table = this.tableName;
+    const s = this.pgp.as.name(this.schemaName);
+    const t = this.pgp.as.name(this.tableName);
     return this.db.manyOrNone(
-      `SELECT * FROM ${schema}.${table} WHERE catalog_sku_id IS NULL AND deactivated_at IS NULL ORDER BY created_at DESC`,
+      `SELECT * FROM ${s}.${t} WHERE catalog_sku_id IS NULL AND deactivated_at IS NULL ORDER BY created_at DESC`,
     );
   }
 
@@ -40,11 +40,11 @@ export default class VendorSkus extends TableModel {
    * @param {{ id: string, embedding: number[] }[]} batches Array of { id, embedding }
    */
   async refreshEmbeddings(batches) {
-    const schema = this.schemaName;
-    const table = this.tableName;
+    const s = this.pgp.as.name(this.schemaName);
+    const t = this.pgp.as.name(this.tableName);
     for (const { id, embedding } of batches) {
       const vecString = `[${embedding.join(',')}]`;
-      await this.db.none(`UPDATE ${schema}.${table} SET embedding = $1::vector WHERE id = $2`, [vecString, id]);
+      await this.db.none(`UPDATE ${s}.${t} SET embedding = $1::vector WHERE id = $2`, [vecString, id]);
     }
   }
 }

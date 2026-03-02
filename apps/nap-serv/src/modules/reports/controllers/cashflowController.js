@@ -10,16 +10,17 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import ReportController from './reportController.js';
 
 class CashflowController extends ReportController {
   async getByProject(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
       const { projectId } = req.params;
       const rows = await db.manyOrNone(
-        `SELECT * FROM ${schema}.vw_project_cashflow_monthly WHERE project_id = $1 ORDER BY month`,
+        `SELECT * FROM ${s}.vw_project_cashflow_monthly WHERE project_id = $1 ORDER BY month`,
         [projectId],
       );
       if (!rows.length) return res.status(404).json({ error: 'No cashflow data for project' });
@@ -32,6 +33,7 @@ class CashflowController extends ReportController {
   async getForecast(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
       const { projectId } = req.params;
 
       // Expected inflows: sent AR invoices with future due dates
@@ -41,10 +43,10 @@ class CashflowController extends ReportController {
         SELECT
           DATE_TRUNC('month', ai.due_date)::date AS month,
           SUM(ai.total_amount - COALESCE(r_agg.paid, 0)) AS expected_inflow
-        FROM ${schema}.ar_invoices ai
+        FROM ${s}.ar_invoices ai
         LEFT JOIN LATERAL (
           SELECT COALESCE(SUM(r.amount), 0) AS paid
-          FROM ${schema}.receipts r
+          FROM ${s}.receipts r
           WHERE r.ar_invoice_id = ai.id AND r.deactivated_at IS NULL
         ) r_agg ON true
         WHERE ai.project_id = $1
@@ -65,15 +67,15 @@ class CashflowController extends ReportController {
         SELECT
           DATE_TRUNC('month', api.due_date)::date AS month,
           SUM(api.total_amount - COALESCE(p_agg.paid, 0) - COALESCE(cm_agg.credited, 0)) AS expected_outflow
-        FROM ${schema}.ap_invoices api
+        FROM ${s}.ap_invoices api
         LEFT JOIN LATERAL (
           SELECT COALESCE(SUM(p.amount), 0) AS paid
-          FROM ${schema}.payments p
+          FROM ${s}.payments p
           WHERE p.ap_invoice_id = api.id AND p.deactivated_at IS NULL
         ) p_agg ON true
         LEFT JOIN LATERAL (
           SELECT COALESCE(SUM(cm.amount), 0) AS credited
-          FROM ${schema}.ap_credit_memos cm
+          FROM ${s}.ap_credit_memos cm
           WHERE cm.ap_invoice_id = api.id AND cm.status = 'applied' AND cm.deactivated_at IS NULL
         ) cm_agg ON true
         WHERE api.project_id = $1
@@ -96,7 +98,7 @@ class CashflowController extends ReportController {
               EXTRACT(DAY FROM (CURRENT_DATE - MIN(ac.incurred_on))), 0
             ) * 30, 0
           ) AS monthly_burn_rate
-        FROM ${schema}.actual_costs ac
+        FROM ${s}.actual_costs ac
         WHERE ac.project_id = $1
           AND ac.approval_status = 'approved'
           AND ac.incurred_on >= CURRENT_DATE - INTERVAL '90 days'
@@ -118,6 +120,7 @@ class CashflowController extends ReportController {
   async getCompanyCashflow(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
       const rows = await db.manyOrNone(`
         SELECT
           month,
@@ -125,7 +128,7 @@ class CashflowController extends ReportController {
           SUM(outflow)       AS outflow,
           SUM(actual_cost)   AS actual_cost,
           SUM(net_cashflow)  AS net_cashflow
-        FROM ${schema}.vw_project_cashflow_monthly
+        FROM ${s}.vw_project_cashflow_monthly
         GROUP BY month
         ORDER BY month
       `);

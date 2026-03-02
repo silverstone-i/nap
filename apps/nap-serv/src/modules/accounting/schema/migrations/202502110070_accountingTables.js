@@ -34,8 +34,9 @@ export default defineMigration({
   id: '202502110070-accounting-tables',
   description: 'Create Accounting / GL module tables',
 
-  async up({ schema, models, db }) {
+  async up({ schema, models, db, pgp }) {
     if (schema === 'admin') return;
+    const s = pgp.as.name(schema);
 
     for (const key of ACCOUNTING_MODELS) {
       const model = models[key];
@@ -46,21 +47,21 @@ export default defineMigration({
 
     // Add self-referential FK for corrects_id after journal_entries table exists
     await db.none(`
-      ALTER TABLE ${schema}.journal_entries
+      ALTER TABLE ${s}.journal_entries
       ADD CONSTRAINT fk_journal_entries_corrects
-      FOREIGN KEY (corrects_id) REFERENCES ${schema}.journal_entries(id)
+      FOREIGN KEY (corrects_id) REFERENCES ${s}.journal_entries(id)
       ON DELETE SET NULL
     `);
   },
 
-  async down({ schema, models, db }) {
+  async down({ schema, models, db, pgp }) {
     if (schema === 'admin') return;
 
     const reversed = [...ACCOUNTING_MODELS].reverse();
     for (const key of reversed) {
       const model = models[key];
       if (model && model.schemaName && model.tableName) {
-        await db.none(`DROP TABLE IF EXISTS ${model.schemaName}.${model.tableName} CASCADE`);
+        await db.none(`DROP TABLE IF EXISTS ${pgp.as.name(model.schemaName)}.${pgp.as.name(model.tableName)} CASCADE`);
       }
     }
   },

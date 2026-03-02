@@ -41,19 +41,20 @@ export default defineMigration({
     //   - Upgrade pgvector when higher-dim indexes are supported
   },
 
-  async down({ schema, models, db }) {
+  async down({ schema, models, db, pgp }) {
     if (schema === 'admin') return;
+    const s = pgp.as.name(schema);
 
     // Drop embedding indexes if they exist (currently skipped due to 2000-dim limit)
-    await db.none(`DROP INDEX IF EXISTS ${schema}.idx_catalog_skus_embedding`);
-    await db.none(`DROP INDEX IF EXISTS ${schema}.idx_vendor_skus_embedding`);
+    await db.none(`DROP INDEX IF EXISTS ${s}.idx_catalog_skus_embedding`);
+    await db.none(`DROP INDEX IF EXISTS ${s}.idx_vendor_skus_embedding`);
 
     // Drop tables in reverse FK order
     const reversed = [...BOM_MODELS].reverse();
     for (const key of reversed) {
       const model = models[key];
       if (model && model.schemaName && model.tableName) {
-        await db.none(`DROP TABLE IF EXISTS ${model.schemaName}.${model.tableName} CASCADE`);
+        await db.none(`DROP TABLE IF EXISTS ${pgp.as.name(model.schemaName)}.${pgp.as.name(model.tableName)} CASCADE`);
       }
     }
   },

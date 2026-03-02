@@ -12,7 +12,7 @@
 import bcrypt from 'bcrypt';
 import crypto from 'node:crypto';
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { allocateNumber } from '../services/numberingService.js';
 import logger from '../../../lib/logger.js';
 
@@ -28,6 +28,7 @@ class EmployeesController extends BaseController {
   async create(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
 
       // Inject tenant_id from authenticated session
       if (!req.body.tenant_id && req.user?.tenant_id) {
@@ -61,7 +62,7 @@ class EmployeesController extends BaseController {
 
         // 3. Link the source back to the employee
         await t.none(
-          `UPDATE ${schema}.employees SET source_id = $1, updated_by = $2 WHERE id = $3`,
+          `UPDATE ${s}.employees SET source_id = $1, updated_by = $2 WHERE id = $3`,
           [source.id, req.body.created_by || null, employee.id],
         );
 
@@ -69,7 +70,7 @@ class EmployeesController extends BaseController {
         if (!employee.code) {
           const numbering = await allocateNumber(schema, 'employee', null, new Date(), t);
           if (numbering) {
-            await t.none(`UPDATE ${schema}.employees SET code = $1 WHERE id = $2`, [
+            await t.none(`UPDATE ${s}.employees SET code = $1 WHERE id = $2`, [
               numbering.displayId,
               employee.id,
             ]);

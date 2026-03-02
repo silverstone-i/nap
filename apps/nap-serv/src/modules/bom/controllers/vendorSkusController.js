@@ -6,7 +6,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { normalizeDescription, generateEmbedding } from '../services/embeddingService.js';
 import { findSimilarCatalogSkus, autoMatch, batchMatch } from '../services/matchingService.js';
 import logger from '../../../lib/logger.js';
@@ -42,9 +42,10 @@ class VendorSkusController extends BaseController {
   async getUnmatched(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
       const unmatched = await db.manyOrNone(
         `SELECT id, vendor_id, vendor_sku, description, description_normalized, catalog_sku_id, confidence
-         FROM ${schema}.vendor_skus
+         FROM ${s}.vendor_skus
          WHERE catalog_sku_id IS NULL AND deactivated_at IS NULL
          ORDER BY created_at DESC`,
       );
@@ -120,9 +121,10 @@ class VendorSkusController extends BaseController {
   async refreshEmbeddings(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
 
       const skus = await db.manyOrNone(
-        `SELECT id, description_normalized FROM ${schema}.vendor_skus
+        `SELECT id, description_normalized FROM ${s}.vendor_skus
          WHERE description_normalized IS NOT NULL
            AND embedding IS NULL
            AND deactivated_at IS NULL
@@ -139,7 +141,7 @@ class VendorSkusController extends BaseController {
         try {
           const embedding = await generateEmbedding(sku.description_normalized);
           const vecString = `[${embedding.join(',')}]`;
-          await db.none(`UPDATE ${schema}.vendor_skus SET embedding = $1::vector WHERE id = $2`, [vecString, sku.id]);
+          await db.none(`UPDATE ${s}.vendor_skus SET embedding = $1::vector WHERE id = $2`, [vecString, sku.id]);
           refreshed++;
         } catch (err) {
           logger.error(`Failed to generate embedding for vendor SKU ${sku.id}: ${err.message}`);

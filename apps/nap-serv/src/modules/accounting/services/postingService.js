@@ -8,7 +8,7 @@
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import logger from '../../../lib/logger.js';
 
 /**
@@ -18,6 +18,7 @@ import logger from '../../../lib/logger.js';
  * @returns {Promise<object>} Created journal entry
  */
 async function createJournalEntry(schema, data) {
+  const s = pgp.as.name(schema);
   const { lines, ...entryData } = data;
 
   if (!lines || !Array.isArray(lines) || lines.length === 0) {
@@ -37,7 +38,7 @@ async function createJournalEntry(schema, data) {
 
   return db.tx(async (t) => {
     const entry = await t.one(
-      `INSERT INTO ${schema}.journal_entries
+      `INSERT INTO ${s}.journal_entries
        (tenant_id, company_id, project_id, entry_date, description, status, source_type, source_id, corrects_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
@@ -52,7 +53,7 @@ async function createJournalEntry(schema, data) {
     const insertedLines = [];
     for (const line of lines) {
       const inserted = await t.one(
-        `INSERT INTO ${schema}.journal_entry_lines
+        `INSERT INTO ${s}.journal_entry_lines
          (entry_id, account_id, debit, credit, memo, related_table, related_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
@@ -66,7 +67,7 @@ async function createJournalEntry(schema, data) {
     }
 
     await t.none(
-      `INSERT INTO ${schema}.posting_queues (tenant_id, journal_entry_id, status) VALUES ($1, $2, 'pending')`,
+      `INSERT INTO ${s}.posting_queues (tenant_id, journal_entry_id, status) VALUES ($1, $2, 'pending')`,
       [entryData.tenant_id, entry.id],
     );
 
@@ -81,23 +82,24 @@ async function createJournalEntry(schema, data) {
  * @returns {Promise<object>} Posted entry
  */
 async function postEntry(schema, entryId) {
+  const s = pgp.as.name(schema);
   return db.tx(async (t) => {
     const entry = await t.oneOrNone(
-      `SELECT * FROM ${schema}.journal_entries WHERE id = $1`,
+      `SELECT * FROM ${s}.journal_entries WHERE id = $1`,
       [entryId],
     );
     if (!entry) throw new Error('Journal entry not found');
     if (entry.status !== 'pending') throw new Error(`Cannot post entry with status: ${entry.status}`);
 
     const lines = await t.manyOrNone(
-      `SELECT * FROM ${schema}.journal_entry_lines WHERE entry_id = $1`,
+      `SELECT * FROM ${s}.journal_entry_lines WHERE entry_id = $1`,
       [entryId],
     );
 
     for (const line of lines) {
       const netAmount = parseFloat(line.debit) - parseFloat(line.credit);
       await t.none(
-        `INSERT INTO ${schema}.ledger_balances (tenant_id, account_id, as_of_date, balance)
+        `INSERT INTO ${s}.ledger_balances (tenant_id, account_id, as_of_date, balance)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (account_id, as_of_date)
          DO UPDATE SET balance = ledger_balances.balance + $4`,
@@ -106,12 +108,12 @@ async function postEntry(schema, entryId) {
     }
 
     await t.none(
-      `UPDATE ${schema}.journal_entries SET status = 'posted' WHERE id = $1`,
+      `UPDATE ${s}.journal_entries SET status = 'posted' WHERE id = $1`,
       [entryId],
     );
 
     await t.none(
-      `UPDATE ${schema}.posting_queues SET status = 'posted', processed_at = NOW() WHERE journal_entry_id = $1`,
+      `UPDATE ${s}.posting_queues SET status = 'posted', processed_at = NOW() WHERE journal_entry_id = $1`,
       [entryId],
     );
 
@@ -128,21 +130,22 @@ async function postEntry(schema, entryId) {
  * @returns {Promise<object>} The correcting journal entry
  */
 async function reverseEntry(schema, entryId, tenantId) {
+  const s = pgp.as.name(schema);
   return db.tx(async (t) => {
     const entry = await t.oneOrNone(
-      `SELECT * FROM ${schema}.journal_entries WHERE id = $1`,
+      `SELECT * FROM ${s}.journal_entries WHERE id = $1`,
       [entryId],
     );
     if (!entry) throw new Error('Journal entry not found');
     if (entry.status !== 'posted') throw new Error(`Cannot reverse entry with status: ${entry.status}`);
 
     const lines = await t.manyOrNone(
-      `SELECT * FROM ${schema}.journal_entry_lines WHERE entry_id = $1`,
+      `SELECT * FROM ${s}.journal_entry_lines WHERE entry_id = $1`,
       [entryId],
     );
 
     const correcting = await t.one(
-      `INSERT INTO ${schema}.journal_entries
+      `INSERT INTO ${s}.journal_entries
        (tenant_id, company_id, project_id, entry_date, description, status, source_type, source_id, corrects_id)
        VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8)
        RETURNING *`,
@@ -156,7 +159,7 @@ async function reverseEntry(schema, entryId, tenantId) {
 
     for (const line of lines) {
       await t.none(
-        `INSERT INTO ${schema}.journal_entry_lines
+        `INSERT INTO ${s}.journal_entry_lines
          (entry_id, account_id, debit, credit, memo, related_table, related_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
@@ -168,12 +171,12 @@ async function reverseEntry(schema, entryId, tenantId) {
     }
 
     await t.none(
-      `UPDATE ${schema}.journal_entries SET status = 'reversed' WHERE id = $1`,
+      `UPDATE ${s}.journal_entries SET status = 'reversed' WHERE id = $1`,
       [entryId],
     );
 
     await t.none(
-      `INSERT INTO ${schema}.posting_queues (tenant_id, journal_entry_id, status) VALUES ($1, $2, 'pending')`,
+      `INSERT INTO ${s}.posting_queues (tenant_id, journal_entry_id, status) VALUES ($1, $2, 'pending')`,
       [tenantId, correcting.id],
     );
 

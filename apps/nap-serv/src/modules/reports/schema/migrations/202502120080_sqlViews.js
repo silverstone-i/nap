@@ -22,12 +22,13 @@ export default defineMigration({
   id: '202502120080-sql-views',
   description: 'Create reporting and export SQL views',
 
-  async up({ schema, db }) {
+  async up({ schema, db, pgp }) {
     if (schema === 'admin') return;
+    const s = pgp.as.name(schema);
 
     // ── 1. Project Profitability ─────────────────────────────────────
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_project_profitability AS
+      CREATE OR REPLACE VIEW ${s}.vw_project_profitability AS
       SELECT
         p.id                    AS project_id,
         p.project_code,
@@ -96,15 +97,15 @@ export default defineMigration({
           )
         END AS projected_margin_pct
 
-      FROM ${schema}.projects p
+      FROM ${s}.projects p
 
       -- AR aggregates
       LEFT JOIN LATERAL (
         SELECT
           COALESCE(SUM(ai.total_amount) FILTER (WHERE ai.status IN ('sent','paid')), 0) AS invoiced_revenue,
           COALESCE(SUM(r.amount), 0) AS collected_revenue
-        FROM ${schema}.ar_invoices ai
-        LEFT JOIN ${schema}.receipts r ON r.ar_invoice_id = ai.id AND r.deactivated_at IS NULL
+        FROM ${s}.ar_invoices ai
+        LEFT JOIN ${s}.receipts r ON r.ar_invoice_id = ai.id AND r.deactivated_at IS NULL
         WHERE ai.project_id = p.id AND ai.deactivated_at IS NULL
       ) ar_agg ON true
 
@@ -113,32 +114,32 @@ export default defineMigration({
         SELECT
           COALESCE(SUM(api.total_amount) FILTER (WHERE api.status IN ('approved','paid')), 0) AS committed_cost,
           COALESCE(SUM(pay.amount), 0) AS cash_out
-        FROM ${schema}.ap_invoices api
-        LEFT JOIN ${schema}.payments pay ON pay.ap_invoice_id = api.id AND pay.deactivated_at IS NULL
+        FROM ${s}.ap_invoices api
+        LEFT JOIN ${s}.payments pay ON pay.ap_invoice_id = api.id AND pay.deactivated_at IS NULL
         WHERE api.project_id = p.id AND api.deactivated_at IS NULL
       ) ap_agg ON true
 
       -- Actual cost aggregates
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(ac.amount), 0) AS actual_spend
-        FROM ${schema}.actual_costs ac
+        FROM ${s}.actual_costs ac
         WHERE ac.project_id = p.id AND ac.approval_status = 'approved' AND ac.deactivated_at IS NULL
       ) ac_agg ON true
 
       -- Budgeted cost via cost_items -> tasks -> units -> project
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(ci.amount), 0) AS total_budgeted_cost
-        FROM ${schema}.cost_items ci
-        JOIN ${schema}.tasks t ON t.id = ci.task_id AND t.deactivated_at IS NULL
-        JOIN ${schema}.units u ON u.id = t.unit_id AND u.deactivated_at IS NULL
+        FROM ${s}.cost_items ci
+        JOIN ${s}.tasks t ON t.id = ci.task_id AND t.deactivated_at IS NULL
+        JOIN ${s}.units u ON u.id = t.unit_id AND u.deactivated_at IS NULL
         WHERE u.project_id = p.id AND ci.deactivated_at IS NULL
       ) ci_agg ON true
 
       -- Change order aggregates
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(co.total_amount), 0) AS change_order_value
-        FROM ${schema}.change_orders co
-        JOIN ${schema}.units u ON u.id = co.unit_id AND u.deactivated_at IS NULL
+        FROM ${s}.change_orders co
+        JOIN ${s}.units u ON u.id = co.unit_id AND u.deactivated_at IS NULL
         WHERE u.project_id = p.id AND co.status = 'approved' AND co.deactivated_at IS NULL
       ) co_agg ON true
 
@@ -147,14 +148,14 @@ export default defineMigration({
 
     // ── 2. Project Cashflow Monthly ──────────────────────────────────
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_project_cashflow_monthly AS
+      CREATE OR REPLACE VIEW ${s}.vw_project_cashflow_monthly AS
       WITH inflows AS (
         SELECT
           ai.project_id,
           DATE_TRUNC('month', r.receipt_date)::date AS month,
           SUM(r.amount) AS inflow
-        FROM ${schema}.receipts r
-        JOIN ${schema}.ar_invoices ai ON ai.id = r.ar_invoice_id AND ai.deactivated_at IS NULL
+        FROM ${s}.receipts r
+        JOIN ${s}.ar_invoices ai ON ai.id = r.ar_invoice_id AND ai.deactivated_at IS NULL
         WHERE r.deactivated_at IS NULL AND ai.project_id IS NOT NULL
         GROUP BY ai.project_id, DATE_TRUNC('month', r.receipt_date)
       ),
@@ -163,8 +164,8 @@ export default defineMigration({
           api.project_id,
           DATE_TRUNC('month', pay.payment_date)::date AS month,
           SUM(pay.amount) AS outflow
-        FROM ${schema}.payments pay
-        JOIN ${schema}.ap_invoices api ON api.id = pay.ap_invoice_id AND api.deactivated_at IS NULL
+        FROM ${s}.payments pay
+        JOIN ${s}.ap_invoices api ON api.id = pay.ap_invoice_id AND api.deactivated_at IS NULL
         WHERE pay.deactivated_at IS NULL AND api.project_id IS NOT NULL
         GROUP BY api.project_id, DATE_TRUNC('month', pay.payment_date)
       ),
@@ -173,7 +174,7 @@ export default defineMigration({
           ac.project_id,
           DATE_TRUNC('month', ac.incurred_on)::date AS month,
           SUM(ac.amount) AS actual_cost
-        FROM ${schema}.actual_costs ac
+        FROM ${s}.actual_costs ac
         WHERE ac.deactivated_at IS NULL AND ac.approval_status = 'approved' AND ac.project_id IS NOT NULL
         GROUP BY ac.project_id, DATE_TRUNC('month', ac.incurred_on)
       ),
@@ -203,7 +204,7 @@ export default defineMigration({
 
     // ── 3. Project Cost by Category ──────────────────────────────────
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_project_cost_by_category AS
+      CREATE OR REPLACE VIEW ${s}.vw_project_cost_by_category AS
       SELECT
         da.project_id,
         cat.id          AS category_id,
@@ -213,18 +214,18 @@ export default defineMigration({
         COALESCE(SUM(b.budgeted_amount), 0) AS budgeted_amount,
         COALESCE(SUM(ac.amount), 0)         AS actual_amount,
         COALESCE(SUM(b.budgeted_amount), 0) - COALESCE(SUM(ac.amount), 0) AS variance
-      FROM ${schema}.deliverable_assignments da
-      JOIN ${schema}.budgets b
+      FROM ${s}.deliverable_assignments da
+      JOIN ${s}.budgets b
         ON b.deliverable_id = da.deliverable_id
         AND b.is_current = true
         AND b.deactivated_at IS NULL
-      JOIN ${schema}.activities act
+      JOIN ${s}.activities act
         ON act.id = b.activity_id
         AND act.deactivated_at IS NULL
-      JOIN ${schema}.categories cat
+      JOIN ${s}.categories cat
         ON cat.id = act.category_id
         AND cat.deactivated_at IS NULL
-      LEFT JOIN ${schema}.actual_costs ac
+      LEFT JOIN ${s}.actual_costs ac
         ON ac.activity_id = act.id
         AND ac.project_id = da.project_id
         AND ac.approval_status = 'approved'
@@ -236,7 +237,7 @@ export default defineMigration({
     // ── 4. AR Aging ──────────────────────────────────────────────────
     // Remaining balance computed as total_amount − SUM(receipts)
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_ar_aging AS
+      CREATE OR REPLACE VIEW ${s}.vw_ar_aging AS
       SELECT
         ai.client_id,
         cl.name        AS client_name,
@@ -253,11 +254,11 @@ export default defineMigration({
           FILTER (WHERE CURRENT_DATE - ai.due_date BETWEEN 61 AND 90)         AS bucket_61_90,
         SUM(ai.total_amount - COALESCE(r_agg.paid, 0))
           FILTER (WHERE CURRENT_DATE - ai.due_date > 90)                      AS bucket_over_90
-      FROM ${schema}.ar_invoices ai
-      JOIN ${schema}.clients cl ON cl.id = ai.client_id AND cl.deactivated_at IS NULL
+      FROM ${s}.ar_invoices ai
+      JOIN ${s}.clients cl ON cl.id = ai.client_id AND cl.deactivated_at IS NULL
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(r.amount), 0) AS paid
-        FROM ${schema}.receipts r
+        FROM ${s}.receipts r
         WHERE r.ar_invoice_id = ai.id AND r.deactivated_at IS NULL
       ) r_agg ON true
       WHERE ai.deactivated_at IS NULL
@@ -269,7 +270,7 @@ export default defineMigration({
     // ── 5. AP Aging ──────────────────────────────────────────────────
     // Remaining balance computed as total_amount − SUM(payments) − SUM(applied credit memos)
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_ap_aging AS
+      CREATE OR REPLACE VIEW ${s}.vw_ap_aging AS
       SELECT
         api.vendor_id,
         v.name         AS vendor_name,
@@ -286,16 +287,16 @@ export default defineMigration({
           FILTER (WHERE CURRENT_DATE - api.due_date BETWEEN 61 AND 90)        AS bucket_61_90,
         SUM(api.total_amount - COALESCE(p_agg.paid, 0) - COALESCE(cm_agg.credited, 0))
           FILTER (WHERE CURRENT_DATE - api.due_date > 90)                     AS bucket_over_90
-      FROM ${schema}.ap_invoices api
-      JOIN ${schema}.vendors v ON v.id = api.vendor_id AND v.deactivated_at IS NULL
+      FROM ${s}.ap_invoices api
+      JOIN ${s}.vendors v ON v.id = api.vendor_id AND v.deactivated_at IS NULL
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(p.amount), 0) AS paid
-        FROM ${schema}.payments p
+        FROM ${s}.payments p
         WHERE p.ap_invoice_id = api.id AND p.deactivated_at IS NULL
       ) p_agg ON true
       LEFT JOIN LATERAL (
         SELECT COALESCE(SUM(cm.amount), 0) AS credited
-        FROM ${schema}.ap_credit_memos cm
+        FROM ${s}.ap_credit_memos cm
         WHERE cm.ap_invoice_id = api.id AND cm.status = 'applied' AND cm.deactivated_at IS NULL
       ) cm_agg ON true
       WHERE api.deactivated_at IS NULL
@@ -306,7 +307,7 @@ export default defineMigration({
 
     // ── 6. Export Contacts ───────────────────────────────────────────
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_export_contacts AS
+      CREATE OR REPLACE VIEW ${s}.vw_export_contacts AS
       SELECT
         c.id,
         c.tenant_id,
@@ -322,14 +323,14 @@ export default defineMigration({
         c.is_active,
         c.created_at,
         c.updated_at
-      FROM ${schema}.contacts c
-      LEFT JOIN ${schema}.sources s ON s.id = c.source_id AND s.deactivated_at IS NULL
+      FROM ${s}.contacts c
+      LEFT JOIN ${s}.sources s ON s.id = c.source_id AND s.deactivated_at IS NULL
       WHERE c.deactivated_at IS NULL
     `);
 
     // ── 7. Export Addresses ──────────────────────────────────────────
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_export_addresses AS
+      CREATE OR REPLACE VIEW ${s}.vw_export_addresses AS
       SELECT
         a.id,
         a.source_id,
@@ -347,14 +348,14 @@ export default defineMigration({
         a.is_primary,
         a.created_at,
         a.updated_at
-      FROM ${schema}.addresses a
-      JOIN ${schema}.sources s ON s.id = a.source_id AND s.deactivated_at IS NULL
+      FROM ${s}.addresses a
+      JOIN ${s}.sources s ON s.id = a.source_id AND s.deactivated_at IS NULL
       WHERE a.deactivated_at IS NULL
     `);
 
     // ── 8. Export Template Cost Items ─────────────────────────────────
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_export_template_cost_items AS
+      CREATE OR REPLACE VIEW ${s}.vw_export_template_cost_items AS
       SELECT
         tci.id,
         tci.template_task_id,
@@ -372,15 +373,15 @@ export default defineMigration({
         tci.amount,
         tci.created_at,
         tci.updated_at
-      FROM ${schema}.template_cost_items tci
-      JOIN ${schema}.template_tasks tt ON tt.id = tci.template_task_id AND tt.deactivated_at IS NULL
-      JOIN ${schema}.template_units tu ON tu.id = tt.template_unit_id AND tu.deactivated_at IS NULL
+      FROM ${s}.template_cost_items tci
+      JOIN ${s}.template_tasks tt ON tt.id = tci.template_task_id AND tt.deactivated_at IS NULL
+      JOIN ${s}.template_units tu ON tu.id = tt.template_unit_id AND tu.deactivated_at IS NULL
       WHERE tci.deactivated_at IS NULL
     `);
 
     // ── 9. Export Template Tasks ─────────────────────────────────────
     await db.none(`
-      CREATE OR REPLACE VIEW ${schema}.vw_template_tasks_export AS
+      CREATE OR REPLACE VIEW ${s}.vw_template_tasks_export AS
       SELECT
         tt.id,
         tt.template_unit_id,
@@ -392,14 +393,15 @@ export default defineMigration({
         tt.parent_code,
         tt.created_at,
         tt.updated_at
-      FROM ${schema}.template_tasks tt
-      JOIN ${schema}.template_units tu ON tu.id = tt.template_unit_id AND tu.deactivated_at IS NULL
+      FROM ${s}.template_tasks tt
+      JOIN ${s}.template_units tu ON tu.id = tt.template_unit_id AND tu.deactivated_at IS NULL
       WHERE tt.deactivated_at IS NULL
     `);
   },
 
-  async down({ schema, db }) {
+  async down({ schema, db, pgp }) {
     if (schema === 'admin') return;
+    const s = pgp.as.name(schema);
 
     const views = [
       'vw_template_tasks_export',
@@ -413,7 +415,7 @@ export default defineMigration({
       'vw_project_profitability',
     ];
     for (const vw of views) {
-      await db.none(`DROP VIEW IF EXISTS ${schema}.${vw} CASCADE`);
+      await db.none(`DROP VIEW IF EXISTS ${s}.${vw} CASCADE`);
     }
   },
 });

@@ -6,7 +6,7 @@
  */
 
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import { allocateNumber } from '../services/numberingService.js';
 
 class VendorsController extends BaseController {
@@ -21,6 +21,7 @@ class VendorsController extends BaseController {
   async create(req, res) {
     try {
       const schema = this.getSchema(req);
+      const s = pgp.as.name(schema);
 
       // Inject tenant_id from authenticated session
       if (!req.body.tenant_id && req.user?.tenant_id) {
@@ -47,7 +48,7 @@ class VendorsController extends BaseController {
 
         // 3. Link the source back to the vendor
         await t.none(
-          `UPDATE ${schema}.vendors SET source_id = $1, updated_by = $2 WHERE id = $3`,
+          `UPDATE ${s}.vendors SET source_id = $1, updated_by = $2 WHERE id = $3`,
           [source.id, req.body.created_by || null, vendor.id],
         );
 
@@ -55,7 +56,7 @@ class VendorsController extends BaseController {
         if (!vendor.code) {
           const numbering = await allocateNumber(schema, 'vendor', null, new Date(), t);
           if (numbering) {
-            await t.none(`UPDATE ${schema}.vendors SET code = $1 WHERE id = $2`, [numbering.displayId, vendor.id]);
+            await t.none(`UPDATE ${s}.vendors SET code = $1 WHERE id = $2`, [numbering.displayId, vendor.id]);
             vendor.code = numbering.displayId;
           }
         }

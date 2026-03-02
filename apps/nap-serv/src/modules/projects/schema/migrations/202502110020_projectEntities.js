@@ -36,8 +36,9 @@ export default defineMigration({
   id: '202502110020-project-entities',
   description: 'Create project module tables in tenant schemas',
 
-  async up({ schema, models, db }) {
+  async up({ schema, models, db, pgp }) {
     if (schema === 'admin') return;
+    const s = pgp.as.name(schema);
 
     const projectModels = Object.values(models).filter(
       (m) => isTableModel(m) && PROJECT_TABLES.has(m.schema?.table),
@@ -55,32 +56,33 @@ export default defineMigration({
     // Add GENERATED columns — excluded from pg-schemata schema columns to keep
     // them out of INSERT/UPDATE ColumnSets (pg-promise skip only works for UPDATE).
     await db.none(`
-      ALTER TABLE ${schema}.cost_items
+      ALTER TABLE ${s}.cost_items
       ADD COLUMN amount numeric(12,2) GENERATED ALWAYS AS (quantity * unit_cost) STORED
     `);
     await db.none(`
-      ALTER TABLE ${schema}.template_cost_items
+      ALTER TABLE ${s}.template_cost_items
       ADD COLUMN amount numeric(12,2) GENERATED ALWAYS AS (quantity * unit_cost) STORED
     `);
 
     // Add composite FK: tasks_master(tenant_id, task_group_code) → task_groups(tenant_id, code)
     await db.none(`
-      ALTER TABLE ${schema}.tasks_master
+      ALTER TABLE ${s}.tasks_master
       ADD CONSTRAINT tasks_master_task_group_fk
       FOREIGN KEY (tenant_id, task_group_code)
-      REFERENCES ${schema}.task_groups (tenant_id, code)
+      REFERENCES ${s}.task_groups (tenant_id, code)
       ON DELETE RESTRICT
     `);
   },
 
-  async down({ schema, models, db }) {
+  async down({ schema, models, db, pgp }) {
     if (schema === 'admin') return;
+    const s = pgp.as.name(schema);
 
     // Drop generated columns and composite FK first
-    await db.none(`ALTER TABLE IF EXISTS ${schema}.cost_items DROP COLUMN IF EXISTS amount`);
-    await db.none(`ALTER TABLE IF EXISTS ${schema}.template_cost_items DROP COLUMN IF EXISTS amount`);
+    await db.none(`ALTER TABLE IF EXISTS ${s}.cost_items DROP COLUMN IF EXISTS amount`);
+    await db.none(`ALTER TABLE IF EXISTS ${s}.template_cost_items DROP COLUMN IF EXISTS amount`);
     await db.none(`
-      ALTER TABLE IF EXISTS ${schema}.tasks_master
+      ALTER TABLE IF EXISTS ${s}.tasks_master
       DROP CONSTRAINT IF EXISTS tasks_master_task_group_fk
     `);
 
