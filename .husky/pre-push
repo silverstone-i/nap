@@ -2,6 +2,8 @@
 set -euo pipefail
 
 echo "Running test suite before push..."
-npm -w apps/nap-serv test
+npm -w apps/nap-serv run test:unit
+npm -w apps/nap-serv run test:contract
+npm -w apps/nap-serv run test:rbac
 
 echo "All tests passed — push allowed."
