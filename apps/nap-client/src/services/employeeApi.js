@@ -23,6 +23,7 @@ export const employeeApi = {
   update: (filterParams, changes) => client.put(`${BASE}/update${qs(filterParams)}`, changes),
   archive: (filterParams) => client.del(`${BASE}/archive${qs(filterParams)}`, {}),
   restore: (filterParams) => client.patch(`${BASE}/restore${qs(filterParams)}`, {}),
+  resetPassword: (id, password) => client.post(`${BASE}/${id}/reset-password`, { password }),
 };
 
 export default employeeApi;

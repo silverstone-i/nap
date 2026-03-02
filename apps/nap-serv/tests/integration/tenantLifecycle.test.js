@@ -24,11 +24,13 @@ beforeAll(async () => {
 const { default: app } = await import('../../src/app.js');
 
 afterAll(async () => {
-  // Clean up the provisioned schema
-  try {
-    await db.none('DROP SCHEMA IF EXISTS testco CASCADE');
-  } catch {
-    /* ignore */
+  // Clean up provisioned schemas
+  for (const s of ['testco', 'numco', 'nonum']) {
+    try {
+      await db.none(`DROP SCHEMA IF EXISTS ${s} CASCADE`);
+    } catch {
+      /* ignore */
+    }
   }
   await cleanupTestDb();
 }, 15000);
@@ -54,6 +56,8 @@ describe('Tenant lifecycle — create, provision, archive, restore', () => {
         company: 'Test Company Inc',
         status: 'active',
         tier: 'growth',
+        admin_first_name: 'Admin',
+        admin_last_name: 'User',
         admin_email: 'admin@testco.com',
         admin_password: 'TestCoPass123!',
       });
@@ -148,5 +152,129 @@ describe('Tenant lifecycle — create, provision, archive, restore', () => {
     // User should still be archived (users must be restored individually)
     const user = await db.oneOrNone('SELECT * FROM admin.nap_users WHERE id = $1', [adminUserId]);
     expect(user.deactivated_at).not.toBeNull();
+  });
+});
+
+describe('Employee auto-numbering — backfill on enable', () => {
+  let numcoTenantId;
+  let numcoCookies;
+
+  test('1. Create tenant — admin employee starts with no code', async () => {
+    const cookies = await loginRoot();
+
+    const res = await request(app)
+      .post('/api/tenants/v1/tenants')
+      .set('Cookie', cookies)
+      .send({
+        tenant_code: 'NUMCO',
+        company: 'Numbering Co',
+        status: 'active',
+        tier: 'starter',
+        admin_first_name: 'Jane',
+        admin_last_name: 'Doe',
+        admin_email: 'jane@numco.com',
+        admin_password: 'NumCoPass123!',
+      });
+
+    expect(res.status).toBe(201);
+    numcoTenantId = res.body.id;
+
+    // Numbering config should be seeded but disabled
+    const config = await db.oneOrNone(
+      "SELECT is_enabled FROM numco.tenant_numbering_config WHERE id_type = 'employee'",
+    );
+    expect(config.is_enabled).toBe(false);
+
+    // Admin employee should have no code yet
+    const emp = await db.oneOrNone('SELECT code FROM numco.employees WHERE tenant_id = $1', [numcoTenantId]);
+    expect(emp).not.toBeNull();
+    expect(emp.code).toBeNull();
+  });
+
+  test('2. Enable employee numbering — backfills admin code', async () => {
+    // Login as numco admin
+    const loginRes = await request(app).post('/api/auth/login').send({
+      email: 'jane@numco.com',
+      password: 'NumCoPass123!',
+    });
+    expect(loginRes.status).toBe(200);
+    numcoCookies = loginRes.headers['set-cookie'];
+
+    // Find the employee numbering config id
+    const configRes = await request(app)
+      .get('/api/core/v1/numbering-config/where?id_type=employee')
+      .set('Cookie', numcoCookies);
+    expect(configRes.status).toBe(200);
+    const empConfig = configRes.body.records[0];
+    expect(empConfig).toBeDefined();
+
+    // Enable employee numbering
+    const updateRes = await request(app)
+      .put(`/api/core/v1/numbering-config/update?id=${empConfig.id}`)
+      .set('Cookie', numcoCookies)
+      .send({ is_enabled: true });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.updatedRecords).toBe(1);
+    expect(updateRes.body.backfilledCodes).toBe(1);
+
+    // Admin employee should now have a code
+    const emp = await db.oneOrNone('SELECT code FROM numco.employees WHERE tenant_id = $1', [numcoTenantId]);
+    expect(emp.code).toBeTruthy();
+    expect(emp.code).toMatch(/^EMP/);
+  });
+
+  test('3. Employee created via API gets auto-code when numbering enabled', async () => {
+    const res = await request(app)
+      .post('/api/core/v1/employees')
+      .set('Cookie', numcoCookies)
+      .send({
+        first_name: 'Bob',
+        last_name: 'Smith',
+        email: 'bob@numco.com',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.code).toBeTruthy();
+    expect(res.body.code).toMatch(/^EMP/);
+  });
+
+  test('4. Employee with explicit code keeps it (no auto-numbering)', async () => {
+    const res = await request(app)
+      .post('/api/core/v1/employees')
+      .set('Cookie', numcoCookies)
+      .send({
+        first_name: 'Alice',
+        last_name: 'Jones',
+        email: 'alice@numco.com',
+        code: 'CUSTOM01',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.code).toBe('CUSTOM01');
+  });
+
+  test('5. Tenant without numbering — admin has no code', async () => {
+    const cookies = await loginRoot();
+
+    const res = await request(app)
+      .post('/api/tenants/v1/tenants')
+      .set('Cookie', cookies)
+      .send({
+        tenant_code: 'NONUM',
+        company: 'No Numbering Co',
+        status: 'active',
+        tier: 'starter',
+        admin_first_name: 'Sam',
+        admin_last_name: 'Lee',
+        admin_email: 'sam@nonum.com',
+        admin_password: 'NoNumPass123!',
+      });
+
+    expect(res.status).toBe(201);
+
+    const emp = await db.oneOrNone('SELECT code FROM nonum.employees WHERE tenant_id = $1', [res.body.id]);
+    expect(emp).not.toBeNull();
+    expect(emp.code).toBeNull();
   });
 });

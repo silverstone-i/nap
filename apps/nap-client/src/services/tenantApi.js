@@ -36,6 +36,9 @@ export const tenantApi = {
 
   /** PATCH /restore?{filter} — reactivate tenant + cascade reactivate users. */
   restore: (filterParams) => client.patch(`${BASE}/restore${qs(filterParams)}`, {}),
+
+  /** GET /:id/contacts — primary and billing contacts with phone/address. */
+  getContacts: (tenantId) => client.get(`${BASE}/${tenantId}/contacts`),
 };
 
 export default tenantApi;

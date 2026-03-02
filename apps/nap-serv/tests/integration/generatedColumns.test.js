@@ -49,6 +49,8 @@ describe('Generated columns — cost_items.amount = quantity * unit_cost', () =>
         company: 'Gen Column Test Corp',
         status: 'active',
         tier: 'starter',
+        admin_first_name: 'Test',
+        admin_last_name: 'Admin',
         admin_email: 'admin@gctest.com',
         admin_password: 'GctestPass123!',
       });

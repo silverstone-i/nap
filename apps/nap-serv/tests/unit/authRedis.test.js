@@ -15,16 +15,24 @@ import { authRedis } from '../../src/middleware/authRedis.js';
 vi.mock('../../src/db/db.js', () => {
   const mockFindOneBy = vi.fn();
   const mockFindById = vi.fn();
+  const mockOneOrNone = vi.fn();
   const mockDb = vi.fn((modelName) => {
     if (modelName === 'napUsers') return { findOneBy: mockFindOneBy };
     if (modelName === 'tenants') return { findById: mockFindById };
     return {};
   });
-  return { default: mockDb, db: mockDb, __mockFindOneBy: mockFindOneBy, __mockFindById: mockFindById };
+  mockDb.oneOrNone = mockOneOrNone;
+  return {
+    default: mockDb,
+    db: mockDb,
+    __mockFindOneBy: mockFindOneBy,
+    __mockFindById: mockFindById,
+    __mockOneOrNone: mockOneOrNone,
+  };
 });
 
 const dbMock = await import('../../src/db/db.js');
-const { __mockFindOneBy: mockFindOneBy, __mockFindById: mockFindById } = dbMock;
+const { __mockFindOneBy: mockFindOneBy, __mockFindById: mockFindById, __mockOneOrNone: mockOneOrNone } = dbMock;
 
 const SECRET = 'test-access-secret-for-authredis!';
 process.env.ACCESS_TOKEN_SECRET = SECRET;
@@ -182,5 +190,53 @@ describe('authRedis middleware', () => {
 
     await middleware(req, res, next);
     expect(req.user.tenant_code).toBe('acme');
+  });
+
+  test('sets req.ctx.tenant to effective tenant when x-tenant-code differs from home', async () => {
+    const userId = '550e8400-e29b-41d4-a716-446655440000';
+    const homeTenantId = '660e8400-e29b-41d4-a716-446655440000';
+    const acmeTenantId = '770e8400-e29b-41d4-a716-446655440000';
+    const token = jwt.sign({ sub: userId, ph: null }, SECRET, { expiresIn: '15m' });
+
+    mockFindOneBy.mockResolvedValue({
+      id: userId,
+      email: 'admin@napsoft.com',
+      entity_type: null,
+      entity_id: null,
+      status: 'active',
+      tenant_id: homeTenantId,
+    });
+
+    mockFindById.mockResolvedValue({
+      id: homeTenantId,
+      tenant_code: 'NAP',
+      schema_name: 'nap',
+      allowed_modules: ['projects', 'accounting'],
+    });
+
+    // Mock the raw SQL query for effective tenant lookup
+    mockOneOrNone.mockResolvedValue({
+      id: acmeTenantId,
+      tenant_code: 'ACME',
+      schema_name: 'acme',
+      allowed_modules: ['projects'],
+    });
+
+    const req = makeReq({
+      cookies: { auth_token: token },
+      headers: { 'x-tenant-code': 'ACME' },
+    });
+    const res = makeRes();
+    const next = vi.fn();
+
+    await middleware(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(req.user.tenant_code).toBe('acme');
+    expect(req.user.schema_name).toBe('acme');
+    // req.ctx.tenant must reflect the effective (ACME) tenant, not the home (NAP) tenant
+    expect(req.ctx.tenant.tenant_code).toBe('ACME');
+    expect(req.ctx.tenant.id).toBe(acmeTenantId);
+    expect(req.ctx.tenant.allowed_modules).toEqual(['projects']);
   });
 });

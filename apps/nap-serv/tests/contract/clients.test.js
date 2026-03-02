@@ -38,6 +38,8 @@ async function provisionTenant(cookies) {
       company: 'Client Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@ctest.com',
       admin_password: 'CtestPass123!',
     });

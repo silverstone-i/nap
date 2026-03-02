@@ -57,14 +57,23 @@ export function useApInvoiceLines(params = { limit: 200, includeDeactivated: 'tr
 
 export function useCreateApInvoiceLine() {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: (body) => apInvoiceLineApi.create(body), onSuccess: () => qc.invalidateQueries({ queryKey: AP_LINES_KEY }) });
+  return useMutation({
+    mutationFn: (body) => apInvoiceLineApi.create(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AP_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
+  });
 }
 
 export function useUpdateApInvoiceLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ filter, changes }) => apInvoiceLineApi.update(filter, changes),
-    onSuccess: () => qc.invalidateQueries({ queryKey: AP_LINES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AP_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
   });
 }
 
@@ -72,7 +81,10 @@ export function useArchiveApInvoiceLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => apInvoiceLineApi.archive(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: AP_LINES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AP_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
   });
 }
 
@@ -80,7 +92,10 @@ export function useRestoreApInvoiceLine() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => apInvoiceLineApi.restore(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: AP_LINES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AP_LINES_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
   });
 }
 
@@ -121,7 +136,10 @@ export function useArchivePayment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => paymentApi.archive(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: PAYMENTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PAYMENTS_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
   });
 }
 
@@ -129,7 +147,10 @@ export function useRestorePayment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => paymentApi.restore(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: PAYMENTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PAYMENTS_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
   });
 }
 
@@ -170,7 +191,10 @@ export function useArchiveApCreditMemo() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => apCreditMemoApi.archive(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CREDITS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CREDITS_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
   });
 }
 
@@ -178,6 +202,9 @@ export function useRestoreApCreditMemo() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filter) => apCreditMemoApi.restore(filter),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CREDITS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CREDITS_KEY });
+      qc.invalidateQueries({ queryKey: AP_INVOICES_KEY });
+    },
   });
 }

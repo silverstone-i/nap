@@ -54,6 +54,8 @@ describe('Project lifecycle — full hierarchy creation, status workflow, and ar
         company: 'Project Lifecycle Corp',
         status: 'active',
         tier: 'starter',
+        admin_first_name: 'Test',
+        admin_last_name: 'Admin',
         admin_email: 'admin@pltest.com',
         admin_password: 'PltestPass123!',
       });

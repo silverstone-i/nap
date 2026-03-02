@@ -15,7 +15,7 @@ beforeAll(() => {
 });
 
 const { signAccessToken, signRefreshToken, verifyAccess, verifyRefresh } = await import(
-  '../../src/modules/auth/services/tokenService.js'
+  '../../src/system/auth/services/tokenService.js'
 );
 
 describe('tokenService', () => {

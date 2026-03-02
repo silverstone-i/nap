@@ -1,8 +1,11 @@
 /**
- * @file Manage Roles page — DataGrid list with create / edit for tenant-scope RBAC roles
+ * @file Manage Roles page — master-detail layout with four-layer RBAC configuration
  * @module nap-client/pages/Tenant/ManageRolesPage
  *
- * Roles with is_immutable=true cannot be edited.
+ * Left panel: Roles DataGrid with create / edit.
+ * Right panel: Detail panel with Policies, State Filters, and Field Groups tabs.
+ *
+ * Roles with is_immutable=true are read-only across all tabs.
  * Roles with is_system=true are visually distinguished.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -10,17 +13,26 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
-import MenuItem from '@mui/material/MenuItem';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
-import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import { DataGrid } from '@mui/x-data-grid';
 
 import FormDialog from '../../components/shared/FormDialog.jsx';
+import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useRoles, useCreateRole, useUpdateRole } from '../../hooks/useRoles.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { masterDetailSx, masterPanelSx, detailPanelSx } from '../../config/layoutTokens.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+
+import PolicyEditor from './PolicyEditor.jsx';
+import StateFilterEditor from './StateFilterEditor.jsx';
+import FieldGroupEditor from './FieldGroupEditor.jsx';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -44,27 +56,23 @@ const BLANK_EDIT = { name: '', description: '', scope: 'all_projects' };
 /* ── Column definitions ───────────────────────────────────────── */
 
 const columns = [
-  { field: 'code', headerName: 'Code', width: 160 },
-  { field: 'name', headerName: 'Name', flex: 1, minWidth: 180 },
-  { field: 'description', headerName: 'Description', flex: 1, minWidth: 200 },
+  { field: 'code', headerName: 'Code', width: 130 },
+  { field: 'name', headerName: 'Name', flex: 1, minWidth: 140 },
   {
     field: 'scope',
     headerName: 'Scope',
-    width: 180,
-    valueGetter: (params) => cap(params.row.scope),
+    width: 150,
+    renderCell: (params) => <StatusBadge status={params.row.scope} />,
   },
   {
     field: 'is_system',
-    headerName: 'System',
-    width: 100,
-    renderCell: (params) => (params.row.is_system ? <Chip label="System" size="small" color="info" /> : null),
-  },
-  {
-    field: 'is_immutable',
-    headerName: 'Immutable',
-    width: 110,
-    renderCell: (params) =>
-      params.row.is_immutable ? <Chip label="Locked" size="small" color="warning" /> : null,
+    headerName: 'Type',
+    width: 90,
+    renderCell: (params) => {
+      if (params.row.is_system) return <Chip label="System" size="small" color="info" />;
+      if (params.row.is_immutable) return <Chip label="Locked" size="small" color="warning" />;
+      return null;
+    },
   },
 ];
 
@@ -80,23 +88,26 @@ export default function ManageRolesPage() {
   const updateMut = useUpdateRole();
 
   /* ── selection ───────────────────────────────────────────── */
-  const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
+  const { selectionModel, onSelectionChange, selected, isSingle } = useDataGridSelection(rows);
+  const isReadOnly = selected?.is_immutable || selected?.is_system;
 
-  /* ── dialog state ────────────────────────────────────────── */
+  /* ── detail tab ────────────────────────────────────────────── */
+  const [detailTab, setDetailTab] = useState(0);
+
+  /* ── dialog state ──────────────────────────────────────────── */
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
-  /* ── form state ──────────────────────────────────────────── */
+  /* ── form state ────────────────────────────────────────────── */
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
 
-  /* ── snackbar ────────────────────────────────────────────── */
+  /* ── snackbar ──────────────────────────────────────────────── */
   const [snack, setSnack] = useState({ open: false, msg: '', sev: 'success' });
   const toast = useCallback((msg, sev = 'success') => setSnack({ open: true, msg, sev }), []);
   const errMsg = (err) => err.payload?.error || err.payload?.message || err.message;
 
-  /* ── field change factories ──────────────────────────────── */
+  /* ── field change factories ────────────────────────────────── */
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
@@ -110,7 +121,7 @@ export default function ManageRolesPage() {
     setEditOpen(true);
   }, [selected]);
 
-  /* ── CRUD handlers ───────────────────────────────────────── */
+  /* ── CRUD handlers ─────────────────────────────────────────── */
   const handleCreate = async () => {
     try {
       await createMut.mutateAsync(createForm);
@@ -132,7 +143,7 @@ export default function ManageRolesPage() {
     }
   };
 
-  /* ── toolbar registration ────────────────────────────────── */
+  /* ── toolbar registration ──────────────────────────────────── */
   const toolbar = useMemo(
     () => ({
       tabs: [],
@@ -150,32 +161,70 @@ export default function ManageRolesPage() {
         {
           label: 'Edit',
           variant: 'outlined',
-          disabled: !selected || !!selected?.is_immutable,
+          disabled: !isSingle || !!selected?.is_immutable,
           onClick: openEdit,
         },
       ],
     }),
-    [selected, openEdit],
+    [isSingle, selected, openEdit],
   );
   useModuleToolbarRegistration(toolbar);
 
-  /* ── render ──────────────────────────────────────────────── */
+  /* ── render ────────────────────────────────────────────────── */
   return (
-    <Box sx={pageContainerSx}>
-      <DataGrid
-        rows={rows}
-        columns={columns}
-        getRowId={(r) => r.id}
-        loading={isLoading}
-        checkboxSelection
-        disableMultipleRowSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-      />
+    <Box sx={masterDetailSx}>
+      {/* ── Left: Roles grid ──────────────────────────────────── */}
+      <Box sx={isSingle ? { ...masterPanelSx } : { flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <DataGrid
+          rows={rows}
+          columns={columns}
+          getRowId={(r) => r.id}
+          loading={isLoading}
+          checkboxSelection
+          rowSelectionModel={selectionModel}
+          onRowSelectionModelChange={onSelectionChange}
+          pageSizeOptions={[25, 50, 100]}
+          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+        />
+      </Box>
 
-      {/* ── Create Dialog ────────────────────────────────────── */}
+      {/* ── Right: Detail panel ───────────────────────────────── */}
+      {isSingle && (
+        <Box sx={detailPanelSx}>
+          {/* Role header */}
+          <Box sx={{ mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6">{selected.name}</Typography>
+              {selected.is_system && <Chip label="System" size="small" color="info" />}
+              {selected.is_immutable && <Chip label="Immutable" size="small" color="warning" />}
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {selected.code} &middot; Scope: {cap(selected.scope)}
+            </Typography>
+            {selected.description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {selected.description}
+              </Typography>
+            )}
+          </Box>
+
+          {/* Tabs */}
+          <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
+            <Tab label="Policies" />
+            <Tab label="State Filters" />
+            <Tab label="Field Groups" />
+          </Tabs>
+
+          {/* Tab content */}
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            {detailTab === 0 && <PolicyEditor roleId={selected.id} readOnly={isReadOnly} />}
+            {detailTab === 1 && <StateFilterEditor roleId={selected.id} readOnly={isReadOnly} />}
+            {detailTab === 2 && <FieldGroupEditor roleId={selected.id} readOnly={isReadOnly} />}
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Create Dialog ──────────────────────────────────────── */}
       <FormDialog
         open={createOpen}
         title="Create Role"
@@ -196,7 +245,7 @@ export default function ManageRolesPage() {
         </TextField>
       </FormDialog>
 
-      {/* ── Edit Dialog ──────────────────────────────────────── */}
+      {/* ── Edit Dialog ────────────────────────────────────────── */}
       <FormDialog
         open={editOpen}
         title="Edit Role"
@@ -217,7 +266,7 @@ export default function ManageRolesPage() {
         </TextField>
       </FormDialog>
 
-      {/* ── Snackbar ───────────────────────────────────────── */}
+      {/* ── Snackbar ───────────────────────────────────────────── */}
       <Snackbar
         open={snack.open}
         autoHideDuration={4000}

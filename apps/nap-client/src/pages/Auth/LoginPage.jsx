@@ -27,11 +27,14 @@ export default function LoginPage() {
   const [passwordAutofilled, setPasswordAutofilled] = useState(false);
   const [forceChange, setForceChange] = useState(false);
   const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
-  // Focus the email field once auth loading completes
+  // Focus the email field once auth loading completes.
+  // Deferred one frame so it survives StrictMode double-mount and browser autofill.
   useEffect(() => {
     if (!authLoading && !user) {
-      emailRef.current?.focus();
+      const raf = requestAnimationFrame(() => emailRef.current?.focus());
+      return () => cancelAnimationFrame(raf);
     }
   }, [authLoading, user]);
 
@@ -51,8 +54,12 @@ export default function LoginPage() {
     setError('');
     setSubmitting(true);
 
+    // Read DOM values directly — Chrome autofill may not trigger onChange
+    const actualEmail = email || emailRef.current?.value || '';
+    const actualPassword = password || passwordRef.current?.value || '';
+
     try {
-      const res = await login(email, password);
+      const res = await login(actualEmail, actualPassword);
       if (res?.forcePasswordChange) {
         setForceChange(true);
       } else {
@@ -112,6 +119,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               fullWidth
               required
+              inputRef={passwordRef}
               autoComplete="current-password"
               margin="normal"
               size="small"
@@ -122,7 +130,7 @@ export default function LoginPage() {
               type="submit"
               variant="contained"
               fullWidth
-              disabled={submitting || !email || !password}
+              disabled={submitting || (!email && !emailAutofilled) || (!password && !passwordAutofilled)}
               sx={{ mt: 2, py: 1 }}
             >
               {submitting ? <CircularProgress size={20} color="inherit" /> : 'Sign In'}

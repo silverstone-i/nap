@@ -41,6 +41,8 @@ async function provisionTenant(cookies) {
       company: 'Change Order Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@cotest.com',
       admin_password: 'CotestPass123!',
     });

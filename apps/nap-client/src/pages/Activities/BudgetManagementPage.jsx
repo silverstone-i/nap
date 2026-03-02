@@ -24,6 +24,9 @@ import { useBudgets, useCreateBudget, useUpdateBudget, useArchiveBudget, useCrea
 import { useDeliverables } from '../../hooks/useDeliverables.js';
 import { useActivities } from '../../hooks/useActivities.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { deliverable_id: '', activity_id: '', budgeted_amount: '', status: 'draft' };
 const BLANK_EDIT = { budgeted_amount: '', status: '' };
@@ -54,13 +57,11 @@ export default function BudgetManagementPage() {
   const archiveMut = useArchiveBudget();
   const newVersionMut = useCreateBudgetVersion();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
   const [versionOpen, setVersionOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
@@ -100,17 +101,6 @@ export default function BudgetManagementPage() {
     }
   };
 
-  const handleArchive = async () => {
-    try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Budget archived');
-      setArchiveOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
-
   const handleNewVersion = async () => {
     try {
       await newVersionMut.mutateAsync({ budget_id: selected.id });
@@ -122,7 +112,12 @@ export default function BudgetManagementPage() {
     }
   };
 
-  const canNewVersion = selected && (selected.status === 'approved' || selected.status === 'locked');
+  const { setArchiveOpen, archiveConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, entityName: 'budget', setSelectionModel, toast, errMsg,
+    getLabel: (r) => `budget v${r.version}`,
+  });
+
+  const canNewVersion = isSingle && (selected?.status === 'approved' || selected?.status === 'locked');
 
   const columns = useMemo(
     () => [
@@ -170,12 +165,12 @@ export default function BudgetManagementPage() {
       filters: [],
       primaryActions: [
         { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected || isArchived, onClick: openEdit },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
         { label: 'New Version', variant: 'outlined', disabled: !canNewVersion, onClick: () => setVersionOpen(true) },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
+        ...buildBulkActions({ selectedRows, hasSelection, allActive, onArchive: () => setArchiveOpen(true) }),
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit, canNewVersion],
+    [isSingle, hasSelection, allActive, selectedRows.length, viewFilter, openEdit, canNewVersion, setSelectionModel, setArchiveOpen],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -187,9 +182,8 @@ export default function BudgetManagementPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
@@ -229,7 +223,7 @@ export default function BudgetManagementPage() {
         onCancel={() => setVersionOpen(false)}
       />
 
-      <ConfirmDialog open={archiveOpen} title="Archive Budget" message={selected ? `Archive budget v${selected.version}?` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

@@ -25,6 +25,9 @@ import {
   useRefreshCatalogEmbeddings,
 } from '../../hooks/useBom.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { catalog_sku: '', description: '', category: '', sub_category: '' };
 const BLANK_EDIT = { catalog_sku: '', description: '', category: '', sub_category: '' };
@@ -60,14 +63,11 @@ export default function CatalogPage() {
   const restoreMut = useRestoreCatalogSku();
   const refreshMut = useRefreshCatalogEmbeddings();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -113,28 +113,6 @@ export default function CatalogPage() {
     }
   };
 
-  const handleArchive = async () => {
-    try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Catalog SKU archived');
-      setArchiveOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
-
-  const handleRestore = async () => {
-    try {
-      await restoreMut.mutateAsync({ id: selected.id });
-      toast('Catalog SKU restored');
-      setRestoreOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
-
   const handleRefreshEmbeddings = async () => {
     try {
       const result = await refreshMut.mutateAsync();
@@ -143,6 +121,11 @@ export default function CatalogPage() {
       toast(errMsg(err), 'error');
     }
   };
+
+  const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, restoreMut, entityName: 'catalog SKU', setSelectionModel, toast, errMsg,
+    getLabel: (r) => r.catalog_sku,
+  });
 
   const toolbar = useMemo(
     () => ({
@@ -154,13 +137,12 @@ export default function CatalogPage() {
       filters: [],
       primaryActions: [
         { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-        { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
         { label: 'Refresh Embeddings', variant: 'outlined', disabled: refreshMut.isPending, onClick: handleRefreshEmbeddings },
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit, refreshMut.isPending],
+    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen, refreshMut.isPending],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -172,9 +154,8 @@ export default function CatalogPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
@@ -204,8 +185,8 @@ export default function CatalogPage() {
         </Box>
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Catalog SKU" message={selected ? `Archive "${selected.catalog_sku}"?` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Catalog SKU" message={selected ? `Restore "${selected.catalog_sku}"?` : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
+      <ConfirmDialog {...restoreConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

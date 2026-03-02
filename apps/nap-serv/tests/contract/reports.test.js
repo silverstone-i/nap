@@ -119,7 +119,8 @@ vi.mock('../../src/db/db.js', () => {
     };
     return fn(t);
   });
-  return { default: dbProxy, db: dbProxy };
+  const pgpMock = { as: { name: (val) => `"${val}"` } };
+  return { default: dbProxy, db: dbProxy, pgp: pgpMock };
 });
 
 let request;

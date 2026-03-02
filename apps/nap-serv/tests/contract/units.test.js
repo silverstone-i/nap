@@ -41,6 +41,8 @@ async function provisionTenant(cookies) {
       company: 'Unit Test Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@utest.com',
       admin_password: 'UtestPass123!',
     });

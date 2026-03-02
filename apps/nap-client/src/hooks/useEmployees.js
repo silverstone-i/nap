@@ -56,3 +56,11 @@ export function useRestoreEmployee() {
     onSuccess: () => qc.invalidateQueries({ queryKey: EMPLOYEES_KEY }),
   });
 }
+
+export function useResetEmployeePassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, password }) => employeeApi.resetPassword(id, password),
+    onSuccess: () => qc.invalidateQueries({ queryKey: EMPLOYEES_KEY }),
+  });
+}

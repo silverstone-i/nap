@@ -3,7 +3,8 @@
  * @module nap-client/components/layout/Sidebar
  *
  * Visual styling via theme overrides (MuiDrawer, MuiListItemButton, MuiListItemIcon).
- * Layout dimensions via layoutTokens. Active-state highlighting stays inline (dynamic).
+ * Active state uses MUI `selected` prop — theme handles the accent bar via ::before.
+ * Layout dimensions via layoutTokens.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -145,15 +146,16 @@ export default function Sidebar() {
             <Box key={group.label}>
               <Tooltip title={group.label} placement="right">
                 <ListItemButton
-                  sx={{
-                    justifyContent: 'center',
-                    mb: 0.5,
-                    bgcolor: isGroupActive ? 'action.selected' : 'transparent',
-                  }}
+                  selected={isGroupActive}
+                  sx={{ justifyContent: 'center', mb: 0.5 }}
                   onClick={(e) => handleFlyoutOpen(e, group)}
                 >
                   <ListItemIcon
-                    sx={{ minWidth: 0, color: isGroupActive ? 'primary.main' : 'text.secondary' }}
+                    sx={{
+                      minWidth: 0,
+                      color: isGroupActive ? 'primary.main' : 'text.secondary',
+                      opacity: isGroupActive ? 1 : undefined,
+                    }}
                   >
                     <GroupIcon />
                   </ListItemIcon>
@@ -164,7 +166,12 @@ export default function Sidebar() {
             /* Expanded: full labels with collapse */
             <Box key={group.label}>
               <ListItemButton onClick={() => toggleGroup(group.label)} sx={{ mb: 0.25 }}>
-                <ListItemIcon sx={{ color: isGroupActive ? 'primary.main' : 'text.secondary' }}>
+                <ListItemIcon
+                  sx={{
+                    color: isGroupActive ? 'primary.main' : 'text.secondary',
+                    opacity: isGroupActive ? 1 : undefined,
+                  }}
+                >
                   <GroupIcon fontSize="small" />
                 </ListItemIcon>
                 <ListItemText
@@ -198,7 +205,7 @@ export default function Sidebar() {
                               ...FONT.navItem,
                               fontWeight: child.children.some((leaf) => isActive(leaf.path)) ? 600 : 400,
                               color: child.children.some((leaf) => isActive(leaf.path))
-                                ? 'primary.main'
+                                ? 'text.primary'
                                 : 'text.secondary',
                             }}
                           />
@@ -217,12 +224,8 @@ export default function Sidebar() {
                             {child.children.map((leaf) => (
                               <ListItemButton
                                 key={leaf.path}
-                                sx={{
-                                  pl: 8,
-                                  py: 0.5,
-                                  mb: 0.25,
-                                  bgcolor: isActive(leaf.path) ? 'action.selected' : 'transparent',
-                                }}
+                                selected={isActive(leaf.path)}
+                                sx={{ pl: 8, py: 0.5, mb: 0.25 }}
                                 onClick={() => navigate(leaf.path)}
                               >
                                 <ListItemText
@@ -230,7 +233,7 @@ export default function Sidebar() {
                                   primaryTypographyProps={{
                                     ...FONT.navItem,
                                     fontWeight: isActive(leaf.path) ? 600 : 400,
-                                    color: isActive(leaf.path) ? 'primary.main' : 'text.secondary',
+                                    color: isActive(leaf.path) ? 'text.primary' : 'text.secondary',
                                   }}
                                 />
                               </ListItemButton>
@@ -242,12 +245,8 @@ export default function Sidebar() {
                       /* Leaf item (2nd level) */
                       <ListItemButton
                         key={child.path}
-                        sx={{
-                          pl: 6,
-                          py: 0.5,
-                          mb: 0.25,
-                          bgcolor: isActive(child.path) ? 'action.selected' : 'transparent',
-                        }}
+                        selected={isActive(child.path)}
+                        sx={{ pl: 6, py: 0.5, mb: 0.25 }}
                         onClick={() => navigate(child.path)}
                       >
                         <ListItemText
@@ -255,7 +254,7 @@ export default function Sidebar() {
                           primaryTypographyProps={{
                             ...FONT.navItem,
                             fontWeight: isActive(child.path) ? 600 : 400,
-                            color: isActive(child.path) ? 'primary.main' : 'text.secondary',
+                            color: isActive(child.path) ? 'text.primary' : 'text.secondary',
                           }}
                         />
                       </ListItemButton>
@@ -301,20 +300,18 @@ export default function Sidebar() {
                   {child.children.map((leaf) => (
                     <ListItemButton
                       key={leaf.path}
+                      selected={isActive(leaf.path)}
                       onClick={() => {
                         navigate(leaf.path);
                         handleFlyoutClose();
                       }}
-                      sx={{
-                        pl: 4,
-                        bgcolor: isActive(leaf.path) ? 'action.selected' : 'transparent',
-                      }}
+                      sx={{ pl: 4 }}
                     >
                       <ListItemText
                         primary={leaf.label}
                         primaryTypographyProps={{
                           ...FONT.navItem,
-                          color: isActive(leaf.path) ? 'primary.main' : 'text.primary',
+                          color: isActive(leaf.path) ? 'text.primary' : 'text.secondary',
                         }}
                       />
                     </ListItemButton>
@@ -323,17 +320,17 @@ export default function Sidebar() {
               ) : (
                 <ListItemButton
                   key={child.path}
+                  selected={isActive(child.path)}
                   onClick={() => {
                     navigate(child.path);
                     handleFlyoutClose();
                   }}
-                  sx={{ bgcolor: isActive(child.path) ? 'action.selected' : 'transparent' }}
                 >
                   <ListItemText
                     primary={child.label}
                     primaryTypographyProps={{
                       ...FONT.navItem,
-                      color: isActive(child.path) ? 'primary.main' : 'text.primary',
+                      color: isActive(child.path) ? 'text.primary' : 'text.secondary',
                     }}
                   />
                 </ListItemButton>

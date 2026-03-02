@@ -1,0 +1,70 @@
+name: Architecture Review (AI)
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - 'apps/nap-serv/src/**'
+      - 'scripts/arch/**'
+
+jobs:
+  ai-review:
+    name: AI Architecture Review
+    runs-on: ubuntu-latest
+    # Skip draft PRs
+    if: github.event.pull_request.draft == false
+    permissions:
+      pull-requests: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Generate architecture artifacts
+        run: npm run arch
+
+      - name: Generate AI review
+        id: ai-review
+        continue-on-error: true
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD -- apps/nap-serv/src/ \
+            | node scripts/arch/aiInterpret.js \
+              --provider ${{ vars.AI_PROVIDER || 'claude' }} \
+            > /tmp/ai-review.md
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Post PR comment
+        if: steps.ai-review.outcome == 'success'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: arch-review
+          path: /tmp/ai-review.md
+
+      - name: Post fallback comment on failure
+        if: steps.ai-review.outcome == 'failure'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: arch-review
+          message: |
+            ## Architecture Review (AI)
+
+            > AI review could not be generated. This does not block the PR.
+            > Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+
+      - name: Upload AI review artifact
+        if: steps.ai-review.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-architecture-review
+          path: /tmp/ai-review.md
+          retention-days: 30

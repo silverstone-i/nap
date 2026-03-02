@@ -61,6 +61,8 @@ describe('POST /api/tenants/v1/tenants', () => {
       company: 'Acme Corp',
       status: 'active',
       tier: 'starter',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'admin@acme.com',
       admin_password: 'AcmePass123!',
     };
@@ -78,6 +80,8 @@ describe('POST /api/tenants/v1/tenants', () => {
     const cookies = await loginRoot();
     const res = await request(app).post('/api/tenants/v1/tenants').set('Cookie', cookies).send({
       company: 'No Code Corp',
+      admin_first_name: 'Test',
+      admin_last_name: 'Admin',
       admin_email: 'a@b.com',
       admin_password: 'Pass123!',
     });

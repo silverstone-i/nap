@@ -17,7 +17,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
-import Grid from '@mui/material/Grid';
+import Link from '@mui/material/Link';
 import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
@@ -26,19 +26,22 @@ import Typography from '@mui/material/Typography';
 import { DataGrid } from '@mui/x-data-grid';
 
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import PasswordField from '../../components/shared/PasswordField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
   useTenants,
+  useTenantContacts,
   useCreateTenant,
   useUpdateTenant,
   useArchiveTenant,
   useRestoreTenant,
 } from '../../hooks/useTenants.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { buildMutualExclusionHandler, deriveSelectionState } from '../../utils/selectionUtils.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -54,8 +57,9 @@ const BLANK_CREATE = {
   tier: 'starter',
   region: '',
   max_users: 5,
-  billing_email: '',
   notes: '',
+  admin_first_name: '',
+  admin_last_name: '',
   admin_email: '',
   admin_password: '',
 };
@@ -66,7 +70,6 @@ const BLANK_EDIT = {
   tier: 'starter',
   region: '',
   max_users: 5,
-  billing_email: '',
   notes: '',
 };
 
@@ -101,12 +104,54 @@ const columns = [
   },
 ];
 
+/* ── Detail dialog helpers ────────────────────────────────────── */
+
+const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
+
+const contactColumns = [
+  {
+    field: 'name',
+    headerName: 'Name',
+    flex: 1,
+    minWidth: 150,
+    valueGetter: (params) => `${params.row.first_name} ${params.row.last_name}`,
+  },
+  {
+    field: 'email',
+    headerName: 'Email',
+    flex: 1,
+    minWidth: 180,
+    renderCell: (params) =>
+      params.value ? (
+        <Link href={`mailto:${params.value}`} underline="hover">
+          {params.value}
+        </Link>
+      ) : (
+        '\u2014'
+      ),
+  },
+  {
+    field: 'primary_phone',
+    headerName: 'Phone',
+    width: 150,
+    valueGetter: (params) => params.row.primary_phone || '\u2014',
+  },
+];
+
 /* ── Component ────────────────────────────────────────────────── */
 
 export default function ManageTenantsPage() {
   /* ── queries ─────────────────────────────────────────────── */
   const { data: tenantRes, isLoading } = useTenants();
   const allRows = tenantRes?.rows ?? [];
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailTenant, setDetailTenant] = useState(null);
+  const { data: contactsData } = useTenantContacts(detailTenant?.id);
 
   /* ── view filter (Active / All / Archived) ───────────────── */
   const [viewFilter, setViewFilter] = useState('active');
@@ -123,23 +168,12 @@ export default function ManageTenantsPage() {
   const restoreMut = useRestoreTenant();
 
   /* ── selection (multi-select with root-tenant mutual exclusion) */
-  const [selectionModel, setSelectionModel] = useState([]);
-
-  const { selectedRows, selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived } =
-    deriveSelectionState(selectionModel, rows, 'tenant');
-
-  const handleSelectionChange = buildMutualExclusionHandler({
-    rows,
-    prevModel: selectionModel,
-    setModel: setSelectionModel,
-    entityType: 'tenant',
-  });
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived } =
+    useDataGridSelection(rows, 'tenant');
 
   /* ── dialog state ────────────────────────────────────────── */
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailTenant, setDetailTenant] = useState(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
 
@@ -164,7 +198,6 @@ export default function ManageTenantsPage() {
       tier: selected.tier ?? 'starter',
       region: selected.region ?? '',
       max_users: selected.max_users ?? 5,
-      billing_email: selected.billing_email ?? '',
       notes: selected.notes ?? '',
     });
     setEditOpen(true);
@@ -173,11 +206,12 @@ export default function ManageTenantsPage() {
   /* ── CRUD handlers ───────────────────────────────────────── */
   const handleCreate = async () => {
     try {
-      await createMut.mutateAsync({
+      const payload = {
         ...createForm,
         tenant_code: createForm.tenant_code.toUpperCase(),
         max_users: Number(createForm.max_users) || 5,
-      });
+      };
+      await createMut.mutateAsync(payload);
       toast('Tenant created');
       setCreateOpen(false);
       setCreateForm(BLANK_CREATE);
@@ -288,33 +322,19 @@ export default function ManageTenantsPage() {
           },
         },
         { label: 'Edit Tenant', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        {
-          label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
-          variant: 'outlined',
-          color: 'error',
-          disabled: !hasSelection || !allActive || hasRootSelected,
-          onClick: () => setArchiveOpen(true),
-        },
-        {
-          label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
-          variant: 'outlined',
-          color: 'success',
-          disabled: !hasSelection || !allArchived || hasRootSelected,
-          onClick: () => setRestoreOpen(true),
-        },
+        ...buildBulkActions({
+          selectedRows,
+          hasSelection,
+          allActive,
+          allArchived,
+          onArchive: () => setArchiveOpen(true),
+          onRestore: () => setRestoreOpen(true),
+          archiveDisabled: hasRootSelected,
+          restoreDisabled: hasRootSelected,
+        }),
       ],
     }),
-    [
-      selected,
-      isSingle,
-      hasSelection,
-      hasRootSelected,
-      allActive,
-      allArchived,
-      selectedRows.length,
-      viewFilter,
-      openEdit,
-    ],
+    [selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -328,102 +348,96 @@ export default function ManageTenantsPage() {
         loading={isLoading}
         checkboxSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={handleSelectionChange}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(params) => (params.row.deactivated_at ? 'row-archived' : '')}
       />
 
       {/* ── View Details ───────────────────────────────────── */}
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center' }}>
-          <span>Tenant Details</span>
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Box>
+            <span>Tenant Details</span>
+            {detailTenant && (
+              <Typography variant="body2" color="text.secondary">
+                {detailTenant.company}
+              </Typography>
+            )}
+          </Box>
           <Box sx={{ ml: 'auto' }}>
-            <Button size="small" onClick={() => setDetailOpen(false)}>
+            <Button size="small" color="inherit" onClick={() => setDetailOpen(false)}>
               Close
             </Button>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
           {detailTenant && (
-            <Grid container spacing={2}>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">
-                  Code
-                </Typography>
-                <Typography>{detailTenant.tenant_code}</Typography>
-              </Grid>
-              <Grid item xs={8}>
-                <Typography variant="caption" color="text.secondary">
-                  Company
-                </Typography>
-                <Typography>{detailTenant.company}</Typography>
-              </Grid>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">
-                  Status
-                </Typography>
-                <Box mt={0.5}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* ── Tenant fields ─────────────────────────────── */}
+              <Box sx={detailGridSx}>
+                <FieldRow label="Code" value={detailTenant.tenant_code} />
+                <FieldRow label="Tier" value={cap(detailTenant.tier)} />
+                <FieldRow label="Region" value={detailTenant.region || '\u2014'} />
+                <FieldRow label="Status">
                   <StatusBadge status={detailTenant.status} />
-                </Box>
-              </Grid>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">
-                  Tier
+                </FieldRow>
+                <FieldRow label="Max Users" value={detailTenant.max_users ?? '\u2014'} />
+                <FieldRow label="Schema">
+                  <Typography variant="body2" fontFamily="monospace">
+                    {detailTenant.schema_name || '\u2014'}
+                  </Typography>
+                </FieldRow>
+                <FieldRow label="Created" value={fmtDate(detailTenant.created_at)} />
+                <FieldRow label="Updated" value={fmtDate(detailTenant.updated_at)} />
+                <FieldRow label="Notes" value={detailTenant.notes || '\u2014'} sx={{ gridColumn: '1 / -1' }} />
+              </Box>
+
+              {/* ── Contacts ──────────────────────────────────── */}
+              <Divider />
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="overline" color="text.secondary">
+                  Primary Contacts
                 </Typography>
-                <Typography>{cap(detailTenant.tier)}</Typography>
-              </Grid>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">
-                  Region
+                {contactsData?.primary?.length ? (
+                  <DataGrid
+                    rows={contactsData.primary}
+                    columns={contactColumns}
+                    getRowId={(r) => r.id}
+                    autoHeight
+                    hideFooter
+                    disableColumnMenu
+                    disableRowSelectionOnClick
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No primary contacts
+                  </Typography>
+                )}
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="overline" color="text.secondary">
+                  Billing Contacts
                 </Typography>
-                <Typography>{detailTenant.region || '\u2014'}</Typography>
-              </Grid>
-              <Grid item xs={4}>
-                <Typography variant="caption" color="text.secondary">
-                  Max Users
-                </Typography>
-                <Typography>{detailTenant.max_users ?? '\u2014'}</Typography>
-              </Grid>
-              <Grid item xs={8}>
-                <Typography variant="caption" color="text.secondary">
-                  Billing Email
-                </Typography>
-                <Typography>{detailTenant.billing_email || '\u2014'}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">
-                  Schema
-                </Typography>
-                <Typography variant="body2" fontFamily="monospace">
-                  {detailTenant.schema_name || '\u2014'}
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">
-                  Active
-                </Typography>
-                <Typography>{detailTenant.deactivated_at ? 'No' : 'Yes'}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">
-                  Created
-                </Typography>
-                <Typography>{fmtDate(detailTenant.created_at)}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">
-                  Updated
-                </Typography>
-                <Typography>{fmtDate(detailTenant.updated_at)}</Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="caption" color="text.secondary">
-                  Notes
-                </Typography>
-                <Typography>{detailTenant.notes || '\u2014'}</Typography>
-              </Grid>
-            </Grid>
+                {contactsData?.billing?.length ? (
+                  <DataGrid
+                    rows={contactsData.billing}
+                    columns={contactColumns}
+                    getRowId={(r) => r.id}
+                    autoHeight
+                    hideFooter
+                    disableColumnMenu
+                    disableRowSelectionOnClick
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No billing contacts
+                  </Typography>
+                )}
+              </Box>
+            </Box>
           )}
         </DialogContent>
       </Dialog>
@@ -478,12 +492,6 @@ export default function ManageTenantsPage() {
           onChange={onCreateField('max_users')}
         />
         <TextField
-          label="Billing Email"
-          type="email"
-          value={createForm.billing_email}
-          onChange={onCreateField('billing_email')}
-        />
-        <TextField
           label="Notes"
           multiline
           minRows={2}
@@ -491,10 +499,22 @@ export default function ManageTenantsPage() {
           onChange={onCreateField('notes')}
         />
 
-        <Divider />
-        <Typography variant="subtitle2" color="text.secondary">
+        <Divider sx={{ mt: 1 }} />
+        <Typography variant="overline" color="text.secondary">
           Initial Admin User
         </Typography>
+        <TextField
+          label="First Name"
+          required
+          value={createForm.admin_first_name}
+          onChange={onCreateField('admin_first_name')}
+        />
+        <TextField
+          label="Last Name"
+          required
+          value={createForm.admin_last_name}
+          onChange={onCreateField('admin_last_name')}
+        />
         <TextField
           label="Admin Email"
           type="email"
@@ -556,12 +576,6 @@ export default function ManageTenantsPage() {
           type="number"
           value={editForm.max_users}
           onChange={onEditField('max_users')}
-        />
-        <TextField
-          label="Billing Email"
-          type="email"
-          value={editForm.billing_email}
-          onChange={onEditField('billing_email')}
         />
         <TextField
           label="Notes"

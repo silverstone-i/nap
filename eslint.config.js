@@ -102,6 +102,8 @@ export default [
         FormData: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
       },
     },
     settings: {
@@ -136,6 +138,32 @@ export default [
     },
     rules: {
       'import/no-unresolved': ['error', { caseSensitive: false }],
+    },
+  },
+
+  // Module boundary: cross-module imports must use barrel exports (ADR-0019)
+  {
+    files: ['apps/nap-serv/src/modules/**/*.js'],
+    rules: {
+      'import/no-restricted-paths': [
+        'error',
+        {
+          zones: [
+            {
+              target: './apps/nap-serv/src/modules/!(accounting)/**',
+              from: './apps/nap-serv/src/modules/accounting',
+              except: ['./services/index.js'],
+              message: 'Cross-module: import from accounting through services/index.js barrel (ADR-0019)',
+            },
+            {
+              target: './apps/nap-serv/src/modules/**',
+              from: './apps/nap-serv/src/system/core',
+              except: ['./services/index.js'],
+              message: 'Cross-module: import from core through services/index.js barrel (ADR-0019)',
+            },
+          ],
+        },
+      ],
     },
   },
 

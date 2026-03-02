@@ -150,7 +150,7 @@ export async function bootstrapAdmin() {
 
   // Run bootstrap migration
   const { default: bootstrapMigration } = await import(
-    '../../src/modules/auth/schema/migrations/202502110001_bootstrapAdmin.js'
+    '../../src/system/auth/schema/migrations/202502110001_bootstrapAdmin.js'
   );
 
   const models = {};

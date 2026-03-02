@@ -7,7 +7,13 @@
  *   POST /bulk-insert, POST /import-xls, POST /export-xls,
  *   PUT /bulk-update, PUT /update, DELETE /archive, PATCH /restore
  *
- * Automatically applies addAuditFields middleware to mutation routes.
+ * Automatically applies:
+ *   - addAuditFields on mutation routes (POST, PUT, DELETE, PATCH)
+ *   - moduleEntitlement on all routes (checks tenant's allowed_modules)
+ *
+ * Middleware chain per route: [...userMws (incl. withMeta)] → moduleEntitlement → handler
+ * Mutation routes additionally prepend addAuditFields before user middlewares.
+ *
  * Accepts per-method middleware arrays and route disable flags.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -15,6 +21,7 @@
 
 import { Router } from 'express';
 import { addAuditFields } from '../middleware/addAuditFields.js';
+import { moduleEntitlement } from '../middleware/moduleEntitlement.js';
 import multer from 'multer';
 
 /**
@@ -49,10 +56,14 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   // Ensure addAuditFields is included on mutation routes
   const ensureAudit = (mws) => (mws.includes(addAuditFields) ? mws : [addAuditFields, ...mws]);
 
-  const safePost = ensureAudit(postMiddlewares);
-  const safePut = ensureAudit(putMiddlewares);
-  const safeDelete = ensureAudit(deleteMiddlewares);
-  const safePatch = ensureAudit(patchMiddlewares);
+  // Ensure moduleEntitlement runs after user middlewares (incl. withMeta) on all routes
+  const ensureEntitlement = (mws) => (mws.includes(moduleEntitlement) ? mws : [...mws, moduleEntitlement]);
+
+  const safeGet = ensureEntitlement(getMiddlewares);
+  const safePost = ensureEntitlement(ensureAudit(postMiddlewares));
+  const safePut = ensureEntitlement(ensureAudit(putMiddlewares));
+  const safeDelete = ensureEntitlement(ensureAudit(deleteMiddlewares));
+  const safePatch = ensureEntitlement(ensureAudit(patchMiddlewares));
 
   // --- Standard CRUD routes ---
 
@@ -61,24 +72,24 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disableGet) {
-    router.get('/', ...getMiddlewares, (req, res) => controller.get(req, res));
+    router.get('/', ...safeGet, (req, res) => controller.get(req, res));
   }
 
   if (!disableGetWhere) {
-    router.get('/where', ...getMiddlewares, (req, res) => controller.getWhere(req, res));
+    router.get('/where', ...safeGet, (req, res) => controller.getWhere(req, res));
   }
 
   if (!disableGetArchived) {
-    router.get('/archived', ...getMiddlewares, (req, res) => controller.getWhere(req, res));
+    router.get('/archived', ...safeGet, (req, res) => controller.getWhere(req, res));
   }
 
-  // Ping route (always enabled)
+  // Ping route (always enabled, no middleware)
   router.get('/ping', (_req, res) => {
     res.status(200).json({ message: 'pong' });
   });
 
   if (!disableGetById) {
-    router.get('/:id', ...getMiddlewares, (req, res) => controller.getById(req, res));
+    router.get('/:id', ...safeGet, (req, res) => controller.getById(req, res));
   }
 
   if (!disableBulkInsert) {
@@ -91,7 +102,7 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   }
 
   if (!disableExportXls) {
-    router.post('/export-xls', (req, res) => controller.exportXls(req, res));
+    router.post('/export-xls', ...ensureEntitlement(getMiddlewares), (req, res) => controller.exportXls(req, res));
   }
 
   if (!disableBulkUpdate) {

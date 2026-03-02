@@ -45,7 +45,8 @@ describe('GL Posting — journal entries, ledger balances, double-entry', () => 
       .set('Cookie', rootCookies)
       .send({
         tenant_code: TENANT_CODE, company: 'GL Test Corp', status: 'active',
-        tier: 'starter', admin_email: TENANT_ADMIN_EMAIL, admin_password: TENANT_ADMIN_PASSWORD,
+        tier: 'starter', admin_first_name: 'Test', admin_last_name: 'Admin',
+        admin_email: TENANT_ADMIN_EMAIL, admin_password: TENANT_ADMIN_PASSWORD,
       });
     expect(provRes.status).toBe(201);
 

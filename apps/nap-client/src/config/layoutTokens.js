@@ -2,8 +2,13 @@
  * @file Layout dimension tokens — centralises repeating layout values
  * @module nap-client/config/layoutTokens
  *
+ * Structural layout presets consumed by components via sx or style props.
+ * Visual tokens (borders, surfaces, radii) live in tokens.js and theme.js.
+ *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
+
+import { typographyTokens, density } from './tokens.js';
 
 export const SIDEBAR_WIDTH_OPEN = 242;
 export const SIDEBAR_WIDTH_COLLAPSED = 110;
@@ -18,6 +23,8 @@ export const FONT = {
   navItem: { fontSize: '0.8125rem' },
   toolbar: { fontSize: '0.8125rem' },
   toolbarAction: { fontSize: '0.8125rem' },
+  breadcrumb: typographyTokens.breadcrumb,
+  pageTitle: typographyTokens.pageTitle,
 };
 
 /* ── Composite sx presets ─────────────────────────────────────── */
@@ -53,13 +60,13 @@ export const pageContainerSx = {
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
-  gap: 2,
+  gap: `${density.sectionGap}px`,
 };
 
 export const formGridSx = {
   display: 'grid',
   gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: 2,
+  gap: `${density.fieldGap}px`,
 };
 
 export const formFullSpanSx = {
@@ -77,4 +84,28 @@ export const formGroupCardSx = {
 export const formSectionHeaderSx = {
   gridColumn: '1 / -1',
   mb: -1,
+};
+
+/* ── Master-detail split ─────────────────────────────────────── */
+
+export const masterDetailSx = {
+  display: 'flex',
+  flexDirection: 'row',
+  height: '100%',
+  gap: `${density.sectionGap}px`,
+};
+
+export const masterPanelSx = {
+  width: '38%',
+  minWidth: 340,
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+export const detailPanelSx = {
+  flex: 1,
+  minWidth: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'auto',
 };

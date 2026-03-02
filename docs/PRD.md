@@ -198,7 +198,7 @@ Browser -> Vite Dev Proxy (/api -> :3000) -> Express
   -> CORS -> JSON/Cookie parsing -> Morgan logging
   -> authRedis() [JWT verify, tenant resolve, permission load]
   -> /api/<module>/v1/<resource>
-  -> [addAuditFields] -> [rbac()] -> Controller -> pg-schemata Model (schema-aware)
+  -> [withMeta] -> [moduleEntitlement] -> [addAuditFields] -> [rbac()] -> Controller -> pg-schemata Model (schema-aware)
   -> Response
 ```
 
@@ -321,7 +321,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - `admin.tenants.allowed_modules` (jsonb array of module names) controls which modules a tenant can access
 - Enforced by middleware after auth and before RBAC: if `req.resource.module` is not in the tenant's `allowed_modules`, return 403
 - Cached in Redis alongside tenant metadata
-- Default: empty array (no modules) — must be explicitly configured per tenant/tier
+- Default: empty array means **all modules allowed** — entitlement enforcement activates per-tenant as their `allowed_modules` arrays are populated
 - Managed by NapSoft `super_user` / `support` via tenant management UI
 
 **Enforcement:**
@@ -383,7 +383,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 - Extensions (e.g., `pgcrypto`, `vector`) are created per-schema as needed
 - `MigrationManager` applies any pending migrations to the new schema
 - Seed data (default roles, chart of accounts templates) is inserted via `bulkInsert()`
-- **Admin User Creation:** Performed in a single transaction: (1) create an `employees` record in the tenant schema with `roles: ['admin']`, `is_app_user: true`, `is_primary_contact: true`, (2) create a `nap_users` login in `admin.nap_users` with `entity_type: 'employee'` and `entity_id` linking to the new employee. The employee must have `roles` assigned and `is_app_user = true` before the `nap_users` login is created.
+- **Admin User Creation:** Performed in a single transaction: (1) create an `employees` record in the tenant schema with `roles: ['admin']`, `is_app_user: true`, `is_primary_contact: true`, (2) create a `nap_users` login in `admin.nap_users` with `entity_type: 'employee'` and `entity_id` linking to the new employee. The employee must have `roles` assigned and `is_app_user = true` before the `nap_users` login is created. The admin employee is created with `code = NULL` because numbering is not yet configured; the code is backfilled when the tenant enables numbering via Settings (see §3.13.9).
 - **Contact Designation:** Primary and billing contacts are designated via `employees.is_primary_contact` and `employees.is_billing_contact` flags — there is no `tenant_role` column on `nap_users`.
 
 **UI Requirements:**
@@ -391,11 +391,12 @@ All roles — including system roles — go through the full RBAC policy resolut
 - Row selection with checkbox (single and multi-select)
 - Module Bar actions: **Create Tenant**, **View Details**, **Edit Tenant**, **Archive**, **Restore**
 - Status badge display with color coding
-- Create tenant form includes admin user fields: email and password (used to create the tenant's Administrator user and linked employee record)
+- Create tenant form includes admin user fields: first name, last name, email, and password (used to create the tenant's Administrator user and linked employee record)
 - Pagination with configurable rows-per-page (powered by `findAfterCursor()`)
-- Archive cascades to deactivate all associated users (via `removeWhere()`)
+- Archive cascades to deactivate all currently-active associated users
 - The root tenant (NapSoft, `NAP`) cannot be archived — server rejects the request with 403
-- Restore reactivates tenant and all associated users (via `restoreWhere()`)
+- Restore reactivates the tenant only — users remain archived and must be individually restored by an admin
+- **View Details dialog** (`maxWidth="md"`): displays tenant fields in a responsive 3-column grid of `FieldRow` components (label:value pairs). Fields: Code, Tier, Region, Status (rendered as `StatusBadge` chip), Max Users, Schema (monospace), Created, Updated, Notes (full-width). Below a divider, two `DataGrid` tables display **Primary Contacts** and **Billing Contacts** with Name, Email (mailto link), and Phone columns. Contact data is fetched via `useTenantContacts(tenantId)` hook.
 
 **Endpoints:**
 | Method | Path | Purpose |
@@ -407,6 +408,7 @@ All roles — including system roles — go through the full RBAC policy resolut
 | `DELETE` | `/api/tenants/v1/tenants/archive` | Soft-delete tenant (cascades to users) |
 | `PATCH` | `/api/tenants/v1/tenants/restore` | Restore archived tenant |
 | `GET` | `/api/tenants/v1/tenants/:id/modules` | Get tenant's allowed modules |
+| `GET` | `/api/tenants/v1/tenants/:id/contacts` | Get primary and billing contacts with phone/address (cross-schema query into tenant's employees) |
 
 #### 3.2.2 Manage Users
 
@@ -532,11 +534,18 @@ Partial unique index: `(entity_type, entity_id) WHERE deactivated_at IS NULL` �
 | `is_app_user` | boolean | Default false. Must be true before a `nap_users` login can be created. Requires `roles` to be non-empty. |
 | `is_primary_contact` | boolean | Default false. Designates this employee as the tenant's primary contact. |
 | `is_billing_contact` | boolean | Default false. Designates this employee as the tenant's billing contact. |
-| `is_active` | boolean | Default true |
 
-> **Contact Designation:** Both `is_primary_contact` and `is_billing_contact` can be true on the same employee (e.g., small company owner is both primary and billing contact). These flags replace the former `nap_users.tenant_role` designation. When the primary contact leaves the tenant (deactivated), the tenant's account executive is responsible for designating a new primary contact.
+> **Soft Delete:** Employees use the `deactivated_at` column (via pg-schemata `softDelete: true`) — there is no `is_active` boolean column.
 
-**Endpoint:** `/api/core/v1/employees`
+> **Contact Designation:** Both `is_primary_contact` and `is_billing_contact` can be true on the same employee (e.g., small company owner is both primary and billing contact). Multiple employees can share the same flag. These flags replace the former `nap_users.tenant_role` designation. When the primary contact leaves the tenant (deactivated), the tenant's account executive is responsible for designating a new primary contact.
+
+**Edit Dialog:** The employee edit dialog (`maxWidth="md"`) includes phone number and address management sections below the employee fields. Phone numbers are rendered as repeatable inline rows (type select, number, is_primary checkbox, delete). Addresses are rendered as bordered cards with a 2-column grid of address fields. Changes are diffed and persisted via the polymorphic `sources` → `phone_numbers` / `addresses` pattern.
+
+**Endpoints:**
+| Method | Path | Purpose |
+|---|---|---|
+| Standard CRUD | `/api/core/v1/employees` | List, get, create, update, archive, restore |
+| `GET` | `/api/core/v1/employees/:id/source-id` | Resolve the employee's polymorphic source_id for phone/address lookups |
 
 #### 3.3.4 Polymorphic Sources, Contacts, Addresses & Phone Numbers
 
@@ -1404,6 +1413,127 @@ These views are created in each tenant schema at provisioning time and updated v
 
 ---
 
+### 3.13 Tenant-Scoped Numbering System
+
+**Purpose:** Configurable, transaction-safe auto-numbering for all business entities. Separates internal PKs (UUIDs) from human-readable business identifiers. Supports per-tenant formatting, optional sub-scope (e.g., legal entity for invoices), and period-based counter reset.
+
+#### 3.13.1 Design Principles
+
+1. Database primary keys (UUID) are not business identifiers
+2. Business numbers are generated per tenant (never global)
+3. Invoice numbers are generated per legal entity (scope_type = `legal_entity`)
+4. Reset behavior is implemented using a `period_key`, not by restarting sequences
+5. Display formatting is independent of serial allocation logic
+6. Issued invoice numbers are immutable
+
+#### 3.13.2 Numbering Configuration
+
+**Data Model (`tenant_numbering_config`):**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | uuid | PK |
+| `tenant_id` | uuid | Not null, immutable |
+| `id_type` | varchar(32) | `employee`, `vendor`, `client`, `contact`, `ar_invoice`, `ap_invoice`, `project` |
+| `prefix` | varchar(16) | Display prefix (e.g., `EMP`, `INV`) |
+| `suffix` | varchar(16) | Display suffix |
+| `date_mode` | varchar(16) | `none`, `year`, `year_month`, `ymd` |
+| `reset_mode` | varchar(16) | `never`, `yearly`, `monthly`, `daily` |
+| `padding` | integer | Zero-pad width (e.g., 4 → `0001`) |
+| `separator` | varchar(4) | Joins display parts (e.g., `-`) |
+| `uppercase` | boolean | Apply uppercase to final display ID |
+| `scope_type` | varchar(32) | `none`, `legal_entity`, `company`, `project` |
+| `is_enabled` | boolean | Enables auto-numbering for this entity type |
+
+**Unique Constraint:** `(tenant_id, id_type)` — one config row per entity type per tenant.
+
+Changing configuration affects future numbers only. Historical numbers are never rewritten.
+
+#### 3.13.3 Sequence State (Counter Storage)
+
+**Data Model (`tenant_number_sequence_state`):**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | uuid | PK |
+| `tenant_id` | uuid | Not null, immutable |
+| `id_type` | varchar(32) | Entity type |
+| `scope_id` | uuid | Scope entity UUID, or NIL UUID for global scope |
+| `period_key` | varchar(16) | Derived from `reset_mode`: `never` → `global`, `yearly` → `YYYY`, `monthly` → `YYYY-MM`, `daily` → `YYYY-MM-DD` |
+| `last_serial` | bigint | Current counter value |
+
+**Unique Constraint:** `(tenant_id, id_type, scope_id, period_key)`
+
+#### 3.13.4 Display ID Construction
+
+`display_id = prefix + separator + date_part + separator + padded(serial) + separator + suffix`
+
+- Only non-empty components are included
+- Date part derived from `issued_at` timestamp using `date_mode`
+- Padding applied to serial (e.g., padding=6 → `000123`)
+- Uppercase transformation applied if configured
+
+**Examples:** `EMP-0045`, `INV-2026-00123`, `VND-2026-02-0004`
+
+#### 3.13.5 Transaction-Safe Allocation
+
+1. Determine `period_key` from `reset_mode` and current date
+2. `BEGIN` transaction
+3. `SELECT ... FROM tenant_number_sequence_state FOR UPDATE` (row lock)
+4. If row not found → `INSERT` with `last_serial = 1`
+5. Else → `INCREMENT last_serial`
+6. Assign serial to entity record
+7. Compute `display_id` from config
+8. `COMMIT`
+
+This prevents race conditions and duplicate numbers under concurrent requests.
+
+#### 3.13.6 Reset Strategy
+
+Reset is achieved via `period_key` partitioning — no sequence objects are restarted manually.
+
+Example (yearly reset): 2025 → `period_key = '2025'`, serial 000001; 2026 → `period_key = '2026'`, serial resets to 000001 automatically.
+
+#### 3.13.7 Recommended Defaults
+
+| Entity Type | Prefix | Padding | Date Mode | Reset Mode | Scope |
+|---|---|---|---|---|---|
+| Employee | `EMP` | 4 | none | never | tenant |
+| Vendor | `VND` | 4 | none | never | tenant |
+| Client | `CLT` | 4 | none | never | tenant |
+| Contact | `CON` | 4 | none | never | tenant |
+| Project | `PRJ` | 4 | none | never | tenant |
+| AR Invoice | `INV` | 5 | year | yearly | legal_entity |
+| AP Invoice | `BILL` | 5 | year | yearly | legal_entity |
+
+All configs are seeded with `is_enabled = false` during tenant provisioning. Tenants opt in via the Settings UI. When numbering is first enabled for an entity type, existing records with `code IS NULL` are backfilled in `created_at` order.
+
+#### 3.13.8 Entity Integration
+
+Auto-numbering populates the entity's code/number field only when the user does not provide one. For AR/AP invoices, numbering fires only when `status` transitions to `issued` (immutable after issuance).
+
+| Entity | Code Field | Numbering Trigger |
+|---|---|---|
+| Vendor | `code` | On create (if code is null) |
+| Client | `code` | On create (if code is null) |
+| Employee | `code` | On create (if code is null) |
+| Contact | `code` | On create (if code is null) |
+| Project | `project_code` | On create (if code is null) |
+| AR Invoice | `invoice_number` | On status → `issued` |
+| AP Invoice | `invoice_number` | On status → `issued` |
+
+#### 3.13.9 Backfill on Enable
+
+When a tenant enables numbering for an entity type (`is_enabled` transitions `false` → `true`), the system backfills all existing records of that type that have `code IS NULL AND deactivated_at IS NULL`, ordered by `created_at`. This ensures entities created before numbering was configured — including the admin employee created during tenant provisioning — receive codes matching the tenant's chosen pattern.
+
+The backfill runs atomically in a single transaction using the same `allocateNumber()` path as normal entity creation. The response includes `backfilledCodes` count so the UI can inform the user.
+
+**Endpoint:** `/api/core/v1/numbering-config`
+
+**UI:** Settings > Numbering — card-based configuration page with per-entity-type enable/disable, format fields, and live preview.
+
+---
+
 ## 4. Standard API Patterns
 
 All API routes are built from scratch using pg-schemata's TableModel and QueryModel as the data layer.
@@ -1602,6 +1732,7 @@ All MUI component overrides defined in `theme.js`:
 | `MuiListItemIcon` | styleOverrides | `minWidth: 36` | Sidebar ListItemIcon `minWidth: 36` |
 | `MuiChip` | styleOverrides (sizeSmall) | `fontWeight: 600`, `fontSize: 0.75rem` | TenantBar Chip sx |
 | `MuiAvatar` | named variant `"header"` | 32 × 32, primary colours, cursor pointer, 0.8rem bold | TenantBar Avatar sx block |
+| `MuiDialogTitle` | styleOverrides | `position: sticky`, `top: 0`, `zIndex: 1`, `backgroundColor: background.paper`, bottom border | Sticky header keeps title + action buttons visible when dialog content scrolls |
 | `MuiDialogActions` | styleOverrides | `paddingLeft: 24`, `paddingRight: 24`, `paddingBottom: 16` | Dialog button row padding |
 | `MuiDialogContent` | styleOverrides (dividers) | `paddingTop: 16` for divider variant | Spacing for dialog content with divider |
 | `MuiDataGrid` | defaultProps + styleOverrides | `density: compact`, `disableColumnMenu`, border removal, column/footer dividers, `.row-archived { opacity: 0.5 }` | Compact grid with row muting |
@@ -1660,6 +1791,18 @@ Guidelines for maintaining consistency as the UI grows:
 **Named Variants:**
 - Use MUI named variants for component "shapes" that differ from the global default but recur in multiple places (e.g., `variant="header"` on `Avatar`).
 - Define new variants in `theme.js` → `components.Mui*.variants[]`.
+
+**Shared DataGrid Hooks** (see ADR 0017):
+
+All 22 DataGrid CRUD pages compose three utilities for selection state, bulk actions, and archive/restore:
+
+| Utility | Location | Purpose |
+|---------|----------|---------|
+| `useDataGridSelection(rows, entityType?)` | `hooks/useDataGridSelection.js` | Selection state + derived booleans (`isSingle`, `hasSelection`, `allActive`, `allArchived`). Pass `entityType` for root-entity mutual exclusion (tenant/user pages). |
+| `useArchiveRestore(opts)` | `hooks/useArchiveRestore.js` | Archive/restore dialog state, async handlers (loops over `selectedRows`), ready-to-spread `ConfirmDialog` props. `restoreMut` optional for archive-only pages. |
+| `buildBulkActions(opts)` | `utils/selectionUtils.js` | Returns Archive/Restore toolbar button configs with count labels and disabled states. Spread into `primaryActions`. |
+
+**Critical:** Toolbar `useMemo` deps must use `selectedRows.length` (primitive), NOT `selectedRows` (array ref) — the latter causes infinite re-renders via the `ModuleActionsContext` registration cycle.
 
 **Future Extraction Rules:**
 - When three or more pages share the same layout pattern (e.g., list + detail pane), extract a shared wrapper component.
@@ -1789,7 +1932,7 @@ const { max_by_groups } = rule;
 - **`tenants`** — API layer for multi-tenant administration (controllers and routes for tenant CRUD, nap-user registration, impersonation, and match review logs). Tenants has **no schemas or models of its own** — controllers resolve models from the `auth` module's repositories via the global `db()` singleton. Routes are mounted at `/api/tenants/v1/`. This module is **not in the module registry** because it has no database artifacts; it is loaded directly in the route aggregator.
 - **`core`** — tables required by all optional modules (sources, vendors, clients, employees, contacts, addresses, inter_companies, RBAC)
 
-`Modules/` (at the `nap-serv` root, sibling to `src/`) contains **optional feature modules** that tenants enable based on their needs:
+`src/modules/` contains **optional feature modules** that tenants enable based on their needs:
 
 - **`projects`** — Project management, units, tasks, cost items, change orders, templates
 - **`activities`** — Activity tracking
@@ -1802,7 +1945,7 @@ const { max_by_groups } = rule;
 Both tiers follow the same internal layout:
 
 ```
-<module>/                        # Inside src/modules/ or Modules/
+<module>/                        # Inside src/system/ or src/modules/
   schemas/                       # pg-schemata schema definitions (one per table)
     apInvoicesSchema.js
     apInvoiceLinesSchema.js
@@ -1821,7 +1964,7 @@ Both tiers follow the same internal layout:
     index.js
 ```
 
-Optional modules in `Modules/` import core platform code via relative paths to `src/` (e.g., `../../../src/lib/BaseController.js`). All modules — core and optional — are registered in `src/db/moduleRegistry.js` and mounted in `src/apiRoutes.js`.
+Feature modules in `src/modules/` import platform code via relative paths (e.g., `../../../lib/BaseController.js`, `../../../system/core/` for platform modules). All modules — platform and feature — are registered in `src/db/moduleRegistry.js` and mounted in `src/apiRoutes.js`.
 
 **Client-side page layout:**
 ```
@@ -2396,7 +2539,7 @@ git pull origin develop
 git checkout -b feat/serv-cashflow-reports
 
 # 3. Make changes, commit with conventional commits
-git add apps/nap-serv/Modules/reports/
+git add apps/nap-serv/src/modules/reports/
 git commit -m "feat(serv): add project profitability SQL views"
 
 # 4. Push and create PR
@@ -2456,11 +2599,11 @@ The pre-commit hook enforces:
 
    ```bash
    # This will be REJECTED:
-   git add apps/nap-serv/Modules/ar/ apps/nap-client/src/pages/AR/
+   git add apps/nap-serv/src/modules/ar/ apps/nap-client/src/pages/AR/
    git commit -m "feat: add AR module"  # ❌ Mixed commit
 
    # Do this instead:
-   git add apps/nap-serv/Modules/ar/
+   git add apps/nap-serv/src/modules/ar/
    git commit -m "feat(serv): add AR module API routes and controllers"
 
    git add apps/nap-client/src/pages/AR/

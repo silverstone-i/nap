@@ -19,6 +19,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import SettingsIcon from '@mui/icons-material/Settings';
 export const NAV_ITEMS = [
   {
     label: 'Dashboard',
@@ -104,6 +105,13 @@ export const NAV_ITEMS = [
     children: [
       { label: 'Catalog SKUs', path: '/bom/catalog', capability: 'bom::catalog-skus' },
       { label: 'Vendor SKU Matching', path: '/bom/vendor-matching', capability: 'bom::vendor-skus' },
+    ],
+  },
+  {
+    label: 'Settings',
+    icon: SettingsIcon,
+    children: [
+      { label: 'Numbering', path: '/settings/numbering', capability: 'core::numbering-config' },
     ],
   },
   {

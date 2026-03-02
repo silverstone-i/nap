@@ -47,6 +47,8 @@ describe('Entity lifecycle — employee is_app_user with nap_users cascade', () 
         company: 'Entity Lifecycle Corp',
         status: 'active',
         tier: 'starter',
+        admin_first_name: 'Test',
+        admin_last_name: 'Admin',
         admin_email: 'admin@eltest.com',
         admin_password: 'EltestPass123!',
       });

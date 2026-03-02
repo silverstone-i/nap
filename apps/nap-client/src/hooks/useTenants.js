@@ -9,9 +9,19 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { client } from '../services/client.js';
 import { tenantApi } from '../services/tenantApi.js';
 
 const TENANTS_KEY = ['tenants'];
+export const TENANT_SCHEMAS_KEY = ['tenant-schemas'];
+
+/** Fetch tenant schemas list (for TenantPicker dropdown). */
+export function useTenantSchemas() {
+  return useQuery({
+    queryKey: TENANT_SCHEMAS_KEY,
+    queryFn: () => client.get('/tenants/v1/admin/schemas'),
+  });
+}
 
 /** Fetch tenants with cursor-based pagination. */
 export function useTenants(params = { limit: 200, includeDeactivated: 'true' }) {
@@ -30,12 +40,24 @@ export function useTenant(id) {
   });
 }
 
+/** Fetch primary and billing contacts for a tenant. */
+export function useTenantContacts(tenantId) {
+  return useQuery({
+    queryKey: [...TENANTS_KEY, tenantId, 'contacts'],
+    queryFn: () => tenantApi.getContacts(tenantId),
+    enabled: !!tenantId,
+  });
+}
+
 /** Create a new tenant (with admin user + schema provisioning). */
 export function useCreateTenant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body) => tenantApi.create(body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TENANTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TENANTS_KEY });
+      qc.invalidateQueries({ queryKey: TENANT_SCHEMAS_KEY });
+    },
   });
 }
 
@@ -57,6 +79,7 @@ export function useArchiveTenant() {
     mutationFn: (filter) => tenantApi.archive(filter),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TENANTS_KEY });
+      qc.invalidateQueries({ queryKey: TENANT_SCHEMAS_KEY });
       qc.invalidateQueries({ queryKey: USERS_KEY });
     },
   });
@@ -69,6 +92,7 @@ export function useRestoreTenant() {
     mutationFn: (filter) => tenantApi.restore(filter),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TENANTS_KEY });
+      qc.invalidateQueries({ queryKey: TENANT_SCHEMAS_KEY });
       qc.invalidateQueries({ queryKey: USERS_KEY });
     },
   });

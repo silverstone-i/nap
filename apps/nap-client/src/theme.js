@@ -1,65 +1,181 @@
 /**
- * @file MUI theme with light/dark palettes and component overrides per PRD §6.1
+ * @file MUI theme driven by semantic design tokens (config/tokens.js)
  * @module nap-client/theme
  *
  * Centralises repeatable visual styling so component JSX stays clean.
- * Layout dimensions live in config/layoutTokens.js; only TENANT_BAR_HEIGHT
- * is imported here for the Toolbar dense variant.
+ * Token-first: every magic number traces back to tokens.js.
+ * Layout dimensions live in config/layoutTokens.js.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
 
 import { createTheme } from '@mui/material/styles';
+import { createTokens } from './config/tokens.js';
 import { TENANT_BAR_HEIGHT } from './config/layoutTokens.js';
 
-/* ── Shared options (palette-independent) ───────────────────── */
+/* ── Options builder (token-aware) ─────────────────────────── */
 
-const commonOptions = {
+const buildOptions = (t) => ({
   typography: {
     fontFamily: 'Roboto, sans-serif',
+    fontSize: t.typography.body.fontSize,
     h1: { fontSize: '2rem', fontWeight: 500 },
     h2: { fontSize: '1.5rem', fontWeight: 500 },
     h3: { fontSize: '1.25rem', fontWeight: 500 },
     button: { textTransform: 'none', fontWeight: 600 },
+    overline: {
+      fontSize: t.typography.sectionLabel.fontSize,
+      fontWeight: t.typography.sectionLabel.fontWeight,
+      textTransform: t.typography.sectionLabel.textTransform,
+      letterSpacing: t.typography.sectionLabel.letterSpacing,
+      lineHeight: 1.5,
+    },
   },
-  shape: { borderRadius: 8 },
+
+  shape: { borderRadius: t.radius.control },
+
   components: {
+    /* ── Global / Baseline ─────────────────────────────────── */
+
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+        },
+      },
+    },
+
+    /* ── Paper / Surfaces ──────────────────────────────────── */
+
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          border: `${t.border.width}px solid ${t.border.subtle}`,
+          boxShadow: t.shadow.card,
+          borderRadius: t.radius.card,
+          backgroundImage: 'none',
+        },
+      },
+    },
+
     MuiAppBar: {
       defaultProps: { elevation: 0 },
       styleOverrides: {
-        root: ({ theme }) => ({
-          borderBottom: `1px solid ${theme.palette.divider}`,
-        }),
+        root: {
+          border: 'none',
+          borderBottom: `${t.border.width}px solid ${t.border.subtle}`,
+          backgroundImage: 'none',
+          boxShadow: t.shadow.none,
+        },
       },
     },
+
     MuiToolbar: {
       styleOverrides: {
         dense: { minHeight: TENANT_BAR_HEIGHT },
       },
     },
+
     MuiDrawer: {
       styleOverrides: {
         paper: ({ theme }) => ({
           boxSizing: 'border-box',
           backgroundColor: theme.palette.background.sidebar,
-          borderRight: `1px solid ${theme.palette.divider}`,
+          border: 'none',
+          borderRight: `${t.border.width}px solid ${t.border.subtle}`,
           overflowX: 'hidden',
+          backgroundImage: 'none',
         }),
       },
     },
+
     MuiCard: {
       defaultProps: { elevation: 0 },
-      styleOverrides: { root: { borderRadius: 8 } },
-    },
-    MuiButton: {
       styleOverrides: {
-        root: { textTransform: 'none' },
-        sizeSmall: { fontSize: '0.8rem' },
+        root: { borderRadius: t.radius.card },
       },
     },
+
+    /* ── Dialogs ───────────────────────────────────────────── */
+
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: t.radius.modal,
+          border: `${t.border.width}px solid ${t.border.subtle}`,
+          boxShadow: t.shadow.modal,
+          backgroundImage: 'none',
+        },
+      },
+    },
+
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          padding: 16,
+          fontSize: 18,
+          fontWeight: 650,
+          borderBottom: `${t.border.width}px solid ${t.border.subtle}`,
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+          backgroundColor: theme.palette.background.paper,
+        }),
+      },
+    },
+
+    MuiDialogContent: {
+      styleOverrides: {
+        root: { padding: 16 },
+      },
+    },
+
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          padding: 16,
+          borderTop: `${t.border.width}px solid ${t.border.subtle}`,
+          gap: 10,
+        },
+      },
+    },
+
+    /* ── Buttons ───────────────────────────────────────────── */
+
+    MuiButton: {
+      defaultProps: { disableElevation: true },
+      styleOverrides: {
+        root: {
+          borderRadius: t.radius.control,
+          minHeight: t.density.controlHeight,
+          paddingTop: 8,
+          paddingBottom: 8,
+          transition: `all ${t.motion.fast}`,
+          '&.Mui-disabled': { opacity: 0.35 },
+        },
+        sizeSmall: { fontSize: '0.8rem', minHeight: t.density.controlHeightSm },
+        containedPrimary: {
+          boxShadow: t.shadow.none,
+          '&:hover': { filter: 'brightness(1.03)' },
+          '&:active': { filter: 'brightness(0.98)' },
+        },
+        outlined: {
+          borderColor: t.border.subtle,
+          '&:hover': {
+            borderColor: t.border.hover,
+            backgroundColor: t.surface.hoverOverlay,
+          },
+        },
+        text: {
+          '&:hover': { backgroundColor: t.surface.hoverOverlay },
+        },
+      },
+    },
+
     MuiToggleButton: {
       styleOverrides: {
-        root: { textTransform: 'none' },
+        root: { textTransform: 'none', transition: `all ${t.motion.fast}` },
         sizeSmall: {
           fontSize: '0.8rem',
           paddingLeft: 12,
@@ -69,24 +185,214 @@ const commonOptions = {
         },
       },
     },
-    MuiListItemButton: {
-      styleOverrides: {
-        root: { borderRadius: 8 },
-      },
+
+    /* ── Inputs ────────────────────────────────────────────── */
+
+    MuiTextField: {
+      defaultProps: { size: 'small', variant: 'outlined' },
     },
-    MuiListItemIcon: {
+
+    MuiOutlinedInput: {
       styleOverrides: {
-        root: { minWidth: 36 },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        sizeSmall: {
-          fontWeight: 600,
-          fontSize: '0.75rem',
+        root: {
+          borderRadius: t.radius.control,
+          minHeight: t.density.controlHeight,
+          transition: `all ${t.motion.fast}`,
+          '&:hover .MuiOutlinedInput-notchedOutline': {
+            borderColor: t.border.hover,
+          },
+        },
+        notchedOutline: {
+          borderColor: t.border.subtle,
+        },
+        input: {
+          paddingTop: 8,
+          paddingBottom: 8,
         },
       },
     },
+
+    MuiInputLabel: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          color: theme.palette.text.secondary,
+        }),
+      },
+    },
+
+    MuiFormHelperText: {
+      styleOverrides: {
+        root: { marginLeft: 0, marginRight: 0 },
+      },
+    },
+
+    /* ── Table (plain MUI) ─────────────────────────────────── */
+
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          borderRadius: t.radius.card,
+          border: `${t.border.width}px solid ${t.border.subtle}`,
+        },
+      },
+    },
+
+    MuiTableHead: {
+      styleOverrides: {
+        root: { backgroundColor: t.surface.headerOverlay },
+      },
+    },
+
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          borderBottom: `${t.border.width}px solid ${t.border.subtle}`,
+          paddingTop: t.density.tableCellPadY,
+          paddingBottom: t.density.tableCellPadY,
+          paddingLeft: t.density.tableCellPadX,
+          paddingRight: t.density.tableCellPadX,
+        },
+        head: ({ theme }) => ({
+          fontSize: t.typography.tableHead.fontSize,
+          fontWeight: t.typography.tableHead.fontWeight,
+          letterSpacing: t.typography.tableHead.letterSpacing,
+          color: theme.palette.text.secondary,
+        }),
+      },
+    },
+
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          height: t.density.tableRowHeight,
+          transition: `background-color ${t.motion.fast}`,
+          '&:hover': { backgroundColor: t.surface.hoverOverlay },
+          '&.Mui-selected': { backgroundColor: t.surface.selectedOverlay },
+          '&.Mui-selected:hover': { backgroundColor: t.surface.activeOverlay },
+        },
+      },
+    },
+
+    /* ── DataGrid (MUI X v6) ───────────────────────────────── */
+
+    MuiDataGrid: {
+      defaultProps: {
+        density: 'compact',
+        rowHeight: t.density.tableRowHeight,
+        columnHeaderHeight: 40,
+        disableColumnMenu: false,
+      },
+      styleOverrides: {
+        root: {
+          border: `1px solid ${t.border.subtle}`,
+          borderRadius: t.radius.card,
+          backgroundColor: 'transparent',
+          fontSize: t.typography.body.fontSize,
+          /* focus ring precision */
+          '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': {
+            outline: `1px solid ${t.border.strong}`,
+            outlineOffset: -1,
+          },
+          '& .MuiDataGrid-columnHeader:focus, & .MuiDataGrid-columnHeader:focus-within': {
+            outline: `1px solid ${t.border.strong}`,
+            outlineOffset: -1,
+          },
+          /* app-specific archived row */
+          '& .row-archived': { opacity: 0.5 },
+        },
+        withBorderColor: { borderColor: t.border.subtle },
+        columnHeaders: {
+          backgroundColor: t.surface.headerOverlay,
+          borderBottom: `1px solid ${t.border.subtle}`,
+        },
+        columnHeader: ({ theme }) => ({
+          fontSize: t.typography.tableHead.fontSize,
+          fontWeight: t.typography.tableHead.fontWeight,
+          letterSpacing: t.typography.tableHead.letterSpacing,
+          color: theme.palette.text.secondary,
+        }),
+        columnSeparator: { color: t.border.subtle },
+        row: {
+          borderBottom: `1px solid ${t.border.subtle}`,
+          transition: `background-color ${t.motion.fast}`,
+          '&:hover': { backgroundColor: t.surface.hoverOverlay },
+          '&.Mui-selected': { backgroundColor: t.surface.selectedOverlay },
+          '&.Mui-selected:hover': { backgroundColor: t.surface.activeOverlay },
+        },
+        cell: {
+          borderBottom: 'none',
+          paddingLeft: t.density.tableCellPadX,
+          paddingRight: t.density.tableCellPadX,
+        },
+        checkboxInput: { padding: 6 },
+        footerContainer: {
+          borderTop: `1px solid ${t.border.subtle}`,
+          backgroundColor: 'transparent',
+        },
+      },
+    },
+
+    /* ── Checkbox ──────────────────────────────────────────── */
+
+    MuiCheckbox: {
+      styleOverrides: {
+        root: { padding: 8, transition: `all ${t.motion.fast}` },
+      },
+    },
+
+    /* ── Lists / Sidebar nav ───────────────────────────────── */
+
+    MuiListItemButton: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          borderRadius: 8,
+          transition: `all ${t.motion.fast}`,
+          '&:hover': { backgroundColor: t.surface.hoverOverlay },
+          '&.Mui-selected': {
+            backgroundColor: 'transparent',
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: 6,
+              bottom: 6,
+              width: 2,
+              borderRadius: 2,
+              backgroundColor: theme.palette.primary.main,
+            },
+            '&:hover': { backgroundColor: t.surface.hoverOverlay },
+          },
+        }),
+      },
+    },
+
+    MuiListItemIcon: {
+      styleOverrides: {
+        root: {
+          minWidth: 36,
+          opacity: 0.62,
+          transition: `opacity ${t.motion.fast}, color ${t.motion.fast}`,
+        },
+      },
+    },
+
+    MuiListItemText: {
+      styleOverrides: {
+        primary: { fontSize: 14, fontWeight: 550 },
+      },
+    },
+
+    /* ── Chips ─────────────────────────────────────────────── */
+
+    MuiChip: {
+      styleOverrides: {
+        sizeSmall: { fontWeight: 600, fontSize: '0.75rem' },
+      },
+    },
+
+    /* ── Avatar ────────────────────────────────────────────── */
+
     MuiAvatar: {
       variants: [
         {
@@ -103,39 +409,8 @@ const commonOptions = {
         },
       ],
     },
-    MuiDialogContent: {
-      styleOverrides: {
-        root: {
-          '&.MuiDialogContent-dividers': { paddingTop: 16 },
-        },
-      },
-    },
-    MuiDataGrid: {
-      defaultProps: {
-        density: 'compact',
-        disableColumnMenu: true,
-      },
-      styleOverrides: {
-        root: ({ theme }) => ({
-          border: 'none',
-          '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: theme.palette.background.surface,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          },
-          '& .MuiDataGrid-cell': {
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          },
-          '& .MuiDataGrid-footerContainer': {
-            borderTop: `1px solid ${theme.palette.divider}`,
-          },
-          '& .row-archived': {
-            opacity: 0.5,
-          },
-        }),
-      },
-    },
   },
-};
+});
 
 /* ── Palettes ───────────────────────────────────────────────── */
 
@@ -179,7 +454,8 @@ const darkPalette = {
 
 export const createAppTheme = (mode = 'light') => {
   const palette = mode === 'dark' ? darkPalette : lightPalette;
-  return createTheme({ ...commonOptions, palette });
+  const t = createTokens(mode);
+  return createTheme({ ...buildOptions(t), palette });
 };
 
 export default createAppTheme;

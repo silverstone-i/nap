@@ -97,11 +97,11 @@ export function authRedis() {
       }
 
       // Hydrate user from DB (JWT is minimal: sub + ph only)
+      const dbMod = await import('../db/db.js');
+      const db = dbMod.default || dbMod.db;
       let userRecord = null;
       let tenantRecord = null;
       try {
-        const dbMod = await import('../db/db.js');
-        const db = dbMod.default || dbMod.db;
         userRecord = await db('napUsers', 'admin').findOneBy([{ id: uid }]);
         if (userRecord) {
           tenantRecord = await db('tenants', 'admin').findById(userRecord.tenant_id);
@@ -120,9 +120,31 @@ export function authRedis() {
       const homeTenantCode = tenantRecord.tenant_code.toLowerCase();
       const tenantCode = headerTenant ? headerTenant.toLowerCase() : homeTenantCode;
 
+      // ── Schema resolution ───────────────────────────────────────────────
+      // Permissions always load from the user's home tenant (where their roles live).
+      // Data queries use the assumed tenant's schema when the header is present.
+      // effectiveTenantRecord tracks the tenant whose data the request operates on.
+      const homeSchemaName = tenantRecord.schema_name;
+      let dataSchemaName = homeSchemaName;
+      let effectiveTenantRecord = tenantRecord;
+      if (headerTenant && tenantCode !== homeTenantCode) {
+        try {
+          const row = await db.oneOrNone(
+            'SELECT * FROM admin.tenants WHERE LOWER(tenant_code) = $1 AND deactivated_at IS NULL',
+            [tenantCode],
+          );
+          if (row) {
+            dataSchemaName = row.schema_name;
+            effectiveTenantRecord = row;
+          }
+        } catch {
+          // Fall back to home schema if lookup fails
+        }
+      }
+
       // ── RBAC Permission Loading ─────────────────────────────────────────
-      const schemaName = tenantRecord.schema_name;
-      let permissions = await getCachedPermissions(uid, tenantCode);
+      const schemaName = homeSchemaName;
+      let permissions = await getCachedPermissions(uid, homeTenantCode);
 
       if (!permissions) {
         permissions = await loadPermissions({
@@ -131,7 +153,7 @@ export function authRedis() {
           entityType: userRecord.entity_type,
           entityId: userRecord.entity_id,
         });
-        await cachePermissions(uid, tenantCode, permissions);
+        await cachePermissions(uid, homeTenantCode, permissions);
       }
 
       // ── Stale Token Detection ───────────────────────────────────────────
@@ -145,7 +167,7 @@ export function authRedis() {
       let impersonatedBy = null;
       let effectiveUser = userRecord;
       let effectiveTenantCode = tenantCode;
-      let effectiveSchemaName = schemaName;
+      let effectiveSchemaName = dataSchemaName;
       let effectivePermissions = permissions;
 
       try {
@@ -164,6 +186,12 @@ export function authRedis() {
             effectiveUser = targetUser;
             effectiveTenantCode = parsed.targetTenantCode || tenantCode;
             effectiveSchemaName = parsed.targetSchemaName || schemaName;
+
+            // Resolve the impersonated user's tenant record
+            if (targetUser.tenant_id !== tenantRecord.id) {
+              const targetTenant = await db2('tenants', 'admin').findById(targetUser.tenant_id);
+              if (targetTenant) effectiveTenantRecord = targetTenant;
+            }
 
             // Re-load permissions for target user
             effectivePermissions = await loadPermissions({
@@ -198,7 +226,7 @@ export function authRedis() {
         user_id: isImpersonating ? impersonatedBy : uid,
         tenant_code: effectiveTenantCode,
         schema: effectiveSchemaName,
-        tenant: tenantRecord,
+        tenant: effectiveTenantRecord,
         perms: effectivePermissions,
       };
 

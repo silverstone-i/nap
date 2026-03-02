@@ -13,12 +13,35 @@ Creating a tenant is a three-step atomic operation:
 
 1. **Insert tenant record** in `admin.tenants`
 2. **Provision schema** — creates a PostgreSQL schema, runs tenant-scope
-   migrations, and seeds system RBAC roles (`admin`, `manager`, `viewer`)
-3. **Create admin user** — inserts a `nap_user` with the provided email
-   and password, linked to the new tenant via `tenant_id`
+   migrations, seeds system RBAC roles (`admin`, `manager`, `viewer`),
+   and seeds `tenant_numbering_config` rows (all `is_enabled = false`)
+3. **Create admin user** — inserts an `employees` record with
+   `roles: ['admin']`, `is_app_user: true`, and `is_primary_contact: true`,
+   then a linked `nap_user` with the provided email and password. The
+   admin employee starts with `code = NULL`; numbering is configured and
+   backfilled later via Settings (see PRD §3.13.9). Note: the admin
+   employee is created via raw SQL (not through `employeesController`),
+   so no `sources` record is auto-created — the employee will not have
+   linked phone numbers or addresses until a source is manually added.
 
 If provisioning fails (step 2), the tenant record is soft-deleted as
 rollback. The caller receives a 500 with the provisioning error.
+
+## Contact Designation
+
+Primary and billing contacts are designated via boolean flags on the
+`employees` table — not via `nap_users` roles or a separate join table:
+
+- `is_primary_contact` — tenant's main point of contact
+- `is_billing_contact` — tenant's billing/invoicing contact
+- Both flags can be true on the same employee (e.g., small company owner)
+- Multiple employees can share the same flag (e.g., two billing contacts)
+
+The **View Details** dialog on the Manage Tenants page displays contacts
+via `GET /api/tenants/v1/tenants/:id/contacts`, which queries the
+tenant's schema for employees with either flag set and LEFT JOINs their
+primary phone number and address through the polymorphic `sources`
+pattern.
 
 ### Reserved Schema Names
 

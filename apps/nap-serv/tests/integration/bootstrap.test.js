@@ -107,7 +107,7 @@ describe('Bootstrap admin migration', () => {
 
   test('re-running bootstrap is idempotent', async () => {
     const { default: bootstrapMigration } = await import(
-      '../../src/modules/auth/schema/migrations/202502110001_bootstrapAdmin.js'
+      '../../src/system/auth/schema/migrations/202502110001_bootstrapAdmin.js'
     );
 
     const models = {};

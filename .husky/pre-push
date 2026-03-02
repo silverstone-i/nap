@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Running test suite before push..."
+npm -w apps/nap-serv run test:unit
+npm -w apps/nap-serv run test:contract
+npm -w apps/nap-serv run test:rbac
+npm -w apps/nap-serv run test:integration
+
+echo "All tests passed — push allowed."

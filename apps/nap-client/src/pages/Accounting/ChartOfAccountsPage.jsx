@@ -21,6 +21,9 @@ import {
   useChartOfAccounts, useCreateAccount, useUpdateAccount, useArchiveAccount, useRestoreAccount,
 } from '../../hooks/useAccounting.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const ACCT_TYPES = ['asset', 'liability', 'equity', 'income', 'expense', 'cash', 'bank'];
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
@@ -62,14 +65,11 @@ export default function ChartOfAccountsPage() {
   const archiveMut = useArchiveAccount();
   const restoreMut = useRestoreAccount();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -93,32 +93,43 @@ export default function ChartOfAccountsPage() {
   const handleUpdate = async () => {
     try { await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm }); toast('Account updated'); setEditOpen(false); } catch (err) { toast(errMsg(err), 'error'); }
   };
-  const handleArchive = async () => {
-    try { await archiveMut.mutateAsync({ id: selected.id }); toast('Account archived'); setArchiveOpen(false); setSelectionModel([]); } catch (err) { toast(errMsg(err), 'error'); }
-  };
-  const handleRestore = async () => {
-    try { await restoreMut.mutateAsync({ id: selected.id }); toast('Account restored'); setRestoreOpen(false); setSelectionModel([]); } catch (err) { toast(errMsg(err), 'error'); }
-  };
 
-  const toolbar = useMemo(() => ({
-    tabs: [
-      { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-      { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-      { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
-    ],
-    filters: [],
-    primaryActions: [
-      { label: 'Create Account', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-      { label: 'Edit', variant: 'outlined', disabled: !selected, onClick: openEdit },
-      { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
-      { label: 'Restore', variant: 'outlined', color: 'success', disabled: !selected || !isArchived, onClick: () => setRestoreOpen(true) },
-    ],
-  }), [selected, isArchived, viewFilter, openEdit]);
+  const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, restoreMut, entityName: 'account', setSelectionModel, toast, errMsg, getLabel: (r) => `${r.name} (${r.code})`,
+  });
+
+  const toolbar = useMemo(
+    () => ({
+      tabs: [
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+      ],
+      filters: [],
+      primaryActions: [
+        { label: 'Create Account', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
+      ],
+    }),
+    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen],
+  );
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection disableMultipleRowSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={setSelectionModel} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
+      <DataGrid
+        rows={rows}
+        columns={columns}
+        getRowId={(r) => r.id}
+        loading={isLoading}
+        checkboxSelection
+        rowSelectionModel={selectionModel}
+        onRowSelectionModelChange={onSelectionChange}
+        pageSizeOptions={[25, 50, 100]}
+        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+      />
 
       <FormDialog open={createOpen} title="Create Account" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Account Code" required value={createForm.code} onChange={onCreateField('code')} inputProps={{ maxLength: 16 }} />
@@ -136,8 +147,8 @@ export default function ChartOfAccountsPage() {
         </TextField>
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Account" message={selected ? `Archive "${selected.name}" (${selected.code})?` : ''} confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
-      <ConfirmDialog open={restoreOpen} title="Restore Account" message={selected ? `Restore "${selected.name}" (${selected.code})?` : ''} confirmLabel="Restore" confirmColor="success" loading={restoreMut.isPending} onConfirm={handleRestore} onCancel={() => setRestoreOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
+      <ConfirmDialog {...restoreConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

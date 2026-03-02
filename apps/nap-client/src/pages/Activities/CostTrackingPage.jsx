@@ -22,6 +22,9 @@ import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContex
 import { useActualCosts, useCreateActualCost, useUpdateActualCost, useArchiveActualCost } from '../../hooks/useActualCosts.js';
 import { useActivities } from '../../hooks/useActivities.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { buildBulkActions } from '../../utils/selectionUtils.js';
+import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { activity_id: '', project_id: '', amount: '', currency: 'USD', reference: '', incurred_on: '' };
 const BLANK_EDIT = { amount: '', currency: '', reference: '', approval_status: '', incurred_on: '' };
@@ -48,13 +51,11 @@ export default function CostTrackingPage() {
   const updateMut = useUpdateActualCost();
   const archiveMut = useArchiveActualCost();
 
-  const [selectionModel, setSelectionModel] = useState([]);
-  const selected = rows.find((r) => r.id === selectionModel[0]) ?? null;
-  const isArchived = !!selected?.deactivated_at;
+  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive } =
+    useDataGridSelection(rows);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -99,16 +100,9 @@ export default function CostTrackingPage() {
     }
   };
 
-  const handleArchive = async () => {
-    try {
-      await archiveMut.mutateAsync({ id: selected.id });
-      toast('Actual cost archived');
-      setArchiveOpen(false);
-      setSelectionModel([]);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
+  const { setArchiveOpen, archiveConfirmProps } = useArchiveRestore({
+    selectedRows, archiveMut, entityName: 'actual cost', entityNamePlural: 'actual costs', setSelectionModel, toast, errMsg,
+  });
 
   const columns = useMemo(
     () => [
@@ -145,11 +139,11 @@ export default function CostTrackingPage() {
       filters: [],
       primaryActions: [
         { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !selected || isArchived, onClick: openEdit },
-        { label: 'Archive', variant: 'outlined', color: 'error', disabled: !selected || isArchived, onClick: () => setArchiveOpen(true) },
+        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
+        ...buildBulkActions({ selectedRows, hasSelection, allActive, onArchive: () => setArchiveOpen(true) }),
       ],
     }),
-    [selected, isArchived, viewFilter, openEdit],
+    [isSingle, hasSelection, allActive, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -161,9 +155,8 @@ export default function CostTrackingPage() {
         getRowId={(r) => r.id}
         loading={isLoading}
         checkboxSelection
-        disableMultipleRowSelection
         rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={setSelectionModel}
+        onRowSelectionModelChange={onSelectionChange}
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
         getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
@@ -195,7 +188,7 @@ export default function CostTrackingPage() {
         </Box>
       </FormDialog>
 
-      <ConfirmDialog open={archiveOpen} title="Archive Actual Cost" message="Archive this actual cost record?" confirmLabel="Archive" confirmColor="error" loading={archiveMut.isPending} onConfirm={handleArchive} onCancel={() => setArchiveOpen(false)} />
+      <ConfirmDialog {...archiveConfirmProps} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>
