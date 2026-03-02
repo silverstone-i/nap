@@ -37,7 +37,8 @@ export async function provisionTenant({ schemaName, tenantCode, createdBy: _crea
 
   const normalized = schemaName.toLowerCase().trim();
 
-  if (normalized === 'admin' || normalized === 'public' || normalized === 'pgschemata') {
+  const RESERVED_SCHEMAS = new Set(['admin', 'public', 'pgschemata', 'pg_catalog', 'information_schema']);
+  if (RESERVED_SCHEMAS.has(normalized) || normalized.startsWith('pg_')) {
     throw new Error(`Cannot provision reserved schema "${normalized}"`);
   }
 

@@ -63,6 +63,14 @@ class TenantsController extends BaseController {
     }
 
     const schemaName = (schema_name || tenant_code).toLowerCase();
+
+    const SCHEMA_NAME_RE = /^[a-z][a-z0-9_]*$/;
+    if (!SCHEMA_NAME_RE.test(schemaName) || schemaName.length > 63) {
+      return res.status(400).json({
+        error: 'schema_name must start with a letter, contain only lowercase letters/digits/underscores, and not exceed 63 characters',
+      });
+    }
+
     const upperCode = tenant_code.toUpperCase();
 
     try {
