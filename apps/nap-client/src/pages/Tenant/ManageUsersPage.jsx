@@ -1,11 +1,11 @@
 /**
- * @file Manage Users page — DataGrid list with register / edit
+ * @file Manage Users page — read-only list with status & password management
  * @module nap-client/pages/Tenant/ManageUsersPage
  *
- * nap_users is a pure identity/authentication table. User lifecycle
- * (archive/restore) is managed through the linked entity (employee, vendor,
- * etc.) — not directly here. This page supports registration, status changes
- * (active/invited/locked), and password resets.
+ * nap_users is a pure identity/authentication table. User creation is handled
+ * at the entity level (e.g. employee is_app_user toggle). This page lets
+ * NapSoft admins view all app users, change status (active/invited/locked),
+ * and reset passwords.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -23,8 +23,7 @@ import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import PasswordField from '../../components/shared/PasswordField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
-import { useUsers, useRegisterUser, useUpdateUser } from '../../hooks/useUsers.js';
-import { useTenants } from '../../hooks/useTenants.js';
+import { useUsers, useUpdateUser } from '../../hooks/useUsers.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
 import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 
@@ -33,12 +32,6 @@ import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 const STATUS_OPTS = ['active', 'invited', 'locked'];
 
 /* ── Empty form shapes ────────────────────────────────────────── */
-
-const BLANK_REGISTER = {
-  tenant_id: '',
-  email: '',
-  password: '',
-};
 
 const BLANK_EDIT = {
   email: '',
@@ -89,25 +82,16 @@ export default function ManageUsersPage() {
   const { data: usersRes, isLoading } = useUsers();
   const rows = usersRes?.rows ?? [];
 
-  const { data: tenantsRes } = useTenants({ limit: 200 });
-  const activeTenants = useMemo(
-    () => (tenantsRes?.rows ?? []).filter((t) => !t.deactivated_at),
-    [tenantsRes],
-  );
-
   /* ── mutations ───────────────────────────────────────────── */
-  const registerMut = useRegisterUser();
   const updateMut = useUpdateUser();
 
   /* ── selection ───────────────────────────────────────────── */
   const { selectionModel, onSelectionChange, selectedRows, selected, isSingle } = useDataGridSelection(rows, 'user');
 
   /* ── dialog state ────────────────────────────────────────── */
-  const [registerOpen, setRegisterOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
   /* ── form state ──────────────────────────────────────────── */
-  const [regForm, setRegForm] = useState(BLANK_REGISTER);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
 
   /* ── snackbar ────────────────────────────────────────────── */
@@ -116,7 +100,6 @@ export default function ManageUsersPage() {
   const errMsg = (err) => err.payload?.error || err.payload?.message || err.message;
 
   /* ── field change factories ──────────────────────────────── */
-  const onRegField = (f) => (e) => setRegForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
   const openEdit = useCallback(() => {
@@ -130,21 +113,6 @@ export default function ManageUsersPage() {
   }, [selected]);
 
   /* ── CRUD handlers ───────────────────────────────────────── */
-  const handleRegister = async () => {
-    try {
-      await registerMut.mutateAsync({
-        tenant_id: regForm.tenant_id,
-        email: regForm.email,
-        password: regForm.password,
-      });
-      toast('User registered');
-      setRegisterOpen(false);
-      setRegForm(BLANK_REGISTER);
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    }
-  };
-
   const handleUpdate = async () => {
     try {
       const { password, ...fields } = editForm;
@@ -166,15 +134,6 @@ export default function ManageUsersPage() {
       tabs: [],
       filters: [],
       primaryActions: [
-        {
-          label: 'Register User',
-          variant: 'contained',
-          color: 'primary',
-          onClick: () => {
-            setRegForm(BLANK_REGISTER);
-            setRegisterOpen(true);
-          },
-        },
         { label: 'Edit User', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
       ],
     }),
@@ -196,44 +155,6 @@ export default function ManageUsersPage() {
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
       />
-
-      {/* ── Register Dialog ────────────────────────────────── */}
-      <FormDialog
-        open={registerOpen}
-        title="Register User"
-        submitLabel="Register"
-        loading={registerMut.isPending}
-        onSubmit={handleRegister}
-        onCancel={() => setRegisterOpen(false)}
-      >
-        <TextField
-          label="Tenant"
-          select
-          required
-          value={regForm.tenant_id}
-          onChange={onRegField('tenant_id')}
-          helperText="Select the tenant this user belongs to"
-        >
-          {activeTenants.map((t) => (
-            <MenuItem key={t.id} value={t.id}>
-              {t.company || t.tenant_code} ({t.tenant_code})
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          label="Email"
-          type="email"
-          required
-          value={regForm.email}
-          onChange={onRegField('email')}
-        />
-        <PasswordField
-          label="Password"
-          required
-          value={regForm.password}
-          onChange={onRegField('password')}
-        />
-      </FormDialog>
 
       {/* ── Edit Dialog ────────────────────────────────────── */}
       <FormDialog
