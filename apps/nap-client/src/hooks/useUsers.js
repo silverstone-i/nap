@@ -14,7 +14,7 @@ import { userApi } from '../services/userApi.js';
 const USERS_KEY = ['nap-users'];
 
 /** Fetch users with cursor-based pagination. */
-export function useUsers(params = { limit: 200, includeDeactivated: 'true' }) {
+export function useUsers(params = { limit: 200 }) {
   return useQuery({
     queryKey: [...USERS_KEY, params],
     queryFn: () => userApi.list(params),
