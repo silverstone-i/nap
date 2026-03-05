@@ -36,3 +36,27 @@ export function useSyncFieldGroupGrants() {
     },
   });
 }
+
+export function useCreateFieldGroupDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => fieldGroupApi.createDefinition(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DEFINITIONS_KEY }),
+  });
+}
+
+export function useUpdateFieldGroupDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, changes }) => fieldGroupApi.updateDefinition(id, changes),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DEFINITIONS_KEY }),
+  });
+}
+
+export function useDeleteFieldGroupDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => fieldGroupApi.archiveDefinition(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DEFINITIONS_KEY }),
+  });
+}

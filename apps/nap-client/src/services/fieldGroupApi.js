@@ -19,6 +19,9 @@ const qs = (params) => {
 
 export const fieldGroupApi = {
   listDefinitions: (params = {}) => client.get(`${DEF_BASE}${qs(params)}`),
+  createDefinition: (body) => client.post(DEF_BASE, body),
+  updateDefinition: (id, body) => client.put(`${DEF_BASE}/update${qs({ id })}`, body),
+  archiveDefinition: (id) => client.delete(`${DEF_BASE}/archive${qs({ id })}`),
   listGrantsForRole: (roleId) => client.get(`${GRANT_BASE}/where${qs({ role_id: roleId })}`),
   syncGrantsForRole: (roleId, grantIds) =>
     client.put(`${GRANT_BASE}/sync-for-role`, { role_id: roleId, grant_ids: grantIds }),
