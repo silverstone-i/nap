@@ -3,7 +3,7 @@
  * @module accounting/schemas/journalEntriesSchema
  *
  * Journal entries with status workflow: pending → posted → reversed.
- * Self-referential corrects_id added via ALTER TABLE in migration.
+ * Self-referential corrects_id FK defined inline — createTable() handles it natively.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -45,7 +45,12 @@ const journalEntriesSchema = {
         references: { table: 'projects', columns: ['id'] },
         onDelete: 'SET NULL',
       },
-      // corrects_id self-ref FK added via ALTER TABLE in migration
+      {
+        type: 'ForeignKey',
+        columns: ['corrects_id'],
+        references: { table: 'journal_entries', columns: ['id'] },
+        onDelete: 'SET NULL',
+      },
     ],
     indexes: [
       { type: 'Index', columns: ['tenant_id'] },

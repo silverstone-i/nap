@@ -4,7 +4,7 @@
  *
  * Tables created in FK dependency order:
  *   chart_of_accounts (no deps)
- *   journal_entries (corrects_id self-ref added via ALTER TABLE)
+ *   journal_entries (corrects_id self-ref FK defined in schema)
  *   journal_entry_lines → journal_entries, chart_of_accounts
  *   ledger_balances → chart_of_accounts
  *   posting_queues → journal_entries
@@ -34,9 +34,8 @@ export default defineMigration({
   id: '202502110070-accounting-tables',
   description: 'Create Accounting / GL module tables',
 
-  async up({ schema, models, db, pgp }) {
+  async up({ schema, models }) {
     if (schema === 'admin') return;
-    const s = pgp.as.name(schema);
 
     for (const key of ACCOUNTING_MODELS) {
       const model = models[key];
@@ -44,14 +43,6 @@ export default defineMigration({
         await model.createTable();
       }
     }
-
-    // Add self-referential FK for corrects_id after journal_entries table exists
-    await db.none(`
-      ALTER TABLE ${s}.journal_entries
-      ADD CONSTRAINT fk_journal_entries_corrects
-      FOREIGN KEY (corrects_id) REFERENCES ${s}.journal_entries(id)
-      ON DELETE SET NULL
-    `);
   },
 
   async down({ schema, models, db, pgp }) {

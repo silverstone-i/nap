@@ -6,6 +6,5 @@
  */
 
 import activityTables from './202502110040_activityTables.js';
-import statusChecks from './202503050041_statusChecks.js';
 
-export default [activityTables, statusChecks];
+export default [activityTables];
