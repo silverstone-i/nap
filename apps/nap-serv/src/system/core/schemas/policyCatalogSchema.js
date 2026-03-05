@@ -28,6 +28,7 @@ const policyCatalogSchema = {
     { name: 'description', type: 'varchar(512)', default: null },
     { name: 'sort_order', type: 'integer', notNull: true, default: 0 },
     { name: 'valid_statuses', type: 'text[]', default: null },
+    { name: 'available_fields', type: 'text[]', default: null },
   ],
   constraints: {
     primaryKey: ['id'],
