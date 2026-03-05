@@ -16,6 +16,9 @@ import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -49,6 +52,7 @@ export default function StateFilterEditor({ roleId, readOnly = false }) {
   const [newModule, setNewModule] = useState('');
   const [newRouter, setNewRouter] = useState('');
   const [newStatuses, setNewStatuses] = useState('');
+  const [newStatusesArr, setNewStatusesArr] = useState([]);
 
   const serverFilters = useMemo(
     () => (filtersRes?.records ?? []).map((f) => ({
@@ -70,14 +74,22 @@ export default function StateFilterEditor({ roleId, readOnly = false }) {
     [routerEntries, newModule],
   );
 
+  const selectedCatalogEntry = useMemo(
+    () => (newModule && newRouter ? catalogRows.find((e) => e.module === newModule && e.router === newRouter && e.action === null) : null),
+    [catalogRows, newModule, newRouter],
+  );
+  const validStatuses = selectedCatalogEntry?.valid_statuses;
+
   const handleRemove = useCallback((idx) => {
     setFilters((prev) => prev.filter((_, i) => i !== idx));
     setDirty(true);
   }, []);
 
   const handleAdd = useCallback(() => {
-    if (!newModule || !newRouter || !newStatuses.trim()) return;
-    const statuses = newStatuses.split(',').map((s) => s.trim()).filter(Boolean);
+    if (!newModule || !newRouter) return;
+    const statuses = validStatuses
+      ? newStatusesArr
+      : newStatuses.split(',').map((s) => s.trim()).filter(Boolean);
     if (!statuses.length) return;
     setFilters((prev) => [...prev, { module: newModule, router: newRouter, visible_statuses: statuses }]);
     setDirty(true);
@@ -85,7 +97,8 @@ export default function StateFilterEditor({ roleId, readOnly = false }) {
     setNewModule('');
     setNewRouter('');
     setNewStatuses('');
-  }, [newModule, newRouter, newStatuses]);
+    setNewStatusesArr([]);
+  }, [newModule, newRouter, newStatuses, newStatusesArr, validStatuses]);
 
   const handleDiscard = useCallback(() => {
     setFilters(serverFilters);
@@ -173,7 +186,7 @@ export default function StateFilterEditor({ roleId, readOnly = false }) {
             label="Module"
             size="small"
             value={newModule}
-            onChange={(e) => { setNewModule(e.target.value); setNewRouter(''); }}
+            onChange={(e) => { setNewModule(e.target.value); setNewRouter(''); setNewStatusesArr([]); }}
             sx={{ minWidth: 140 }}
           >
             {modules.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
@@ -183,20 +196,48 @@ export default function StateFilterEditor({ roleId, readOnly = false }) {
             label="Resource"
             size="small"
             value={newRouter}
-            onChange={(e) => setNewRouter(e.target.value)}
+            onChange={(e) => { setNewRouter(e.target.value); setNewStatusesArr([]); }}
             disabled={!newModule}
             sx={{ minWidth: 180 }}
           >
             {routersForModule.map((e) => <MenuItem key={e.router} value={e.router}>{e.label}</MenuItem>)}
           </TextField>
-          <TextField
-            label="Statuses (comma-separated)"
+          {validStatuses ? (
+            <FormGroup row sx={{ flex: 1, gap: 0 }}>
+              {validStatuses.map((s) => (
+                <FormControlLabel
+                  key={s}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={newStatusesArr.includes(s)}
+                      onChange={(e) => {
+                        setNewStatusesArr((prev) =>
+                          e.target.checked ? [...prev, s] : prev.filter((v) => v !== s),
+                        );
+                      }}
+                    />
+                  }
+                  label={s}
+                  sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.8125rem' } }}
+                />
+              ))}
+            </FormGroup>
+          ) : (
+            <TextField
+              label="Statuses (comma-separated)"
+              size="small"
+              value={newStatuses}
+              onChange={(e) => setNewStatuses(e.target.value)}
+              sx={{ flex: 1 }}
+            />
+          )}
+          <Button
             size="small"
-            value={newStatuses}
-            onChange={(e) => setNewStatuses(e.target.value)}
-            sx={{ flex: 1 }}
-          />
-          <Button size="small" variant="contained" onClick={handleAdd} disabled={!newModule || !newRouter || !newStatuses.trim()}>
+            variant="contained"
+            onClick={handleAdd}
+            disabled={!newModule || !newRouter || (validStatuses ? !newStatusesArr.length : !newStatuses.trim())}
+          >
             Add
           </Button>
           <Button size="small" onClick={() => setAdding(false)}>Cancel</Button>
