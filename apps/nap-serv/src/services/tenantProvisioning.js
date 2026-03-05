@@ -81,7 +81,7 @@ export async function provisionTenant({ schemaName, tenantCode, createdBy: _crea
 
   // 5. Seed policy catalog (permission discovery for role-config UI)
   try {
-    await seedPolicyCatalog(DB.db, DB.pgp, normalized);
+    await seedPolicyCatalog(DB.db, DB.pgp, normalized, isNapsoft);
   } catch (err) {
     logger.warn(`Policy catalog seeding failed for "${normalized}":`, err?.message || err);
   }

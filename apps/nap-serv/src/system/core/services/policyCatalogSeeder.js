@@ -122,12 +122,15 @@ const CATALOG_ENTRIES = [
  * @param {object} dbInstance pg-promise database connection or transaction
  * @param {object} pgp pg-promise helpers
  * @param {string} schemaName Tenant schema name
+ * @param {boolean} [isNapsoft=false] Whether this is the NapSoft platform tenant
  */
-export async function seedPolicyCatalog(dbInstance, pgp, schemaName) {
+export async function seedPolicyCatalog(dbInstance, pgp, schemaName, isNapsoft = false) {
   const s = pgp.as.name(schemaName);
   let inserted = 0;
 
-  for (const entry of CATALOG_ENTRIES) {
+  const entries = isNapsoft ? CATALOG_ENTRIES : CATALOG_ENTRIES.filter((e) => e.module !== 'tenants');
+
+  for (const entry of entries) {
     const existing = await dbInstance.oneOrNone(
       `SELECT id FROM ${s}.policy_catalog
        WHERE module = $1 AND router IS NOT DISTINCT FROM $2 AND action IS NOT DISTINCT FROM $3`,
@@ -144,7 +147,7 @@ export async function seedPolicyCatalog(dbInstance, pgp, schemaName) {
     }
   }
 
-  logger.info(`Policy catalog seeded in ${schemaName}: ${inserted} new entries (${CATALOG_ENTRIES.length} total)`);
+  logger.info(`Policy catalog seeded in ${schemaName}: ${inserted} new entries (${entries.length} total)`);
 }
 
 export default { seedPolicyCatalog };
