@@ -6,5 +6,6 @@
  */
 
 import apTables from './202502110050_apTables.js';
+import statusChecks from './202503050051_statusChecks.js';
 
-export default [apTables];
+export default [apTables, statusChecks];

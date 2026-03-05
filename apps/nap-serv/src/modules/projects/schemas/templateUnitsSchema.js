@@ -24,6 +24,9 @@ const templateUnitsSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('draft', 'active')" },
+    ],
     indexes: [
       { type: 'Index', columns: ['tenant_id'] },
     ],

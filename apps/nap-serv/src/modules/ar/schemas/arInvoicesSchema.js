@@ -33,6 +33,9 @@ const arInvoicesSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('open', 'sent', 'paid', 'voided')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

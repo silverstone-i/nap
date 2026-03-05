@@ -6,5 +6,6 @@
  */
 
 import arTables from './202502110060_arTables.js';
+import statusChecks from './202503050061_statusChecks.js';
 
-export default [arTables];
+export default [arTables, statusChecks];

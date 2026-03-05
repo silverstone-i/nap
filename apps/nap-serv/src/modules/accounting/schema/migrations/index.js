@@ -6,5 +6,6 @@
  */
 
 import accountingTables from './202502110070_accountingTables.js';
+import statusChecks from './202503050071_statusChecks.js';
 
-export default [accountingTables];
+export default [accountingTables, statusChecks];

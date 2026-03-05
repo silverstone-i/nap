@@ -27,6 +27,9 @@ const deliverablesSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('pending', 'released', 'finished', 'canceled')" },
+    ],
     indexes: [
       { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['status'] },

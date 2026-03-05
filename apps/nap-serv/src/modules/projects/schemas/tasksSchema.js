@@ -26,6 +26,9 @@ const tasksSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('pending', 'in_progress', 'complete', 'on_hold')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

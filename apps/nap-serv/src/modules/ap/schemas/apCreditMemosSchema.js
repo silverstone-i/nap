@@ -28,6 +28,9 @@ const apCreditMemosSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('open', 'applied', 'voided')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

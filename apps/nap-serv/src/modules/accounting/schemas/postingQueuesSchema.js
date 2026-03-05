@@ -25,6 +25,9 @@ const postingQueuesSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('pending', 'posted', 'failed')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

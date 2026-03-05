@@ -32,6 +32,9 @@ const projectsSchema = {
   constraints: {
     primaryKey: ['id'],
     unique: [['tenant_id', 'project_code']],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('planning', 'budgeting', 'released', 'on_hold', 'complete')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

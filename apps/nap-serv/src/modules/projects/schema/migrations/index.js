@@ -6,5 +6,6 @@
  */
 
 import projectEntities from './202502110020_projectEntities.js';
+import statusChecks from './202503050021_statusChecks.js';
 
-export default [projectEntities];
+export default [projectEntities, statusChecks];

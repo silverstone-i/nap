@@ -42,15 +42,15 @@ const CATALOG_ENTRIES = [
 
   // ── Projects ────────────────────────────────────────────────────
   { module: 'projects', router: null, action: null, label: 'Projects Module', description: 'Project structure, tasks, cost items, and templates', sort_order: 300 },
-  { module: 'projects', router: 'projects', action: null, label: 'Projects', description: 'Project header records', sort_order: 310 },
+  { module: 'projects', router: 'projects', action: null, label: 'Projects', description: 'Project header records', sort_order: 310, valid_statuses: ['planning', 'budgeting', 'released', 'on_hold', 'complete'] },
   { module: 'projects', router: 'project-clients', action: null, label: 'Project Clients', description: 'Client assignments per project', sort_order: 320 },
-  { module: 'projects', router: 'units', action: null, label: 'Units', description: 'Project units / phases', sort_order: 330 },
+  { module: 'projects', router: 'units', action: null, label: 'Units', description: 'Project units / phases', sort_order: 330, valid_statuses: ['draft', 'released', 'complete'] },
   { module: 'projects', router: 'task-groups', action: null, label: 'Task Groups', description: 'Task grouping containers', sort_order: 340 },
   { module: 'projects', router: 'tasks-master', action: null, label: 'Tasks Master', description: 'Master task definitions', sort_order: 350 },
-  { module: 'projects', router: 'tasks', action: null, label: 'Tasks', description: 'Project tasks', sort_order: 360 },
+  { module: 'projects', router: 'tasks', action: null, label: 'Tasks', description: 'Project tasks', sort_order: 360, valid_statuses: ['pending', 'in_progress', 'complete', 'on_hold'] },
   { module: 'projects', router: 'cost-items', action: null, label: 'Cost Items', description: 'Budget line items per task', sort_order: 370 },
-  { module: 'projects', router: 'change-orders', action: null, label: 'Change Orders', description: 'Scope and cost change orders', sort_order: 380 },
-  { module: 'projects', router: 'template-units', action: null, label: 'Template Units', description: 'Reusable unit blueprints', sort_order: 390 },
+  { module: 'projects', router: 'change-orders', action: null, label: 'Change Orders', description: 'Scope and cost change orders', sort_order: 380, valid_statuses: ['draft', 'submitted', 'approved', 'rejected'] },
+  { module: 'projects', router: 'template-units', action: null, label: 'Template Units', description: 'Reusable unit blueprints', sort_order: 390, valid_statuses: ['draft', 'active'] },
   { module: 'projects', router: 'template-tasks', action: null, label: 'Template Tasks', description: 'Reusable task blueprints', sort_order: 400 },
   { module: 'projects', router: 'template-cost-items', action: null, label: 'Template Cost Items', description: 'Reusable cost item blueprints', sort_order: 410 },
   { module: 'projects', router: 'template-change-orders', action: null, label: 'Template Change Orders', description: 'Reusable change order blueprints', sort_order: 420 },
@@ -59,11 +59,11 @@ const CATALOG_ENTRIES = [
   { module: 'activities', router: null, action: null, label: 'Activities Module', description: 'Categories, deliverables, budgets, and cost tracking', sort_order: 500 },
   { module: 'activities', router: 'categories', action: null, label: 'Categories', description: 'Activity cost categories', sort_order: 510 },
   { module: 'activities', router: 'activities', action: null, label: 'Activities', description: 'Activity records', sort_order: 520 },
-  { module: 'activities', router: 'deliverables', action: null, label: 'Deliverables', description: 'Project deliverables', sort_order: 530 },
+  { module: 'activities', router: 'deliverables', action: null, label: 'Deliverables', description: 'Project deliverables', sort_order: 530, valid_statuses: ['pending', 'released', 'finished', 'canceled'] },
   { module: 'activities', router: 'deliverable-assignments', action: null, label: 'Deliverable Assignments', description: 'Employee assignments to deliverables', sort_order: 540 },
-  { module: 'activities', router: 'budgets', action: null, label: 'Budgets', description: 'Deliverable-activity budget allocations', sort_order: 550 },
-  { module: 'activities', router: 'cost-lines', action: null, label: 'Cost Lines', description: 'Individual cost entries per deliverable', sort_order: 560 },
-  { module: 'activities', router: 'actual-costs', action: null, label: 'Actual Costs', description: 'Confirmed expenditures', sort_order: 570 },
+  { module: 'activities', router: 'budgets', action: null, label: 'Budgets', description: 'Deliverable-activity budget allocations', sort_order: 550, valid_statuses: ['draft', 'submitted', 'approved', 'locked', 'rejected'] },
+  { module: 'activities', router: 'cost-lines', action: null, label: 'Cost Lines', description: 'Individual cost entries per deliverable', sort_order: 560, valid_statuses: ['draft', 'submitted', 'approved', 'change_order'] },
+  { module: 'activities', router: 'actual-costs', action: null, label: 'Actual Costs', description: 'Confirmed expenditures', sort_order: 570, valid_statuses: ['pending', 'approved', 'rejected'] },
   { module: 'activities', router: 'vendor-parts', action: null, label: 'Vendor Parts', description: 'Vendor SKU links to cost lines', sort_order: 580 },
 
   // ── BOM ─────────────────────────────────────────────────────────
@@ -74,27 +74,27 @@ const CATALOG_ENTRIES = [
 
   // ── AP ──────────────────────────────────────────────────────────
   { module: 'ap', router: null, action: null, label: 'AP Module', description: 'Accounts payable — vendor invoices and payments', sort_order: 700 },
-  { module: 'ap', router: 'ap-invoices', action: null, label: 'AP Invoices', description: 'Vendor invoices', sort_order: 710 },
+  { module: 'ap', router: 'ap-invoices', action: null, label: 'AP Invoices', description: 'Vendor invoices', sort_order: 710, valid_statuses: ['open', 'approved', 'paid', 'voided'] },
   { module: 'ap', router: 'ap-invoice-lines', action: null, label: 'AP Invoice Lines', description: 'Line items on vendor invoices', sort_order: 720 },
   { module: 'ap', router: 'payments', action: null, label: 'Payments', description: 'Vendor payments', sort_order: 730 },
-  { module: 'ap', router: 'ap-credit-memos', action: null, label: 'AP Credit Memos', description: 'Vendor credit memos', sort_order: 740 },
+  { module: 'ap', router: 'ap-credit-memos', action: null, label: 'AP Credit Memos', description: 'Vendor credit memos', sort_order: 740, valid_statuses: ['open', 'applied', 'voided'] },
 
   // ── AR ──────────────────────────────────────────────────────────
   { module: 'ar', router: null, action: null, label: 'AR Module', description: 'Accounts receivable — client invoices and receipts', sort_order: 800 },
-  { module: 'ar', router: 'ar-invoices', action: null, label: 'AR Invoices', description: 'Client invoices', sort_order: 810 },
+  { module: 'ar', router: 'ar-invoices', action: null, label: 'AR Invoices', description: 'Client invoices', sort_order: 810, valid_statuses: ['open', 'sent', 'paid', 'voided'] },
   { module: 'ar', router: 'ar-invoice-lines', action: null, label: 'AR Invoice Lines', description: 'Line items on client invoices', sort_order: 820 },
   { module: 'ar', router: 'receipts', action: null, label: 'Receipts', description: 'Client payment receipts', sort_order: 830 },
 
   // ── Accounting ──────────────────────────────────────────────────
   { module: 'accounting', router: null, action: null, label: 'Accounting Module', description: 'General ledger, journal entries, and intercompany accounting', sort_order: 900 },
   { module: 'accounting', router: 'chart-of-accounts', action: null, label: 'Chart of Accounts', description: 'GL account definitions', sort_order: 910 },
-  { module: 'accounting', router: 'journal-entries', action: null, label: 'Journal Entries', description: 'Double-entry journal headers', sort_order: 920 },
+  { module: 'accounting', router: 'journal-entries', action: null, label: 'Journal Entries', description: 'Double-entry journal headers', sort_order: 920, valid_statuses: ['pending', 'posted', 'reversed'] },
   { module: 'accounting', router: 'journal-entry-lines', action: null, label: 'Journal Entry Lines', description: 'Debit/credit lines per journal entry', sort_order: 930 },
   { module: 'accounting', router: 'ledger-balances', action: null, label: 'Ledger Balances', description: 'Period-end account balances', sort_order: 940 },
-  { module: 'accounting', router: 'posting-queues', action: null, label: 'Posting Queues', description: 'Async journal entry posting queue', sort_order: 950 },
+  { module: 'accounting', router: 'posting-queues', action: null, label: 'Posting Queues', description: 'Async journal entry posting queue', sort_order: 950, valid_statuses: ['pending', 'posted', 'failed'] },
   { module: 'accounting', router: 'category-account-map', action: null, label: 'Category Account Map', description: 'Maps cost categories to GL accounts', sort_order: 960 },
   { module: 'accounting', router: 'inter-company-accounts', action: null, label: 'Inter-Company Accounts', description: 'Due-to / due-from account pairs', sort_order: 970 },
-  { module: 'accounting', router: 'inter-company-transactions', action: null, label: 'Inter-Company Transactions', description: 'Intercompany transaction records', sort_order: 980 },
+  { module: 'accounting', router: 'inter-company-transactions', action: null, label: 'Inter-Company Transactions', description: 'Intercompany transaction records', sort_order: 980, valid_statuses: ['pending', 'posted', 'reversed'] },
   { module: 'accounting', router: 'internal-transfers', action: null, label: 'Internal Transfers', description: 'Cash transfers between company accounts', sort_order: 990 },
 
   // ── Reports ─────────────────────────────────────────────────────
@@ -139,9 +139,9 @@ export async function seedPolicyCatalog(dbInstance, pgp, schemaName, isNapsoft =
 
     if (!existing) {
       await dbInstance.none(
-        `INSERT INTO ${s}.policy_catalog (module, router, action, label, description, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [entry.module, entry.router, entry.action, entry.label, entry.description, entry.sort_order],
+        `INSERT INTO ${s}.policy_catalog (module, router, action, label, description, sort_order, valid_statuses)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [entry.module, entry.router, entry.action, entry.label, entry.description, entry.sort_order, entry.valid_statuses || null],
       );
       inserted++;
     }

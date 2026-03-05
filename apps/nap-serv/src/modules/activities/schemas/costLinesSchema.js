@@ -40,6 +40,7 @@ const costLinesSchema = {
     primaryKey: ['id'],
     checks: [
       { type: 'Check', columns: ['source_type'], expression: "source_type IN ('material', 'labor')" },
+      { type: 'Check', columns: ['status'], expression: "status IN ('draft', 'submitted', 'approved', 'change_order')" },
     ],
     foreignKeys: [
       {

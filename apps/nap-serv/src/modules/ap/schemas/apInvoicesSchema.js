@@ -31,6 +31,9 @@ const apInvoicesSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('open', 'approved', 'paid', 'voided')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

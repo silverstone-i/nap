@@ -30,6 +30,9 @@ const interCompanyTransactionsSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('pending', 'posted', 'reversed')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',
