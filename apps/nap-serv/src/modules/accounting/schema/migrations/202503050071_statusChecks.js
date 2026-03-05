@@ -13,14 +13,16 @@ export default defineMigration({
   async up({ schema, db, pgp }) {
     if (schema === 'admin') return;
     const s = pgp.as.name(schema);
-    await db.none(
-      `ALTER TABLE ${s}.journal_entries ADD CONSTRAINT journal_entries_status_check CHECK (status IN ('pending', 'posted', 'reversed'))`,
-    );
-    await db.none(
-      `ALTER TABLE ${s}.posting_queues ADD CONSTRAINT posting_queues_status_check CHECK (status IN ('pending', 'posted', 'failed'))`,
-    );
-    await db.none(
-      `ALTER TABLE ${s}.inter_company_transactions ADD CONSTRAINT inter_company_transactions_status_check CHECK (status IN ('pending', 'posted', 'reversed'))`,
+    const addCheck = (table, name, expr) =>
+      db.none(
+        `DO $$ BEGIN ALTER TABLE ${s}.${table} ADD CONSTRAINT ${name} CHECK (${expr}); EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      );
+    await addCheck('journal_entries', 'journal_entries_status_check', "status IN ('pending','posted','reversed')");
+    await addCheck('posting_queues', 'posting_queues_status_check', "status IN ('pending','posted','failed')");
+    await addCheck(
+      'inter_company_transactions',
+      'inter_company_transactions_status_check',
+      "status IN ('pending','posted','reversed')",
     );
   },
   async down({ schema, db, pgp }) {

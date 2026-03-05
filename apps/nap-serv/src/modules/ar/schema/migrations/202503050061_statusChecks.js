@@ -13,9 +13,11 @@ export default defineMigration({
   async up({ schema, db, pgp }) {
     if (schema === 'admin') return;
     const s = pgp.as.name(schema);
-    await db.none(
-      `ALTER TABLE ${s}.ar_invoices ADD CONSTRAINT ar_invoices_status_check CHECK (status IN ('open', 'sent', 'paid', 'voided'))`,
-    );
+    const addCheck = (table, name, expr) =>
+      db.none(
+        `DO $$ BEGIN ALTER TABLE ${s}.${table} ADD CONSTRAINT ${name} CHECK (${expr}); EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      );
+    await addCheck('ar_invoices', 'ar_invoices_status_check', "status IN ('open','sent','paid','voided')");
   },
   async down({ schema, db, pgp }) {
     if (schema === 'admin') return;

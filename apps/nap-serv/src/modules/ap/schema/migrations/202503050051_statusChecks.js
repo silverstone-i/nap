@@ -13,12 +13,12 @@ export default defineMigration({
   async up({ schema, db, pgp }) {
     if (schema === 'admin') return;
     const s = pgp.as.name(schema);
-    await db.none(
-      `ALTER TABLE ${s}.ap_invoices ADD CONSTRAINT ap_invoices_status_check CHECK (status IN ('open', 'approved', 'paid', 'voided'))`,
-    );
-    await db.none(
-      `ALTER TABLE ${s}.ap_credit_memos ADD CONSTRAINT ap_credit_memos_status_check CHECK (status IN ('open', 'applied', 'voided'))`,
-    );
+    const addCheck = (table, name, expr) =>
+      db.none(
+        `DO $$ BEGIN ALTER TABLE ${s}.${table} ADD CONSTRAINT ${name} CHECK (${expr}); EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      );
+    await addCheck('ap_invoices', 'ap_invoices_status_check', "status IN ('open','approved','paid','voided')");
+    await addCheck('ap_credit_memos', 'ap_credit_memos_status_check', "status IN ('open','applied','voided')");
   },
   async down({ schema, db, pgp }) {
     if (schema === 'admin') return;
