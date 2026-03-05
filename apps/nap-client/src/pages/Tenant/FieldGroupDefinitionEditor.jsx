@@ -10,6 +10,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -36,6 +37,11 @@ import { usePolicyCatalog } from '../../hooks/usePolicies.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
+/** Convert snake_case column name to Title Case label. */
+function humanize(col) {
+  return col.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function resourceLabel(module, router, catalogRows) {
   const entry = catalogRows.find((e) => e.module === module && e.router === router && e.action === null);
   return entry?.label ?? `${module} > ${router}`;
@@ -61,7 +67,14 @@ function buildModuleRouterOptions(catalogRows) {
   return modules;
 }
 
-const BLANK_FORM = { module: '', router: '', group_name: '', columnsText: '', is_default: false };
+/** Look up available_fields for a given module + router from catalog rows. */
+function getAvailableFields(module, router, catalogRows) {
+  if (!module || !router) return [];
+  const entry = catalogRows.find((e) => e.module === module && e.router === router && e.action === null);
+  return entry?.available_fields ?? [];
+}
+
+const BLANK_FORM = { module: '', router: '', group_name: '', selectedColumns: [], is_default: false };
 
 /* ── Component ────────────────────────────────────────────────── */
 
@@ -87,6 +100,10 @@ export default function FieldGroupDefinitionEditor() {
 
   const isEditing = editingId !== null;
   const routerOptions = form.module ? moduleRouterMap.get(form.module) ?? [] : [];
+  const availableFields = useMemo(
+    () => getAvailableFields(form.module, form.router, catalogRows),
+    [form.module, form.router, catalogRows],
+  );
 
   /* ── field change factory ──────────────────────────────────── */
   const onField = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
@@ -104,22 +121,18 @@ export default function FieldGroupDefinitionEditor() {
       module: def.module,
       router: def.router ?? '',
       group_name: def.group_name,
-      columnsText: def.columns.join(', '),
+      selectedColumns: def.columns ?? [],
       is_default: def.is_default,
     });
     setFormOpen(true);
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    const columns = form.columnsText
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
     const body = {
       module: form.module,
       router: form.router || null,
       group_name: form.group_name,
-      columns,
+      columns: form.selectedColumns,
       is_default: form.is_default,
     };
 
@@ -212,7 +225,7 @@ export default function FieldGroupDefinitionEditor() {
         title={isEditing ? 'Edit Field Group' : 'Create Field Group'}
         submitLabel={isEditing ? 'Save Changes' : 'Create'}
         loading={createMut.isPending || updateMut.isPending}
-        submitDisabled={!form.module || !form.group_name || !form.columnsText.trim()}
+        submitDisabled={!form.module || !form.group_name || form.selectedColumns.length === 0}
         onSubmit={handleSubmit}
         onCancel={() => setFormOpen(false)}
       >
@@ -221,7 +234,7 @@ export default function FieldGroupDefinitionEditor() {
           select
           required
           value={form.module}
-          onChange={(e) => setForm((p) => ({ ...p, module: e.target.value, router: '' }))}
+          onChange={(e) => setForm((p) => ({ ...p, module: e.target.value, router: '', selectedColumns: [] }))}
           disabled={isEditing}
         >
           {[...moduleRouterMap.keys()].map((m) => (
@@ -232,7 +245,7 @@ export default function FieldGroupDefinitionEditor() {
           label="Router"
           select
           value={form.router}
-          onChange={onField('router')}
+          onChange={(e) => setForm((p) => ({ ...p, router: e.target.value, selectedColumns: [] }))}
           disabled={isEditing || routerOptions.length === 0}
         >
           <MenuItem value="">— None —</MenuItem>
@@ -247,13 +260,42 @@ export default function FieldGroupDefinitionEditor() {
           onChange={onField('group_name')}
           inputProps={{ maxLength: 64 }}
         />
-        <TextField
-          label="Columns (comma-separated)"
-          required
-          value={form.columnsText}
-          onChange={onField('columnsText')}
-          helperText="e.g. id, name, status, amount"
-        />
+        {availableFields.length > 0 ? (
+          <Autocomplete
+            multiple
+            options={availableFields}
+            value={form.selectedColumns}
+            onChange={(_e, newValue) => setForm((p) => ({ ...p, selectedColumns: newValue }))}
+            getOptionLabel={humanize}
+            disableCloseOnSelect
+            renderOption={(props, option, { selected }) => (
+              <li {...props}>
+                <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+                {humanize(option)}
+              </li>
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => <Chip {...getTagProps({ index })} key={option} label={humanize(option)} size="small" />)
+            }
+            renderInput={(params) => <TextField {...params} label="Columns" required />}
+          />
+        ) : (
+          <TextField
+            label="Columns (comma-separated)"
+            required
+            value={form.selectedColumns.join(', ')}
+            onChange={(e) =>
+              setForm((p) => ({
+                ...p,
+                selectedColumns: e.target.value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              }))
+            }
+            helperText="No available fields defined for this resource — enter column names manually"
+          />
+        )}
         <FormControlLabel
           control={
             <Checkbox
