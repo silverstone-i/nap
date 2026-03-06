@@ -109,6 +109,9 @@ class EmployeesController extends BaseController {
       const before = await this.model(schema).findById(employeeId);
       if (!before) return res.status(404).json({ error: `${this.errorLabel} not found` });
 
+      // Normalize empty code to null — avoids unique constraint violation on ''
+      if (!req.body.code) delete req.body.code;
+
       // Extract password before update — it's for nap_users, not the employees table
       const suppliedPassword = req.body.password;
       delete req.body.password;
@@ -132,6 +135,13 @@ class EmployeesController extends BaseController {
       } else if (wasAppUser && !isNowAppUser) {
         // Toggled OFF: archive the linked nap_user
         await this.#archiveAppUser(before.id, req);
+      } else if (wasAppUser && isNowAppUser && req.body.email && req.body.email !== before.email) {
+        // Email changed on an existing app user — sync to nap_users
+        await db.none(
+          `UPDATE admin.nap_users SET email = $1, updated_by = $2
+           WHERE entity_type = 'employee' AND entity_id = $3 AND deactivated_at IS NULL`,
+          [req.body.email, req.user?.id || null, before.id],
+        );
       }
 
       res.json({ updatedRecords: count });
