@@ -57,6 +57,7 @@ export function useCreateTenant() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TENANTS_KEY });
       qc.invalidateQueries({ queryKey: TENANT_SCHEMAS_KEY });
+      qc.invalidateQueries({ queryKey: USERS_KEY });
     },
   });
 }
