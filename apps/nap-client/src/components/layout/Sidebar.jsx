@@ -44,7 +44,7 @@ export default function Sidebar() {
   const [flyout, setFlyout] = useState({ anchorEl: null, group: null });
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isNapSoftUser } = useAuth();
 
   const width = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
@@ -76,8 +76,11 @@ export default function Sidebar() {
       return capKeys.some((k) => k.startsWith(`${moduleKey}::`));
     };
 
-    return NAV_ITEMS.filter((group) => hasCap(group.capability));
-  }, [user]);
+    return NAV_ITEMS.filter((group) => {
+      if (group.napsoftOnly && !isNapSoftUser) return false;
+      return hasCap(group.capability);
+    });
+  }, [user, isNapSoftUser]);
 
   const toggleGroup = (label) => {
     setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
