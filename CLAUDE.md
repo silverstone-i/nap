@@ -4,7 +4,7 @@
 
 - **Never add `Co-Authored-By` lines** to commit messages — suppress the default trailer entirely
 - Husky pre-commit rejects mixed commits touching both `apps/nap-client/` and `apps/nap-serv/` — split into separate commits
-- Working branch: `dev`; PRs target `main`
+- Working branch: `dev`; PRs target `dev` (PRs to `main` only for releases)
 
 ## Project Overview
 
