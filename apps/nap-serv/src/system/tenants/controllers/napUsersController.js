@@ -19,7 +19,7 @@
 
 import bcrypt from 'bcrypt';
 import BaseController from '../../../lib/BaseController.js';
-import db from '../../../db/db.js';
+import db, { pgp } from '../../../db/db.js';
 import logger from '../../../lib/logger.js';
 
 class NapUsersController extends BaseController {
@@ -158,10 +158,23 @@ class NapUsersController extends BaseController {
         await db.none('UPDATE admin.nap_users SET password_hash = $/hash/ WHERE id = $/id/', { hash, id: userId });
       }
 
-      // Update scalar user columns (if any besides password)
-      if (Object.keys(userChanges).length) {
-        const count = await this.model('admin').updateWhere([{ ...req.query }], userChanges);
-        if (!count && !password) return res.status(404).json({ error: `${this.errorLabel} not found` });
+      // Update scalar user columns via raw SQL to avoid ColumnSet resetting
+      // entity_type / entity_id to NULL (their schema defaults).
+      // Only 'status' is an allowed mutable field from the UI.
+      const ALLOWED_FIELDS = new Set(['status']);
+      const safeChanges = Object.entries(userChanges).filter(([k]) => ALLOWED_FIELDS.has(k));
+
+      if (safeChanges.length) {
+        const setClauses = safeChanges.map(([k], i) => `${pgp.as.name(k)} = $${i + 1}`);
+        setClauses.push(`updated_by = $${safeChanges.length + 1}`);
+        setClauses.push(`updated_at = now()`);
+        const values = [...safeChanges.map(([, v]) => v), req.user?.id || null, userId];
+
+        const count = await db.result(
+          `UPDATE admin.nap_users SET ${setClauses.join(', ')} WHERE id = $${safeChanges.length + 2} AND deactivated_at IS NULL`,
+          values,
+        );
+        if (!count.rowCount && !password) return res.status(404).json({ error: `${this.errorLabel} not found` });
       }
 
       res.json({ message: `${this.errorLabel} updated` });
