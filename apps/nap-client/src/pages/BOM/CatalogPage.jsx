@@ -2,7 +2,7 @@
  * @file Catalog SKU management page — list, create, edit, archive/restore, embedding refresh
  * @module nap-client/pages/BOM/CatalogPage
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

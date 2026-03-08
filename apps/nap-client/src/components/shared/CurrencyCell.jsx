@@ -2,7 +2,7 @@
  * @file Currency display component for DataGrid cells
  * @module nap-client/components/shared/CurrencyCell
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import Typography from '@mui/material/Typography';

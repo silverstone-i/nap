@@ -5,7 +5,7 @@
  * Public routes: /login
  * Protected routes: wrapped in LayoutShell (redirects to /login if unauthenticated)
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';

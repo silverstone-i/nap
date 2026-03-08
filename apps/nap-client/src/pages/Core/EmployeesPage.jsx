@@ -2,7 +2,7 @@
  * @file Employees CRUD page — DataGrid + create/edit/archive/restore with is_app_user toggle
  * @module nap-client/pages/Core/EmployeesPage
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';

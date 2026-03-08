@@ -2,7 +2,7 @@
  * @file React Query hooks for BOM module (catalog SKUs, vendor SKUs, vendor pricing)
  * @module nap-client/hooks/useBom
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

@@ -2,7 +2,7 @@
  * @file Auth API methods — login, logout, refresh, getMe, check, changePassword
  * @module nap-client/services/authApi
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import client from './client.js';

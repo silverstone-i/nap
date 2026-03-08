@@ -6,7 +6,7 @@
  * Token-first: every magic number traces back to tokens.js.
  * Layout dimensions live in config/layoutTokens.js.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { createTheme } from '@mui/material/styles';

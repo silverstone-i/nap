@@ -2,7 +2,7 @@
  * @file React Query hooks for RBAC Layer 3 state filters
  * @module nap-client/hooks/useStateFilters
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

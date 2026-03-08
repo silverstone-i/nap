@@ -4,7 +4,7 @@
  *
  * Base paths: /core/v1/policies, /core/v1/policy-catalog
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { client } from './client.js';

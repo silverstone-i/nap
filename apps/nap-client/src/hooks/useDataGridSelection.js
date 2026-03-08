@@ -2,7 +2,7 @@
  * @file DataGrid multi-select hook — encapsulates selectionModel state + derived selection state
  * @module nap-client/hooks/useDataGridSelection
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState } from 'react';

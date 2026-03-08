@@ -5,7 +5,7 @@
  * Calls AuthContext.login() on submit. Redirects to /dashboard on success.
  * Displays error message for invalid credentials.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useRef, useEffect } from 'react';

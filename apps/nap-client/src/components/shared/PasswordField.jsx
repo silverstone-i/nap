@@ -5,7 +5,7 @@
  * Wraps MUI TextField and manages its own showPassword state.
  * All standard TextField props are forwarded.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState } from 'react';

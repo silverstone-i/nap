@@ -2,7 +2,7 @@
  * @file React Query hooks for task group data
  * @module nap-client/hooks/useTaskGroups
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

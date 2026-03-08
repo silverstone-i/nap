@@ -3,7 +3,7 @@
  *       category-account map, inter-company accounts/transactions, internal transfers)
  * @module nap-client/hooks/useAccounting
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

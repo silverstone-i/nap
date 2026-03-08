@@ -8,7 +8,7 @@
  * Roles with is_immutable=true are read-only across all tabs.
  * Roles with is_system=true are visually distinguished.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

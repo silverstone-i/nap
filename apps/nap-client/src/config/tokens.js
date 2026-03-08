@@ -6,7 +6,7 @@
  * and static contexts. Mode-dependent values (borders, surfaces, shadows)
  * are created via createTokens(mode) and consumed by the theme factory.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /* ── Mode-independent tokens ─────────────────────────────────── */

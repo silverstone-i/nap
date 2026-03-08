@@ -6,7 +6,7 @@
  * then retries the original request. Concurrent 401s share the same refresh
  * promise to avoid duplicate refresh calls.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 const BASE = '/api';

@@ -2,7 +2,7 @@
  * @file API service for tenant numbering configuration
  * @module nap-client/services/numberingConfigApi
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { client } from './client.js';

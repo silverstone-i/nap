@@ -5,7 +5,7 @@
  * Allows admins to restrict which record statuses are visible to a role
  * for specific resources. Empty state = all statuses visible.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useEffect, useCallback } from 'react';

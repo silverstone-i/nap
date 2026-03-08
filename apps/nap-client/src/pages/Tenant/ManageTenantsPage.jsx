@@ -7,7 +7,7 @@
  *
  * Adapted for pure identity nap_users — no tenant_role admin/billing contacts.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

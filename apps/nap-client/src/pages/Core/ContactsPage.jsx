@@ -4,7 +4,7 @@
  *
  * Contacts are linked to vendors/clients/employees via source_id.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

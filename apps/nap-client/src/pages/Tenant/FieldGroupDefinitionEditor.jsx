@@ -6,7 +6,7 @@
  * edit, and delete definitions. Each definition maps a group_name to an array of
  * column names for a specific resource.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';
