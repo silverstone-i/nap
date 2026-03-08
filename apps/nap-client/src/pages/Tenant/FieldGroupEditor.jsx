@@ -16,6 +16,8 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { createPortal } from 'react-dom';
+
 import { useFieldGroupDefinitions, useFieldGroupGrantsForRole, useSyncFieldGroupGrants } from '../../hooks/useFieldGroups.js';
 import { usePolicyCatalog } from '../../hooks/usePolicies.js';
 
@@ -38,7 +40,7 @@ function groupByResource(definitions) {
 
 /* ── Component ────────────────────────────────────────────────── */
 
-export default function FieldGroupEditor({ roleId, readOnly = false }) {
+export default function FieldGroupEditor({ roleId, readOnly = false, actionsContainer }) {
   const { data: defsRes, isLoading: defsLoading } = useFieldGroupDefinitions();
   const { data: grantsRes, isLoading: grantsLoading } = useFieldGroupGrantsForRole(roleId);
   const { data: catalogRes } = usePolicyCatalog();
@@ -97,20 +99,23 @@ export default function FieldGroupEditor({ roleId, readOnly = false }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {/* Action bar */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        {dirty && !readOnly && (
-          <Button size="small" variant="outlined" onClick={handleDiscard}>Discard</Button>
-        )}
-        <Button
-          size="small"
-          variant="contained"
-          disabled={!dirty || readOnly || syncMut.isPending}
-          onClick={handleSave}
-        >
-          {syncMut.isPending ? 'Saving\u2026' : 'Save Grants'}
-        </Button>
-      </Box>
+      {/* Action buttons — portalled to tab row */}
+      {actionsContainer && createPortal(
+        <>
+          {dirty && !readOnly && (
+            <Button size="small" variant="outlined" onClick={handleDiscard}>Discard</Button>
+          )}
+          <Button
+            size="small"
+            variant="contained"
+            disabled={!dirty || readOnly || syncMut.isPending}
+            onClick={handleSave}
+          >
+            {syncMut.isPending ? 'Saving\u2026' : 'Save Grants'}
+          </Button>
+        </>,
+        actionsContainer,
+      )}
 
       <Typography variant="caption" color="text.secondary">
         Default groups are always visible. Toggle non-default groups to grant column visibility.

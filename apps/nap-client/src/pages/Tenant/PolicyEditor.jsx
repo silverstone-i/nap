@@ -20,6 +20,8 @@ import Typography from '@mui/material/Typography';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { createPortal } from 'react-dom';
+
 import { usePolicyCatalog, usePoliciesForRole, useSyncPolicies } from '../../hooks/usePolicies.js';
 
 /* ── Helpers ──────────────────────────────────────────────────── */
@@ -92,7 +94,7 @@ function LevelSelector({ value, onChange, disabled }) {
 
 /* ── Component ────────────────────────────────────────────────── */
 
-export default function PolicyEditor({ roleId, readOnly = false }) {
+export default function PolicyEditor({ roleId, readOnly = false, actionsContainer }) {
   const { data: catalogRes, isLoading: catalogLoading } = usePolicyCatalog();
   const { data: policiesRes, isLoading: policiesLoading } = usePoliciesForRole(roleId);
   const syncMut = useSyncPolicies();
@@ -155,20 +157,23 @@ export default function PolicyEditor({ roleId, readOnly = false }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {/* Action bar */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        {dirty && !readOnly && (
-          <Button size="small" variant="outlined" onClick={handleDiscard}>Discard</Button>
-        )}
-        <Button
-          size="small"
-          variant="contained"
-          disabled={!dirty || readOnly || syncMut.isPending}
-          onClick={handleSave}
-        >
-          {syncMut.isPending ? 'Saving\u2026' : 'Save Policies'}
-        </Button>
-      </Box>
+      {/* Action buttons — portalled to tab row */}
+      {actionsContainer && createPortal(
+        <>
+          {dirty && !readOnly && (
+            <Button size="small" variant="outlined" onClick={handleDiscard}>Discard</Button>
+          )}
+          <Button
+            size="small"
+            variant="contained"
+            disabled={!dirty || readOnly || syncMut.isPending}
+            onClick={handleSave}
+          >
+            {syncMut.isPending ? 'Saving\u2026' : 'Save Policies'}
+          </Button>
+        </>,
+        actionsContainer,
+      )}
 
       {/* Legend */}
       <Typography variant="caption" color="text.secondary">

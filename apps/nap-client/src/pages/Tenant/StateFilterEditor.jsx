@@ -23,6 +23,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 
+import { createPortal } from 'react-dom';
+
 import { useStateFiltersForRole, useSyncStateFilters } from '../../hooks/useStateFilters.js';
 import { usePolicyCatalog } from '../../hooks/usePolicies.js';
 
@@ -35,7 +37,7 @@ function resourceLabel(module, router, catalogRows) {
 
 /* ── Component ────────────────────────────────────────────────── */
 
-export default function StateFilterEditor({ roleId, readOnly = false }) {
+export default function StateFilterEditor({ roleId, readOnly = false, actionsContainer }) {
   const { data: filtersRes, isLoading: filtersLoading } = useStateFiltersForRole(roleId);
   const { data: catalogRes } = usePolicyCatalog();
   const syncMut = useSyncStateFilters();
@@ -117,25 +119,28 @@ export default function StateFilterEditor({ roleId, readOnly = false }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {/* Action bar */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        {!readOnly && (
-          <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
-            Add Filter
+      {/* Action buttons — portalled to tab row */}
+      {actionsContainer && createPortal(
+        <>
+          {!readOnly && (
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
+              Add Filter
+            </Button>
+          )}
+          {dirty && !readOnly && (
+            <Button size="small" variant="outlined" onClick={handleDiscard}>Discard</Button>
+          )}
+          <Button
+            size="small"
+            variant="contained"
+            disabled={!dirty || readOnly || syncMut.isPending}
+            onClick={handleSave}
+          >
+            {syncMut.isPending ? 'Saving\u2026' : 'Save Filters'}
           </Button>
-        )}
-        {dirty && !readOnly && (
-          <Button size="small" variant="outlined" onClick={handleDiscard}>Discard</Button>
-        )}
-        <Button
-          size="small"
-          variant="contained"
-          disabled={!dirty || readOnly || syncMut.isPending}
-          onClick={handleSave}
-        >
-          {syncMut.isPending ? 'Saving\u2026' : 'Save Filters'}
-        </Button>
-      </Box>
+        </>,
+        actionsContainer,
+      )}
 
       <Typography variant="caption" color="text.secondary">
         State filters restrict which record statuses this role can see. No filters = all statuses visible.

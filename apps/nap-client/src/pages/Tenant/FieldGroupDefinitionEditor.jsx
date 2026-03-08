@@ -25,6 +25,8 @@ import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
+import { createPortal } from 'react-dom';
+
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import {
@@ -78,7 +80,7 @@ const BLANK_FORM = { module: '', router: '', group_name: '', selectedColumns: []
 
 /* ── Component ────────────────────────────────────────────────── */
 
-export default function FieldGroupDefinitionEditor({ readOnly = false }) {
+export default function FieldGroupDefinitionEditor({ readOnly = false, actionsContainer }) {
   const { data: defsRes, isLoading } = useFieldGroupDefinitions();
   const { data: catalogRes } = usePolicyCatalog();
   const createMut = useCreateFieldGroupDefinition();
@@ -164,14 +166,17 @@ export default function FieldGroupDefinitionEditor({ readOnly = false }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {/* Action bar */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        {!readOnly && (
-          <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-            Add Definition
-          </Button>
-        )}
-      </Box>
+      {/* Action button — portalled to tab row */}
+      {actionsContainer && createPortal(
+        <>
+          {!readOnly && (
+            <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+              Add Definition
+            </Button>
+          )}
+        </>,
+        actionsContainer,
+      )}
 
       <Typography variant="caption" color="text.secondary">
         Define named column groups per resource. Groups marked as default are visible to all roles.
