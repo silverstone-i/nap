@@ -6,7 +6,7 @@
  * Step 2: Select a user within that tenant.
  * Optionally enter a reason, then start impersonation.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useEffect } from 'react';

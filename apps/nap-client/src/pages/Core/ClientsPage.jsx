@@ -2,7 +2,7 @@
  * @file Clients CRUD page — DataGrid + create/edit/archive/restore
  * @module nap-client/pages/Core/ClientsPage
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

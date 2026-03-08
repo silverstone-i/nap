@@ -2,7 +2,7 @@
  * @file Vite configuration for nap-client
  * @module nap-client/vite.config
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineConfig } from 'vite';

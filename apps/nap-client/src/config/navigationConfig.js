@@ -5,7 +5,7 @@
  * Each nav group has a label, icon, and array of children.
  * Each child has a label, path, and optional capability guard.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import DashboardIcon from '@mui/icons-material/Dashboard';

@@ -5,7 +5,7 @@
  * Fetches available tenants from the admin/schemas endpoint and renders
  * a compact Select dropdown. Only rendered for NapSoft users.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Select, MenuItem, Chip } from '@mui/material';

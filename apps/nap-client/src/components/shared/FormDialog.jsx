@@ -5,7 +5,7 @@
  * Wraps children in a Dialog with a form element, Cancel and Submit buttons.
  * Pages inject TextField / Select controls as children.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import Box from '@mui/material/Box';

@@ -7,7 +7,7 @@
  * NapSoft admins view all app users, change status (active/invited/locked),
  * and reset passwords.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

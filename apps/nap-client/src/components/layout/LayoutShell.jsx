@@ -6,7 +6,7 @@
  * Shows loading spinner while auth is hydrating.
  * Renders: Sidebar | ImpersonationBanner + TenantBar + ModuleBar + Outlet
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Navigate, Outlet } from 'react-router-dom';

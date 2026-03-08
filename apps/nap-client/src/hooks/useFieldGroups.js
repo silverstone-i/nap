@@ -2,7 +2,7 @@
  * @file React Query hooks for RBAC Layer 4 field group definitions and grants
  * @module nap-client/hooks/useFieldGroups
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

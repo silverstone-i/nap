@@ -5,7 +5,7 @@
  * Reads the policy_catalog for structure, loads current policies for the selected
  * role, and renders a grouped accordion matrix with level selectors per entry.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useEffect, useCallback } from 'react';

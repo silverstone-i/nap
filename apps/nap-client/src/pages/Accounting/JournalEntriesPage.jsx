@@ -2,7 +2,7 @@
  * @file Journal Entries CRUD page — DataGrid + create/edit/post/reverse/archive/restore
  * @module nap-client/pages/Accounting/JournalEntriesPage
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

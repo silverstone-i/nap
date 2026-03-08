@@ -5,7 +5,7 @@
  * All report queries use a 30-second staleTime since report data
  * is less dynamic than CRUD entity data.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useQuery } from '@tanstack/react-query';

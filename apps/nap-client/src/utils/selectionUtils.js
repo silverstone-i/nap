@@ -2,7 +2,7 @@
  * @file Multi-select helpers — root-entity mutual exclusion & derived state
  * @module nap-client/utils/selectionUtils
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** Root tenant code from env (set in monorepo root .env). */

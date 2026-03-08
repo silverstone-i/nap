@@ -5,7 +5,7 @@
  * Dimensions and styling driven by layoutTokens.
  * Left zone: module name + breadcrumb trail. Right zone: tabs, filters, primary actions.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useMemo } from 'react';

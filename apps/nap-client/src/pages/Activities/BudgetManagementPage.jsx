@@ -5,7 +5,7 @@
  * Status workflow: draft → submitted → approved → locked | rejected
  * Approved budgets are read-only; new changes spawn a new version.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

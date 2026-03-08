@@ -2,7 +2,7 @@
  * @file Dashboard page — placeholder for Phase 2
  * @module nap-client/pages/DashboardPage
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Box, Typography, Card, CardContent, Button } from '@mui/material';

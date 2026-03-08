@@ -4,7 +4,7 @@
  *
  * Implements PRD §3.10.6 — per-project cashflow analysis.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo } from 'react';

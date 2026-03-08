@@ -4,7 +4,7 @@
  *
  * Implements PRD §3.10.6 — margin analysis with server-side sort via API params.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState } from 'react';

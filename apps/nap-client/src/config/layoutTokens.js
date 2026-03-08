@@ -5,7 +5,7 @@
  * Structural layout presets consumed by components via sx or style props.
  * Visual tokens (borders, surfaces, radii) live in tokens.js and theme.js.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { typographyTokens, density } from './tokens.js';

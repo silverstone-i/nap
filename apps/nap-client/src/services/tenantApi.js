@@ -5,7 +5,7 @@
  * All update/archive/restore endpoints read identifiers from query params.
  * Base path: /tenants/v1/tenants
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { client } from './client.js';

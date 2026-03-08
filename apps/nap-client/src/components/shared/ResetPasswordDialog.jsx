@@ -9,7 +9,7 @@
  *   employeeId    – UUID of the employee whose app-user password is being reset
  *   employeeName  – display name for the dialog title
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo } from 'react';

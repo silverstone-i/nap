@@ -5,7 +5,7 @@
  * Visual styling via theme overrides (MuiAppBar, MuiToolbar, MuiChip, MuiAvatar).
  * Layout positioning via layoutTokens.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState } from 'react';

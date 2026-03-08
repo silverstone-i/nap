@@ -4,7 +4,7 @@
  *
  * Accessed via /projects/:id. Shows project header and three sub-grids.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

@@ -2,7 +2,7 @@
  * @file React Query hooks for vendor data
  * @module nap-client/hooks/useVendors
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

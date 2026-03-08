@@ -2,7 +2,7 @@
  * @file Company cashflow summary page — summary cards + bar chart + monthly grid
  * @module nap-client/pages/Dashboard/CompanyCashflowPage
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useMemo } from 'react';

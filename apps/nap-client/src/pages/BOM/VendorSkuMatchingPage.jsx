@@ -2,7 +2,7 @@
  * @file Vendor SKU matching page — unmatched vendor SKUs, similarity matches, accept/reject/defer
  * @module nap-client/pages/BOM/VendorSkuMatchingPage
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';

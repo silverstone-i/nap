@@ -5,7 +5,7 @@
  * Pages call useModuleToolbarRegistration(config) to register their toolbar
  * items (tabs, filters, primaryActions). The ModuleBar reads these from context.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';

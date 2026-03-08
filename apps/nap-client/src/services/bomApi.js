@@ -2,7 +2,7 @@
  * @file BOM API methods — CRUD for catalog SKUs, vendor SKUs, vendor pricing + matching
  * @module nap-client/services/bomApi
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { client } from './client.js';
