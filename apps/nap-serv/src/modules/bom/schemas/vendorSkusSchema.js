@@ -6,7 +6,7 @@
  * linked to a catalog_sku via AI matching with a confidence score. The embedding
  * column (3072-dim pgvector) powers cosine similarity search.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

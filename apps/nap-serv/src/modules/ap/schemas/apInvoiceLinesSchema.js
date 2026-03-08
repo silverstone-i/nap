@@ -5,7 +5,7 @@
  * Individual line items on AP invoices. Each line references a GL account
  * and optionally links to a cost_line and activity for cost tracking.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

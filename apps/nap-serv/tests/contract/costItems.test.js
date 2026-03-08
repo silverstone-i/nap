@@ -5,7 +5,7 @@
  * Tests cost items scoped to a task: create, list, getById, update,
  * verify generated `amount` column (quantity * unit_cost), archive, restore.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

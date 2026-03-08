@@ -5,7 +5,7 @@
  * Mounts all project sub-routers under /v1/. Final paths are
  * /api/projects/v1/projects, /api/projects/v1/units, etc.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Router } from 'express';

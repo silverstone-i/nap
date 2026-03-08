@@ -2,7 +2,7 @@
  * @file Aggregated repository map built from module registry
  * @module nap-serv/db/repositories
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import moduleRegistry from './moduleRegistry.js';

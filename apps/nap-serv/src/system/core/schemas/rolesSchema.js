@@ -2,7 +2,7 @@
  * @file Schema definition for tenant-scope roles table (RBAC)
  * @module core/schemas/rolesSchema
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

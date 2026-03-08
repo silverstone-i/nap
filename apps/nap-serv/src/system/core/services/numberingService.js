@@ -6,7 +6,7 @@
  * (or will create its own). Returns { serial, periodKey, displayId } or null
  * when numbering is disabled for the given id_type.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import db, { pgp } from '../../../db/db.js';

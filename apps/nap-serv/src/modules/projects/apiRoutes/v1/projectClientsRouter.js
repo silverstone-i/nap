@@ -2,7 +2,7 @@
  * @file Project clients router — /api/projects/v1/project-clients
  * @module projects/apiRoutes/v1/projectClientsRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

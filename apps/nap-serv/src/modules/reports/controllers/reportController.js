@@ -6,7 +6,7 @@
  * handleError() for consistent error responses. No model binding — report
  * controllers use raw SQL via db.manyOrNone / db.oneOrNone against views.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import logger from '../../../lib/logger.js';

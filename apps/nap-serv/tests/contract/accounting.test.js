@@ -4,7 +4,7 @@
  *       inter-company-accounts, inter-company-transactions, internal-transfers
  * @module tests/contract/accounting
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

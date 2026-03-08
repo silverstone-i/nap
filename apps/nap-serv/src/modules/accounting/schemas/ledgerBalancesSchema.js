@@ -4,7 +4,7 @@
  *
  * Running account balances snapshotted by date. Append-only (no soft delete).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

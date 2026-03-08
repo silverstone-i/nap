@@ -2,7 +2,7 @@
  * @file Integration — GL posting: create journal entry → verify balance, double-entry validation
  * @module tests/integration/glPosting
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

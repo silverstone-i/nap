@@ -9,7 +9,7 @@
  * No audit fields or tenant_code — this is static application-level
  * reference data, identical across all tenants.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

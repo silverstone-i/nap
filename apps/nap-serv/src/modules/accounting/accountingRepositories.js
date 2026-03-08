@@ -2,7 +2,7 @@
  * @file Repository map for the Accounting module (tenant-scope)
  * @module accounting/accountingRepositories
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import ChartOfAccounts from './models/ChartOfAccounts.js';

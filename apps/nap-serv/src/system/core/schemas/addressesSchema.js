@@ -6,7 +6,7 @@
  * sources table (source_id FK with CASCADE delete). Field names follow
  * international address best practices per PRD.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

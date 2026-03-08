@@ -5,7 +5,7 @@
  * Payment records against AP invoices. Supports partial payments,
  * method tracking (check/ach/wire), and GL posting hooks.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

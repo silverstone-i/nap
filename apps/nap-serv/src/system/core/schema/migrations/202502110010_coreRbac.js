@@ -5,7 +5,7 @@
  * Creates: roles, policies, policy_catalog, state_filters,
  * field_group_definitions, field_group_grants, project_members, company_members
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineMigration } from '../../../../db/migrations/defineMigration.js';

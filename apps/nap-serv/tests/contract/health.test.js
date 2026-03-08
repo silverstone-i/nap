@@ -2,7 +2,7 @@
  * @file Contract test for health endpoint
  * @module nap-serv/tests/contract/health
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, it, expect } from 'vitest';

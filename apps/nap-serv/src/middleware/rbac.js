@@ -8,7 +8,7 @@
  * No bypass for super_user or admin — all users resolve through full
  * policy resolution. System roles achieve access via seeded policies.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import logger from '../lib/logger.js';

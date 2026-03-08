@@ -5,7 +5,7 @@
  * Tests the vendor API: create (auto-source), list, getById, update,
  * archive, restore. Requires a provisioned tenant schema.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

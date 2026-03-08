@@ -5,7 +5,7 @@
  * Uses pgvector cosine similarity to find and auto-assign catalog SKU matches
  * for vendor SKUs. Logs match decisions to admin.match_review_logs for audit.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import db, { pgp } from '../../../db/db.js';

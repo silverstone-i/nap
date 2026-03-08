@@ -5,7 +5,7 @@
  * Fire-and-forget semantics: errors are logged but never thrown.
  * If Redis is unavailable the 15-minute TTL handles eventual consistency.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import db, { pgp } from '../db/db.js';

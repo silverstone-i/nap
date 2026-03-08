@@ -5,7 +5,7 @@
  * Tasks belong to a unit. Self-referential parent_task_id allows hierarchy.
  * Status workflow: pending → in_progress → complete.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

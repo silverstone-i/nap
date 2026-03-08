@@ -2,7 +2,7 @@
  * @file Tenants module route aggregator — mounts tenant sub-routers under /api/tenants
  * @module tenants/apiRoutes/v1/tenantsApiRoutes
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Router } from 'express';

@@ -14,7 +14,7 @@
  *   restore  → checks parent tenant is active, sets status='active', cascades to linked entity
  * Standard POST is disabled; must use /register endpoint.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import bcrypt from 'bcrypt';

@@ -2,7 +2,7 @@
  * @file Project members router — /api/core/v1/project-members
  * @module core/apiRoutes/v1/projectMembersRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

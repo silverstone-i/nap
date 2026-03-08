@@ -5,7 +5,7 @@
  * One row per entity type per tenant — controls display format, reset
  * strategy, and enable/disable for auto-numbering.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

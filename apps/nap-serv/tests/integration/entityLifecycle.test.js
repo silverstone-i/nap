@@ -6,7 +6,7 @@
  * in admin.nap_users → archive employee → verify nap_user status=locked →
  * restore employee → verify nap_user restored.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

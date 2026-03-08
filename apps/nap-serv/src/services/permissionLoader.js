@@ -12,7 +12,7 @@
  * Entity tables are created in Phase 5; until then the loader returns
  * empty permissions for users with entity_type = null.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import db from '../db/db.js';

@@ -2,7 +2,7 @@
  * @file Accounting module route aggregator — mounts all GL sub-routers under /api/accounting
  * @module accounting/apiRoutes/v1/accountingApiRoutes
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Router } from 'express';

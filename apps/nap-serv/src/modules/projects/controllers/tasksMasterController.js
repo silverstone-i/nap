@@ -2,7 +2,7 @@
  * @file Tasks master controller — CRUD for master task definitions
  * @module projects/controllers/tasksMasterController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

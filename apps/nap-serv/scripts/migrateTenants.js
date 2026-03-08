@@ -2,7 +2,7 @@
  * @file Migration orchestrator — runs migrations for specified schemas
  * @module nap-serv/scripts/migrateTenants
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { pgp } from '../src/db/db.js';

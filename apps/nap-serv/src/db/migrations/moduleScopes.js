@@ -2,7 +2,7 @@
  * @file Module scope groupings — admin vs tenant module filtering
  * @module nap-serv/db/migrations/moduleScopes
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import moduleRegistry from '../moduleRegistry.js';

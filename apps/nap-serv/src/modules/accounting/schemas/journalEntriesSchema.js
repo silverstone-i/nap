@@ -5,7 +5,7 @@
  * Journal entries with status workflow: pending → posted → reversed.
  * Self-referential corrects_id FK defined inline — createTable() handles it natively.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

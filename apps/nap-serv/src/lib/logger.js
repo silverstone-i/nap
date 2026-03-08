@@ -2,7 +2,7 @@
  * @file Winston logger with structured JSON output
  * @module nap-serv/lib/logger
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { createLogger, format, transports } from 'winston';

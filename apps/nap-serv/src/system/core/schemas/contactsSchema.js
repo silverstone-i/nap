@@ -6,7 +6,7 @@
  * charitable donations, etc.). Uses the polymorphic sources pattern with
  * source_type = 'contact' for linked addresses and phone numbers.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

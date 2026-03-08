@@ -2,7 +2,7 @@
  * @file Template units router — /api/projects/v1/template-units
  * @module projects/apiRoutes/v1/templateUnitsRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

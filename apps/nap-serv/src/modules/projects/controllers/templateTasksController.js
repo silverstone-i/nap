@@ -2,7 +2,7 @@
  * @file Template tasks controller — standard CRUD for template task entries
  * @module projects/controllers/templateTasksController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

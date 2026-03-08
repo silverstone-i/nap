@@ -2,7 +2,7 @@
  * @file Repository map for the AP module (tenant-scope)
  * @module ap/apRepositories
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import ApInvoices from './models/ApInvoices.js';

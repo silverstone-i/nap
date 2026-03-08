@@ -6,7 +6,7 @@
  * update, archive (root tenant rejected), restore. Uses supertest with
  * the real Express app and test database.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

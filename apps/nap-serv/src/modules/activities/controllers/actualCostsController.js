@@ -6,7 +6,7 @@
  * Approval triggers GL posting (debit Expense/WIP, credit AP/Accrual)
  * — GL integration will be wired in Phase 9 (accounting module).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

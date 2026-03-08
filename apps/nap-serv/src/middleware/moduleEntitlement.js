@@ -7,7 +7,7 @@
  *
  * An empty allowed_modules array means all modules are allowed.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /**

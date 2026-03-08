@@ -4,7 +4,7 @@
  *
  * Seed-only reference data — no mutations exposed.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

@@ -5,7 +5,7 @@
  * Phone numbers are linked to vendors, clients, employees, and contacts
  * via the polymorphic sources table (source_id FK with CASCADE delete).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

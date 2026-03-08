@@ -5,7 +5,7 @@
  * Paired journal entry references for intercompany transactions.
  * Module enum: ar, ap, je. Carries elimination flags for consolidation.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

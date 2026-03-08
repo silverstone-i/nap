@@ -5,7 +5,7 @@
  * Individual line items on AR invoices. Each line references a GL account
  * for revenue recognition.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

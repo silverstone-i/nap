@@ -4,7 +4,7 @@
  *
  * Tests the middleware in isolation using mocked JWT and DB.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';

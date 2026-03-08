@@ -5,7 +5,7 @@
  * Reusable unit blueprints for project instantiation.
  * Status: draft → active → archived.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

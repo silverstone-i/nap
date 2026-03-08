@@ -6,7 +6,7 @@
  * information lives on the linked entity record. password_hash is
  * never returned in API responses.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

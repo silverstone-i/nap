@@ -2,7 +2,7 @@
  * @file Sources model — extends TableModel for polymorphic source linkage
  * @module core/models/Sources
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

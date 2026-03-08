@@ -2,7 +2,7 @@
  * @file Project clients controller — standard CRUD for project-client associations
  * @module projects/controllers/projectClientsController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

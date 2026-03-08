@@ -2,7 +2,7 @@
  * @file Validates required environment variables at startup
  * @module nap-serv/lib/envValidator
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /**

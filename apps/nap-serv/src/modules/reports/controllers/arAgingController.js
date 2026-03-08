@@ -6,7 +6,7 @@
  *   GET /  — all clients AR aging summary
  *   GET /:clientId — single client AR aging detail
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import db, { pgp } from '../../../db/db.js';

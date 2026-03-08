@@ -2,7 +2,7 @@
  * @file Categories controller — CRUD with type enum validation
  * @module activities/controllers/categoriesController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

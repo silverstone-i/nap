@@ -5,7 +5,7 @@
  * Status workflow: open → sent → paid → voided
  * On sending: GL journal entry (debit AR, credit Revenue)
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

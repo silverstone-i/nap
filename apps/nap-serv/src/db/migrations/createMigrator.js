@@ -2,7 +2,7 @@
  * @file Creates a migrator bound to the application's module registry
  * @module nap-serv/db/migrations/createMigrator
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import crypto from 'node:crypto';

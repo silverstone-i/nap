@@ -2,7 +2,7 @@
  * @file Inter-companies controller — standard CRUD for inter-company entities
  * @module core/controllers/interCompaniesController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

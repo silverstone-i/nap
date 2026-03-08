@@ -2,7 +2,7 @@
  * @file Field group grants router — /api/core/v1/field-group-grants
  * @module core/apiRoutes/v1/fieldGroupGrantsRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

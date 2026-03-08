@@ -2,7 +2,7 @@
  * @file Vitest configuration for nap-serv
  * @module nap-serv/vitest.config
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineConfig } from 'vitest/config';

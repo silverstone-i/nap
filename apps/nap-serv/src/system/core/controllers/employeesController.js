@@ -6,7 +6,7 @@
  * with entity_type='employee' and entity_id pointing to the employee row.
  * When toggled OFF or archived, cascades to lock the linked nap_user.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import bcrypt from 'bcrypt';

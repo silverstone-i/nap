@@ -2,7 +2,7 @@
  * @file Unit tests for permissionLoader
  * @module tests/unit/permissionLoader
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';

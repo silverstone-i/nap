@@ -9,7 +9,7 @@
  * Embedding indexes are deferred — pgvector ≤ 0.8.x caps HNSW/IVFFlat at 2000 dims
  * and our embeddings are 3072-dim.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineMigration } from '../../../../db/migrations/defineMigration.js';

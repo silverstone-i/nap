@@ -2,7 +2,7 @@
  * @file Schema definition for tenant-scope inter_companies table
  * @module core/schemas/interCompaniesSchema
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

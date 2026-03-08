@@ -2,7 +2,7 @@
  * @file Sources router — /api/core/v1/sources
  * @module core/apiRoutes/v1/sourcesRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

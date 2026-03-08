@@ -9,7 +9,7 @@
  *   2. Provisions the NapSoft tenant schema (CREATE SCHEMA + tenant-scope migrations + RBAC)
  *   3. Seeds the root super user employee in the NapSoft tenant schema and links it to admin.nap_users
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { resolve, dirname } from 'node:path';

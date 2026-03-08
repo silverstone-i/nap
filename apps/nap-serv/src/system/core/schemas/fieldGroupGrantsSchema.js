@@ -5,7 +5,7 @@
  * Assigns field groups to roles. A role can see the union of columns across
  * all granted groups plus any is_default groups.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

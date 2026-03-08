@@ -2,7 +2,7 @@
  * @file AP Credit Memos router — /api/ap/v1/ap-credit-memos
  * @module ap/apiRoutes/v1/apCreditMemosRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

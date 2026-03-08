@@ -4,7 +4,7 @@
  *
  * Creates: tenant_numbering_config, tenant_number_sequence_state
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineMigration } from '../../../../db/migrations/defineMigration.js';

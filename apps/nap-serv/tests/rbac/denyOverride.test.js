@@ -2,7 +2,7 @@
  * @file RBAC tests — Layers 2-4 never expand beyond Layer 1
  * @module tests/rbac/denyOverride
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, it, expect, vi } from 'vitest';

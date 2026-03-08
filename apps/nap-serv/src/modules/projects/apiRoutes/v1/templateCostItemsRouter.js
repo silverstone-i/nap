@@ -2,7 +2,7 @@
  * @file Template cost items router — /api/projects/v1/template-cost-items
  * @module projects/apiRoutes/v1/templateCostItemsRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

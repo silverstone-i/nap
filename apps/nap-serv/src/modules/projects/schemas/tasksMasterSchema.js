@@ -6,7 +6,7 @@
  * Composite FK (tenant_id, task_group_code) → task_groups(tenant_id, code)
  * is added via ALTER TABLE in the migration (non-PK unique target).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

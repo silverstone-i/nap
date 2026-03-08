@@ -2,7 +2,7 @@
  * @file Inter-companies router — /api/core/v1/inter-companies
  * @module core/apiRoutes/v1/interCompaniesRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

@@ -9,7 +9,7 @@
  *   4. Seeds default RBAC roles and policies
  *   5. Seeds policy catalog (permission discovery for role-config UI)
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { DB } from 'pg-schemata';

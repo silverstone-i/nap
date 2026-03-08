@@ -6,7 +6,7 @@
  * a pgvector embedding (3072-dim) generated from the normalized description
  * for AI-powered vendor SKU matching.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

@@ -2,7 +2,7 @@
  * @file Contract tests for AP module — ap-invoices, ap-invoice-lines, payments, ap-credit-memos
  * @module tests/contract/ap
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

@@ -5,7 +5,7 @@
  * Returns 403 for any request where the authenticated user does not belong
  * to the NapSoft platform tenant (per PRD §3.2).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /**
