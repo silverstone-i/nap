@@ -24,7 +24,7 @@ import logger from '../../../lib/logger.js';
 
 const CATALOG_ENTRIES = [
   // ── Core ────────────────────────────────────────────────────────
-  { module: 'core', router: null, action: null, label: 'Core Module', description: 'Entity management and RBAC configuration', sort_order: 100 },
+  { module: 'core', router: null, action: null, label: 'Admin Module', description: 'Entity management and RBAC configuration', sort_order: 100 },
   { module: 'core', router: 'vendors', action: null, label: 'Vendors', description: 'Vendor company records', sort_order: 110, available_fields: ['name', 'code', 'tax_id', 'payment_terms', 'is_active', 'roles', 'is_app_user', 'notes'] },
   { module: 'core', router: 'clients', action: null, label: 'Clients', description: 'Client company records', sort_order: 120, available_fields: ['name', 'code', 'email', 'tax_id', 'roles', 'is_app_user', 'is_active'] },
   { module: 'core', router: 'employees', action: null, label: 'Employees', description: 'Employee records', sort_order: 130, available_fields: ['first_name', 'last_name', 'code', 'position', 'department', 'email', 'is_app_user', 'roles', 'is_primary_contact', 'is_billing_contact'] },
