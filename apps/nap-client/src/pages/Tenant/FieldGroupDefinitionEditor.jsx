@@ -288,7 +288,7 @@ export default function FieldGroupDefinitionEditor({ readOnly = false, actionsCo
             renderTags={(value, getTagProps) =>
               value.map((option, index) => <Chip {...getTagProps({ index })} key={option} label={humanize(option)} size="small" />)
             }
-            renderInput={(params) => <TextField {...params} label="Columns" required />}
+            renderInput={(params) => <TextField {...params} label="Columns" />}
           />
         ) : (
           <TextField
