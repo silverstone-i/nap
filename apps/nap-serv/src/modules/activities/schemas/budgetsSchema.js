@@ -31,6 +31,9 @@ const budgetsSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('draft', 'submitted', 'approved', 'locked', 'rejected')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

@@ -455,7 +455,7 @@ export default function ManageTenantsPage() {
           label="Tenant Code"
           required
           value={createForm.tenant_code}
-          onChange={onCreateField('tenant_code')}
+          onChange={(e) => setCreateForm((p) => ({ ...p, tenant_code: e.target.value.toUpperCase() }))}
           inputProps={{ maxLength: 6 }}
           helperText="Max 6 characters, auto-uppercased"
         />

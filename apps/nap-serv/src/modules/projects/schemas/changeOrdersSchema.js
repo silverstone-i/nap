@@ -26,6 +26,9 @@ const changeOrdersSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('draft', 'submitted', 'approved', 'rejected')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

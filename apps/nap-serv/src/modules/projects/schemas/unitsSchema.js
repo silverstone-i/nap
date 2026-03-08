@@ -27,6 +27,9 @@ const unitsSchema = {
   constraints: {
     primaryKey: ['id'],
     unique: [['project_id', 'unit_code']],
+    checks: [
+      { type: 'Check', columns: ['status'], expression: "status IN ('draft', 'released', 'complete')" },
+    ],
     foreignKeys: [
       {
         type: 'ForeignKey',

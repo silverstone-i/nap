@@ -13,7 +13,7 @@
  */
 export function requireNapsoftTenant(req, res, next) {
   const napsoftTenant = (process.env.NAPSOFT_TENANT || 'nap').toLowerCase();
-  const userTenant = req.user?.tenant_code?.toLowerCase?.();
+  const userTenant = req.user?.home_tenant?.toLowerCase?.();
 
   if (!req.user || !userTenant || userTenant !== napsoftTenant) {
     return res.status(403).json({ message: 'Access denied: not a NapSoft user.' });

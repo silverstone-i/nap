@@ -111,6 +111,7 @@ export const me = async (req, res) => {
     tenant_code: user.tenant_code,
     home_tenant: user.home_tenant,
     schema_name: user.schema_name,
+    perms: user.permissions,
   };
 
   const tenantContext = tenant

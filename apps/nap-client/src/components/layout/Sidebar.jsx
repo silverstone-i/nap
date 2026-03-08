@@ -44,7 +44,7 @@ export default function Sidebar() {
   const [flyout, setFlyout] = useState({ anchorEl: null, group: null });
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isNapSoftUser } = useAuth();
 
   const width = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
 
@@ -52,14 +52,19 @@ export default function Sidebar() {
   // When perms.caps is not yet populated (e.g. /me response omits it),
   // fall back to showing all items so the sidebar isn't empty while the
   // server-side RBAC still enforces access.
+  // Filter nav groups by group-level capability (e.g. hide Tenants for non-NapSoft users).
+  // Child-level capability filtering is intentionally skipped — server-side RBAC
+  // enforces access; the sidebar stays fully navigable.
   const filteredNav = useMemo(() => {
     if (!user) return [];
     const caps = user.perms?.caps || {};
     const capKeys = Object.keys(caps);
-    if (capKeys.length === 0) return NAV_ITEMS;
+    if (capKeys.length === 0) return NAV_ITEMS.filter((g) => !g.napsoftOnly || isNapSoftUser);
 
     const hasCap = (capability) => {
       if (!capability) return true;
+      // Wildcard: empty-module policy ('::::') grants access to everything
+      if (capKeys.some((k) => k.startsWith('::::'))) return true;
       const parts = capability.split('::');
       const moduleKey = parts[0];
       const routerKey = parts[1] || '';
@@ -72,21 +77,11 @@ export default function Sidebar() {
       return capKeys.some((k) => k.startsWith(`${moduleKey}::`));
     };
 
-    const filterChildren = (children) =>
-      children
-        .map((child) => {
-          if (child.children) {
-            const filtered = filterChildren(child.children);
-            return filtered.length > 0 ? { ...child, children: filtered } : null;
-          }
-          return hasCap(child.capability) ? child : null;
-        })
-        .filter(Boolean);
-
-    return NAV_ITEMS.map((group) => ({ ...group, children: filterChildren(group.children) })).filter(
-      (group) => group.children.length > 0,
-    );
-  }, [user]);
+    return NAV_ITEMS.filter((group) => {
+      if (group.napsoftOnly && !isNapSoftUser) return false;
+      return hasCap(group.capability);
+    });
+  }, [user, isNapSoftUser]);
 
   const toggleGroup = (label) => {
     setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));

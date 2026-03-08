@@ -4,7 +4,7 @@
 
 - **Never add `Co-Authored-By` lines** to commit messages — suppress the default trailer entirely
 - Husky pre-commit rejects mixed commits touching both `apps/nap-client/` and `apps/nap-serv/` — split into separate commits
-- Working branch: `dev`; PRs target `main`
+- Working branch: `dev`; PRs target `dev` (PRs to `main` only for releases)
 
 ## Project Overview
 
@@ -52,7 +52,8 @@ npm -w apps/nap-serv run seed             # seed dev data
 
 - Schema defaults: use JS values (`default: 'active'`), NOT SQL literals (`default: "'active'"`) — pg-schemata auto-quotes for DDL but uses raw values for INSERT ColumnSet `def`
 - When `userFields.type: 'uuid'`, audit fields (`created_by`/`updated_by`) must be uuid or null — never strings
-- Circular FKs: remove from schema definition, add via `ALTER TABLE` in migration after all tables created
+- Self-referential FKs: define in schema — `createTable()` handles them natively (single atomic DDL)
+- Cross-table circular FKs: remove from schema definition, add via `ALTER TABLE` in migration after both tables created
 - `model.update(id, partialDto)` resets all ColumnSet columns to defaults — use raw SQL for single-column updates
 
 ## Code Style

@@ -33,6 +33,7 @@ import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 import PolicyEditor from './PolicyEditor.jsx';
 import StateFilterEditor from './StateFilterEditor.jsx';
 import FieldGroupEditor from './FieldGroupEditor.jsx';
+import FieldGroupDefinitionEditor from './FieldGroupDefinitionEditor.jsx';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -213,6 +214,7 @@ export default function ManageRolesPage() {
             <Tab label="Policies" />
             <Tab label="State Filters" />
             <Tab label="Field Groups" />
+            <Tab label="Definitions" />
           </Tabs>
 
           {/* Tab content */}
@@ -220,6 +222,7 @@ export default function ManageRolesPage() {
             {detailTab === 0 && <PolicyEditor roleId={selected.id} readOnly={isReadOnly} />}
             {detailTab === 1 && <StateFilterEditor roleId={selected.id} readOnly={isReadOnly} />}
             {detailTab === 2 && <FieldGroupEditor roleId={selected.id} readOnly={isReadOnly} />}
+            {detailTab === 3 && <FieldGroupDefinitionEditor readOnly={isReadOnly} />}
           </Box>
         </Box>
       )}

@@ -20,6 +20,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import SettingsIcon from '@mui/icons-material/Settings';
+import BusinessIcon from '@mui/icons-material/Business';
 export const NAV_ITEMS = [
   {
     label: 'Dashboard',
@@ -123,14 +124,16 @@ export const NAV_ITEMS = [
       { label: 'Employees', path: '/core/employees', capability: 'core::employees' },
       { label: 'Contacts', path: '/core/contacts', capability: 'core::contacts' },
       { label: 'Roles', path: '/tenant/manage-roles', capability: 'core::roles' },
-      {
-        label: 'Tenants',
-        capability: 'tenants::',
-        children: [
-          { label: 'Manage Tenants', path: '/tenant/manage-tenants', capability: 'tenants::' },
-          { label: 'Manage Users', path: '/tenant/manage-users', capability: 'tenants::' },
-        ],
-      },
+    ],
+  },
+  {
+    label: 'Tenants',
+    icon: BusinessIcon,
+    capability: 'tenants::',
+    napsoftOnly: true,
+    children: [
+      { label: 'Manage Tenants', path: '/tenant/manage-tenants', capability: 'tenants::' },
+      { label: 'Manage Users', path: '/tenant/manage-users', capability: 'tenants::' },
     ],
   },
 ];

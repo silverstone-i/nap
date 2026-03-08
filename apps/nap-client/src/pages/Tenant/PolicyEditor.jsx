@@ -24,8 +24,15 @@ import { usePolicyCatalog, usePoliciesForRole, useSyncPolicies } from '../../hoo
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 
+const ROOT_KEY = '::::'; // policyKey('', null, null) → '' + '::' + '' + '::' + ''
+
 function policyKey(module, router, action) {
   return `${module}::${router || ''}::${action || ''}`;
+}
+
+/** Cascade: router → module → root → '' */
+function resolveLevel(edits, routerKey, moduleKey) {
+  return edits[routerKey] ?? edits[moduleKey] ?? edits[ROOT_KEY] ?? '';
 }
 
 /**
@@ -134,8 +141,12 @@ export default function PolicyEditor({ roleId, readOnly = false }) {
       const [module, router, action] = key.split('::');
       return { module, router: router || null, action: action || null, level };
     });
-    await syncMut.mutateAsync({ roleId, policies });
-    setDirty(false);
+    try {
+      await syncMut.mutateAsync({ roleId, policies });
+      setDirty(false);
+    } catch (err) {
+      console.error('[PolicyEditor] save failed', err);
+    }
   }, [edits, roleId, syncMut]);
 
   if (catalogLoading || policiesLoading) {
@@ -174,7 +185,7 @@ export default function PolicyEditor({ roleId, readOnly = false }) {
                 <Typography variant="subtitle2">{mod.label}</Typography>
                 <Box onClick={(e) => e.stopPropagation()}>
                   <LevelSelector
-                    value={edits[moduleKey] ?? ''}
+                    value={resolveLevel(edits, moduleKey, moduleKey)}
                     onChange={(val) => handleChange(moduleKey, val)}
                     disabled={readOnly}
                   />
@@ -199,7 +210,7 @@ export default function PolicyEditor({ roleId, readOnly = false }) {
                   >
                     <Typography variant="body2">{rtr.label}</Typography>
                     <LevelSelector
-                      value={edits[routerKey] ?? ''}
+                      value={resolveLevel(edits, routerKey, moduleKey)}
                       onChange={(val) => handleChange(routerKey, val)}
                       disabled={readOnly}
                     />
