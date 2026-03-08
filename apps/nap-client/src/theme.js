@@ -205,10 +205,16 @@ const buildOptions = (t) => ({
         notchedOutline: {
           borderColor: t.border.subtle,
         },
-        input: {
+        input: ({ theme }) => ({
           paddingTop: 8,
           paddingBottom: 8,
-        },
+          '&:-webkit-autofill, &:-webkit-autofill:hover, &:-webkit-autofill:focus': {
+            WebkitBoxShadow: `0 0 0 100px ${theme.palette.background.paper} inset`,
+            WebkitTextFillColor: theme.palette.text.primary,
+            caretColor: theme.palette.text.primary,
+            borderRadius: 'inherit',
+          },
+        }),
       },
     },
 
