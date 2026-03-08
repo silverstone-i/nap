@@ -2,7 +2,7 @@
  * @file Central migration export — configures the migrator from module registry
  * @module nap-serv/db/migrations
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import moduleRegistry from '../moduleRegistry.js';

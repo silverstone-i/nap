@@ -6,7 +6,7 @@
  * root tenant, verify they can log in and access /me, and that
  * password_hash is never exposed.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

@@ -4,7 +4,7 @@
  *
  * Status workflow: planning → budgeting → released → complete (forward-only).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

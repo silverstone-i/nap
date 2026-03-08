@@ -2,7 +2,7 @@
  * @file Activities module route aggregator — mounts activity sub-routers under /api/activities
  * @module activities/apiRoutes/v1/activitiesApiRoutes
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Router } from 'express';

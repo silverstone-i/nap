@@ -2,7 +2,7 @@
  * @file AP module route aggregator — mounts AP sub-routers under /api/ap
  * @module ap/apiRoutes/v1/apApiRoutes
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Router } from 'express';

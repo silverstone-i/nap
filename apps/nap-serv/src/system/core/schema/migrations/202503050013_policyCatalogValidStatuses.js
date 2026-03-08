@@ -2,7 +2,7 @@
  * @file Add valid_statuses and available_fields columns to policy_catalog and backfill
  * @module core/schema/migrations/202503050013_policyCatalogValidStatuses
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineMigration } from '../../../../db/migrations/defineMigration.js';

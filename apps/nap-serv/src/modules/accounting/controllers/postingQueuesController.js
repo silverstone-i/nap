@@ -2,7 +2,7 @@
  * @file Posting Queues controller — list and retry failed entries
  * @module accounting/controllers/postingQueuesController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

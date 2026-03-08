@@ -5,7 +5,7 @@
  * Maps users to projects for data-scope enforcement.
  * FK to projects is added via ALTER TABLE in migration (cross-module dependency).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

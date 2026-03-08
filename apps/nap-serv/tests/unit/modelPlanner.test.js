@@ -2,7 +2,7 @@
  * @file Unit tests for migration modelPlanner utilities
  * @module tests/unit/modelPlanner
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect } from 'vitest';

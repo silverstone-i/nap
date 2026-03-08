@@ -2,7 +2,7 @@
  * @file Cookie helpers — set and clear httpOnly auth cookies per PRD §3.1.1
  * @module nap-serv/lib/cookies
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 const AUTH_COOKIE = 'auth_token';

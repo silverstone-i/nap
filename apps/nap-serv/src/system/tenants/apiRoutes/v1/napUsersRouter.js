@@ -5,7 +5,7 @@
  * Standard POST is disabled; users must be created via /register.
  * All routes gated by requireNapsoftTenant + RBAC (tenants::nap-users).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import napUsersController from '../../controllers/napUsersController.js';

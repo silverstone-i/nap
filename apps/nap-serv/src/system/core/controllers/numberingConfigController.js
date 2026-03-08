@@ -5,7 +5,7 @@
  * Overrides update() to detect when numbering is enabled for an entity type
  * and backfill codes on existing records that have code IS NULL.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

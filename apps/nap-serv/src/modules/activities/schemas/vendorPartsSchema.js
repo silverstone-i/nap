@@ -5,7 +5,7 @@
  * Vendor parts map vendor SKUs to internal tenant SKUs with
  * pricing and markup information.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

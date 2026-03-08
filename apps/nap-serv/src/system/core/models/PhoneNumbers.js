@@ -2,7 +2,7 @@
  * @file PhoneNumbers model — polymorphic phone numbers linked via sources
  * @module core/models/PhoneNumbers
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

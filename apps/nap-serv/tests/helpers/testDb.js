@@ -10,7 +10,7 @@
  * dropped and admin data is reset to the root-only bootstrap state,
  * avoiding expensive repeated DDL operations.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { resolve, dirname } from 'node:path';

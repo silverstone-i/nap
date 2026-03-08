@@ -8,7 +8,7 @@
  * NOTE: Embedding/matching tests that rely on the OpenAI API are skipped
  * unless OPENAI_API_KEY is set. The structural/CRUD portion always runs.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

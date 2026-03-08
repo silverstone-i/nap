@@ -2,7 +2,7 @@
  * @file Schema definition for admin.match_review_logs table
  * @module auth/schemas/matchReviewLogsSchema
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

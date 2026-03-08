@@ -2,7 +2,7 @@
  * @file Clients controller — auto-creates a sources record on client creation
  * @module core/controllers/clientsController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

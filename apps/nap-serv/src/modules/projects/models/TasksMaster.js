@@ -2,7 +2,7 @@
  * @file TasksMaster model
  * @module projects/models/TasksMaster
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

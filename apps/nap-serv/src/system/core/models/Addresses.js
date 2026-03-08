@@ -2,7 +2,7 @@
  * @file Addresses model — extends TableModel for tenant-scope addresses
  * @module core/models/Addresses
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

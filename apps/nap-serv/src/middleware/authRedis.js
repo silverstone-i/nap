@@ -6,7 +6,7 @@
  * permissions (from Redis cache or DB), detects stale tokens, and populates
  * req.user with the full permission canon.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import jwt from 'jsonwebtoken';

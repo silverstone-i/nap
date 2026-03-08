@@ -2,7 +2,7 @@
  * @file Migration definition helper — normalizes config and attaches checksums
  * @module nap-serv/db/migrations/defineMigration
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import crypto from 'node:crypto';

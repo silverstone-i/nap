@@ -2,7 +2,7 @@
  * @file Template units controller — CRUD for unit templates
  * @module projects/controllers/templateUnitsController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

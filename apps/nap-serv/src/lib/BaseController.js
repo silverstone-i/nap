@@ -4,7 +4,7 @@
  *
  * Adds: create, update, archive (soft-delete), restore, bulkInsert, bulkUpdate, importXls
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import ViewController from './ViewController.js';

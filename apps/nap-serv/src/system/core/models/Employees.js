@@ -2,7 +2,7 @@
  * @file Employees model — extends TableModel for tenant-scope employees
  * @module core/models/Employees
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

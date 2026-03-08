@@ -2,7 +2,7 @@
  * @file Inter-Company Transactions controller — CRUD with module validation
  * @module accounting/controllers/interCompanyTransactionsController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

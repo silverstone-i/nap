@@ -6,7 +6,7 @@
  * add units → add tasks (with parent hierarchy) → add cost items →
  * create change order → status transitions → archive cascade.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

@@ -5,7 +5,7 @@
  * Sources are typically auto-created by vendor/client/employee controllers.
  * This controller provides read access and manual management if needed.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

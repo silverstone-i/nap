@@ -10,7 +10,7 @@
  * All system roles go through full RBAC resolution — no bypass.
  * Called during tenant provisioning (Phase 4).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import logger from '../../../lib/logger.js';

@@ -2,7 +2,7 @@
  * @file State filters controller — CRUD + bulk sync for RBAC Layer 3
  * @module core/controllers/stateFiltersController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

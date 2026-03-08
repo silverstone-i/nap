@@ -2,7 +2,7 @@
  * @file Dependency-aware table creation/dropping utilities
  * @module nap-serv/db/migrations/modelPlanner
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /**

@@ -5,7 +5,7 @@
  * Layers 2-4 narrow query results after Layer 1 grants access at the route level.
  * Returns null values for any layer that should not apply (permissive default).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /**

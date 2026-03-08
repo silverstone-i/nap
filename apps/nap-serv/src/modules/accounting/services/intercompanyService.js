@@ -5,7 +5,7 @@
  * Creates paired journal entries (due-to/due-from) between companies.
  * Carries elimination flags for consolidated reporting.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import db, { pgp } from '../../../db/db.js';

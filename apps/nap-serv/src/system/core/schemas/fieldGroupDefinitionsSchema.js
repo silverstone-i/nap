@@ -5,7 +5,7 @@
  * Defines named column groups per resource. Each group maps a group_name to an
  * array of column names. Groups marked is_default are granted to all roles.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

@@ -5,7 +5,7 @@
  * Time-based vendor pricing keyed by vendor_sku_id and effective_date.
  * Supports historical price tracking and current price lookup.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

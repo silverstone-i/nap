@@ -5,7 +5,7 @@
  * Template cost items belong to a template_task. The `amount` column
  * is a GENERATED ALWAYS AS (quantity * unit_cost) STORED column.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

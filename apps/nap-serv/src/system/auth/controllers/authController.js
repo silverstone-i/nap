@@ -4,7 +4,7 @@
  *
  * Auth flow with RBAC permission caching and cache invalidation on logout.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import bcrypt from 'bcrypt';

@@ -2,7 +2,7 @@
  * @file Express application setup — middleware chain, auth, and route mounting
  * @module nap-serv/app
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import express from 'express';

@@ -5,7 +5,7 @@
  * Exposes GET-only endpoints. All mutation routes are disabled because
  * policy_catalog is seed-only reference data.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

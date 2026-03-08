@@ -6,7 +6,7 @@
  * update, status transitions (valid + invalid), archive, restore, duplicate code.
  * Requires a provisioned tenant schema with an inter_company for company_id FK.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

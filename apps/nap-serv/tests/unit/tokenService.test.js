@@ -2,7 +2,7 @@
  * @file Unit tests for JWT token service
  * @module tests/unit/tokenService
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll } from 'vitest';

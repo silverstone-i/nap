@@ -2,7 +2,7 @@
  * @file Category-Account Map router — /api/accounting/v1/category-account-map
  * @module accounting/apiRoutes/v1/categoryAccountMapRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

@@ -2,7 +2,7 @@
  * @file CatalogSkus model — extends TableModel for canonical catalog SKU entities
  * @module bom/models/CatalogSkus
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

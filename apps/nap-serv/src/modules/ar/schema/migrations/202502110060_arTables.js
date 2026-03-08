@@ -9,7 +9,7 @@
  * No ar_clients table — PRD removed it. AR invoices reference the unified
  * clients table from core entities directly.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineMigration } from '../../../../db/migrations/defineMigration.js';

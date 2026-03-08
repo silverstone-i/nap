@@ -10,7 +10,7 @@
  * No bypass for super_user or admin — all users go through RBAC filtering
  * via their seeded policies.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import fs from 'fs';

@@ -8,7 +8,7 @@
  * Custom GET routes must be mounted BEFORE createRouter so they
  * are not caught by the generic GET /:id route.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { Router } from 'express';

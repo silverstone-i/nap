@@ -5,7 +5,7 @@
  * Exposes match review audit trail for BOM vendor SKU matching decisions.
  * Read-only — match decisions are written by the BOM matching service.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import ViewController from '../../../lib/ViewController.js';

@@ -2,7 +2,7 @@
  * @file Unit tests for environment variable validation
  * @module nap-serv/tests/unit/envValidator
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, it, expect } from 'vitest';

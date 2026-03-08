@@ -2,7 +2,7 @@
  * @file Vendors router — /api/core/v1/vendors
  * @module core/apiRoutes/v1/vendorsRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

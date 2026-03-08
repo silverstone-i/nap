@@ -5,7 +5,7 @@
  * Status workflow: pending → posted → reversed
  * Delegates to postingService for transactional operations.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

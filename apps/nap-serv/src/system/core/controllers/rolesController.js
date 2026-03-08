@@ -2,7 +2,7 @@
  * @file Roles controller — CRUD with guards for system and immutable roles
  * @module core/controllers/rolesController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

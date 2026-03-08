@@ -6,7 +6,7 @@
  * single client_id FK on projects. Supports roles (buyer, co-buyer, guarantor)
  * and a primary client designation.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

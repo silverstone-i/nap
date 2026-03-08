@@ -4,7 +4,7 @@
  *
  * RBAC tables created in Phase 3. Entity tables added in Phase 5.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import Roles from './models/Roles.js';

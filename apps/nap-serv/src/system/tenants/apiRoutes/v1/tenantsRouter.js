@@ -2,7 +2,7 @@
  * @file Tenants router — NapSoft-only CRUD for tenant management per PRD §3.2.1
  * @module tenants/apiRoutes/v1/tenantsRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import tenantsController from '../../controllers/tenantsController.js';

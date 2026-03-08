@@ -2,7 +2,7 @@
  * @file Chart of Accounts controller — CRUD with type validation
  * @module accounting/controllers/chartOfAccountsController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

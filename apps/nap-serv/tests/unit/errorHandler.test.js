@@ -2,7 +2,7 @@
  * @file Unit tests for central error handler middleware
  * @module nap-serv/tests/unit/errorHandler
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, it, expect, vi } from 'vitest';

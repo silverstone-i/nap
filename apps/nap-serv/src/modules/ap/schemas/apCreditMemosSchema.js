@@ -5,7 +5,7 @@
  * Credit memos against vendors, optionally linked to a specific AP invoice.
  * Status workflow: open → applied → voided.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

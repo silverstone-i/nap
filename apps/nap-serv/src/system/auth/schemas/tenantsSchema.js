@@ -6,7 +6,7 @@
  * employees.is_primary_contact / is_billing_contact in the tenant schema,
  * not by columns on this table.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

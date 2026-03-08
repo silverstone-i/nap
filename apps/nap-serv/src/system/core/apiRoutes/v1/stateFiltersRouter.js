@@ -2,7 +2,7 @@
  * @file State filters router — /api/core/v1/state-filters
  * @module core/apiRoutes/v1/stateFiltersRouter
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import createRouter from '../../../../lib/createRouter.js';

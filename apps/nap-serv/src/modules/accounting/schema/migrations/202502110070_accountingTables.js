@@ -13,7 +13,7 @@
  *   inter_company_transactions → journal_entries
  *   internal_transfers → chart_of_accounts
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { defineMigration } from '../../../../db/migrations/defineMigration.js';

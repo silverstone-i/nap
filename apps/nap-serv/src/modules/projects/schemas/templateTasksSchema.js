@@ -5,7 +5,7 @@
  * Template tasks belong to a template_unit and define reusable
  * task blueprints with hierarchy via parent_code.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

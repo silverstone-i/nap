@@ -5,7 +5,7 @@
  * Vendor invoices with status workflow: open → approved → paid → voided.
  * Links to inter_companies, vendors, and optionally projects for cashflow tracking.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

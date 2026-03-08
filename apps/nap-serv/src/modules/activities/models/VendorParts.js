@@ -2,7 +2,7 @@
  * @file VendorParts model — extends TableModel for vendor part/SKU pricing
  * @module activities/models/VendorParts
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

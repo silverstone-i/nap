@@ -5,7 +5,7 @@
  * Cost items belong to a task. The `amount` column is a PostgreSQL
  * GENERATED ALWAYS AS (quantity * unit_cost) STORED column.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

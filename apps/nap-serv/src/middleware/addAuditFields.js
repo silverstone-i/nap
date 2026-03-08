@@ -8,7 +8,7 @@
  * Note: created_by/updated_by are uuid values (req.user.id) per pg-schemata
  * audit field config with userFields.type: 'uuid'.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 export function addAuditFields(req, res, next) {

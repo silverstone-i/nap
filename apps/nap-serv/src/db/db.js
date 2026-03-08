@@ -2,7 +2,7 @@
  * @file DB.init() singleton setup — initializes pg-schemata with all model repositories
  * @module nap-serv/db/db
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { resolve, dirname } from 'node:path';

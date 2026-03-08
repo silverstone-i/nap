@@ -6,7 +6,7 @@
  * plus match-review-logs read-only endpoint.
  * Requires a provisioned tenant schema with a vendor entity.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

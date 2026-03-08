@@ -2,7 +2,7 @@
  * @file Redis client singleton — lazy-initialized ioredis connection
  * @module nap-serv/db/redis
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import Redis from 'ioredis';

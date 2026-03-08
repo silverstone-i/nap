@@ -8,7 +8,7 @@
  * entity_type + entity_id. Roles are stored as a text[] on the entity
  * record — there is no role column here.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

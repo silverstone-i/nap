@@ -6,7 +6,7 @@
  * Links to inter_companies, clients (core entity), and optionally projects/deliverables
  * for revenue and profitability tracking.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

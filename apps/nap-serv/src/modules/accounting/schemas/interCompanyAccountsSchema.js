@@ -5,7 +5,7 @@
  * Maps intercompany pairs to their due-to/due-from GL account.
  * Unique constraint: (tenant_id, source_company_id, target_company_id).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

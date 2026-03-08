@@ -5,7 +5,7 @@
  * Uses OpenAI text-embedding-3-large model (3072 dimensions) for generating
  * embeddings. Includes description normalization and batch processing.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import logger from '../../../lib/logger.js';

@@ -2,7 +2,7 @@
  * @file Permission hash — stable SHA-256 hash of permission objects for token staleness detection
  * @module nap-serv/lib/permHash
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { createHash } from 'node:crypto';

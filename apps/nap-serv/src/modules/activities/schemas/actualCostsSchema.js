@@ -6,7 +6,7 @@
  * Approval workflow: pending → approved → rejected.
  * Approval triggers GL posting (wired in Phase 9).
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

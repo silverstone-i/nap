@@ -2,7 +2,7 @@
  * @file Unit tests for withMeta middleware
  * @module tests/unit/withMeta
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, it, expect, vi } from 'vitest';

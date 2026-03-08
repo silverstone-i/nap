@@ -2,7 +2,7 @@
  * @file AP Invoice Lines controller — CRUD with account_id validation
  * @module ap/controllers/apInvoiceLinesController
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

@@ -2,7 +2,7 @@
  * @file VendorSkus model — extends TableModel with SKU lookup and embedding methods
  * @module bom/models/VendorSkus
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { TableModel } from 'pg-schemata';

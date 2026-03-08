@@ -5,7 +5,7 @@
  * Activities belong to a category and represent specific work items
  * that can be budgeted and tracked for cost management.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 /** @type {import('pg-schemata').TableSchema} */

@@ -2,7 +2,7 @@
  * @file Contract tests for client CRUD endpoints
  * @module tests/contract/clients
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

@@ -6,7 +6,7 @@
  * Applied credit memos reduce the linked invoice's remaining balance.
  * When remaining balance reaches zero, invoice auto-transitions to 'paid'.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';

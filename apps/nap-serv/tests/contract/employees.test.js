@@ -2,7 +2,7 @@
  * @file Contract tests for employee CRUD endpoints + is_app_user lifecycle
  * @module tests/contract/employees
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';

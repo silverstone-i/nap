@@ -6,7 +6,7 @@
  * Remaining balance is computed as total_amount − SUM(receipts).
  * On receipt: auto-transitions invoice to 'paid' when fully settled, creates GL entry.
  *
- * Copyright (c) 2025 NapSoft LLC. All rights reserved.
+ * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import BaseController from '../../../lib/BaseController.js';
