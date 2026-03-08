@@ -7,6 +7,7 @@
 
 import BaseController from '../../../lib/BaseController.js';
 import db, { pgp } from '../../../db/db.js';
+import { invalidateByRole } from '../../../services/permCacheInvalidator.js';
 
 class PoliciesController extends BaseController {
   constructor() {
@@ -55,6 +56,8 @@ class PoliciesController extends BaseController {
         const insert = pgp.helpers.insert(rows, cs) + ' RETURNING *';
         return t.any(insert);
       });
+
+      await invalidateByRole(schema, role.code, tenantCode);
 
       res.json({ records: result, count: result.length });
     } catch (err) {

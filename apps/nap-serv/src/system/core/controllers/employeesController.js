@@ -14,6 +14,7 @@ import crypto from 'node:crypto';
 import BaseController from '../../../lib/BaseController.js';
 import db, { pgp } from '../../../db/db.js';
 import { allocateNumber } from '../services/numberingService.js';
+import { invalidateByEntity } from '../../../services/permCacheInvalidator.js';
 import logger from '../../../lib/logger.js';
 
 class EmployeesController extends BaseController {
@@ -142,6 +143,11 @@ class EmployeesController extends BaseController {
            WHERE entity_type = 'employee' AND entity_id = $3 AND deactivated_at IS NULL`,
           [req.body.email, req.user?.id || null, before.id],
         );
+      }
+
+      // Flush permission cache if roles changed
+      if (req.body.roles !== undefined) {
+        await invalidateByEntity('employee', employeeId, req.user?.tenant_code);
       }
 
       res.json({ updatedRecords: count });

@@ -213,7 +213,7 @@ export function authRedis() {
         entity_type: effectiveUser.entity_type,
         entity_id: effectiveUser.entity_id,
         status: effectiveUser.status,
-        tenant_id: effectiveUser.tenant_id,
+        tenant_id: effectiveTenantRecord.id,
         tenant_code: effectiveTenantCode,
         home_tenant: homeTenantCode,
         schema_name: effectiveSchemaName,
