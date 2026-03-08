@@ -11,7 +11,7 @@ import { withMeta } from '../../../../middleware/withMeta.js';
 import { addAuditFields } from '../../../../middleware/addAuditFields.js';
 import { moduleEntitlement } from '../../../../middleware/moduleEntitlement.js';
 
-const meta = withMeta({ module: 'core', router: 'policies' });
+const meta = withMeta({ module: 'core', router: 'roles' });
 
 export default createRouter(
   policiesController,

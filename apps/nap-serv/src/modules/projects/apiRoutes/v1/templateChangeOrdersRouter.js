@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import templateChangeOrdersController from '../../controllers/templateChangeOrdersController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'projects', router: 'template-change-orders' });
+const meta = withMeta({ module: 'projects', router: 'template-units' });
 
 export default createRouter(templateChangeOrdersController, null, {
   getMiddlewares: [meta],

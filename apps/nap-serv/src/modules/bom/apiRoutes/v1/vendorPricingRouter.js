@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 import vendorPricingController from '../../controllers/vendorPricingController.js';
 
-const meta = withMeta({ module: 'bom', router: 'vendor-pricing' });
+const meta = withMeta({ module: 'bom', router: 'vendor-skus' });
 
 export default createRouter(vendorPricingController, null, {
   getMiddlewares: [meta],

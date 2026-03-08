@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import phoneNumbersController from '../../controllers/phoneNumbersController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'core', router: 'phone-numbers' });
+const meta = withMeta({ module: 'core' });
 
 export default createRouter(phoneNumbersController, null, {
   getMiddlewares: [meta],
