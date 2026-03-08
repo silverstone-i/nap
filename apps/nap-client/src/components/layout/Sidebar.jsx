@@ -59,6 +59,7 @@ export default function Sidebar() {
     if (!user) return [];
     const caps = user.perms?.caps || {};
     const capKeys = Object.keys(caps);
+    if (capKeys.length === 0) return NAV_ITEMS.filter((g) => !g.napsoftOnly || isNapSoftUser);
 
     const hasCap = (capability) => {
       if (!capability) return true;

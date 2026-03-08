@@ -78,7 +78,7 @@ const BLANK_FORM = { module: '', router: '', group_name: '', selectedColumns: []
 
 /* ── Component ────────────────────────────────────────────────── */
 
-export default function FieldGroupDefinitionEditor() {
+export default function FieldGroupDefinitionEditor({ readOnly = false }) {
   const { data: defsRes, isLoading } = useFieldGroupDefinitions();
   const { data: catalogRes } = usePolicyCatalog();
   const createMut = useCreateFieldGroupDefinition();
@@ -166,9 +166,11 @@ export default function FieldGroupDefinitionEditor() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {/* Action bar */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-          Add Definition
-        </Button>
+        {!readOnly && (
+          <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+            Add Definition
+          </Button>
+        )}
       </Box>
 
       <Typography variant="caption" color="text.secondary">
@@ -208,12 +210,16 @@ export default function FieldGroupDefinitionEditor() {
                 ))}
               </Box>
               {def.is_default && <Chip label="Default" size="small" color="info" />}
-              <IconButton size="small" onClick={() => openEdit(def)}>
-                <EditOutlinedIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="error" onClick={() => openDelete(def.id)}>
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
+              {!readOnly && (
+                <>
+                  <IconButton size="small" onClick={() => openEdit(def)}>
+                    <EditOutlinedIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" color="error" onClick={() => openDelete(def.id)}>
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </>
+              )}
             </Box>
           ))}
         </Box>

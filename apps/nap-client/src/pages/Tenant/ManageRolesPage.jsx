@@ -222,7 +222,7 @@ export default function ManageRolesPage() {
             {detailTab === 0 && <PolicyEditor roleId={selected.id} readOnly={isReadOnly} />}
             {detailTab === 1 && <StateFilterEditor roleId={selected.id} readOnly={isReadOnly} />}
             {detailTab === 2 && <FieldGroupEditor roleId={selected.id} readOnly={isReadOnly} />}
-            {detailTab === 3 && <FieldGroupDefinitionEditor />}
+            {detailTab === 3 && <FieldGroupDefinitionEditor readOnly={isReadOnly} />}
           </Box>
         </Box>
       )}
