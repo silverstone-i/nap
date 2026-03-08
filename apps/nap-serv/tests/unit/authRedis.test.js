@@ -238,5 +238,8 @@ describe('authRedis middleware', () => {
     expect(req.ctx.tenant.tenant_code).toBe('ACME');
     expect(req.ctx.tenant.id).toBe(acmeTenantId);
     expect(req.ctx.tenant.allowed_modules).toEqual(['projects']);
+    // req.user.tenant_id must reflect assumed tenant, not home tenant
+    expect(req.user.tenant_id).toBe(acmeTenantId);
+    expect(req.user.home_tenant).toBe('nap');
   });
 });

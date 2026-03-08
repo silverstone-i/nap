@@ -2,8 +2,7 @@
  * @file Auth controller — login, refresh, logout, me, check, changePassword per PRD §3.1.1
  * @module auth/controllers/authController
  *
- * Phase 2: Basic auth flow. RBAC permission loading and Redis caching
- * are stubbed — full implementation comes in Phase 3.
+ * Auth flow with RBAC permission caching and cache invalidation on logout.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
  */
@@ -12,7 +11,9 @@ import bcrypt from 'bcrypt';
 import passport from '../services/passportService.js';
 import { signAccessToken, signRefreshToken, verifyRefresh } from '../services/tokenService.js';
 import { setAuthCookies, clearAuthCookies } from '../../../lib/cookies.js';
+import jwt from 'jsonwebtoken';
 import db from '../../../db/db.js';
+import { invalidateByUser } from '../../../services/permCacheInvalidator.js';
 
 /**
  * POST /api/auth/login — Authenticate with email/password
@@ -79,7 +80,16 @@ export const logout = async (req, res) => {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
-  // Phase 3 will add Redis permission cache invalidation here
+  // Flush permission cache for the logging-out user
+  try {
+    const token = req.cookies?.auth_token;
+    if (token) {
+      const claims = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      if (claims?.sub) await invalidateByUser(claims.sub);
+    }
+  } catch {
+    // Token expired or invalid — cache will expire via TTL
+  }
 
   clearAuthCookies(res);
   return res.json({ message: 'Logged out successfully' });
