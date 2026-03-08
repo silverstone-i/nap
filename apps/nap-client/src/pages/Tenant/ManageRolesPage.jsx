@@ -94,6 +94,7 @@ export default function ManageRolesPage() {
 
   /* ── detail tab ────────────────────────────────────────────── */
   const [detailTab, setDetailTab] = useState(0);
+  const [actionsContainer, setActionsContainer] = useState(null);
 
   /* ── dialog state ──────────────────────────────────────────── */
   const [createOpen, setCreateOpen] = useState(false);
@@ -209,20 +210,32 @@ export default function ManageRolesPage() {
             )}
           </Box>
 
-          {/* Tabs */}
-          <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
-            <Tab label="Policies" />
-            <Tab label="State Filters" />
-            <Tab label="Field Groups" />
-            <Tab label="Definitions" />
-          </Tabs>
+          {/* Tab row: tabs left, action buttons right */}
+          <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', mb: 1 }}>
+            <Tabs
+              value={detailTab}
+              onChange={(_, v) => setDetailTab(v)}
+              variant="scrollable"
+              scrollButtons={false}
+              sx={{ minWidth: 0 }}
+            >
+              <Tab label="Policies" />
+              <Tab label="State Filters" />
+              <Tab label="Field Groups" />
+              <Tab label="Field Definitions" />
+            </Tabs>
+            <Box
+              ref={setActionsContainer}
+              sx={{ ml: 'auto', display: 'flex', gap: 1, pr: 0.5, flexShrink: 0, whiteSpace: 'nowrap' }}
+            />
+          </Box>
 
           {/* Tab content */}
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            {detailTab === 0 && <PolicyEditor roleId={selected.id} readOnly={isReadOnly} />}
-            {detailTab === 1 && <StateFilterEditor roleId={selected.id} readOnly={isReadOnly} />}
-            {detailTab === 2 && <FieldGroupEditor roleId={selected.id} readOnly={isReadOnly} />}
-            {detailTab === 3 && <FieldGroupDefinitionEditor readOnly={isReadOnly} />}
+            {detailTab === 0 && <PolicyEditor roleId={selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
+            {detailTab === 1 && <StateFilterEditor roleId={selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
+            {detailTab === 2 && <FieldGroupEditor roleId={selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
+            {detailTab === 3 && <FieldGroupDefinitionEditor readOnly={isReadOnly} actionsContainer={actionsContainer} />}
           </Box>
         </Box>
       )}
