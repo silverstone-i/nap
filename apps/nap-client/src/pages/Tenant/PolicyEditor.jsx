@@ -43,7 +43,9 @@ function resolveLevel(edits, routerKey, moduleKey) {
  * Router-level entries (action=null) become router children.
  */
 function buildCatalogTree(catalogRows) {
-  const sorted = [...catalogRows].sort((a, b) => a.sort_order - b.sort_order);
+  const sorted = [...catalogRows]
+    .filter((e) => e.policy_required !== false)
+    .sort((a, b) => a.sort_order - b.sort_order);
   const modules = new Map();
 
   for (const entry of sorted) {
