@@ -36,7 +36,7 @@ class EmployeesController extends BaseController {
       }
 
       // Normalize empty code to null — avoids unique constraint violation on ''
-      if (!req.body.code) delete req.body.code;
+      if (req.body.code !== undefined && !req.body.code?.trim()) req.body.code = null;
 
       // Extract password before insert — it's for nap_users, not the employees table
       const suppliedPassword = req.body.password;
@@ -110,7 +110,7 @@ class EmployeesController extends BaseController {
       if (!before) return res.status(404).json({ error: `${this.errorLabel} not found` });
 
       // Normalize empty code to null — avoids unique constraint violation on ''
-      if (!req.body.code) delete req.body.code;
+      if (req.body.code !== undefined && !req.body.code?.trim()) req.body.code = null;
 
       // Extract password before update — it's for nap_users, not the employees table
       const suppliedPassword = req.body.password;

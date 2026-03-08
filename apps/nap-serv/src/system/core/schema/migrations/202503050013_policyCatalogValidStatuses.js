@@ -1,5 +1,5 @@
 /**
- * @file Add valid_statuses column to policy_catalog and backfill existing rows
+ * @file Add valid_statuses and available_fields columns to policy_catalog and backfill
  * @module core/schema/migrations/202503050013_policyCatalogValidStatuses
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -27,11 +27,12 @@ const BACKFILL = [
 
 export default defineMigration({
   id: '202503050013-policy-catalog-valid-statuses',
-  description: 'Add valid_statuses text[] column to policy_catalog and backfill',
+  description: 'Add valid_statuses and available_fields text[] columns to policy_catalog and backfill',
   async up({ schema, db, pgp }) {
     if (schema === 'admin') return;
     const s = pgp.as.name(schema);
     await db.none(`ALTER TABLE ${s}.policy_catalog ADD COLUMN IF NOT EXISTS valid_statuses text[]`);
+    await db.none(`ALTER TABLE ${s}.policy_catalog ADD COLUMN IF NOT EXISTS available_fields text[]`);
     for (const { module, router, statuses } of BACKFILL) {
       await db.none(
         `UPDATE ${s}.policy_catalog SET valid_statuses = $3 WHERE module = $1 AND router = $2 AND action IS NULL`,
@@ -43,5 +44,6 @@ export default defineMigration({
     if (schema === 'admin') return;
     const s = pgp.as.name(schema);
     await db.none(`ALTER TABLE ${s}.policy_catalog DROP COLUMN IF EXISTS valid_statuses`);
+    await db.none(`ALTER TABLE ${s}.policy_catalog DROP COLUMN IF EXISTS available_fields`);
   },
 });

@@ -141,6 +141,7 @@ class NapUsersController extends BaseController {
       const userId = req.query.id;
 
       // Handle password reset if provided
+      let pwUpdated = false;
       if (password) {
         const pwRules = [
           { test: (p) => p.length >= 8, msg: 'at least 8 characters' },
@@ -155,7 +156,11 @@ class NapUsersController extends BaseController {
         }
         const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
         const hash = await bcrypt.hash(password, rounds);
-        await db.none('UPDATE admin.nap_users SET password_hash = $/hash/ WHERE id = $/id/', { hash, id: userId });
+        const pwResult = await db.result(
+          'UPDATE admin.nap_users SET password_hash = $/hash/, updated_by = $/updatedBy/, updated_at = now() WHERE id = $/id/ AND deactivated_at IS NULL',
+          { hash, id: userId, updatedBy: req.user?.id || null },
+        );
+        pwUpdated = pwResult.rowCount > 0;
       }
 
       // Update scalar user columns via raw SQL to avoid ColumnSet resetting
@@ -174,7 +179,9 @@ class NapUsersController extends BaseController {
           `UPDATE admin.nap_users SET ${setClauses.join(', ')} WHERE id = $${safeChanges.length + 2} AND deactivated_at IS NULL`,
           values,
         );
-        if (!count.rowCount && !password) return res.status(404).json({ error: `${this.errorLabel} not found` });
+        if (!count.rowCount && !pwUpdated) return res.status(404).json({ error: `${this.errorLabel} not found or deactivated` });
+      } else if (password && !pwUpdated) {
+        return res.status(404).json({ error: `${this.errorLabel} not found or deactivated` });
       }
 
       res.json({ message: `${this.errorLabel} updated` });

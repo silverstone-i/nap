@@ -68,12 +68,19 @@ async function main() {
 
   // 1. Insert tenant record (if not exists)
   const existing = await db.oneOrNone(
-    'SELECT id FROM admin.tenants WHERE tenant_code = $1 AND deactivated_at IS NULL',
+    'SELECT id, schema_name FROM admin.tenants WHERE tenant_code = $1 AND deactivated_at IS NULL',
     [upperCode],
   );
 
   if (existing) {
     logger.info(`Tenant "${upperCode}" already exists (id: ${existing.id}), skipping insert.`);
+    if (existing.schema_name !== normalizedSchema) {
+      logger.error(
+        `Schema mismatch: tenant "${upperCode}" has schema_name "${existing.schema_name}" but --schema-name "${normalizedSchema}" was provided.`,
+      );
+      await db.$pool.end();
+      process.exit(1);
+    }
   } else {
     const tenant = await db.one(
       `INSERT INTO admin.tenants
