@@ -20,6 +20,7 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 
@@ -44,17 +45,20 @@ export default function StateFilterEditor({ roleId, readOnly = false, actionsCon
 
   const catalogRows = catalogRes?.rows ?? [];
   const routerEntries = useMemo(
-    () => catalogRows.filter((e) => e.router !== null && e.action === null),
+    () => catalogRows.filter((e) => e.router !== null && e.action === null && e.valid_statuses != null),
     [catalogRows],
   );
 
   const [filters, setFilters] = useState([]);
   const [dirty, setDirty] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editingIdx, setEditingIdx] = useState(null);
   const [newModule, setNewModule] = useState('');
   const [newRouter, setNewRouter] = useState('');
   const [newStatuses, setNewStatuses] = useState('');
   const [newStatusesArr, setNewStatusesArr] = useState([]);
+
+  const isEditing = editingIdx !== null;
 
   const serverFilters = useMemo(
     () => (filtersRes?.records ?? []).map((f) => ({
@@ -82,31 +86,51 @@ export default function StateFilterEditor({ roleId, readOnly = false, actionsCon
   );
   const validStatuses = selectedCatalogEntry?.valid_statuses;
 
+  const resetForm = useCallback(() => {
+    setAdding(false);
+    setEditingIdx(null);
+    setNewModule('');
+    setNewRouter('');
+    setNewStatuses('');
+    setNewStatusesArr([]);
+  }, []);
+
   const handleRemove = useCallback((idx) => {
     setFilters((prev) => prev.filter((_, i) => i !== idx));
     setDirty(true);
   }, []);
 
-  const handleAdd = useCallback(() => {
+  const handleEdit = useCallback((idx) => {
+    const f = filters[idx];
+    setEditingIdx(idx);
+    setAdding(false);
+    setNewModule(f.module);
+    setNewRouter(f.router);
+    setNewStatusesArr([...f.visible_statuses]);
+    setNewStatuses(f.visible_statuses.join(', '));
+  }, [filters]);
+
+  const handleSubmitForm = useCallback(() => {
     if (!newModule || !newRouter) return;
     const statuses = validStatuses
       ? newStatusesArr
       : newStatuses.split(',').map((s) => s.trim()).filter(Boolean);
     if (!statuses.length) return;
-    setFilters((prev) => [...prev, { module: newModule, router: newRouter, visible_statuses: statuses }]);
+    const entry = { module: newModule, router: newRouter, visible_statuses: statuses };
+    if (isEditing) {
+      setFilters((prev) => prev.map((f, i) => (i === editingIdx ? entry : f)));
+    } else {
+      setFilters((prev) => [...prev, entry]);
+    }
     setDirty(true);
-    setAdding(false);
-    setNewModule('');
-    setNewRouter('');
-    setNewStatuses('');
-    setNewStatusesArr([]);
-  }, [newModule, newRouter, newStatuses, newStatusesArr, validStatuses]);
+    resetForm();
+  }, [newModule, newRouter, newStatuses, newStatusesArr, validStatuses, isEditing, editingIdx, resetForm]);
 
   const handleDiscard = useCallback(() => {
     setFilters(serverFilters);
     setDirty(false);
-    setAdding(false);
-  }, [serverFilters]);
+    resetForm();
+  }, [serverFilters, resetForm]);
 
   const handleSave = useCallback(async () => {
     await syncMut.mutateAsync({ roleId, stateFilters: filters });
@@ -123,7 +147,7 @@ export default function StateFilterEditor({ roleId, readOnly = false, actionsCon
       {actionsContainer && createPortal(
         <>
           {!readOnly && (
-            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => { resetForm(); setAdding(true); }}>
               Add Filter
             </Button>
           )}
@@ -176,15 +200,20 @@ export default function StateFilterEditor({ roleId, readOnly = false, actionsCon
             ))}
           </Box>
           {!readOnly && (
-            <IconButton size="small" color="error" onClick={() => handleRemove(idx)}>
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
+            <>
+              <IconButton size="small" onClick={() => handleEdit(idx)}>
+                <EditOutlinedIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" color="error" onClick={() => handleRemove(idx)}>
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </>
           )}
         </Box>
       ))}
 
-      {/* Add filter form */}
-      {adding && (
+      {/* Add / Edit filter form */}
+      {(adding || isEditing) && (
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', p: 1, border: 1, borderColor: 'primary.main', borderRadius: 1 }}>
           <TextField
             select
@@ -192,6 +221,7 @@ export default function StateFilterEditor({ roleId, readOnly = false, actionsCon
             size="small"
             value={newModule}
             onChange={(e) => { setNewModule(e.target.value); setNewRouter(''); setNewStatusesArr([]); }}
+            disabled={isEditing}
             sx={{ minWidth: 140 }}
           >
             {modules.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}
@@ -202,7 +232,7 @@ export default function StateFilterEditor({ roleId, readOnly = false, actionsCon
             size="small"
             value={newRouter}
             onChange={(e) => { setNewRouter(e.target.value); setNewStatusesArr([]); }}
-            disabled={!newModule}
+            disabled={isEditing || !newModule}
             sx={{ minWidth: 180 }}
           >
             {routersForModule.map((e) => <MenuItem key={e.router} value={e.router}>{e.label}</MenuItem>)}
@@ -240,12 +270,12 @@ export default function StateFilterEditor({ roleId, readOnly = false, actionsCon
           <Button
             size="small"
             variant="contained"
-            onClick={handleAdd}
+            onClick={handleSubmitForm}
             disabled={!newModule || !newRouter || (validStatuses ? !newStatusesArr.length : !newStatuses.trim())}
           >
-            Add
+            {isEditing ? 'Update' : 'Add'}
           </Button>
-          <Button size="small" onClick={() => setAdding(false)}>Cancel</Button>
+          <Button size="small" onClick={resetForm}>Cancel</Button>
         </Box>
       )}
     </Box>
