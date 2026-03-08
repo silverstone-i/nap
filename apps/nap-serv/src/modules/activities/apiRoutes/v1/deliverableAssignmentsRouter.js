@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 import deliverableAssignmentsController from '../../controllers/deliverableAssignmentsController.js';
 
-const meta = withMeta({ module: 'activities', router: 'deliverable-assignments' });
+const meta = withMeta({ module: 'activities', router: 'deliverables' });
 
 export default createRouter(deliverableAssignmentsController, null, {
   getMiddlewares: [meta],

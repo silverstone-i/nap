@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 import arInvoiceLinesController from '../../controllers/arInvoiceLinesController.js';
 
-const meta = withMeta({ module: 'ar', router: 'ar-invoice-lines' });
+const meta = withMeta({ module: 'ar', router: 'ar-invoices' });
 
 export default createRouter(arInvoiceLinesController, null, {
   getMiddlewares: [meta],

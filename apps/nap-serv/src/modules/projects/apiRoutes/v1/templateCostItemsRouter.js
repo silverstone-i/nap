@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import templateCostItemsController from '../../controllers/templateCostItemsController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'projects', router: 'template-cost-items' });
+const meta = withMeta({ module: 'projects', router: 'template-units' });
 
 export default createRouter(templateCostItemsController, null, {
   getMiddlewares: [meta],

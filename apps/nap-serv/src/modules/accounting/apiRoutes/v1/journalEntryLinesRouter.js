@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import journalEntryLinesController from '../../controllers/journalEntryLinesController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'accounting', router: 'journal-entry-lines' });
+const meta = withMeta({ module: 'accounting', router: 'journal-entries' });
 
 export default createRouter(journalEntryLinesController, null, {
   getMiddlewares: [meta],

@@ -12,7 +12,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import policyCatalogController from '../../controllers/policyCatalogController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'core', router: 'policy-catalog' });
+const meta = withMeta({ module: 'core', router: 'roles' });
 
 export default createRouter(policyCatalogController, null, {
   getMiddlewares: [meta],

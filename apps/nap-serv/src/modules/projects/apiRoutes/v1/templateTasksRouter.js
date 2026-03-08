@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import templateTasksController from '../../controllers/templateTasksController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'projects', router: 'template-tasks' });
+const meta = withMeta({ module: 'projects', router: 'template-units' });
 
 export default createRouter(templateTasksController, null, {
   getMiddlewares: [meta],

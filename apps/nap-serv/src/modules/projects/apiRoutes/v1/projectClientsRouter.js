@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import projectClientsController from '../../controllers/projectClientsController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'projects', router: 'project-clients' });
+const meta = withMeta({ module: 'projects', router: 'projects' });
 
 export default createRouter(projectClientsController, null, {
   getMiddlewares: [meta],

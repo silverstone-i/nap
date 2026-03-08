@@ -9,7 +9,7 @@ import createRouter from '../../../../lib/createRouter.js';
 import sourcesController from '../../controllers/sourcesController.js';
 import { withMeta } from '../../../../middleware/withMeta.js';
 
-const meta = withMeta({ module: 'core', router: 'sources' });
+const meta = withMeta({ module: 'core' });
 
 export default createRouter(sourcesController, null, {
   getMiddlewares: [meta],
