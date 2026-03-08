@@ -33,6 +33,7 @@ export const NAV_ITEMS = [
   {
     label: 'Projects',
     icon: ConstructionIcon,
+    capability: 'projects::',
     children: [
       { label: 'Project List', path: '/projects' },
       { label: 'Project Detail', path: '/projects/detail', capability: 'projects::' },
@@ -42,6 +43,7 @@ export const NAV_ITEMS = [
   {
     label: 'Budgets',
     icon: AccountBalanceWalletIcon,
+    capability: 'activities::',
     children: [
       { label: 'Deliverables', path: '/deliverables', capability: 'activities::deliverables' },
       { label: 'Budget Management', path: '/budgets', capability: 'activities::budgets' },
@@ -50,16 +52,19 @@ export const NAV_ITEMS = [
   {
     label: 'Actual Costs',
     icon: ReceiptLongIcon,
+    capability: 'activities::',
     children: [{ label: 'Cost Tracking', path: '/actual-costs', capability: 'activities::actual-costs' }],
   },
   {
     label: 'Change Orders',
     icon: SwapHorizIcon,
+    capability: 'change-orders::',
     children: [{ label: 'Change Order Management', path: '/change-orders', capability: 'change-orders::' }],
   },
   {
     label: 'AP',
     icon: ShoppingCartIcon,
+    capability: 'ap::',
     children: [
       { label: 'Vendors', path: '/ap/vendors', capability: 'ap::' },
       { label: 'AP Invoices', path: '/ap/invoices', capability: 'ap::' },
@@ -71,6 +76,7 @@ export const NAV_ITEMS = [
   {
     label: 'AR',
     icon: PointOfSaleIcon,
+    capability: 'ar::',
     children: [
       { label: 'Clients', path: '/ar/clients', capability: 'ar::' },
       { label: 'AR Invoices', path: '/ar/invoices', capability: 'ar::' },
@@ -81,6 +87,7 @@ export const NAV_ITEMS = [
   {
     label: 'Accounting & GL',
     icon: AccountBalanceIcon,
+    capability: 'accounting::',
     children: [
       { label: 'Chart of Accounts', path: '/accounting/chart-of-accounts', capability: 'accounting::' },
       { label: 'Journal Entries', path: '/accounting/journal-entries', capability: 'accounting::' },
@@ -91,6 +98,7 @@ export const NAV_ITEMS = [
   {
     label: 'Reports',
     icon: AssessmentIcon,
+    capability: 'reports::',
     children: [
       { label: 'Budget vs Actual', path: '/reports/budget-vs-actual', capability: 'reports::' },
       { label: 'Profitability', path: '/reports/profitability', capability: 'reports::' },
@@ -103,6 +111,7 @@ export const NAV_ITEMS = [
   {
     label: 'BOM',
     icon: InventoryIcon,
+    capability: 'bom::',
     children: [
       { label: 'Catalog SKUs', path: '/bom/catalog', capability: 'bom::catalog-skus' },
       { label: 'Vendor SKU Matching', path: '/bom/vendor-matching', capability: 'bom::vendor-skus' },
@@ -111,6 +120,7 @@ export const NAV_ITEMS = [
   {
     label: 'Settings',
     icon: SettingsIcon,
+    capability: 'core::',
     children: [
       { label: 'Numbering', path: '/settings/numbering', capability: 'core::numbering-config' },
     ],
@@ -118,6 +128,7 @@ export const NAV_ITEMS = [
   {
     label: 'Admin',
     icon: AdminPanelSettingsIcon,
+    capability: 'core::',
     children: [
       { label: 'Vendors', path: '/core/vendors', capability: 'core::vendors' },
       { label: 'Clients', path: '/core/clients', capability: 'core::clients' },

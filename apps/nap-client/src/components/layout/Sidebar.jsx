@@ -52,9 +52,9 @@ export default function Sidebar() {
   // When perms.caps is not yet populated (e.g. /me response omits it),
   // fall back to showing all items so the sidebar isn't empty while the
   // server-side RBAC still enforces access.
-  // Filter nav groups by group-level capability (e.g. hide Tenants for non-NapSoft users).
-  // Child-level capability filtering is intentionally skipped — server-side RBAC
-  // enforces access; the sidebar stays fully navigable.
+  // Both group-level AND child-level capabilities are enforced — items whose
+  // capability resolves to 'none' are hidden, and groups with no visible
+  // children are dropped entirely.
   const filteredNav = useMemo(() => {
     if (!user) return [];
     const caps = user.perms?.caps || {};
@@ -63,24 +63,39 @@ export default function Sidebar() {
 
     const hasCap = (capability) => {
       if (!capability) return true;
-      // Wildcard: empty-module policy ('::::') grants access to everything
-      if (capKeys.some((k) => k.startsWith('::::'))) return true;
+      // Wildcard: empty-module policy ('::::') with view+ grants access to everything
+      if (capKeys.some((k) => k.startsWith('::::') && caps[k] !== 'none')) return true;
       const parts = capability.split('::');
       const moduleKey = parts[0];
       const routerKey = parts[1] || '';
       if (routerKey) {
         return capKeys.some((k) => {
           const [m, r] = k.split('::');
-          return m === moduleKey && r === routerKey;
+          return m === moduleKey && (r === routerKey || r === '') && caps[k] !== 'none';
         });
       }
-      return capKeys.some((k) => k.startsWith(`${moduleKey}::`));
+      // Module-level: any key under this module with level above 'none'?
+      return capKeys.some((k) => k.startsWith(`${moduleKey}::`) && caps[k] !== 'none');
     };
 
     return NAV_ITEMS.filter((group) => {
       if (group.napsoftOnly && !isNapSoftUser) return false;
       return hasCap(group.capability);
-    });
+    })
+      .map((group) => ({
+        ...group,
+        children: group.children
+          .map((child) => {
+            if (child.children) {
+              const visibleLeaves = child.children.filter((leaf) => hasCap(leaf.capability));
+              if (!visibleLeaves.length) return null;
+              return { ...child, children: visibleLeaves };
+            }
+            return hasCap(child.capability) ? child : null;
+          })
+          .filter(Boolean),
+      }))
+      .filter((group) => group.children.length > 0);
   }, [user, isNapSoftUser]);
 
   const toggleGroup = (label) => {
