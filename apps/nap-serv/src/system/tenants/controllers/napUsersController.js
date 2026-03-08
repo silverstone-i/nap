@@ -10,8 +10,8 @@
  *   register → validates tenant active, bcrypt hashes password, creates nap_user
  *   getById  → strips password_hash
  *   update   → supports password reset via raw SQL
- *   archive  → prevents self-archival
- *   restore  → checks parent tenant is active before restoring
+ *   archive  → prevents self-archival, sets status='locked', cascades to linked entity
+ *   restore  → checks parent tenant is active, sets status='active', cascades to linked entity
  * Standard POST is disabled; must use /register endpoint.
  *
  * Copyright (c) 2025 NapSoft LLC. All rights reserved.
@@ -192,7 +192,8 @@ class NapUsersController extends BaseController {
   }
 
   /**
-   * DELETE /archive — prevents self-archival
+   * DELETE /archive — prevents self-archival, sets status='locked',
+   * cascades to archive linked entity (e.g. employee) in tenant schema.
    */
   async archive(req, res) {
     const targetId = req.query.id;
@@ -206,11 +207,25 @@ class NapUsersController extends BaseController {
       return res.status(403).json({ error: 'Cannot archive the currently logged-in user' });
     }
 
-    req.body.deactivated_at = new Date();
-
     try {
-      const count = await this.model('admin').updateWhere([{ ...req.query }], req.body);
-      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
+      // Look up the nap_user to cascade to linked entity
+      const filter = targetId ? { id: targetId } : targetEmail ? { email: targetEmail } : { ...req.query };
+      const napUser = await this.model('admin').findOneBy([filter]);
+      if (!napUser) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
+
+      // Archive the nap_user with status='locked'
+      await db.none(
+        `UPDATE admin.nap_users
+         SET deactivated_at = NOW(), status = 'locked', updated_by = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [req.user?.id || null, napUser.id],
+      );
+
+      // Cascade to linked entity in tenant schema
+      if (napUser.entity_type && napUser.entity_id) {
+        await this.#archiveLinkedEntity(napUser, req);
+      }
+
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });
     } catch (err) {
       this.handleError(err, res, 'archiving', this.errorLabel);
@@ -218,7 +233,8 @@ class NapUsersController extends BaseController {
   }
 
   /**
-   * PATCH /restore — checks parent tenant is active before restoring user
+   * PATCH /restore — checks parent tenant is active, sets status='active',
+   * cascades to restore linked entity in tenant schema.
    */
   async restore(req, res) {
     const filter = req.query.email
@@ -240,19 +256,70 @@ class NapUsersController extends BaseController {
         return res.status(403).json({ error: 'Tenant is deactivated. Restore the tenant first.' });
       }
 
-      // Restore user
-      req.body.deactivated_at = null;
-      const count = await this.model('admin').updateWhere(
-        [{ deactivated_at: { $not: null } }, filter],
-        req.body,
-        { includeDeactivated: true },
+      // Restore user with status='active'
+      await db.none(
+        `UPDATE admin.nap_users
+         SET deactivated_at = NULL, status = 'active', updated_by = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [req.user?.id || null, user.id],
       );
-      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already active` });
+
+      // Cascade to restore linked entity in tenant schema
+      if (user.entity_type && user.entity_id) {
+        await this.#restoreLinkedEntity(user, tenant, req);
+      }
 
       res.status(200).json({ message: `${this.errorLabel} marked as active` });
     } catch (err) {
       this.handleError(err, res, 'restoring', this.errorLabel);
     }
+  }
+
+  /* ── Private helpers ──────────────────────────────────── */
+
+  /**
+   * Archive the entity (e.g. employee) linked to a nap_user in its tenant schema.
+   */
+  async #archiveLinkedEntity(napUser, req) {
+    const tenant = await db('tenants', 'admin').findOneBy([{ id: napUser.tenant_id }]);
+    if (!tenant?.schema_name) return;
+
+    const table = this.#entityTable(napUser.entity_type);
+    if (!table) return;
+
+    await db.none(
+      `UPDATE ${pgp.as.name(tenant.schema_name)}.${pgp.as.name(table)}
+       SET deactivated_at = NOW(), updated_by = $1, updated_at = NOW()
+       WHERE id = $2 AND deactivated_at IS NULL`,
+      [req.user?.id || null, napUser.entity_id],
+    );
+    logger.info(`Cascaded archive to ${tenant.schema_name}.${table} ${napUser.entity_id}`);
+  }
+
+  /**
+   * Restore the entity (e.g. employee) linked to a nap_user in its tenant schema.
+   */
+  async #restoreLinkedEntity(napUser, tenant, req) {
+    if (!tenant?.schema_name) return;
+
+    const table = this.#entityTable(napUser.entity_type);
+    if (!table) return;
+
+    await db.none(
+      `UPDATE ${pgp.as.name(tenant.schema_name)}.${pgp.as.name(table)}
+       SET deactivated_at = NULL, updated_by = $1, updated_at = NOW()
+       WHERE id = $2 AND deactivated_at IS NOT NULL`,
+      [req.user?.id || null, napUser.entity_id],
+    );
+    logger.info(`Cascaded restore to ${tenant.schema_name}.${table} ${napUser.entity_id}`);
+  }
+
+  /**
+   * Map entity_type to its table name.
+   */
+  #entityTable(entityType) {
+    const map = { employee: 'employees', vendor: 'vendors', client: 'clients', contact: 'contacts' };
+    return map[entityType] || null;
   }
 }
 
