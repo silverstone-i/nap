@@ -28,3 +28,8 @@ export function useArchiveActivity() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (filter) => activityApi.archive(filter), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });
 }
+
+export function useRestoreActivity() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (filter) => activityApi.restore(filter), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });
+}

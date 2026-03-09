@@ -10,6 +10,7 @@
 
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import ConstructionIcon from '@mui/icons-material/Construction';
+import CategoryIcon from '@mui/icons-material/Category';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -38,6 +39,15 @@ export const NAV_ITEMS = [
       { label: 'Project List', path: '/projects' },
       { label: 'Project Detail', path: '/projects/detail', capability: 'projects::' },
       { label: 'Project Profitability', path: '/projects/profitability', capability: 'projects::' },
+    ],
+  },
+  {
+    label: 'Activities',
+    icon: CategoryIcon,
+    capability: 'activities::',
+    children: [
+      { label: 'Categories', path: '/activities/categories', capability: 'activities::categories' },
+      { label: 'Activities', path: '/activities', capability: 'activities::activities' },
     ],
   },
   {
