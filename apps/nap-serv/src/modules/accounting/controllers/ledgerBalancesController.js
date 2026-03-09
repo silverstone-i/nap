@@ -10,6 +10,7 @@ import ViewController from '../../../lib/ViewController.js';
 class LedgerBalancesController extends ViewController {
   constructor() {
     super('ledgerBalances', 'ledger-balance');
+    this.rbacConfig = { module: 'accounting', router: 'ledger-balances' };
   }
 }
 

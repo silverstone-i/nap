@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class TemplateChangeOrdersController extends BaseController {
   constructor() {
     super('templateChangeOrders');
+    this.rbacConfig = { module: 'projects', router: 'template-change-orders' };
   }
 }
 

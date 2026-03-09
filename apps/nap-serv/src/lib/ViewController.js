@@ -82,15 +82,15 @@ class ViewController {
       if (scopeCol && qctx.entityId) {
         conditions.push({ [scopeCol]: qctx.entityId });
       }
-    } else if (qctx.scope === 'assigned_companies') {
-      const col = this.rbacConfig.scopeColumn || 'project_id';
+    } else if (qctx.scope === 'assigned_companies' && this.rbacConfig.scopeColumn) {
+      const col = this.rbacConfig.scopeColumn;
       if (col === 'company_id' && qctx.companyIds) {
         conditions.push({ [col]: { $in: qctx.companyIds } });
       } else if (qctx.projectIds) {
         conditions.push({ [col]: { $in: qctx.projectIds } });
       }
-    } else if (qctx.scope === 'assigned_projects' && qctx.projectIds) {
-      const col = this.rbacConfig.scopeColumn || 'project_id';
+    } else if (qctx.scope === 'assigned_projects' && this.rbacConfig.scopeColumn && qctx.projectIds) {
+      const col = this.rbacConfig.scopeColumn;
       conditions.push({ [col]: { $in: qctx.projectIds } });
     }
     // 'all_projects' → no scope filtering

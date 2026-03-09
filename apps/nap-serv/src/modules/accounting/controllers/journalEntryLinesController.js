@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class JournalEntryLinesController extends BaseController {
   constructor() {
     super('journalEntryLines', 'journal-entry-line');
+    this.rbacConfig = { module: 'accounting', router: 'journal-entry-lines' };
   }
 
   async create(req, res) {

@@ -12,6 +12,7 @@ import { allocateNumber } from '../services/numberingService.js';
 class ContactsController extends BaseController {
   constructor() {
     super('contacts');
+    this.rbacConfig = { module: 'core', router: 'contacts' };
   }
 
   /**

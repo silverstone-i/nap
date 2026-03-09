@@ -46,6 +46,7 @@ async function computeRemainingBalance(schema, invoiceId) {
 class PaymentsController extends BaseController {
   constructor() {
     super('payments', 'payment');
+    this.rbacConfig = { module: 'ap', router: 'payments' };
   }
 
   async create(req, res) {

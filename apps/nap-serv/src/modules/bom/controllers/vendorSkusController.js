@@ -14,6 +14,7 @@ import logger from '../../../lib/logger.js';
 class VendorSkusController extends BaseController {
   constructor() {
     super('vendorSkus', 'vendor-sku');
+    this.rbacConfig = { module: 'bom', router: 'vendor-skus' };
   }
 
   /**

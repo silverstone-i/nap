@@ -13,6 +13,7 @@ import BaseController from '../../../lib/BaseController.js';
 class CostItemsController extends BaseController {
   constructor() {
     super('costItems');
+    this.rbacConfig = { module: 'projects', router: 'cost-items' };
   }
 }
 

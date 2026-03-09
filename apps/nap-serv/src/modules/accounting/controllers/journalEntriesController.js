@@ -16,6 +16,7 @@ const VALID_STATUSES = ['pending', 'posted', 'reversed'];
 class JournalEntriesController extends BaseController {
   constructor() {
     super('journalEntries', 'journal-entry');
+    this.rbacConfig = { module: 'accounting', router: 'journal-entries', scopeColumn: 'project_id' };
   }
 
   async create(req, res) {
