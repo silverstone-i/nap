@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class TemplateCostItemsController extends BaseController {
   constructor() {
     super('templateCostItems');
+    this.rbacConfig = { module: 'projects', router: 'template-cost-items' };
   }
 }
 

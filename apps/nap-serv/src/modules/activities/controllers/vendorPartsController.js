@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class VendorPartsController extends BaseController {
   constructor() {
     super('vendorParts', 'vendor-part');
+    this.rbacConfig = { module: 'activities', router: 'vendor-parts' };
   }
 }
 

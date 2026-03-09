@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class ActivitiesController extends BaseController {
   constructor() {
     super('activities', 'activity');
+    this.rbacConfig = { module: 'activities', router: 'activities' };
   }
 }
 

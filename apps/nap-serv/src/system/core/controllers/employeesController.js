@@ -20,6 +20,7 @@ import logger from '../../../lib/logger.js';
 class EmployeesController extends BaseController {
   constructor() {
     super('employees');
+    this.rbacConfig = { module: 'core', router: 'employees' };
   }
 
   /**

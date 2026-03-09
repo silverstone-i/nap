@@ -23,6 +23,7 @@ const VALID_TRANSITIONS = {
 class BudgetsController extends BaseController {
   constructor() {
     super('budgets', 'budget');
+    this.rbacConfig = { module: 'activities', router: 'budgets' };
   }
 
   async create(req, res) {

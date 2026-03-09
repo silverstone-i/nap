@@ -21,6 +21,7 @@ const VALID_TRANSITIONS = {
 class ActualCostsController extends BaseController {
   constructor() {
     super('actualCosts', 'actual-cost');
+    this.rbacConfig = { module: 'activities', router: 'actual-costs', scopeColumn: 'project_id' };
   }
 
   async create(req, res) {

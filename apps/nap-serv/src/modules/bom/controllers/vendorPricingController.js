@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class VendorPricingController extends BaseController {
   constructor() {
     super('vendorPricing', 'vendor-pricing');
+    this.rbacConfig = { module: 'bom', router: 'vendor-pricing' };
   }
 }
 

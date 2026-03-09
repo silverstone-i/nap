@@ -12,6 +12,7 @@ const VALID_TYPES = ['asset', 'liability', 'equity', 'income', 'expense', 'cash'
 class ChartOfAccountsController extends BaseController {
   constructor() {
     super('chartOfAccounts', 'chart-of-accounts');
+    this.rbacConfig = { module: 'accounting', router: 'chart-of-accounts' };
   }
 
   async create(req, res) {

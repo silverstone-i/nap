@@ -27,6 +27,7 @@ function validateSourceType(body) {
 class CostLinesController extends BaseController {
   constructor() {
     super('costLines', 'cost-line');
+    this.rbacConfig = { module: 'activities', router: 'cost-lines', scopeColumn: 'company_id' };
   }
 
   async create(req, res) {

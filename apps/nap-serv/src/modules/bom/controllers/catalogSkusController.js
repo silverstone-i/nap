@@ -13,6 +13,7 @@ import logger from '../../../lib/logger.js';
 class CatalogSkusController extends BaseController {
   constructor() {
     super('catalogSkus', 'catalog-sku');
+    this.rbacConfig = { module: 'bom', router: 'catalog-skus' };
   }
 
   /**

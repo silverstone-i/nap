@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class TaskGroupsController extends BaseController {
   constructor() {
     super('taskGroups');
+    this.rbacConfig = { module: 'projects', router: 'task-groups' };
   }
 
   /**

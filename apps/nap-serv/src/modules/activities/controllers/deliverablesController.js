@@ -21,6 +21,7 @@ const VALID_TRANSITIONS = {
 class DeliverablesController extends BaseController {
   constructor() {
     super('deliverables', 'deliverable');
+    this.rbacConfig = { module: 'activities', router: 'deliverables' };
   }
 
   async create(req, res) {

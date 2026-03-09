@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class TemplateUnitsController extends BaseController {
   constructor() {
     super('templateUnits');
+    this.rbacConfig = { module: 'projects', router: 'template-units' };
   }
 
   /**

@@ -23,6 +23,7 @@ const VALID_TRANSITIONS = {
 class ApCreditMemosController extends BaseController {
   constructor() {
     super('apCreditMemos', 'ap-credit-memo');
+    this.rbacConfig = { module: 'ap', router: 'ap-credit-memos' };
   }
 
   async create(req, res) {

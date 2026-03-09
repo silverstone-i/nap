@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class InterCompaniesController extends BaseController {
   constructor() {
     super('interCompanies');
+    this.rbacConfig = { module: 'core', router: 'inter-companies' };
   }
 
   /**

@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class InternalTransfersController extends BaseController {
   constructor() {
     super('internalTransfers', 'internal-transfer');
+    this.rbacConfig = { module: 'accounting', router: 'internal-transfers' };
   }
 
   async create(req, res) {

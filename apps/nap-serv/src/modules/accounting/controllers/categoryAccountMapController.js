@@ -12,6 +12,7 @@ import BaseController from '../../../lib/BaseController.js';
 class CategoryAccountMapController extends BaseController {
   constructor() {
     super('categoryAccountMap', 'category-account-map');
+    this.rbacConfig = { module: 'accounting', router: 'category-account-map' };
   }
 
   async create(req, res) {

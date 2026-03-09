@@ -10,6 +10,7 @@ import BaseController from '../../../lib/BaseController.js';
 class ApInvoiceLinesController extends BaseController {
   constructor() {
     super('apInvoiceLines', 'ap-invoice-line');
+    this.rbacConfig = { module: 'ap', router: 'ap-invoice-lines' };
   }
 
   async create(req, res) {

@@ -12,6 +12,7 @@ import logger from '../../../lib/logger.js';
 class PostingQueuesController extends BaseController {
   constructor() {
     super('postingQueues', 'posting-queue');
+    this.rbacConfig = { module: 'accounting', router: 'posting-queues' };
   }
 
   async retry(req, res) {

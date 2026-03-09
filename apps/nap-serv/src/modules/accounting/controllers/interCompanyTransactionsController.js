@@ -12,6 +12,7 @@ const VALID_MODULES = ['ar', 'ap', 'je'];
 class InterCompanyTransactionsController extends BaseController {
   constructor() {
     super('interCompanyTransactions', 'inter-company-transaction');
+    this.rbacConfig = { module: 'accounting', router: 'inter-company-transactions' };
   }
 
   async create(req, res) {

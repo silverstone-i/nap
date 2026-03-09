@@ -21,6 +21,7 @@ const VALID_TRANSITIONS = {
 class ProjectsController extends BaseController {
   constructor() {
     super('projects');
+    this.rbacConfig = { module: 'projects', router: 'projects', scopeColumn: 'company_id' };
   }
 
   /**

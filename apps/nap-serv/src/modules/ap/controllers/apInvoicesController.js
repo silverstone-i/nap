@@ -23,6 +23,7 @@ const VALID_TRANSITIONS = {
 class ApInvoicesController extends BaseController {
   constructor() {
     super('apInvoices', 'ap-invoice');
+    this.rbacConfig = { module: 'ap', router: 'ap-invoices', scopeColumn: 'project_id' };
   }
 
   async create(req, res) {

@@ -12,6 +12,7 @@ const VALID_CATEGORY_TYPES = ['labor', 'material', 'subcontract', 'equipment', '
 class CategoriesController extends BaseController {
   constructor() {
     super('categories', 'category');
+    this.rbacConfig = { module: 'activities', router: 'categories' };
   }
 
   async create(req, res) {
