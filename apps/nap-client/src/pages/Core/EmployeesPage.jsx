@@ -41,6 +41,8 @@ import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '..
 import { buildBulkActions } from '../../utils/selectionUtils.js';
 import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
+import { resolveLevel } from '@nap/shared';
 
 const BLANK_CREATE = {
   first_name: '', last_name: '', code: '', position: '', department: '', email: '',
@@ -80,6 +82,10 @@ const columns = [
 ];
 
 export default function EmployeesPage() {
+  const { user } = useAuth();
+  const caps = user?.perms?.caps || {};
+  const canResetPassword = resolveLevel(caps, 'core', '', 'reset-password') === 'full';
+
   const { data: res, isLoading } = useEmployees();
   const allRows = res?.rows ?? [];
 
@@ -334,7 +340,7 @@ export default function EmployeesPage() {
           <FormControlLabel control={<Checkbox checked={editForm.is_billing_contact} onChange={onEditCheck('is_billing_contact')} />} label="Billing Contact" />
         </Box>
 
-        {editForm.is_app_user && (
+        {editForm.is_app_user && canResetPassword && (
           <Button variant="outlined" size="small" onClick={() => setResetPwOpen(true)}>
             Reset Password
           </Button>

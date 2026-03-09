@@ -5,4 +5,4 @@
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
-// Shared constants and utilities will be added as the project grows
+export { resolveLevel } from './resolveLevel.js';

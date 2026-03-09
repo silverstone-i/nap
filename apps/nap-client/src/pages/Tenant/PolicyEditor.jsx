@@ -32,15 +32,18 @@ function policyKey(module, router, action) {
   return `${module}::${router || ''}::${action || ''}`;
 }
 
-/** Cascade: router → module → root → '' */
-function resolveLevel(edits, routerKey, moduleKey) {
-  return edits[routerKey] ?? edits[moduleKey] ?? edits[ROOT_KEY] ?? '';
+/** Cascade: action → router → module → root → '' */
+function resolveLevel(edits, key, routerKey, moduleKey) {
+  return edits[key] ?? edits[routerKey] ?? edits[moduleKey] ?? edits[ROOT_KEY] ?? '';
 }
 
 /**
- * Build a tree from flat catalog rows: Map<module, { label, routers: Map<router, { label }> }>
- * Module-level entries (router=null, action=null) become the module node.
- * Router-level entries (action=null) become router children.
+ * Build a tree from flat catalog rows.
+ *
+ * Three entry types:
+ *   1. Module heading  (router=null, action=null) → sets mod.label
+ *   2. Module action   (router=null, action≠null) → mod.actions Map
+ *   3. Router row      (action=null)              → mod.routers Map
  */
 function buildCatalogTree(catalogRows) {
   const sorted = [...catalogRows]
@@ -50,16 +53,15 @@ function buildCatalogTree(catalogRows) {
 
   for (const entry of sorted) {
     if (!modules.has(entry.module)) {
-      modules.set(entry.module, { label: entry.module, routers: new Map() });
+      modules.set(entry.module, { label: entry.module, actions: new Map(), routers: new Map() });
     }
     const mod = modules.get(entry.module);
 
     if (entry.router === null && entry.action === null) {
       mod.label = entry.label;
-      continue;
-    }
-
-    if (entry.action === null) {
+    } else if (entry.router === null && entry.action !== null) {
+      mod.actions.set(entry.action, { label: entry.label, description: entry.description });
+    } else if (entry.action === null) {
       mod.routers.set(entry.router, { label: entry.label, description: entry.description });
     }
   }
@@ -192,7 +194,7 @@ export default function PolicyEditor({ roleId, readOnly = false, actionsContaine
                 <Typography variant="subtitle2">{mod.label}</Typography>
                 <Box onClick={(e) => e.stopPropagation()}>
                   <LevelSelector
-                    value={resolveLevel(edits, moduleKey, moduleKey)}
+                    value={resolveLevel(edits, moduleKey, moduleKey, moduleKey)}
                     onChange={(val) => handleChange(moduleKey, val)}
                     disabled={readOnly}
                   />
@@ -200,6 +202,33 @@ export default function PolicyEditor({ roleId, readOnly = false, actionsContaine
               </Box>
             </AccordionSummary>
             <AccordionDetails sx={{ pt: 0 }}>
+              {/* Module-level actions (e.g. Reset Password) */}
+              {[...mod.actions.entries()].map(([actionName, act]) => {
+                const actionKey = policyKey(moduleName, null, actionName);
+                return (
+                  <Box
+                    key={actionName}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      py: 0.5,
+                      px: 1,
+                      '&:hover': { bgcolor: 'action.hover' },
+                      borderRadius: 0.5,
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">{act.label}</Typography>
+                    <LevelSelector
+                      value={resolveLevel(edits, actionKey, actionKey, moduleKey)}
+                      onChange={(val) => handleChange(actionKey, val)}
+                      disabled={readOnly}
+                    />
+                  </Box>
+                );
+              })}
+
+              {/* Router rows */}
               {[...mod.routers.entries()].map(([routerName, rtr]) => {
                 const routerKey = policyKey(moduleName, routerName, null);
                 return (
@@ -217,7 +246,7 @@ export default function PolicyEditor({ roleId, readOnly = false, actionsContaine
                   >
                     <Typography variant="body2">{rtr.label}</Typography>
                     <LevelSelector
-                      value={resolveLevel(edits, routerKey, moduleKey)}
+                      value={resolveLevel(edits, routerKey, routerKey, moduleKey)}
                       onChange={(val) => handleChange(routerKey, val)}
                       disabled={readOnly}
                     />
