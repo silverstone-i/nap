@@ -3,7 +3,7 @@
  * @module nap-serv/middleware/rbac
  *
  * rbac(requiredLevel) enforces permission level using policy resolution hierarchy:
- *   module::router::action → module::router:: → module:::: → none
+ *   module::router::action → module::router:: → module:::: → :::: → none
  *
  * No bypass for super_user or admin — all users resolve through full
  * policy resolution. System roles achieve access via seeded policies.
@@ -17,7 +17,11 @@ const LEVEL_ORDER = { none: 0, view: 1, full: 2 };
 
 /**
  * Resolve the effective permission level from a capabilities map.
- * Checks most-specific key first: module::router::action → module::router:: → module::::
+ * Checks most-specific key first, falling back to broader grants:
+ *   module::router::action → module::router:: → module:::: → :::: (wildcard)
+ *
+ * The final '::::' fallback matches the empty-module wildcard policy seeded
+ * for admin/super_user roles, ensuring they pass without per-module entries.
  *
  * @param {object} caps Capabilities map from permission canon
  * @param {string} moduleName
@@ -30,6 +34,7 @@ export function resolveLevel(caps, moduleName, routerName, actionName) {
     `${moduleName}::${routerName}::${actionName}`,
     `${moduleName}::${routerName}::`,
     `${moduleName}::::`,
+    '::::',
   ];
   for (const k of keys) {
     const level = caps[k];
