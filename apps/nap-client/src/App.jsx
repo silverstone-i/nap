@@ -23,6 +23,8 @@ import ContactsPage from './pages/Core/ContactsPage.jsx';
 import ProjectsPage from './pages/Projects/ProjectsPage.jsx';
 import ProjectDetailPage from './pages/Projects/ProjectDetailPage.jsx';
 import ChangeOrdersPage from './pages/Projects/ChangeOrdersPage.jsx';
+import CategoriesPage from './pages/Activities/CategoriesPage.jsx';
+import ActivitiesPage from './pages/Activities/ActivitiesPage.jsx';
 import DeliverablesPage from './pages/Activities/DeliverablesPage.jsx';
 import BudgetManagementPage from './pages/Activities/BudgetManagementPage.jsx';
 import CostTrackingPage from './pages/Activities/CostTrackingPage.jsx';
@@ -72,6 +74,10 @@ export default function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/change-orders" element={<ChangeOrdersPage />} />
+
+          {/* Activities setup routes */}
+          <Route path="/activities/categories" element={<CategoriesPage />} />
+          <Route path="/activities" element={<ActivitiesPage />} />
 
           {/* Activities & cost management routes */}
           <Route path="/deliverables" element={<DeliverablesPage />} />

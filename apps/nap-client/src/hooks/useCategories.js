@@ -28,3 +28,8 @@ export function useArchiveCategory() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (filter) => categoryApi.archive(filter), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });
 }
+
+export function useRestoreCategory() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (filter) => categoryApi.restore(filter), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });
+}
