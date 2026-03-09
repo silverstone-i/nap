@@ -63,8 +63,10 @@ function buildModuleRouterOptions(catalogRows) {
   const modules = new Map();
   for (const entry of catalogRows) {
     if (entry.action !== null) continue;
-    if (!modules.has(entry.module)) modules.set(entry.module, []);
-    if (entry.router) modules.get(entry.module).push(entry.router);
+    if (!modules.has(entry.module)) modules.set(entry.module, { label: entry.module, routers: [] });
+    const mod = modules.get(entry.module);
+    if (entry.router === null) mod.label = entry.label ?? entry.module;
+    else mod.routers.push(entry.router);
   }
   return modules;
 }
@@ -101,7 +103,7 @@ export default function FieldGroupDefinitionEditor({ readOnly = false, actionsCo
   const [deletingId, setDeletingId] = useState(null);
 
   const isEditing = editingId !== null;
-  const routerOptions = form.module ? moduleRouterMap.get(form.module) ?? [] : [];
+  const routerOptions = form.module ? moduleRouterMap.get(form.module)?.routers ?? [] : [];
   const availableFields = useMemo(
     () => getAvailableFields(form.module, form.router, catalogRows),
     [form.module, form.router, catalogRows],
@@ -248,8 +250,8 @@ export default function FieldGroupDefinitionEditor({ readOnly = false, actionsCo
           onChange={(e) => setForm((p) => ({ ...p, module: e.target.value, router: '', selectedColumns: [] }))}
           disabled={isEditing}
         >
-          {[...moduleRouterMap.keys()].map((m) => (
-            <MenuItem key={m} value={m}>{m}</MenuItem>
+          {[...moduleRouterMap.entries()].map(([m, { label }]) => (
+            <MenuItem key={m} value={m}>{label}</MenuItem>
           ))}
         </TextField>
         <TextField
