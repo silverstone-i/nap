@@ -11,6 +11,19 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { authRedis } from '../../src/middleware/authRedis.js';
 
+// Mock Redis module
+vi.mock('../../src/db/redis.js', () => {
+  const mockRedis = {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+  };
+  return {
+    getRedis: vi.fn().mockResolvedValue(mockRedis),
+    closeRedis: vi.fn().mockResolvedValue(undefined),
+    default: { getRedis: vi.fn().mockResolvedValue(mockRedis), closeRedis: vi.fn() },
+  };
+});
+
 // Mock db module
 vi.mock('../../src/db/db.js', () => {
   const mockFindOneBy = vi.fn();
