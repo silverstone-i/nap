@@ -10,14 +10,11 @@ import tenantsRouter from './tenantsRouter.js';
 import napUsersRouter from './napUsersRouter.js';
 import adminRouter from './adminRouter.js';
 import matchReviewLogsRouter from './matchReviewLogsRouter.js';
-import countriesRouter from './countriesRouter.js';
-
 const router = Router();
 
 router.use('/v1/tenants', tenantsRouter);
 router.use('/v1/nap-users', napUsersRouter);
 router.use('/v1/admin', adminRouter);
 router.use('/v1/match-review-logs', matchReviewLogsRouter);
-router.use('/v1/countries', countriesRouter);
 
 export default router;

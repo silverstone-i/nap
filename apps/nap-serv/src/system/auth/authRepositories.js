@@ -9,14 +9,11 @@ import Tenants from './models/Tenants.js';
 import NapUsers from './models/NapUsers.js';
 import ImpersonationLogs from './models/ImpersonationLogs.js';
 import MatchReviewLogs from './models/MatchReviewLogs.js';
-import Countries from './models/Countries.js';
-
 const repositories = {
   tenants: Tenants,
   napUsers: NapUsers,
   impersonationLogs: ImpersonationLogs,
   matchReviewLogs: MatchReviewLogs,
-  countries: Countries,
 };
 
 export default repositories;

@@ -6,6 +6,5 @@
  */
 
 import bootstrapAdmin from './202502110001_bootstrapAdmin.js';
-import countries from './202503090002_countries.js';
 
-export default [bootstrapAdmin, countries];
+export default [bootstrapAdmin];
