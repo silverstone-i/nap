@@ -18,6 +18,7 @@ const addressesSchema = {
   softDelete: true,
   columns: [
     { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
+    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'source_id', type: 'uuid', notNull: true },
     { name: 'label', type: 'varchar(32)' },
     { name: 'address_line_1', type: 'varchar(255)' },
@@ -40,6 +41,7 @@ const addressesSchema = {
       },
     ],
     indexes: [
+      { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['source_id'] },
     ],
   },

@@ -17,6 +17,7 @@ const phoneNumbersSchema = {
   softDelete: true,
   columns: [
     { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
+    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'source_id', type: 'uuid', notNull: true },
     { name: 'phone_type', type: 'varchar(16)', notNull: true, default: 'cell' },
     { name: 'phone_number', type: 'varchar(32)', notNull: true },
@@ -36,6 +37,7 @@ const phoneNumbersSchema = {
       },
     ],
     indexes: [
+      { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['source_id'] },
     ],
   },

@@ -13,6 +13,7 @@ const taxIdentifiersSchema = {
   softDelete: true,
   columns: [
     { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
+    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'source_id', type: 'uuid', notNull: true },
     { name: 'country_code', type: 'char(2)', notNull: true },
     { name: 'tax_type', type: 'varchar(16)', notNull: true },
@@ -30,6 +31,7 @@ const taxIdentifiersSchema = {
       },
     ],
     indexes: [
+      { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['source_id'] },
       {
         type: 'Index',
