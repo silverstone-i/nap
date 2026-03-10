@@ -74,7 +74,7 @@ describe('Vendor CRUD — /api/core/v1/vendors', () => {
     const res = await request(app)
       .post('/api/core/v1/vendors')
       .set('Cookie', cookies)
-      .send({ name: 'Acme Supplies', code: 'ACME', tax_id: '12-3456789', payment_terms: 'Net 30' });
+      .send({ name: 'Acme Supplies', code: 'ACME', payment_terms: 'Net 30' });
 
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('Acme Supplies');

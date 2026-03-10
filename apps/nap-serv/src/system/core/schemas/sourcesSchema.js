@@ -26,7 +26,7 @@ const sourcesSchema = {
     primaryKey: ['id'],
     unique: [['table_id', 'source_type']],
     checks: [
-      { type: 'Check', columns: ['source_type'], expression: "source_type IN ('vendor', 'client', 'employee', 'contact')" },
+      { type: 'Check', columns: ['source_type'], expression: "source_type IN ('vendor', 'client', 'employee', 'contact', 'inter_company')" },
     ],
     indexes: [
       { type: 'Index', columns: ['table_id', 'source_type'] },

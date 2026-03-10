@@ -77,7 +77,7 @@ describe('Project lifecycle — full hierarchy creation, status workflow, and ar
     const res = await request(app)
       .post('/api/core/v1/inter-companies')
       .set('Cookie', tenantCookies)
-      .send({ code: 'PLCO', name: 'Lifecycle Company', tax_id: '99-1112222' });
+      .send({ code: 'PLCO', name: 'Lifecycle Company' });
 
     expect(res.status).toBe(201);
     companyId = res.body.id;

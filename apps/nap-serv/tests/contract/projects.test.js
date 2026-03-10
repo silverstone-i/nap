@@ -68,7 +68,7 @@ describe('Project CRUD — /api/projects/v1/projects', () => {
     const icRes = await request(app)
       .post('/api/core/v1/inter-companies')
       .set('Cookie', cookies)
-      .send({ code: 'PTCO', name: 'Project Test Company', tax_id: '11-2223333' });
+      .send({ code: 'PTCO', name: 'Project Test Company' });
     companyId = icRes.body.id;
   }, 30000);
 

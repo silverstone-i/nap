@@ -49,7 +49,6 @@ async function provisionTenant(cookies) {
 
 describe('Contact CRUD — /api/core/v1/contacts', () => {
   let cookies;
-  let sourceId;
   let contactId;
 
   beforeAll(async () => {
@@ -60,31 +59,20 @@ describe('Contact CRUD — /api/core/v1/contacts', () => {
       .post('/api/auth/login')
       .send({ email: 'admin@cotest.com', password: 'CotestPass123!' });
     cookies = loginRes.headers['set-cookie'];
-
-    // Create a vendor to get a source_id for contacts
-    const vendorRes = await request(app)
-      .post('/api/core/v1/vendors')
-      .set('Cookie', cookies)
-      .send({ name: 'Source Vendor', code: 'SV01' });
-    sourceId = vendorRes.body.source_id;
   }, 30000);
 
-  test('creates a contact linked to a source', async () => {
+  test('creates a contact with auto-source linkage', async () => {
     const res = await request(app)
       .post('/api/core/v1/contacts')
       .set('Cookie', cookies)
       .send({
-        source_id: sourceId,
         name: 'John Doe',
         email: 'john@example.com',
-        phone: '555-1234',
-        position: 'Sales Manager',
-        is_primary: true,
       });
 
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('John Doe');
-    expect(res.body.source_id).toBe(sourceId);
+    expect(res.body.source_id).toBeDefined();
     contactId = res.body.id;
   });
 

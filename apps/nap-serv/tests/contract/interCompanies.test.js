@@ -63,11 +63,12 @@ describe('Inter-Company CRUD — /api/core/v1/inter-companies', () => {
     const res = await request(app)
       .post('/api/core/v1/inter-companies')
       .set('Cookie', cookies)
-      .send({ code: 'SUB01', name: 'Subsidiary One', tax_id: '99-7654321' });
+      .send({ code: 'SUB01', name: 'Subsidiary One' });
 
     expect(res.status).toBe(201);
     expect(res.body.code).toBe('SUB01');
     expect(res.body.name).toBe('Subsidiary One');
+    expect(res.body.source_id).toBeDefined();
     icId = res.body.id;
   });
 

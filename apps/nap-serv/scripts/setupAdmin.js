@@ -84,6 +84,10 @@ async function main() {
   }
   logger.info('Admin migrations complete.');
 
+  // ── Seed countries reference data ──────────────────────────────────
+  const { seedCountries } = await import('../src/system/auth/services/countriesSeeder.js');
+  await seedCountries(db);
+
   // ── Provision NapSoft tenant schema ────────────────────────────────
   const rootTenantCode = process.env.ROOT_TENANT_CODE || process.env.NAPSOFT_TENANT || 'NAP';
   const tenantSchema = rootTenantCode.toLowerCase();
