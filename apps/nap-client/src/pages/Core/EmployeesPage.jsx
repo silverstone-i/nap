@@ -5,7 +5,7 @@
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -24,6 +24,7 @@ import { DataGrid } from '@mui/x-data-grid';
 
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
+import PatternTextField from '../../components/shared/PatternTextField.jsx';
 import ResetPasswordDialog from '../../components/shared/ResetPasswordDialog.jsx';
 import SetPasswordPopover from '../../components/shared/SetPasswordPopover.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
@@ -58,10 +59,10 @@ const BLANK_EDIT = {
 };
 
 const PHONE_TYPES = ['cell', 'work', 'home', 'fax', 'other'];
-const BLANK_PHONE = { phone_type: 'cell', phone_number: '', is_primary: false };
+const BLANK_PHONE = { country_code: 'US', phone_type: 'cell', phone_number: '', is_primary: false };
 const BLANK_ADDRESS = {
   label: '', address_line_1: '', address_line_2: '', city: '',
-  state_province: '', postal_code: '', country_code: '', is_primary: false,
+  state_province: '', postal_code: '', country_code: 'US', is_primary: false,
 };
 const BLANK_TAX_ID = { country_code: 'US', tax_type: 'TIN', tax_value: '', is_primary: false };
 
@@ -136,6 +137,7 @@ export default function EmployeesPage() {
   const [editPhones, setEditPhones] = useState([]);
   const [editAddresses, setEditAddresses] = useState([]);
   const [editTaxIds, setEditTaxIds] = useState([]);
+  const editInitial = useRef({ form: null, phones: null, addresses: null, taxIds: null });
 
   const [snack, setSnack] = useState({ open: false, msg: '', sev: 'success' });
   const toast = useCallback((msg, sev = 'success') => setSnack({ open: true, msg, sev }), []);
@@ -194,20 +196,29 @@ export default function EmployeesPage() {
 
   /* ── Sync query-fetched phones/addresses/taxIds into edit state */
   useEffect(() => {
-    if (editOpen && phonesRes?.rows) setEditPhones(phonesRes.rows);
+    if (editOpen && phonesRes?.rows) {
+      setEditPhones(phonesRes.rows);
+      editInitial.current.phones = phonesRes.rows;
+    }
   }, [editOpen, phonesRes]);
 
   useEffect(() => {
-    if (editOpen && addressesRes?.rows) setEditAddresses(addressesRes.rows);
+    if (editOpen && addressesRes?.rows) {
+      setEditAddresses(addressesRes.rows);
+      editInitial.current.addresses = addressesRes.rows;
+    }
   }, [editOpen, addressesRes]);
 
   useEffect(() => {
-    if (editOpen && taxIdsRes?.rows) setEditTaxIds(taxIdsRes.rows);
+    if (editOpen && taxIdsRes?.rows) {
+      setEditTaxIds(taxIdsRes.rows);
+      editInitial.current.taxIds = taxIdsRes.rows;
+    }
   }, [editOpen, taxIdsRes]);
 
   const openEdit = useCallback(() => {
     if (!selected) return;
-    setEditForm({
+    const form = {
       first_name: selected.first_name ?? '',
       last_name: selected.last_name ?? '',
       code: selected.code ?? '',
@@ -218,17 +229,45 @@ export default function EmployeesPage() {
       roles: selected.roles ?? [],
       is_primary_contact: !!selected.is_primary_contact,
       is_billing_contact: !!selected.is_billing_contact,
-    });
+    };
+    setEditForm(form);
+    editInitial.current.form = form;
 
     setEditSourceId(selected.source_id || null);
     if (!selected.source_id) {
       setEditPhones([]);
       setEditAddresses([]);
       setEditTaxIds([]);
+      editInitial.current.phones = [];
+      editInitial.current.addresses = [];
+      editInitial.current.taxIds = [];
     }
 
     setEditOpen(true);
   }, [selected]);
+
+  /* ── Dirty-check: disable Save when nothing changed ──────── */
+  const hasEditChanges = useMemo(() => {
+    const init = editInitial.current;
+    if (!init.form) return false;
+    // Form fields
+    if (JSON.stringify(editForm) !== JSON.stringify(init.form)) return true;
+    // Collections — any addition, deletion, or field change counts
+    const collectionChanged = (current, initial, fields) => {
+      if (!initial) return false;
+      if (current.some((c) => c._deleted)) return true;
+      if (current.some((c) => !c.id && !c._deleted)) return true;
+      const initMap = new Map(initial.map((r) => [r.id, r]));
+      return current.filter((c) => c.id && !c._deleted).some((c) => {
+        const orig = initMap.get(c.id);
+        return !orig || fields.some((f) => c[f] !== orig[f]);
+      });
+    };
+    if (collectionChanged(editPhones, init.phones, ['country_code', 'phone_type', 'phone_number', 'is_primary'])) return true;
+    if (collectionChanged(editAddresses, init.addresses, ['label', 'address_line_1', 'address_line_2', 'city', 'state_province', 'postal_code', 'country_code', 'is_primary'])) return true;
+    if (collectionChanged(editTaxIds, init.taxIds, ['country_code', 'tax_type', 'tax_value', 'is_primary'])) return true;
+    return false;
+  }, [editForm, editPhones, editAddresses, editTaxIds]);
 
   const handleCreate = async () => {
     try {
@@ -356,7 +395,7 @@ export default function EmployeesPage() {
       </FormDialog>
 
       {/* ── Edit Employee Dialog ─────────────────────────────── */}
-      <FormDialog open={editOpen} title="Edit Employee" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditSourceId(null); }}>
+      <FormDialog open={editOpen} title="Edit Employee" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} submitDisabled={!hasEditChanges} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditSourceId(null); }}>
         <Box sx={formGridSx}>
           <TextField label="First Name" required value={editForm.first_name} onChange={onEditField('first_name')} />
           <TextField label="Last Name" required value={editForm.last_name} onChange={onEditField('last_name')} />
@@ -395,8 +434,10 @@ export default function EmployeesPage() {
         )}
         {visiblePhones.map((phone) => {
           const idx = editPhones.indexOf(phone);
+          const countryCode = phone.country_code?.trim() || 'US';
+          const country = COUNTRIES.find((c) => c.code === countryCode);
           return (
-            <Box key={phone.id || idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Box key={phone.id || idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
               <TextField
                 select
                 label="Type"
@@ -410,11 +451,25 @@ export default function EmployeesPage() {
                 ))}
               </TextField>
               <TextField
+                select
+                label="Country"
+                value={countryCode}
+                onChange={(e) => updatePhone(idx, 'country_code', e.target.value)}
+                SelectProps={{ renderValue: (val) => COUNTRIES.find((c) => c.code === val)?.dial_code || val }}
+                sx={{ minWidth: 80 }}
+                size="small"
+              >
+                {COUNTRIES.map((c) => (
+                  <MenuItem key={c.code} value={c.code}>{c.dial_code} {c.code} - {c.name}</MenuItem>
+                ))}
+              </TextField>
+              <PatternTextField
                 label="Number"
                 value={phone.phone_number}
-                onChange={(e) => updatePhone(idx, 'phone_number', e.target.value)}
+                onChange={(raw) => updatePhone(idx, 'phone_number', raw)}
+                pattern={country?.placeholder}
                 size="small"
-                sx={{ flex: 1 }}
+                sx={{ flex: 1, minWidth: 160 }}
               />
               <FormControlLabel
                 control={<Checkbox checked={phone.is_primary} onChange={(e) => updatePhone(idx, 'is_primary', e.target.checked)} size="small" />}
@@ -497,8 +552,9 @@ export default function EmployeesPage() {
                     const newTypes = TAX_TYPES[e.target.value] || TAX_TYPES._OTHER;
                     updateTaxId(idx, 'tax_type', newTypes[0]?.code || 'TIN');
                   }}
+                  SelectProps={{ renderValue: (val) => val }}
                   size="small"
-                  sx={{ minWidth: 160 }}
+                  sx={{ minWidth: 80 }}
                 >
                   {COUNTRIES.map((c) => (
                     <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
@@ -509,18 +565,19 @@ export default function EmployeesPage() {
                   label="Type"
                   value={taxId.tax_type}
                   onChange={(e) => updateTaxId(idx, 'tax_type', e.target.value)}
+                  SelectProps={{ renderValue: (val) => val }}
                   size="small"
-                  sx={{ minWidth: 200 }}
+                  sx={{ minWidth: 80 }}
                 >
                   {taxTypes.map((t) => (
                     <MenuItem key={t.code} value={t.code}>{t.label}</MenuItem>
                   ))}
                 </TextField>
-                <TextField
+                <PatternTextField
                   label="Tax ID Value"
                   value={taxId.tax_value}
-                  onChange={(e) => updateTaxId(idx, 'tax_value', e.target.value)}
-                  placeholder={taxTypes.find((t) => t.code === taxId.tax_type)?.placeholder}
+                  onChange={(raw) => updateTaxId(idx, 'tax_value', raw)}
+                  pattern={taxTypes.find((t) => t.code === taxId.tax_type)?.placeholder}
                   size="small"
                   sx={{ flex: 1, minWidth: 160 }}
                 />

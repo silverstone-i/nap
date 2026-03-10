@@ -24,6 +24,7 @@ import { DataGrid } from '@mui/x-data-grid';
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
+import PatternTextField from '../../components/shared/PatternTextField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
   useVendors, useCreateVendor, useUpdateVendor, useArchiveVendor, useRestoreVendor,
@@ -251,8 +252,9 @@ export default function VendorsPage() {
                     const newTypes = TAX_TYPES[e.target.value] || TAX_TYPES._OTHER;
                     updateTaxId(idx, 'tax_type', newTypes[0]?.code || 'TIN');
                   }}
+                  SelectProps={{ renderValue: (val) => val }}
                   size="small"
-                  sx={{ minWidth: 160 }}
+                  sx={{ minWidth: 80 }}
                 >
                   {COUNTRIES.map((c) => (
                     <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
@@ -263,18 +265,19 @@ export default function VendorsPage() {
                   label="Type"
                   value={taxId.tax_type}
                   onChange={(e) => updateTaxId(idx, 'tax_type', e.target.value)}
+                  SelectProps={{ renderValue: (val) => val }}
                   size="small"
-                  sx={{ minWidth: 200 }}
+                  sx={{ minWidth: 80 }}
                 >
                   {taxTypes.map((t) => (
                     <MenuItem key={t.code} value={t.code}>{t.label}</MenuItem>
                   ))}
                 </TextField>
-                <TextField
+                <PatternTextField
                   label="Tax ID Value"
                   value={taxId.tax_value}
-                  onChange={(e) => updateTaxId(idx, 'tax_value', e.target.value)}
-                  placeholder={taxTypes.find((t) => t.code === taxId.tax_type)?.placeholder}
+                  onChange={(raw) => updateTaxId(idx, 'tax_value', raw)}
+                  pattern={taxTypes.find((t) => t.code === taxId.tax_type)?.placeholder}
                   size="small"
                   sx={{ flex: 1, minWidth: 160 }}
                 />
