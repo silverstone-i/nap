@@ -18,7 +18,6 @@ const vendorsSchema = {
     { name: 'source_id', type: 'uuid' },
     { name: 'name', type: 'varchar(128)', notNull: true },
     { name: 'code', type: 'varchar(16)' },
-    { name: 'tax_id', type: 'varchar(32)' },
     { name: 'payment_terms', type: 'varchar(32)' },
     { name: 'is_active', type: 'boolean', notNull: true, default: true },
     { name: 'roles', type: 'text[]', notNull: true, default: '{}' },

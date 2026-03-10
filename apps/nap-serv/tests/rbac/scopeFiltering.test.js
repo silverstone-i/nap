@@ -174,7 +174,7 @@ describe('_applyRbacFilters — Layers 3–4 still work without scopeColumn', ()
     ctrl.rbacConfig = { module: 'core', router: 'vendors' };
 
     const conditions = [];
-    const options = { columnWhitelist: ['name', 'code', 'tax_id', 'notes'] };
+    const options = { columnWhitelist: ['name', 'code', 'payment_terms', 'notes'] };
     const req = fakeReq({
       scope: 'all_projects',
       fieldGroups: { 'core::vendors': ['name', 'code'] },

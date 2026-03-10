@@ -11,6 +11,13 @@ class AddressesController extends BaseController {
   constructor() {
     super('addresses');
   }
+
+  async create(req, res) {
+    if (!req.body.tenant_id && req.user?.tenant_id) {
+      req.body.tenant_id = req.user.tenant_id;
+    }
+    return super.create(req, res);
+  }
 }
 
 const instance = new AddressesController();

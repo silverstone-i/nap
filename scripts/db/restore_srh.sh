@@ -295,7 +295,9 @@ ranked AS (
     FROM walk
     GROUP BY table_name
 ),
--- Build explicit column list per table, excluding generated columns
+-- Build explicit column list per table, using only columns present in BOTH
+-- srh and srh_restore (handles schema evolution between backup and restore).
+-- Excludes generated columns.
 table_cols AS (
     SELECT
         c.table_name,
@@ -305,6 +307,12 @@ table_cols AS (
       AND c.table_name IN (SELECT table_name FROM all_tables)
       AND c.is_generated = 'NEVER'
       AND c.generation_expression IS NULL
+      AND EXISTS (
+          SELECT 1 FROM information_schema.columns r
+          WHERE r.table_schema = 'srh_restore'
+            AND r.table_name = c.table_name
+            AND r.column_name = c.column_name
+      )
     GROUP BY c.table_name
 )
 SELECT format(
@@ -317,12 +325,83 @@ LEFT JOIN ranked r ON r.table_name = t.table_name
 ORDER BY coalesce(r.depth, 0), t.table_name;
 INSERT_SQL
 
-# 5f. Execute truncate + insert in a transaction
-echo "  5f. Loading data from srh_restore into srh..."
+# 5f. Relax NOT NULL on new columns missing from backup, load data,
+#     backfill from related tables, then re-add constraints.
+echo "  5f. Identifying new NOT NULL columns missing from backup..."
+RELAX_SQL=$("${PSQL[@]}" -At <<'RELAX_SQL_QUERY'
+SELECT format(
+    'ALTER TABLE srh.%I ALTER COLUMN %I DROP NOT NULL;',
+    c.table_name, c.column_name
+)
+FROM information_schema.columns c
+WHERE c.table_schema = 'srh'
+  AND c.is_nullable = 'NO'
+  AND c.column_default IS NULL
+  AND c.is_generated = 'NEVER'
+  AND c.column_name <> 'id'
+  AND NOT EXISTS (
+      SELECT 1 FROM information_schema.columns r
+      WHERE r.table_schema = 'srh_restore'
+        AND r.table_name = c.table_name
+        AND r.column_name = c.column_name
+  )
+  AND EXISTS (
+      SELECT 1 FROM information_schema.tables t
+      WHERE t.table_schema = 'srh_restore'
+        AND t.table_name = c.table_name
+  )
+ORDER BY c.table_name, c.column_name;
+RELAX_SQL_QUERY
+)
+
+RESTORE_SQL=$("${PSQL[@]}" -At <<'RESTORE_SQL_QUERY'
+SELECT format(
+    'ALTER TABLE srh.%I ALTER COLUMN %I SET NOT NULL;',
+    c.table_name, c.column_name
+)
+FROM information_schema.columns c
+WHERE c.table_schema = 'srh'
+  AND c.is_nullable = 'NO'
+  AND c.column_default IS NULL
+  AND c.is_generated = 'NEVER'
+  AND c.column_name <> 'id'
+  AND NOT EXISTS (
+      SELECT 1 FROM information_schema.columns r
+      WHERE r.table_schema = 'srh_restore'
+        AND r.table_name = c.table_name
+        AND r.column_name = c.column_name
+  )
+  AND EXISTS (
+      SELECT 1 FROM information_schema.tables t
+      WHERE t.table_schema = 'srh_restore'
+        AND t.table_name = c.table_name
+  )
+ORDER BY c.table_name, c.column_name;
+RESTORE_SQL_QUERY
+)
+
+echo "  5g. Loading data from srh_restore into srh..."
 {
   echo "BEGIN;"
+  # Temporarily relax NOT NULL on new columns
+  if [ -n "$RELAX_SQL" ]; then
+    echo "$RELAX_SQL"
+  fi
   cat "$BACKUP_DIR/truncate_srh.sql"
   cat "$BACKUP_DIR/insert_srh.sql"
+  # Backfill tenant_id for child tables that derive it from sources
+  cat <<'BACKFILL'
+UPDATE srh.addresses a SET tenant_id = s.tenant_id
+  FROM srh.sources s WHERE s.id = a.source_id AND a.tenant_id IS NULL;
+UPDATE srh.phone_numbers p SET tenant_id = s.tenant_id
+  FROM srh.sources s WHERE s.id = p.source_id AND p.tenant_id IS NULL;
+UPDATE srh.tax_identifiers t SET tenant_id = s.tenant_id
+  FROM srh.sources s WHERE s.id = t.source_id AND t.tenant_id IS NULL;
+BACKFILL
+  # Re-add NOT NULL constraints
+  if [ -n "$RESTORE_SQL" ]; then
+    echo "$RESTORE_SQL"
+  fi
   echo "COMMIT;"
 } > "$BACKUP_DIR/restore_transaction.sql"
 

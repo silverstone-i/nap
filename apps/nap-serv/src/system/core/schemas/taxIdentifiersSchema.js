@@ -1,17 +1,13 @@
 /**
- * @file Schema definition for tenant-scope phone_numbers table
- * @module core/schemas/phoneNumbersSchema
- *
- * Phone numbers are linked to vendors, clients, employees, and contacts
- * via the polymorphic sources table (source_id FK with CASCADE delete).
+ * @file Tax identifiers schema — typed tax IDs linked to entities via sources
+ * @module core/schemas/taxIdentifiersSchema
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
-/** @type {import('pg-schemata').TableSchema} */
-const phoneNumbersSchema = {
+const taxIdentifiersSchema = {
   dbSchema: 'tenantid',
-  table: 'phone_numbers',
+  table: 'tax_identifiers',
   version: '1.0.0',
   hasAuditFields: { enabled: true, userFields: { type: 'uuid', nullable: true, default: null } },
   softDelete: true,
@@ -19,16 +15,13 @@ const phoneNumbersSchema = {
     { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'source_id', type: 'uuid', notNull: true },
-    { name: 'country_code', type: 'char(2)', default: 'US' },
-    { name: 'phone_type', type: 'varchar(16)', notNull: true, default: 'cell' },
-    { name: 'phone_number', type: 'varchar(32)', notNull: true },
+    { name: 'country_code', type: 'char(2)', notNull: true },
+    { name: 'tax_type', type: 'varchar(16)', notNull: true },
+    { name: 'tax_value', type: 'varchar(64)', notNull: true },
     { name: 'is_primary', type: 'boolean', notNull: true, default: false },
   ],
   constraints: {
     primaryKey: ['id'],
-    checks: [
-      { type: 'Check', columns: ['phone_type'], expression: "phone_type IN ('cell', 'work', 'home', 'fax', 'other')" },
-    ],
     foreignKeys: [
       {
         type: 'ForeignKey',
@@ -40,8 +33,14 @@ const phoneNumbersSchema = {
     indexes: [
       { type: 'Index', columns: ['tenant_id'] },
       { type: 'Index', columns: ['source_id'] },
+      {
+        type: 'Index',
+        columns: ['source_id', 'country_code', 'tax_type'],
+        unique: true,
+        where: 'deactivated_at IS NULL',
+      },
     ],
   },
 };
 
-export default phoneNumbersSchema;
+export default taxIdentifiersSchema;

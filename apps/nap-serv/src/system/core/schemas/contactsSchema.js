@@ -23,7 +23,6 @@ const contactsSchema = {
     { name: 'name', type: 'varchar(128)', notNull: true },
     { name: 'code', type: 'varchar(16)' },
     { name: 'email', type: 'varchar(128)' },
-    { name: 'tax_id', type: 'varchar(32)' },
     { name: 'roles', type: 'text[]', notNull: true, default: '{}' },
     { name: 'is_app_user', type: 'boolean', notNull: true, default: false },
     { name: 'is_active', type: 'boolean', notNull: true, default: true },

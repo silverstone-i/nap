@@ -33,6 +33,23 @@ class ContactsController extends BaseController {
 
         const contact = await contactsModel.insert(req.body);
 
+        // Auto-create sources record for polymorphic linking
+        const sourcesModel = db('sources', schema);
+        sourcesModel.tx = t;
+        const source = await sourcesModel.insert({
+          tenant_id: contact.tenant_id,
+          table_id: contact.id,
+          source_type: 'contact',
+          label: contact.name,
+          created_by: req.body.created_by || null,
+        });
+
+        await t.none(
+          `UPDATE ${s}.contacts SET source_id = $1, updated_by = $2 WHERE id = $3`,
+          [source.id, req.body.created_by || null, contact.id],
+        );
+        contact.source_id = source.id;
+
         // Auto-assign code via numbering service (if enabled and code not provided)
         if (!contact.code) {
           const numbering = await allocateNumber(schema, 'contact', null, new Date(), t);

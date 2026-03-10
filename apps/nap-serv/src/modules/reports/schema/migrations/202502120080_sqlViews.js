@@ -318,7 +318,6 @@ export default defineMigration({
         c.name,
         c.code,
         c.email,
-        c.tax_id,
         c.is_app_user,
         c.is_active,
         c.created_at,

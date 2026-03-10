@@ -8,5 +8,4 @@
 import coreRbac from './202502110010_coreRbac.js';
 import coreEntities from './202502110011_coreEntities.js';
 import numberingSystem from './202502250012_numberingSystem.js';
-import policyCatalogValidStatuses from './202503050013_policyCatalogValidStatuses.js';
-export default [coreRbac, coreEntities, numberingSystem, policyCatalogValidStatuses];
+export default [coreRbac, coreEntities, numberingSystem];

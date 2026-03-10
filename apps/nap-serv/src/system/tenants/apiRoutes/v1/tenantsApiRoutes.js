@@ -10,7 +10,6 @@ import tenantsRouter from './tenantsRouter.js';
 import napUsersRouter from './napUsersRouter.js';
 import adminRouter from './adminRouter.js';
 import matchReviewLogsRouter from './matchReviewLogsRouter.js';
-
 const router = Router();
 
 router.use('/v1/tenants', tenantsRouter);
