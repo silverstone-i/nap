@@ -19,6 +19,7 @@ const phoneNumbersSchema = {
     { name: 'id', type: 'uuid', default: 'gen_random_uuid()', notNull: true, immutable: true },
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'source_id', type: 'uuid', notNull: true },
+    { name: 'country_code', type: 'char(2)', default: 'US' },
     { name: 'phone_type', type: 'varchar(16)', notNull: true, default: 'cell' },
     { name: 'phone_number', type: 'varchar(32)', notNull: true },
     { name: 'is_primary', type: 'boolean', notNull: true, default: false },
