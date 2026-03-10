@@ -37,6 +37,11 @@ import {
 import {
   useAddresses, useCreateAddress, useUpdateAddress, useArchiveAddress,
 } from '../../hooks/useAddresses.js';
+import {
+  useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
+} from '../../hooks/useTaxIdentifiers.js';
+import { useCountries } from '../../hooks/useCountries.js';
+import { TAX_TYPES } from '@nap/shared';
 import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '../../config/layoutTokens.js';
 import { buildBulkActions } from '../../utils/selectionUtils.js';
 import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
@@ -59,6 +64,7 @@ const BLANK_ADDRESS = {
   label: '', address_line_1: '', address_line_2: '', city: '',
   state_province: '', postal_code: '', country_code: '', is_primary: false,
 };
+const BLANK_TAX_ID = { country_code: 'US', tax_type: 'TIN', tax_value: '', is_primary: false };
 
 const columns = [
   { field: 'code', headerName: 'Code', width: 100 },
@@ -92,6 +98,12 @@ export default function EmployeesPage() {
   const { data: rolesRes } = useRoles();
   const roleOptions = rolesRes?.rows ?? [];
 
+  const { data: countriesRes } = useCountries();
+  const countryOptions = useMemo(() => {
+    const cRows = countriesRes?.rows ?? [];
+    return cRows.map((c) => ({ code: c.country_code?.trim(), name: c.name }));
+  }, [countriesRes]);
+
   const [viewFilter, setViewFilter] = useState('active');
   const rows = useMemo(() => {
     if (viewFilter === 'active') return allRows.filter((r) => !r.deactivated_at);
@@ -110,6 +122,9 @@ export default function EmployeesPage() {
   const createAddrMut = useCreateAddress();
   const updateAddrMut = useUpdateAddress();
   const archiveAddrMut = useArchiveAddress();
+  const createTaxIdMut = useCreateTaxIdentifier();
+  const updateTaxIdMut = useUpdateTaxIdentifier();
+  const archiveTaxIdMut = useArchiveTaxIdentifier();
 
   const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
     useDataGridSelection(rows);
@@ -121,11 +136,13 @@ export default function EmployeesPage() {
   const [editSourceId, setEditSourceId] = useState(null);
   const { data: phonesRes } = usePhoneNumbers({ source_id: editSourceId, includeDeactivated: 'false' }, { enabled: !!editSourceId });
   const { data: addressesRes } = useAddresses({ source_id: editSourceId, includeDeactivated: 'false' }, { enabled: !!editSourceId });
+  const { data: taxIdsRes } = useTaxIdentifiers({ source_id: editSourceId, includeDeactivated: 'false' }, { enabled: !!editSourceId });
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
   const [editPhones, setEditPhones] = useState([]);
   const [editAddresses, setEditAddresses] = useState([]);
+  const [editTaxIds, setEditTaxIds] = useState([]);
 
   const [snack, setSnack] = useState({ open: false, msg: '', sev: 'success' });
   const toast = useCallback((msg, sev = 'success') => setSnack({ open: true, msg, sev }), []);
@@ -175,7 +192,14 @@ export default function EmployeesPage() {
   const removeAddress = (idx) =>
     setEditAddresses((prev) => prev.map((a, i) => (i === idx ? { ...a, _deleted: true } : a)));
 
-  /* ── Sync query-fetched phones/addresses into edit state ───── */
+  /* ── Tax ID edit helpers ──────────────────────────────────── */
+  const updateTaxId = (idx, field, value) =>
+    setEditTaxIds((prev) => prev.map((t, i) => (i === idx ? { ...t, [field]: value } : t)));
+  const addTaxId = () => setEditTaxIds((prev) => [...prev, { ...BLANK_TAX_ID }]);
+  const removeTaxId = (idx) =>
+    setEditTaxIds((prev) => prev.map((t, i) => (i === idx ? { ...t, _deleted: true } : t)));
+
+  /* ── Sync query-fetched phones/addresses/taxIds into edit state */
   useEffect(() => {
     if (editOpen && phonesRes?.rows) setEditPhones(phonesRes.rows);
   }, [editOpen, phonesRes]);
@@ -183,6 +207,10 @@ export default function EmployeesPage() {
   useEffect(() => {
     if (editOpen && addressesRes?.rows) setEditAddresses(addressesRes.rows);
   }, [editOpen, addressesRes]);
+
+  useEffect(() => {
+    if (editOpen && taxIdsRes?.rows) setEditTaxIds(taxIdsRes.rows);
+  }, [editOpen, taxIdsRes]);
 
   const openEdit = useCallback(() => {
     if (!selected) return;
@@ -203,6 +231,7 @@ export default function EmployeesPage() {
     if (!selected.source_id) {
       setEditPhones([]);
       setEditAddresses([]);
+      setEditTaxIds([]);
     }
 
     setEditOpen(true);
@@ -244,6 +273,21 @@ export default function EmployeesPage() {
             await updateAddrMut.mutateAsync({ filter: { id }, changes });
           }
         }
+        for (const t of editTaxIds) {
+          if (t._deleted && t.id) {
+            await archiveTaxIdMut.mutateAsync({ id: t.id });
+          } else if (!t.id && !t._deleted) {
+            await createTaxIdMut.mutateAsync({
+              source_id: selected.source_id, country_code: t.country_code,
+              tax_type: t.tax_type, tax_value: t.tax_value, is_primary: t.is_primary,
+            });
+          } else if (t.id && !t._deleted) {
+            await updateTaxIdMut.mutateAsync({
+              filter: { id: t.id },
+              changes: { country_code: t.country_code, tax_type: t.tax_type, tax_value: t.tax_value, is_primary: t.is_primary },
+            });
+          }
+        }
       }
 
       toast('Employee updated');
@@ -277,9 +321,10 @@ export default function EmployeesPage() {
   );
   useModuleToolbarRegistration(toolbar);
 
-  /* ── Visible (non-deleted) phones & addresses for the form ── */
+  /* ── Visible (non-deleted) sub-collections for the form ──── */
   const visiblePhones = editPhones.filter((p) => !p._deleted);
   const visibleAddresses = editAddresses.filter((a) => !a._deleted);
+  const visibleTaxIds = editTaxIds.filter((t) => !t._deleted);
 
   return (
     <Box sx={pageContainerSx}>
@@ -429,6 +474,70 @@ export default function EmployeesPage() {
                 <TextField label="State / Province" value={addr.state_province} onChange={(e) => updateAddress(idx, 'state_province', e.target.value)} size="small" />
                 <TextField label="Postal Code" value={addr.postal_code} onChange={(e) => updateAddress(idx, 'postal_code', e.target.value)} size="small" />
                 <TextField label="Country Code" value={addr.country_code} onChange={(e) => updateAddress(idx, 'country_code', e.target.value)} size="small" inputProps={{ maxLength: 2 }} />
+              </Box>
+            </Box>
+          );
+        })}
+
+        {/* ── Tax Identifiers ──────────────────────────────────── */}
+        <Divider />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="subtitle2">Tax Identifiers</Typography>
+          <Button size="small" startIcon={<AddIcon />} onClick={addTaxId}>Add Tax ID</Button>
+        </Box>
+        {visibleTaxIds.length === 0 && (
+          <Typography variant="body2" color="text.secondary">No tax identifiers</Typography>
+        )}
+        {visibleTaxIds.map((taxId) => {
+          const idx = editTaxIds.indexOf(taxId);
+          const countryCode = taxId.country_code?.trim() || '';
+          const taxTypes = TAX_TYPES[countryCode] || TAX_TYPES._OTHER;
+          return (
+            <Box key={taxId.id || idx} sx={{ ...formGroupCardSx, gridColumn: undefined }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                <TextField
+                  select
+                  label="Country"
+                  value={countryCode}
+                  onChange={(e) => {
+                    updateTaxId(idx, 'country_code', e.target.value);
+                    const newTypes = TAX_TYPES[e.target.value] || TAX_TYPES._OTHER;
+                    updateTaxId(idx, 'tax_type', newTypes[0]?.code || 'TIN');
+                  }}
+                  size="small"
+                  sx={{ minWidth: 160 }}
+                >
+                  {countryOptions.map((c) => (
+                    <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  label="Type"
+                  value={taxId.tax_type}
+                  onChange={(e) => updateTaxId(idx, 'tax_type', e.target.value)}
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                >
+                  {taxTypes.map((t) => (
+                    <MenuItem key={t.code} value={t.code}>{t.label}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Tax ID Value"
+                  value={taxId.tax_value}
+                  onChange={(e) => updateTaxId(idx, 'tax_value', e.target.value)}
+                  size="small"
+                  sx={{ flex: 1, minWidth: 160 }}
+                />
+                <FormControlLabel
+                  control={<Checkbox checked={taxId.is_primary} onChange={(e) => updateTaxId(idx, 'is_primary', e.target.checked)} size="small" />}
+                  label="Primary"
+                  sx={{ mr: 0 }}
+                />
+                <IconButton size="small" onClick={() => removeTaxId(idx)} color="error">
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
               </Box>
             </Box>
           );
