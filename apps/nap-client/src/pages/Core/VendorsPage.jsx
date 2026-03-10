@@ -31,8 +31,7 @@ import {
 import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
-import { useCountries } from '../../hooks/useCountries.js';
-import { TAX_TYPES } from '@nap/shared';
+import { TAX_TYPES, COUNTRIES } from '@nap/shared';
 import { pageContainerSx, formGridSx, formGroupCardSx } from '../../config/layoutTokens.js';
 import { buildBulkActions } from '../../utils/selectionUtils.js';
 import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
@@ -57,12 +56,6 @@ const columns = [
 export default function VendorsPage() {
   const { data: res, isLoading } = useVendors();
   const allRows = res?.rows ?? [];
-
-  const { data: countriesRes } = useCountries();
-  const countryOptions = useMemo(() => {
-    const rows = countriesRes?.rows ?? [];
-    return rows.map((c) => ({ code: c.country_code?.trim(), name: c.name }));
-  }, [countriesRes]);
 
   const [viewFilter, setViewFilter] = useState('active');
   const rows = useMemo(() => {
@@ -261,7 +254,7 @@ export default function VendorsPage() {
                   size="small"
                   sx={{ minWidth: 160 }}
                 >
-                  {countryOptions.map((c) => (
+                  {COUNTRIES.map((c) => (
                     <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
                   ))}
                 </TextField>
@@ -281,6 +274,7 @@ export default function VendorsPage() {
                   label="Tax ID Value"
                   value={taxId.tax_value}
                   onChange={(e) => updateTaxId(idx, 'tax_value', e.target.value)}
+                  placeholder={taxTypes.find((t) => t.code === taxId.tax_type)?.placeholder}
                   size="small"
                   sx={{ flex: 1, minWidth: 160 }}
                 />

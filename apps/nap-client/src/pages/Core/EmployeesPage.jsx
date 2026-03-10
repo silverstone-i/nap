@@ -40,8 +40,7 @@ import {
 import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
-import { useCountries } from '../../hooks/useCountries.js';
-import { TAX_TYPES } from '@nap/shared';
+import { TAX_TYPES, COUNTRIES } from '@nap/shared';
 import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '../../config/layoutTokens.js';
 import { buildBulkActions } from '../../utils/selectionUtils.js';
 import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
@@ -97,12 +96,6 @@ export default function EmployeesPage() {
 
   const { data: rolesRes } = useRoles();
   const roleOptions = rolesRes?.rows ?? [];
-
-  const { data: countriesRes } = useCountries();
-  const countryOptions = useMemo(() => {
-    const cRows = countriesRes?.rows ?? [];
-    return cRows.map((c) => ({ code: c.country_code?.trim(), name: c.name }));
-  }, [countriesRes]);
 
   const [viewFilter, setViewFilter] = useState('active');
   const rows = useMemo(() => {
@@ -507,7 +500,7 @@ export default function EmployeesPage() {
                   size="small"
                   sx={{ minWidth: 160 }}
                 >
-                  {countryOptions.map((c) => (
+                  {COUNTRIES.map((c) => (
                     <MenuItem key={c.code} value={c.code}>{c.code} - {c.name}</MenuItem>
                   ))}
                 </TextField>
@@ -527,6 +520,7 @@ export default function EmployeesPage() {
                   label="Tax ID Value"
                   value={taxId.tax_value}
                   onChange={(e) => updateTaxId(idx, 'tax_value', e.target.value)}
+                  placeholder={taxTypes.find((t) => t.code === taxId.tax_type)?.placeholder}
                   size="small"
                   sx={{ flex: 1, minWidth: 160 }}
                 />
