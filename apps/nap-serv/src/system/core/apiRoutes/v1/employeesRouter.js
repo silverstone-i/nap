@@ -17,9 +17,16 @@ const meta = withMeta({ module: 'core', router: 'employees' });
 export default createRouter(
   employeesController,
   (router) => {
+    router.get(
+      '/:id/source-id',
+      meta,
+      moduleEntitlement,
+      rbac('view'),
+      (req, res) => employeesController.getSourceId(req, res),
+    );
     router.post(
       '/:id/reset-password',
-      withMeta({ module: 'core', action: 'reset-password' }),
+      withMeta({ module: 'core', router: 'employees', action: 'reset-password' }),
       moduleEntitlement,
       addAuditFields,
       rbac('full'),

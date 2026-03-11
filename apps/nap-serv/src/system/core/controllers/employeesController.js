@@ -40,6 +40,17 @@ class EmployeesController extends BaseController {
       // Normalize empty code to null — avoids unique constraint violation on ''
       if (req.body.code !== undefined && !req.body.code?.trim()) req.body.code = null;
 
+      // Validate: roles must be non-empty before is_app_user can be true
+      if (req.body.is_app_user) {
+        const roles = req.body.roles || [];
+        if (!roles.length) {
+          return res.status(400).json({ error: 'Roles must be assigned before enabling app user access' });
+        }
+        if (!req.body.email) {
+          return res.status(400).json({ error: 'Email is required to enable app user access' });
+        }
+      }
+
       // Extract password before insert — it's for nap_users, not the employees table
       const suppliedPassword = req.body.password;
       delete req.body.password;
@@ -128,7 +139,11 @@ class EmployeesController extends BaseController {
       const email = req.body.email || before.email;
 
       if (!wasAppUser && isNowAppUser) {
-        // Toggled ON: provision or restore nap_user
+        // Toggled ON: validate roles + email, then provision or restore nap_user
+        const roles = req.body.roles || before.roles || [];
+        if (!roles.length) {
+          return res.status(400).json({ error: 'Roles must be assigned before enabling app user access' });
+        }
         if (!email) {
           return res.status(400).json({ error: 'Email is required to enable app user access' });
         }
@@ -257,6 +272,26 @@ class EmployeesController extends BaseController {
       res.json({ message: 'Password reset successfully' });
     } catch (err) {
       this.handleError(err, res, 'resetting password for', this.errorLabel);
+    }
+  }
+
+  /**
+   * GET /:id/source-id — resolve the polymorphic source record for an employee.
+   */
+  async getSourceId(req, res) {
+    const schema = this.getSchema(req);
+    const employeeId = req.params.id;
+
+    try {
+      const s = pgp.as.name(schema);
+      const source = await db.oneOrNone(
+        `SELECT id FROM ${s}.sources WHERE table_id = $1 AND source_type = 'employee' AND deactivated_at IS NULL`,
+        [employeeId],
+      );
+      if (!source) return res.status(404).json({ error: 'Source not found for this employee' });
+      res.json({ source_id: source.id });
+    } catch (err) {
+      this.handleError(err, res, 'fetching source for', this.errorLabel);
     }
   }
 

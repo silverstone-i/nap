@@ -12,8 +12,8 @@ import { withMeta } from '../../../../middleware/withMeta.js';
 
 const meta = withMeta({ module: 'tenants', router: 'tenants' });
 
-// Note: RBAC enforcement deferred to Phase 5 (no role_members exist yet).
 // requireNapsoftTenant gates all routes to NapSoft users only.
+// RBAC not applied — access control relies on requireNapsoftTenant + moduleEntitlement.
 export default createRouter(
   tenantsController,
   (router) => {
