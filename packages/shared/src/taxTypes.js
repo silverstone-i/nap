@@ -66,6 +66,3 @@ export const TAX_TYPES = {
     { code: 'OTHER', label: 'Other Tax Identifier' },
   ],
 };
-
-/** Flat list of all unique tax type codes */
-export const ALL_TAX_TYPE_CODES = [...new Set(Object.values(TAX_TYPES).flat().map((t) => t.code))];
