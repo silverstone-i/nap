@@ -36,7 +36,7 @@ import {
   useArchiveCategory,
   useRestoreCategory,
 } from '../../hooks/useCategories.js';
-import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, formGridSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -54,12 +54,6 @@ const columns = [
   { field: 'type', headerName: 'Type', width: 140 },
   { field: 'created_at', headerName: 'Created', width: 160, valueGetter: (params) => params.row.created_at?.slice(0, 10) },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function CategoriesPage() {
   const { data: res, isLoading } = useCategories();
@@ -202,7 +196,7 @@ export default function CategoriesPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Category Details</span>
             {viewCategory && (
@@ -211,7 +205,7 @@ export default function CategoriesPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

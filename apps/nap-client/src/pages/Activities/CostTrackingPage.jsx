@@ -27,7 +27,7 @@ import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useActualCosts, useCreateActualCost, useUpdateActualCost, useArchiveActualCost } from '../../hooks/useActualCosts.js';
 import { useActivities } from '../../hooks/useActivities.js';
-import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, formGridSx, dialogHeaderSx, dialogActionBoxSx, formFullSpanSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -200,7 +200,7 @@ export default function CostTrackingPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Actual Cost Details</span>
             {viewCost && (
@@ -209,7 +209,7 @@ export default function CostTrackingPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>
@@ -217,7 +217,7 @@ export default function CostTrackingPage() {
         </DialogTitle>
         <DialogContent dividers>
           {viewCost && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+            <Box sx={detailGridSx}>
               <FieldRow label="Activity" value={activityMap[viewCost.activity_id] || viewCost.activity_id || '\u2014'} />
               <FieldRow label="Amount" value={viewCost.amount ?? '\u2014'} />
               <FieldRow label="Currency" value={viewCost.currency || '\u2014'} />
@@ -242,7 +242,7 @@ export default function CostTrackingPage() {
           <TextField label="Amount" type="number" required value={createForm.amount} onChange={onCreateField('amount')} />
           <TextField label="Currency" value={createForm.currency} onChange={onCreateField('currency')} inputProps={{ maxLength: 3 }} />
           <TextField label="Incurred On" type="date" value={createForm.incurred_on} onChange={onCreateField('incurred_on')} InputLabelProps={{ shrink: true }} />
-          <TextField label="Reference" value={createForm.reference} onChange={onCreateField('reference')} sx={{ gridColumn: '1 / -1' }} />
+          <TextField label="Reference" value={createForm.reference} onChange={onCreateField('reference')} sx={formFullSpanSx} />
         </Box>
       </FormDialog>
 
@@ -255,7 +255,7 @@ export default function CostTrackingPage() {
             {APPROVAL_STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
           </TextField>
           <TextField label="Incurred On" type="date" value={editForm.incurred_on} onChange={onEditField('incurred_on')} InputLabelProps={{ shrink: true }} />
-          <TextField label="Reference" value={editForm.reference} onChange={onEditField('reference')} sx={{ gridColumn: '1 / -1' }} />
+          <TextField label="Reference" value={editForm.reference} onChange={onEditField('reference')} sx={formFullSpanSx} />
         </Box>
       </FormDialog>
 

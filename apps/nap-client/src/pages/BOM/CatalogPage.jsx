@@ -31,7 +31,7 @@ import {
   useRestoreCatalogSku,
   useRefreshCatalogEmbeddings,
 } from '../../hooks/useBom.js';
-import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, formGridSx, dialogHeaderSx, dialogActionBoxSx, formFullSpanSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -53,12 +53,6 @@ const columns = [
   },
   { field: 'created_at', headerName: 'Created', width: 120, valueGetter: (params) => params.row.created_at?.slice(0, 10) },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function CatalogPage() {
   const { data: res, isLoading } = useCatalogSkus();
@@ -221,7 +215,7 @@ export default function CatalogPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Catalog SKU Details</span>
             {viewSku && (
@@ -230,7 +224,7 @@ export default function CatalogPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>
@@ -262,7 +256,7 @@ export default function CatalogPage() {
             {categories.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
           </TextField>
           <TextField label="Sub-Category" value={createForm.sub_category} onChange={onCreateField('sub_category')} inputProps={{ maxLength: 64 }} />
-          <TextField label="Description" required multiline rows={3} value={createForm.description} onChange={onCreateField('description')} sx={{ gridColumn: '1 / -1' }} />
+          <TextField label="Description" required multiline rows={3} value={createForm.description} onChange={onCreateField('description')} sx={formFullSpanSx} />
         </Box>
       </FormDialog>
 
@@ -274,7 +268,7 @@ export default function CatalogPage() {
             {categories.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
           </TextField>
           <TextField label="Sub-Category" value={editForm.sub_category} onChange={onEditField('sub_category')} inputProps={{ maxLength: 64 }} />
-          <TextField label="Description" required multiline rows={3} value={editForm.description} onChange={onEditField('description')} sx={{ gridColumn: '1 / -1' }} />
+          <TextField label="Description" required multiline rows={3} value={editForm.description} onChange={onEditField('description')} sx={formFullSpanSx} />
         </Box>
       </FormDialog>
 

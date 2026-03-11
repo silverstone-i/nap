@@ -51,7 +51,7 @@ import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
 import { TAX_TYPES, COUNTRIES } from '@nap/shared';
-import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
@@ -97,12 +97,6 @@ const columns = [
     valueGetter: (params) => (params.row.is_app_user ? 'Yes' : 'No'),
   },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function EmployeesPage() {
   const { user } = useAuth();
@@ -451,7 +445,7 @@ export default function EmployeesPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Employee Details</span>
             {viewEmployee && (
@@ -460,7 +454,7 @@ export default function EmployeesPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

@@ -36,7 +36,7 @@ import FormDialog from '../../components/shared/FormDialog.jsx';
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useRoles, useCreateRole, useUpdateRole } from '../../hooks/useRoles.js';
-import { masterDetailSx, masterPanelSx, detailPanelSx } from '../../config/layoutTokens.js';
+import { masterDetailSx, masterPanelSx, detailPanelSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 
 import PolicyEditor from './PolicyEditor.jsx';
@@ -59,12 +59,6 @@ const cap = (s) =>
     : '';
 
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 /* ── Empty form shapes ────────────────────────────────────────── */
 
@@ -266,7 +260,7 @@ export default function ManageRolesPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Role Details</span>
             {viewRole && (
@@ -275,7 +269,7 @@ export default function ManageRolesPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

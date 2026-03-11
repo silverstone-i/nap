@@ -26,7 +26,7 @@ import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useApCreditMemos, useCreateApCreditMemo, useUpdateApCreditMemo, useArchiveApCreditMemo, useRestoreApCreditMemo } from '../../hooks/useAp.js';
 import { useVendors } from '../../hooks/useVendors.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -45,12 +45,6 @@ const columns = [
   { field: 'status', headerName: 'Status', width: 120, renderCell: ({ value }) => <StatusBadge status={value} /> },
   { field: 'reason', headerName: 'Reason', flex: 1, minWidth: 180 },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function CreditMemosPage() {
   const { data: res, isLoading } = useApCreditMemos();
@@ -173,7 +167,7 @@ export default function CreditMemosPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Credit Memo Details</span>
             {viewMemo && (
@@ -182,7 +176,7 @@ export default function CreditMemosPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

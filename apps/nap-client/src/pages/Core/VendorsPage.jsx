@@ -40,7 +40,7 @@ import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
 import { TAX_TYPES, COUNTRIES } from '@nap/shared';
-import { pageContainerSx, formGridSx, formGroupCardSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, formGridSx, formGroupCardSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -61,12 +61,6 @@ const columns = [
     renderCell: ({ value }) => <StatusBadge status={value ? 'active' : 'suspended'} />,
   },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function VendorsPage() {
   const { data: res, isLoading } = useVendors();
@@ -265,7 +259,7 @@ export default function VendorsPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Vendor Details</span>
             {viewVendor && (
@@ -274,7 +268,7 @@ export default function VendorsPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

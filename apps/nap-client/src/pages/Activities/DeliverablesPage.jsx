@@ -35,7 +35,7 @@ import {
   useArchiveDeliverable,
   useRestoreDeliverable,
 } from '../../hooks/useDeliverables.js';
-import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, formGridSx, dialogHeaderSx, dialogActionBoxSx, formFullSpanSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -58,12 +58,6 @@ const columns = [
   { field: 'end_date', headerName: 'End', width: 120 },
   { field: 'created_at', headerName: 'Created', width: 160, valueGetter: (params) => params.row.created_at?.slice(0, 10) },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function DeliverablesPage() {
   const { data: res, isLoading } = useDeliverables();
@@ -208,7 +202,7 @@ export default function DeliverablesPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Deliverable Details</span>
             {viewDeliverable && (
@@ -217,7 +211,7 @@ export default function DeliverablesPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>
@@ -251,7 +245,7 @@ export default function DeliverablesPage() {
           </TextField>
           <TextField label="Start Date" type="date" value={createForm.start_date} onChange={onCreateField('start_date')} InputLabelProps={{ shrink: true }} />
           <TextField label="End Date" type="date" value={createForm.end_date} onChange={onCreateField('end_date')} InputLabelProps={{ shrink: true }} />
-          <TextField label="Description" multiline rows={3} value={createForm.description} onChange={onCreateField('description')} sx={{ gridColumn: '1 / -1' }} />
+          <TextField label="Description" multiline rows={3} value={createForm.description} onChange={onCreateField('description')} sx={formFullSpanSx} />
         </Box>
       </FormDialog>
 
@@ -264,7 +258,7 @@ export default function DeliverablesPage() {
           </TextField>
           <TextField label="Start Date" type="date" value={editForm.start_date} onChange={onEditField('start_date')} InputLabelProps={{ shrink: true }} />
           <TextField label="End Date" type="date" value={editForm.end_date} onChange={onEditField('end_date')} InputLabelProps={{ shrink: true }} />
-          <TextField label="Description" multiline rows={3} value={editForm.description} onChange={onEditField('description')} sx={{ gridColumn: '1 / -1' }} />
+          <TextField label="Description" multiline rows={3} value={editForm.description} onChange={onEditField('description')} sx={formFullSpanSx} />
         </Box>
       </FormDialog>
 

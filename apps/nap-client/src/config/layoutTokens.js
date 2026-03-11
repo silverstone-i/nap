@@ -86,6 +86,44 @@ export const formSectionHeaderSx = {
   mb: -1,
 };
 
+/* ── Dialog presets ──────────────────────────────────────────── */
+
+export const dialogHeaderSx = {
+  display: 'flex',
+  alignItems: 'flex-start',
+};
+
+export const dialogActionBoxSx = {
+  ml: 'auto',
+};
+
+/* ── Flex utilities ──────────────────────────────────────────── */
+
+export const flexRowSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+};
+
+export const flexBetweenSx = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+};
+
+/* ── Detail / report presets ─────────────────────────────────── */
+
+export const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
+
+export const chartContainerSx = {
+  height: 300,
+  mb: 3,
+};
+
 /* ── Master-detail split ─────────────────────────────────────── */
 
 export const masterDetailSx = {

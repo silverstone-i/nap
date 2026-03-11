@@ -25,7 +25,7 @@ import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { usePayments, useCreatePayment, useUpdatePayment, useArchivePayment, useRestorePayment } from '../../hooks/useAp.js';
 import { useVendors } from '../../hooks/useVendors.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -44,12 +44,6 @@ const columns = [
   { field: 'method', headerName: 'Method', width: 120, valueGetter: (params) => cap(params.row.method) },
   { field: 'reference', headerName: 'Reference', flex: 1, minWidth: 160 },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function PaymentsPage() {
   const { data: res, isLoading } = usePayments();
@@ -172,7 +166,7 @@ export default function PaymentsPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Payment Details</span>
             {viewPayment && (
@@ -181,7 +175,7 @@ export default function PaymentsPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

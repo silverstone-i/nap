@@ -32,7 +32,7 @@ import FormDialog from '../../components/shared/FormDialog.jsx';
 import PasswordField from '../../components/shared/PasswordField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useUsers, useUpdateUser } from '../../hooks/useUsers.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
@@ -66,12 +66,6 @@ const cap = (s) =>
     : '';
 
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 /* ── Column definitions ───────────────────────────────────────── */
 
@@ -180,7 +174,7 @@ export default function ManageUsersPage() {
 
       {/* ── View Details Dialog ──────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>User Details</span>
             {viewUser && (
@@ -189,7 +183,7 @@ export default function ManageUsersPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

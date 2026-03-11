@@ -27,7 +27,7 @@ import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContex
 import {
   useProjects, useCreateProject, useUpdateProject, useArchiveProject, useRestoreProject,
 } from '../../hooks/useProjects.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -49,12 +49,6 @@ const columns = [
   },
   { field: 'contract_amount', headerName: 'Contract Amount', width: 160, type: 'number' },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
@@ -207,7 +201,7 @@ export default function ProjectsPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Project Details</span>
             {viewProject && (
@@ -216,7 +210,7 @@ export default function ProjectsPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

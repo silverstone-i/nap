@@ -28,7 +28,7 @@ import {
   usePostJournalEntry, useReverseJournalEntry,
   useArchiveJournalEntry, useRestoreJournalEntry,
 } from '../../hooks/useAccounting.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -46,12 +46,6 @@ const columns = [
   { field: 'status', headerName: 'Status', width: 120, renderCell: ({ value }) => <StatusBadge status={value} /> },
   { field: 'source_type', headerName: 'Source', width: 140, valueGetter: (params) => cap(params.row.source_type || '') },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function JournalEntriesPage() {
   const { data: res, isLoading } = useJournalEntries();
@@ -230,7 +224,7 @@ export default function JournalEntriesPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Journal Entry Details</span>
             {viewEntry && (
@@ -239,7 +233,7 @@ export default function JournalEntriesPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

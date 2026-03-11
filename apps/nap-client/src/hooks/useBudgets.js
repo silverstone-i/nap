@@ -14,10 +14,6 @@ export function useBudgets(params = { limit: 200, includeDeactivated: 'true' }) 
   return useQuery({ queryKey: [...KEY, params], queryFn: () => budgetApi.list(params) });
 }
 
-export function useBudget(id) {
-  return useQuery({ queryKey: [...KEY, id], queryFn: () => budgetApi.getById(id), enabled: !!id });
-}
-
 export function useCreateBudget() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (body) => budgetApi.create(body), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });

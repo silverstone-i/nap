@@ -18,14 +18,6 @@ export function useAddresses(params = { limit: 200, includeDeactivated: 'true' }
   });
 }
 
-export function useAddress(id) {
-  return useQuery({
-    queryKey: [...ADDRESSES_KEY, id],
-    queryFn: () => addressApi.getById(id),
-    enabled: !!id,
-  });
-}
-
 export function useCreateAddress() {
   const qc = useQueryClient();
   return useMutation({

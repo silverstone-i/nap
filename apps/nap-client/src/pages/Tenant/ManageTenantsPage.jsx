@@ -43,7 +43,7 @@ import {
   useArchiveTenant,
   useRestoreTenant,
 } from '../../hooks/useTenants.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, formFullSpanSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
@@ -108,12 +108,6 @@ const columns = [
 ];
 
 /* ── Detail dialog helpers ────────────────────────────────────── */
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 const contactColumns = [
   {
@@ -339,7 +333,7 @@ export default function ManageTenantsPage() {
 
       {/* ── View Details ───────────────────────────────────── */}
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Tenant Details</span>
             {detailTenant && (
@@ -348,7 +342,7 @@ export default function ManageTenantsPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setDetailOpen(false)}>
               Close
             </Button>
@@ -373,7 +367,7 @@ export default function ManageTenantsPage() {
                 </FieldRow>
                 <FieldRow label="Created" value={fmtDate(detailTenant.created_at)} />
                 <FieldRow label="Updated" value={fmtDate(detailTenant.updated_at)} />
-                <FieldRow label="Notes" value={detailTenant.notes || '\u2014'} sx={{ gridColumn: '1 / -1' }} />
+                <FieldRow label="Notes" value={detailTenant.notes || '\u2014'} sx={formFullSpanSx} />
               </Box>
 
               {/* ── Contacts ──────────────────────────────────── */}

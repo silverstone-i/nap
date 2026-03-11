@@ -29,7 +29,7 @@ import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContex
 import {
   useChartOfAccounts, useCreateAccount, useUpdateAccount, useArchiveAccount, useRestoreAccount,
 } from '../../hooks/useAccounting.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -58,12 +58,6 @@ const columns = [
     valueGetter: (params) => (params.row.cash_basis ? 'Yes' : 'No'),
   },
 ];
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function ChartOfAccountsPage() {
   const { data: res, isLoading } = useChartOfAccounts();
@@ -202,7 +196,7 @@ export default function ChartOfAccountsPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Account Details</span>
             {viewAccount && (
@@ -211,7 +205,7 @@ export default function ChartOfAccountsPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>

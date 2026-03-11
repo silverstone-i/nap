@@ -15,7 +15,7 @@ import { BarChart } from '@mui/x-charts/BarChart';
 import SummaryCard from '../../components/shared/SummaryCard.jsx';
 import CurrencyCell from '../../components/shared/CurrencyCell.jsx';
 import { useCompanyCashflow } from '../../hooks/useReports.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, chartContainerSx } from '../../config/layoutTokens.js';
 
 const currFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -69,7 +69,7 @@ export default function CompanyCashflowPage() {
         </Grid>
 
         {rows.length > 0 && (
-          <Box sx={{ height: 300, mb: 3 }}>
+          <Box sx={chartContainerSx}>
             <BarChart
               xAxis={[{ data: chartLabels, scaleType: 'band' }]}
               series={[

@@ -37,7 +37,7 @@ import {
   useRestoreActivity,
 } from '../../hooks/useActivities.js';
 import { useCategories } from '../../hooks/useCategories.js';
-import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, formGridSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
@@ -45,12 +45,6 @@ const BLANK_CREATE = { code: '', name: '', category_id: '', is_active: true };
 const BLANK_EDIT = { code: '', name: '', category_id: '', is_active: true };
 
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
-
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
 
 export default function ActivitiesPage() {
   const { data: res, isLoading } = useActivities();
@@ -219,7 +213,7 @@ export default function ActivitiesPage() {
 
       {/* ── View Details Dialog ──────────────────────────────────── */}
       <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Activity Details</span>
             {viewActivity && (
@@ -228,7 +222,7 @@ export default function ActivitiesPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
               Close
             </Button>
