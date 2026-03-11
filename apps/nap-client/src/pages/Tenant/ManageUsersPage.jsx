@@ -8,7 +8,7 @@
  * and reset passwords.
  *
  * Migrated to standardised list-view selection system:
- *   useListSelection + DataTable + ListToolbar + RowActionsMenu
+ *   useListSelection + DataTable + RowActionsMenu
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */

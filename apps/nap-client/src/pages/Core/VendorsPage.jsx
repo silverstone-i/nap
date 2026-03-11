@@ -3,7 +3,7 @@
  * @module nap-client/pages/Core/VendorsPage
  *
  * Reference implementation for the standardised list-view selection system:
- *   useListSelection + DataTable + ListToolbar + RowActionsMenu
+ *   useListSelection + DataTable + RowActionsMenu
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */

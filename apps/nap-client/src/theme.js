@@ -336,18 +336,6 @@ const buildOptions = (t) => ({
           paddingLeft: t.density.tableCellPadX,
           paddingRight: t.density.tableCellPadX,
         },
-        toolbarContainer: {
-          padding: '8px 14px',
-          gap: 8,
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: `1px solid ${t.border.subtle}`,
-          '& .nap-list-toolbar-actions': {
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-          },
-        },
         checkboxInput: { padding: 6 },
         footerContainer: {
           borderTop: `1px solid ${t.border.subtle}`,

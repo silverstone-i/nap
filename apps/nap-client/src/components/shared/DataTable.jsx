@@ -1,15 +1,13 @@
 /**
- * @file DataTable — standardised DataGrid wrapper with selection, row actions, and toolbar
+ * @file DataTable — standardised DataGrid wrapper with selection and row actions
  * @module nap-client/components/shared/DataTable
  *
  * Wraps MUI X DataGrid v6 with:
  *   - Integrated selection (useListSelection) — Click / Ctrl+Click / Shift+Click
  *   - Per-row kebab (⋮) actions column (RowActionsMenu)
- *   - Selection-count toolbar (ListToolbar) via DataGrid slots.toolbar
  *   - Default archived-row className and pagination
  *
- * Bulk actions (Archive / Restore) live in the page-level ModuleBar — this
- * component only handles row-level actions and selection feedback.
+ * Bulk actions (Archive / Restore) live in the page-level ModuleBar.
  *
  * No sx props — all styling via theme overrides and className.
  *
@@ -21,7 +19,6 @@ import { DataGrid } from '@mui/x-data-grid';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import RowActionsMenu from './RowActionsMenu.jsx';
-import ListToolbar from './ListToolbar.jsx';
 
 /**
  * @param {Object}   props
@@ -32,7 +29,6 @@ import ListToolbar from './ListToolbar.jsx';
  * @param {Function} [props.onView]            - (row) => void; adds View to row actions
  * @param {Function} [props.onEdit]            - (row) => void; adds Edit to row actions
  * @param {Array|Function} [props.rowActions] - static [{ label, icon?, onClick(row) }] or (row) => actions[]
- * @param {Array}    [props.extraToolbarActions] - extra ListToolbar actions
  * @param {Function} [props.getRowClassName]   - custom className builder (merged with archived default)
  * @param {Object}   [props.dataGridProps]     - pass-through props for DataGrid
  */
@@ -44,7 +40,6 @@ export default function DataTable({
   onView,
   onEdit,
   rowActions = [],
-  extraToolbarActions,
   getRowClassName,
   dataGridProps = {},
 }) {
@@ -91,17 +86,6 @@ export default function DataTable({
     };
   }, [getRowClassName]);
 
-  // Toolbar slot props — selection count + clear + optional extras
-  const toolbarSlotProps = useMemo(() => ({
-    selectedCount: selection.selectedRows.length,
-    extraActions: extraToolbarActions,
-    onClear: selection.clearSelection,
-  }), [
-    selection.selectedRows.length,
-    selection.clearSelection,
-    extraToolbarActions,
-  ]);
-
   return (
     <DataGrid
       rows={rows}
@@ -116,8 +100,6 @@ export default function DataTable({
       pageSizeOptions={[25, 50, 100]}
       initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
       getRowClassName={mergedGetRowClassName}
-      slots={{ toolbar: ListToolbar }}
-      slotProps={{ toolbar: toolbarSlotProps }}
       {...dataGridProps}
     />
   );
