@@ -85,3 +85,14 @@ detects new config → register() → setActions() → provider re-render → re
 - New DataGrid pages get multi-select, bulk archive/restore, and toolbar integration by composing three imports.
 - Pages requiring custom behaviour (ManageTenantsPage cascade warnings, ManageUsersPage self-archive prevention) use `useDataGridSelection` + `buildBulkActions` but keep their own archive/restore handlers.
 - The `selectedRows.length` dependency pattern must be followed in all toolbar `useMemo` arrays — failure causes infinite render loops.
+
+### Evolution: DataTable + useListSelection (current standard)
+
+All list pages have since migrated to a `DataTable` component paired with a `useListSelection` hook. The original utilities (`selectionUtils.js`, `useDataGridSelection`, `useArchiveRestore`) remain available but `useListSelection` + `DataTable` is the standard for new pages:
+
+```jsx
+const selection = useListSelection(rows);
+<DataTable rows={rows} columns={columns} selection={selection} ... />
+```
+
+`DataTable` integrates checkbox selection, row click handling (Ctrl/Shift support), archived-row styling, and per-row kebab actions. `useListSelection` encapsulates selection state and exposes `{ selectionModel, selectedRows, allActive, allArchived, clearSelection }`. Pages continue to compose `useArchiveRestore` for archive/restore dialogs.

@@ -24,7 +24,7 @@ storage strategies:
 
 ## Decision
 
-Use **JWT access tokens stored in httpOnly, Secure, SameSite=Strict
+Use **JWT access tokens stored in httpOnly, Secure, SameSite=Lax
 cookies**. A separate refresh token (longer-lived, also httpOnly) enables
 silent renewal.
 
@@ -48,7 +48,7 @@ Token design is intentionally minimal:
 ### Positive
 
 - httpOnly prevents JavaScript access — XSS cannot exfiltrate tokens.
-- SameSite=Strict mitigates CSRF for same-origin requests.
+- SameSite=Lax mitigates CSRF while allowing top-level navigations (e.g., OAuth redirects).
 - Minimal JWT payload keeps tokens small and avoids stale claims (no roles,
   email, or tenant code in the token).
 - Permission hash enables efficient staleness detection without decoding

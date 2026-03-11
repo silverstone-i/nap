@@ -30,21 +30,18 @@ Use **keyset (cursor-based) pagination** for all list endpoints. The
 cursor is an opaque, base64-encoded value derived from the sort column(s)
 plus the row's primary key.
 
-Standard response envelope:
+List endpoints return the result of pg-schemata's `findAfterCursor`,
+which yields a `{ rows, nextCursor }` envelope. The cursor value is
+passed as a query parameter:
+`GET /api/core/v1/employees?cursor=eyJpZCI6Ijk5OSJ9&pageSize=50`
+
+Response shape:
 
 ```json
-{
-  "data": [...],
-  "pagination": {
-    "cursor": "eyJpZCI6Ijk5OSJ9",
-    "hasMore": true,
-    "pageSize": 50
-  }
-}
+{ "rows": [ ... ], "nextCursor": { ... } }
 ```
 
-The `cursor` value is passed as a query parameter on the next request:
-`GET /api/core/v1/employees?cursor=eyJpZCI6Ijk5OSJ9&pageSize=50`
+`nextCursor` is `null` when there are no more pages.
 
 ## Consequences
 

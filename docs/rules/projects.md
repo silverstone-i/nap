@@ -4,7 +4,7 @@
 
 | Table | Parent FK | Cascade | Notes |
 |-------|-----------|---------|-------|
-| `projects` | inter_companies (RESTRICT), clients (SET NULL), addresses (SET NULL) | — | Root entity, tenant-scoped |
+| `projects` | inter_companies (RESTRICT), addresses (SET NULL) | — | Root entity, tenant-scoped; clients via `project_clients` junction |
 | `units` | projects (CASCADE) | CASCADE from project | Also optionally references template_units (SET NULL) |
 | `tasks` | units (CASCADE) | CASCADE from unit | Self-referential parent_task_id (SET NULL) |
 | `cost_items` | tasks (CASCADE) | CASCADE from task | Generated `amount` column |
@@ -14,18 +14,20 @@
 
 ## Project Status Workflow
 
-Projects follow a forward-only status progression:
+Projects follow a forward-only status progression enforced by `projectsController.VALID_TRANSITIONS`:
 
 ```
-planning → budgeting → released → complete
+planning ──→ budgeting ──→ released ──→ complete
 ```
 
 - **planning**: Initial state after creation
 - **budgeting**: Project scope defined, budgets being prepared
 - **released**: Work authorized to begin
-- **complete**: All work finished
+- **complete**: All work finished (terminal — no further transitions)
 
-Backward transitions are rejected with HTTP 400. The controller validates the transition before delegating to the base update.
+Backward transitions are rejected with HTTP 400 and the response includes the `allowed` array. The controller validates the transition before delegating to the base update.
+
+> **Note:** The `projects` schema CHECK constraint also includes `on_hold` as a valid status value, but the controller's `VALID_TRANSITIONS` map does not yet wire any transitions to or from it. Adding `on_hold` support is a planned enhancement.
 
 ## Generated Columns
 
@@ -65,6 +67,7 @@ All project module routes are mounted under `/api/projects/v1/`:
 | Endpoint | Entity |
 |----------|--------|
 | `/api/projects/v1/projects` | Projects |
+| `/api/projects/v1/project-clients` | Project–Client junction |
 | `/api/projects/v1/units` | Units |
 | `/api/projects/v1/tasks` | Tasks |
 | `/api/projects/v1/cost-items` | Cost Items |
