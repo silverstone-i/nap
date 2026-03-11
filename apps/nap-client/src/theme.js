@@ -9,7 +9,7 @@
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
-import { createTheme } from '@mui/material/styles';
+import { alpha, createTheme } from '@mui/material/styles';
 import { createTokens } from './config/tokens.js';
 import { TENANT_BAR_HEIGHT } from './config/layoutTokens.js';
 
@@ -305,6 +305,12 @@ const buildOptions = (t) => ({
           },
           /* app-specific archived row */
           '& .row-archived': { opacity: 0.5 },
+          /* row-actions kebab — hidden by default, visible on hover */
+          '& .row-actions-cell .MuiIconButton-root': { visibility: 'hidden' },
+          '& .MuiDataGrid-row:hover .row-actions-cell .MuiIconButton-root': { visibility: 'visible' },
+          '@media (hover: none)': {
+            '& .row-actions-cell .MuiIconButton-root': { visibility: 'visible' },
+          },
         },
         withBorderColor: { borderColor: t.border.subtle },
         columnHeaders: {
@@ -318,17 +324,29 @@ const buildOptions = (t) => ({
           color: theme.palette.text.secondary,
         }),
         columnSeparator: { color: t.border.subtle },
-        row: {
+        row: ({ theme }) => ({
           borderBottom: `1px solid ${t.border.subtle}`,
           transition: `background-color ${t.motion.fast}`,
           '&:hover': { backgroundColor: t.surface.hoverOverlay },
-          '&.Mui-selected': { backgroundColor: t.surface.selectedOverlay },
-          '&.Mui-selected:hover': { backgroundColor: t.surface.activeOverlay },
-        },
+          '&.Mui-selected': { backgroundColor: alpha(theme.palette.primary.main, 0.08) },
+          '&.Mui-selected:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.12) },
+        }),
         cell: {
           borderBottom: 'none',
           paddingLeft: t.density.tableCellPadX,
           paddingRight: t.density.tableCellPadX,
+        },
+        toolbarContainer: {
+          padding: '8px 14px',
+          gap: 8,
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: `1px solid ${t.border.subtle}`,
+          '& .nap-list-toolbar-actions': {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          },
         },
         checkboxInput: { padding: 6 },
         footerContainer: {
