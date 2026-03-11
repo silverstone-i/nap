@@ -1,5 +1,5 @@
 /**
- * @file AP Invoices CRUD page — DataGrid + create/edit/archive/restore
+ * @file AP Invoices CRUD page — DataTable + create/edit/view/archive/restore
  * @module nap-client/pages/AP/ApInvoicesPage
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
@@ -7,15 +7,21 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
-import { DataGrid } from '@mui/x-data-grid';
+import Typography from '@mui/material/Typography';
 
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import CurrencyCell from '../../components/shared/CurrencyCell.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
@@ -23,8 +29,7 @@ import {
 } from '../../hooks/useAp.js';
 import { useVendors } from '../../hooks/useVendors.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const STATUS_OPTS = ['open', 'approved', 'paid', 'voided'];
@@ -42,6 +47,12 @@ const columns = [
   { field: 'total_amount', headerName: 'Total', width: 140, renderCell: (params) => <CurrencyCell value={params.value} /> },
   { field: 'status', headerName: 'Status', width: 120, renderCell: ({ value }) => <StatusBadge status={value} /> },
 ];
+
+const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
 
 export default function ApInvoicesPage() {
   const { data: res, isLoading } = useApInvoices();
@@ -62,11 +73,16 @@ export default function ApInvoicesPage() {
   const archiveMut = useArchiveApInvoice();
   const restoreMut = useRestoreApInvoice();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive, allArchived } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewInvoice, setViewInvoice] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -78,15 +94,21 @@ export default function ApInvoicesPage() {
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewInvoice(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      invoice_number: selected.invoice_number ?? '', invoice_date: selected.invoice_date?.slice(0, 10) ?? '',
-      due_date: selected.due_date?.slice(0, 10) ?? '', total_amount: selected.total_amount ?? '',
-      status: selected.status ?? 'open', notes: selected.notes ?? '',
+      invoice_number: row.invoice_number ?? '', invoice_date: row.invoice_date?.slice(0, 10) ?? '',
+      due_date: row.due_date?.slice(0, 10) ?? '', total_amount: row.total_amount ?? '',
+      status: row.status ?? 'open', notes: row.notes ?? '',
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   const handleCreate = async () => {
     try {
@@ -96,34 +118,104 @@ export default function ApInvoicesPage() {
   };
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: { ...editForm, total_amount: Number(editForm.total_amount) || 0 } });
-      toast('Invoice updated'); setEditOpen(false);
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: { ...editForm, total_amount: Number(editForm.total_amount) || 0 } });
+      toast('Invoice updated'); setEditOpen(false); setEditRow(null);
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, restoreMut, entityName: 'invoice', setSelectionModel, toast, errMsg, getLabel: (r) => r.invoice_number,
+    selectedRows, archiveMut, restoreMut, entityName: 'invoice', setSelectionModel: () => selection.clearSelection(), toast, errMsg, getLabel: (r) => r.invoice_number,
   });
 
-  const toolbar = useMemo(() => ({
-    tabs: [
-      { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-      { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-      { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
-    ],
-    filters: [],
-    primaryActions: [
-      { label: 'Create Invoice', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-      { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-      ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
-    ],
-  }), [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen]);
+  /* ── ModuleBar: tabs + Archive/Restore + Create ────────────── */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Create Invoice',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
+      tabs: [
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
+      ],
+      filters: [],
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid rows={rows} columns={columns} getRowId={(r) => r.id} loading={isLoading} checkboxSelection rowSelectionModel={selectionModel} onRowSelectionModelChange={onSelectionChange} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')} />
+      <DataTable
+        rows={rows}
+        columns={columns}
+        loading={isLoading}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
+      />
 
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Box>
+            <span>Invoice Details</span>
+            {viewInvoice && (
+              <Typography variant="body2" color="text.secondary">
+                {viewInvoice.invoice_number}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewInvoice && (
+            <Box sx={detailGridSx}>
+              <FieldRow label="Invoice Number" value={viewInvoice.invoice_number || '\u2014'} />
+              <FieldRow label="Vendor" value={viewInvoice.vendor_id?.slice(0, 8) || '\u2014'} />
+              <FieldRow label="Invoice Date" value={fmtDate(viewInvoice.invoice_date)} />
+              <FieldRow label="Due Date" value={fmtDate(viewInvoice.due_date)} />
+              <FieldRow label="Total Amount" value={viewInvoice.total_amount != null ? Number(viewInvoice.total_amount).toLocaleString(undefined, { style: 'currency', currency: 'USD' }) : '\u2014'} />
+              <FieldRow label="Status">
+                <StatusBadge status={viewInvoice.status} />
+              </FieldRow>
+              <FieldRow label="Created" value={fmtDate(viewInvoice.created_at)} />
+              <FieldRow label="Updated" value={fmtDate(viewInvoice.updated_at)} />
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create AP Invoice Dialog ─────────────────────────────── */}
       <FormDialog open={createOpen} title="Create AP Invoice" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Vendor" select required value={createForm.vendor_id} onChange={onCreateField('vendor_id')}>
           {vendors.map((v) => <MenuItem key={v.id} value={v.id}>{v.code ? `${v.code} \u2014 ${v.name}` : v.name}</MenuItem>)}
@@ -138,7 +230,8 @@ export default function ApInvoicesPage() {
         <TextField label="Notes" multiline minRows={2} value={createForm.notes} onChange={onCreateField('notes')} />
       </FormDialog>
 
-      <FormDialog open={editOpen} title="Edit AP Invoice" submitLabel="Save Changes" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)}>
+      {/* ── Edit AP Invoice Dialog ───────────────────────────────── */}
+      <FormDialog open={editOpen} title="Edit AP Invoice" submitLabel="Save Changes" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); }}>
         <TextField label="Invoice Number" required value={editForm.invoice_number} onChange={onEditField('invoice_number')} />
         <TextField label="Invoice Date" type="date" value={editForm.invoice_date} onChange={onEditField('invoice_date')} InputLabelProps={{ shrink: true }} />
         <TextField label="Due Date" type="date" value={editForm.due_date} onChange={onEditField('due_date')} InputLabelProps={{ shrink: true }} />

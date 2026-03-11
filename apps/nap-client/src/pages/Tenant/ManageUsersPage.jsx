@@ -7,25 +7,33 @@
  * NapSoft admins view all app users, change status (active/invited/locked),
  * and reset passwords.
  *
+ * Migrated to standardised list-view selection system:
+ *   useListSelection + DataTable + ListToolbar + RowActionsMenu
+ *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { DataGrid } from '@mui/x-data-grid';
 
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import PasswordField from '../../components/shared/PasswordField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useUsers, useUpdateUser } from '../../hooks/useUsers.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -57,6 +65,14 @@ const cap = (s) =>
         .join(' ')
     : '';
 
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
+
+const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
+
 /* ── Column definitions ───────────────────────────────────────── */
 
 const columns = [
@@ -86,10 +102,14 @@ export default function ManageUsersPage() {
   const updateMut = useUpdateUser();
 
   /* ── selection ───────────────────────────────────────────── */
-  const { selectionModel, onSelectionChange, selectedRows, selected, isSingle } = useDataGridSelection(rows, 'user');
+  const selection = useListSelection(rows, 'user');
+  const { selectedRows } = selection;
 
   /* ── dialog state ────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewUser, setViewUser] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   /* ── form state ──────────────────────────────────────────── */
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -102,15 +122,21 @@ export default function ManageUsersPage() {
   /* ── field change factories ──────────────────────────────── */
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewUser(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      email: selected.email ?? '',
-      status: selected.status ?? 'active',
+      email: row.email ?? '',
+      status: row.status ?? 'active',
       password: '',
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   /* ── CRUD handlers ───────────────────────────────────────── */
   const handleUpdate = async () => {
@@ -120,9 +146,10 @@ export default function ManageUsersPage() {
         ...fields,
         ...(password ? { password } : {}),
       };
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes });
       toast('User updated');
       setEditOpen(false);
+      setEditRow(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -133,28 +160,57 @@ export default function ManageUsersPage() {
     () => ({
       tabs: [],
       filters: [],
-      primaryActions: [
-        { label: 'Edit User', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-      ],
+      primaryActions: [],
     }),
-    [isSingle, selectedRows.length, openEdit],
+    [selectedRows.length],
   );
   useModuleToolbarRegistration(toolbar);
 
   /* ── render ──────────────────────────────────────────────── */
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
+
+      {/* ── View Details Dialog ──────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Box>
+            <span>User Details</span>
+            {viewUser && (
+              <Typography variant="body2" color="text.secondary">
+                {viewUser.email}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewUser && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={detailGridSx}>
+                <FieldRow label="Email" value={viewUser.email} />
+                <FieldRow label="Entity Type" value={cap(viewUser.entity_type) || '\u2014'} />
+                <FieldRow label="Status">
+                  <StatusBadge status={viewUser.status} />
+                </FieldRow>
+                <FieldRow label="Created" value={fmtDate(viewUser.created_at)} />
+                <FieldRow label="Updated" value={fmtDate(viewUser.updated_at)} />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit Dialog ────────────────────────────────────── */}
       <FormDialog
@@ -164,9 +220,9 @@ export default function ManageUsersPage() {
         loading={updateMut.isPending}
         submitDisabled={!!editForm.password && !PW_RULES.every((r) => r.test(editForm.password))}
         onSubmit={handleUpdate}
-        onCancel={() => setEditOpen(false)}
+        onCancel={() => { setEditOpen(false); setEditRow(null); }}
       >
-        {selected && <TextField label="Email" value={selected.email} disabled />}
+        {editRow && <TextField label="Email" value={editRow.email} disabled />}
         <TextField label="Status" select value={editForm.status} onChange={onEditField('status')}>
           {STATUS_OPTS.map((s) => (
             <MenuItem key={s} value={s}>

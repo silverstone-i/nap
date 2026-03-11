@@ -1,22 +1,32 @@
 /**
- * @file Activities management page — list, create, edit, archive/restore
+ * @file Activities management page — list, create, edit, view, archive/restore
  * @module nap-client/pages/Activities/ActivitiesPage
  *
  * Activities belong to a category and represent specific work items
  * that can be budgeted and tracked for cost management.
+ *
+ * Migrated to standardised list-view selection system:
+ *   useListSelection + DataTable + ListToolbar + RowActionsMenu
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
-import { DataGrid } from '@mui/x-data-grid';
+import Typography from '@mui/material/Typography';
 
+import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
@@ -28,12 +38,19 @@ import {
 } from '../../hooks/useActivities.js';
 import { useCategories } from '../../hooks/useCategories.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { code: '', name: '', category_id: '', is_active: true };
 const BLANK_EDIT = { code: '', name: '', category_id: '', is_active: true };
+
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
+
+const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
 
 export default function ActivitiesPage() {
   const { data: res, isLoading } = useActivities();
@@ -76,11 +93,16 @@ export default function ActivitiesPage() {
   const archiveMut = useArchiveActivity();
   const restoreMut = useRestoreActivity();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive, allArchived } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewActivity, setViewActivity] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -92,16 +114,22 @@ export default function ActivitiesPage() {
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewActivity(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      code: selected.code || '',
-      name: selected.name || '',
-      category_id: selected.category_id || '',
-      is_active: selected.is_active ?? true,
+      code: row.code || '',
+      name: row.name || '',
+      category_id: row.category_id || '',
+      is_active: row.is_active ?? true,
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   const handleCreate = async () => {
     try {
@@ -116,50 +144,113 @@ export default function ActivitiesPage() {
 
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
       toast('Activity updated');
       setEditOpen(false);
+      setEditRow(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
   };
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, restoreMut, entityName: 'activity', setSelectionModel, toast, errMsg, getLabel: (r) => r.name,
+    selectedRows,
+    archiveMut,
+    restoreMut,
+    entityName: 'activity',
+    setSelectionModel: () => selection.clearSelection(),
+    toast,
+    errMsg,
+    getLabel: (r) => r.name,
   });
 
-  const toolbar = useMemo(
-    () => ({
+  /* ── ModuleBar: tabs + Create + Archive/Restore ────────────── */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Create',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
       tabs: [
-        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
-      ],
-    }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
+
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Box>
+            <span>Activity Details</span>
+            {viewActivity && (
+              <Typography variant="body2" color="text.secondary">
+                {viewActivity.name}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewActivity && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={detailGridSx}>
+                <FieldRow label="Code" value={viewActivity.code || '\u2014'} />
+                <FieldRow label="Name" value={viewActivity.name} />
+                <FieldRow label="Category" value={catMap[viewActivity.category_id]?.name || '\u2014'} />
+                <FieldRow label="Status">
+                  <StatusBadge status={viewActivity.deactivated_at ? 'archived' : 'active'} />
+                </FieldRow>
+                <FieldRow label="Created" value={fmtDate(viewActivity.created_at)} />
+                <FieldRow label="Updated" value={fmtDate(viewActivity.updated_at)} />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Dialog */}
       <FormDialog open={createOpen} title="Create Activity" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
@@ -177,7 +268,7 @@ export default function ActivitiesPage() {
       </FormDialog>
 
       {/* Edit Dialog */}
-      <FormDialog open={editOpen} title="Edit Activity" submitLabel="Save" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)}>
+      <FormDialog open={editOpen} title="Edit Activity" submitLabel="Save" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); }}>
         <Box sx={formGridSx}>
           <TextField label="Code" required value={editForm.code} onChange={onEditField('code')} inputProps={{ maxLength: 16 }} />
           <TextField label="Name" required value={editForm.name} onChange={onEditField('name')} inputProps={{ maxLength: 64 }} />

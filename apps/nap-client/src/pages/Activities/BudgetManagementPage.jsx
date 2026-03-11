@@ -5,33 +5,49 @@
  * Status workflow: draft → submitted → approved → locked | rejected
  * Approved budgets are read-only; new changes spawn a new version.
  *
+ * Migrated to standardised list-view selection system:
+ *   useListSelection + DataTable + ListToolbar + RowActionsMenu
+ *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
-import { DataGrid } from '@mui/x-data-grid';
+import Typography from '@mui/material/Typography';
 
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useBudgets, useCreateBudget, useUpdateBudget, useArchiveBudget, useCreateBudgetVersion } from '../../hooks/useBudgets.js';
 import { useDeliverables } from '../../hooks/useDeliverables.js';
 import { useActivities } from '../../hooks/useActivities.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { deliverable_id: '', activity_id: '', budgeted_amount: '', status: 'draft' };
 const BLANK_EDIT = { budgeted_amount: '', status: '' };
 
 const STATUSES = ['draft', 'submitted', 'approved', 'locked', 'rejected'];
+
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
+
+const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
 
 export default function BudgetManagementPage() {
   const { data: res, isLoading } = useBudgets();
@@ -57,11 +73,16 @@ export default function BudgetManagementPage() {
   const archiveMut = useArchiveBudget();
   const newVersionMut = useCreateBudgetVersion();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewBudget, setViewBudget] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
   const [versionOpen, setVersionOpen] = useState(false);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
@@ -74,11 +95,17 @@ export default function BudgetManagementPage() {
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
-    setEditForm({ budgeted_amount: selected.budgeted_amount || '', status: selected.status || '' });
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewBudget(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
+    setEditForm({ budgeted_amount: row.budgeted_amount || '', status: row.status || '' });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   const handleCreate = async () => {
     try {
@@ -93,9 +120,10 @@ export default function BudgetManagementPage() {
 
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
       toast('Budget updated');
       setEditOpen(false);
+      setEditRow(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -103,21 +131,26 @@ export default function BudgetManagementPage() {
 
   const handleNewVersion = async () => {
     try {
-      await newVersionMut.mutateAsync({ budget_id: selected.id });
+      await newVersionMut.mutateAsync({ budget_id: selection.selected.id });
       toast('New budget version created');
       setVersionOpen(false);
-      setSelectionModel([]);
+      selection.clearSelection();
     } catch (err) {
       toast(errMsg(err), 'error');
     }
   };
 
   const { setArchiveOpen, archiveConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, entityName: 'budget', setSelectionModel, toast, errMsg,
+    selectedRows,
+    archiveMut,
+    entityName: 'budget',
+    setSelectionModel: () => selection.clearSelection(),
+    toast,
+    errMsg,
     getLabel: (r) => `budget v${r.version}`,
   });
 
-  const canNewVersion = isSingle && (selected?.status === 'approved' || selected?.status === 'locked');
+  const canNewVersion = selection.isSingle && (selection.selected?.status === 'approved' || selection.selected?.status === 'locked');
 
   const columns = useMemo(
     () => [
@@ -154,40 +187,97 @@ export default function BudgetManagementPage() {
     [deliverableMap, activityMap],
   );
 
-  const toolbar = useMemo(
-    () => ({
+  /* ── ModuleBar: tabs + Create + New Version + Archive ──────── */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'current' || viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'New Version',
+      variant: 'outlined',
+      disabled: !canNewVersion,
+      onClick: () => setVersionOpen(true),
+    });
+
+    primary.push({
+      label: 'Create Budget',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
       tabs: [
-        { value: 'current', label: 'Current', selected: viewFilter === 'current', onClick: () => { setViewFilter('current'); setSelectionModel([]); } },
-        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+        { value: 'current', label: 'Current', selected: viewFilter === 'current', onClick: () => { setViewFilter('current'); selection.clearSelection(); } },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        { label: 'New Version', variant: 'outlined', disabled: !canNewVersion, onClick: () => setVersionOpen(true) },
-        ...buildBulkActions({ selectedRows, hasSelection, allActive, onArchive: () => setArchiveOpen(true) }),
-      ],
-    }),
-    [isSingle, hasSelection, allActive, selectedRows.length, viewFilter, openEdit, canNewVersion, setSelectionModel, setArchiveOpen],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, canNewVersion, selection.clearSelection, setArchiveOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
+
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Box>
+            <span>Budget Details</span>
+            {viewBudget && (
+              <Typography variant="body2" color="text.secondary">
+                {deliverableMap[viewBudget.deliverable_id] || viewBudget.deliverable_id}
+                {' / '}
+                {activityMap[viewBudget.activity_id] || viewBudget.activity_id}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewBudget && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={detailGridSx}>
+                <FieldRow label="Deliverable" value={deliverableMap[viewBudget.deliverable_id] || viewBudget.deliverable_id} />
+                <FieldRow label="Activity" value={activityMap[viewBudget.activity_id] || viewBudget.activity_id} />
+                <FieldRow label="Budgeted Amount" value={viewBudget.budgeted_amount} />
+                <FieldRow label="Version" value={viewBudget.version} />
+                <FieldRow label="Is Current" value={viewBudget.is_current ? 'Yes' : 'No'} />
+                <FieldRow label="Status">
+                  <StatusBadge status={viewBudget.status} />
+                </FieldRow>
+                <FieldRow label="Approved At" value={fmtDate(viewBudget.approved_at)} />
+                <FieldRow label="Created" value={fmtDate(viewBudget.created_at)} />
+                <FieldRow label="Updated" value={fmtDate(viewBudget.updated_at)} />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Dialog */}
       <FormDialog open={createOpen} title="Create Budget" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
@@ -203,7 +293,7 @@ export default function BudgetManagementPage() {
       </FormDialog>
 
       {/* Edit Dialog */}
-      <FormDialog open={editOpen} title="Edit Budget" submitLabel="Save" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)}>
+      <FormDialog open={editOpen} title="Edit Budget" submitLabel="Save" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); }}>
         <Box sx={formGridSx}>
           <TextField label="Budgeted Amount" type="number" value={editForm.budgeted_amount} onChange={onEditField('budgeted_amount')} />
           <TextField label="Status" select value={editForm.status} onChange={onEditField('status')}>
@@ -216,7 +306,7 @@ export default function BudgetManagementPage() {
       <ConfirmDialog
         open={versionOpen}
         title="Create New Budget Version"
-        message={selected ? `Create a new draft version from budget v${selected.version}? The current version will be marked as superseded.` : ''}
+        message={selection.selected ? `Create a new draft version from budget v${selection.selected.version}? The current version will be marked as superseded.` : ''}
         confirmLabel="Create Version"
         loading={newVersionMut.isPending}
         onConfirm={handleNewVersion}

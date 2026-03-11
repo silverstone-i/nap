@@ -1,5 +1,5 @@
 /**
- * @file Catalog SKU management page — list, create, edit, archive/restore, embedding refresh
+ * @file Catalog SKU management page — DataTable + create/edit/view/archive/restore/embedding refresh
  * @module nap-client/pages/BOM/CatalogPage
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
@@ -7,13 +7,20 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
-import { DataGrid } from '@mui/x-data-grid';
+import Typography from '@mui/material/Typography';
 
+import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
@@ -25,12 +32,13 @@ import {
   useRefreshCatalogEmbeddings,
 } from '../../hooks/useBom.js';
 import { pageContainerSx, formGridSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { catalog_sku: '', description: '', category: '', sub_category: '' };
 const BLANK_EDIT = { catalog_sku: '', description: '', category: '', sub_category: '' };
+
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
 
 const columns = [
   { field: 'catalog_sku', headerName: 'SKU', width: 160 },
@@ -45,6 +53,12 @@ const columns = [
   },
   { field: 'created_at', headerName: 'Created', width: 120, valueGetter: (params) => params.row.created_at?.slice(0, 10) },
 ];
+
+const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
 
 export default function CatalogPage() {
   const { data: res, isLoading } = useCatalogSkus();
@@ -63,11 +77,16 @@ export default function CatalogPage() {
   const restoreMut = useRestoreCatalogSku();
   const refreshMut = useRefreshCatalogEmbeddings();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive, allArchived } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewSku, setViewSku] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -81,16 +100,22 @@ export default function CatalogPage() {
 
   const categories = useMemo(() => [...new Set(allRows.map((r) => r.category).filter(Boolean))].sort(), [allRows]);
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewSku(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      catalog_sku: selected.catalog_sku || '',
-      description: selected.description || '',
-      category: selected.category || '',
-      sub_category: selected.sub_category || '',
+      catalog_sku: row.catalog_sku || '',
+      description: row.description || '',
+      category: row.category || '',
+      sub_category: row.sub_category || '',
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   const handleCreate = async () => {
     try {
@@ -105,9 +130,10 @@ export default function CatalogPage() {
 
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
       toast('Catalog SKU updated');
       setEditOpen(false);
+      setEditRow(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -123,45 +149,112 @@ export default function CatalogPage() {
   };
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, restoreMut, entityName: 'catalog SKU', setSelectionModel, toast, errMsg,
+    selectedRows,
+    archiveMut,
+    restoreMut,
+    entityName: 'catalog SKU',
+    setSelectionModel: () => selection.clearSelection(),
+    toast,
+    errMsg,
     getLabel: (r) => r.catalog_sku,
   });
 
-  const toolbar = useMemo(
-    () => ({
+  /* ── ModuleBar: tabs + Archive/Restore + Refresh Embeddings + Create ─ */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Refresh Embeddings',
+      variant: 'outlined',
+      disabled: refreshMut.isPending,
+      onClick: handleRefreshEmbeddings,
+    });
+
+    primary.push({
+      label: 'Create',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
       tabs: [
-        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        { label: 'Create', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
-        { label: 'Refresh Embeddings', variant: 'outlined', disabled: refreshMut.isPending, onClick: handleRefreshEmbeddings },
-      ],
-    }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen, refreshMut.isPending],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen, refreshMut.isPending]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
 
-      {/* Create Dialog */}
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Box>
+            <span>Catalog SKU Details</span>
+            {viewSku && (
+              <Typography variant="body2" color="text.secondary">
+                {viewSku.catalog_sku}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewSku && (
+            <Box sx={detailGridSx}>
+              <FieldRow label="Catalog SKU" value={viewSku.catalog_sku || '\u2014'} />
+              <FieldRow label="Description" value={viewSku.description || '\u2014'} />
+              <FieldRow label="Category" value={viewSku.category || '\u2014'} />
+              <FieldRow label="Sub-Category" value={viewSku.sub_category || '\u2014'} />
+              <FieldRow label="Embedded" value={viewSku.embedding ? 'Yes' : 'No'} />
+              <FieldRow label="Status">
+                <StatusBadge status={viewSku.deactivated_at ? 'archived' : 'active'} />
+              </FieldRow>
+              <FieldRow label="Created" value={fmtDate(viewSku.created_at)} />
+              <FieldRow label="Updated" value={fmtDate(viewSku.updated_at)} />
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create Dialog ─────────────────────────────────────────── */}
       <FormDialog open={createOpen} title="Create Catalog SKU" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <Box sx={formGridSx}>
           <TextField label="SKU Code" required value={createForm.catalog_sku} onChange={onCreateField('catalog_sku')} inputProps={{ maxLength: 64 }} />
@@ -173,8 +266,8 @@ export default function CatalogPage() {
         </Box>
       </FormDialog>
 
-      {/* Edit Dialog */}
-      <FormDialog open={editOpen} title="Edit Catalog SKU" submitLabel="Save" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)}>
+      {/* ── Edit Dialog ───────────────────────────────────────────── */}
+      <FormDialog open={editOpen} title="Edit Catalog SKU" submitLabel="Save" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); }}>
         <Box sx={formGridSx}>
           <TextField label="SKU Code" required value={editForm.catalog_sku} onChange={onEditField('catalog_sku')} inputProps={{ maxLength: 64 }} />
           <TextField label="Category" value={editForm.category} onChange={onEditField('category')} select={categories.length > 0} inputProps={{ maxLength: 64 }}>

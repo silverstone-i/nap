@@ -2,18 +2,25 @@
  * @file Manage Roles page — master-detail layout with four-layer RBAC configuration
  * @module nap-client/pages/Tenant/ManageRolesPage
  *
- * Left panel: Roles DataGrid with create / edit.
+ * Left panel: Roles DataTable with create / edit / view.
  * Right panel: Detail panel with Policies, State Filters, and Field Groups tabs.
  *
  * Roles with is_immutable=true are read-only across all tabs.
  * Roles with is_system=true are visually distinguished.
+ *
+ * Migrated to standardised list-view selection system:
+ *   useListSelection + DataTable + ListToolbar + RowActionsMenu
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
@@ -21,14 +28,16 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { DataGrid } from '@mui/x-data-grid';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import { useRoles, useCreateRole, useUpdateRole } from '../../hooks/useRoles.js';
 import { masterDetailSx, masterPanelSx, detailPanelSx } from '../../config/layoutTokens.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 
 import PolicyEditor from './PolicyEditor.jsx';
 import StateFilterEditor from './StateFilterEditor.jsx';
@@ -48,6 +57,14 @@ const cap = (s) =>
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
         .join(' ')
     : '';
+
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
+
+const detailGridSx = {
+  display: 'grid',
+  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+  gap: 1.5,
+};
 
 /* ── Empty form shapes ────────────────────────────────────────── */
 
@@ -89,16 +106,19 @@ export default function ManageRolesPage() {
   const updateMut = useUpdateRole();
 
   /* ── selection ───────────────────────────────────────────── */
-  const { selectionModel, onSelectionChange, selected, isSingle } = useDataGridSelection(rows);
-  const isReadOnly = selected?.is_immutable || selected?.is_system;
+  const selection = useListSelection(rows);
+  const isReadOnly = selection.selected?.is_immutable || selection.selected?.is_system;
 
   /* ── detail tab ────────────────────────────────────────────── */
   const [detailTab, setDetailTab] = useState(0);
   const [actionsContainer, setActionsContainer] = useState(null);
 
   /* ── dialog state ──────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewRole, setViewRole] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   /* ── form state ────────────────────────────────────────────── */
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
@@ -113,15 +133,27 @@ export default function ManageRolesPage() {
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewRole(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      name: selected.name ?? '',
-      description: selected.description ?? '',
-      scope: selected.scope ?? 'all_projects',
+      name: row.name ?? '',
+      description: row.description ?? '',
+      scope: row.scope ?? 'all_projects',
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
+
+  /** Conditional row actions — immutable roles cannot be edited */
+  const getRowActions = useCallback((row) => {
+    if (row.is_immutable) return [];
+    return [{ label: 'Edit', icon: <EditOutlinedIcon fontSize="small" />, onClick: handleEdit }];
+  }, [handleEdit]);
 
   /* ── CRUD handlers ─────────────────────────────────────────── */
   const handleCreate = async () => {
@@ -137,9 +169,10 @@ export default function ManageRolesPage() {
 
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
       toast('Role updated');
       setEditOpen(false);
+      setEditRow(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -160,15 +193,9 @@ export default function ManageRolesPage() {
             setCreateOpen(true);
           },
         },
-        {
-          label: 'Edit',
-          variant: 'outlined',
-          disabled: !isSingle || !!selected?.is_immutable,
-          onClick: openEdit,
-        },
       ],
     }),
-    [isSingle, selected, openEdit],
+    [],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -176,36 +203,33 @@ export default function ManageRolesPage() {
   return (
     <Box sx={masterDetailSx}>
       {/* ── Left: Roles grid ──────────────────────────────────── */}
-      <Box sx={isSingle ? { ...masterPanelSx } : { flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <DataGrid
+      <Box sx={selection.isSingle ? { ...masterPanelSx } : { flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <DataTable
           rows={rows}
           columns={columns}
-          getRowId={(r) => r.id}
           loading={isLoading}
-          checkboxSelection
-          rowSelectionModel={selectionModel}
-          onRowSelectionModelChange={onSelectionChange}
-          pageSizeOptions={[25, 50, 100]}
-          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+          selection={selection}
+          onView={handleView}
+          rowActions={getRowActions}
         />
       </Box>
 
       {/* ── Right: Detail panel ───────────────────────────────── */}
-      {isSingle && (
+      {selection.isSingle && (
         <Box sx={detailPanelSx}>
           {/* Role header */}
           <Box sx={{ mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h6">{selected.name}</Typography>
-              {selected.is_system && <Chip label="System" size="small" color="info" />}
-              {selected.is_immutable && <Chip label="Immutable" size="small" color="warning" />}
+              <Typography variant="h6">{selection.selected.name}</Typography>
+              {selection.selected.is_system && <Chip label="System" size="small" color="info" />}
+              {selection.selected.is_immutable && <Chip label="Immutable" size="small" color="warning" />}
             </Box>
             <Typography variant="body2" color="text.secondary">
-              {selected.code} &middot; Scope: {cap(selected.scope)}
+              {selection.selected.code} &middot; Scope: {cap(selection.selected.scope)}
             </Typography>
-            {selected.description && (
+            {selection.selected.description && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {selected.description}
+                {selection.selected.description}
               </Typography>
             )}
           </Box>
@@ -232,13 +256,49 @@ export default function ManageRolesPage() {
 
           {/* Tab content */}
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            {detailTab === 0 && <PolicyEditor roleId={selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
-            {detailTab === 1 && <StateFilterEditor roleId={selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
-            {detailTab === 2 && <FieldGroupEditor roleId={selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
+            {detailTab === 0 && <PolicyEditor roleId={selection.selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
+            {detailTab === 1 && <StateFilterEditor roleId={selection.selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
+            {detailTab === 2 && <FieldGroupEditor roleId={selection.selected.id} readOnly={isReadOnly} actionsContainer={actionsContainer} />}
             {detailTab === 3 && <FieldGroupDefinitionEditor readOnly={isReadOnly} actionsContainer={actionsContainer} />}
           </Box>
         </Box>
       )}
+
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Box>
+            <span>Role Details</span>
+            {viewRole && (
+              <Typography variant="body2" color="text.secondary">
+                {viewRole.name}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={{ ml: 'auto' }}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewRole && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={detailGridSx}>
+                <FieldRow label="Code" value={viewRole.code} />
+                <FieldRow label="Name" value={viewRole.name} />
+                <FieldRow label="Scope">
+                  <StatusBadge status={viewRole.scope} />
+                </FieldRow>
+                <FieldRow label="System" value={viewRole.is_system ? 'Yes' : 'No'} />
+                <FieldRow label="Immutable" value={viewRole.is_immutable ? 'Yes' : 'No'} />
+                <FieldRow label="Created" value={fmtDate(viewRole.created_at)} />
+                <FieldRow label="Updated" value={fmtDate(viewRole.updated_at)} />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Create Dialog ──────────────────────────────────────── */}
       <FormDialog
@@ -268,9 +328,9 @@ export default function ManageRolesPage() {
         submitLabel="Save Changes"
         loading={updateMut.isPending}
         onSubmit={handleUpdate}
-        onCancel={() => setEditOpen(false)}
+        onCancel={() => { setEditOpen(false); setEditRow(null); }}
       >
-        {selected && <TextField label="Code" value={selected.code} disabled />}
+        {editRow && <TextField label="Code" value={editRow.code} disabled />}
         <TextField label="Name" required value={editForm.name} onChange={onEditField('name')} inputProps={{ maxLength: 128 }} />
         <TextField label="Description" value={editForm.description} onChange={onEditField('description')} inputProps={{ maxLength: 255 }} />
         <TextField label="Scope" select value={editForm.scope} onChange={onEditField('scope')}>
