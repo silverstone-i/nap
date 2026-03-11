@@ -71,6 +71,7 @@ describe('Entity lifecycle — employee is_app_user with nap_users cascade', () 
         last_name: 'Wonder',
         code: 'AW001',
         email: 'alice@eltest.com',
+        roles: ['admin'],
         is_app_user: true,
       });
 
