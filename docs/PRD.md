@@ -405,7 +405,7 @@ Roles with `is_immutable = true` OR `is_system = true` are read-only across all 
 - Status badge display with color coding
 - Create tenant form includes admin user fields: first name, last name, email, and password (used to create the tenant's Administrator user and linked employee record)
 - Pagination with configurable rows-per-page (powered by `findAfterCursor()`)
-- Archive cascades to deactivate all currently-active associated `nap_users` (sets `deactivated_at` and `updated_by`). **Note:** the cascade only executes when the archive request uses `?id=` — archiving by `?tenant_code=` does not trigger the user cascade due to a conditional check in the controller.
+- Archive cascades to deactivate all currently-active associated `nap_users` (sets `deactivated_at`, `status = 'locked'`, and `updated_by`) — works for both `?id=` and `?tenant_code=` query params.
 - The root tenant (NapSoft, `NAP`) cannot be archived — server rejects the request with 403
 - Restore reactivates the tenant only — users remain archived and must be individually restored by an admin
 - **View Details dialog** (`maxWidth="md"`): displays tenant fields in a responsive 3-column grid of `FieldRow` components (label:value pairs). Fields: Code, Tier, Region, Status (rendered as `StatusBadge` chip), Max Users, Schema (monospace), Created, Updated, Notes (full-width). Below a divider, two `DataGrid` tables display **Primary Contacts** and **Billing Contacts** with Name, Email (mailto link), and Phone columns. Contact data is fetched via `useTenantContacts(tenantId)` hook.
@@ -552,7 +552,8 @@ Partial unique index: `(entity_type, entity_id) WHERE deactivated_at IS NULL` �
 | Method | Path | Purpose |
 |---|---|---|
 | Standard CRUD | `/api/core/v1/employees` | List, get, create, update, archive, restore |
-| `POST` | `/api/core/v1/employees/:id/reset-password` | Admin-initiated password reset for an employee's linked nap_users login. **Note:** `withMeta` is `{ module: 'core', action: 'reset-password' }` (missing `router: 'employees'`), so RBAC key resolves as `core::::reset-password` instead of `core::employees::reset-password`. |
+| `GET` | `/api/core/v1/employees/:id/source-id` | Resolve the polymorphic source record for phone/address lookups |
+| `POST` | `/api/core/v1/employees/:id/reset-password` | Admin-initiated password reset for an employee's linked nap_users login |
 
 #### 3.3.4 Polymorphic Sources, Contacts, Addresses & Phone Numbers
 

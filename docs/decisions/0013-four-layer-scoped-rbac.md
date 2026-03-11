@@ -18,9 +18,14 @@ Extend RBAC to four narrowing layers:
 
 ### Layer 1 — Role Policies (capabilities)
 Maps `(role, module, router, action)` to a permission level
-(none, view, full). Resolution hierarchy:
-`module::router::action` then `module::router::` then
-`module::::`. Multi-role merge: most permissive level wins.
+(none, view, full). Resolution hierarchy (most specific first):
+1. `module::router::action`
+2. `module::router::`
+3. `module::::`
+4. `::::` (empty-module wildcard)
+5. Default: `none`
+
+Multi-role merge: most permissive level wins.
 
 ### Layer 2 — Data Scope
 Each role has a scope: `all_projects`,
