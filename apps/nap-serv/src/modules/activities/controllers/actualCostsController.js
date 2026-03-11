@@ -62,4 +62,4 @@ class ActualCostsController extends BaseController {
 
 const instance = new ActualCostsController();
 export default instance;
-export { ActualCostsController, VALID_TRANSITIONS };
+export { ActualCostsController };

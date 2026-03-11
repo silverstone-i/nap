@@ -23,12 +23,6 @@ export function validateEnv(required = [], env = process.env) {
   return { valid: true, missing: [] };
 }
 
-/** Required env vars for the server to start */
-export const REQUIRED_ENV_VARS = ['NODE_ENV'];
-
-/** Required env vars for database connection */
-export const REQUIRED_DB_ENV_VARS = ['NODE_ENV'];
-
 /**
  * Returns the database URL for the current environment.
  * @param {object} [env=process.env] Environment object

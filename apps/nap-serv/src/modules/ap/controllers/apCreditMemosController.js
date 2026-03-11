@@ -92,4 +92,4 @@ class ApCreditMemosController extends BaseController {
 
 const instance = new ApCreditMemosController();
 export default instance;
-export { ApCreditMemosController, VALID_TRANSITIONS };
+export { ApCreditMemosController };

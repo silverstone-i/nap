@@ -82,4 +82,4 @@ class ArInvoicesController extends BaseController {
 
 const instance = new ArInvoicesController();
 export default instance;
-export { ArInvoicesController, VALID_TRANSITIONS };
+export { ArInvoicesController };
