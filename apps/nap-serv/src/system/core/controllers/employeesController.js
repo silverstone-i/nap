@@ -129,17 +129,12 @@ class EmployeesController extends BaseController {
       const suppliedPassword = req.body.password;
       delete req.body.password;
 
-      // Apply the standard update
-      const count = await this.model(schema).updateWhere([{ id: employeeId }], req.body);
-      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found` });
-
-      // Detect is_app_user toggle
+      // Detect is_app_user toggle — validate BEFORE persisting the update
       const wasAppUser = !!before.is_app_user;
       const isNowAppUser = req.body.is_app_user !== undefined ? !!req.body.is_app_user : wasAppUser;
       const email = req.body.email || before.email;
 
       if (!wasAppUser && isNowAppUser) {
-        // Toggled ON: validate roles + email, then provision or restore nap_user
         const roles = req.body.roles || before.roles || [];
         if (!roles.length) {
           return res.status(400).json({ error: 'Roles must be assigned before enabling app user access' });
@@ -147,6 +142,14 @@ class EmployeesController extends BaseController {
         if (!email) {
           return res.status(400).json({ error: 'Email is required to enable app user access' });
         }
+      }
+
+      // Apply the standard update
+      const count = await this.model(schema).updateWhere([{ id: employeeId }], req.body);
+      if (!count) return res.status(404).json({ error: `${this.errorLabel} not found` });
+
+      if (!wasAppUser && isNowAppUser) {
+        // Toggled ON: provision or restore nap_user
         const updatedEmployee = { ...before, ...req.body, id: before.id, email };
         await this.#provisionAppUser(updatedEmployee, req, suppliedPassword);
       } else if (wasAppUser && !isNowAppUser) {
