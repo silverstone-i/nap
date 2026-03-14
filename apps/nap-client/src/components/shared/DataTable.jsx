@@ -9,7 +9,7 @@
  *
  * Bulk actions (Archive / Restore) live in the page-level ModuleBar.
  *
- * No sx props — all styling via theme overrides and className.
+ * Styling via theme overrides and className; pages may pass sx through dataGridProps.
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */

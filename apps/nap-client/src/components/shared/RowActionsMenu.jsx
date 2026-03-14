@@ -42,7 +42,7 @@ export default function RowActionsMenu({ row, actions }) {
 
   return (
     <>
-      <IconButton size="small" onClick={handleOpen} className="row-actions-btn">
+      <IconButton size="small" onClick={handleOpen} className="row-actions-btn" aria-label="Row actions">
         <MoreVertIcon fontSize="small" />
       </IconButton>
       <Menu

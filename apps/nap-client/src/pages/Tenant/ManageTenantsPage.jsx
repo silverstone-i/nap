@@ -26,8 +26,6 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { DataGrid } from '@mui/x-data-grid';
-
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import FieldRow from '../../components/shared/FieldRow.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
