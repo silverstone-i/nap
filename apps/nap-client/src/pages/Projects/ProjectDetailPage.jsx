@@ -17,8 +17,8 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
-import { DataGrid } from '@mui/x-data-grid';
 
+import DataTable from '../../components/shared/DataTable.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
@@ -27,7 +27,7 @@ import { useUnits, useCreateUnit, useUpdateUnit, useArchiveUnit, useRestoreUnit 
 import { useTasks, useCreateTask, useUpdateTask, useArchiveTask, useRestoreTask } from '../../hooks/useTasks.js';
 import { useCostItems, useCreateCostItem, useUpdateCostItem, useArchiveCostItem, useRestoreCostItem } from '../../hooks/useCostItems.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 
 /* ── column definitions ───────────────────────── */
 const unitCols = [
@@ -71,17 +71,17 @@ export default function ProjectDetailPage() {
   const archiveUnitMut = useArchiveUnit();
   const _restoreUnitMut = useRestoreUnit();
 
-  const { selectionModel: unitSel, setSelectionModel: setUnitSel, onSelectionChange: onUnitSelChange, selectedRows: unitSelectedRows, selected: selectedUnit, isSingle: unitIsSingle, hasSelection: unitHasSelection, allActive: unitAllActive } =
-    useDataGridSelection(unitRows);
+  const unitSelection = useListSelection(unitRows);
   const [unitCreateOpen, setUnitCreateOpen] = useState(false);
   const [unitEditOpen, setUnitEditOpen] = useState(false);
+  const [editUnitRow, setEditUnitRow] = useState(null);
   const [unitArchiveOpen, setUnitArchiveOpen] = useState(false);
   const [unitForm, setUnitForm] = useState(BLANK_UNIT);
   const [unitEditForm, setUnitEditForm] = useState(BLANK_UNIT);
 
   /* ── Tasks ──────────────────────────────────── */
   const { data: tasksRes, isLoading: tasksLoading } = useTasks(
-    selectedUnit ? { unit_id: selectedUnit.id, limit: 200, includeDeactivated: 'true' } : { unit_id: '__none__', limit: 0 },
+    unitSelection.selected ? { unit_id: unitSelection.selected.id, limit: 200, includeDeactivated: 'true' } : { unit_id: '__none__', limit: 0 },
   );
   const taskRows = useMemo(() => (tasksRes?.rows ?? []).filter((r) => !r.deactivated_at), [tasksRes]);
   const createTaskMut = useCreateTask();
@@ -89,17 +89,17 @@ export default function ProjectDetailPage() {
   const archiveTaskMut = useArchiveTask();
   const _restoreTaskMut = useRestoreTask();
 
-  const { selectionModel: taskSel, setSelectionModel: setTaskSel, onSelectionChange: onTaskSelChange, selectedRows: taskSelectedRows, selected: selectedTask, isSingle: taskIsSingle, hasSelection: taskHasSelection, allActive: taskAllActive } =
-    useDataGridSelection(taskRows);
+  const taskSelection = useListSelection(taskRows);
   const [taskCreateOpen, setTaskCreateOpen] = useState(false);
   const [taskEditOpen, setTaskEditOpen] = useState(false);
+  const [editTaskRow, setEditTaskRow] = useState(null);
   const [taskArchiveOpen, setTaskArchiveOpen] = useState(false);
   const [taskForm, setTaskForm] = useState(BLANK_TASK);
   const [taskEditForm, setTaskEditForm] = useState(BLANK_TASK);
 
   /* ── Cost Items ─────────────────────────────── */
   const { data: costRes, isLoading: costLoading } = useCostItems(
-    selectedTask ? { task_id: selectedTask.id, limit: 200, includeDeactivated: 'true' } : { task_id: '__none__', limit: 0 },
+    taskSelection.selected ? { task_id: taskSelection.selected.id, limit: 200, includeDeactivated: 'true' } : { task_id: '__none__', limit: 0 },
   );
   const costRows = useMemo(() => (costRes?.rows ?? []).filter((r) => !r.deactivated_at), [costRes]);
   const createCostMut = useCreateCostItem();
@@ -107,10 +107,10 @@ export default function ProjectDetailPage() {
   const archiveCostMut = useArchiveCostItem();
   const _restoreCostMut = useRestoreCostItem();
 
-  const { selectionModel: costSel, setSelectionModel: setCostSel, onSelectionChange: onCostSelChange, selectedRows: costSelectedRows, selected: selectedCost, isSingle: costIsSingle, hasSelection: costHasSelection, allActive: costAllActive } =
-    useDataGridSelection(costRows);
+  const costSelection = useListSelection(costRows);
   const [costCreateOpen, setCostCreateOpen] = useState(false);
   const [costEditOpen, setCostEditOpen] = useState(false);
+  const [editCostRow, setEditCostRow] = useState(null);
   const [costArchiveOpen, setCostArchiveOpen] = useState(false);
   const [costForm, setCostForm] = useState(BLANK_COST);
   const [costEditForm, setCostEditForm] = useState(BLANK_COST);
@@ -124,6 +124,31 @@ export default function ProjectDetailPage() {
   const toolbar = useMemo(() => ({ tabs: [], filters: [], primaryActions: [] }), []);
   useModuleToolbarRegistration(toolbar);
 
+  /* ── Edit callbacks (kebab menu) ───────────── */
+  const handleEditUnit = useCallback((row) => {
+    setEditUnitRow(row);
+    setUnitEditForm({ unit_code: row.unit_code ?? '', name: row.name ?? '' });
+    setUnitEditOpen(true);
+  }, []);
+
+  const handleEditTask = useCallback((row) => {
+    setEditTaskRow(row);
+    setTaskEditForm({ task_code: row.task_code ?? '', name: row.name ?? '', duration_days: row.duration_days ?? '' });
+    setTaskEditOpen(true);
+  }, []);
+
+  const handleEditCost = useCallback((row) => {
+    setEditCostRow(row);
+    setCostEditForm({
+      item_code: row.item_code ?? '',
+      description: row.description ?? '',
+      cost_class: row.cost_class ?? 'labor',
+      quantity: row.quantity ?? '',
+      unit_cost: row.unit_cost ?? '',
+    });
+    setCostEditOpen(true);
+  }, []);
+
   /* ── Handlers: Units ────────────────────────── */
   const handleCreateUnit = async () => {
     try {
@@ -136,26 +161,27 @@ export default function ProjectDetailPage() {
 
   const handleUpdateUnit = async () => {
     try {
-      await updateUnitMut.mutateAsync({ filter: { id: selectedUnit.id }, changes: unitEditForm });
+      await updateUnitMut.mutateAsync({ filter: { id: editUnitRow.id }, changes: unitEditForm });
       toast('Unit updated');
       setUnitEditOpen(false);
+      setEditUnitRow(null);
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
   const handleArchiveUnit = async () => {
     try {
-      const targets = unitSelectedRows.filter((r) => !r.deactivated_at);
+      const targets = unitSelection.selectedRows.filter((r) => !r.deactivated_at);
       for (const row of targets) await archiveUnitMut.mutateAsync({ id: row.id });
       toast(targets.length === 1 ? 'Unit archived' : `${targets.length} units archived`);
       setUnitArchiveOpen(false);
-      setUnitSel([]);
+      unitSelection.clearSelection();
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
   /* ── Handlers: Tasks ────────────────────────── */
   const handleCreateTask = async () => {
     try {
-      await createTaskMut.mutateAsync({ ...taskForm, unit_id: selectedUnit.id });
+      await createTaskMut.mutateAsync({ ...taskForm, unit_id: unitSelection.selected.id });
       toast('Task created');
       setTaskCreateOpen(false);
       setTaskForm(BLANK_TASK);
@@ -164,26 +190,27 @@ export default function ProjectDetailPage() {
 
   const handleUpdateTask = async () => {
     try {
-      await updateTaskMut.mutateAsync({ filter: { id: selectedTask.id }, changes: taskEditForm });
+      await updateTaskMut.mutateAsync({ filter: { id: editTaskRow.id }, changes: taskEditForm });
       toast('Task updated');
       setTaskEditOpen(false);
+      setEditTaskRow(null);
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
   const handleArchiveTask = async () => {
     try {
-      const targets = taskSelectedRows.filter((r) => !r.deactivated_at);
+      const targets = taskSelection.selectedRows.filter((r) => !r.deactivated_at);
       for (const row of targets) await archiveTaskMut.mutateAsync({ id: row.id });
       toast(targets.length === 1 ? 'Task archived' : `${targets.length} tasks archived`);
       setTaskArchiveOpen(false);
-      setTaskSel([]);
+      taskSelection.clearSelection();
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
   /* ── Handlers: Cost Items ───────────────────── */
   const handleCreateCost = async () => {
     try {
-      await createCostMut.mutateAsync({ ...costForm, task_id: selectedTask.id });
+      await createCostMut.mutateAsync({ ...costForm, task_id: taskSelection.selected.id });
       toast('Cost item created');
       setCostCreateOpen(false);
       setCostForm(BLANK_COST);
@@ -192,19 +219,20 @@ export default function ProjectDetailPage() {
 
   const handleUpdateCost = async () => {
     try {
-      await updateCostMut.mutateAsync({ filter: { id: selectedCost.id }, changes: costEditForm });
+      await updateCostMut.mutateAsync({ filter: { id: editCostRow.id }, changes: costEditForm });
       toast('Cost item updated');
       setCostEditOpen(false);
+      setEditCostRow(null);
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
   const handleArchiveCost = async () => {
     try {
-      const targets = costSelectedRows.filter((r) => !r.deactivated_at);
+      const targets = costSelection.selectedRows.filter((r) => !r.deactivated_at);
       for (const row of targets) await archiveCostMut.mutateAsync({ id: row.id });
       toast(targets.length === 1 ? 'Cost item archived' : `${targets.length} cost items archived`);
       setCostArchiveOpen(false);
-      setCostSel([]);
+      costSelection.clearSelection();
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
@@ -230,10 +258,16 @@ export default function ProjectDetailPage() {
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Chip label="Add Unit" size="small" color="primary" onClick={() => { setUnitForm(BLANK_UNIT); setUnitCreateOpen(true); }} />
-            <Chip label="Edit" size="small" variant="outlined" disabled={!unitIsSingle} onClick={() => { if (selectedUnit) { setUnitEditForm({ unit_code: selectedUnit.unit_code ?? '', name: selectedUnit.name ?? '' }); setUnitEditOpen(true); } }} />
-            <Chip label={unitSelectedRows.length > 1 ? `Archive (${unitSelectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!unitHasSelection || !unitAllActive} onClick={() => setUnitArchiveOpen(true)} />
+            <Chip label={unitSelection.selectedRows.length > 1 ? `Archive (${unitSelection.selectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!unitSelection.hasSelection || !unitSelection.allActive} onClick={() => setUnitArchiveOpen(true)} />
           </Box>
-          <DataGrid rows={unitRows} columns={unitCols} getRowId={(r) => r.id} loading={unitsLoading} checkboxSelection rowSelectionModel={unitSel} onRowSelectionModelChange={onUnitSelChange} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
+          <DataTable
+            rows={unitRows}
+            columns={unitCols}
+            loading={unitsLoading}
+            selection={unitSelection}
+            onEdit={handleEditUnit}
+            dataGridProps={{ density: 'compact' }}
+          />
         </Box>
       )}
 
@@ -241,14 +275,20 @@ export default function ProjectDetailPage() {
       {tab === 1 && (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            {selectedUnit ? `Tasks for unit: ${selectedUnit.name}` : 'Select a unit in the Units tab first'}
+            {unitSelection.selected ? `Tasks for unit: ${unitSelection.selected.name}` : 'Select a unit in the Units tab first'}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Chip label="Add Task" size="small" color="primary" disabled={!selectedUnit} onClick={() => { setTaskForm(BLANK_TASK); setTaskCreateOpen(true); }} />
-            <Chip label="Edit" size="small" variant="outlined" disabled={!taskIsSingle} onClick={() => { if (selectedTask) { setTaskEditForm({ task_code: selectedTask.task_code ?? '', name: selectedTask.name ?? '', duration_days: selectedTask.duration_days ?? '' }); setTaskEditOpen(true); } }} />
-            <Chip label={taskSelectedRows.length > 1 ? `Archive (${taskSelectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!taskHasSelection || !taskAllActive} onClick={() => setTaskArchiveOpen(true)} />
+            <Chip label="Add Task" size="small" color="primary" disabled={!unitSelection.selected} onClick={() => { setTaskForm(BLANK_TASK); setTaskCreateOpen(true); }} />
+            <Chip label={taskSelection.selectedRows.length > 1 ? `Archive (${taskSelection.selectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!taskSelection.hasSelection || !taskSelection.allActive} onClick={() => setTaskArchiveOpen(true)} />
           </Box>
-          <DataGrid rows={taskRows} columns={taskCols} getRowId={(r) => r.id} loading={tasksLoading} checkboxSelection rowSelectionModel={taskSel} onRowSelectionModelChange={onTaskSelChange} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
+          <DataTable
+            rows={taskRows}
+            columns={taskCols}
+            loading={tasksLoading}
+            selection={taskSelection}
+            onEdit={handleEditTask}
+            dataGridProps={{ density: 'compact' }}
+          />
         </Box>
       )}
 
@@ -256,14 +296,20 @@ export default function ProjectDetailPage() {
       {tab === 2 && (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            {selectedTask ? `Cost items for task: ${selectedTask.name}` : 'Select a task in the Tasks tab first'}
+            {taskSelection.selected ? `Cost items for task: ${taskSelection.selected.name}` : 'Select a task in the Tasks tab first'}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Chip label="Add Cost Item" size="small" color="primary" disabled={!selectedTask} onClick={() => { setCostForm(BLANK_COST); setCostCreateOpen(true); }} />
-            <Chip label="Edit" size="small" variant="outlined" disabled={!costIsSingle} onClick={() => { if (selectedCost) { setCostEditForm({ item_code: selectedCost.item_code ?? '', description: selectedCost.description ?? '', cost_class: selectedCost.cost_class ?? 'labor', quantity: selectedCost.quantity ?? '', unit_cost: selectedCost.unit_cost ?? '' }); setCostEditOpen(true); } }} />
-            <Chip label={costSelectedRows.length > 1 ? `Archive (${costSelectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!costHasSelection || !costAllActive} onClick={() => setCostArchiveOpen(true)} />
+            <Chip label="Add Cost Item" size="small" color="primary" disabled={!taskSelection.selected} onClick={() => { setCostForm(BLANK_COST); setCostCreateOpen(true); }} />
+            <Chip label={costSelection.selectedRows.length > 1 ? `Archive (${costSelection.selectedRows.length})` : 'Archive'} size="small" variant="outlined" color="error" disabled={!costSelection.hasSelection || !costSelection.allActive} onClick={() => setCostArchiveOpen(true)} />
           </Box>
-          <DataGrid rows={costRows} columns={costItemCols} getRowId={(r) => r.id} loading={costLoading} checkboxSelection rowSelectionModel={costSel} onRowSelectionModelChange={onCostSelChange} pageSizeOptions={[25, 50]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} density="compact" />
+          <DataTable
+            rows={costRows}
+            columns={costItemCols}
+            loading={costLoading}
+            selection={costSelection}
+            onEdit={handleEditCost}
+            dataGridProps={{ density: 'compact' }}
+          />
         </Box>
       )}
 
@@ -272,11 +318,11 @@ export default function ProjectDetailPage() {
         <TextField label="Unit Code" required value={unitForm.unit_code} onChange={onField(setUnitForm)('unit_code')} inputProps={{ maxLength: 32 }} />
         <TextField label="Unit Name" required value={unitForm.name} onChange={onField(setUnitForm)('name')} />
       </FormDialog>
-      <FormDialog open={unitEditOpen} title="Edit Unit" submitLabel="Save" loading={updateUnitMut.isPending} onSubmit={handleUpdateUnit} onCancel={() => setUnitEditOpen(false)}>
+      <FormDialog open={unitEditOpen} title="Edit Unit" submitLabel="Save" loading={updateUnitMut.isPending} onSubmit={handleUpdateUnit} onCancel={() => { setUnitEditOpen(false); setEditUnitRow(null); }}>
         <TextField label="Unit Code" required value={unitEditForm.unit_code} onChange={onField(setUnitEditForm)('unit_code')} inputProps={{ maxLength: 32 }} />
         <TextField label="Unit Name" required value={unitEditForm.name} onChange={onField(setUnitEditForm)('name')} />
       </FormDialog>
-      <ConfirmDialog open={unitArchiveOpen} title="Archive Unit" message={unitHasSelection ? (unitSelectedRows.length === 1 ? `Archive "${unitSelectedRows[0].name}"? Tasks and cost items will also be archived.` : `Archive ${unitSelectedRows.length} units? Tasks and cost items will also be archived.`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveUnitMut.isPending} onConfirm={handleArchiveUnit} onCancel={() => setUnitArchiveOpen(false)} />
+      <ConfirmDialog open={unitArchiveOpen} title="Archive Unit" message={unitSelection.hasSelection ? (unitSelection.selectedRows.length === 1 ? `Archive "${unitSelection.selectedRows[0].name}"? Tasks and cost items will also be archived.` : `Archive ${unitSelection.selectedRows.length} units? Tasks and cost items will also be archived.`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveUnitMut.isPending} onConfirm={handleArchiveUnit} onCancel={() => setUnitArchiveOpen(false)} />
 
       {/* ── Dialogs: Tasks ─────────────────────── */}
       <FormDialog open={taskCreateOpen} title="Add Task" submitLabel="Create" loading={createTaskMut.isPending} onSubmit={handleCreateTask} onCancel={() => setTaskCreateOpen(false)}>
@@ -284,12 +330,12 @@ export default function ProjectDetailPage() {
         <TextField label="Task Name" required value={taskForm.name} onChange={onField(setTaskForm)('name')} />
         <TextField label="Duration (days)" type="number" value={taskForm.duration_days} onChange={onField(setTaskForm)('duration_days')} />
       </FormDialog>
-      <FormDialog open={taskEditOpen} title="Edit Task" submitLabel="Save" loading={updateTaskMut.isPending} onSubmit={handleUpdateTask} onCancel={() => setTaskEditOpen(false)}>
+      <FormDialog open={taskEditOpen} title="Edit Task" submitLabel="Save" loading={updateTaskMut.isPending} onSubmit={handleUpdateTask} onCancel={() => { setTaskEditOpen(false); setEditTaskRow(null); }}>
         <TextField label="Task Code" value={taskEditForm.task_code} onChange={onField(setTaskEditForm)('task_code')} inputProps={{ maxLength: 16 }} />
         <TextField label="Task Name" required value={taskEditForm.name} onChange={onField(setTaskEditForm)('name')} />
         <TextField label="Duration (days)" type="number" value={taskEditForm.duration_days} onChange={onField(setTaskEditForm)('duration_days')} />
       </FormDialog>
-      <ConfirmDialog open={taskArchiveOpen} title="Archive Task" message={taskHasSelection ? (taskSelectedRows.length === 1 ? `Archive "${taskSelectedRows[0].name}"? Cost items will also be archived.` : `Archive ${taskSelectedRows.length} tasks? Cost items will also be archived.`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveTaskMut.isPending} onConfirm={handleArchiveTask} onCancel={() => setTaskArchiveOpen(false)} />
+      <ConfirmDialog open={taskArchiveOpen} title="Archive Task" message={taskSelection.hasSelection ? (taskSelection.selectedRows.length === 1 ? `Archive "${taskSelection.selectedRows[0].name}"? Cost items will also be archived.` : `Archive ${taskSelection.selectedRows.length} tasks? Cost items will also be archived.`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveTaskMut.isPending} onConfirm={handleArchiveTask} onCancel={() => setTaskArchiveOpen(false)} />
 
       {/* ── Dialogs: Cost Items ────────────────── */}
       <FormDialog open={costCreateOpen} title="Add Cost Item" submitLabel="Create" loading={createCostMut.isPending} onSubmit={handleCreateCost} onCancel={() => setCostCreateOpen(false)}>
@@ -299,14 +345,14 @@ export default function ProjectDetailPage() {
         <TextField label="Quantity" type="number" required value={costForm.quantity} onChange={onField(setCostForm)('quantity')} />
         <TextField label="Unit Cost" type="number" required value={costForm.unit_cost} onChange={onField(setCostForm)('unit_cost')} />
       </FormDialog>
-      <FormDialog open={costEditOpen} title="Edit Cost Item" submitLabel="Save" loading={updateCostMut.isPending} onSubmit={handleUpdateCost} onCancel={() => setCostEditOpen(false)}>
+      <FormDialog open={costEditOpen} title="Edit Cost Item" submitLabel="Save" loading={updateCostMut.isPending} onSubmit={handleUpdateCost} onCancel={() => { setCostEditOpen(false); setEditCostRow(null); }}>
         <TextField label="Item Code" value={costEditForm.item_code} onChange={onField(setCostEditForm)('item_code')} inputProps={{ maxLength: 16 }} />
         <TextField label="Description" value={costEditForm.description} onChange={onField(setCostEditForm)('description')} />
         <TextField label="Cost Class" required value={costEditForm.cost_class} onChange={onField(setCostEditForm)('cost_class')} />
         <TextField label="Quantity" type="number" required value={costEditForm.quantity} onChange={onField(setCostEditForm)('quantity')} />
         <TextField label="Unit Cost" type="number" required value={costEditForm.unit_cost} onChange={onField(setCostEditForm)('unit_cost')} />
       </FormDialog>
-      <ConfirmDialog open={costArchiveOpen} title="Archive Cost Item" message={costHasSelection ? (costSelectedRows.length === 1 ? `Archive "${costSelectedRows[0].description || costSelectedRows[0].item_code}"?` : `Archive ${costSelectedRows.length} cost items?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveCostMut.isPending} onConfirm={handleArchiveCost} onCancel={() => setCostArchiveOpen(false)} />
+      <ConfirmDialog open={costArchiveOpen} title="Archive Cost Item" message={costSelection.hasSelection ? (costSelection.selectedRows.length === 1 ? `Archive "${costSelection.selectedRows[0].description || costSelection.selectedRows[0].item_code}"?` : `Archive ${costSelection.selectedRows.length} cost items?`) : ''} confirmLabel="Archive" confirmColor="error" loading={archiveCostMut.isPending} onConfirm={handleArchiveCost} onCancel={() => setCostArchiveOpen(false)} />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack((s) => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snack.sev} variant="filled" onClose={() => setSnack((s) => ({ ...s, open: false }))}>{snack.msg}</Alert>

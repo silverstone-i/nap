@@ -62,6 +62,7 @@ npm -w apps/nap-serv run seed             # seed dev data
 - ESLint: unused vars warn with `^_` prefix ignore, console off
 - MUI X Data Grid v6: `valueGetter(params)` accesses `params.row.field` — the `(value, row)` form is v7 only
 - Prefer `layoutTokens.js` for repeating layout patterns and `theme.js` component overrides over inline `sx`
+- **Every `.js` file must start with a copyright header** as the first line(s), before any imports
 
 ## Environment
 

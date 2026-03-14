@@ -18,7 +18,7 @@ import { LineChart } from '@mui/x-charts/LineChart';
 import CurrencyCell from '../../components/shared/CurrencyCell.jsx';
 import { useProjects } from '../../hooks/useProjects.js';
 import { useProjectCashflow } from '../../hooks/useReports.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, chartContainerSx } from '../../config/layoutTokens.js';
 
 const columns = [
   {
@@ -72,7 +72,7 @@ export default function ProjectCashflowPage() {
         </TextField>
 
         {rows.length > 0 && (
-          <Box sx={{ height: 300, mb: 3 }}>
+          <Box sx={chartContainerSx}>
             <LineChart
               xAxis={[{ data: chartLabels, scaleType: 'band' }]}
               series={[

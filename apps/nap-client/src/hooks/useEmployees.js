@@ -17,14 +17,6 @@ export function useEmployees(params = { limit: 200, includeDeactivated: 'true' }
   });
 }
 
-export function useEmployee(id) {
-  return useQuery({
-    queryKey: [...EMPLOYEES_KEY, id],
-    queryFn: () => employeeApi.getById(id),
-    enabled: !!id,
-  });
-}
-
 export function useCreateEmployee() {
   const qc = useQueryClient();
   return useMutation({

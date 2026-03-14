@@ -1,6 +1,9 @@
 /**
- * @file Employees CRUD page — DataGrid + create/edit/archive/restore with is_app_user toggle
+ * @file Employees CRUD page — DataTable + create/edit/view/archive/restore with is_app_user toggle
  * @module nap-client/pages/Core/EmployeesPage
+ *
+ * Migrated to standardised list-view selection system:
+ *   useListSelection + DataTable + RowActionsMenu
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
@@ -9,6 +12,9 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -20,13 +26,16 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
-import { DataGrid } from '@mui/x-data-grid';
+import LockResetIcon from '@mui/icons-material/LockReset';
 
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import PatternTextField from '../../components/shared/PatternTextField.jsx';
 import ResetPasswordDialog from '../../components/shared/ResetPasswordDialog.jsx';
 import SetPasswordPopover from '../../components/shared/SetPasswordPopover.jsx';
+import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
   useEmployees, useCreateEmployee, useUpdateEmployee, useArchiveEmployee, useRestoreEmployee,
@@ -42,9 +51,8 @@ import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
 import { TAX_TYPES, COUNTRIES } from '@nap/shared';
-import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { resolveLevel } from '@nap/shared';
@@ -65,6 +73,9 @@ const BLANK_ADDRESS = {
   state_province: '', postal_code: '', country_code: 'US', is_primary: false,
 };
 const BLANK_TAX_ID = { country_code: 'US', tax_type: 'TIN', tax_value: '', is_primary: false };
+
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
 
 const columns = [
   { field: 'code', headerName: 'Code', width: 100 },
@@ -120,12 +131,18 @@ export default function EmployeesPage() {
   const updateTaxIdMut = useUpdateTaxIdentifier();
   const archiveTaxIdMut = useArchiveTaxIdentifier();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive, allArchived } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewEmployee, setViewEmployee] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
   const [resetPwOpen, setResetPwOpen] = useState(false);
+  const [resetPwTarget, setResetPwTarget] = useState(null);
 
   const [editSourceId, setEditSourceId] = useState(null);
   const { data: phonesRes } = usePhoneNumbers({ source_id: editSourceId, includeDeactivated: 'false' }, { enabled: !!editSourceId });
@@ -216,25 +233,31 @@ export default function EmployeesPage() {
     }
   }, [editOpen, taxIdsRes]);
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewEmployee(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     const form = {
-      first_name: selected.first_name ?? '',
-      last_name: selected.last_name ?? '',
-      code: selected.code ?? '',
-      position: selected.position ?? '',
-      department: selected.department ?? '',
-      email: selected.email ?? '',
-      is_app_user: !!selected.is_app_user,
-      roles: selected.roles ?? [],
-      is_primary_contact: !!selected.is_primary_contact,
-      is_billing_contact: !!selected.is_billing_contact,
+      first_name: row.first_name ?? '',
+      last_name: row.last_name ?? '',
+      code: row.code ?? '',
+      position: row.position ?? '',
+      department: row.department ?? '',
+      email: row.email ?? '',
+      is_app_user: !!row.is_app_user,
+      roles: row.roles ?? [],
+      is_primary_contact: !!row.is_primary_contact,
+      is_billing_contact: !!row.is_billing_contact,
     };
     setEditForm(form);
     editInitial.current.form = form;
 
-    setEditSourceId(selected.source_id || null);
-    if (!selected.source_id) {
+    setEditSourceId(row.source_id || null);
+    if (!row.source_id) {
       setEditPhones([]);
       setEditAddresses([]);
       setEditTaxIds([]);
@@ -244,7 +267,26 @@ export default function EmployeesPage() {
     }
 
     setEditOpen(true);
-  }, [selected]);
+  }, []);
+
+  /** Per-row kebab actions — Reset Password shown for app users when permitted */
+  const getRowActions = useCallback(
+    (row) => {
+      const actions = [];
+      if (row.is_app_user && canResetPassword) {
+        actions.push({
+          label: 'Reset Password',
+          icon: <LockResetIcon fontSize="small" />,
+          onClick: (r) => {
+            setResetPwTarget(r);
+            setResetPwOpen(true);
+          },
+        });
+      }
+      return actions;
+    },
+    [canResetPassword],
+  );
 
   /* ── Dirty-check: disable Save when nothing changed ──────── */
   const hasEditChanges = useMemo(() => {
@@ -282,14 +324,14 @@ export default function EmployeesPage() {
 
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
 
-      if (selected.source_id) {
+      if (editRow.source_id) {
         for (const p of editPhones) {
           if (p._deleted && p.id) {
             await archivePhoneMut.mutateAsync({ id: p.id });
           } else if (!p.id && !p._deleted) {
-            await createPhoneMut.mutateAsync({ source_id: selected.source_id, phone_type: p.phone_type, phone_number: p.phone_number, is_primary: p.is_primary });
+            await createPhoneMut.mutateAsync({ source_id: editRow.source_id, phone_type: p.phone_type, phone_number: p.phone_number, is_primary: p.is_primary });
           } else if (p.id && !p._deleted) {
             await updatePhoneMut.mutateAsync({ filter: { id: p.id }, changes: { phone_type: p.phone_type, phone_number: p.phone_number, is_primary: p.is_primary } });
           }
@@ -299,7 +341,7 @@ export default function EmployeesPage() {
             await archiveAddrMut.mutateAsync({ id: a.id });
           } else if (!a.id && !a._deleted) {
             const { _deleted, ...rest } = a;
-            await createAddrMut.mutateAsync({ ...rest, source_id: selected.source_id });
+            await createAddrMut.mutateAsync({ ...rest, source_id: editRow.source_id });
           } else if (a.id && !a._deleted) {
             const { id, source_id: _sid, created_at: _ca, updated_at: _ua, created_by: _cb, updated_by: _ub, deactivated_at: _da, ...changes } = a;
             await updateAddrMut.mutateAsync({ filter: { id }, changes });
@@ -310,7 +352,7 @@ export default function EmployeesPage() {
             await archiveTaxIdMut.mutateAsync({ id: t.id });
           } else if (!t.id && !t._deleted) {
             await createTaxIdMut.mutateAsync({
-              source_id: selected.source_id, country_code: t.country_code,
+              source_id: editRow.source_id, country_code: t.country_code,
               tax_type: t.tax_type, tax_value: t.tax_value, is_primary: t.is_primary,
             });
           } else if (t.id && !t._deleted) {
@@ -324,6 +366,7 @@ export default function EmployeesPage() {
 
       toast('Employee updated');
       setEditOpen(false);
+      setEditRow(null);
       setEditSourceId(null);
     } catch (err) {
       toast(errMsg(err), 'error');
@@ -331,26 +374,56 @@ export default function EmployeesPage() {
   };
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, restoreMut, entityName: 'employee', setSelectionModel, toast, errMsg,
+    selectedRows,
+    archiveMut,
+    restoreMut,
+    entityName: 'employee',
+    setSelectionModel: () => selection.clearSelection(),
+    toast,
+    errMsg,
     getLabel: (r) => `${r.first_name} ${r.last_name}`,
   });
 
-  const toolbar = useMemo(
-    () => ({
+  /* ── ModuleBar: tabs + Create + Archive/Restore ────────────── */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Create Employee',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
       tabs: [
-        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        { label: 'Create Employee', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
-      ],
-    }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   /* ── Visible (non-deleted) sub-collections for the form ──── */
@@ -360,19 +433,59 @@ export default function EmployeesPage() {
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
+        rowActions={getRowActions}
       />
 
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={dialogHeaderSx}>
+          <Box>
+            <span>Employee Details</span>
+            {viewEmployee && (
+              <Typography variant="body2" color="text.secondary">
+                {viewEmployee.first_name} {viewEmployee.last_name}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={dialogActionBoxSx}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewEmployee && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={detailGridSx}>
+                <FieldRow label="Code" value={viewEmployee.code || '\u2014'} />
+                <FieldRow label="First Name" value={viewEmployee.first_name} />
+                <FieldRow label="Last Name" value={viewEmployee.last_name} />
+                <FieldRow label="Position" value={viewEmployee.position || '\u2014'} />
+                <FieldRow label="Department" value={viewEmployee.department || '\u2014'} />
+                <FieldRow label="Email" value={viewEmployee.email || '\u2014'} />
+                <FieldRow label="App User" value={viewEmployee.is_app_user ? 'Yes' : 'No'} />
+                <FieldRow label="Roles" value={(viewEmployee.roles ?? []).join(', ') || '\u2014'} />
+                <FieldRow label="Status">
+                  <StatusBadge status={viewEmployee.deactivated_at ? 'archived' : 'active'} />
+                </FieldRow>
+                <FieldRow label="Primary Contact" value={viewEmployee.is_primary_contact ? 'Yes' : 'No'} />
+                <FieldRow label="Billing Contact" value={viewEmployee.is_billing_contact ? 'Yes' : 'No'} />
+                <FieldRow label="Created" value={fmtDate(viewEmployee.created_at)} />
+                <FieldRow label="Updated" value={fmtDate(viewEmployee.updated_at)} />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create Employee Dialog ───────────────────────────────── */}
       <FormDialog open={createOpen} title="Create Employee" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="First Name" required value={createForm.first_name} onChange={onCreateField('first_name')} />
         <TextField label="Last Name" required value={createForm.last_name} onChange={onCreateField('last_name')} />
@@ -395,7 +508,7 @@ export default function EmployeesPage() {
       </FormDialog>
 
       {/* ── Edit Employee Dialog ─────────────────────────────── */}
-      <FormDialog open={editOpen} title="Edit Employee" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} submitDisabled={!hasEditChanges} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditSourceId(null); }}>
+      <FormDialog open={editOpen} title="Edit Employee" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} submitDisabled={!hasEditChanges} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); setEditSourceId(null); }}>
         <Box sx={formGridSx}>
           <TextField label="First Name" required value={editForm.first_name} onChange={onEditField('first_name')} />
           <TextField label="Last Name" required value={editForm.last_name} onChange={onEditField('last_name')} />
@@ -418,7 +531,7 @@ export default function EmployeesPage() {
         </Box>
 
         {editForm.is_app_user && canResetPassword && (
-          <Button variant="outlined" size="small" onClick={() => setResetPwOpen(true)}>
+          <Button variant="outlined" size="small" onClick={() => { setResetPwTarget(editRow); setResetPwOpen(true); }}>
             Reset Password
           </Button>
         )}
@@ -447,7 +560,7 @@ export default function EmployeesPage() {
                 size="small"
               >
                 {PHONE_TYPES.map((t) => (
-                  <MenuItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</MenuItem>
+                  <MenuItem key={t} value={t}>{cap(t)}</MenuItem>
                 ))}
               </TextField>
               <TextField
@@ -600,10 +713,10 @@ export default function EmployeesPage() {
 
       <ResetPasswordDialog
         open={resetPwOpen}
-        onClose={() => setResetPwOpen(false)}
-        onSuccess={() => { setResetPwOpen(false); toast('Password reset successfully'); }}
-        employeeId={selected?.id}
-        employeeName={selected ? `${selected.first_name} ${selected.last_name}` : ''}
+        onClose={() => { setResetPwOpen(false); setResetPwTarget(null); }}
+        onSuccess={() => { setResetPwOpen(false); setResetPwTarget(null); toast('Password reset successfully'); }}
+        employeeId={resetPwTarget?.id}
+        employeeName={resetPwTarget ? `${resetPwTarget.first_name} ${resetPwTarget.last_name}` : ''}
       />
 
       <SetPasswordPopover anchorEl={pwAnchor} onConfirm={handlePwConfirm} onCancel={handlePwCancel} />

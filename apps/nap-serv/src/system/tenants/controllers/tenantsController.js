@@ -175,23 +175,20 @@ class TenantsController extends BaseController {
       const count = await this.model('admin').updateWhere([{ ...req.query }], req.body);
       if (!count) return res.status(404).json({ error: `${this.errorLabel} not found or already inactive` });
 
-      // Cascade: deactivate only currently-active users (preserve individually-archived users)
-      const tenantFilter = req.query.tenant_code
-        ? { tenant_id: { $in: `(SELECT id FROM admin.tenants WHERE tenant_code = '${req.query.tenant_code}')` } }
-        : req.query.id
-          ? { tenant_id: req.query.id }
-          : {};
-
-      if (Object.keys(tenantFilter).length > 0) {
-        // Use raw SQL for reliable cascading
-        const filterVal = req.query.id || req.query.tenant_code;
-        if (req.query.id) {
-          await db.none(
-            `UPDATE admin.nap_users SET deactivated_at = $1, updated_by = $2
-             WHERE tenant_id = $3 AND deactivated_at IS NULL`,
-            [now, req.user?.id || null, filterVal],
-          );
-        }
+      // Cascade: deactivate and lock all currently-active users
+      if (req.query.id) {
+        await db.none(
+          `UPDATE admin.nap_users SET deactivated_at = $1, status = 'locked', updated_by = $2
+           WHERE tenant_id = $3 AND deactivated_at IS NULL`,
+          [now, req.user?.id || null, req.query.id],
+        );
+      } else if (req.query.tenant_code) {
+        await db.none(
+          `UPDATE admin.nap_users SET deactivated_at = $1, status = 'locked', updated_by = $2
+           WHERE tenant_id = (SELECT id FROM admin.tenants WHERE tenant_code = $3)
+             AND deactivated_at IS NULL`,
+          [now, req.user?.id || null, req.query.tenant_code],
+        );
       }
 
       res.status(200).json({ message: `${this.errorLabel} marked as inactive` });

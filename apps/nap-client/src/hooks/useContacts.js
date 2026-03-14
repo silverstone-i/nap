@@ -17,14 +17,6 @@ export function useContacts(params = { limit: 200, includeDeactivated: 'true' })
   });
 }
 
-export function useContact(id) {
-  return useQuery({
-    queryKey: [...CONTACTS_KEY, id],
-    queryFn: () => contactApi.getById(id),
-    enabled: !!id,
-  });
-}
-
 export function useCreateContact() {
   const qc = useQueryClient();
   return useMutation({

@@ -16,6 +16,7 @@ import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import { DataGrid } from '@mui/x-data-grid';
 
+import DataTable from '../../components/shared/DataTable.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
   useVendorSkus,
@@ -26,7 +27,7 @@ import {
   useRefreshVendorEmbeddings,
 } from '../../hooks/useBom.js';
 import { pageContainerSx } from '../../config/layoutTokens.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 
 const confidenceColor = (val) => {
   if (val >= 0.85) return 'success';
@@ -70,8 +71,7 @@ export default function VendorSkuMatchingPage() {
     return allRows.filter((r) => !r.deactivated_at);
   }, [viewMode, unmatchedRows, allRows]);
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selected, isSingle } =
-    useDataGridSelection(rows);
+  const selection = useListSelection(rows);
 
   const [matchResults, setMatchResults] = useState([]);
   const [matchSelection, setMatchSelection] = useState([]);
@@ -86,9 +86,9 @@ export default function VendorSkuMatchingPage() {
   const errMsg = (err) => err.payload?.error || err.payload?.message || err.message;
 
   const handleFindMatches = async () => {
-    if (!selected) return;
+    if (!selection.selected) return;
     try {
-      const result = await matchMut.mutateAsync({ vendor_sku_id: selected.id, top_k: 5 });
+      const result = await matchMut.mutateAsync({ vendor_sku_id: selection.selected.id, top_k: 5 });
       setMatchResults(result.data ?? []);
       setMatchSelection([]);
     } catch (err) {
@@ -97,13 +97,13 @@ export default function VendorSkuMatchingPage() {
   };
 
   const handleAutoMatch = async () => {
-    if (!selected) return;
+    if (!selection.selected) return;
     try {
-      const result = await autoMatchMut.mutateAsync({ vendor_sku_id: selected.id });
+      const result = await autoMatchMut.mutateAsync({ vendor_sku_id: selection.selected.id });
       if (result.matched) {
         toast(`Matched with confidence ${(result.confidence * 100).toFixed(1)}%`);
         setMatchResults([]);
-        setSelectionModel([]);
+        selection.clearSelection();
       } else {
         toast('No match above threshold — deferred', 'warning');
       }
@@ -120,7 +120,7 @@ export default function VendorSkuMatchingPage() {
       const matched = (result.data ?? []).filter((r) => r.matched).length;
       toast(`Batch complete: ${matched}/${ids.length} matched`);
       setMatchResults([]);
-      setSelectionModel([]);
+      selection.clearSelection();
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -138,19 +138,19 @@ export default function VendorSkuMatchingPage() {
   const toolbar = useMemo(
     () => ({
       tabs: [
-        { value: 'unmatched', label: 'Unmatched', selected: viewMode === 'unmatched', onClick: () => { setViewMode('unmatched'); setSelectionModel([]); setMatchResults([]); } },
-        { value: 'matched', label: 'Matched', selected: viewMode === 'matched', onClick: () => { setViewMode('matched'); setSelectionModel([]); setMatchResults([]); } },
-        { value: 'all', label: 'All', selected: viewMode === 'all', onClick: () => { setViewMode('all'); setSelectionModel([]); setMatchResults([]); } },
+        { value: 'unmatched', label: 'Unmatched', selected: viewMode === 'unmatched', onClick: () => { setViewMode('unmatched'); selection.clearSelection(); setMatchResults([]); } },
+        { value: 'matched', label: 'Matched', selected: viewMode === 'matched', onClick: () => { setViewMode('matched'); selection.clearSelection(); setMatchResults([]); } },
+        { value: 'all', label: 'All', selected: viewMode === 'all', onClick: () => { setViewMode('all'); selection.clearSelection(); setMatchResults([]); } },
       ],
       filters: [],
       primaryActions: [
-        { label: 'Find Matches', variant: 'contained', disabled: !isSingle || matchMut.isPending, onClick: handleFindMatches },
-        { label: 'Auto Match', variant: 'outlined', disabled: !isSingle || autoMatchMut.isPending, onClick: handleAutoMatch },
+        { label: 'Find Matches', variant: 'contained', disabled: !selection.isSingle || matchMut.isPending, onClick: handleFindMatches },
+        { label: 'Auto Match', variant: 'outlined', disabled: !selection.isSingle || autoMatchMut.isPending, onClick: handleAutoMatch },
         { label: 'Batch Match All', variant: 'outlined', color: 'secondary', disabled: batchMatchMut.isPending || unmatchedRows.length === 0, onClick: handleBatchMatch },
         { label: 'Refresh Embeddings', variant: 'outlined', disabled: refreshMut.isPending, onClick: handleRefreshEmbeddings },
       ],
     }),
-    [selected, isSingle, viewMode, matchMut.isPending, autoMatchMut.isPending, batchMatchMut.isPending, refreshMut.isPending, unmatchedRows.length, setSelectionModel],
+    [selection.selected, selection.isSingle, selection.clearSelection, viewMode, matchMut.isPending, autoMatchMut.isPending, batchMatchMut.isPending, refreshMut.isPending, unmatchedRows.length],
   );
   useModuleToolbarRegistration(toolbar);
 
@@ -172,24 +172,21 @@ export default function VendorSkuMatchingPage() {
     <Box sx={pageContainerSx}>
       {(batchMatchMut.isPending || refreshMut.isPending) && <LinearProgress sx={{ mb: 1 }} />}
 
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={displayColumns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        sx={{ flex: matchResults.length > 0 ? '1 1 50%' : '1 1 auto' }}
+        selection={selection}
+        dataGridProps={{
+          sx: { flex: matchResults.length > 0 ? '1 1 50%' : '1 1 auto' },
+        }}
       />
 
       {/* Match Results Panel */}
       {matchResults.length > 0 && (
         <Paper sx={{ mt: 2, p: 2, flex: '1 1 40%' }}>
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Match Suggestions for: {selected?.vendor_sku}
+            Match Suggestions for: {selection.selected?.vendor_sku}
           </Typography>
           <DataGrid
             rows={matchResults}

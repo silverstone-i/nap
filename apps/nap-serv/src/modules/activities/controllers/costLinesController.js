@@ -69,4 +69,4 @@ class CostLinesController extends BaseController {
 
 const instance = new CostLinesController();
 export default instance;
-export { CostLinesController, VALID_SOURCE_TYPES, VALID_TRANSITIONS };
+export { CostLinesController };

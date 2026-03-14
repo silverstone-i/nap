@@ -6,5 +6,5 @@
  */
 
 export { resolveLevel } from './resolveLevel.js';
-export { TAX_TYPES, ALL_TAX_TYPE_CODES } from './taxTypes.js';
+export { TAX_TYPES } from './taxTypes.js';
 export { COUNTRIES } from './countries.js';

@@ -101,6 +101,7 @@ describe('Employee CRUD — /api/core/v1/employees', () => {
         last_name: 'Johnson',
         code: 'BJ001',
         email: 'bob@etest.com',
+        roles: ['admin'],
         is_app_user: true,
       });
 

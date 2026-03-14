@@ -1,6 +1,9 @@
 /**
- * @file Vendors CRUD page — DataGrid + create/edit/archive/restore with tax identifiers
+ * @file Vendors CRUD page — DataTable + create/edit/view/archive/restore with tax identifiers
  * @module nap-client/pages/Core/VendorsPage
+ *
+ * Reference implementation for the standardised list-view selection system:
+ *   useListSelection + DataTable + RowActionsMenu
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
@@ -8,6 +11,9 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -19,10 +25,11 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddIcon from '@mui/icons-material/Add';
-import { DataGrid } from '@mui/x-data-grid';
 
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import PatternTextField from '../../components/shared/PatternTextField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
@@ -33,14 +40,15 @@ import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
 import { TAX_TYPES, COUNTRIES } from '@nap/shared';
-import { pageContainerSx, formGridSx, formGroupCardSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { pageContainerSx, formGridSx, formGroupCardSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { name: '', code: '', payment_terms: '', notes: '' };
 const BLANK_EDIT = { name: '', code: '', payment_terms: '', notes: '' };
 const BLANK_TAX_ID = { country_code: 'US', tax_type: 'TIN', tax_value: '', is_primary: false };
+
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
 
 const columns = [
   { field: 'code', headerName: 'Code', width: 120 },
@@ -74,11 +82,16 @@ export default function VendorsPage() {
   const updateTaxIdMut = useUpdateTaxIdentifier();
   const archiveTaxIdMut = useArchiveTaxIdentifier();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive, allArchived } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewVendor, setViewVendor] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   const [editSourceId, setEditSourceId] = useState(null);
   const { data: taxIdsRes } = useTaxIdentifiers(
@@ -109,18 +122,24 @@ export default function VendorsPage() {
     if (editOpen && taxIdsRes?.rows) setEditTaxIds(taxIdsRes.rows);
   }, [editOpen, taxIdsRes]);
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewVendor(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      name: selected.name ?? '',
-      code: selected.code ?? '',
-      payment_terms: selected.payment_terms ?? '',
-      notes: selected.notes ?? '',
+      name: row.name ?? '',
+      code: row.code ?? '',
+      payment_terms: row.payment_terms ?? '',
+      notes: row.notes ?? '',
     });
-    setEditSourceId(selected.source_id || null);
-    if (!selected.source_id) setEditTaxIds([]);
+    setEditSourceId(row.source_id || null);
+    if (!row.source_id) setEditTaxIds([]);
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   const handleCreate = async () => {
     try {
@@ -135,15 +154,15 @@ export default function VendorsPage() {
 
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
 
-      if (selected.source_id) {
+      if (editRow.source_id) {
         for (const t of editTaxIds) {
           if (t._deleted && t.id) {
             await archiveTaxIdMut.mutateAsync({ id: t.id });
           } else if (!t.id && !t._deleted) {
             await createTaxIdMut.mutateAsync({
-              source_id: selected.source_id,
+              source_id: editRow.source_id,
               country_code: t.country_code,
               tax_type: t.tax_type,
               tax_value: t.tax_value,
@@ -165,6 +184,7 @@ export default function VendorsPage() {
 
       toast('Vendor updated');
       setEditOpen(false);
+      setEditRow(null);
       setEditSourceId(null);
     } catch (err) {
       toast(errMsg(err), 'error');
@@ -172,44 +192,113 @@ export default function VendorsPage() {
   };
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, restoreMut, entityName: 'vendor', setSelectionModel, toast, errMsg, getLabel: (r) => r.name,
+    selectedRows,
+    archiveMut,
+    restoreMut,
+    entityName: 'vendor',
+    setSelectionModel: () => selection.clearSelection(),
+    toast,
+    errMsg,
+    getLabel: (r) => r.name,
   });
 
-  const toolbar = useMemo(
-    () => ({
+  /* ── ModuleBar: tabs + Create + Archive/Restore ────────────── */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Create Vendor',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
       tabs: [
-        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        { label: 'Create Vendor', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
-      ],
-    }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   const visibleTaxIds = editTaxIds.filter((t) => !t._deleted);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
 
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={dialogHeaderSx}>
+          <Box>
+            <span>Vendor Details</span>
+            {viewVendor && (
+              <Typography variant="body2" color="text.secondary">
+                {viewVendor.name}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={dialogActionBoxSx}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewVendor && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={detailGridSx}>
+                <FieldRow label="Code" value={viewVendor.code || '\u2014'} />
+                <FieldRow label="Vendor Name" value={viewVendor.name} />
+                <FieldRow label="Payment Terms" value={viewVendor.payment_terms || '\u2014'} />
+                <FieldRow label="Status">
+                  <StatusBadge status={viewVendor.deactivated_at ? 'archived' : 'active'} />
+                </FieldRow>
+                <FieldRow label="Created" value={fmtDate(viewVendor.created_at)} />
+                <FieldRow label="Updated" value={fmtDate(viewVendor.updated_at)} />
+              </Box>
+              {viewVendor.notes && (
+                <>
+                  <Divider />
+                  <FieldRow label="Notes" value={viewVendor.notes} />
+                </>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create Vendor Dialog ─────────────────────────────────── */}
       <FormDialog open={createOpen} title="Create Vendor" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Vendor Name" required value={createForm.name} onChange={onCreateField('name')} />
         <TextField label="Code" value={createForm.code} onChange={onCreateField('code')} inputProps={{ maxLength: 16 }} />
@@ -218,7 +307,7 @@ export default function VendorsPage() {
       </FormDialog>
 
       {/* ── Edit Vendor Dialog ──────────────────────────────────── */}
-      <FormDialog open={editOpen} title="Edit Vendor" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditSourceId(null); }}>
+      <FormDialog open={editOpen} title="Edit Vendor" submitLabel="Save Changes" maxWidth="md" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); setEditSourceId(null); }}>
         <Box sx={formGridSx}>
           <TextField label="Vendor Name" required value={editForm.name} onChange={onEditField('name')} />
           <TextField label="Code" value={editForm.code} onChange={onEditField('code')} inputProps={{ maxLength: 16 }} />
@@ -248,7 +337,6 @@ export default function VendorsPage() {
                   value={countryCode}
                   onChange={(e) => {
                     updateTaxId(idx, 'country_code', e.target.value);
-                    // Reset tax_type when country changes
                     const newTypes = TAX_TYPES[e.target.value] || TAX_TYPES._OTHER;
                     updateTaxId(idx, 'tax_type', newTypes[0]?.code || 'TIN');
                   }}

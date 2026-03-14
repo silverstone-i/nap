@@ -1,11 +1,14 @@
 /**
- * @file Manage Tenants page — DataGrid list with CRUD dialogs
+ * @file Manage Tenants page — DataTable list with CRUD dialogs
  * @module nap-client/pages/Tenant/ManageTenantsPage
  *
  * Implements PRD §3.2.1 UI: tenant grid, create / edit / view / archive / restore,
  * toolbar actions via useModuleToolbarRegistration, snackbar feedback.
  *
  * Adapted for pure identity nap_users — no tenant_role admin/billing contacts.
+ *
+ * Migrated to standardised list-view selection system:
+ *   useListSelection + DataTable + RowActionsMenu
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
@@ -23,11 +26,10 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import { DataGrid } from '@mui/x-data-grid';
-
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import FieldRow from '../../components/shared/FieldRow.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import PasswordField from '../../components/shared/PasswordField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
@@ -39,9 +41,8 @@ import {
   useArchiveTenant,
   useRestoreTenant,
 } from '../../hooks/useTenants.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, formFullSpanSx, detailGridSx } from '../../config/layoutTokens.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 
 /* ── Enums ────────────────────────────────────────────────────── */
 
@@ -106,12 +107,6 @@ const columns = [
 
 /* ── Detail dialog helpers ────────────────────────────────────── */
 
-const detailGridSx = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
-  gap: 1.5,
-};
-
 const contactColumns = [
   {
     field: 'name',
@@ -168,12 +163,13 @@ export default function ManageTenantsPage() {
   const restoreMut = useRestoreTenant();
 
   /* ── selection (multi-select with root-tenant mutual exclusion) */
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived } =
-    useDataGridSelection(rows, 'tenant');
+  const selection = useListSelection(rows, 'tenant');
+  const { selectedRows, allActive, allArchived } = selection;
 
   /* ── dialog state ────────────────────────────────────────── */
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
 
@@ -190,18 +186,24 @@ export default function ManageTenantsPage() {
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setDetailTenant(row);
+    setDetailOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      company: selected.company ?? '',
-      status: selected.status ?? 'active',
-      tier: selected.tier ?? 'starter',
-      region: selected.region ?? '',
-      max_users: selected.max_users ?? 5,
-      notes: selected.notes ?? '',
+      company: row.company ?? '',
+      status: row.status ?? 'active',
+      tier: row.tier ?? 'starter',
+      region: row.region ?? '',
+      max_users: row.max_users ?? 5,
+      notes: row.notes ?? '',
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   /* ── CRUD handlers ───────────────────────────────────────── */
   const handleCreate = async () => {
@@ -223,11 +225,12 @@ export default function ManageTenantsPage() {
   const handleUpdate = async () => {
     try {
       await updateMut.mutateAsync({
-        filter: { id: selected.id },
+        filter: { id: editRow.id },
         changes: { ...editForm, max_users: Number(editForm.max_users) || 5 },
       });
       toast('Tenant updated');
       setEditOpen(false);
+      setEditRow(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -245,7 +248,7 @@ export default function ManageTenantsPage() {
           : `${targets.length} tenants archived \u2014 all users deactivated`,
       );
       setArchiveOpen(false);
-      setSelectionModel([]);
+      selection.clearSelection();
     } catch (err) {
       toast(errMsg(err), 'error');
     }
@@ -263,100 +266,72 @@ export default function ManageTenantsPage() {
           : `${targets.length} tenants restored \u2014 users remain archived`,
       );
       setRestoreOpen(false);
-      setSelectionModel([]);
+      selection.clearSelection();
     } catch (err) {
       toast(errMsg(err), 'error');
     }
   };
 
   /* ── toolbar registration ────────────────────────────────── */
-  const toolbar = useMemo(
-    () => ({
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive || selection.hasRootSelected,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived || selection.hasRootSelected,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Create Tenant',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => {
+        setCreateForm(BLANK_CREATE);
+        setCreateOpen(true);
+      },
+    });
+
+    return {
       tabs: [
-        {
-          value: 'active',
-          label: 'Active',
-          selected: viewFilter === 'active',
-          onClick: () => {
-            setViewFilter('active');
-            setSelectionModel([]);
-          },
-        },
-        {
-          value: 'all',
-          label: 'All',
-          selected: viewFilter === 'all',
-          onClick: () => {
-            setViewFilter('all');
-            setSelectionModel([]);
-          },
-        },
-        {
-          value: 'archived',
-          label: 'Archived',
-          selected: viewFilter === 'archived',
-          onClick: () => {
-            setViewFilter('archived');
-            setSelectionModel([]);
-          },
-        },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        {
-          label: 'Create Tenant',
-          variant: 'contained',
-          color: 'primary',
-          onClick: () => {
-            setCreateForm(BLANK_CREATE);
-            setCreateOpen(true);
-          },
-        },
-        {
-          label: 'View Details',
-          variant: 'outlined',
-          disabled: !isSingle,
-          onClick: () => {
-            setDetailTenant(selected);
-            setDetailOpen(true);
-          },
-        },
-        { label: 'Edit Tenant', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        ...buildBulkActions({
-          selectedRows,
-          hasSelection,
-          allActive,
-          allArchived,
-          onArchive: () => setArchiveOpen(true),
-          onRestore: () => setRestoreOpen(true),
-          archiveDisabled: hasRootSelected,
-          restoreDisabled: hasRootSelected,
-        }),
-      ],
-    }),
-    [selected, isSingle, hasSelection, hasRootSelected, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.hasRootSelected, selection.clearSelection]);
   useModuleToolbarRegistration(toolbar);
 
   /* ── render ──────────────────────────────────────────────── */
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(params) => (params.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
 
       {/* ── View Details ───────────────────────────────────── */}
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <DialogTitle sx={dialogHeaderSx}>
           <Box>
             <span>Tenant Details</span>
             {detailTenant && (
@@ -365,7 +340,7 @@ export default function ManageTenantsPage() {
               </Typography>
             )}
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={dialogActionBoxSx}>
             <Button size="small" color="inherit" onClick={() => setDetailOpen(false)}>
               Close
             </Button>
@@ -390,7 +365,7 @@ export default function ManageTenantsPage() {
                 </FieldRow>
                 <FieldRow label="Created" value={fmtDate(detailTenant.created_at)} />
                 <FieldRow label="Updated" value={fmtDate(detailTenant.updated_at)} />
-                <FieldRow label="Notes" value={detailTenant.notes || '\u2014'} sx={{ gridColumn: '1 / -1' }} />
+                <FieldRow label="Notes" value={detailTenant.notes || '\u2014'} sx={formFullSpanSx} />
               </Box>
 
               {/* ── Contacts ──────────────────────────────────── */}
@@ -537,17 +512,17 @@ export default function ManageTenantsPage() {
         submitLabel="Save Changes"
         loading={updateMut.isPending}
         onSubmit={handleUpdate}
-        onCancel={() => setEditOpen(false)}
+        onCancel={() => { setEditOpen(false); setEditRow(null); }}
       >
-        {selected && (
+        {editRow && (
           <>
             <TextField
               label="Tenant Code"
-              value={selected.tenant_code}
+              value={editRow.tenant_code}
               disabled
               helperText="Cannot be changed after creation"
             />
-            <TextField label="Schema Name" value={selected.schema_name ?? ''} disabled />
+            <TextField label="Schema Name" value={editRow.schema_name ?? ''} disabled />
           </>
         )}
         <TextField
@@ -591,7 +566,7 @@ export default function ManageTenantsPage() {
         open={archiveOpen}
         title="Archive Tenant"
         message={
-          hasSelection
+          selection.hasSelection
             ? selectedRows.length === 1
               ? `Are you sure you want to archive "${selectedRows[0].company}" (${selectedRows[0].tenant_code})? All users belonging to this tenant will be deactivated.`
               : `Are you sure you want to archive ${selectedRows.length} tenants? All users belonging to these tenants will be deactivated.`
@@ -609,7 +584,7 @@ export default function ManageTenantsPage() {
         open={restoreOpen}
         title="Restore Tenant"
         message={
-          hasSelection
+          selection.hasSelection
             ? selectedRows.length === 1
               ? `Restore "${selectedRows[0].company}" (${selectedRows[0].tenant_code})? Users will remain archived and must be restored individually.`
               : `Restore ${selectedRows.length} tenants? Users will remain archived and must be restored individually.`

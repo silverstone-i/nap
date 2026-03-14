@@ -1,5 +1,5 @@
 /**
- * @file Change Orders CRUD page — DataGrid + create/edit/archive/restore
+ * @file Change Orders CRUD page — DataTable + create/edit/view/archive/restore
  * @module nap-client/pages/Projects/ChangeOrdersPage
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
@@ -7,27 +7,34 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
-import { DataGrid } from '@mui/x-data-grid';
+import Typography from '@mui/material/Typography';
 
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
   useChangeOrders, useCreateChangeOrder, useUpdateChangeOrder, useArchiveChangeOrder, useRestoreChangeOrder,
 } from '../../hooks/useChangeOrders.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const BLANK_CREATE = { unit_id: '', co_number: '', title: '', reason: '', total_amount: '' };
 const BLANK_EDIT = { co_number: '', title: '', reason: '', total_amount: '' };
 
 const STATUS_MAP = { draft: 'active', submitted: 'active', approved: 'active', rejected: 'suspended' };
+
+const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '\u2014');
 
 const columns = [
   { field: 'co_number', headerName: 'CO #', width: 120 },
@@ -57,11 +64,16 @@ export default function ChangeOrdersPage() {
   const archiveMut = useArchiveChangeOrder();
   const restoreMut = useRestoreChangeOrder();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive, allArchived } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewCO, setViewCO] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -73,16 +85,22 @@ export default function ChangeOrdersPage() {
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewCO(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      co_number: selected.co_number ?? '',
-      title: selected.title ?? '',
-      reason: selected.reason ?? '',
-      total_amount: selected.total_amount ?? '',
+      co_number: row.co_number ?? '',
+      title: row.title ?? '',
+      reason: row.reason ?? '',
+      total_amount: row.total_amount ?? '',
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   const handleCreate = async () => {
     try {
@@ -97,52 +115,114 @@ export default function ChangeOrdersPage() {
 
   const handleUpdate = async () => {
     try {
-      await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm });
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
       toast('Change order updated');
       setEditOpen(false);
+      setEditRow(null);
     } catch (err) {
       toast(errMsg(err), 'error');
     }
   };
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, restoreMut, entityName: 'change order', entityNamePlural: 'change orders', setSelectionModel, toast, errMsg,
+    selectedRows,
+    archiveMut,
+    restoreMut,
+    entityName: 'change order',
+    entityNamePlural: 'change orders',
+    setSelectionModel: () => selection.clearSelection(),
+    toast,
+    errMsg,
     getLabel: (r) => r.title,
   });
 
-  const toolbar = useMemo(
-    () => ({
+  /* ── ModuleBar: tabs + Archive/Restore + Create ────────────── */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Create CO',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
       tabs: [
-        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        { label: 'Create CO', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
-      ],
-    }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, setSelectionModel, setArchiveOpen, setRestoreOpen],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
 
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={dialogHeaderSx}>
+          <Box>
+            <span>Change Order Details</span>
+            {viewCO && (
+              <Typography variant="body2" color="text.secondary">
+                {viewCO.title}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={dialogActionBoxSx}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewCO && (
+            <Box sx={detailGridSx}>
+              <FieldRow label="CO Number" value={viewCO.co_number || '\u2014'} />
+              <FieldRow label="Title" value={viewCO.title} />
+              <FieldRow label="Status">
+                <StatusBadge status={STATUS_MAP[viewCO.status] || 'active'} label={viewCO.status} />
+              </FieldRow>
+              <FieldRow label="Total Amount" value={viewCO.total_amount ?? '\u2014'} />
+              <FieldRow label="Created" value={fmtDate(viewCO.created_at)} />
+              <FieldRow label="Updated" value={fmtDate(viewCO.updated_at)} />
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create Change Order Dialog ────────────────────────────── */}
       <FormDialog open={createOpen} title="Create Change Order" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Unit ID" required value={createForm.unit_id} onChange={onCreateField('unit_id')} helperText="UUID of the unit" />
         <TextField label="CO Number" required value={createForm.co_number} onChange={onCreateField('co_number')} inputProps={{ maxLength: 16 }} />
@@ -151,7 +231,8 @@ export default function ChangeOrdersPage() {
         <TextField label="Total Amount" type="number" value={createForm.total_amount} onChange={onCreateField('total_amount')} />
       </FormDialog>
 
-      <FormDialog open={editOpen} title="Edit Change Order" submitLabel="Save Changes" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)}>
+      {/* ── Edit Change Order Dialog ──────────────────────────────── */}
+      <FormDialog open={editOpen} title="Edit Change Order" submitLabel="Save Changes" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); }}>
         <TextField label="CO Number" required value={editForm.co_number} onChange={onEditField('co_number')} inputProps={{ maxLength: 16 }} />
         <TextField label="Title" required value={editForm.title} onChange={onEditField('title')} />
         <TextField label="Reason" multiline minRows={2} value={editForm.reason} onChange={onEditField('reason')} />

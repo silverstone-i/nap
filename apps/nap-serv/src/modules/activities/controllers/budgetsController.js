@@ -122,4 +122,4 @@ class BudgetsController extends BaseController {
 
 const instance = new BudgetsController();
 export default instance;
-export { BudgetsController, VALID_TRANSITIONS };
+export { BudgetsController };

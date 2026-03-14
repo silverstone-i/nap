@@ -82,4 +82,4 @@ class ApInvoicesController extends BaseController {
 
 const instance = new ApInvoicesController();
 export default instance;
-export { ApInvoicesController, VALID_TRANSITIONS };
+export { ApInvoicesController };

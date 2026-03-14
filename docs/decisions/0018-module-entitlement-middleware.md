@@ -50,7 +50,7 @@ The reports module uses hand-built routes (no `createRouter`), so `meta` and `mo
 
 ## Consequences
 
-- **All 28 routers** now have `withMeta` metadata and `moduleEntitlement` enforcement
+- **All routers** (63 router files as of latest `arch:check`) have `withMeta` metadata and `moduleEntitlement` enforcement
 - **Zero behavioral change** until `allowed_modules` is populated for a tenant
 - Routers using `createRouter` get entitlement for free; custom routes must add it explicitly
 - `req.ctx.tenant` must reflect the effective tenant (fixed in authRedis) for entitlement to check the correct `allowed_modules`

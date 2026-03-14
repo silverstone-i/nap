@@ -69,4 +69,4 @@ class DeliverablesController extends BaseController {
 
 const instance = new DeliverablesController();
 export default instance;
-export { DeliverablesController, VALID_TRANSITIONS };
+export { DeliverablesController };

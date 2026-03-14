@@ -18,7 +18,7 @@ import { BarChart } from '@mui/x-charts/BarChart';
 import CurrencyCell from '../../components/shared/CurrencyCell.jsx';
 import { useProjects } from '../../hooks/useProjects.js';
 import { useCostBreakdown } from '../../hooks/useReports.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
+import { pageContainerSx, chartContainerSx } from '../../config/layoutTokens.js';
 
 const columns = [
   { field: 'category_code', headerName: 'Code', width: 100 },
@@ -63,7 +63,7 @@ export default function CostBreakdownPage() {
         </TextField>
 
         {rows.length > 0 && (
-          <Box sx={{ height: 300, mb: 3 }}>
+          <Box sx={chartContainerSx}>
             <BarChart
               xAxis={[{ data: chartLabels, scaleType: 'band' }]}
               series={[

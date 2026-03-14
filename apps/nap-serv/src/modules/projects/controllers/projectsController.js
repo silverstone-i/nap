@@ -94,4 +94,4 @@ class ProjectsController extends BaseController {
 
 const instance = new ProjectsController();
 export default instance;
-export { ProjectsController, VALID_TRANSITIONS };
+export { ProjectsController };

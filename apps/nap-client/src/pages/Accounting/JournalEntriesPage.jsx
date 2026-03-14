@@ -1,5 +1,5 @@
 /**
- * @file Journal Entries CRUD page — DataGrid + create/edit/post/reverse/archive/restore
+ * @file Journal Entries CRUD page — DataTable + create/edit/view/post/reverse/archive/restore
  * @module nap-client/pages/Accounting/JournalEntriesPage
  *
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
@@ -7,14 +7,20 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
-import { DataGrid } from '@mui/x-data-grid';
+import Typography from '@mui/material/Typography';
 
 import StatusBadge from '../../components/shared/StatusBadge.jsx';
 import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
+import DataTable from '../../components/shared/DataTable.jsx';
+import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
 import {
@@ -22,9 +28,8 @@ import {
   usePostJournalEntry, useReverseJournalEntry,
   useArchiveJournalEntry, useRestoreJournalEntry,
 } from '../../hooks/useAccounting.js';
-import { pageContainerSx } from '../../config/layoutTokens.js';
-import { buildBulkActions } from '../../utils/selectionUtils.js';
-import { useDataGridSelection } from '../../hooks/useDataGridSelection.js';
+import { pageContainerSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
+import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
 
 const STATUS_OPTS = ['pending', 'posted', 'reversed'];
@@ -60,11 +65,16 @@ export default function JournalEntriesPage() {
   const archiveMut = useArchiveJournalEntry();
   const restoreMut = useRestoreJournalEntry();
 
-  const { selectionModel, setSelectionModel, onSelectionChange, selectedRows, selected, isSingle, hasSelection, allActive, allArchived } =
-    useDataGridSelection(rows);
+  /* ── Selection (new system) ─────────────────────────────────── */
+  const selection = useListSelection(rows);
+  const { selectedRows, allActive, allArchived } = selection;
 
+  /* ── Dialog state ───────────────────────────────────────────── */
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewEntry, setViewEntry] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
 
   const [createForm, setCreateForm] = useState(BLANK_CREATE);
   const [editForm, setEditForm] = useState(BLANK_EDIT);
@@ -76,67 +86,177 @@ export default function JournalEntriesPage() {
   const onCreateField = (f) => (e) => setCreateForm((p) => ({ ...p, [f]: e.target.value }));
   const onEditField = (f) => (e) => setEditForm((p) => ({ ...p, [f]: e.target.value }));
 
-  const openEdit = useCallback(() => {
-    if (!selected) return;
+  /* ── Row action callbacks ──────────────────────────────────── */
+  const handleView = useCallback((row) => {
+    setViewEntry(row);
+    setViewOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((row) => {
+    setEditRow(row);
     setEditForm({
-      entry_date: selected.entry_date?.slice(0, 10) ?? '', description: selected.description ?? '',
-      status: selected.status ?? 'pending', source_type: selected.source_type ?? '',
+      entry_date: row.entry_date?.slice(0, 10) ?? '',
+      description: row.description ?? '',
+      status: row.status ?? 'pending',
+      source_type: row.source_type ?? '',
     });
     setEditOpen(true);
-  }, [selected]);
+  }, []);
 
   const handleCreate = async () => {
-    try { await createMut.mutateAsync(createForm); toast('Journal entry created'); setCreateOpen(false); setCreateForm(BLANK_CREATE); } catch (err) { toast(errMsg(err), 'error'); }
+    try {
+      await createMut.mutateAsync(createForm);
+      toast('Journal entry created');
+      setCreateOpen(false);
+      setCreateForm(BLANK_CREATE);
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
   };
+
   const handleUpdate = async () => {
-    try { await updateMut.mutateAsync({ filter: { id: selected.id }, changes: editForm }); toast('Entry updated'); setEditOpen(false); } catch (err) { toast(errMsg(err), 'error'); }
+    try {
+      await updateMut.mutateAsync({ filter: { id: editRow.id }, changes: editForm });
+      toast('Entry updated');
+      setEditOpen(false);
+      setEditRow(null);
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
   };
+
   const handlePost = useCallback(async () => {
-    try { await postMut.mutateAsync({ entry_id: selected.id }); toast('Entry posted'); } catch (err) { toast(errMsg(err), 'error'); }
-  }, [selected, postMut, toast]);
+    try {
+      await postMut.mutateAsync({ entry_id: selection.selected.id });
+      toast('Entry posted');
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
+  }, [selection.selected, postMut, toast]);
+
   const handleReverse = useCallback(async () => {
-    try { await reverseMut.mutateAsync({ entry_id: selected.id }); toast('Entry reversed'); } catch (err) { toast(errMsg(err), 'error'); }
-  }, [selected, reverseMut, toast]);
+    try {
+      await reverseMut.mutateAsync({ entry_id: selection.selected.id });
+      toast('Entry reversed');
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
+  }, [selection.selected, reverseMut, toast]);
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
-    selectedRows, archiveMut, restoreMut, entityName: 'journal entry', entityNamePlural: 'journal entries', setSelectionModel, toast, errMsg,
+    selectedRows,
+    archiveMut,
+    restoreMut,
+    entityName: 'journal entry',
+    entityNamePlural: 'journal entries',
+    setSelectionModel: () => selection.clearSelection(),
+    toast,
+    errMsg,
   });
 
-  const toolbar = useMemo(
-    () => ({
+  /* ── ModuleBar: tabs + Archive/Restore + Post/Reverse + Create ─ */
+  const toolbar = useMemo(() => {
+    const primary = [];
+
+    if (viewFilter === 'active' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Archive (${selectedRows.length})` : 'Archive',
+        variant: 'outlined',
+        color: 'error',
+        disabled: selectedRows.length === 0 || !allActive,
+        onClick: () => setArchiveOpen(true),
+      });
+    }
+    if (viewFilter === 'archived' || viewFilter === 'all') {
+      primary.push({
+        label: selectedRows.length > 1 ? `Restore (${selectedRows.length})` : 'Restore',
+        variant: 'outlined',
+        color: 'success',
+        disabled: selectedRows.length === 0 || !allArchived,
+        onClick: () => setRestoreOpen(true),
+      });
+    }
+
+    primary.push({
+      label: 'Post',
+      variant: 'outlined',
+      color: 'success',
+      disabled: !selection.isSingle || selection.selected?.status !== 'pending',
+      onClick: handlePost,
+    });
+    primary.push({
+      label: 'Reverse',
+      variant: 'outlined',
+      color: 'warning',
+      disabled: !selection.isSingle || selection.selected?.status !== 'posted',
+      onClick: handleReverse,
+    });
+
+    primary.push({
+      label: 'Create Entry',
+      variant: 'contained',
+      color: 'primary',
+      onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); },
+    });
+
+    return {
       tabs: [
-        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); setSelectionModel([]); } },
-        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); setSelectionModel([]); } },
-        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); setSelectionModel([]); } },
+        { value: 'active', label: 'Active', selected: viewFilter === 'active', onClick: () => { setViewFilter('active'); selection.clearSelection(); } },
+        { value: 'all', label: 'All', selected: viewFilter === 'all', onClick: () => { setViewFilter('all'); selection.clearSelection(); } },
+        { value: 'archived', label: 'Archived', selected: viewFilter === 'archived', onClick: () => { setViewFilter('archived'); selection.clearSelection(); } },
       ],
       filters: [],
-      primaryActions: [
-        { label: 'Create Entry', variant: 'contained', color: 'primary', onClick: () => { setCreateForm(BLANK_CREATE); setCreateOpen(true); } },
-        { label: 'Edit', variant: 'outlined', disabled: !isSingle, onClick: openEdit },
-        { label: 'Post', variant: 'outlined', color: 'success', disabled: !isSingle || selected?.status !== 'pending', onClick: handlePost },
-        { label: 'Reverse', variant: 'outlined', color: 'warning', disabled: !isSingle || selected?.status !== 'posted', onClick: handleReverse },
-        ...buildBulkActions({ selectedRows, hasSelection, allActive, allArchived, onArchive: () => setArchiveOpen(true), onRestore: () => setRestoreOpen(true) }),
-      ],
-    }),
-    [isSingle, hasSelection, allActive, allArchived, selectedRows.length, viewFilter, openEdit, handlePost, handleReverse, setSelectionModel, setArchiveOpen, setRestoreOpen],
-  );
+      primaryActions: primary,
+    };
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.isSingle, selection.selected, selection.clearSelection, handlePost, handleReverse, setArchiveOpen, setRestoreOpen]);
   useModuleToolbarRegistration(toolbar);
 
   return (
     <Box sx={pageContainerSx}>
-      <DataGrid
+      <DataTable
         rows={rows}
         columns={columns}
-        getRowId={(r) => r.id}
         loading={isLoading}
-        checkboxSelection
-        rowSelectionModel={selectionModel}
-        onRowSelectionModelChange={onSelectionChange}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-        getRowClassName={(p) => (p.row.deactivated_at ? 'row-archived' : '')}
+        selection={selection}
+        onView={handleView}
+        onEdit={handleEdit}
       />
 
+      {/* ── View Details Dialog ──────────────────────────────────── */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={dialogHeaderSx}>
+          <Box>
+            <span>Journal Entry Details</span>
+            {viewEntry && (
+              <Typography variant="body2" color="text.secondary">
+                {viewEntry.description}
+              </Typography>
+            )}
+          </Box>
+          <Box sx={dialogActionBoxSx}>
+            <Button size="small" color="inherit" onClick={() => setViewOpen(false)}>
+              Close
+            </Button>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewEntry && (
+            <Box sx={detailGridSx}>
+              <FieldRow label="ID" value={viewEntry.id?.slice(0, 8) || '\u2014'} />
+              <FieldRow label="Entry Date" value={fmtDate(viewEntry.entry_date)} />
+              <FieldRow label="Description" value={viewEntry.description || '\u2014'} />
+              <FieldRow label="Status">
+                <StatusBadge status={viewEntry.status} />
+              </FieldRow>
+              <FieldRow label="Source Type" value={cap(viewEntry.source_type || '') || '\u2014'} />
+              <FieldRow label="Created" value={fmtDate(viewEntry.created_at)} />
+              <FieldRow label="Updated" value={fmtDate(viewEntry.updated_at)} />
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Create Journal Entry Dialog ───────────────────────────── */}
       <FormDialog open={createOpen} title="Create Journal Entry" submitLabel="Create" loading={createMut.isPending} onSubmit={handleCreate} onCancel={() => setCreateOpen(false)}>
         <TextField label="Entry Date" type="date" required value={createForm.entry_date} onChange={onCreateField('entry_date')} InputLabelProps={{ shrink: true }} />
         <TextField label="Description" multiline minRows={2} value={createForm.description} onChange={onCreateField('description')} />
@@ -146,7 +266,8 @@ export default function JournalEntriesPage() {
         <TextField label="Source Type" value={createForm.source_type} onChange={onCreateField('source_type')} />
       </FormDialog>
 
-      <FormDialog open={editOpen} title="Edit Journal Entry" submitLabel="Save Changes" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => setEditOpen(false)}>
+      {/* ── Edit Journal Entry Dialog ─────────────────────────────── */}
+      <FormDialog open={editOpen} title="Edit Journal Entry" submitLabel="Save Changes" loading={updateMut.isPending} onSubmit={handleUpdate} onCancel={() => { setEditOpen(false); setEditRow(null); }}>
         <TextField label="Entry Date" type="date" value={editForm.entry_date} onChange={onEditField('entry_date')} InputLabelProps={{ shrink: true }} />
         <TextField label="Description" multiline minRows={2} value={editForm.description} onChange={onEditField('description')} />
         <TextField label="Status" select value={editForm.status} onChange={onEditField('status')}>
