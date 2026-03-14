@@ -5,7 +5,7 @@
  * Copyright (c) 2025 – present NapSoft LLC. All rights reserved.
  */
 
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setAuthCookies, clearAuthCookies } from '../../src/lib/cookies.js';
 
 function makeRes() {
@@ -16,10 +16,16 @@ function makeRes() {
 }
 
 describe('setAuthCookies', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
   beforeEach(() => {
     delete process.env.NODE_ENV;
     delete process.env.COOKIE_SECURE;
     delete process.env.COOKIE_SAMESITE;
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   test('sets auth_token and refresh_token cookies', () => {
