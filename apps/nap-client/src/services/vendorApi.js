@@ -23,6 +23,8 @@ export const vendorApi = {
   update: (filterParams, changes) => client.put(`${BASE}/update${qs(filterParams)}`, changes),
   archive: (filterParams) => client.del(`${BASE}/archive${qs(filterParams)}`, {}),
   restore: (filterParams) => client.patch(`${BASE}/restore${qs(filterParams)}`, {}),
+  importXls: (formData) => client.post(`${BASE}/import-xls`, formData),
+  exportXls: (body = {}) => client.post(`${BASE}/export-xls`, body, { responseType: 'blob' }),
 };
 
 export default vendorApi;

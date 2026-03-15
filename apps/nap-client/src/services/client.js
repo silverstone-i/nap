@@ -33,8 +33,9 @@ function doFetch(method, url, headers, body, opts) {
 }
 
 async function request(method, path, body, opts = {}) {
+  const { responseType, ...fetchOpts } = opts;
   const url = `${BASE}${path}`;
-  const headers = { ...(opts.headers || {}) };
+  const headers = { ...(fetchOpts.headers || {}) };
 
   if (_assumedTenantCode) {
     headers['x-tenant-code'] = _assumedTenantCode;
@@ -44,7 +45,7 @@ async function request(method, path, body, opts = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  let res = await doFetch(method, url, headers, body, opts);
+  let res = await doFetch(method, url, headers, body, fetchOpts);
 
   // On 401, attempt a single silent refresh then retry the original request
   if (res.status === 401 && !path.startsWith('/auth/')) {
@@ -59,7 +60,7 @@ async function request(method, path, body, opts = {}) {
       refreshPromise = null;
 
       if (refreshRes.ok) {
-        res = await doFetch(method, url, headers, body, opts);
+        res = await doFetch(method, url, headers, body, fetchOpts);
       }
     } catch {
       refreshPromise = null;
@@ -80,6 +81,7 @@ async function request(method, path, body, opts = {}) {
   }
 
   if (res.status === 204) return null;
+  if (responseType === 'blob') return res.blob();
   return res.json();
 }
 

@@ -31,15 +31,19 @@ import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import DataTable from '../../components/shared/DataTable.jsx';
 import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
+import ImportDialog from '../../components/shared/ImportDialog.jsx';
 import PatternTextField from '../../components/shared/PatternTextField.jsx';
 import { useModuleToolbarRegistration } from '../../contexts/ModuleActionsContext.jsx';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 import {
   useVendors, useCreateVendor, useUpdateVendor, useArchiveVendor, useRestoreVendor,
 } from '../../hooks/useVendors.js';
 import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
-import { TAX_TYPES, COUNTRIES } from '@nap/shared';
+import { useImportXls, useExportXls } from '../../hooks/useImportExport.js';
+import { TAX_TYPES, COUNTRIES, resolveLevel } from '@nap/shared';
+import { vendorApi } from '../../services/vendorApi.js';
 import { pageContainerSx, formGridSx, formGroupCardSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
@@ -63,6 +67,11 @@ const columns = [
 ];
 
 export default function VendorsPage() {
+  const { user } = useAuth();
+  const caps = user?.perms?.caps || {};
+  const canImport = resolveLevel(caps, 'core', 'vendors', 'import') === 'full';
+  const canExport = resolveLevel(caps, 'core', 'vendors', 'export') !== 'none';
+
   const { data: res, isLoading } = useVendors();
   const allRows = res?.rows ?? [];
 
@@ -78,6 +87,9 @@ export default function VendorsPage() {
   const archiveMut = useArchiveVendor();
   const restoreMut = useRestoreVendor();
 
+  const importMut = useImportXls(vendorApi.importXls, ['vendors']);
+  const exportMut = useExportXls(vendorApi.exportXls, 'vendors');
+
   const createTaxIdMut = useCreateTaxIdentifier();
   const updateTaxIdMut = useUpdateTaxIdentifier();
   const archiveTaxIdMut = useArchiveTaxIdentifier();
@@ -87,6 +99,7 @@ export default function VendorsPage() {
   const { selectedRows, allActive, allArchived } = selection;
 
   /* ── Dialog state ───────────────────────────────────────────── */
+  const [importOpen, setImportOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewVendor, setViewVendor] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -191,6 +204,25 @@ export default function VendorsPage() {
     }
   };
 
+  const handleImport = useCallback(async (formData) => {
+    try {
+      const result = await importMut.mutateAsync(formData);
+      toast(`Imported ${result.inserted} records`);
+      setImportOpen(false);
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
+  }, [importMut, toast]);
+
+  const handleExport = useCallback(async () => {
+    try {
+      await exportMut.mutateAsync({});
+      toast('Export downloaded');
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
+  }, [exportMut, toast]);
+
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
     selectedRows,
     archiveMut,
@@ -225,6 +257,22 @@ export default function VendorsPage() {
       });
     }
 
+    if (canExport) {
+      primary.push({
+        label: 'Export',
+        variant: 'outlined',
+        disabled: exportMut.isPending,
+        onClick: handleExport,
+      });
+    }
+    if (canImport) {
+      primary.push({
+        label: 'Import',
+        variant: 'outlined',
+        onClick: () => setImportOpen(true),
+      });
+    }
+
     primary.push({
       label: 'Create Vendor',
       variant: 'contained',
@@ -241,7 +289,7 @@ export default function VendorsPage() {
       filters: [],
       primaryActions: primary,
     };
-  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen]);
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen, canImport, canExport, exportMut.isPending, handleExport]);
   useModuleToolbarRegistration(toolbar);
 
   const visibleTaxIds = editTaxIds.filter((t) => !t._deleted);
@@ -382,6 +430,14 @@ export default function VendorsPage() {
           );
         })}
       </FormDialog>
+
+      <ImportDialog
+        open={importOpen}
+        title="Import Vendors"
+        loading={importMut.isPending}
+        onSubmit={handleImport}
+        onCancel={() => setImportOpen(false)}
+      />
 
       <ConfirmDialog {...archiveConfirmProps} />
       <ConfirmDialog {...restoreConfirmProps} />
