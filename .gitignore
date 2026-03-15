@@ -85,3 +85,7 @@ docs/architecture/dependency-graph.json
 tmp/
 temp/
 *.tgz
+
+# External files for project testing
+excel/*
+
