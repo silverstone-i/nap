@@ -32,6 +32,7 @@ import ConfirmDialog from '../../components/shared/ConfirmDialog.jsx';
 import DataTable from '../../components/shared/DataTable.jsx';
 import FieldRow from '../../components/shared/FieldRow.jsx';
 import FormDialog from '../../components/shared/FormDialog.jsx';
+import ImportDialog from '../../components/shared/ImportDialog.jsx';
 import PatternTextField from '../../components/shared/PatternTextField.jsx';
 import ResetPasswordDialog from '../../components/shared/ResetPasswordDialog.jsx';
 import SetPasswordPopover from '../../components/shared/SetPasswordPopover.jsx';
@@ -50,7 +51,9 @@ import {
 import {
   useTaxIdentifiers, useCreateTaxIdentifier, useUpdateTaxIdentifier, useArchiveTaxIdentifier,
 } from '../../hooks/useTaxIdentifiers.js';
+import { useImportXls, useExportXls } from '../../hooks/useImportExport.js';
 import { TAX_TYPES, COUNTRIES } from '@nap/shared';
+import { employeeApi } from '../../services/employeeApi.js';
 import { pageContainerSx, formGridSx, formGroupCardSx, formFullSpanSx, dialogHeaderSx, dialogActionBoxSx, detailGridSx } from '../../config/layoutTokens.js';
 import { useListSelection } from '../../hooks/useListSelection.js';
 import { useArchiveRestore } from '../../hooks/useArchiveRestore.js';
@@ -102,6 +105,8 @@ export default function EmployeesPage() {
   const { user } = useAuth();
   const caps = user?.perms?.caps || {};
   const canResetPassword = resolveLevel(caps, 'core', '', 'reset-password') === 'full';
+  const canImport = resolveLevel(caps, 'core', 'employees', 'import') === 'full';
+  const canExport = resolveLevel(caps, 'core', 'employees', 'export') !== 'none';
 
   const { data: res, isLoading } = useEmployees();
   const allRows = res?.rows ?? [];
@@ -121,6 +126,9 @@ export default function EmployeesPage() {
   const archiveMut = useArchiveEmployee();
   const restoreMut = useRestoreEmployee();
 
+  const importMut = useImportXls(employeeApi.importXls, ['employees']);
+  const exportMut = useExportXls(employeeApi.exportXls, 'employees');
+
   const createPhoneMut = useCreatePhoneNumber();
   const updatePhoneMut = useUpdatePhoneNumber();
   const archivePhoneMut = useArchivePhoneNumber();
@@ -136,6 +144,7 @@ export default function EmployeesPage() {
   const { selectedRows, allActive, allArchived } = selection;
 
   /* ── Dialog state ───────────────────────────────────────────── */
+  const [importOpen, setImportOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [viewEmployee, setViewEmployee] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -373,6 +382,25 @@ export default function EmployeesPage() {
     }
   };
 
+  const handleImport = useCallback(async (formData) => {
+    try {
+      const result = await importMut.mutateAsync(formData);
+      toast(`Imported ${result.inserted} records`);
+      setImportOpen(false);
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
+  }, [importMut, toast]);
+
+  const handleExport = useCallback(async () => {
+    try {
+      await exportMut.mutateAsync({});
+      toast('Export downloaded');
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    }
+  }, [exportMut, toast]);
+
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
     selectedRows,
     archiveMut,
@@ -407,6 +435,22 @@ export default function EmployeesPage() {
       });
     }
 
+    if (canExport) {
+      primary.push({
+        label: 'Export',
+        variant: 'outlined',
+        disabled: exportMut.isPending,
+        onClick: handleExport,
+      });
+    }
+    if (canImport) {
+      primary.push({
+        label: 'Import',
+        variant: 'outlined',
+        onClick: () => setImportOpen(true),
+      });
+    }
+
     primary.push({
       label: 'Create Employee',
       variant: 'contained',
@@ -423,7 +467,7 @@ export default function EmployeesPage() {
       filters: [],
       primaryActions: primary,
     };
-  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen]);
+  }, [viewFilter, selectedRows.length, allActive, allArchived, selection.clearSelection, setArchiveOpen, setRestoreOpen, canImport, canExport, exportMut.isPending, handleExport]);
   useModuleToolbarRegistration(toolbar);
 
   /* ── Visible (non-deleted) sub-collections for the form ──── */
@@ -707,6 +751,14 @@ export default function EmployeesPage() {
           );
         })}
       </FormDialog>
+
+      <ImportDialog
+        open={importOpen}
+        title="Import Employees"
+        loading={importMut.isPending}
+        onSubmit={handleImport}
+        onCancel={() => setImportOpen(false)}
+      />
 
       <ConfirmDialog {...archiveConfirmProps} />
       <ConfirmDialog {...restoreConfirmProps} />
