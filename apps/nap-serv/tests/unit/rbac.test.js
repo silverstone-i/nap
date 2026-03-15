@@ -37,6 +37,35 @@ describe('resolveLevel', () => {
     };
     expect(resolveLevel(caps, 'ar', 'invoices', 'approve')).toBe('full');
   });
+
+  // ── Import / Export resolution ────────────────────────────────
+
+  it('resolves import action at module::router::import level', () => {
+    const caps = { 'core::vendors::import': 'full' };
+    expect(resolveLevel(caps, 'core', 'vendors', 'import')).toBe('full');
+  });
+
+  it('resolves export action at module::router::export level', () => {
+    const caps = { 'core::vendors::export': 'view' };
+    expect(resolveLevel(caps, 'core', 'vendors', 'export')).toBe('view');
+  });
+
+  it('falls back to router level when no import action policy', () => {
+    const caps = { 'core::vendors::': 'full' };
+    expect(resolveLevel(caps, 'core', 'vendors', 'import')).toBe('full');
+  });
+
+  it('action-level none stops resolution (does not fall back to router level)', () => {
+    const caps = { 'core::vendors::import': 'none', 'core::vendors::': 'full' };
+    // 'none' is truthy so resolveLevel returns it without falling back
+    expect(resolveLevel(caps, 'core', 'vendors', 'import')).toBe('none');
+  });
+
+  it('wildcard :::: covers import/export for system roles', () => {
+    const caps = { '::::': 'full' };
+    expect(resolveLevel(caps, 'core', 'vendors', 'import')).toBe('full');
+    expect(resolveLevel(caps, 'core', 'vendors', 'export')).toBe('full');
+  });
 });
 
 describe('rbac middleware', () => {
@@ -148,6 +177,81 @@ describe('rbac middleware', () => {
       needed: 'full',
       have: 'none',
     });
+  });
+
+  // ── Import / Export action resolution ──────────────────────────
+
+  it('allows import when action-level policy is full', async () => {
+    const req = makeReq('POST', { caps: { 'core::vendors::import': 'full' } }, { module: 'core', router: 'vendors', action: 'import' });
+    const res = makeRes();
+    const next = vi.fn();
+    await rbac('full')(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('denies import when action-level policy is view (needs full)', async () => {
+    const req = makeReq('POST', { caps: { 'core::vendors::import': 'view' } }, { module: 'core', router: 'vendors', action: 'import' });
+    const res = makeRes();
+    const next = vi.fn();
+    await rbac('full')(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('allows export when action-level policy is view', async () => {
+    const req = makeReq('POST', { caps: { 'core::vendors::export': 'view' } }, { module: 'core', router: 'vendors', action: 'export' });
+    const res = makeRes();
+    const next = vi.fn();
+    await rbac('view')(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('denies export when action-level policy is none', async () => {
+    const req = makeReq('POST', { caps: { 'core::vendors::export': 'none' } }, { module: 'core', router: 'vendors', action: 'export' });
+    const res = makeRes();
+    const next = vi.fn();
+    await rbac('view')(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('falls back to router-level when no import action policy exists', async () => {
+    const req = makeReq('POST', { caps: { 'core::vendors::': 'full' } }, { module: 'core', router: 'vendors', action: 'import' });
+    const res = makeRes();
+    const next = vi.fn();
+    await rbac('full')(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to router-level when no export action policy exists', async () => {
+    const req = makeReq('POST', { caps: { 'core::vendors::': 'view' } }, { module: 'core', router: 'vendors', action: 'export' });
+    const res = makeRes();
+    const next = vi.fn();
+    await rbac('view')(req, res, next);
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('action-level none overrides router-level full for import (explicit deny)', async () => {
+    const caps = { 'core::vendors::import': 'none', 'core::vendors::': 'full' };
+    const req = makeReq('POST', { caps }, { module: 'core', router: 'vendors', action: 'import' });
+    const res = makeRes();
+    const next = vi.fn();
+    await rbac('full')(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('wildcard :::: grants import/export to system roles', async () => {
+    const importReq = makeReq('POST', { caps: { '::::': 'full' } }, { module: 'core', router: 'vendors', action: 'import' });
+    const exportReq = makeReq('POST', { caps: { '::::': 'full' } }, { module: 'core', router: 'vendors', action: 'export' });
+    const res1 = makeRes();
+    const res2 = makeRes();
+    const next1 = vi.fn();
+    const next2 = vi.fn();
+    await rbac('full')(importReq, res1, next1);
+    await rbac('view')(exportReq, res2, next2);
+    expect(next1).toHaveBeenCalledOnce();
+    expect(next2).toHaveBeenCalledOnce();
   });
 
   it('does NOT bypass for any special role — all go through policy resolution', async () => {

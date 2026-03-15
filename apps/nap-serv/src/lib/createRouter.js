@@ -10,9 +10,12 @@
  * Automatically applies:
  *   - addAuditFields on mutation routes (POST, PUT, DELETE, PATCH)
  *   - moduleEntitlement on all routes (checks tenant's allowed_modules)
+ *   - rbac('full') on import-xls with action='import'
+ *   - rbac('view') on export-xls with action='export'
  *
  * Middleware chain per route: [...userMws (incl. withMeta)] → moduleEntitlement → handler
  * Mutation routes additionally prepend addAuditFields before user middlewares.
+ * Import/export routes additionally append action override → rbac enforcement.
  *
  * Accepts per-method middleware arrays and route disable flags.
  *
@@ -23,6 +26,7 @@ import { Router } from 'express';
 import { addAuditFields } from '../middleware/addAuditFields.js';
 import { moduleEntitlement } from '../middleware/moduleEntitlement.js';
 import multer from 'multer';
+import { rbac } from '../middleware/rbac.js';
 
 /**
  * @param {object} controller BaseController (or subclass) instance
@@ -65,6 +69,16 @@ export default function createRouter(controller, extendRoutes, options = {}) {
   const safeDelete = ensureEntitlement(ensureAudit(deleteMiddlewares));
   const safePatch = ensureEntitlement(ensureAudit(patchMiddlewares));
 
+  // Override req.resource.action for import/export so RBAC resolves at the action level
+  const setImportAction = (req, _res, next) => {
+    if (req.resource) req.resource.action = 'import';
+    next();
+  };
+  const setExportAction = (req, _res, next) => {
+    if (req.resource) req.resource.action = 'export';
+    next();
+  };
+
   // --- Standard CRUD routes ---
 
   if (!disablePost) {
@@ -98,11 +112,11 @@ export default function createRouter(controller, extendRoutes, options = {}) {
 
   if (!disableImportXls) {
     const upload = multer({ dest: '/tmp/uploads/' });
-    router.post('/import-xls', ...safePost, upload.single('file'), (req, res) => controller.importXls(req, res));
+    router.post('/import-xls', ...safePost, setImportAction, rbac('full'), upload.single('file'), (req, res) => controller.importXls(req, res));
   }
 
   if (!disableExportXls) {
-    router.post('/export-xls', ...ensureEntitlement(getMiddlewares), (req, res) => controller.exportXls(req, res));
+    router.post('/export-xls', ...ensureEntitlement(getMiddlewares), setExportAction, rbac('view'), (req, res) => controller.exportXls(req, res));
   }
 
   if (!disableBulkUpdate) {
