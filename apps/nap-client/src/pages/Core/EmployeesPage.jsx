@@ -390,7 +390,7 @@ export default function EmployeesPage() {
     } catch (err) {
       toast(errMsg(err), 'error');
     }
-  }, [importMut, toast]);
+  }, [importMut.mutateAsync, toast]);
 
   const handleExport = useCallback(async () => {
     try {
@@ -399,7 +399,7 @@ export default function EmployeesPage() {
     } catch (err) {
       toast(errMsg(err), 'error');
     }
-  }, [exportMut, toast]);
+  }, [exportMut.mutateAsync, toast]);
 
   const { setArchiveOpen, setRestoreOpen, archiveConfirmProps, restoreConfirmProps } = useArchiveRestore({
     selectedRows,
