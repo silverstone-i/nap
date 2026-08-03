@@ -1,0 +1,67 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Dependency directories
+node_modules/
+
+# Build output
+dist
+*.tsbuildinfo
+
+# Coverage
+coverage
+*.lcov
+
+# Caches
+.npm
+.eslintcache
+.cache
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
+
+# PostgreSQL
+*.dump
+*.backup
+*.sql.gz
+pgdata/
+postgres-data/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Local working notes, never committed
+temp/
+
+# Editors / IDEs
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo

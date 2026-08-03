@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2026–present Ian Silverstone.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/* Brand tokens from docs/branding/BRAND.md — the subset this page uses.
+ * The full token set ships with the app shell (PRD 0001). */
+:root {
+  --navy: #2f3e52;
+  --navy-text: #2f3e52;
+  --gold: #f4b000;
+  --page: #fafaf7;
+  --text-primary: #1a2332;
+  --text-secondary: #5a6475;
+  --sans: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --navy: #4f6b8c;
+    --navy-text: #698bb8;
+    --page: #0b0f14;
+    --text-primary: #e8ecf2;
+    --text-secondary: #9aa4b4;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+}
+
+.wordmark {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  font-size: clamp(3rem, 10vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--navy-text);
+}
+
+/* The logo dot: a square gold period — one of gold's four approved uses. */
+.wordmark-dot {
+  width: 0.14em;
+  height: 0.14em;
+  margin-left: 0.08em;
+  background: var(--gold);
+}
+
+.descriptor {
+  margin: 0;
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  text-align: center;
+}

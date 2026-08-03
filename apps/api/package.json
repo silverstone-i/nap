@@ -1,0 +1,32 @@
+{
+  "name": "@nap/api",
+  "version": "0.1.0",
+  "description": "NAP API server",
+  "scripts": {
+    "dev": "concurrently -k \"tsc --watch --project tsconfig.build.json\" \"node --watch --env-file-if-exists=.env dist/server.js\"",
+    "start": "node --env-file-if-exists=.env dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --project tsconfig.build.json",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "pg-schemata": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.13.3",
+    "@types/supertest": "^7.2.1",
+    "concurrently": "^10.0.4",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,5 @@
+dist/
+node_modules/
+docs/branding/
+package-lock.json
+CHANGELOG.md

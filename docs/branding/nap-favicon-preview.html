@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>nap — favicon preview</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicons/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="favicons/favicon-16.png" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --navy: #2F3E52;
+    --gold: #F4B000;
+    --page: #FAFAF7;
+    --card: #FFFFFF;
+    --subtle: #F4F5F2;
+    --text-primary: #1A2332;
+    --text-secondary: #5A6475;
+    --text-tertiary: #677082;
+    --border: #898F9D;
+    --border-strong: #6B7280;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 64px 40px 120px; }
+
+  .masthead {
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 56px;
+  }
+  .masthead-kicker {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .masthead h1 {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--navy);
+    margin: 0 0 6px 0;
+  }
+  .masthead p { color: var(--text-secondary); margin: 0; max-width: 600px; }
+
+  .section { margin-bottom: 64px; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--navy);
+    margin: 0 0 8px 0;
+  }
+  .section-note {
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 0 28px 0;
+    font-size: 14px;
+  }
+
+  /* ========== BROWSER TAB MOCKUP ========== */
+  .browser-shell {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--card);
+  }
+  .browser-chrome {
+    background: #E9EAED;
+    padding: 10px 12px 0 12px;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px 10px 14px;
+    background: #D4D6DA;
+    border-radius: 8px 8px 0 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    max-width: 220px;
+    min-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tab-active {
+    background: var(--card);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .tab-favicon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+  .tab-close {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    margin-left: auto;
+    opacity: 0.7;
+  }
+  .browser-addressbar {
+    background: var(--card);
+    padding: 10px 14px;
+    border-top: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .browser-addressbar-url {
+    background: var(--subtle);
+    padding: 6px 12px;
+    border-radius: 16px;
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-primary);
+  }
+  .browser-body {
+    padding: 40px;
+    min-height: 140px;
+    background: var(--page);
+    color: var(--text-tertiary);
+    font-size: 13px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ========== BOOKMARK BAR ========== */
+  .bookmark-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .bookmark {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 140ms ease;
+  }
+  .bookmark:hover { background: var(--subtle); }
+  .bookmark img { width: 16px; height: 16px; }
+
+  /* ========== iOS HOME SCREEN ========== */
+  .ios-screen {
+    width: 280px;
+    aspect-ratio: 9 / 19;
+    background: linear-gradient(160deg, #6b8fd8 0%, #9fb6e6 50%, #d4b3c9 100%);
+    border-radius: 32px;
+    padding: 36px 20px 24px;
+    box-shadow: 0 20px 40px -15px rgba(26, 35, 50, 0.3), 0 0 0 8px #1a1a1c;
+    position: relative;
+    overflow: hidden;
+  }
+  .ios-notch {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 18px;
+    background: #1a1a1c;
+    border-radius: 12px;
+  }
+  .ios-status {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #fff;
+    font-weight: 600;
+    margin-top: 4px;
+    padding: 0 6px;
+  }
+  .ios-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px 14px;
+    margin-top: 30px;
+  }
+  .ios-app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  .ios-app img, .ios-app-placeholder {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  .ios-app-placeholder {
+    background: linear-gradient(135deg, #fff 0%, #e5e5e5 100%);
+  }
+  .ios-app-placeholder--blue { background: linear-gradient(135deg, #5ea9f0 0%, #2771d1 100%); }
+  .ios-app-placeholder--green { background: linear-gradient(135deg, #6bd67a 0%, #2aa63a 100%); }
+  .ios-app-placeholder--orange { background: linear-gradient(135deg, #ffb84d 0%, #ff8a00 100%); }
+  .ios-app-placeholder--red { background: linear-gradient(135deg, #ff6b6b 0%, #d93636 100%); }
+  .ios-app-placeholder--purple { background: linear-gradient(135deg, #b07dd9 0%, #6d3da3 100%); }
+  .ios-app-placeholder--yellow { background: linear-gradient(135deg, #ffe066 0%, #f5c211 100%); }
+  .ios-app-placeholder--dark { background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); }
+  .ios-app-label {
+    font-size: 10px;
+    color: #fff;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    white-space: nowrap;
+    max-width: 54px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ========== SIZE COMPARISON ========== */
+  .size-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 32px 24px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .size-row--dark {
+    background: #0B0F14;
+    border-color: #1A212D;
+  }
+  .size-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .size-item img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+  .size-item-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+  }
+  .size-row--dark .size-item-label { color: #818B9C; }
+
+  /* ========== FILE LIST ========== */
+  .files-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .files-table thead {
+    background: var(--page);
+    border-bottom: 1px solid var(--border);
+  }
+  .files-table th {
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+  }
+  .files-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+  .files-table tr:last-child td { border-bottom: none; }
+  .files-table code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--subtle);
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--text-primary);
+  }
+  .files-table td.muted { color: var(--text-secondary); }
+
+  /* HTML snippet block */
+  .snippet {
+    background: #0B0F14;
+    border-radius: 6px;
+    padding: 18px 22px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #E8ECF2;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+    margin-top: 16px;
+  }
+  .snippet .tag { color: #60A5FA; }
+  .snippet .attr { color: #F4B000; }
+  .snippet .val { color: #BBF7D0; }
+  .snippet .cmt { color: #818B9C; font-style: italic; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 28px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="masthead-kicker">brand system · favicon</div>
+    <h1>The mark at every size</h1>
+    <p>The full wordmark doesn't survive 16px, so the favicon distills it to the essentials: a lowercase "a" in navy and the gold square dot. Continuity with the wordmark is preserved; the brand reads as the brand at every scale.</p>
+  </div>
+
+  <!-- Browser tab context -->
+  <section class="section">
+    <div class="section-label">01 · Browser tab</div>
+    <h2 class="section-title">The primary surface</h2>
+    <p class="section-note">This is where the favicon earns its keep. Open tabs at this size are the single most-seen instance of the brand for any active user — potentially thousands of viewings per day.</p>
+
+    <div class="browser-shell">
+      <div class="browser-chrome">
+        <div class="tab">
+          <span style="width:16px;height:16px;background:#5ea9f0;border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+          <span>Gmail — Inbox</span>
+          <span class="tab-close">×</span>
+        </div>
+        <div class="tab tab-active">
+          <img class="tab-favicon" src="favicons/favicon-32.png" alt="nap" />
+          <span>nap — Dashboard</span>
+          <span class="tab-close">×</span>
+        </div>
+        <div class="tab">
+          <span style="width:16px;height:16px;background:#000;border-radius:3px;display:inline-block;flex-shrink:0;"></span>
+          <span>GitHub</span>
+          <span class="tab-close">×</span>
+        </div>
+        <div class="tab">
+          <span style="width:16px;height:16px;background:#4285f4;border-radius:2px;display:inline-block;flex-shrink:0;"></span>
+          <span>Google Calendar</span>
+          <span class="tab-close">×</span>
+        </div>
+      </div>
+      <div class="browser-addressbar">
+        <span style="color:var(--text-tertiary);">🔒</span>
+        <div class="browser-addressbar-url">app.napsoft.io/dashboard</div>
+      </div>
+      <div class="browser-body">— Product content area —</div>
+    </div>
+  </section>
+
+  <!-- Bookmark bar -->
+  <section class="section">
+    <div class="section-label">02 · Bookmark bar</div>
+    <h2 class="section-title">The small-label surface</h2>
+    <p class="section-note">Bookmark bars strip labels to single words. The favicon has to carry the recognition on its own — without the supporting text that a tab provides.</p>
+
+    <div class="bookmark-bar">
+      <div class="bookmark">
+        <img src="favicons/favicon-32.png" alt="" />
+        <span>nap</span>
+      </div>
+      <div class="bookmark">
+        <span style="width:16px;height:16px;background:#000;border-radius:3px;display:inline-block;"></span>
+        <span>GitHub</span>
+      </div>
+      <div class="bookmark">
+        <span style="width:16px;height:16px;background:#1DA1F2;border-radius:50%;display:inline-block;"></span>
+        <span>Analytics</span>
+      </div>
+      <div class="bookmark">
+        <span style="width:16px;height:16px;background:#4285f4;border-radius:2px;display:inline-block;"></span>
+        <span>Calendar</span>
+      </div>
+      <div class="bookmark">
+        <span style="width:16px;height:16px;background:#FF4500;border-radius:3px;display:inline-block;"></span>
+        <span>Docs</span>
+      </div>
+      <div class="bookmark">
+        <span style="width:16px;height:16px;background:#5865F2;border-radius:3px;display:inline-block;"></span>
+        <span>Team</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- iOS home screen -->
+  <section class="section">
+    <div class="section-label">03 · iOS home screen</div>
+    <h2 class="section-title">apple-touch-icon in context</h2>
+    <p class="section-note">When users add nap to their iOS home screen as a PWA, this is the icon. iOS masks icons with a rounded rectangle — we use an off-white background rather than navy so the mark reads cleanly against any wallpaper.</p>
+
+    <div class="two-col">
+      <div class="ios-screen">
+        <div class="ios-notch"></div>
+        <div class="ios-status">
+          <span>9:41</span>
+          <span>●●● ▮▮▮</span>
+        </div>
+        <div class="ios-grid">
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--green"></div><span class="ios-app-label">Messages</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--blue"></div><span class="ios-app-label">Calendar</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--orange"></div><span class="ios-app-label">Camera</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--dark"></div><span class="ios-app-label">Wallet</span></div>
+
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--red"></div><span class="ios-app-label">Music</span></div>
+          <div class="ios-app"><img src="favicons/apple-touch-icon.png" alt="nap" /><span class="ios-app-label">nap</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--purple"></div><span class="ios-app-label">Notes</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--yellow"></div><span class="ios-app-label">Reminders</span></div>
+
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--blue"></div><span class="ios-app-label">Mail</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder"></div><span class="ios-app-label">Files</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--dark"></div><span class="ios-app-label">Settings</span></div>
+          <div class="ios-app"><div class="ios-app-placeholder ios-app-placeholder--green"></div><span class="ios-app-label">Maps</span></div>
+        </div>
+      </div>
+
+      <div style="padding-top: 20px;">
+        <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">
+          <p style="margin:0 0 12px 0;"><strong style="color:var(--text-primary);">The design call.</strong> Finance apps on iOS home screens tend toward navy-on-white rather than white-on-navy — it reads as professional and trustworthy rather than consumer-y. Our choice mirrors brands like Mercury, Ramp, and Brex.</p>
+          <p style="margin:0 0 12px 0;"><strong style="color:var(--text-primary);">Why off-white, not pure white.</strong> Pure white app icons read as clinical and slightly aggressive against iOS's soft system wallpapers. The warm off-white (<code style="background:var(--subtle);padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:11px;">#FAFAF7</code>) matches the product's page background for system coherence.</p>
+          <p style="margin:0;"><strong style="color:var(--text-primary);">iOS masking.</strong> The icon is saved as a straight PNG with our own rounded corners baked in at 22% radius. iOS will apply its own mask on top — our corners match iOS's native radius closely enough that there's no visible double-rounding.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Actual size comparison -->
+  <section class="section">
+    <div class="section-label">04 · Size ladder</div>
+    <h2 class="section-title">All sizes, actual pixels</h2>
+    <p class="section-note">The favicon rendered at its true pixel dimensions across every size in the set. The gold dot survives the smallest size thanks to size-adaptive tuning — its ratio increases slightly at 16px so the accent doesn't get lost in downsampling.</p>
+
+    <div class="size-row">
+      <div class="size-item">
+        <img src="favicons/favicon-16.png" width="16" height="16" alt="16px" />
+        <span class="size-item-label">16 × 16</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-32.png" width="32" height="32" alt="32px" />
+        <span class="size-item-label">32 × 32</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-48.png" width="48" height="48" alt="48px" />
+        <span class="size-item-label">48 × 48</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-64.png" width="64" height="64" alt="64px" />
+        <span class="size-item-label">64 × 64</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-128.png" width="128" height="128" alt="128px" />
+        <span class="size-item-label">128 × 128</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-512.png" width="160" height="160" alt="512px scaled" />
+        <span class="size-item-label">512 × 512</span>
+      </div>
+    </div>
+
+    <div style="height:12px;"></div>
+
+    <div class="size-row size-row--dark">
+      <div class="size-item">
+        <img src="favicons/favicon-16.png" width="16" height="16" alt="16px" />
+        <span class="size-item-label">16 × 16</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-32.png" width="32" height="32" alt="32px" />
+        <span class="size-item-label">32 × 32</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-48.png" width="48" height="48" alt="48px" />
+        <span class="size-item-label">48 × 48</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-64.png" width="64" height="64" alt="64px" />
+        <span class="size-item-label">64 × 64</span>
+      </div>
+      <div class="size-item">
+        <img src="favicons/favicon-128.png" width="128" height="128" alt="128px" />
+        <span class="size-item-label">128 × 128</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- File list -->
+  <section class="section">
+    <div class="section-label">05 · Files and usage</div>
+    <h2 class="section-title">The deliverable set</h2>
+    <p class="section-note">A complete favicon set covers every modern platform. The SVG is preferred by recent browsers; PNGs are fallbacks; apple-touch-icon and android-chrome cover mobile home-screen install.</p>
+
+    <table class="files-table">
+      <thead>
+        <tr>
+          <th style="width:30%;">File</th>
+          <th style="width:12%;">Size</th>
+          <th>Used for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>favicon.svg</code></td>
+          <td class="muted">Vector</td>
+          <td>Primary favicon — modern browsers prefer this. Scales to any size without quality loss.</td>
+        </tr>
+        <tr>
+          <td><code>favicon-16.png</code></td>
+          <td class="muted">16 × 16</td>
+          <td>Legacy browsers, tight-space UI elements</td>
+        </tr>
+        <tr>
+          <td><code>favicon-32.png</code></td>
+          <td class="muted">32 × 32</td>
+          <td>Standard favicon size, most browser tabs</td>
+        </tr>
+        <tr>
+          <td><code>favicon-48.png</code></td>
+          <td class="muted">48 × 48</td>
+          <td>Windows site tiles, Chrome bookmark manager</td>
+        </tr>
+        <tr>
+          <td><code>favicon-64.png</code></td>
+          <td class="muted">64 × 64</td>
+          <td>Retina tab favicons at 2x</td>
+        </tr>
+        <tr>
+          <td><code>favicon-128.png</code></td>
+          <td class="muted">128 × 128</td>
+          <td>Chrome Web Store, desktop shortcuts</td>
+        </tr>
+        <tr>
+          <td><code>favicon-512.png</code></td>
+          <td class="muted">512 × 512</td>
+          <td>High-res rendering source, general-purpose icon</td>
+        </tr>
+        <tr>
+          <td><code>apple-touch-icon.png</code></td>
+          <td class="muted">180 × 180</td>
+          <td>iOS home screen icon (PWA install)</td>
+        </tr>
+        <tr>
+          <td><code>android-chrome-192.png</code></td>
+          <td class="muted">192 × 192</td>
+          <td>Android home screen, PWA manifest</td>
+        </tr>
+        <tr>
+          <td><code>android-chrome-512.png</code></td>
+          <td class="muted">512 × 512</td>
+          <td>Android splash screen, PWA install prompt</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:32px;margin-bottom:10px;font-size:14px;font-weight:600;color:var(--text-primary);">HTML snippet for the site head</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0;">Drop this into the <code style="background:var(--subtle);padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">&lt;head&gt;</code> of every page. Modern browsers pick the best format; older browsers fall back automatically.</p>
+<div class="snippet"><span class="cmt">&lt;!-- Primary: SVG for modern browsers --&gt;</span>
+<span class="tag">&lt;link</span> <span class="attr">rel</span>=<span class="val">"icon"</span> <span class="attr">type</span>=<span class="val">"image/svg+xml"</span> <span class="attr">href</span>=<span class="val">"/favicon.svg"</span> <span class="tag">/&gt;</span>
+
+<span class="cmt">&lt;!-- PNG fallbacks for older browsers --&gt;</span>
+<span class="tag">&lt;link</span> <span class="attr">rel</span>=<span class="val">"icon"</span> <span class="attr">type</span>=<span class="val">"image/png"</span> <span class="attr">sizes</span>=<span class="val">"32x32"</span> <span class="attr">href</span>=<span class="val">"/favicon-32.png"</span> <span class="tag">/&gt;</span>
+<span class="tag">&lt;link</span> <span class="attr">rel</span>=<span class="val">"icon"</span> <span class="attr">type</span>=<span class="val">"image/png"</span> <span class="attr">sizes</span>=<span class="val">"16x16"</span> <span class="attr">href</span>=<span class="val">"/favicon-16.png"</span> <span class="tag">/&gt;</span>
+
+<span class="cmt">&lt;!-- iOS home screen --&gt;</span>
+<span class="tag">&lt;link</span> <span class="attr">rel</span>=<span class="val">"apple-touch-icon"</span> <span class="attr">sizes</span>=<span class="val">"180x180"</span> <span class="attr">href</span>=<span class="val">"/apple-touch-icon.png"</span> <span class="tag">/&gt;</span>
+
+<span class="cmt">&lt;!-- Android / PWA via manifest --&gt;</span>
+<span class="tag">&lt;link</span> <span class="attr">rel</span>=<span class="val">"manifest"</span> <span class="attr">href</span>=<span class="val">"/site.webmanifest"</span> <span class="tag">/&gt;</span>
+
+<span class="cmt">&lt;!-- Theme color matches brand navy --&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="val">"theme-color"</span> <span class="attr">content</span>=<span class="val">"#2F3E52"</span> <span class="tag">/&gt;</span></div>
+
+    <h3 style="margin-top:32px;margin-bottom:10px;font-size:14px;font-weight:600;color:var(--text-primary);">site.webmanifest for PWA install</h3>
+<div class="snippet">{
+  <span class="attr">"name"</span>: <span class="val">"nap"</span>,
+  <span class="attr">"short_name"</span>: <span class="val">"nap"</span>,
+  <span class="attr">"icons"</span>: [
+    {
+      <span class="attr">"src"</span>: <span class="val">"/android-chrome-192.png"</span>,
+      <span class="attr">"sizes"</span>: <span class="val">"192x192"</span>,
+      <span class="attr">"type"</span>: <span class="val">"image/png"</span>
+    },
+    {
+      <span class="attr">"src"</span>: <span class="val">"/android-chrome-512.png"</span>,
+      <span class="attr">"sizes"</span>: <span class="val">"512x512"</span>,
+      <span class="attr">"type"</span>: <span class="val">"image/png"</span>
+    }
+  ],
+  <span class="attr">"theme_color"</span>: <span class="val">"#2F3E52"</span>,
+  <span class="attr">"background_color"</span>: <span class="val">"#FAFAF7"</span>,
+  <span class="attr">"display"</span>: <span class="val">"standalone"</span>
+}</div>
+  </section>
+
+  <div style="margin-top:80px;padding-top:32px;border-top:1px solid var(--border);color:var(--text-tertiary);font-size:12px;display:flex;justify-content:space-between;align-items:center;">
+    <div>nap favicon set · v1</div>
+    <div style="font-family:'JetBrains Mono',monospace;">Inter Medium · #2F3E52 · #F4B000</div>
+  </div>
+
+</div>
+</body>
+</html>
