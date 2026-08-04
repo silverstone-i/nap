@@ -102,7 +102,7 @@ Examples of **rejected** production licenses:
 ## Contribution workflow
 
 1. Open or claim an issue describing the change.
-2. Branch from `main`.
+2. Branch from `main`. Branch names use Conventional Commits prefixes: `feat/`, `fix/`, `docs/`, `chore/` (e.g. `feat/web-app-shell`).
 3. Make your change. Follow project conventions in `CLAUDE.md` and `docs/RULES/`.
 4. Commit with `git commit -s` to attach your DCO sign-off.
 5. Push and open a PR to `main`.

@@ -5,9 +5,10 @@
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-
-import App from './App';
-import './index.css';
+import { BrowserRouter } from 'react-router';
+import CssBaseline from '@mui/material/CssBaseline';
+import { ThemeModeProvider } from './theme/ThemeModeProvider';
+import { App } from './App';
 
 const container = document.getElementById('root');
 if (container === null) {
@@ -16,6 +17,12 @@ if (container === null) {
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <ThemeModeProvider>
+      <CssBaseline />
+      {/* basename tracks Vite's `base` so the app lives under /nap/. */}
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <App />
+      </BrowserRouter>
+    </ThemeModeProvider>
   </StrictMode>
 );

@@ -4,7 +4,7 @@ Guidance for Claude Code (and contributors) working in this repository.
 
 NAP is a horizontal, project-native, multi-entity ERP. The core is industry-agnostic; the initial release targets the construction industry. See [README.md](README.md) for the full overview and [COLLABORATION.md](COLLABORATION.md) for contribution policy.
 
-> **Status:** API server shell — health check, Postgres startup probe over the db layer, module registry awaiting its first module. `apps/web` is a branded landing page; the mock-data shell walkthrough is planned — see [PRD 0001](docs/PRDs/0001-web-app-shell-and-mock-walkthrough.md). Sections marked _(planned)_ describe intent, not current state.
+> **Status:** API server shell — health check, Postgres startup probe over the db layer, module registry awaiting its first module. `apps/web` is the mock-data shell walkthrough of [PRD 0001](docs/PRDs/0001-web-app-shell-and-mock-walkthrough.md) — no real API wiring yet. Sections marked _(planned)_ describe intent, not current state.
 
 ## Stack
 
@@ -50,6 +50,7 @@ Architecture decisions live in `docs/ADRs/`. [docs/ADRs/INDEX.md](docs/ADRs/INDE
 
 - Every commit needs a DCO sign-off: use `git commit -s`. The husky `commit-msg` hook rejects commits without a valid `Signed-off-by:` trailer.
 - Subjects in the imperative mood ("Add tenant schema resolver"). Conventional Commits prefixes (`feat:`, `fix:`, `docs:`, `chore:`) encouraged, not enforced.
+- Branch names use the same prefixes with a slash: `feat/`, `fix/`, `docs/`, `chore/` (e.g. `feat/web-app-shell`).
 - Branch commits may freely mix `apps/api/` and `apps/web/` changes — PRs are squash-merged (the repo allows no other merge method), so main gets exactly one commit per PR regardless of branch history. Keep PRs scoped to one concern; the squashed commit message describes the PR, not the individual commits.
 
 ## Release rules
