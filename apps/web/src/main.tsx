@@ -10,7 +10,12 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeModeProvider } from './theme/ThemeModeProvider';
 import { App } from './App';
 
-createRoot(document.getElementById('root')!).render(
+const container = document.getElementById('root');
+if (container === null) {
+  throw new Error('Mount node #root not found');
+}
+
+createRoot(container).render(
   <StrictMode>
     <ThemeModeProvider>
       <CssBaseline />

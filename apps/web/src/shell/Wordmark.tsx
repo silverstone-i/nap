@@ -8,7 +8,7 @@ import { gold, fontSans } from '../theme/tokens';
 
 /**
  * The nap wordmark per BRAND.md — HTML/CSS, never an image. The dot is gold
- * use #1 of the four approved uses.
+ * use #1 of the three shell uses (gold discipline).
  */
 export function Wordmark({ size = 22 }: { size?: number }) {
   return (
