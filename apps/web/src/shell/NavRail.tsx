@@ -73,7 +73,9 @@ export function NavRail({ collapsed }: { collapsed: boolean }) {
   const { entityId, projectId } = useScope();
   const location = useLocation();
   const [apOpen, setApOpen] = useState(true);
-  const inboxCount = getInboxItems(entityId).length;
+  // Scoped to the active project filter so the badge always matches the
+  // list the Inbox link (which carries ?project=) opens.
+  const inboxCount = getInboxItems(entityId, projectId).length;
 
   // Preserve the project filter across module navigation within an entity.
   const search = projectId ? `?project=${projectId}` : '';
