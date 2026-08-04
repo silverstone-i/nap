@@ -20,3 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Monorepo toolchain: npm workspaces, shared strict TypeScript base config,
   ESLint 10 flat config with Prettier 3, husky DCO commit hook, Vitest suites
   in both workspaces, and GitHub Actions CI and release workflows.
+- Web app shell (PRD 0001): navigation rail, top bar, entity and project
+  switchers with URL-driven scope, user menu, and a light/dark theme that
+  follows the system preference with a per-device override.
+- Mock-data walkthrough pages: inbox, projects list and detail, and an
+  invoices list with a preview drawer — all served from typed mock selectors
+  that a future API client replaces module by module.
