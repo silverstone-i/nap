@@ -26,3 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Mock-data walkthrough pages: inbox, projects list and detail, and an
   invoices list with a preview drawer — all served from typed mock selectors
   that a future API client replaces module by module.
+
+### Changed
+
+- Web app is served from the root path (`/`) instead of the `/nap/` base path.
