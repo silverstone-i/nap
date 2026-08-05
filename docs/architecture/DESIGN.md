@@ -4,11 +4,13 @@ FOR REFERENCE ONLY. THIS IS A WORKING BASELINE, NOT A FINAL SPECIFICATION —
 EVERY DECISION IN IT IS OPEN TO REVISION AS THE PER-MODULE DETAILED DESIGNS
 TAKE SHAPE.
 
-Design baseline for NAP: a horizontal, project-native, multi-entity enterprise
-resource planning (ERP) system with an industry-agnostic core, targeting
-construction first. This document fixes the architecture, authentication,
-role-based access control (RBAC), and the module/table inventory. Each module
-gets its own detailed design doc later; this is the map they hang off.
+Reference design for NAP: a horizontal, project-native, multi-entity
+enterprise resource planning (ERP) system with an industry-agnostic core,
+targeting construction first. This document sketches one possible design for
+the architecture, authentication, role-based access control (RBAC), and the
+module/table inventory — a draft for discussion, not a decision record. A
+topic becomes decided only when an ADR records it; no other document may
+cite this one as authority.
 
 ## Table of Contents
 

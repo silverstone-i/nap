@@ -5,10 +5,7 @@ and `apps/web/src/mocks/`.
 
 ## Scope lives in the URL
 
-The app is served under the `/nap/` base path: Vite's `base` sets it and
-`BrowserRouter` takes its `basename` from `import.meta.env.BASE_URL`, so the
-two never diverge. Route paths in code (and in this doc) are written without
-the prefix.
+The app is served from the root path (`/`).
 
 Routes are `/:entityId/:module/...` (`/silverstone/inbox`,
 `/silverstone/projects/:projectId`, `/harbor/ap/invoices`); the project

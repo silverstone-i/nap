@@ -10,7 +10,7 @@ import {
   probeDb,
   resolveConnectionString,
 } from './db/index.js';
-import { createLogger, parseLogLevel } from './lib/logger.js';
+import { createLogger, parseLogLevel } from './util/logger.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
 

@@ -5,7 +5,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createLogger, parseLogLevel } from '../../src/lib/logger.js';
+import { createLogger, parseLogLevel } from '../../src/util/logger.js';
 
 describe('parseLogLevel', () => {
   it('accepts each known level', () => {

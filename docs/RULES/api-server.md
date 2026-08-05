@@ -60,7 +60,7 @@ points.
 `dist/`, and `node --watch dist/server.js` restarting the server when the
 emitted files change. There is no nodemon and no transform-only runner (tsx,
 ts-node) — what runs in dev is the emitted JS, and type errors surface in the
-watch output. See [ADR-0002](../ADRs/0002-typescript-adoption.md).
+watch output. See [ADR-0002](../ADRs/0002-technology-stack.md).
 
 `node --watch` restarts as soon as tsc re-emits; there is no restart debounce.
 

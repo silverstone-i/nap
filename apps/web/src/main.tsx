@@ -19,8 +19,7 @@ createRoot(container).render(
   <StrictMode>
     <ThemeModeProvider>
       <CssBaseline />
-      {/* basename tracks Vite's `base` so the app lives under /nap/. */}
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <BrowserRouter>
         <App />
       </BrowserRouter>
     </ThemeModeProvider>

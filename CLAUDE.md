@@ -9,7 +9,7 @@ NAP is a horizontal, project-native, multi-entity ERP. The core is industry-agno
 ## Stack
 
 - PERN: Postgres 18, Express 5, React 19, Node 24 (pinned by `.nvmrc`)
-- TypeScript, pinned `~6.0.3` — typescript-eslint supports `>=4.8.4 <6.1.0` and npm's `latest` tag points at 7.x, so a bare `npm i typescript` is wrong; keep the tilde pin and do not upgrade past the typescript-eslint supported range (see [ADR-0002](docs/ADRs/0002-typescript-adoption.md))
+- TypeScript, pinned `~6.0.3` — typescript-eslint supports `>=4.8.4 <6.1.0` and npm's `latest` tag points at 7.x, so a bare `npm i typescript` is wrong; keep the tilde pin and do not upgrade past the typescript-eslint supported range (see [ADR-0002](docs/ADRs/0002-technology-stack.md))
 - ES modules throughout (`"type": "module"`); `apps/api` compiled with `tsc` (`module: nodenext`, `target: es2023`, `strict`); `apps/web` bundled with Vite 8 (`moduleResolution: bundler`, same strictness — see [ADR-0003](docs/ADRs/0003-web-toolchain-vite-and-bundler-mode-typescript.md))
 - Lint: ESLint 10 flat config + `typescript-eslint`; format: Prettier 3 (`eslint-config-prettier` keeps them out of each other's way)
 - Schema-per-tenant isolation via the owned `pg-schemata` library _(planned)_
@@ -36,7 +36,7 @@ All checks must be green before any push.
 - `apps/api/` — Express API (TypeScript, `src/` layered per [ADR-0001](docs/ADRs/0001-api-layering-and-module-structure.md))
 - `apps/web/` — React app (Vite 8 SPA per [ADR-0003](docs/ADRs/0003-web-toolchain-vite-and-bundler-mode-typescript.md); shell conventions in [RULES/web-shell.md](docs/RULES/web-shell.md))
 - `docs/`
-  - `architecture/` — [DESIGN.md](docs/architecture/DESIGN.md), the cross-module design baseline (architecture, auth, RBAC, module/table inventory, roadmap). A working baseline, not a specification — ADRs and per-module detailed designs supersede it where they disagree.
+  - `architecture/` — [DESIGN.md](docs/architecture/DESIGN.md), for reference only: one candidate design (architecture, auth, RBAC, module/table inventory, roadmap) pending discussion. Nothing in it is decided, and no other document may cite it as authority — decisions are recorded exclusively in ADRs.
   - `branding/` — app branding
   - `PRDs/` — product requirements documents
   - `ADRs/` — architecture decision records; [ADRs/INDEX.md](docs/ADRs/INDEX.md) lists them all

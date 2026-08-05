@@ -6,10 +6,9 @@
 ## Context
 
 Employees and clients reach exactly one tenant; vendor contacts reach
-several with one login. [DESIGN.md](../architecture/DESIGN.md) fixes the
-schema — `admin.portal_users` for identity, `admin.portal_user_tenants` for
-membership — and defers the active-tenant resolution rule to this ADR
-(§2.1, §3, §5.1).
+several with one login. This ADR records the schema split —
+`admin.portal_users` for identity, `admin.portal_user_tenants` for
+membership — and the rule that resolves which tenant a login lands in.
 
 ## Decision
 
@@ -20,8 +19,7 @@ membership — and defers the active-tenant resolution rule to this ADR
    entity record in each tenant.
 3. **Employees and clients hold one active binding; vendor contacts hold
    many.** Enforced by a partial unique index on `(portal_user_id)` WHERE
-   `deactivated_at IS NULL AND user_type IN ('employee','client')` (stated
-   with the table in DESIGN.md §5.1).
+   `deactivated_at IS NULL AND user_type IN ('employee','client')`.
 4. **Login resolves the active tenant as the active binding with
    `MAX(last_used_at)` among bindings whose tenant is active.** Bindings in
    inactive or suspended tenants are skipped; login is refused only when no
@@ -45,9 +43,9 @@ membership — and defers the active-tenant resolution rule to this ADR
 
 - Adding a vendor contact to a new tenant makes that tenant their landing
   page on next login (point 4's `now()` default).
-- A tenant switch changes the permission canon, so the token's `ph` claim
-  no longer matches; the existing `X-Token-Stale` response (DESIGN.md §3)
-  drives the client to refresh. No new mechanism is needed.
+- A tenant switch changes the permission canon, so the token's permission
+  hash (`ph`) claim no longer matches; the API answers `X-Token-Stale`,
+  which drives the client to refresh. No new mechanism is needed.
 - Suspending a tenant silently retargets its vendor contacts to their next
   most-recent active tenant instead of locking them out.
 - Cross-tenant access for NAP staff and impersonation are separate
@@ -60,8 +58,8 @@ longest-held tenant makes a newly granted tenant invisible until the user
 hunts for the picker; `MAX(last_used_at)` with a `now()` default surfaces
 the new tenant immediately and thereafter follows actual use.
 
-**Tenant claim in the token.** Rejected. DESIGN.md §3 fixes the claims at
-`sub` + `ph`; embedding the tenant would force token reissue on every
+**Tenant claim in the token.** Rejected. The token claims are `sub` + `ph`
+(decision point 6); embedding the tenant would force token reissue on every
 switch and split the source of truth between cookie and server.
 
 **Tenant code on every request.** Rejected. A per-request header makes

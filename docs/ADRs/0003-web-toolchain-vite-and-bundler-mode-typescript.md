@@ -5,7 +5,7 @@
 
 ## Context
 
-[ADR-0002](0002-typescript-adoption.md) pinned the repo's TypeScript
+[ADR-0002](0002-technology-stack.md) pinned the repo's TypeScript
 settings — `module: nodenext`, `.js`-suffixed relative imports, and a
 tsc-emit dev loop — all premised on Node executing the emitted output.
 

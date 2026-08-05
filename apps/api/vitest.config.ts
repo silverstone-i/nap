@@ -7,8 +7,23 @@ import { defineConfig } from 'vitest/config';
 // environment does.
 export default defineConfig(({ mode }) => ({
   test: {
-    include: ['tests/**/*.test.ts'],
-    environment: 'node',
     env: loadEnv(mode, process.cwd(), ''),
+    projects: [
+      {
+        test: {
+          name: 'unit',
+          environment: 'node',
+          include: ['tests/**/*.test.ts'],
+          exclude: ['tests/**/*.int.test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'integration',
+          environment: 'node',
+          include: ['tests/**/*.int.test.ts'],
+        },
+      },
+    ],
   },
 }));

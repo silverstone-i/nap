@@ -21,7 +21,7 @@ export function parseLogLevel(value: string | undefined): LogLevel | undefined {
 
 /**
  * Builds a console logger. The level is passed in rather than read from the
- * environment: `lib/` is leaf code (ADR-0001), so the caller owns the
+ * environment: `util/` is leaf code (ADR-0001), so the caller owns the
  * `process.env` read.
  *
  * @param level - Minimum level to emit. Defaults to 'info'.
