@@ -1,15 +1,15 @@
 # 0006 — Tests live under `tests/`, never beside source
 
 - **Status:** Accepted
-- **Date:** 2026-08-02 (corrected 2026-08-03: `tests/` at the workspace root, not `src/tests/`)
+- **Date:** 2026-08-02 (corrected 2026-08-03: `tests/` at the workspace root,
+  not `src/tests/`; amended 2026-08-05: test-type suffixes and vitest projects)
 
 ## Context
 
-The first test files in the repo were colocated with the code they test
-(`app.test.ts` beside `app.ts`, `App.test.tsx` beside `App.tsx`), and the DB
-layer tests followed that precedent. Colocation was never a recorded decision —
-it was an accident of the first scaffold. The project's convention is the
-opposite: test code and runtime code do not share a folder.
+NAP does not use the common convention of colocating unit tests with the code
+they test (`app.test.ts` beside `app.ts`). Test code and runtime code do not
+share a folder: each workspace isolates all of its tests in a single `tests/`
+folder at the workspace root.
 
 ## Decision
 
@@ -18,6 +18,16 @@ beside `src/`, mirroring the source tree beneath it.
 `tests/db/connection.test.ts` tests `src/db/connection.ts`; a future
 `tests/modules/auth/` tests `src/modules/auth/`. No `*.test.*` file ever sits
 inside `src/`.
+
+Within the mirror, the test _type_ is carried by the filename, not the
+folder: unit tests are plain `foo.test.ts`; integration tests are
+`foo.int.test.ts` (further types get suffixes the same way, e.g.
+`foo.db.test.ts`). Each workspace's vitest config declares one project per
+type in `test.projects`, keyed off those globs — unit includes
+`tests/**/*.test.ts` and excludes `tests/**/*.int.test.ts`, integration
+includes only the latter — so each type carries its own setup and is
+selectable with `vitest --project unit` / `--project integration`, while a
+bare `vitest` still runs everything.
 
 - `apps/api`: vitest includes `tests/**/*.test.ts`. The emitting config
   (`tsconfig.build.json`) includes only `src`, so `dist/` stays pure runtime
@@ -44,6 +54,9 @@ inside `src/`.
   the workspace tsconfig; vitest is what executes those files.
 - Workspace-relative tooling globs must account for two roots (`src/**` and
   `tests/**`) where both matter.
+- Existing files predating the suffix convention rename to match it
+  (`tests/db/connection-int.test.ts` → `tests/db/connection.int.test.ts`),
+  and the api vitest config gains the `unit` / `integration` projects.
 
 ## Alternatives considered
 

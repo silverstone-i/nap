@@ -5,8 +5,8 @@
 
 ## Context
 
-Roadmap item 1 ([DESIGN.md](../architecture/DESIGN.md) §7) builds the platform
-foundation: a migrator, a module registry, the admin-schema bootstrap, tenant
+Before the first module can land, the platform foundation must exist: a
+migrator, a module registry, the admin-schema bootstrap, tenant
 provisioning, and the seed scripts that produce the login fixture. ADR-0001
 fixed the module shape — module-owned `schema/migrations/`, schema scope and
 licensability as descriptor data — but left the surrounding machinery
@@ -78,9 +78,10 @@ descriptors.
 ## Decision — `admin.countries` keys on `char(2)`
 
 `admin.countries` uses its ISO 3166-1 code as the primary key: `code char(2)`,
-no `id`, no audit columns. This is the documented exception to the universal
-uuid `id` convention in DESIGN.md §2.4. The natural key is the value every
-`country_code` column stores and joins on; a surrogate uuid over a fixed
+no `id`, no audit columns. NAP tables take a uuid `id` primary key by
+convention; `admin.countries` is the documented exception. The natural key
+is the value every `country_code` column stores and joins on; a surrogate
+uuid over a fixed
 two-letter standard would force a lookup on every FK for nothing.
 
 ## Decision — seeds are scripts, not migrations

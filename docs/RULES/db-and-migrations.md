@@ -6,7 +6,7 @@ not wired yet; this doc covers what exists and grows with them.
 ## What lives here
 
 Per [ADR-0001](../ADRs/0001-api-layering-and-module-structure.md), `db/` may
-import `lib/` and nothing else. It holds the connection singleton, the module
+import `util/` and nothing else. It holds the connection singleton, the module
 registry, and (later) the Redis client and migration runner.
 
 - `connection.ts` — connection resolution, `initDb` / `getDb` / `closeDb` / `probeDb`
