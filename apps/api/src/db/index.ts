@@ -12,6 +12,18 @@ export {
   resolveConnectionString,
 } from './connection.js';
 export {
+  migrateAdmin,
+  migrateAllTenants,
+  migrateTenant,
+  TenantMigrationsError,
+} from './migrator.js';
+export type {
+  MigrateAllTenantsOptions,
+  MigrationRunner,
+  MigratorOptions,
+  TenantMigrationResult,
+} from './migrator.js';
+export {
   collectRepositories,
   moduleRegistry,
   modulesForScope,
