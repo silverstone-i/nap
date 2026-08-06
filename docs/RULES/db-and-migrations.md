@@ -1,16 +1,17 @@
 # RULES — DB layer
 
-Governs `apps/api/src/db/`. Migration running, provisioning, and seeding are
-not wired yet; this doc covers what exists and grows with them.
+Governs `apps/api/src/db/`. Provisioning and seeding are not wired yet; this
+doc covers what exists and grows with them.
 
 ## What lives here
 
 Per [ADR-0001](../ADRs/0001-api-layering-and-module-structure.md), `db/` may
 import `util/` and nothing else. It holds the connection singleton, the module
-registry, and (later) the Redis client and migration runner.
+registry, the migrator, and (later) the Redis client.
 
 - `connection.ts` — connection resolution, `initDb` / `getDb` / `closeDb` / `probeDb`
 - `registry.ts` — the module registry and its two derived views
+- `migrator.ts` — the three migration entry points
 - `index.ts` — the barrel every other layer imports from
 
 Import from `db/index.js`, not from the files behind it.
@@ -72,6 +73,37 @@ job, so no migration ever tests which schema it is running in.
 `collectRepositories()` flattens every module's models into the single map
 `DB.init` takes, and throws when two modules claim the same repository name:
 repository names share one namespace on the db handle.
+
+## The migrator
+
+`migrator.ts` owns every migration run
+([PRD 0002](../PRDs/0002-schema-migration-and-tenant-provisioning.md)). Three
+entry points, all registry-fed:
+
+- `migrateAdmin()` — admin-scope modules against the `admin` schema.
+- `migrateTenant(schemaName)` — tenant-scope modules against one tenant
+  schema. Throws on a blank name and on `admin`: a tenant run can never
+  target the admin schema.
+- `migrateAllTenants()` — enumerates `admin.tenants` (status `active`, not
+  soft-deleted), migrates each schema sequentially, and continues past
+  failures. When any schema failed it throws `TenantMigrationsError` after
+  the run, carrying the full per-schema result list — an uncaught throw
+  exits the calling script non-zero.
+
+Rules that hold for every caller:
+
+- Scope filtering happens here via `modulesForScope`. Never construct a
+  `MigrationManager` outside `migrator.ts`, and never write a migration
+  that tests which schema it is running in.
+- Migration runs are invoked through npm scripts in `apps/api/package.json`
+  (PRD 0002), which are wired when the bootstrap and provisioning scripts
+  land.
+- `migrateAllTenants()` needs the db singleton initialized (`initDb`) —
+  tenant enumeration queries `admin.tenants` through `getDb()`. The other
+  two entry points reach the pool through pg-schemata's own singleton.
+- The entry points take injectable seams (`modules`, `createManager`,
+  `listTenantSchemas`) so unit tests run without a database. Production
+  callers pass none of them.
 
 ## Tests
 

@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Database layer over the owned pg-schemata library: connection singleton,
   module registry with schema-scope filtering, and repository-map collection
   ready for the first module's models and migrations.
+- Database migrator with three registry-fed entry points: `migrateAdmin()`,
+  `migrateTenant(schemaName)`, and `migrateAllTenants()` — scope filtering
+  via the registry, sequential per-tenant runs that continue past failures,
+  and a per-schema report that fails the calling script when any schema
+  fails.
 - Leveled console logger shared by the server and repositories.
 - Vite 8 + React 19 web client serving the branded NAP landing page.
 - Monorepo toolchain: npm workspaces, shared strict TypeScript base config,
