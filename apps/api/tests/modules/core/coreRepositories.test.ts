@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { createTables } from '../../../src/db/index.js';
 import {
   coreAdminModule,
   coreTenantModule,
@@ -50,13 +51,13 @@ describe('core module descriptors', () => {
 
   it('core-admin declares exactly the countries reference repository', () => {
     expect(coreAdminModule.models).toEqual({ countries: Countries });
-    expect(coreAdminModule.migrations).toEqual([]);
+    expect(coreAdminModule.migrations).toEqual([createTables]);
   });
 
   it('core-tenant declares the full §5.3 tenant table set', () => {
     expect(Object.keys(coreTenantModule.models ?? {})).toEqual(
       TENANT_REPOSITORY_NAMES
     );
-    expect(coreTenantModule.migrations).toEqual([]);
+    expect(coreTenantModule.migrations).toEqual([createTables]);
   });
 });

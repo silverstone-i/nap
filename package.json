@@ -1,7 +1,7 @@
 {
   "name": "nap",
   "version": "0.1.0",
-  "description": "NAP — horizontal, project-native, multi-entity ERP",
+  "description": "NAP \u2014 horizontal, project-native, multi-entity ERP",
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -12,7 +12,8 @@
     "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspace @nap/api",
     "dev:web": "npm run dev --workspace @nap/web",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:bootstrap": "npm run db:bootstrap -w @nap/api"
   },
   "keywords": [],
   "author": "",

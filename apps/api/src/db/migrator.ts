@@ -79,7 +79,7 @@ function defaultCreateManager(
 const ACTIVE_TENANT_SCHEMAS_SQL = `
   SELECT schema_name
   FROM admin.tenants
-  WHERE status = 'active' AND deleted_at IS NULL
+  WHERE status = 'active' AND deactivated_at IS NULL
   ORDER BY schema_name
 `;
 

@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+// createTables comes from the file, not the db barrel: the barrel re-exports
+// the registry, which imports this file — a barrel import here would cycle.
+import { createTables } from '../../db/createTablesMigration.js';
 import type { NapModule } from '../../db/index.js';
 import { Addresses } from './models/Addresses.js';
 import { Approvals } from './models/Approvals.js';
@@ -71,7 +74,7 @@ export const coreAdminModule: NapModule = {
   schemaScope: 'admin',
   licensable: false,
   models: { countries: Countries },
-  migrations: [],
+  migrations: [createTables],
 };
 
 export const coreTenantModule: NapModule = {
@@ -104,5 +107,5 @@ export const coreTenantModule: NapModule = {
     tenantNumberSequenceState: TenantNumberSequenceState,
     tenantPreferences: TenantPreferences,
   },
-  migrations: [],
+  migrations: [createTables],
 };

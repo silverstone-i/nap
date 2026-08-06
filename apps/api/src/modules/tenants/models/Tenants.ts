@@ -40,12 +40,14 @@ export const tenantsSchema: TableSchema = {
     { name: 'status', type: 'varchar(20)', notNull: true, default: 'pending' },
     { name: 'tier', type: 'varchar(20)' },
     { name: 'region', type: 'varchar(64)' },
+    // No ':json' mod: pg-schemata's absent-column DEFAULT sentinel is not
+    // mod-safe (the mod stringifies it into an identifier). Writers pass the
+    // value pre-serialized (JSON.stringify) instead.
     {
       name: 'allowed_modules',
       type: 'jsonb',
       notNull: true,
       default: "'[]'::jsonb",
-      colProps: { mod: ':json' },
     },
     { name: 'max_users', type: 'integer' },
     { name: 'notes', type: 'text' },

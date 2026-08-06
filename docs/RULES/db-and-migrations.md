@@ -12,6 +12,7 @@ registry, the migrator, and (later) the Redis client.
 - `connection.ts` — connection resolution, `initDb` / `getDb` / `closeDb` / `probeDb`
 - `registry.ts` — the module registry and its two derived views
 - `migrator.ts` — the three migration entry points
+- `createTablesMigration.ts` — the shared first migration every module lists
 - `rows.ts` — the shared row-type building blocks (`AuditRow`, `EntityRow`)
   matching the columns pg-schemata appends for audit fields and soft delete
 - `index.ts` — the barrel every other layer imports from
@@ -20,7 +21,10 @@ registry, the migrator, and (later) the Redis client.
 `modules/<feature>/<feature>Repositories.ts` — the one sanctioned upward
 import in the layer order, because the registry _is_ the hand-maintained list
 of modules (ADR-0001). Descriptor imports are the only thing it may pull from
-`modules/`.
+`modules/`. The mirror-image exception: descriptor files import shared
+migrations from `db/createTablesMigration.js` directly, not through
+`db/index.js` — the barrel re-exports the registry, which imports the
+descriptor files, so a barrel import there is a cycle.
 
 Import from `db/index.js`, not from the files behind it.
 
@@ -96,6 +100,40 @@ job, so no migration ever tests which schema it is running in.
 `collectRepositories()` flattens every module's models into the single map
 `DB.init` takes, and throws when two modules claim the same repository name:
 repository names share one namespace on the db handle.
+
+## Migration authoring
+
+- Migrations are `defineMigration({ id, description, up })` objects listed in
+  each descriptor's `migrations` array. Ids are unique per module; the
+  tracking key is `(schema_name, module_name, migration_id)`, so the shared
+  `createTables` migration from `db/createTablesMigration.ts` sits in every
+  descriptor's array as its first entry.
+- `createTables` loops `orderModels(ctx.models)` and calls `createTable()` on
+  each — `ctx.models` holds only the owning module's models, bound to the
+  run's schema, and the emitted DDL is `IF NOT EXISTS` throughout. A module
+  needing DDL beyond its models (generated columns, data-shape changes) adds
+  its own migrations under `modules/<feature>/schema/migrations/` and appends
+  them to its array.
+- Never edit or reformat a migration that has been applied anywhere: the
+  checksum hashes `id + description + up.toString()`, and a mismatch aborts
+  every later run. Corrections are new migrations.
+- Migrations carry DDL only (ADR-0005). Data — reference data, seeds, the
+  root tenant, the platform admin — loads through scripts.
+
+## Bootstrap
+
+`npm run db:bootstrap` (root or `apps/api`) runs
+`dist/scripts/bootstrap-admin.js` — build first. The entrypoint reads
+`ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, `ROOT_PASSWORD`,
+`BCRYPT_ROUNDS` plus the usual database URL, then calls
+`bootstrapAdmin(config, logger)` from `src/scripts/lib/bootstrapAdmin.ts`:
+create the `admin` schema → `migrateAdmin()` → insert the root
+`admin.tenants` row (schema name = tenant code lowercased) → create the root
+schema → `migrateTenant()` → seed the platform admin (portal user with a
+bcrypt hash, `sources` + `employees` rows carrying
+`roles = ['platform_admin']`, and the active `portal_user_tenants` binding).
+Every step is idempotent: a re-run applies zero migrations and inserts
+nothing. No roles rows are seeded yet — RBAC canon lands with the login work.
 
 ## The migrator
 

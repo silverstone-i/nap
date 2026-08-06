@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+// createTables comes from the file, not the db barrel: the barrel re-exports
+// the registry, which imports this file — a barrel import here would cycle.
+import { createTables } from '../../db/createTablesMigration.js';
 import type { NapModule } from '../../db/index.js';
 import { ImpersonationLogs } from './models/ImpersonationLogs.js';
 import { PortalUsers } from './models/PortalUsers.js';
@@ -26,5 +29,5 @@ export const authModule: NapModule = {
     portalUserTenants: PortalUserTenants,
     impersonationLogs: ImpersonationLogs,
   },
-  migrations: [],
+  migrations: [createTables],
 };

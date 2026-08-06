@@ -74,3 +74,19 @@ dotenv dependency; the `-if-exists` variant keeps CI, which exports its
 environment directly, from failing on the absent file). `.env` stays
 gitignored, `.env.example` is committed, and every new variable must be added
 to `.env.example` with a safe default in the same change.
+
+## Scripts
+
+`src/scripts/` entrypoints follow the `server.ts` shape: module-level
+top-level await, env read up front through small pure resolvers, `initDb()`
+before any query, `closeDb()` on every exit path, non-zero exit on failure.
+Testable logic lives beside them in `src/scripts/lib/` — env-free functions
+the entrypoint calls and tests import directly. Each entrypoint gets an npm
+script in `apps/api/package.json` shaped like `start`
+(`node --env-file-if-exists=.env dist/scripts/<name>.js` — build first),
+optionally forwarded from the root `package.json`.
+
+Current scripts: `db:bootstrap` → `dist/scripts/bootstrap-admin.js`, reading
+`ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, `ROOT_PASSWORD`,
+`BCRYPT_ROUNDS` (see [db-and-migrations.md](db-and-migrations.md) for what it
+does).
