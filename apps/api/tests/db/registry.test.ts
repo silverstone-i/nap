@@ -34,9 +34,21 @@ describe('modulesForScope', () => {
     expect(modulesForScope('tenant', modules)).toEqual([tenant]);
   });
 
-  it('returns empty for the (currently empty) real registry', () => {
-    expect(moduleRegistry).toEqual([]);
-    expect(modulesForScope('admin')).toEqual([]);
+  it('splits the real registry into its two scopes', () => {
+    expect(moduleRegistry.map(module => module.name)).toEqual([
+      'tenants',
+      'auth',
+      'core-admin',
+      'core-tenant',
+    ]);
+    expect(modulesForScope('admin').map(module => module.name)).toEqual([
+      'tenants',
+      'auth',
+      'core-admin',
+    ]);
+    expect(modulesForScope('tenant').map(module => module.name)).toEqual([
+      'core-tenant',
+    ]);
   });
 });
 

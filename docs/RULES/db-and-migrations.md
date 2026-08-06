@@ -12,7 +12,15 @@ registry, the migrator, and (later) the Redis client.
 - `connection.ts` — connection resolution, `initDb` / `getDb` / `closeDb` / `probeDb`
 - `registry.ts` — the module registry and its two derived views
 - `migrator.ts` — the three migration entry points
+- `rows.ts` — the shared row-type building blocks (`AuditRow`, `EntityRow`)
+  matching the columns pg-schemata appends for audit fields and soft delete
 - `index.ts` — the barrel every other layer imports from
+
+`registry.ts` imports each module's descriptor from
+`modules/<feature>/<feature>Repositories.ts` — the one sanctioned upward
+import in the layer order, because the registry _is_ the hand-maintained list
+of modules (ADR-0001). Descriptor imports are the only thing it may pull from
+`modules/`.
 
 Import from `db/index.js`, not from the files behind it.
 
@@ -64,9 +72,24 @@ Notes that matter when adding one:
   straight to `MigrationManager` with no adapter layer. Same thing, library's
   spelling.
 - `schemaScope` is single-valued. A module owning tables in both scopes
-  registers two descriptors (`core` will be the first).
+  registers two descriptors — `core` does exactly this (`core-admin` for
+  `admin.countries`, `core-tenant` for the tenant tables).
 - `migrations` array order is authoritative within a module; the migrator never
   re-sorts it.
+
+Conventions the registered modules follow:
+
+- A module defines its descriptor(s) in `<feature>Repositories.ts` at the
+  module root and carries a `declare module 'pg-schemata'` `Repositories`
+  augmentation there for its repository names — that augmentation is what
+  types `getDb().<repo>` and `callDb('<repo>', schema)`.
+- Table models live one-per-file in `modules/<feature>/models/`, each file
+  exporting the row type, the `TableSchema` const, and the `TableModel`
+  subclass whose constructor matches pg-schemata's `RepositoryCtor` shape.
+- Admin-scope models declare `dbSchema: 'admin'`. Tenant-scope models declare
+  the inert placeholder `dbSchema: 'tenant'`; every runtime access rebinds via
+  `forSchema()` / `callDb()` — never `SET search_path`, and never a query
+  against the placeholder schema itself.
 
 `modulesForScope(scope)` filters by scope — scope guarding is the registry's
 job, so no migration ever tests which schema it is running in.

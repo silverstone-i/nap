@@ -1,0 +1,67 @@
+/*
+ * Copyright (c) 2026–present Ian Silverstone.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+import type { IMain } from 'pg-promise';
+import { TableModel } from 'pg-schemata';
+import type { DbConnection, Logger, TableSchema } from 'pg-schemata';
+import type { EntityRow } from '../../../db/index.js';
+
+export interface CompanyMemberRow extends EntityRow {
+  company_id: string;
+  user_id: string;
+}
+
+/**
+ * User–company membership, the scope input for RBAC layer 2. `user_id`
+ * crosses schemas to `admin.portal_users`.
+ */
+export const companyMembersSchema: TableSchema = {
+  dbSchema: 'tenant',
+  table: 'company_members',
+  hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+  softDelete: true,
+  columns: [
+    {
+      name: 'id',
+      type: 'uuid',
+      default: 'gen_random_uuid()',
+      immutable: true,
+      colProps: { cnd: true },
+    },
+    { name: 'company_id', type: 'uuid', notNull: true },
+    { name: 'user_id', type: 'uuid', notNull: true },
+  ],
+  constraints: {
+    primaryKey: ['id'],
+    foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['company_id'],
+        references: { table: 'companies', columns: ['id'] },
+        onDelete: 'CASCADE',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['user_id'],
+        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
+        onDelete: 'CASCADE',
+      },
+    ],
+    indexes: [
+      {
+        columns: ['company_id', 'user_id'],
+        unique: true,
+        where: 'deactivated_at IS NULL',
+      },
+      { columns: ['user_id'] },
+    ],
+  },
+};
+
+export class CompanyMembers extends TableModel<CompanyMemberRow> {
+  constructor(db: DbConnection, pgp: IMain, logger: Logger | null = null) {
+    super(db, pgp, companyMembersSchema, logger);
+  }
+}

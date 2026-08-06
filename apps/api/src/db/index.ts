@@ -29,3 +29,4 @@ export {
   modulesForScope,
 } from './registry.js';
 export type { NapModule, SchemaScope } from './registry.js';
+export type { AuditRow, EntityRow } from './rows.js';

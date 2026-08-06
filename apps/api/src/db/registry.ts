@@ -4,6 +4,12 @@
  */
 
 import type { ModuleDescriptor, RepositoryCtor } from 'pg-schemata';
+import { authModule } from '../modules/auth/authRepositories.js';
+import {
+  coreAdminModule,
+  coreTenantModule,
+} from '../modules/core/coreRepositories.js';
+import { tenantsModule } from '../modules/tenants/tenantsRepositories.js';
 
 /** Which schema a module's tables live in (ADR-0001). */
 export type SchemaScope = 'admin' | 'tenant';
@@ -22,9 +28,16 @@ export interface NapModule extends ModuleDescriptor {
 
 /**
  * Every module known to the process. Hand-maintained: adding a module touches
- * this file and `apiRoutes.ts`, and nothing else (ADR-0001).
+ * this file and `apiRoutes.ts`, and nothing else (ADR-0001). Each module
+ * defines its descriptor in its own `<feature>Repositories.ts`; this list is
+ * the single place that turns a descriptor into a registered module.
  */
-export const moduleRegistry: NapModule[] = [];
+export const moduleRegistry: NapModule[] = [
+  tenantsModule,
+  authModule,
+  coreAdminModule,
+  coreTenantModule,
+];
 
 /**
  * Modules whose tables belong to the given schema scope. Scope filtering is
