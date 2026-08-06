@@ -162,7 +162,8 @@ export async function migrateAllTenants(
     options;
 
   const results: TenantMigrationResult[] = [];
-  for (const schemaName of await listTenantSchemas()) {
+  for (const rawName of await listTenantSchemas()) {
+    const schemaName = rawName.trim();
     try {
       const result = await migrateTenant(schemaName, migratorOptions);
       results.push({ schemaName, status: 'migrated', result });
