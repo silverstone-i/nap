@@ -10,6 +10,8 @@ import { authModule } from '../../../src/modules/auth/authRepositories.js';
 import { ImpersonationLogs } from '../../../src/modules/auth/models/ImpersonationLogs.js';
 import { PortalUsers } from '../../../src/modules/auth/models/PortalUsers.js';
 import { PortalUserTenants } from '../../../src/modules/auth/models/PortalUserTenants.js';
+import { Sessions } from '../../../src/modules/auth/models/Sessions.js';
+import { sessionsAndIdleWindow } from '../../../src/modules/auth/schema/migrations/0002-sessions-and-idle-window.js';
 
 describe('auth module descriptor', () => {
   it('registers as an admin-scope, non-licensable module', () => {
@@ -18,12 +20,16 @@ describe('auth module descriptor', () => {
     expect(authModule.licensable).toBe(false);
   });
 
-  it('declares the three auth repositories and the create-tables migration', () => {
+  it('declares the four auth repositories and both migrations in order', () => {
     expect(authModule.models).toEqual({
       portalUsers: PortalUsers,
       portalUserTenants: PortalUserTenants,
       impersonationLogs: ImpersonationLogs,
+      sessions: Sessions,
     });
-    expect(authModule.migrations).toEqual([createTables]);
+    expect(authModule.migrations).toEqual([
+      createTables,
+      sessionsAndIdleWindow,
+    ]);
   });
 });

@@ -10,12 +10,15 @@ import type { NapModule } from '../../db/index.js';
 import { ImpersonationLogs } from './models/ImpersonationLogs.js';
 import { PortalUsers } from './models/PortalUsers.js';
 import { PortalUserTenants } from './models/PortalUserTenants.js';
+import { Sessions } from './models/Sessions.js';
+import { sessionsAndIdleWindow } from './schema/migrations/0002-sessions-and-idle-window.js';
 
 declare module 'pg-schemata' {
   interface Repositories {
     portalUsers: PortalUsers;
     portalUserTenants: PortalUserTenants;
     impersonationLogs: ImpersonationLogs;
+    sessions: Sessions;
   }
 }
 
@@ -28,6 +31,7 @@ export const authModule: NapModule = {
     portalUsers: PortalUsers,
     portalUserTenants: PortalUserTenants,
     impersonationLogs: ImpersonationLogs,
+    sessions: Sessions,
   },
-  migrations: [createTables],
+  migrations: [createTables, sessionsAndIdleWindow],
 };

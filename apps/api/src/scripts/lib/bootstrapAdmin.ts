@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import bcrypt from 'bcrypt';
 import type { Logger } from 'pg-schemata';
 import { getDb, migrateAdmin, migrateTenant } from '../../db/index.js';
+import { hashPassword } from '../../util/passwordHash.js';
+import type { Argon2Params } from '../../util/passwordHash.js';
 
 /** Root identity and tenant settings, resolved from env by the entrypoint. */
 export interface BootstrapConfig {
@@ -13,7 +14,7 @@ export interface BootstrapConfig {
   company: string;
   email: string;
   password: string;
-  bcryptRounds: number;
+  argon2: Argon2Params;
 }
 
 /**
@@ -64,7 +65,9 @@ export async function bootstrapAdmin(
 
   const portalUser = await db.portalUsers.insert({
     email: config.email,
-    password_hash: await bcrypt.hash(config.password, config.bcryptRounds),
+    // The shared argon2id hasher — the only path that writes password_hash
+    // (ADR-0015 decision 4).
+    password_hash: await hashPassword(config.password, config.argon2),
     user_type: 'employee',
     status: 'active',
   });

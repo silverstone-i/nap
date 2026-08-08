@@ -35,6 +35,8 @@ describe('module registry models', () => {
     expect(handle.tenants.schema.table).toBe('tenants');
     expect(handle.portalUsers.schema.dbSchema).toBe('admin');
     expect(handle.portalUserTenants.schema.table).toBe('portal_user_tenants');
+    expect(handle.sessions.schema.dbSchema).toBe('admin');
+    expect(handle.sessions.schema.table).toBe('sessions');
     expect(handle.countries.schema.dbSchema).toBe('admin');
   });
 

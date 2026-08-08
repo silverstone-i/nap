@@ -47,10 +47,10 @@ describe('createTables migration', () => {
     expect(createTables.checksum).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it('is the single migration of every registered descriptor', () => {
+  it('is the first migration of every registered descriptor', () => {
     expect(moduleRegistry).not.toHaveLength(0);
     for (const module of moduleRegistry) {
-      expect(module.migrations, module.name).toEqual([createTables]);
+      expect(module.migrations[0], module.name).toBe(createTables);
     }
   });
 

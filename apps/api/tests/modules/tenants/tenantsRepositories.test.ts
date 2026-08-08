@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createTables } from '../../../src/db/index.js';
 import { Tenants } from '../../../src/modules/tenants/models/Tenants.js';
+import { sessionPolicyColumns } from '../../../src/modules/tenants/schema/migrations/0002-session-policy-columns.js';
 import { tenantsModule } from '../../../src/modules/tenants/tenantsRepositories.js';
 
 describe('tenants module descriptor', () => {
@@ -16,9 +17,12 @@ describe('tenants module descriptor', () => {
     expect(tenantsModule.licensable).toBe(false);
   });
 
-  it('declares the tenants repository and the create-tables migration', () => {
+  it('declares the tenants repository and both migrations in order', () => {
     expect(Object.keys(tenantsModule.models ?? {})).toEqual(['tenants']);
     expect(tenantsModule.models?.tenants).toBe(Tenants);
-    expect(tenantsModule.migrations).toEqual([createTables]);
+    expect(tenantsModule.migrations).toEqual([
+      createTables,
+      sessionPolicyColumns,
+    ]);
   });
 });

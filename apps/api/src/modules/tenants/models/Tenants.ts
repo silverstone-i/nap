@@ -18,6 +18,9 @@ export interface TenantRow extends EntityRow {
   allowed_modules: unknown;
   max_users: number | null;
   notes: string | null;
+  session_idle_min_minutes: number;
+  session_idle_max_minutes: number;
+  session_absolute_hours: number;
 }
 
 /** Tenant registry (`admin.tenants`). */
@@ -51,6 +54,26 @@ export const tenantsSchema: TableSchema = {
     },
     { name: 'max_users', type: 'integer' },
     { name: 'notes', type: 'text' },
+    // Session policy (PRD 0004, ADR-0014): idle-window bounds clamp each
+    // user's chosen window; the absolute lifetime is unconditional.
+    {
+      name: 'session_idle_min_minutes',
+      type: 'integer',
+      notNull: true,
+      default: 30,
+    },
+    {
+      name: 'session_idle_max_minutes',
+      type: 'integer',
+      notNull: true,
+      default: 120,
+    },
+    {
+      name: 'session_absolute_hours',
+      type: 'integer',
+      notNull: true,
+      default: 12,
+    },
   ],
   constraints: {
     primaryKey: ['id'],

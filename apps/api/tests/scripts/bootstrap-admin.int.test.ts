@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import bcrypt from 'bcrypt';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closeDb, getDb, initDb } from '../../src/db/index.js';
 import { bootstrapAdmin } from '../../src/scripts/lib/bootstrapAdmin.js';
 import type { BootstrapConfig } from '../../src/scripts/lib/bootstrapAdmin.js';
+import { OWASP_BASELINE, verifyPassword } from '../../src/util/passwordHash.js';
 
 // This file owns the process's one initDb() call (singleton rule) and works
 // on dedicated schemas in the test database, dropped before and after.
@@ -19,7 +19,7 @@ const CONFIG: BootstrapConfig = {
   company: 'NAP Test',
   email: 'root@bootstrap.test',
   password: 'test-password',
-  bcryptRounds: 4,
+  argon2: OWASP_BASELINE,
 };
 const TENANT_SCHEMA = 'napt';
 
@@ -29,6 +29,7 @@ const ADMIN_TABLES = [
   'portal_user_tenants',
   'portal_users',
   'schema_migrations',
+  'sessions',
   'tenants',
 ];
 
@@ -101,7 +102,7 @@ describe.skipIf(!url)('bootstrapAdmin (integration)', () => {
     expect(user?.user_type).toBe('employee');
     expect(user?.status).toBe('active');
     expect(
-      await bcrypt.compare(CONFIG.password, user?.password_hash ?? '')
+      await verifyPassword(user?.password_hash ?? '', CONFIG.password)
     ).toBe(true);
   });
 

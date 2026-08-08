@@ -113,7 +113,12 @@ repository names share one namespace on the db handle.
   run's schema, and the emitted DDL is `IF NOT EXISTS` throughout. A module
   needing DDL beyond its models (generated columns, data-shape changes) adds
   its own migrations under `modules/<feature>/schema/migrations/` and appends
-  them to its array.
+  them to its array. The pattern's first instances are the auth module's
+  `0002-sessions-and-idle-window` and the tenants module's
+  `0002-session-policy-columns`: model changes alone never reach a database
+  whose tracking table already marks `0001-create-tables` applied, so every
+  model addition or column change ships with an idempotent module migration
+  (`IF NOT EXISTS` DDL, schema taken from `ctx.schema`, never a literal).
 - Never edit or reformat a migration that has been applied anywhere: the
   checksum hashes `id + description + up.toString()`, and a mismatch aborts
   every later run. Corrections are new migrations.
@@ -124,13 +129,14 @@ repository names share one namespace on the db handle.
 
 `npm run db:bootstrap` (root or `apps/api`) runs
 `dist/scripts/bootstrap-admin.js` — build first. The entrypoint reads
-`ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, `ROOT_PASSWORD`,
-`BCRYPT_ROUNDS` plus the usual database URL, then calls
+`ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, `ROOT_PASSWORD`, and the
+`ARGON2_*` parameters plus the usual database URL, then calls
 `bootstrapAdmin(config, logger)` from `src/scripts/lib/bootstrapAdmin.ts`:
 create the `admin` schema → `migrateAdmin()` → insert the root
 `admin.tenants` row (schema name = tenant code lowercased) → create the root
-schema → `migrateTenant()` → seed the platform admin (portal user with a
-bcrypt hash, `sources` + `employees` rows carrying
+schema → `migrateTenant()` → seed the platform admin (portal user hashed by
+the shared argon2id hasher in `src/util/passwordHash.ts` — the only path
+that writes `password_hash`, ADR-0015 — `sources` + `employees` rows carrying
 `roles = ['platform_admin']`, and the active `portal_user_tenants` binding).
 Every step is idempotent: a re-run applies zero migrations and inserts
 nothing. No roles rows are seeded yet — RBAC canon lands with the login work.

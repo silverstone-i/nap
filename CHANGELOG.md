@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Authentication and session management (PRD 0004): email + password login
+  with argon2id hashing and opportunistic rehash, a 15-minute access JWT and
+  rotating opaque refresh token in httpOnly cookies, Postgres-backed sessions
+  with sliding idle expiry and an admin-owned absolute lifetime,
+  rotation-reuse revocation, tenant switching, password change that revokes
+  other sessions, and a per-user idle-window preference — six routes under
+  `/api/auth/v1`.
+- `admin.sessions` table plus session-policy columns on `admin.tenants` and
+  `admin.portal_users`, delivered to existing databases by the first
+  module-scoped migrations.
+
 - Express 5 API server shell: `GET /health`, JSON 404 and error handlers, and
   a fixed startup order that probes Postgres before listening, with graceful
   shutdown on SIGINT/SIGTERM.

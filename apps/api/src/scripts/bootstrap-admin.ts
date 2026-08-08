@@ -10,6 +10,7 @@ import {
   resolveConnectionString,
 } from '../db/index.js';
 import { createLogger, parseLogLevel } from '../util/logger.js';
+import { resolveArgon2Params } from '../util/passwordHash.js';
 import { bootstrapAdmin } from './lib/bootstrapAdmin.js';
 import type { BootstrapConfig } from './lib/bootstrapAdmin.js';
 
@@ -33,20 +34,12 @@ function resolveBootstrapConfig(env: NodeJS.ProcessEnv): BootstrapConfig {
     );
   }
 
-  const rawRounds = env.BCRYPT_ROUNDS ?? '12';
-  const bcryptRounds = Number(rawRounds);
-  if (!Number.isInteger(bcryptRounds) || bcryptRounds < 4) {
-    throw new Error(
-      `BCRYPT_ROUNDS must be an integer of at least 4, got "${rawRounds}"`
-    );
-  }
-
   return {
     tenantCode,
     company: read('ROOT_COMPANY'),
     email: read('ROOT_EMAIL'),
     password: read('ROOT_PASSWORD'),
-    bcryptRounds,
+    argon2: resolveArgon2Params(env),
   };
 }
 

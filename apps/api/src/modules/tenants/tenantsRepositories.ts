@@ -8,6 +8,7 @@
 import { createTables } from '../../db/createTablesMigration.js';
 import type { NapModule } from '../../db/index.js';
 import { Tenants } from './models/Tenants.js';
+import { sessionPolicyColumns } from './schema/migrations/0002-session-policy-columns.js';
 
 declare module 'pg-schemata' {
   interface Repositories {
@@ -21,5 +22,5 @@ export const tenantsModule: NapModule = {
   schemaScope: 'admin',
   licensable: false,
   models: { tenants: Tenants },
-  migrations: [createTables],
+  migrations: [createTables, sessionPolicyColumns],
 };

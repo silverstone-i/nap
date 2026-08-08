@@ -13,6 +13,7 @@ export interface PortalUserRow extends EntityRow {
   password_hash: string | null;
   user_type: string;
   status: string;
+  session_idle_minutes: number;
 }
 
 /**
@@ -38,6 +39,14 @@ export const portalUsersSchema: TableSchema = {
     { name: 'password_hash', type: 'text' },
     { name: 'user_type', type: 'varchar(16)', notNull: true },
     { name: 'status', type: 'varchar(20)', notNull: true, default: 'invited' },
+    // 30 | 60 | 90 | 120, enforced by the idle-window route's request schema
+    // (PRD 0004); clamped to the tenant bounds per session (ADR-0014).
+    {
+      name: 'session_idle_minutes',
+      type: 'integer',
+      notNull: true,
+      default: 30,
+    },
   ],
   constraints: {
     primaryKey: ['id'],
