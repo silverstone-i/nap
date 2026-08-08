@@ -37,22 +37,33 @@ singleton cannot be re-initialized afterwards. See
 entitlement middleware exist and must never be gated by them. Do not move it
 into a module or behind the standard per-route chain when those land.
 
-## Middleware order in `createApp()` _(applies as middleware lands)_
+## Middleware order in `createApp()`
 
-Order is significant. Body parsers, then routes, then the 404 handler, then
-the error handler — the last two only work as the final two `app.use` calls.
+Order is significant: `express.json()` and `cookie-parser`, then the `/api`
+mount of `src/apiRoutes.ts`, then the 404 handler, then the error handler —
+the last two only work as the final two `app.use` calls.
 
 The error handler takes four parameters (`err, req, res, next`). Express 5
 still detects error handlers by arity; dropping the unused `next` silently
 demotes it to ordinary middleware.
 
-## Adding a module router _(applies when the first module lands)_
+`createApp(logger?, config?)` takes an `AppConfig`
+(`src/util/appConfig.ts`): the access-token secret, cookie flags, and argon2
+parameters. The defaults exist for tests only — the secret default is a fresh
+random key per process, never a hardcoded value — and `server.ts` resolves
+the real config from env, throwing when `ACCESS_TOKEN_SECRET` is unset.
+Building the routers touches no database; handlers reach `getDb()` per
+request, so `createApp()` still works with no Postgres anywhere.
 
-Mount it in `src/apiRoutes.ts`, one `apiRoutes.use('/<feature>', <feature>V1)`
-line per module, importing from `modules/<feature>/apiRoutes/v1/`. Per
+## Adding a module router
+
+Mount it in `src/apiRoutes.ts`, one
+`apiRoutes.use('/<feature>/v1', create<Feature>V1(config))` line per module,
+importing from `modules/<feature>/apiRoutes/v1/`. Per
 [ADR-0001](../ADRs/0001-api-layering-and-module-structure.md) this file plus
 the module registry in `src/db/` are the two hand-maintained registration
-points.
+points. The auth router is the pattern's first instance (see
+[auth-module.md](auth-module.md)).
 
 ## Dev loop
 
@@ -74,3 +85,19 @@ dotenv dependency; the `-if-exists` variant keeps CI, which exports its
 environment directly, from failing on the absent file). `.env` stays
 gitignored, `.env.example` is committed, and every new variable must be added
 to `.env.example` with a safe default in the same change.
+
+## Scripts
+
+`src/scripts/` entrypoints follow the `server.ts` shape: module-level
+top-level await, env read up front through small pure resolvers, `initDb()`
+before any query, `closeDb()` on every exit path, non-zero exit on failure.
+Testable logic lives beside them in `src/scripts/lib/` — env-free functions
+the entrypoint calls and tests import directly. Each entrypoint gets an npm
+script in `apps/api/package.json` shaped like `start`
+(`node --env-file-if-exists=.env dist/scripts/<name>.js` — build first),
+optionally forwarded from the root `package.json`.
+
+Current scripts: `db:bootstrap` → `dist/scripts/bootstrap-admin.js`, reading
+`ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, `ROOT_PASSWORD`, and the
+`ARGON2_*` parameters (see [db-and-migrations.md](db-and-migrations.md) for
+what it does; [auth-module.md](auth-module.md) for the hashing rules).

@@ -10,9 +10,54 @@ import {
   probeDb,
   resolveConnectionString,
 } from './db/index.js';
+import type { AppConfig } from './util/appConfig.js';
+import type { CookieConfig } from './util/cookies.js';
 import { createLogger, parseLogLevel } from './util/logger.js';
+import { resolveArgon2Params } from './util/passwordHash.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
+
+/**
+ * Auth config from env. The signing secret gets no default — a server that
+ * would mint tokens against an unconfigured key must not start (contrast
+ * `createApp`'s per-process random default, which only tests reach).
+ *
+ * @throws {Error} When ACCESS_TOKEN_SECRET is unset, COOKIE_SAMESITE is
+ *   not one of lax | strict | none, or COOKIE_SAMESITE=none lacks
+ *   COOKIE_SECURE=true.
+ */
+function resolveAppConfig(env: NodeJS.ProcessEnv): AppConfig {
+  const secret = env.ACCESS_TOKEN_SECRET?.trim();
+  if (secret === undefined || secret === '') {
+    throw new Error(
+      'ACCESS_TOKEN_SECRET must be set (generate one: openssl rand -hex 32)'
+    );
+  }
+
+  const sameSite = (env.COOKIE_SAMESITE ?? 'lax').toLowerCase();
+  if (sameSite !== 'lax' && sameSite !== 'strict' && sameSite !== 'none') {
+    throw new Error(
+      `COOKIE_SAMESITE must be lax, strict, or none, got "${sameSite}"`
+    );
+  }
+  const cookies: CookieConfig = {
+    secure: env.COOKIE_SECURE === 'true',
+    sameSite,
+  };
+  // Browsers reject SameSite=None cookies without Secure — starting up in
+  // that state would silently break every session.
+  if (cookies.sameSite === 'none' && !cookies.secure) {
+    throw new Error(
+      'COOKIE_SAMESITE=none requires COOKIE_SECURE=true; browsers drop SameSite=None cookies that are not Secure'
+    );
+  }
+
+  return {
+    accessTokenSecret: new TextEncoder().encode(secret),
+    cookies,
+    argon2: resolveArgon2Params(env),
+  };
+}
 
 /**
  * Validated listen port. `listen(NaN)` binds a random port instead of
@@ -34,6 +79,7 @@ function resolvePort(env: NodeJS.ProcessEnv): number {
 // serve traffic against an unreachable database.
 const logger = createLogger(parseLogLevel(process.env.LOG_LEVEL));
 const port = resolvePort(process.env);
+const appConfig = resolveAppConfig(process.env);
 
 initDb(resolveConnectionString(process.env), logger);
 
@@ -45,7 +91,7 @@ try {
   process.exit(1);
 }
 
-const server = createApp(logger).listen(port, () => {
+const server = createApp(logger, appConfig).listen(port, () => {
   logger.info(`@nap/api listening on port ${port}`);
 });
 

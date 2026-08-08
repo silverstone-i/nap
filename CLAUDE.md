@@ -36,9 +36,9 @@ All checks must be green before any push.
 - `apps/api/` — Express API (TypeScript, `src/` layered per [ADR-0001](docs/ADRs/0001-api-layering-and-module-structure.md))
 - `apps/web/` — React app (Vite 8 SPA per [ADR-0003](docs/ADRs/0003-web-toolchain-vite-and-bundler-mode-typescript.md); shell conventions in [RULES/web-shell.md](docs/RULES/web-shell.md))
 - `docs/`
-  - `architecture/` — [DESIGN.md](docs/architecture/DESIGN.md), for reference only: one candidate design (architecture, auth, RBAC, module/table inventory, roadmap) pending discussion. Nothing in it is decided, and no other document may cite it as authority — decisions are recorded exclusively in ADRs.
+  - `architecture/` — [OVERVIEW.md](docs/architecture/OVERVIEW.md), the authoritative module map linking each component to its PRDs, ADRs, and RULES docs; [DESIGN.md](docs/architecture/DESIGN.md), for reference only: one candidate design (architecture, auth, RBAC, module/table inventory, roadmap) pending discussion. Nothing in it is decided, and no other document may cite it as authority — decisions are recorded exclusively in ADRs.
   - `branding/` — app branding
-  - `PRDs/` — product requirements documents
+  - `PRDs/` — product requirements documents, one per module functional component; format governed by [RULES/prd-format.md](docs/RULES/prd-format.md)
   - `ADRs/` — architecture decision records; [ADRs/INDEX.md](docs/ADRs/INDEX.md) lists them all
   - `RULES/` — per-module rules docs. Any change to server code must update the corresponding rules doc, or the PR must carry a `no-doc-change` label with justification.
 

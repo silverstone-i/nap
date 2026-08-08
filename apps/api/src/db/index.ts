@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+export { createTables } from './createTablesMigration.js';
 export {
   closeDb,
   getDb,
@@ -29,3 +30,4 @@ export {
   modulesForScope,
 } from './registry.js';
 export type { NapModule, SchemaScope } from './registry.js';
+export type { AuditRow, EntityRow } from './rows.js';

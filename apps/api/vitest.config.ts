@@ -22,6 +22,9 @@ export default defineConfig(({ mode }) => ({
           name: 'integration',
           environment: 'node',
           include: ['tests/**/*.int.test.ts'],
+          // The int files share (and drop) the admin schema in the test
+          // database; they must not run concurrently.
+          fileParallelism: false,
         },
       },
     ],

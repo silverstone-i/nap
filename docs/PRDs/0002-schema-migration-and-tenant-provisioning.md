@@ -78,7 +78,7 @@ idempotent, so repeated calls across migrations are free.
 
 No extension is expected in the initial migrations: Postgres 18 ships uuid
 generation (`gen_random_uuid()`, `uuidv7()`) in core, and password hashing
-is Node-side bcrypt.
+is Node-side argon2id.
 
 ### Tenant provisioning
 
@@ -117,13 +117,14 @@ the provisioning workflow above for the root tenant.
 The root tenant differs from a paying client in two respects: an empty
 database has no operator to supply step 3's user information, so the root
 admin's identity comes from the environment — `ROOT_TENANT_CODE`,
-`ROOT_COMPANY`, `ROOT_EMAIL`, `ROOT_PASSWORD`, `BCRYPT_ROUNDS` — and the
-bootstrap script feeds it through the same workflow, assigning
-`platform_admin` in place of `tenant_admin`. These variables land
-in `apps/api/.env.example` with safe local defaults in the same change
-that first reads them ([RULES/api-server.md](../RULES/api-server.md)). The `admin`
-schema holds the global tables; the `nap` schema holds the root tenant's
-tenant-scope tables, exactly like any other tenant schema holds its own.
+`ROOT_COMPANY`, `ROOT_EMAIL`, `ROOT_PASSWORD`, `ARGON2_MEMORY_KIB`,
+`ARGON2_TIME_COST`, `ARGON2_PARALLELISM` — and the bootstrap script feeds
+it through the same workflow, assigning `platform_admin` in place of
+`tenant_admin`. These variables land in `apps/api/.env.example` with
+safe local defaults in the same change that first reads them
+([RULES/api-server.md](../RULES/api-server.md)). The `admin` schema holds
+the global tables; the `nap` schema holds the root tenant's tenant-scope
+tables, exactly like any other tenant schema holds its own.
 
 Running the script twice succeeds; the second run applies zero migrations
 and changes no data.

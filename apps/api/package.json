@@ -7,7 +7,9 @@
     "start": "node --env-file-if-exists=.env dist/server.js",
     "typecheck": "tsc --noEmit",
     "build": "tsc --project tsconfig.build.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:bootstrap": "node --env-file-if-exists=.env dist/scripts/bootstrap-admin.js",
+    "db:reset": "node --env-file-if-exists=.env scripts/reset-dev-db.mjs"
   },
   "keywords": [],
   "author": "",
@@ -18,10 +20,15 @@
     "node": ">=24"
   },
   "dependencies": {
+    "argon2": "^0.45.1",
+    "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
-    "pg-schemata": "^2.0.0"
+    "jose": "^6.2.8",
+    "pg-schemata": "^2.0.0",
+    "zod": "^3.25.63"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/node": "^24.13.3",
     "@types/supertest": "^7.2.1",

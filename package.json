@@ -1,7 +1,7 @@
 {
   "name": "nap",
   "version": "0.1.0",
-  "description": "NAP — horizontal, project-native, multi-entity ERP",
+  "description": "NAP \u2014 horizontal, project-native, multi-entity ERP",
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -12,7 +12,9 @@
     "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspace @nap/api",
     "dev:web": "npm run dev --workspace @nap/web",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:bootstrap": "npm run db:bootstrap -w @nap/api",
+    "db:reset": "npm run db:reset -w @nap/api"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +40,7 @@
     "typescript-eslint": "^8.65.0"
   },
   "allowScripts": {
+    "argon2@0.45.1": true,
     "fsevents@2.3.3": true
   }
 }
