@@ -55,6 +55,11 @@ describe('hashPassword / verifyPassword', () => {
     expect(await verifyPassword(digest, 'correct horse')).toBe(true);
     expect(await verifyPassword(digest, 'wrong horse')).toBe(false);
   });
+
+  it('fails closed on a malformed digest', async () => {
+    expect(await verifyPassword('not-an-argon2-digest', 'pw')).toBe(false);
+    expect(await verifyPassword('$argon2id$corrupted', 'pw')).toBe(false);
+  });
 });
 
 describe('needsRehash', () => {
@@ -66,6 +71,10 @@ describe('needsRehash', () => {
   it('is true when configuration has been raised', async () => {
     const digest = await hashPassword('pw', OWASP_BASELINE);
     expect(needsRehash(digest, { ...OWASP_BASELINE, timeCost: 3 })).toBe(true);
+  });
+
+  it('is false for an unparsable digest', () => {
+    expect(needsRehash('not-an-argon2-digest', OWASP_BASELINE)).toBe(false);
   });
 });
 

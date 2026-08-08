@@ -20,9 +20,11 @@ export interface BootstrapConfig {
 /**
  * Takes an empty database to a working platform: admin schema and tables,
  * the root tenant with a fully migrated tenant schema, and one platform
- * admin who can log in (PRD 0002). Every step is idempotent — a re-run
- * applies zero migrations and inserts nothing. Data lives here and not in
- * migrations (ADR-0005: migrations carry DDL only).
+ * admin who can log in (PRD 0002). Every resource is ensured independently
+ * (find-then-insert), so a re-run after a partial failure completes the
+ * missing pieces and a full re-run applies zero migrations and inserts
+ * nothing. Data lives here and not in migrations (ADR-0005: migrations
+ * carry DDL only).
  *
  * Requires `initDb()` to have run; errors propagate so the entrypoint owns
  * exit codes.
@@ -55,44 +57,54 @@ export async function bootstrapAdmin(
   await db.none('CREATE SCHEMA IF NOT EXISTS $1:name', [schemaName]);
   await migrateTenant(schemaName, { logger });
 
-  const existingUser = await db.portalUsers.findOneBy([
-    { email: config.email },
-  ]);
-  if (existingUser !== null) {
-    logger?.info?.(`Platform admin "${config.email}" already exists`);
-    return;
+  let portalUser = await db.portalUsers.findOneBy([{ email: config.email }]);
+  if (portalUser === null) {
+    portalUser = await db.portalUsers.insert({
+      email: config.email,
+      // The shared argon2id hasher — the only path that writes password_hash
+      // (ADR-0015 decision 4).
+      password_hash: await hashPassword(config.password, config.argon2),
+      user_type: 'employee',
+      status: 'active',
+    });
+    logger?.info?.(`Created platform admin "${config.email}"`);
   }
-
-  const portalUser = await db.portalUsers.insert({
-    email: config.email,
-    // The shared argon2id hasher — the only path that writes password_hash
-    // (ADR-0015 decision 4).
-    password_hash: await hashPassword(config.password, config.argon2),
-    user_type: 'employee',
-    status: 'active',
-  });
 
   const sources = db.sources.forSchema(schemaName);
   const employees = db.employees.forSchema(schemaName);
-  const source = await sources.insert({ source_type: 'employee' });
-  const employee = await employees.insert({
-    source_id: source.id,
-    first_name: 'Platform',
-    last_name: 'Admin',
-    code: 'ROOT',
-    roles: ['platform_admin'],
-    is_app_user: true,
-  });
-  // updateWhere, not update(id, …): update() writes the full column set and
-  // nulls out anything absent from the DTO.
-  await sources.updateWhere([{ id: source.id }], { table_id: employee.id });
+  let employee = await employees.findOneBy([{ code: 'ROOT' }]);
+  if (employee === null) {
+    const source = await sources.insert({ source_type: 'employee' });
+    employee = await employees.insert({
+      source_id: source.id,
+      first_name: 'Platform',
+      last_name: 'Admin',
+      code: 'ROOT',
+      roles: ['platform_admin'],
+      is_app_user: true,
+    });
+  }
 
-  await db.portalUserTenants.insert({
-    portal_user_id: portalUser.id,
-    tenant_id: tenant.id,
-    user_type: 'employee',
-    entity_id: employee.id,
-    status: 'active',
-  });
-  logger?.info?.(`Created platform admin "${config.email}"`);
+  const source = await sources.findById(employee.source_id);
+  if (source?.table_id !== employee.id) {
+    // updateWhere, not update(id, …): update() writes the full column set and
+    // nulls out anything absent from the DTO.
+    await sources.updateWhere([{ id: employee.source_id }], {
+      table_id: employee.id,
+    });
+  }
+
+  const binding = await db.portalUserTenants.findOneBy([
+    { portal_user_id: portalUser.id, tenant_id: tenant.id },
+  ]);
+  if (binding === null) {
+    await db.portalUserTenants.insert({
+      portal_user_id: portalUser.id,
+      tenant_id: tenant.id,
+      user_type: 'employee',
+      entity_id: employee.id,
+      status: 'active',
+    });
+    logger?.info?.(`Bound "${config.email}" to tenant "${config.tenantCode}"`);
+  }
 }

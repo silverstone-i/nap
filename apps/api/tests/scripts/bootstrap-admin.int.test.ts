@@ -150,4 +150,31 @@ describe.skipIf(!url)('bootstrapAdmin (integration)', () => {
     const after = await getDb().one<Record<string, string>>(countsSql);
     expect(after).toEqual(before);
   });
+
+  it('completes a partially bootstrapped state on re-run', async () => {
+    const db = getDb();
+    // Simulate a crash between the portal-user insert and the binding
+    // insert, plus a lost source back-link.
+    await db.none('DELETE FROM admin.portal_user_tenants');
+    await db.none('UPDATE $1:name.sources SET table_id = NULL', [
+      TENANT_SCHEMA,
+    ]);
+
+    await bootstrapAdmin(CONFIG);
+
+    const user = await db.portalUsers.findOneBy([{ email: CONFIG.email }]);
+    const binding = await db.portalUserTenants.findOneBy([
+      { portal_user_id: user?.id },
+    ]);
+    expect(binding).not.toBeNull();
+    expect(binding?.status).toBe('active');
+
+    const employee = await db.employees
+      .forSchema(TENANT_SCHEMA)
+      .findById(binding?.entity_id ?? '');
+    const source = await db.sources
+      .forSchema(TENANT_SCHEMA)
+      .findById(employee?.source_id ?? '');
+    expect(source?.table_id).toBe(employee?.id);
+  });
 });

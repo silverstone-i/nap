@@ -22,8 +22,9 @@ const SHUTDOWN_GRACE_MS = 10_000;
  * would mint tokens against an unconfigured key must not start (contrast
  * `createApp`'s per-process random default, which only tests reach).
  *
- * @throws {Error} When ACCESS_TOKEN_SECRET is unset or COOKIE_SAMESITE is
- *   not one of lax | strict | none.
+ * @throws {Error} When ACCESS_TOKEN_SECRET is unset, COOKIE_SAMESITE is
+ *   not one of lax | strict | none, or COOKIE_SAMESITE=none lacks
+ *   COOKIE_SECURE=true.
  */
 function resolveAppConfig(env: NodeJS.ProcessEnv): AppConfig {
   const secret = env.ACCESS_TOKEN_SECRET?.trim();
@@ -43,6 +44,13 @@ function resolveAppConfig(env: NodeJS.ProcessEnv): AppConfig {
     secure: env.COOKIE_SECURE === 'true',
     sameSite,
   };
+  // Browsers reject SameSite=None cookies without Secure — starting up in
+  // that state would silently break every session.
+  if (cookies.sameSite === 'none' && !cookies.secure) {
+    throw new Error(
+      'COOKIE_SAMESITE=none requires COOKIE_SECURE=true; browsers drop SameSite=None cookies that are not Secure'
+    );
+  }
 
   return {
     accessTokenSecret: new TextEncoder().encode(secret),

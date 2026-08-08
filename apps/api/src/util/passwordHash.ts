@@ -88,24 +88,37 @@ export function hashPassword(
   });
 }
 
-/** Verifies a password against a stored digest; false on any mismatch. */
-export function verifyPassword(
+/**
+ * Verifies a password against a stored digest; false on any mismatch. A
+ * malformed digest fails closed as a mismatch — a corrupted `password_hash`
+ * refuses the login rather than crashing it.
+ */
+export async function verifyPassword(
   digest: string,
   password: string
 ): Promise<boolean> {
-  return verify(digest, password);
+  try {
+    return await verify(digest, password);
+  } catch {
+    return false;
+  }
 }
 
 /**
  * True when the digest's recorded parameters lag `params`, meaning the hash
- * should be recomputed on this login (ADR-0015: opportunistic rehash).
+ * should be recomputed on this login (ADR-0015: opportunistic rehash). An
+ * unparsable digest is false — there is nothing meaningful to rehash from.
  */
 export function needsRehash(digest: string, params: Argon2Params): boolean {
-  return argon2NeedsRehash(digest, {
-    memoryCost: params.memoryKib,
-    timeCost: params.timeCost,
-    parallelism: params.parallelism,
-  });
+  try {
+    return argon2NeedsRehash(digest, {
+      memoryCost: params.memoryKib,
+      timeCost: params.timeCost,
+      parallelism: params.parallelism,
+    });
+  } catch {
+    return false;
+  }
 }
 
 let dummyHash: Promise<string> | null = null;
