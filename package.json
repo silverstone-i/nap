@@ -13,7 +13,8 @@
     "dev": "npm run dev --workspace @nap/api",
     "dev:web": "npm run dev --workspace @nap/web",
     "prepare": "husky",
-    "db:bootstrap": "npm run db:bootstrap -w @nap/api"
+    "db:bootstrap": "npm run db:bootstrap -w @nap/api",
+    "db:reset": "npm run db:reset -w @nap/api"
   },
   "keywords": [],
   "author": "",

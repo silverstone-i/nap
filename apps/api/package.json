@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --project tsconfig.build.json",
     "test": "vitest run",
-    "db:bootstrap": "node --env-file-if-exists=.env dist/scripts/bootstrap-admin.js"
+    "db:bootstrap": "node --env-file-if-exists=.env dist/scripts/bootstrap-admin.js",
+    "db:reset": "node --env-file-if-exists=.env scripts/reset-dev-db.mjs"
   },
   "keywords": [],
   "author": "",
