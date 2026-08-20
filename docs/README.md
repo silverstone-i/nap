@@ -9,16 +9,17 @@ rules.
 There is no single linear hierarchy in which every document answers every
 question. Authority is divided by purpose:
 
-| Document                                                    | Sole purpose                                                                           | Authority                                 |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
-| [`PRD 0000`](PRDs/0000-nap-platform-architecture.md)        | Current platform requirements and architectural guardrails                             | Current architecture source of truth      |
-| Component PRDs                                              | Current behavior, data, API, and acceptance criteria for one functional component      | Current component source of truth         |
-| [`PROJECT-STRUCTURE.md`](architecture/PROJECT-STRUCTURE.md) | Current repository layout, import boundaries, module ownership, and deployment mapping | Current structural source of truth        |
-| [`ADRs`](ADRs/INDEX.md)                                     | Why a decision was made, alternatives, consequences, and supersession history          | Decision record                           |
-| [`RULES`](RULES/)                                           | Exact implementation or documentation conventions for a defined scope                  | Current local implementation rules        |
-| [`DEVELOPMENT-ROADMAP.md`](roadmaps/DEVELOPMENT-ROADMAP.md) | Build order, dependencies, and phase gates                                             | Planning only                             |
-| [`reference/`](reference/)                                  | Inputs used while preparing PRDs and migrations                                        | Non-authoritative                         |
-| [`CLAUDE.md`](../CLAUDE.md)                                 | Contributor and coding-agent entry point                                               | Navigation and repository operations only |
+| Document                                                            | Sole purpose                                                                           | Authority                                 |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
+| [`PRD 0000`](PRDs/0000-nap-platform-architecture.md)                | Current platform requirements and architectural guardrails                             | Current architecture source of truth      |
+| Component PRDs                                                      | Current behavior, data, API, and acceptance criteria for one functional component      | Current component source of truth         |
+| [`PROJECT-STRUCTURE.md`](architecture/PROJECT-STRUCTURE.md)         | Current repository layout, import boundaries, module ownership, and deployment mapping | Current structural source of truth        |
+| [`ADRs`](ADRs/INDEX.md)                                             | Why a decision was made, alternatives, consequences, and supersession history          | Decision record                           |
+| [`RULES`](RULES/)                                                   | Exact implementation or documentation conventions for a defined scope                  | Current local implementation rules        |
+| [`DEVELOPMENT-ROADMAP.md`](roadmaps/DEVELOPMENT-ROADMAP.md)         | Build order, dependencies, and phase gates                                             | Planning only                             |
+| [`WEB-DEVELOPMENT-ROADMAP.md`](roadmaps/WEB-DEVELOPMENT-ROADMAP.md) | Web build order, the mock-to-real data seam, and web phase gates                       | Planning only                             |
+| [`reference/`](reference/)                                          | Inputs used while preparing PRDs and migrations                                        | Non-authoritative                         |
+| [`CLAUDE.md`](../CLAUDE.md)                                         | Contributor and coding-agent entry point                                               | Navigation and repository operations only |
 
 Documents with different purposes must agree. None may silently override
 another document's scope.
@@ -32,7 +33,9 @@ Before planning or implementing work:
 3. Read the relevant component PRD.
 4. Read `ADRs/INDEX.md`, then every ADR related to the work.
 5. Read every RULES file governing the files being changed.
-6. Consult the roadmap only for sequencing and dependency context.
+6. Consult the roadmaps only for sequencing and dependency context: the
+   development roadmap for API, database, and isolation order, and the web
+   roadmap for web build order and the mock-data seam.
 7. Consult reference material only as input; never treat it as a decision.
 
 If the component PRD does not exist, writing and accepting it is the first
@@ -52,7 +55,7 @@ update every affected PRD requirement
           ├──► update PROJECT-STRUCTURE if ownership or layout changed
           ├──► update applicable RULES if implementation changed
           ├──► update ADR index and cross-references
-          └──► update roadmap only if sequencing changed
+          └──► update the roadmaps only if sequencing changed
 ```
 
 A RULES change that alters externally observable behavior or architecture also
@@ -68,8 +71,9 @@ not leave PRDs, structure, ADR status, and RULES inconsistent.
   not redefine the requirements.
 - RULES reference requirement IDs and specify the coding pattern that satisfies
   them.
-- The roadmap references requirement IDs and module ownership rather than
-  copying requirements or table inventories.
+- The roadmaps reference requirement IDs and module ownership rather than
+  copying requirements or table inventories. The web roadmap's API-phase
+  alignment is a suggestion; the development roadmap owns API sequencing.
 - `CLAUDE.md` links to authoritative documents rather than summarizing them.
 - Reference material may overlap historical inputs because it is explicitly
   non-authoritative; current PRDs and migrations own implemented details.
