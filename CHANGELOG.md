@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-08-20
+
 ### Added
 
 - Architecture documentation baseline: PRD 0000, ADRs 0001-0004 and their
