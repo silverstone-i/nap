@@ -13,6 +13,10 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Added
 
+- Web application development roadmap (`docs/roadmaps/WEB-DEVELOPMENT-ROADMAP.md`)
+  defining web phases `W0`-`W11`, the mock-to-real selector cutover contract,
+  and per-phase gates, with a suggested alignment to the platform development
+  roadmap's API phases.
 - Committed VS Code configuration in `.vscode/`: extension recommendations,
   workspace settings pinning the editor to the repository TypeScript and
   formatting on save with Prettier, and launch configurations for the API
