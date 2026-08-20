@@ -8,13 +8,13 @@ It is a logical schema for the first migrations. Exact indexes, checks, generate
 
 ## 1. Database boundaries
 
-| Database | Schema | Purpose |
-| --- | --- | --- |
-| `nap_admin` | `admin` | Global identities, sessions, tenant registry, user-to-tenant access, cell registry, tenant-to-cell assignment, and impersonation audit |
-| `nap_cell_n` | `cell` | Cell-local tenant and user-binding projections needed for local enforcement |
-| `nap_cell_n` | `reference` | Shared, non-tenant reference data and application metadata |
-| `nap_cell_n` | `app` | Shared tenant business tables; every row is tenant-scoped and protected by RLS |
-| `nap_cell_n` | `reporting` | Tenant-aware views over RLS-protected `app` tables |
+| Database     | Schema      | Purpose                                                                                                                                |
+| ------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `nap_admin`  | `admin`     | Global identities, sessions, tenant registry, user-to-tenant access, cell registry, tenant-to-cell assignment, and impersonation audit |
+| `nap_cell_n` | `cell`      | Cell-local tenant and user-binding projections needed for local enforcement                                                            |
+| `nap_cell_n` | `reference` | Shared, non-tenant reference data and application metadata                                                                             |
+| `nap_cell_n` | `app`       | Shared tenant business tables; every row is tenant-scoped and protected by RLS                                                         |
+| `nap_cell_n` | `reporting` | Tenant-aware views over RLS-protected `app` tables                                                                                     |
 
 There are no cross-database foreign keys. Central identifiers copied into a cell remain UUIDs, and the application is responsible for synchronizing them through controlled provisioning and membership workflows.
 
@@ -245,118 +245,118 @@ All tables below are in the `app` schema and include the tenant-table columns de
 
 ### Core master data
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `sources` | `table_id uuid`, `source_type varchar(32)`, `label varchar(64)` | Unique active `(tenant_id, table_id, source_type)`; owner registry for polymorphic contact data |
-| `vendors` | `source_id uuid`, `name varchar(128)`, `code varchar(16)`, `payment_term_id uuid`, `is_active boolean`, `notes text` | Composite FKs to `sources` and `payment_terms`; unique active `(tenant_id, code)` |
-| `vendor_contacts` | `vendor_id uuid`, `source_id uuid`, `first_name varchar(64)`, `last_name varchar(64)`, `position varchar(64)`, `department varchar(64)`, `is_app_user boolean`, `roles text[]`, `is_primary boolean` | Composite FKs to `vendors` and `sources` |
-| `clients` | `source_id uuid`, `name varchar(128)`, `code varchar(16)`, `roles text[]`, `is_app_user boolean`, `is_active boolean` | Composite FK to `sources`; unique active `(tenant_id, code)` |
-| `employees` | `source_id uuid`, `first_name varchar(64)`, `last_name varchar(64)`, `code varchar(16)`, `position varchar(64)`, `department varchar(64)`, `roles text[]`, `is_app_user boolean`, `is_primary_contact boolean`, `is_billing_contact boolean` | Composite FK to `sources`; unique active `(tenant_id, code)` |
-| `contacts` | `source_id uuid`, `name varchar(128)`, `code varchar(16)`, `is_active boolean` | Composite FK to `sources`; unique active `(tenant_id, code)` |
-| `companies` | `source_id uuid`, `code varchar(16)`, `name varchar(128)`, `is_active boolean` | Composite FK to `sources`; unique active `(tenant_id, code)` |
-| `company_members` | `company_id uuid`, `tenant_user_binding_id uuid` | Composite FKs to `companies` and `cell.tenant_user_bindings`; unique active pair |
-| `payment_terms` | `label varchar(64)`, `term integer`, `units varchar(16)`, `is_active boolean` | Unique active `(tenant_id, label)`; units: days or months |
-| `addresses` | `source_id uuid`, `label varchar(32)`, address lines, city, state/province, postal code, `country_code char(2)`, `is_primary boolean` | Composite FK to `sources`; country FK to `reference.countries` |
-| `phone_numbers` | `source_id uuid`, `phone_type varchar(16)`, `country_code char(2)`, `phone_number varchar(32)`, `is_primary boolean` | Composite FK to `sources`; country FK to `reference.countries` |
-| `emails` | `source_id uuid`, `email varchar(128)`, `label varchar(32)`, `is_primary boolean`, `is_login boolean` | Composite FK to `sources`; unique active normalized `(tenant_id, email)` |
-| `tax_identifiers` | `source_id uuid`, `country_code char(2)`, `tax_type varchar(16)`, `tax_value_encrypted text`, `tax_value_hash text`, `is_primary boolean` | Composite FK to `sources`; country FK; encrypt value and use hash for equality checks |
+| Table             | Module fields                                                                                                                                                                                                                                | Key relationships and constraints                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `sources`         | `table_id uuid`, `source_type varchar(32)`, `label varchar(64)`                                                                                                                                                                              | Unique active `(tenant_id, table_id, source_type)`; owner registry for polymorphic contact data |
+| `vendors`         | `source_id uuid`, `name varchar(128)`, `code varchar(16)`, `payment_term_id uuid`, `is_active boolean`, `notes text`                                                                                                                         | Composite FKs to `sources` and `payment_terms`; unique active `(tenant_id, code)`               |
+| `vendor_contacts` | `vendor_id uuid`, `source_id uuid`, `first_name varchar(64)`, `last_name varchar(64)`, `position varchar(64)`, `department varchar(64)`, `is_app_user boolean`, `roles text[]`, `is_primary boolean`                                         | Composite FKs to `vendors` and `sources`                                                        |
+| `clients`         | `source_id uuid`, `name varchar(128)`, `code varchar(16)`, `roles text[]`, `is_app_user boolean`, `is_active boolean`                                                                                                                        | Composite FK to `sources`; unique active `(tenant_id, code)`                                    |
+| `employees`       | `source_id uuid`, `first_name varchar(64)`, `last_name varchar(64)`, `code varchar(16)`, `position varchar(64)`, `department varchar(64)`, `roles text[]`, `is_app_user boolean`, `is_primary_contact boolean`, `is_billing_contact boolean` | Composite FK to `sources`; unique active `(tenant_id, code)`                                    |
+| `contacts`        | `source_id uuid`, `name varchar(128)`, `code varchar(16)`, `is_active boolean`                                                                                                                                                               | Composite FK to `sources`; unique active `(tenant_id, code)`                                    |
+| `companies`       | `source_id uuid`, `code varchar(16)`, `name varchar(128)`, `is_active boolean`                                                                                                                                                               | Composite FK to `sources`; unique active `(tenant_id, code)`                                    |
+| `company_members` | `company_id uuid`, `tenant_user_binding_id uuid`                                                                                                                                                                                             | Composite FKs to `companies` and `cell.tenant_user_bindings`; unique active pair                |
+| `payment_terms`   | `label varchar(64)`, `term integer`, `units varchar(16)`, `is_active boolean`                                                                                                                                                                | Unique active `(tenant_id, label)`; units: days or months                                       |
+| `addresses`       | `source_id uuid`, `label varchar(32)`, address lines, city, state/province, postal code, `country_code char(2)`, `is_primary boolean`                                                                                                        | Composite FK to `sources`; country FK to `reference.countries`                                  |
+| `phone_numbers`   | `source_id uuid`, `phone_type varchar(16)`, `country_code char(2)`, `phone_number varchar(32)`, `is_primary boolean`                                                                                                                         | Composite FK to `sources`; country FK to `reference.countries`                                  |
+| `emails`          | `source_id uuid`, `email varchar(128)`, `label varchar(32)`, `is_primary boolean`, `is_login boolean`                                                                                                                                        | Composite FK to `sources`; unique active normalized `(tenant_id, email)`                        |
+| `tax_identifiers` | `source_id uuid`, `country_code char(2)`, `tax_type varchar(16)`, `tax_value_encrypted text`, `tax_value_hash text`, `is_primary boolean`                                                                                                    | Composite FK to `sources`; country FK; encrypt value and use hash for equality checks           |
 
 ### RBAC and tenant configuration
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `roles` | `code varchar(32)`, `name varchar(64)`, `description text`, `is_system boolean`, `is_immutable boolean`, `scope varchar(32)` | Unique active `(tenant_id, code)`; scope: all_projects, assigned_companies, assigned_projects, or self |
-| `policies` | `role_id uuid`, `module varchar(32)`, `router varchar(64)`, `action varchar(32)`, `level varchar(8)` | Composite FK to `roles`; FK target tuple to `reference.policy_catalog`; unique active grant |
-| `state_filters` | `role_id uuid`, `module varchar(32)`, `router varchar(64)`, `visible_statuses text[]` | Composite FK to `roles`; unique active `(tenant_id, role_id, module, router)` |
-| `field_group_definitions` | `module varchar(32)`, `router varchar(64)`, `group_name varchar(64)`, `columns text[]`, `is_default boolean` | Unique active `(tenant_id, module, router, group_name)` |
-| `field_group_grants` | `role_id uuid`, `field_group_id uuid` | Composite FKs to `roles` and `field_group_definitions`; unique active pair |
-| `approvals` | `entity_type varchar(32)`, `entity_id uuid`, `action varchar(32)`, `prior_status varchar(20)`, `new_status varchar(20)`, `reason text` | Append-only polymorphic workflow audit; index `(tenant_id, entity_type, entity_id, created_at)` |
-| `tenant_approval_config` | `workflow_type varchar(32)`, `require_approval boolean` | Unique active `(tenant_id, workflow_type)` |
-| `tenant_numbering_config` | `id_type varchar(32)`, prefix/suffix, date/reset modes, padding, separator, uppercase, `scope_type varchar(32)`, `is_enabled boolean` | Unique active `(tenant_id, id_type)` |
-| `tenant_number_sequence_state` | `id_type varchar(32)`, `scope_id uuid`, `period_key varchar(16)`, `last_serial bigint` | Unique `(tenant_id, id_type, scope_id, period_key)`; update atomically |
-| `tenant_preferences` | `default_page_size integer` | One active row per tenant |
+| Table                          | Module fields                                                                                                                          | Key relationships and constraints                                                                      |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `roles`                        | `code varchar(32)`, `name varchar(64)`, `description text`, `is_system boolean`, `is_immutable boolean`, `scope varchar(32)`           | Unique active `(tenant_id, code)`; scope: all_projects, assigned_companies, assigned_projects, or self |
+| `policies`                     | `role_id uuid`, `module varchar(32)`, `router varchar(64)`, `action varchar(32)`, `level varchar(8)`                                   | Composite FK to `roles`; FK target tuple to `reference.policy_catalog`; unique active grant            |
+| `state_filters`                | `role_id uuid`, `module varchar(32)`, `router varchar(64)`, `visible_statuses text[]`                                                  | Composite FK to `roles`; unique active `(tenant_id, role_id, module, router)`                          |
+| `field_group_definitions`      | `module varchar(32)`, `router varchar(64)`, `group_name varchar(64)`, `columns text[]`, `is_default boolean`                           | Unique active `(tenant_id, module, router, group_name)`                                                |
+| `field_group_grants`           | `role_id uuid`, `field_group_id uuid`                                                                                                  | Composite FKs to `roles` and `field_group_definitions`; unique active pair                             |
+| `approvals`                    | `entity_type varchar(32)`, `entity_id uuid`, `action varchar(32)`, `prior_status varchar(20)`, `new_status varchar(20)`, `reason text` | Append-only polymorphic workflow audit; index `(tenant_id, entity_type, entity_id, created_at)`        |
+| `tenant_approval_config`       | `workflow_type varchar(32)`, `require_approval boolean`                                                                                | Unique active `(tenant_id, workflow_type)`                                                             |
+| `tenant_numbering_config`      | `id_type varchar(32)`, prefix/suffix, date/reset modes, padding, separator, uppercase, `scope_type varchar(32)`, `is_enabled boolean`  | Unique active `(tenant_id, id_type)`                                                                   |
+| `tenant_number_sequence_state` | `id_type varchar(32)`, `scope_id uuid`, `period_key varchar(16)`, `last_serial bigint`                                                 | Unique `(tenant_id, id_type, scope_id, period_key)`; update atomically                                 |
+| `tenant_preferences`           | `default_page_size integer`                                                                                                            | One active row per tenant                                                                              |
 
 ### Projects
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `projects` | `company_id uuid`, `address_id uuid`, `project_code varchar(32)`, `name varchar(255)`, description, notes, `status varchar(20)`, `contract_amount numeric(14,2)` | Composite FKs to `companies` and `addresses`; unique active `(tenant_id, project_code)` |
-| `project_clients` | `project_id uuid`, `client_id uuid`, `role varchar(32)`, `is_primary boolean` | Composite FKs to `projects` and `clients`; unique active project/client pair |
-| `project_members` | `project_id uuid`, `tenant_user_binding_id uuid`, `role varchar(32)` | Composite FKs to `projects` and `cell.tenant_user_bindings`; unique active pair |
-| `units` | `project_id uuid`, `template_unit_id uuid`, `version_used integer`, `name varchar(128)`, `unit_code varchar(32)`, `status varchar(20)` | Composite FKs to `projects` and optional `template_units`; unique active `(tenant_id, project_id, unit_code)` |
-| `task_groups` | `code varchar(16)`, `name varchar(64)`, `description text`, `sort_order integer` | Unique active `(tenant_id, code)` |
-| `tasks_master` | `code varchar(16)`, `task_group_id uuid`, `name varchar(128)`, `default_duration_days integer` | Composite FK to `task_groups`; unique active `(tenant_id, code)` |
-| `tasks` | `unit_id uuid`, `task_code varchar(16)`, `name varchar(128)`, `duration_days integer`, `status varchar(20)`, `parent_task_id uuid` | Composite FKs to `units` and self; unique active `(tenant_id, unit_id, task_code)` |
-| `cost_items` | `task_id uuid`, `item_code varchar(16)`, description, `cost_class varchar(16)`, `cost_source varchar(16)`, `quantity numeric(12,4)`, `unit_cost numeric(12,4)`, generated `amount numeric(14,2)` | Composite FK to `tasks`; unique active `(tenant_id, task_id, item_code)` |
-| `change_orders` | `unit_id uuid`, `co_number varchar(16)`, title, reason, status, total amount, submit/post actor and timestamps | Composite FK to `units`; unique active `(tenant_id, unit_id, co_number)` |
-| `template_units` | `name varchar(128)`, `version integer`, `status varchar(20)` | Unique active `(tenant_id, name, version)` |
-| `template_tasks` | `template_unit_id uuid`, `task_code varchar(16)`, name, duration, `parent_code varchar(16)` | Composite FK to `template_units`; unique active `(tenant_id, template_unit_id, task_code)` |
-| `template_cost_items` | `template_task_id uuid`, item code, description, cost class/source, quantity, unit cost, generated amount | Composite FK to `template_tasks`; unique active item code per template task |
-| `template_change_orders` | `template_unit_id uuid`, `co_number varchar(16)`, title, reason, total amount | Composite FK to `template_units`; unique active number per template unit |
+| Table                    | Module fields                                                                                                                                                                                    | Key relationships and constraints                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `projects`               | `company_id uuid`, `address_id uuid`, `project_code varchar(32)`, `name varchar(255)`, description, notes, `status varchar(20)`, `contract_amount numeric(14,2)`                                 | Composite FKs to `companies` and `addresses`; unique active `(tenant_id, project_code)`                       |
+| `project_clients`        | `project_id uuid`, `client_id uuid`, `role varchar(32)`, `is_primary boolean`                                                                                                                    | Composite FKs to `projects` and `clients`; unique active project/client pair                                  |
+| `project_members`        | `project_id uuid`, `tenant_user_binding_id uuid`, `role varchar(32)`                                                                                                                             | Composite FKs to `projects` and `cell.tenant_user_bindings`; unique active pair                               |
+| `units`                  | `project_id uuid`, `template_unit_id uuid`, `version_used integer`, `name varchar(128)`, `unit_code varchar(32)`, `status varchar(20)`                                                           | Composite FKs to `projects` and optional `template_units`; unique active `(tenant_id, project_id, unit_code)` |
+| `task_groups`            | `code varchar(16)`, `name varchar(64)`, `description text`, `sort_order integer`                                                                                                                 | Unique active `(tenant_id, code)`                                                                             |
+| `tasks_master`           | `code varchar(16)`, `task_group_id uuid`, `name varchar(128)`, `default_duration_days integer`                                                                                                   | Composite FK to `task_groups`; unique active `(tenant_id, code)`                                              |
+| `tasks`                  | `unit_id uuid`, `task_code varchar(16)`, `name varchar(128)`, `duration_days integer`, `status varchar(20)`, `parent_task_id uuid`                                                               | Composite FKs to `units` and self; unique active `(tenant_id, unit_id, task_code)`                            |
+| `cost_items`             | `task_id uuid`, `item_code varchar(16)`, description, `cost_class varchar(16)`, `cost_source varchar(16)`, `quantity numeric(12,4)`, `unit_cost numeric(12,4)`, generated `amount numeric(14,2)` | Composite FK to `tasks`; unique active `(tenant_id, task_id, item_code)`                                      |
+| `change_orders`          | `unit_id uuid`, `co_number varchar(16)`, title, reason, status, total amount, submit/post actor and timestamps                                                                                   | Composite FK to `units`; unique active `(tenant_id, unit_id, co_number)`                                      |
+| `template_units`         | `name varchar(128)`, `version integer`, `status varchar(20)`                                                                                                                                     | Unique active `(tenant_id, name, version)`                                                                    |
+| `template_tasks`         | `template_unit_id uuid`, `task_code varchar(16)`, name, duration, `parent_code varchar(16)`                                                                                                      | Composite FK to `template_units`; unique active `(tenant_id, template_unit_id, task_code)`                    |
+| `template_cost_items`    | `template_task_id uuid`, item code, description, cost class/source, quantity, unit cost, generated amount                                                                                        | Composite FK to `template_tasks`; unique active item code per template task                                   |
+| `template_change_orders` | `template_unit_id uuid`, `co_number varchar(16)`, title, reason, total amount                                                                                                                    | Composite FK to `template_units`; unique active number per template unit                                      |
 
 ### Activities and budgets
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `categories` | `code varchar(16)`, `name varchar(64)`, `type varchar(16)` | Unique active `(tenant_id, code)` |
-| `activities` | `category_id uuid`, `code varchar(16)`, `name varchar(64)`, `is_active boolean` | Composite FK to `categories`; unique active `(tenant_id, category_id, code)` |
-| `deliverables` | name, description, `effect varchar(16)`, `status varchar(20)`, start/end dates | Index `(tenant_id, status)` |
-| `deliverable_assignments` | `deliverable_id uuid`, `project_id uuid`, `employee_id uuid`, notes | Composite FKs to all parents; unique active assignment |
-| `budgets` | `deliverable_id uuid`, `activity_id uuid`, amount, version, current flag, status, submit/approve actors and timestamps | Composite FKs; unique `(tenant_id, deliverable_id, activity_id, version)`; one current row |
-| `cost_lines` | company, deliverable, vendor, activity and budget IDs; tenant SKU, source type, quantity, unit price, generated amount, markup, status | Composite FKs to local parents; index project-cost reporting paths |
-| `actual_costs` | `activity_id uuid`, `project_id uuid`, amount, currency, reference, approval status, incurred date | Composite FKs to `activities` and `projects` |
-| `vendor_parts` | `vendor_id uuid`, vendor SKU, tenant SKU, unit cost, currency, markup, active flag | Composite FK to `vendors`; unique active `(tenant_id, vendor_id, vendor_sku)` |
+| Table                     | Module fields                                                                                                                          | Key relationships and constraints                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `categories`              | `code varchar(16)`, `name varchar(64)`, `type varchar(16)`                                                                             | Unique active `(tenant_id, code)`                                                          |
+| `activities`              | `category_id uuid`, `code varchar(16)`, `name varchar(64)`, `is_active boolean`                                                        | Composite FK to `categories`; unique active `(tenant_id, category_id, code)`               |
+| `deliverables`            | name, description, `effect varchar(16)`, `status varchar(20)`, start/end dates                                                         | Index `(tenant_id, status)`                                                                |
+| `deliverable_assignments` | `deliverable_id uuid`, `project_id uuid`, `employee_id uuid`, notes                                                                    | Composite FKs to all parents; unique active assignment                                     |
+| `budgets`                 | `deliverable_id uuid`, `activity_id uuid`, amount, version, current flag, status, submit/approve actors and timestamps                 | Composite FKs; unique `(tenant_id, deliverable_id, activity_id, version)`; one current row |
+| `cost_lines`              | company, deliverable, vendor, activity and budget IDs; tenant SKU, source type, quantity, unit price, generated amount, markup, status | Composite FKs to local parents; index project-cost reporting paths                         |
+| `actual_costs`            | `activity_id uuid`, `project_id uuid`, amount, currency, reference, approval status, incurred date                                     | Composite FKs to `activities` and `projects`                                               |
+| `vendor_parts`            | `vendor_id uuid`, vendor SKU, tenant SKU, unit cost, currency, markup, active flag                                                     | Composite FK to `vendors`; unique active `(tenant_id, vendor_id, vendor_sku)`              |
 
 ### Accounts payable
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `ap_invoices` | company, vendor and project IDs; invoice number/date, due date, total, currency, status, notes | Composite FKs; unique active `(tenant_id, vendor_id, invoice_number)` |
-| `ap_invoice_lines` | `invoice_id uuid`, optional cost line/activity/account IDs, description, amount | Composite FKs to invoice and referenced local rows |
-| `payments` | vendor ID, optional convenience invoice ID, payment date, amount, method, reference, notes | Composite FKs; append financial events rather than destructive edits after posting |
-| `payment_allocations` | `payment_id uuid`, `ap_invoice_id uuid`, amount | Composite FKs; unique payment/invoice pair |
-| `ap_credit_memos` | vendor/invoice IDs, credit number/date, amount, reason, status | Composite FKs; unique active `(tenant_id, vendor_id, credit_number)` |
+| Table                 | Module fields                                                                                  | Key relationships and constraints                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `ap_invoices`         | company, vendor and project IDs; invoice number/date, due date, total, currency, status, notes | Composite FKs; unique active `(tenant_id, vendor_id, invoice_number)`              |
+| `ap_invoice_lines`    | `invoice_id uuid`, optional cost line/activity/account IDs, description, amount                | Composite FKs to invoice and referenced local rows                                 |
+| `payments`            | vendor ID, optional convenience invoice ID, payment date, amount, method, reference, notes     | Composite FKs; append financial events rather than destructive edits after posting |
+| `payment_allocations` | `payment_id uuid`, `ap_invoice_id uuid`, amount                                                | Composite FKs; unique payment/invoice pair                                         |
+| `ap_credit_memos`     | vendor/invoice IDs, credit number/date, amount, reason, status                                 | Composite FKs; unique active `(tenant_id, vendor_id, credit_number)`               |
 
 ### Accounts receivable
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `ar_invoices` | company, client, project, deliverable and agreement IDs; invoice number/date, due date, total, currency, status, notes | Composite FKs; invoice-number uniqueness includes tenant and its configured scope |
-| `ar_invoice_lines` | `invoice_id uuid`, optional account ID, description, amount | Composite FKs to invoice and account |
-| `receipts` | client ID, optional convenience invoice ID, receipt date, amount, method, reference, notes | Composite FKs; append financial events after posting |
-| `receipt_allocations` | `receipt_id uuid`, `ar_invoice_id uuid`, amount | Composite FKs; unique receipt/invoice pair |
-| `billing_agreements` | company, client and project IDs; name, agreement type, total, status, notes | Composite FKs |
-| `billing_agreement_milestones` | `billing_agreement_id uuid`, `deliverable_id uuid`, sequence | Composite FKs; unique agreement/deliverable pair and sequence |
+| Table                          | Module fields                                                                                                          | Key relationships and constraints                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `ar_invoices`                  | company, client, project, deliverable and agreement IDs; invoice number/date, due date, total, currency, status, notes | Composite FKs; invoice-number uniqueness includes tenant and its configured scope |
+| `ar_invoice_lines`             | `invoice_id uuid`, optional account ID, description, amount                                                            | Composite FKs to invoice and account                                              |
+| `receipts`                     | client ID, optional convenience invoice ID, receipt date, amount, method, reference, notes                             | Composite FKs; append financial events after posting                              |
+| `receipt_allocations`          | `receipt_id uuid`, `ar_invoice_id uuid`, amount                                                                        | Composite FKs; unique receipt/invoice pair                                        |
+| `billing_agreements`           | company, client and project IDs; name, agreement type, total, status, notes                                            | Composite FKs                                                                     |
+| `billing_agreement_milestones` | `billing_agreement_id uuid`, `deliverable_id uuid`, sequence                                                           | Composite FKs; unique agreement/deliverable pair and sequence                     |
 
 ### Accounting
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `ledgers` | company ID, code, name, basis, default flag, status | Composite FK to `companies`; unique active `(tenant_id, company_id, code)`; one default per company/basis |
-| `company_accounting_config` | company ID, book basis, revenue-recognition policy, WIP policy | Composite FK; one active row per company |
-| `chart_of_accounts` | code, name, type, active flag, encrypted bank details where required | Unique active `(tenant_id, code)`; do not store unencrypted account/routing values |
-| `journal_entries` | company, ledger, optional project IDs; entry date, description, status, source type/id, correction ID | Composite FKs; posted rows immutable; corrections reference original |
-| `journal_entry_lines` | entry/account IDs, debit, credit, memo, related table/id | Composite FKs; check exactly one of debit/credit is positive |
-| `ledger_balances` | ledger/account IDs, as-of date, balance | Composite FKs; append-only; unique `(tenant_id, ledger_id, account_id, as_of_date)` |
-| `posting_queues` | journal entry ID, status, error message, processed timestamp | Composite FK; unique active queue item per journal entry |
-| `posting_rules` | ledger ID, event type, debit/credit account roles, recognition date, validity dates | Composite FK; no overlapping active period for the same ledger/event |
-| `category_account_map` | category/account IDs, validity dates | Composite FKs; no overlapping period for a category |
-| `company_accounts` | source/target company IDs, intercompany account ID, active flag | Composite FKs; unique active company pair |
-| `company_transactions` | source/target company and journal-entry IDs, module, amount, status, elimination flag, description | Composite FKs; posted rows immutable |
-| `internal_transfers` | from/to account IDs, transfer date, amount, description | Composite FKs; accounts must differ |
-| `fiscal_periods` | company/ledger IDs, fiscal year, period number, name, date range, status, close/lock timestamps | Composite FKs; non-overlapping ranges per ledger; unique year/period |
+| Table                       | Module fields                                                                                         | Key relationships and constraints                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `ledgers`                   | company ID, code, name, basis, default flag, status                                                   | Composite FK to `companies`; unique active `(tenant_id, company_id, code)`; one default per company/basis |
+| `company_accounting_config` | company ID, book basis, revenue-recognition policy, WIP policy                                        | Composite FK; one active row per company                                                                  |
+| `chart_of_accounts`         | code, name, type, active flag, encrypted bank details where required                                  | Unique active `(tenant_id, code)`; do not store unencrypted account/routing values                        |
+| `journal_entries`           | company, ledger, optional project IDs; entry date, description, status, source type/id, correction ID | Composite FKs; posted rows immutable; corrections reference original                                      |
+| `journal_entry_lines`       | entry/account IDs, debit, credit, memo, related table/id                                              | Composite FKs; check exactly one of debit/credit is positive                                              |
+| `ledger_balances`           | ledger/account IDs, as-of date, balance                                                               | Composite FKs; append-only; unique `(tenant_id, ledger_id, account_id, as_of_date)`                       |
+| `posting_queues`            | journal entry ID, status, error message, processed timestamp                                          | Composite FK; unique active queue item per journal entry                                                  |
+| `posting_rules`             | ledger ID, event type, debit/credit account roles, recognition date, validity dates                   | Composite FK; no overlapping active period for the same ledger/event                                      |
+| `category_account_map`      | category/account IDs, validity dates                                                                  | Composite FKs; no overlapping period for a category                                                       |
+| `company_accounts`          | source/target company IDs, intercompany account ID, active flag                                       | Composite FKs; unique active company pair                                                                 |
+| `company_transactions`      | source/target company and journal-entry IDs, module, amount, status, elimination flag, description    | Composite FKs; posted rows immutable                                                                      |
+| `internal_transfers`        | from/to account IDs, transfer date, amount, description                                               | Composite FKs; accounts must differ                                                                       |
+| `fiscal_periods`            | company/ledger IDs, fiscal year, period number, name, date range, status, close/lock timestamps       | Composite FKs; non-overlapping ranges per ledger; unique year/period                                      |
 
 ### Catalog add-on
 
 The catalog tables exist in every cell migration so all tenants in a shared database have the same physical schema. The API blocks their use unless the tenant's entitlement includes the catalog module.
 
-| Table | Module fields | Key relationships and constraints |
-| --- | --- | --- |
-| `catalog_items` | catalog SKU, description/normalized description, category, subcategory, model, optional embedding | Unique active `(tenant_id, catalog_sku)`; pgvector column is migration-managed |
-| `bom_components` | parent/child item IDs, quantity | Composite FKs to `catalog_items`; unique pair; parent and child differ; application prevents cycles |
-| `vendor_skus` | vendor ID, vendor SKU, descriptions, optional catalog item ID, confidence, model, optional embedding | Composite FKs; unique active `(tenant_id, vendor_id, vendor_sku)` |
-| `vendor_pricing` | vendor SKU ID, unit price, unit, effective date | Composite FK; unique `(tenant_id, vendor_sku_id, effective_date)` |
-| `match_review_logs` | entity type/id, match type/id, reviewer portal-user ID, decision, notes | Append-only audit; index entity and reviewer paths |
+| Table               | Module fields                                                                                        | Key relationships and constraints                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `catalog_items`     | catalog SKU, description/normalized description, category, subcategory, model, optional embedding    | Unique active `(tenant_id, catalog_sku)`; pgvector column is migration-managed                      |
+| `bom_components`    | parent/child item IDs, quantity                                                                      | Composite FKs to `catalog_items`; unique pair; parent and child differ; application prevents cycles |
+| `vendor_skus`       | vendor ID, vendor SKU, descriptions, optional catalog item ID, confidence, model, optional embedding | Composite FKs; unique active `(tenant_id, vendor_id, vendor_sku)`                                   |
+| `vendor_pricing`    | vendor SKU ID, unit price, unit, effective date                                                      | Composite FK; unique `(tenant_id, vendor_sku_id, effective_date)`                                   |
+| `match_review_logs` | entity type/id, match type/id, reviewer portal-user ID, decision, notes                              | Append-only audit; index entity and reviewer paths                                                  |
 
 ## 6. Reporting views
 

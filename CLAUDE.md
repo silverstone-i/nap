@@ -48,7 +48,7 @@ Run checks from the repository root using the Node version pinned by `.nvmrc`:
 - `npm run build`
 - `npm run format:check`
 
-The API development loop is `npm run dev`; the web development server is
+The API development loop is `npm run dev:api`; the web development server is
 `npm run dev:web`. The web development server does not replace the typecheck.
 All applicable checks must pass before a push.
 
@@ -86,7 +86,7 @@ NAP is licensed AGPL-3.0-or-later. New source files use the appropriate comment
 syntax for:
 
 ```text
-Copyright (c) 2026–present Ian Silverstone.
+Copyright (c) 2026–present NapSoft, LLC.
 SPDX-License-Identifier: AGPL-3.0-or-later
 ```
 

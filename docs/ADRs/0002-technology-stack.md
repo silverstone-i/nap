@@ -33,8 +33,7 @@ the exact installed versions.
   and `.js` suffixes on relative source imports.
 - Use `pg-schemata` as the owned PostgreSQL data-access and migration library.
 - Use signed JWTs in httpOnly cookies for client session tokens; current
-  session and authorization state remains database-authoritative under PRD
-  0000.
+  session and authorization state remains database-authoritative under PRD 0000.
 
 ### Database and storage
 
@@ -106,4 +105,3 @@ availability must not define security correctness.
 
 **Bundling PostgreSQL with the API deployment.** Rejected. It would couple data
 recovery to application lifecycle in conflict with `ARCH-036`.
-

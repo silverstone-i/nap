@@ -9,16 +9,16 @@ rules.
 There is no single linear hierarchy in which every document answers every
 question. Authority is divided by purpose:
 
-| Document | Sole purpose | Authority |
-| --- | --- | --- |
-| [`PRD 0000`](PRDs/0000-nap-platform-architecture.md) | Current platform requirements and architectural guardrails | Current architecture source of truth |
-| Component PRDs | Current behavior, data, API, and acceptance criteria for one functional component | Current component source of truth |
-| [`PROJECT-STRUCTURE.md`](architecture/PROJECT-STRUCTURE.md) | Current repository layout, import boundaries, module ownership, and deployment mapping | Current structural source of truth |
-| [`ADRs`](ADRs/INDEX.md) | Why a decision was made, alternatives, consequences, and supersession history | Decision record |
-| [`RULES`](RULES/) | Exact implementation or documentation conventions for a defined scope | Current local implementation rules |
-| [`DEVELOPMENT-ROADMAP.md`](roadmaps/DEVELOPMENT-ROADMAP.md) | Build order, dependencies, and phase gates | Planning only |
-| [`reference/`](reference/) | Inputs used while preparing PRDs and migrations | Non-authoritative |
-| [`CLAUDE.md`](../CLAUDE.md) | Contributor and coding-agent entry point | Navigation and repository operations only |
+| Document                                                    | Sole purpose                                                                           | Authority                                 |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
+| [`PRD 0000`](PRDs/0000-nap-platform-architecture.md)        | Current platform requirements and architectural guardrails                             | Current architecture source of truth      |
+| Component PRDs                                              | Current behavior, data, API, and acceptance criteria for one functional component      | Current component source of truth         |
+| [`PROJECT-STRUCTURE.md`](architecture/PROJECT-STRUCTURE.md) | Current repository layout, import boundaries, module ownership, and deployment mapping | Current structural source of truth        |
+| [`ADRs`](ADRs/INDEX.md)                                     | Why a decision was made, alternatives, consequences, and supersession history          | Decision record                           |
+| [`RULES`](RULES/)                                           | Exact implementation or documentation conventions for a defined scope                  | Current local implementation rules        |
+| [`DEVELOPMENT-ROADMAP.md`](roadmaps/DEVELOPMENT-ROADMAP.md) | Build order, dependencies, and phase gates                                             | Planning only                             |
+| [`reference/`](reference/)                                  | Inputs used while preparing PRDs and migrations                                        | Non-authoritative                         |
+| [`CLAUDE.md`](../CLAUDE.md)                                 | Contributor and coding-agent entry point                                               | Navigation and repository operations only |
 
 Documents with different purposes must agree. None may silently override
 another document's scope.

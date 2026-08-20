@@ -1,0 +1,199 @@
+# Releases automatically when a labeled PR merges into main.
+#
+# Aggregates release labels (release:patch | release:minor | release:major)
+# across every PR merged since the last release tag and applies the highest,
+# then bumps the version in the root package.json, promotes the CHANGELOG
+# [Unreleased] section to the new version, commits, pushes an annotated tag,
+# and creates the GitHub Release inline. A merge with no unreleased labels
+# does not release.
+#
+# The GitHub Release is created in this job rather than by a tag-triggered
+# workflow: tags pushed with GITHUB_TOKEN deliberately do not trigger other
+# workflows. Creating it inline removes the cross-workflow dependency. nap
+# has no tag-triggered workflows, so the deploy-key tag push fires nothing.
+#
+# nap deploys nowhere yet: this workflow ends at the GitHub Release. When a
+# deploy platform lands, gate it here (deploy hooks pinned to the bump commit
+# SHA) so unlabeled merges never deploy.
+#
+# workflow_dispatch runs in recovery mode: no bump, no tag - it re-creates
+# the GitHub Release for the version already on main if the tag exists but
+# the Release is missing (e.g. a run that tagged and then failed).
+#
+# Prerequisites:
+#   - The three release:* labels created in the repository
+#   - RELEASE_DEPLOY_KEY secret: private half of a write deploy key, with
+#     deploy keys on the main ruleset's bypass list. The version-bump commit
+#     lands directly on main; the ruleset blocks github-actions[bot], so the
+#     push authenticates as the deploy key instead.
+
+name: Release on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env:
+      # npm ci runs the root "prepare" script, which activates husky's hooks
+      # in the runner; HUSKY=0 keeps them out of the bot's bump commit.
+      HUSKY: 0
+
+    # Mirrors ci.yml: the pre-bump checks below are the same checks, so they
+    # need the same database or a release fails on tests that just passed.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: nap_admin
+          POSTGRES_PASSWORD: nap_test
+          POSTGRES_DB: nap_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nap_admin"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      # The bump is derived from ALL PRs merged since the last release tag,
+      # not just the triggering PR. GitHub's concurrency group keeps one
+      # running and one pending run per group - a third merge replaces the
+      # pending run - so a per-PR bump could silently drop a queued release's
+      # label. With since-last-tag aggregation, whichever run executes next
+      # picks up every unreleased label and applies the highest one.
+      - name: Determine bump type from unreleased PR labels
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "type=release-only" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch: ensuring a GitHub Release exists for the version on main, no bump"
+            exit 0
+          fi
+          last_tag=$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -v -- '-rc\.' | head -1 || true)
+          if [ -n "$last_tag" ]; then
+            since=$(git log -1 --format=%cI "$last_tag")
+            merged_labels=$(gh pr list --state merged --base main --search "merged:>$since" --limit 200 --json labels --jq '.[].labels[].name' || true)
+            echo "PRs merged since $last_tag ($since) carry labels: $merged_labels"
+          else
+            merged_labels=""
+            echo "No previous release tag found; using this PR's labels only"
+          fi
+          # Include the triggering PR's labels directly in case the search
+          # index has not caught up with the merge that fired this run.
+          all_labels="$merged_labels $EVENT_LABELS"
+          type=none
+          echo "$all_labels" | grep -q 'release:patch' && type=patch
+          echo "$all_labels" | grep -q 'release:minor' && type=minor
+          echo "$all_labels" | grep -q 'release:major' && type=major
+          echo "type=$type" >> "$GITHUB_OUTPUT"
+          echo "Aggregated labels: '$all_labels' -> bump: $type"
+
+      - name: Setup Node.js
+        if: steps.bump.outputs.type != 'none'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.bump.outputs.type != 'none'
+        run: npm ci
+
+      - name: Lint
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run lint
+
+      - name: Format check
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run format:check
+
+      - name: Typecheck
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run typecheck
+
+      - name: Test
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        env:
+          CI: true
+          DATABASE_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_test
+        run: npm test
+
+      - name: Build
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run build
+
+      - name: License check
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run licenses
+
+      - name: Bump version and promote changelog
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        id: version
+        run: |
+          npm version "${{ steps.bump.outputs.type }}" --no-git-tag-version
+          version=$(node -p "require('./package.json').version")
+          # Promote [Unreleased] and re-insert a fresh empty [Unreleased] above
+          # it, so the next branch never has to repair the heading. If the
+          # heading is missing entirely, self-heal: insert both headings above
+          # the first changelog content — entry lines as well as version
+          # sections, so unheaded notes end up under the promoted version.
+          if grep -q '^## \[Unreleased\]' CHANGELOG.md; then
+            sed -i "s/^## \[Unreleased\]/## [Unreleased]\n\n## [v$version] - $(date +%F)/" CHANGELOG.md
+          else
+            awk -v heading="## [v$version] - $(date +%F)" '
+              !done && (/^## \[/ || /^### / || /^[-*] /) { print "## [Unreleased]\n\n" heading "\n"; done=1 }
+              { print }
+              END { if (!done) print "\n## [Unreleased]\n\n" heading }
+            ' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Commit, tag, and push
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -s -m "${{ steps.version.outputs.version }}"
+          # Annotated tag, pushed explicitly: --follow-tags only pushes
+          # annotated tags, and an unpushed tag would freeze the since-last-tag
+          # aggregation window so every merge re-counts old release labels.
+          git tag -a "v${{ steps.version.outputs.version }}" -m "v${{ steps.version.outputs.version }}"
+          git push origin main "refs/tags/v${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub Release
+        if: steps.bump.outputs.type != 'none'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          TAG="v$version"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, nothing to do"
+          else
+            gh release create "$TAG" --title "Release $version" --generate-notes --verify-tag
+          fi

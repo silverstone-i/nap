@@ -109,4 +109,3 @@ become a cross-tenant disclosure. RLS remains mandatory defense in depth.
 
 **Microservice per cell or module.** Rejected. Cells are repeatable deployment
 instances of the modular monolith, not new code-service boundaries.
-

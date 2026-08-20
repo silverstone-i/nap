@@ -108,4 +108,3 @@ Database-factory tests prove handle-specific repository registration,
 migration targeting, bootstrap targeting, audit isolation, and independent
 shutdown. Provisioning tests inject a failure between central and cell steps
 and prove retry or recovery without premature activation.
-

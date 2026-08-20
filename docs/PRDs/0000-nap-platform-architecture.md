@@ -69,13 +69,13 @@ This platform PRD owns database boundaries and invariants, not component table
 columns. Table definitions become authoritative in their component PRDs and
 module-owned migrations.
 
-| Database boundary | Physical schemas | Data ownership |
-| --- | --- | --- |
-| Central administration database | `admin` | Global identities, sessions, tenants, memberships, cell registry, tenant-to-cell assignment, and managed-service audit |
-| Tenant cell database | `cell` | Cell-local tenant and membership projections used for enforcement |
-| Tenant cell database | `reference` | Shared non-tenant reference data and application metadata |
-| Tenant cell database | `app` | Shared tenant business tables protected by forced RLS |
-| Tenant cell database | `reporting` | Tenant-safe views over RLS-protected business tables |
+| Database boundary               | Physical schemas | Data ownership                                                                                                         |
+| ------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Central administration database | `admin`          | Global identities, sessions, tenants, memberships, cell registry, tenant-to-cell assignment, and managed-service audit |
+| Tenant cell database            | `cell`           | Cell-local tenant and membership projections used for enforcement                                                      |
+| Tenant cell database            | `reference`      | Shared non-tenant reference data and application metadata                                                              |
+| Tenant cell database            | `app`            | Shared tenant business tables protected by forced RLS                                                                  |
+| Tenant cell database            | `reporting`      | Tenant-safe views over RLS-protected business tables                                                                   |
 
 [NAP Initial Table Schema](../reference/NAP-Initial-Table-Schema.md) is the
 non-authoritative inventory used to plan component PRDs. No implementation may
@@ -331,20 +331,19 @@ boundary.
 
 ## Success criteria
 
-| Requirements | Observable proof |
-| --- | --- |
-| `ARCH-001`–`ARCH-003`, `ARCH-027` | Web and API build and deploy independently; supported client and API versions interoperate |
-| `ARCH-004`–`ARCH-010`, `ARCH-024`, `ARCH-036` | Admin and cell handles target distinct databases; each can migrate, close, back up, restore, and move without operating on the other |
-| `ARCH-011`, `ARCH-012`, `ARCH-028`, `ARCH-034`, `ARCH-035` | Provisioning, placement, movement, dedicated-cell, and self-hosted acceptance tests preserve stable client addressing and recoverable state |
-| `ARCH-013`–`ARCH-021`, `ARCH-033`, `ARCH-037` | Automated negative tests fail every attempted cross-tenant read, write, delete, relationship, and reporting path even when application predicates are omitted |
-| `ARCH-022`, `ARCH-023`, `ARCH-029` | Membership revocation, stale tokens, cache eviction, and Redis outage cannot increase access and retain a database-backed decision path |
-| `ARCH-025`, `ARCH-026` | Release tests prove migrations run against explicit targets and permit the supported old/new application overlap |
-| `ARCH-030`–`ARCH-032` | Binary storage, worker execution, and immutable history follow their component contracts without bypassing tenant or audit boundaries |
-| `ARCH-038` | Architecture tests for each new client, module, worker, tenant, or cell show no additional database reach or isolation privilege |
+| Requirements                                               | Observable proof                                                                                                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ARCH-001`–`ARCH-003`, `ARCH-027`                          | Web and API build and deploy independently; supported client and API versions interoperate                                                                    |
+| `ARCH-004`–`ARCH-010`, `ARCH-024`, `ARCH-036`              | Admin and cell handles target distinct databases; each can migrate, close, back up, restore, and move without operating on the other                          |
+| `ARCH-011`, `ARCH-012`, `ARCH-028`, `ARCH-034`, `ARCH-035` | Provisioning, placement, movement, dedicated-cell, and self-hosted acceptance tests preserve stable client addressing and recoverable state                   |
+| `ARCH-013`–`ARCH-021`, `ARCH-033`, `ARCH-037`              | Automated negative tests fail every attempted cross-tenant read, write, delete, relationship, and reporting path even when application predicates are omitted |
+| `ARCH-022`, `ARCH-023`, `ARCH-029`                         | Membership revocation, stale tokens, cache eviction, and Redis outage cannot increase access and retain a database-backed decision path                       |
+| `ARCH-025`, `ARCH-026`                                     | Release tests prove migrations run against explicit targets and permit the supported old/new application overlap                                              |
+| `ARCH-030`–`ARCH-032`                                      | Binary storage, worker execution, and immutable history follow their component contracts without bypassing tenant or audit boundaries                         |
+| `ARCH-038`                                                 | Architecture tests for each new client, module, worker, tenant, or cell show no additional database reach or isolation privilege                              |
 
 ## Revisions
 
 - **2026-08-19:** Established PRD 0000 as the current platform architecture
   source of truth and incorporated the final-design, do/don't, deployment, and
   tenant-isolation requirements previously held in planning discussion output.
-

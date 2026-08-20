@@ -37,4 +37,4 @@ The maintainer (Ian Silverstone) has sole enforcement authority over project pol
 
 ## Copyright
 
-Copyright (c) 2026–present Ian Silverstone. All contributors retain copyright in their contributions, licensed to the project under AGPL-3.0-or-later via the DCO sign-off.
+Copyright (c) 2026–present NapSoft, LLC. All contributors retain copyright in their contributions, licensed to the project under AGPL-3.0-or-later via the DCO sign-off.

@@ -27,10 +27,13 @@ uses at all.
   only when that shared major supports it.
 - `apps/web/tsconfig.json` deviates from ADR-0002 in exactly the
   bundler-shaped settings, scoped to `apps/web` only:
-  `moduleResolution: bundler`, extensionless relative imports,
-  `jsx: react-jsx`, `noEmit: true`. Everything else carries over
-  unchanged: `strict`, `target: es2023`, ES modules, and the TypeScript
-  compiler pinned `~6.0.3` at the workspace root — **no per-app
+  `moduleResolution: bundler`, `module: esnext`, extensionless relative
+  imports, `jsx: react-jsx`, `noEmit: true`. `module` is on that list because
+  TypeScript rejects `moduleResolution: bundler` under any other `module`
+  setting (`TS5095`), and the base's `module: nodenext` pins resolution to
+  nodenext — so the bundler mode is unreachable without it. Everything else
+  carries over unchanged: `strict`, `target: es2023`, ES modules, and the
+  TypeScript compiler pinned `~6.0.3` at the workspace root — **no per-app
   `typescript` dependency** (a stock Vite template's TS 7.x dependency
   would put the linter on an unsupported compiler; see ADR-0002).
 - ADR-0002's "type errors surface in the loop" guarantee is preserved
