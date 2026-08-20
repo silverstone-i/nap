@@ -11,6 +11,13 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Web application development roadmap (`docs/roadmaps/WEB-DEVELOPMENT-ROADMAP.md`)
+  defining web phases `W0`-`W11`, the mock-to-real selector cutover contract,
+  and per-phase gates, with a suggested alignment to the platform development
+  roadmap's API phases.
+
 ## [v0.1.0] - 2026-08-20
 
 ### Added
