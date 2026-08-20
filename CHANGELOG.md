@@ -11,6 +11,34 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Database and isolation foundation (roadmap Phase 1): separate `admin` and
+  `cell` composition roots built on the `pg-schemata` factory, each with its
+  own pool, repository registry, migration registry, and `close()`.
+- `withTenantTransaction()`, the single entry point for tenant-owned queries.
+  It validates the tenant identifier, then sets `nap.tenant_id` for the life
+  of one transaction.
+- `migrateAdmin()` and `migrateCell()` release runners plus
+  `npm run db:migrate:admin` / `db:migrate:cell`. Each requires an explicit
+  target; startup never migrates.
+- A startup check that refuses to serve traffic on a database connection that
+  owns tenant tables or can bypass row-level security.
+- The shared tenant-isolation test harness and the `cell.isolation_probe`
+  fixture that proves forced RLS, tenant-inclusive keys, composite foreign
+  keys, runtime-role restrictions, and the no-context and invalid-context
+  cases.
+- `npm run db:setup:dev` and `db:setup:test`, which create the admin and cell
+  databases and the least-privileged runtime role.
+
+### Changed
+
+- `apps/api/.env.example` now describes one connection string per database and
+  role. `DATABASE_URL_DEV`, `DATABASE_URL_TEST`, and `DATABASE_URL_PROD` are
+  replaced by `ADMIN_`/`CELL_` `DATABASE_URL_*` and `MIGRATION_URL_*`.
+- CI and the release workflow provision an admin database, a cell database,
+  and the runtime role before running the tests.
+
 ## [v0.1.0] - 2026-08-20
 
 ### Added

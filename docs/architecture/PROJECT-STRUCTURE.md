@@ -40,6 +40,7 @@ nap/
 │   ├── api/
 │   │   ├── src/
 │   │   │   ├── util/
+│   │   │   │   └── env.ts
 │   │   │   ├── db/
 │   │   │   │   ├── admin/
 │   │   │   │   │   ├── createAdminDb.ts
@@ -50,6 +51,7 @@ nap/
 │   │   │   │   │   ├── moduleRegistry.ts
 │   │   │   │   │   ├── migrateCell.ts
 │   │   │   │   │   └── withTenantTransaction.ts
+│   │   │   │   ├── assertRuntimeRole.ts
 │   │   │   │   └── index.ts
 │   │   │   ├── services/
 │   │   │   ├── middleware/
@@ -65,6 +67,7 @@ nap/
 │   │   │   │       ├── descriptor.ts
 │   │   │   │       └── index.ts
 │   │   │   ├── scripts/
+│   │   │   │   └── migrate.ts
 │   │   │   ├── app.ts
 │   │   │   └── server.ts
 │   │   ├── tests/
@@ -72,6 +75,9 @@ nap/
 │   │   │   ├── integration/
 │   │   │   ├── isolation/
 │   │   │   └── fixtures/
+│   │   │       ├── tenantIsolationHarness.ts
+│   │   │       ├── isolationProbe.ts
+│   │   │       └── testDatabases.ts
 │   │   ├── .env.example
 │   │   ├── package.json
 │   │   ├── tsconfig.json
@@ -118,7 +124,8 @@ nap/
 │   └── branding/
 ├── scripts/
 │   ├── bootstrap-labels.sh
-│   └── check-licenses.mjs
+│   ├── check-licenses.mjs
+│   └── setup-databases.mjs
 ├── .github/
 ├── .husky/
 ├── package.json
@@ -136,6 +143,11 @@ nap/
 The tree is a placement contract, not an instruction to create empty folders.
 A business-module directory is created with its first accepted component PRD
 and vertical slice.
+
+`tests/fixtures/` holds the shared tenant-isolation harness every tenant-aware
+module registers, and the `isolation_probe` table used to prove the boundary
+before any business module exists. The probe is a fixture: it is registered by
+the isolation suite and never by the cell module registry.
 
 ## API import layers
 
@@ -160,7 +172,13 @@ module owners belongs in `services/`, not in an arbitrary feature module.
 `db/admin/` constructs the central database handle and assembles admin-targeted
 module repositories and migrations. `db/cell/` constructs the one cell handle
 available to a cell deployment and assembles cell-targeted repositories and
-migrations.
+migrations. `db/assertRuntimeRole.ts` is shared by both: readiness runs it
+against each handle so a connection that could bypass or disable row-level
+security fails startup rather than serving traffic.
+
+`util/env.ts` resolves the environment and the connection string for each
+database and role. Nothing else reads a connection variable, and a connection
+string never leaves that module in an error message or a log line.
 
 `withTenantTransaction.ts` is the application entry point for tenant business
 work. Its required implementation is defined once in

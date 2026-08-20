@@ -9,11 +9,14 @@
     "dev": "npm run build && concurrently -n tsc,node -c blue,green \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch dist/server.js\"",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate:admin": "npm run build && node dist/scripts/migrate.js --target admin",
+    "db:migrate:cell": "npm run build && node dist/scripts/migrate.js --target cell"
   },
   "dependencies": {
     "express": "^5.2.1",
-    "pg-schemata": "^3.1.0"
+    "pg-schemata": "^3.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
