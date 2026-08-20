@@ -6,7 +6,22 @@ NAP is a horizontal, project-native, multi-entity ERP. The base ERP core — mul
 
 ## Stack
 
-PERN — Postgres 18, Express 5, React 19, Node 24. Schema-per-tenant isolation via the owned pg-schemata library. JWT (httpOnly cookies) for auth; Redis for permission caching; MUI 9 + MUI X Data Grid v9 on the client.
+NAP uses PostgreSQL, Express, React, and Node. The API is a modular monolith
+with a separate central administration database and one or more tenant-cell
+databases. Cell databases use shared tenant tables protected by forced
+PostgreSQL row-level security; Redis is optional acceleration rather than an
+authorization dependency.
+
+Current technology choices are recorded in
+[ADR 0002](docs/ADRs/0002-technology-stack.md), and the database decision is
+recorded in
+[ADR 0004](docs/ADRs/0004-central-admin-cells-and-rls-tenant-isolation.md).
+
+## Documentation
+
+Start with the [documentation index](docs/README.md). It defines the authority,
+purpose, reading order, and update relationship of PRDs, ADRs, RULES, project
+structure, the development roadmap, and reference material.
 
 ## License
 
@@ -22,4 +37,4 @@ The maintainer (Ian Silverstone) has sole enforcement authority over project pol
 
 ## Copyright
 
-Copyright (c) 2026–present Ian Silverstone. All contributors retain copyright in their contributions, licensed to the project under AGPL-3.0-or-later via the DCO sign-off.
+Copyright (c) 2026–present NapSoft, LLC. All contributors retain copyright in their contributions, licensed to the project under AGPL-3.0-or-later via the DCO sign-off.
