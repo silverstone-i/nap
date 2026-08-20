@@ -41,11 +41,17 @@ The implementation must:
 
 1. validate that `tenantId` is a UUID before sending it to PostgreSQL;
 2. open a transaction through the supplied cell handle;
-3. execute `SET LOCAL nap.tenant_id = $1` using a parameterized value;
+3. set `nap.tenant_id` for the life of that transaction, from a parameterized
+   value, as the first statement;
 4. run `work` with the transaction-bound repositories;
 5. commit or roll back before the connection returns to the pool;
 6. avoid returning the transaction object or a transaction-bound repository to
    the caller.
+
+PostgreSQL does not accept a bind parameter in `SET`, so step 3 is written as
+`SELECT set_config('nap.tenant_id', $1, true)`. The third argument makes the
+assignment transaction-local; this is `SET LOCAL` with a parameterized value,
+not a session setting.
 
 Do not use a session-level `SET`, `search_path`, a repository `forSchema()`
 call, or a client-provided database address for tenant selection.
@@ -71,7 +77,19 @@ call, or a client-provided database address for tenant selection.
   key, and tenant-inclusive foreign keys before the table is exposed to the
   runtime role.
 - The same migration enables and forces RLS and creates both `USING` and
-  `WITH CHECK` policy expressions.
+  `WITH CHECK` policy expressions. Both read the tenant context the same way:
+
+  ```sql
+  tenant_id = NULLIF(current_setting('nap.tenant_id', true), '')::uuid
+  ```
+
+  `NULLIF` is required, not stylistic. Once a custom setting has been assigned
+  on a connection, ending the transaction restores it to the empty string
+  rather than unsetting it, so a pooled connection that previously served a
+  tenant reports `''`. Without `NULLIF` the cast raises `22P02` on exactly the
+  connections that have been used before, which turns "no tenant context" into
+  an error instead of an empty result.
+
 - Grants are applied to the non-owner runtime role after policies exist.
 - Admin and cell migration commands require an explicit target configuration.
 - Application startup may check readiness but never applies production
@@ -80,9 +98,10 @@ call, or a client-provided database address for tenant selection.
 
 ## Roles and administrative access
 
-Runtime configuration must fail startup when the application role owns
-tenant tables or has `SUPERUSER` or `BYPASSRLS`. Migration credentials are not
-available to ordinary request handling.
+Runtime configuration must fail startup when the application role owns tenant
+tables or has `SUPERUSER` or `BYPASSRLS`. `db/assertRuntimeRole.ts` performs
+that check, and readiness runs it against every handle the deployment opens.
+Migration credentials are not available to ordinary request handling.
 
 Controlled cross-tenant jobs use a separate role and a separately reviewed
 entry point that records actor, reason, scope, start, outcome, and completion.
@@ -100,9 +119,10 @@ tenant records never provide credentials.
 
 ## Required tests
 
-The shared isolation test harness is used by every tenant-aware module. It runs
-with the real runtime role and covers the attempts required by `ARCH-033`, plus
-operation with no tenant context and with an invalid context.
+The shared isolation test harness (`tests/fixtures/tenantIsolationHarness.ts`)
+is used by every tenant-aware module. It runs with the real runtime role and
+covers the attempts required by `ARCH-033`, plus operation with no tenant
+context and with an invalid context.
 
 Database-factory tests prove handle-specific repository registration,
 migration targeting, bootstrap targeting, audit isolation, and independent

@@ -21,7 +21,11 @@
     "dev:api": "npm run dev --workspace @nap/api",
     "dev:web": "npm run dev --workspace @nap/web",
     "prepare": "husky",
-    "licenses": "node scripts/check-licenses.mjs"
+    "licenses": "node scripts/check-licenses.mjs",
+    "db:setup:test": "node scripts/setup-databases.mjs test",
+    "db:migrate:admin": "npm run db:migrate:admin --workspace @nap/api",
+    "db:migrate:cell": "npm run db:migrate:cell --workspace @nap/api",
+    "db:setup:dev": "node scripts/setup-databases.mjs development"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -32,6 +36,7 @@
     "globals": "^17.11.0",
     "husky": "^9.1.7",
     "license-checker-rseidelsohn": "^5.0.1",
+    "pg-promise": "^11.15.0",
     "prettier": "^3.9.6",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.67.0",

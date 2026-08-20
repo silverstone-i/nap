@@ -23,6 +23,19 @@ jobs:
   checks:
     runs-on: ubuntu-latest
 
+    env:
+      # ADR 0004: a central administration database and a cell database, on
+      # one instance here but with separate pools, migrations, and lifecycles.
+      # nap_app is the least-privileged runtime role; nap_admin owns the
+      # tables and is used only by the migration runners.
+      SETUP_ADMIN_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/postgres
+      ADMIN_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_admin_test
+      ADMIN_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_admin_test
+      CELL_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_cell_test
+      CELL_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_cell_test
+      ADMIN_RUNTIME_ROLE: nap_app
+      CELL_RUNTIME_ROLE: nap_app
+
     services:
       postgres:
         image: postgres:18
@@ -59,10 +72,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Set up databases
+        run: npm run db:setup:test
+
       - name: Test
         run: npm test
-        env:
-          DATABASE_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_test
 
       - name: Build
         run: npm run build

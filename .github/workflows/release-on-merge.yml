@@ -51,6 +51,17 @@ jobs:
       # npm ci runs the root "prepare" script, which activates husky's hooks
       # in the runner; HUSKY=0 keeps them out of the bot's bump commit.
       HUSKY: 0
+      # ADR 0004: a central administration database and a cell database, on
+      # one instance here but with separate pools, migrations, and lifecycles.
+      # nap_app is the least-privileged runtime role; nap_admin owns the
+      # tables and is used only by the migration runners.
+      SETUP_ADMIN_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/postgres
+      ADMIN_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_admin_test
+      ADMIN_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_admin_test
+      CELL_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_cell_test
+      CELL_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_cell_test
+      ADMIN_RUNTIME_ROLE: nap_app
+      CELL_RUNTIME_ROLE: nap_app
 
     # Mirrors ci.yml: the pre-bump checks below are the same checks, so they
     # need the same database or a release fails on tests that just passed.
@@ -135,11 +146,14 @@ jobs:
         if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
         run: npm run typecheck
 
+      - name: Set up databases
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run db:setup:test
+
       - name: Test
         if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
         env:
           CI: true
-          DATABASE_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_test
         run: npm test
 
       - name: Build
