@@ -28,11 +28,15 @@ if (existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 /**
  * Reads a required environment variable.
  *
+ * A blank value is treated as unset, matching `databaseUrl()` in
+ * `apps/api/src/util/env.ts`, so a whitespace-only setting fails here by
+ * name rather than later inside `new URL()`.
+ *
  * @param {string} name - Variable name.
- * @returns {string} The value.
+ * @returns {string} The trimmed value.
  */
 function required(name) {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is not set`);
   return value;
 }
@@ -58,7 +62,7 @@ const SUFFIXES = { development: 'DEV', test: 'TEST' };
 const environment = process.argv[2] ?? 'test';
 const suffix = SUFFIXES[environment];
 if (!suffix) {
-  throw new Error('Usage: setup-test-databases.mjs [test|development]');
+  throw new Error('Usage: npm run db:setup:test | npm run db:setup:dev');
 }
 
 const pgp = pgPromise();

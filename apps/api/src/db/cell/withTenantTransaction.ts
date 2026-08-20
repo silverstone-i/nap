@@ -19,8 +19,11 @@ export class TenantContextError extends Error {
 }
 
 /**
- * Accepts any value PostgreSQL accepts as a `uuid`. Validating here keeps a
- * client-supplied value from reaching the database at all (ARCH-022).
+ * Accepts only the canonical dashed UUID form, which is narrower than the
+ * `uuid` input type: PostgreSQL also parses brace-wrapped and undashed
+ * variants. A tenant id is client-supplied, so it is held to one shape
+ * rather than every shape the database would tolerate, and validating here
+ * keeps it from reaching the database at all (ARCH-022).
  */
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
