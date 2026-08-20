@@ -11,6 +11,18 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Committed VS Code configuration in `.vscode/`: extension recommendations,
+  workspace settings pinning the editor to the repository TypeScript and
+  formatting on save with Prettier, and launch configurations for the API
+  server and both test suites.
+
+### Changed
+
+- `apps/api` build output now includes source maps so breakpoints bind to the
+  TypeScript sources.
+
 ## [v0.1.0] - 2026-08-20
 
 ### Added

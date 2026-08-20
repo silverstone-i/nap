@@ -1,0 +1,42 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Debugs the compiled server; run `npm run build --workspace @nap/api`
+      // first (or leave `npm run dev:api` watching). Source maps come from
+      // "sourceMap" in apps/api/tsconfig.build.json, so breakpoints bind in
+      // the .ts sources.
+      "name": "Debug API server",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/api/dist/server.js",
+      "cwd": "${workspaceFolder}/apps/api",
+      "envFile": "${workspaceFolder}/apps/api/.env",
+      "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      // Vitest transforms with its own source maps, so no build step is needed.
+      // --no-file-parallelism keeps every test file in the debugged process.
+      "name": "Debug API tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "--no-file-parallelism"],
+      "cwd": "${workspaceFolder}/apps/api",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug web tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+      "args": ["run", "--no-file-parallelism"],
+      "cwd": "${workspaceFolder}/apps/web",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
