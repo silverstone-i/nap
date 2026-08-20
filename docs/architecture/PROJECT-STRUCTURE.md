@@ -122,6 +122,7 @@ nap/
 │   └── check-licenses.mjs
 ├── .github/
 ├── .husky/
+├── .vscode/
 ├── package.json
 ├── tsconfig.base.json
 ├── eslint.config.mjs
