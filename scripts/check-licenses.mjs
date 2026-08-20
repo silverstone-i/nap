@@ -72,6 +72,9 @@ console.log(`Checking ${thirdParty.length} production packages.`);
 const result = spawnSync(
   'npx',
   [
+    // --no-install keeps this to the pinned devDependency: bare npx would
+    // fetch and execute a remote version if node_modules is not installed.
+    '--no-install',
     'license-checker-rseidelsohn',
     '--excludePrivatePackages',
     '--includePackages',
