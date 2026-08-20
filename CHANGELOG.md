@@ -25,3 +25,6 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 - CI, changelog-check, and release-on-merge workflows, a husky `commit-msg`
   hook enforcing DCO sign-off, and a production-dependency license check
   against `.licenses-allowed.json`.
+- Development loops for both apps: `npm run dev:api` rebuilds and restarts the
+  API on change, and `npm run dev:web` serves the web app on port 5180 with a
+  `/api` proxy.
