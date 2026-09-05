@@ -81,7 +81,9 @@ if (
       `Production license check passed (${await checkLicenses()} package records)`
     );
   } catch (error) {
-    console.error(error.message);
+    console.error(
+      error instanceof Error ? error.message : 'Production license check failed'
+    );
     process.exitCode = 1;
   }
 }
