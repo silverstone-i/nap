@@ -160,12 +160,12 @@ accepted notification need.
 ## Current delivery board
 
 Workspace and toolchain implements specification-owned architecture; its local
-checks are recorded with the implementation PR. Component capabilities still
+checks and passing CI are recorded in [PR #1](https://github.com/silverstone-i/nap/pull/1). Component capabilities still
 start from the specification and applicable ADRs.
 
 | Capability                                    | Design   | Implementation | Depends on                                                                                         |
 | --------------------------------------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------- |
-| Workspace and toolchain                       | Accepted | Implemented    | —                                                                                                  |
+| Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
 | Database and migration foundation             | Draft    | Not started    | Workspace and toolchain                                                                            |
 | Tenant isolation foundation                   | Draft    | Not started    | Database foundation                                                                                |
 | Operational baseline                          | Draft    | Not started    | Tenant isolation foundation                                                                        |
@@ -210,7 +210,7 @@ one-concept pull requests.
 `packages/shared` workspaces on the specification's stack, with every
 repository check running green.
 
-**Design:** Accepted (specification-owned). **Implementation:** Implemented; CI verification pending.
+**Design:** Accepted (specification-owned). **Implementation:** Verified in [PR #1](https://github.com/silverstone-i/nap/pull/1); merge pending.
 
 **Depends on:** Nothing.
 
@@ -233,6 +233,11 @@ existing CI gate. Migrations, application tables, runtime database handles, and
 startup role assertions remain in Database and migration foundation.
 
 **Plan:** [Workspace and toolchain](../implementation-plans/workspace-and-toolchain.md).
+
+**Evidence:** [Passing CI](https://github.com/silverstone-i/nap/actions/runs/33993431984)
+verifies clean installation, database setup, all repository checks, and 29 tests.
+Local checks additionally verified independent builds with generated output
+removed, browser rendering and hot reload, and API watch restart.
 
 **Gate:** Both applications build and start independently, the shared package
 builds, every check command runs green locally and in CI, and no workspace

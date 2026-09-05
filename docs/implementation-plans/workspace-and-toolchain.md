@@ -8,11 +8,13 @@
 - [x] Add workspace tests, import checks, and license checking.
 - [x] Provision development/test databases for the existing CI gate.
 - [x] Verify independent builds, startup, and repository checks.
-- [ ] Reconcile CI evidence and deliver one PR.
+- [x] Reconcile CI evidence and deliver one PR.
 
 Local verification passed: clean installation, independent builds, repository
 checks, browser rendering and hot reload, API watch restart, and disposable
-PostgreSQL setup tests. CI evidence remains pending until the PR gate runs.
+PostgreSQL setup tests. [PR #1](https://github.com/silverstone-i/nap/pull/1)
+contains the implementation; [CI passed](https://github.com/silverstone-i/nap/actions/runs/33993431984).
+Merge remains a separate operation.
 
 ## Design and outcome
 
