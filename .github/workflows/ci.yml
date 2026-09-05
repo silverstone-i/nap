@@ -1,0 +1,86 @@
+# PR gate: every check that must be green before code lands on main.
+# The release workflow (release-on-merge.yml) re-runs the same checks
+# pre-bump; keep the script names in both files matched to package.json.
+
+name: CI
+
+on:
+  pull_request:
+    branches: ['main']
+  push:
+    branches: ['main']
+
+permissions:
+  contents: read
+
+# A superseded push should stop spending a Postgres job. Keyed on ref so PR
+# runs cancel their own predecessors while main runs stay independent.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    env:
+      # ARCH-004: a central administration database and a cell database, on
+      # one instance here but with separate pools, migrations, and lifecycles.
+      # ARCH-019: nap_app is the least-privileged runtime role; nap_admin owns
+      # the tables and is used only by the migration runners. Both are defined
+      # in docs/specs/nap-platform-specification.md.
+      SETUP_ADMIN_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/postgres
+      ADMIN_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_admin_test
+      ADMIN_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_admin_test
+      CELL_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_cell_test
+      CELL_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_cell_test
+      ADMIN_RUNTIME_ROLE: nap_app
+      CELL_RUNTIME_ROLE: nap_app
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: nap_admin
+          POSTGRES_PASSWORD: nap_test
+          POSTGRES_DB: nap_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nap_admin"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Set up databases
+        run: npm run db:setup:test
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: License check
+        run: npm run licenses

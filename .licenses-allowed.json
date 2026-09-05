@@ -1,0 +1,18 @@
+{
+  "$comment": "Allowed production-dependency licenses. This file is the authoritative list; no other document transcribes an entry. Adding one is part of the pull request that introduces the dependency needing it, and requires justification in that pull request. See CLAUDE.md - Licensing.",
+  "allowed": [
+    "0BSD",
+    "AGPL-3.0-or-later",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BlueOak-1.0.0",
+    "CC0-1.0",
+    "ISC",
+    "LGPL-3.0-or-later",
+    "MIT",
+    "MIT-0",
+    "Python-2.0",
+    "Unlicense"
+  ]
+}

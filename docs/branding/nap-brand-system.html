@@ -1,0 +1,3095 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>nap — brand system v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Core brand — two navy tokens; identical in light, divergent in dark.
+       --navy = fill (white sits on top); --navy-text = foreground (it sits
+       on something). See BRAND.md §"Fill vs foreground" for usage. */
+    --navy: #2F3E52;        /* Fill */
+    --navy-text: #2F3E52;   /* Foreground (lifted to #698BB8 in dark) */
+    --navy-hover: #243142;  /* Primary button hover fill */
+    --gold: #F4B000;
+
+    /* Light mode surfaces */
+    --page: #FAFAF7;
+    --card: #FFFFFF;
+    --subtle: #F4F5F2;
+
+    /* Text */
+    --text-primary: #1A2332;
+    --text-secondary: #5A6475;
+    --text-tertiary: #677082;
+
+    /* Borders — bumped from #E4E6EA / #C8CCD3 so dividers, input outlines,
+       and dialog edges read at ≥3:1 (WCAG 1.4.11) against page and card. */
+    --border: #898F9D;
+    --border-strong: #6B7280;
+
+    /* Semantic */
+    --success: #15803D;
+    --warning: #E67E22;
+    --warning-text: #B45309;
+    --error: #B91C1C;
+    --info: #2563EB;
+    --info-text: #1D4ED8;
+
+    /* Focus rings (light) — navy-tinted, never gold */
+    --focus-ring: rgba(47, 62, 82, 0.12);
+    --focus-ring-error: rgba(185, 28, 28, 0.12);
+
+    /* Semantic tints (light — fixed pastels) */
+    --success-tint-bg: #F0FDF4;
+    --success-tint-border: #BBF7D0;
+    --warning-tint-bg: #FFF7ED;
+    --warning-tint-border: #FED7AA;
+    --error-tint-bg: #FEF2F2;
+    --error-tint-border: #FECACA;
+    --info-tint-bg: #EFF6FF;
+    --info-tint-border: #BFDBFE;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 72px 40px 120px; }
+
+  /* Section primitives */
+  .section { margin-bottom: 80px; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--navy);
+    margin: 0 0 8px 0;
+  }
+  .section-note {
+    color: var(--text-secondary);
+    max-width: 640px;
+    margin: 0 0 32px 0;
+  }
+
+  /* Masthead */
+  .masthead {
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 64px;
+  }
+  .masthead-kicker {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+  .masthead h1 {
+    font-family: 'Inter', sans-serif;
+    font-size: 40px;
+    font-weight: 500;
+    color: var(--navy);
+    margin: 0 0 8px 0;
+    display: inline-flex;
+    align-items: baseline;
+    line-height: 1;
+  }
+  .masthead p {
+    color: var(--text-secondary);
+    margin: 0;
+    max-width: 600px;
+  }
+
+  /* ========== LOGO ========== */
+  .logo-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .logo-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .logo-card--dark {
+    background: #0B0F14;
+    border-color: #1A212D;
+  }
+  .logo-card-label {
+    padding: 12px 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logo-card--dark .logo-card-label {
+    color: #818B9C;
+    border-bottom-color: #1A212D;
+  }
+  .logo-card-tag {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: var(--subtle);
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+  }
+  .logo-card--dark .logo-card-tag {
+    background: #1A212D;
+    color: #9AA4B4;
+  }
+  .logo-stage {
+    padding: 80px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* The wordmark itself */
+  .wordmark {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 64px;
+    color: var(--navy);
+    display: inline-flex;
+    align-items: baseline;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .logo-card--dark .wordmark { color: #698BB8; }
+
+  /* The gold square dot (period) */
+  .wordmark-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background: var(--gold);
+    margin-left: 4px;
+    align-self: flex-end;
+    margin-bottom: 4px;
+  }
+
+  /* Size variants */
+  .wordmark--sm { font-size: 24px; }
+  .wordmark--sm .wordmark-dot { width: 5px; height: 5px; margin-left: 2px; margin-bottom: 2px; }
+  .wordmark--xs { font-size: 15px; }
+  .wordmark--xs .wordmark-dot { width: 3px; height: 3px; margin-left: 1.5px; margin-bottom: 1.5px; }
+
+  /* Scale demo */
+  .scale-demo {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    padding: 40px;
+    margin-top: 24px;
+  }
+  .scale-row {
+    display: flex;
+    gap: 48px;
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+  .scale-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .scale-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+  }
+
+  /* ========== PALETTE ========== */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .swatch {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--card);
+  }
+  .swatch-chip {
+    height: 88px;
+    border-bottom: 1px solid var(--border);
+  }
+  .swatch-body {
+    padding: 12px 14px;
+  }
+  .swatch-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .swatch-hex {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  /* ========== GOLD RULES ========== */
+  .rules-intro {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .rules-intro-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+    font-weight: 600;
+    padding-top: 2px;
+    flex-shrink: 0;
+  }
+  .rules-intro-text {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .rules-intro-text strong { color: var(--text-primary); font-weight: 600; }
+
+  .rule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .rule-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .rule-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .rule-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .rule-index {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.08em;
+  }
+  .rule-stage {
+    padding: 32px 24px;
+    background: var(--subtle);
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rule-note {
+    padding: 14px 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  /* CTA button — navy alone, no gold */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 22px;
+    background: var(--navy);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    transition: background 160ms ease;
+  }
+  .btn-primary:hover {
+    background: var(--navy-hover);
+  }
+  .btn-primary:focus-visible {
+    outline: 2px solid rgba(90, 111, 160, 0.5);
+    outline-offset: 2px;
+  }
+  .btn-primary:disabled,
+  .btn-primary.is-disabled {
+    background: #6B7280;
+    color: #677082;
+    cursor: not-allowed;
+  }
+
+  /* Force hover appearance for static demo */
+  .btn-primary.is-hover-demo {
+    background: var(--navy-hover);
+  }
+
+  /* Secondary button for contrast — NO gold */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 22px;
+    background: transparent;
+    color: var(--navy);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 160ms ease, border-color 160ms ease;
+    margin-left: 12px;
+  }
+  .btn-secondary:hover {
+    background: var(--subtle);
+    border-color: var(--text-tertiary);
+  }
+  .btn-secondary:focus-visible {
+    outline: 2px solid rgba(90, 111, 160, 0.5);
+    outline-offset: 2px;
+  }
+
+  /* Tertiary / ghost button */
+  .btn-tertiary {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 14px;
+    background: transparent;
+    color: var(--navy);
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 160ms ease, color 160ms ease;
+    margin-left: 4px;
+  }
+  .btn-tertiary:hover { background: var(--subtle); }
+  .btn-tertiary--danger { color: var(--error); }
+  .btn-tertiary--danger:hover { background: var(--error-tint-bg); }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 4px;
+  }
+  .tab {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active {
+    color: var(--text-primary);
+    font-weight: 500;
+    border-bottom-color: var(--gold);
+  }
+
+  /* Dropdown menu */
+  .dropdown {
+    width: 220px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(26, 35, 50, 0.06), 0 1px 2px rgba(26, 35, 50, 0.04);
+  }
+  .dropdown-item {
+    position: relative;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 140ms ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dropdown-item:hover { background: var(--subtle); }
+  .dropdown-item--selected::after {
+    content: "✓";
+    color: var(--navy);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .dropdown-item--danger { color: var(--error); }
+  .dropdown-item--danger:hover { background: var(--error-tint-bg); }
+  .dropdown-item--disabled { color: var(--border-strong); cursor: not-allowed; }
+  .dropdown-item--disabled:hover { background: transparent; }
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* Nav child items */
+  .nav-item--child {
+    padding: 8px 20px 8px 36px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+  .nav-item--child:hover { color: var(--text-primary); }
+  .nav-item--child.active {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .nav-item--child.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--gold);
+  }
+
+  /* Component grid */
+  .component-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Status badges */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px 3px 7px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 3px;
+    letter-spacing: 0.01em;
+    border: 1px solid;
+    line-height: 1.4;
+  }
+  .badge-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    line-height: 1;
+  }
+  .badge--success { background: var(--success-tint-bg); border-color: var(--success-tint-border); color: #15803D; }
+  .badge--warning { background: var(--warning-tint-bg); border-color: var(--warning-tint-border); color: #B45309; }
+  .badge--error   { background: var(--error-tint-bg);   border-color: var(--error-tint-border);   color: #B91C1C; }
+  .badge--info    { background: var(--info-tint-bg);    border-color: var(--info-tint-border);    color: #1D4ED8; }
+  .badge--neutral { background: var(--subtle); border-color: var(--border); color: var(--text-secondary); }
+
+  /* Alert banners */
+  .alert {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 4px;
+    border-left: 2px solid;
+    font-size: 13px;
+    line-height: 1.5;
+    width: 100%;
+    max-width: 440px;
+  }
+  .alert-icon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #FFFFFF;
+    margin-top: 1px;
+  }
+  .alert-body { color: var(--text-primary); }
+  .alert-body strong { font-weight: 600; }
+  .alert--success { background: var(--success-tint-bg); border-left-color: #15803D; }
+  .alert--success .alert-icon { background: #15803D; }
+  .alert--warning { background: var(--warning-tint-bg); border-left-color: #E67E22; }
+  .alert--warning .alert-icon { background: #E67E22; }
+  .alert--error   { background: var(--error-tint-bg);   border-left-color: #B91C1C; }
+  .alert--error   .alert-icon { background: #B91C1C; }
+  .alert--info    { background: var(--info-tint-bg);    border-left-color: #2563EB; }
+  .alert--info    .alert-icon { background: #2563EB; }
+  .component-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .component-card--wide { grid-column: 1 / -1; }
+  .component-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .component-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .component-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+  }
+  .component-stage {
+    padding: 32px 24px;
+    background: var(--subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .component-stage--col { flex-direction: column; }
+  .component-stage--left { justify-content: flex-start; }
+  .component-note {
+    padding: 14px 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  /* ========== FORM CONTROLS ========== */
+
+  /* Field wrapper — label + input + helper */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+  }
+  .field-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.01em;
+  }
+  .field-required {
+    color: var(--text-tertiary);
+    margin-left: 3px;
+    font-weight: 400;
+  }
+  .field-helper {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.5;
+    margin-top: 2px;
+  }
+  .field-error {
+    font-size: 12px;
+    color: #B91C1C;
+    line-height: 1.5;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .field-error::before {
+    content: "×";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    background: #B91C1C;
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 50%;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  /* Text input */
+  .input {
+    width: 100%;
+    padding: 9px 12px;
+    background: #FFFFFF;
+    border: 1px solid #6B7280;
+    border-radius: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.4;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+  .input::placeholder { color: var(--text-tertiary); }
+  .input:hover { border-color: #677082; }
+  .input:focus {
+    outline: none;
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+  .input:disabled {
+    background: var(--subtle);
+    color: var(--text-tertiary);
+    border-color: var(--border);
+    cursor: not-allowed;
+  }
+  .input--filled { border-color: #677082; }
+  .input--readonly {
+    background: transparent;
+    border-color: transparent;
+    padding-left: 0;
+    padding-right: 0;
+    cursor: default;
+  }
+  .input--readonly:hover { border-color: transparent; }
+  .input--error { border-color: #B91C1C; }
+  .input--error:focus {
+    border-color: #B91C1C;
+    box-shadow: 0 0 0 3px var(--focus-ring-error);
+  }
+  .input--success { border-color: #15803D; }
+
+  /* Numeric input — monospace, right-aligned, currency prefix */
+  .input-currency {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    background: #FFFFFF;
+    border: 1px solid #6B7280;
+    border-radius: 4px;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+  .input-currency:hover { border-color: #677082; }
+  .input-currency:focus-within {
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+  .input-currency-prefix {
+    display: flex;
+    align-items: center;
+    padding: 0 10px 0 12px;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    border-right: 1px solid var(--border);
+  }
+  .input-currency .input {
+    border: none;
+    border-radius: 0;
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+    padding: 9px 12px;
+  }
+  .input-currency .input:focus { box-shadow: none; }
+  .input-currency .input:hover { border: none; }
+  .input-currency--negative .input { color: #B91C1C; }
+
+  /* Select */
+  .select {
+    position: relative;
+    width: 100%;
+  }
+  .select-trigger {
+    width: 100%;
+    padding: 9px 36px 9px 12px;
+    background: #FFFFFF;
+    border: 1px solid #6B7280;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 140ms ease;
+    appearance: none;
+  }
+  .select-trigger:hover { border-color: #677082; }
+  .select-trigger:focus {
+    outline: none;
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+  .select-trigger--placeholder { color: var(--text-tertiary); }
+  .select-chevron {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-tertiary);
+    font-size: 10px;
+    pointer-events: none;
+  }
+
+  /* Multi-select with chips */
+  .input-multi {
+    width: 100%;
+    min-height: 36px;
+    padding: 4px 12px 4px 6px;
+    background: #FFFFFF;
+    border: 1px solid #6B7280;
+    border-radius: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    cursor: text;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+  .input-multi:hover { border-color: #677082; }
+  .input-multi:focus-within {
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+  }
+  .chip-selected {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--navy);
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 4px 2px 8px;
+    border-radius: 2px;
+    line-height: 1.4;
+  }
+  .chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: color 120ms ease, background 120ms ease;
+  }
+  .chip-remove:hover {
+    color: #FFFFFF;
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .input-multi-entry {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 80px;
+    padding: 4px 0;
+  }
+  .input-multi-entry::placeholder { color: var(--text-tertiary); }
+
+  /* Checkbox */
+  .checkbox-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #6B7280;
+    background: #FFFFFF;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  }
+  .checkbox:hover { border-color: #677082; }
+  .checkbox:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(47, 62, 82, 0.2);
+  }
+  .checkbox:checked {
+    background: var(--navy);
+    border-color: var(--navy);
+  }
+  .checkbox:checked::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid #FFFFFF;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .checkbox--indeterminate {
+    background: var(--navy);
+    border-color: var(--navy);
+  }
+  .checkbox--indeterminate::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 6px;
+    width: 8px;
+    height: 2px;
+    background: #FFFFFF;
+    border-radius: 1px;
+  }
+  .checkbox:disabled {
+    background: var(--subtle);
+    border-color: var(--border);
+    cursor: not-allowed;
+  }
+  .checkbox-label {
+    font-size: 14px;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .checkbox-wrap--disabled .checkbox-label {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+  }
+
+  /* Radio */
+  .radio {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #6B7280;
+    background: #FFFFFF;
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+  }
+  .radio:hover { border-color: #677082; }
+  .radio:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(47, 62, 82, 0.2);
+  }
+  .radio:checked {
+    border-color: var(--navy);
+    border-width: 1.5px;
+  }
+  .radio:checked::after {
+    content: "";
+    position: absolute;
+    left: 2.5px;
+    top: 2.5px;
+    width: 8px;
+    height: 8px;
+    background: var(--navy);
+    border-radius: 50%;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    appearance: none;
+    width: 32px;
+    height: 18px;
+    background: #6B7280;
+    border: none;
+    border-radius: 9px;
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 160ms ease, box-shadow 140ms ease;
+  }
+  .toggle::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 14px;
+    height: 14px;
+    background: #FFFFFF;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(26, 35, 50, 0.15);
+    transition: left 160ms ease;
+  }
+  .toggle:hover { background: #677082; }
+  .toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(47, 62, 82, 0.2);
+  }
+  .toggle:checked { background: var(--navy); }
+  .toggle:checked:hover { background: #243142; }
+  .toggle:checked::before { left: 16px; }
+  .toggle:disabled {
+    background: var(--border);
+    cursor: not-allowed;
+  }
+
+  /* Form grid / layout */
+  .form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .form-section-head {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .form-row--three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-stage {
+    padding: 32px;
+    background: var(--subtle);
+    min-height: 120px;
+  }
+  .form-stage--white {
+    background: var(--card);
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ========== TABLES ========== */
+
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+
+  /* Selection strip that appears above table when rows are selected */
+  .table-selection-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--subtle);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .table-selection-strip-count { font-weight: 500; }
+  .table-selection-strip-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .table-selection-strip-btn {
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease;
+  }
+  .table-selection-strip-btn:hover {
+    background: var(--card);
+    border-color: var(--text-tertiary);
+  }
+  .table-selection-strip-btn--danger { color: #B91C1C; }
+  .table-selection-strip-btn--danger:hover {
+    background: var(--error-tint-bg);
+    border-color: var(--error-tint-border);
+  }
+
+  /* Core table */
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .table thead {
+    background: var(--page);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .table th {
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+    white-space: nowrap;
+    height: 36px;
+    user-select: none;
+  }
+  .table th.th-sortable {
+    cursor: pointer;
+    transition: color 140ms ease;
+  }
+  .table th.th-sortable:hover { color: var(--text-primary); }
+  .table th.th-active {
+    color: var(--text-primary);
+  }
+  .table th-num { text-align: right; }
+  .th-sort-indicator {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 9px;
+    color: var(--text-secondary);
+  }
+  .th-sort-hover-hint {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 9px;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+  .table th.th-sortable:hover .th-sort-hover-hint { opacity: 1; }
+
+  .table td {
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    height: 44px;
+    vertical-align: middle;
+    color: var(--text-primary);
+  }
+  .table tbody tr {
+    transition: background 140ms ease;
+  }
+  .table tbody tr:hover { background: var(--page); }
+  .table tbody tr.is-selected { background: var(--subtle); }
+  .table tbody tr.is-selected:hover { background: #EDEFEC; }
+  .table tbody tr.is-editing td:first-child {
+    position: relative;
+  }
+  .table tbody tr.is-editing {
+    background: var(--card);
+  }
+  .table tbody tr.is-editing td:first-child::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 1.5px;
+    background: var(--navy);
+  }
+  .table tbody tr.is-clickable { cursor: pointer; }
+
+  .td-num {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .td-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .td-muted { color: var(--text-secondary); }
+  .td-id {
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .td-negative { color: #B91C1C; }
+  .td-checkbox { width: 40px; padding-left: 16px; padding-right: 8px; }
+
+  /* Totals row with gold rule */
+  .table tfoot td {
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--page);
+    font-weight: 600;
+    height: 44px;
+    position: relative;
+  }
+  .table tfoot tr:first-child td {
+    position: relative;
+  }
+  .table tfoot tr:first-child td.td-gold-rule::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: -1px;
+    height: 2px;
+    background: var(--gold);
+  }
+
+  /* Row action icons */
+  .table-row-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+  .table tbody tr:hover .table-row-actions { opacity: 1; }
+  .table-row-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 13px;
+    transition: background 140ms ease, color 140ms ease;
+  }
+  .table-row-action:hover {
+    background: var(--card);
+    color: var(--text-primary);
+  }
+
+  /* Pagination */
+  .table-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .table-pagination-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .table-pagination-btn {
+    padding: 5px 12px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 140ms ease;
+  }
+  .table-pagination-btn:hover {
+    background: var(--subtle);
+  }
+  .table-pagination-btn:disabled {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+  }
+  .table-pagination-btn:disabled:hover { background: transparent; }
+
+  /* Empty state */
+  .table-empty {
+    padding: 56px 20px;
+    text-align: center;
+  }
+  .table-empty-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 12px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: 20px;
+  }
+  .table-empty-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .table-empty-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Loading skeleton */
+  .table-skeleton-cell {
+    display: inline-block;
+    height: 12px;
+    background: var(--border);
+    border-radius: 2px;
+    animation: skeleton-pulse 1400ms ease-in-out infinite;
+  }
+  @keyframes skeleton-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Nav example */
+  .nav-demo {
+    width: 220px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 0;
+  }
+  .nav-item {
+    position: relative;
+    padding: 10px 20px 10px 24px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+  .nav-item:hover { color: var(--text-primary); }
+  .nav-item.active {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+  .nav-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: var(--gold);
+  }
+
+  /* Report total example */
+  .report-demo {
+    width: 100%;
+    max-width: 360px;
+    font-size: 13px;
+  }
+  .report-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    color: var(--text-secondary);
+  }
+  .report-row-label { }
+  .report-row-value {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-primary);
+  }
+  .report-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 0 0 0;
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+    position: relative;
+  }
+  .report-total::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 48px;
+    height: 2px;
+    background: var(--gold);
+  }
+  .report-total-label {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .report-total-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* ========== VOICE & TAGLINES ========== */
+  .hero-mock {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 72px 48px 56px;
+    text-align: left;
+  }
+  .hero-mock-kicker {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+  .hero-mock-headline {
+    font-family: 'Inter', sans-serif;
+    font-size: 64px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    color: var(--navy);
+    margin: 0 0 20px 0;
+    max-width: 820px;
+  }
+  .hero-mock-subhead {
+    font-size: 19px;
+    color: var(--text-secondary);
+    max-width: 620px;
+    margin: 0 0 32px 0;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  .hero-mock-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .tagline-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .tagline-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .tagline-card-head {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tagline-card-role {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .tagline-card-tag {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: var(--subtle);
+    color: var(--text-secondary);
+  }
+  .tagline-card-body {
+    padding: 32px 24px;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+  }
+  .tagline-card-note {
+    padding: 14px 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+  .tagline-primary {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    color: var(--navy);
+    line-height: 1.1;
+  }
+  .tagline-secondary {
+    font-size: 22px;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.015em;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+
+  .usage-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 24px;
+    background: var(--card);
+  }
+  .usage-table thead {
+    background: var(--page);
+    border-bottom: 1px solid var(--border);
+  }
+  .usage-table th {
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: left;
+  }
+  .usage-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .usage-table tr:last-child td { border-bottom: none; }
+  .usage-table td strong { font-weight: 500; }
+
+  /* Voice callouts - principles */
+  .voice-principles {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .voice-principle {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    padding: 20px;
+  }
+  .voice-principle-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 0.08em;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .voice-principle-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--navy);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .voice-principle-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  /* ========== TYPOGRAPHY (marketing) ========== */
+  .type-scale {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .type-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-meta {
+    padding: 24px 20px;
+    border-right: 1px solid var(--border);
+    background: var(--page);
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+  .type-meta-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+  }
+  .type-meta-spec {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+  }
+  .type-sample {
+    padding: 24px 28px;
+    color: var(--navy);
+  }
+  .type-sample--body { color: var(--text-primary); }
+  .type-sample--muted { color: var(--text-secondary); }
+
+  /* Marketing page mockup */
+  .marketing-mock {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .marketing-mock-body {
+    padding: 80px 56px 72px;
+    max-width: 1100px;
+  }
+
+  @media (max-width: 768px) {
+    .hero-mock { padding: 40px 24px; }
+    .hero-mock-headline { font-size: 38px; }
+    .hero-mock-subhead { font-size: 16px; }
+    .tagline-comparison, .voice-principles { grid-template-columns: 1fr; }
+    .type-row { grid-template-columns: 1fr; }
+    .type-meta { border-right: none; border-bottom: 1px solid var(--border); padding: 12px 20px; }
+    .marketing-mock-body { padding: 40px 24px; }
+    .tagline-primary { font-size: 24px; }
+    .tagline-secondary { font-size: 18px; }
+  }
+  .dodont {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .dodont-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .dodont-header {
+    padding: 12px 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .dodont-header--do { color: var(--success); }
+  .dodont-header--dont { color: var(--error); }
+  .dodont-body {
+    padding: 18px 20px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+  .dodont-body ul { margin: 0; padding-left: 18px; }
+  .dodont-body li { margin-bottom: 6px; }
+  .dodont-body li:last-child { margin-bottom: 0; }
+
+  /* Footer */
+  .footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    color: var(--text-tertiary);
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .footer-meta { font-family: 'JetBrains Mono', monospace; }
+
+  @media (max-width: 768px) {
+    .wrap { padding: 40px 20px 80px; }
+    .logo-row, .rule-grid, .dodont { grid-template-columns: 1fr; }
+    .palette-grid { grid-template-columns: repeat(2, 1fr); }
+    .masthead h1 { font-size: 32px; }
+    .wordmark { font-size: 48px; }
+    .wordmark-dot { width: 9px; height: 9px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Masthead -->
+  <div class="masthead">
+    <div class="masthead-kicker">brand system · v1</div>
+    <h1><span style="letter-spacing:-0.02em;">nap</span><span style="display:inline-block;align-self:flex-end;width:7.5px;height:7.5px;background:var(--gold);margin-left:2.5px;margin-bottom:2.5px;"></span></h1>
+    <p style="font-size:19px;color:var(--text-primary);max-width:640px;margin:12px 0 8px 0;font-weight:400;letter-spacing:-0.01em;">TBD · primary tagline</p>
+    <p style="margin:0;color:var(--text-tertiary);font-size:13px;">Brand system · v1</p>
+  </div>
+
+  <!-- LOGO — side by side comparison -->
+  <section class="section">
+    <div class="section-label">01 · Logo</div>
+    <h2 class="section-title">The wordmark</h2>
+    <p class="section-note">Lowercase <code style="background:var(--subtle);padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:13px;">nap.</code> in Inter Medium, with an enlarged gold square dot as the period. The dot anchors the wordmark — a deliberate full-stop that gives the lowercase name finality and weight.</p>
+
+    <div class="logo-row">
+      <!-- Light mode -->
+      <div class="logo-card">
+        <div class="logo-card-label">
+          <span>Light mode</span>
+          <span class="logo-card-tag">locked</span>
+        </div>
+        <div class="logo-stage">
+          <div class="wordmark">nap<span class="wordmark-dot"></span></div>
+        </div>
+      </div>
+
+      <!-- Dark mode -->
+      <div class="logo-card logo-card--dark">
+        <div class="logo-card-label">
+          <span>Dark mode</span>
+          <span class="logo-card-tag">locked</span>
+        </div>
+        <div class="logo-stage">
+          <div class="wordmark">nap<span class="wordmark-dot"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scale -->
+    <div class="scale-demo">
+      <div class="section-label" style="margin-bottom: 20px;">Scale behavior</div>
+      <div class="scale-row">
+        <div class="scale-item">
+          <div class="wordmark">nap<span class="wordmark-dot"></span></div>
+          <div class="scale-meta">64px · hero / landing</div>
+        </div>
+        <div class="scale-item">
+          <div class="wordmark wordmark--sm">nap<span class="wordmark-dot"></span></div>
+          <div class="scale-meta">24px · app header</div>
+        </div>
+        <div class="scale-item">
+          <div class="wordmark wordmark--xs">nap<span class="wordmark-dot"></span></div>
+          <div class="scale-meta">15px · footer / email</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PALETTE -->
+  <section class="section">
+    <div class="section-label">02 · Palette</div>
+    <h2 class="section-title">Navy carries. Gold signals.</h2>
+    <p class="section-note">Navy does 70–80% of the visual work. Warm off-white provides breathing space. Gold appears only in the three approved touchpoints below — never as decoration.</p>
+
+    <div class="palette-grid">
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#2F3E52;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Navy / brand primary</div>
+          <div class="swatch-hex">#2F3E52</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#F4B000;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Gold / accent</div>
+          <div class="swatch-hex">#F4B000</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#FAFAF7;border-right:1px solid var(--border);"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Warm off-white / page</div>
+          <div class="swatch-hex">#FAFAF7</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#FFFFFF;border-right:1px solid var(--border);"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">White / card surface</div>
+          <div class="swatch-hex">#FFFFFF</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#1A2332;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Text primary</div>
+          <div class="swatch-hex">#1A2332</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#5A6475;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Text secondary</div>
+          <div class="swatch-hex">#5A6475</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#677082;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Text tertiary</div>
+          <div class="swatch-hex">#677082</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#898F9D;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Border default</div>
+          <div class="swatch-hex">#898F9D</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#15803D;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Success</div>
+          <div class="swatch-hex">#15803D</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#E67E22;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Warning</div>
+          <div class="swatch-hex">#E67E22</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#B91C1C;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Error</div>
+          <div class="swatch-hex">#B91C1C</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background:#2563EB;"></div>
+        <div class="swatch-body">
+          <div class="swatch-label">Info</div>
+          <div class="swatch-hex">#2563EB</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Text colors reference -->
+    <div style="margin-top: 40px;">
+      <div class="section-label" style="margin-bottom: 20px;">Text colors · light and dark</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <!-- Light mode text -->
+        <div style="border:1px solid var(--border);border-radius:6px;background:var(--card);overflow:hidden;">
+          <div style="padding:12px 20px;border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-tertiary);">Light mode</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px 20px;color:#1A2332;">Text primary</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-tertiary);text-align:right;">#1A2332</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px 20px;color:#5A6475;">Text secondary</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-tertiary);text-align:right;">#5A6475</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:12px 20px;color:#677082;">Text tertiary</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-tertiary);text-align:right;">#677082</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 20px;color:#2F3E52;">Wordmark navy</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-tertiary);text-align:right;">#2F3E52</td>
+            </tr>
+          </table>
+        </div>
+        <!-- Dark mode text -->
+        <div style="border:1px solid #1A212D;border-radius:6px;background:#0B0F14;overflow:hidden;">
+          <div style="padding:12px 20px;border-bottom:1px solid #1A212D;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#818B9C;">Dark mode</div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <tr style="border-bottom:1px solid #1A212D;">
+              <td style="padding:12px 20px;color:#E8ECF2;">Text primary</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#818B9C;text-align:right;">#E8ECF2</td>
+            </tr>
+            <tr style="border-bottom:1px solid #1A212D;">
+              <td style="padding:12px 20px;color:#9AA4B4;">Text secondary</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#818B9C;text-align:right;">#9AA4B4</td>
+            </tr>
+            <tr style="border-bottom:1px solid #1A212D;">
+              <td style="padding:12px 20px;color:#818B9C;">Text tertiary</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#818B9C;text-align:right;">#818B9C</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 20px;color:#698BB8;">Wordmark (dark)</td>
+              <td style="padding:12px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#818B9C;text-align:right;">#698BB8</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <p style="margin-top:16px;font-size:13px;color:var(--text-secondary);max-width:640px;line-height:1.6;">Light mode uses two navies side-by-side: <code style="background:var(--subtle);padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">#2F3E52</code> for the wordmark and primary CTAs (brand energy), <code style="background:var(--subtle);padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">#1A2332</code> for body text (slightly darker, optimized for reading). Dark mode keeps that distinction and adds a third axis: the wordmark and navy <em>foreground</em> uses <code style="background:var(--subtle);padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">#698BB8</code> (lifted so it clears AA on the dark card), while navy <em>fills</em> use <code style="background:var(--subtle);padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">#4F6B8C</code> (darker so white text on top clears AA). Body text is <code style="background:var(--subtle);padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:12px;">#E8ECF2</code>. See BRAND.md §"Fill vs foreground" for which navy goes where.</p>
+    </div>
+
+    <!-- Semantic colors in context -->
+    <div style="margin-top: 40px;">
+      <div class="section-label" style="margin-bottom: 20px;">Semantic colors · in context</div>
+      <p style="font-size:13px;color:var(--text-secondary);max-width:640px;line-height:1.6;margin-bottom:24px;">The real test for semantic colors isn't the swatch — it's how they read as status indicators at glance speed. Warning orange and error red separate clearly here; you can tell at a glance which is which without reading the label.</p>
+
+      <!-- Status badges -->
+      <div style="border:1px solid var(--border);border-radius:6px;background:var(--card);overflow:hidden;margin-bottom:16px;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Status badges</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-tertiary);letter-spacing:0.04em;">table rows · entity status</div>
+        </div>
+        <div style="padding:24px;background:var(--subtle);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <span class="badge badge--success"><span class="badge-icon">✓</span>Approved</span>
+          <span class="badge badge--warning"><span class="badge-icon">▲</span>Due in 3 days</span>
+          <span class="badge badge--error"><span class="badge-icon">●</span>Overdue</span>
+          <span class="badge badge--info"><span class="badge-icon">i</span>Processing</span>
+          <span class="badge badge--neutral"><span class="badge-icon">◇</span>Draft</span>
+        </div>
+        <div style="padding:14px 20px;font-size:12px;color:var(--text-secondary);border-top:1px solid var(--border);line-height:1.5;">Each state uses a <em>distinctive shape</em> alongside its color — checkmark, triangle, circle, lowercase i, diamond. This makes badges identifiable for colorblind users and legible in monochrome printouts. Color is an amplifier, never the sole signal.</div>
+      </div>
+
+      <!-- Alert banners -->
+      <div style="border:1px solid var(--border);border-radius:6px;background:var(--card);overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Alert banners</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-tertiary);letter-spacing:0.04em;">inline feedback · form submission</div>
+        </div>
+        <div style="padding:24px;background:var(--subtle);display:flex;flex-direction:column;gap:12px;align-items:flex-start;">
+          <div class="alert alert--success">
+            <div class="alert-icon">✓</div>
+            <div class="alert-body"><strong>Invoice #4829 approved.</strong> Posted to general ledger and queued for payment on the next batch run.</div>
+          </div>
+          <div class="alert alert--warning">
+            <div class="alert-icon">!</div>
+            <div class="alert-body"><strong>Budget utilization at 92%.</strong> This change order will push the project over its approved cost ceiling. Review before posting.</div>
+          </div>
+          <div class="alert alert--error">
+            <div class="alert-icon">×</div>
+            <div class="alert-body"><strong>Journal entry rejected.</strong> Debits and credits do not balance. The difference is $1,245.00 on account 5100 — Professional Services.</div>
+          </div>
+          <div class="alert alert--info">
+            <div class="alert-icon">i</div>
+            <div class="alert-body"><strong>Schema sync in progress.</strong> New vendor SKU matches will appear in the BOM module within the next 5 minutes.</div>
+          </div>
+        </div>
+        <div style="padding:14px 20px;font-size:12px;color:var(--text-secondary);border-top:1px solid var(--border);line-height:1.5;">2px colored left border, tinted background, white-on-color icon. Warning and error have clearly different character here — orange invites review, red stops workflow. That's the functional distinction the system is designed to preserve.</div>
+      </div>
+
+      <!-- Colorblind / grayscale verification -->
+      <div style="margin-top:32px;border:1px solid var(--border);border-radius:6px;background:var(--card);overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Grayscale verification</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-tertiary);letter-spacing:0.04em;">accessibility test · all color vision</div>
+        </div>
+        <div style="padding:24px;background:var(--subtle);filter:grayscale(100%);display:flex;flex-direction:column;gap:16px;align-items:flex-start;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <span class="badge badge--success"><span class="badge-icon">✓</span>Approved</span>
+            <span class="badge badge--warning"><span class="badge-icon">▲</span>Due in 3 days</span>
+            <span class="badge badge--error"><span class="badge-icon">●</span>Overdue</span>
+            <span class="badge badge--info"><span class="badge-icon">i</span>Processing</span>
+            <span class="badge badge--neutral"><span class="badge-icon">◇</span>Draft</span>
+          </div>
+          <div class="alert alert--warning">
+            <div class="alert-icon">!</div>
+            <div class="alert-body"><strong>Budget utilization at 92%.</strong> This change order will push the project over its approved cost ceiling.</div>
+          </div>
+          <div class="alert alert--error">
+            <div class="alert-icon">×</div>
+            <div class="alert-body"><strong>Journal entry rejected.</strong> Debits and credits do not balance by $1,245.00 on account 5100.</div>
+          </div>
+        </div>
+        <div style="padding:14px 20px;font-size:12px;color:var(--text-secondary);border-top:1px solid var(--border);line-height:1.5;">Rendered in grayscale — the strictest accessibility test. If you can still distinguish each state here, the system works for every form of color vision deficiency (including monochromacy, ~0.003% of population). Brightness ladder and shape differential carry the meaning when hue drops away.</div>
+      </div>
+
+      <!-- Accessibility summary -->
+      <div style="margin-top:16px;border-left:2px solid #2563EB;background:var(--info-tint-bg);padding:16px 20px;border-radius:0 4px 4px 0;">
+        <div style="font-size:12px;font-weight:600;color:#1D4ED8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">Accessibility note</div>
+        <div style="font-size:13px;color:var(--text-primary);line-height:1.6;">Color alone never conveys status. Every badge has a distinctive shape; every alert has an icon and text label. The system survives deuteranopia (6% of men), protanopia (2%), tritanopia (rare), and full achromatopsia. If a status indicator is ever designed with color as the sole cue, it violates this system.</div>
+      </div>
+
+      <!-- Icon vocabulary reference -->
+      <div style="margin-top:32px;">
+        <div class="section-label" style="margin-bottom:20px;">Icon vocabulary · semantic states</div>
+        <p style="font-size:13px;color:var(--text-secondary);max-width:640px;line-height:1.6;margin-bottom:24px;">Each semantic state has exactly one icon glyph used consistently across alerts, field errors, toasts, and any future indicator. Badges use larger-scale shapes (triangle, circle, diamond) because the tiny circular glyphs don't read at badge size — but the meaning is paired across both scales.</p>
+
+        <div style="border:1px solid var(--border);border-radius:6px;background:var(--card);overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:var(--page);border-bottom:1px solid var(--border);">
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.08em;width:120px;">State</th>
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.08em;width:100px;">Alert glyph</th>
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.08em;width:100px;">Badge shape</th>
+                <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.08em;">Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 16px;color:#15803D;font-weight:500;">Success</td>
+                <td style="padding:12px 16px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#15803D;color:#fff;border-radius:50%;font-size:11px;font-weight:700;">✓</span></td>
+                <td style="padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#15803D;">✓</td>
+                <td style="padding:12px 16px;color:var(--text-secondary);">Completed, confirmed, approved</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 16px;color:#B45309;font-weight:500;">Warning</td>
+                <td style="padding:12px 16px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#E67E22;color:#fff;border-radius:50%;font-size:11px;font-weight:700;">!</span></td>
+                <td style="padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#E67E22;">▲</td>
+                <td style="padding:12px 16px;color:var(--text-secondary);">Attention required, review before proceeding</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 16px;color:#B91C1C;font-weight:500;">Error</td>
+                <td style="padding:12px 16px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#B91C1C;color:#fff;border-radius:50%;font-size:12px;font-weight:700;line-height:1;">×</span></td>
+                <td style="padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#B91C1C;">●</td>
+                <td style="padding:12px 16px;color:var(--text-secondary);">Blocked, rejected, cannot proceed</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:12px 16px;color:#1D4ED8;font-weight:500;">Info</td>
+                <td style="padding:12px 16px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#2563EB;color:#fff;border-radius:50%;font-size:11px;font-weight:600;font-style:italic;">i</span></td>
+                <td style="padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#2563EB;">i</td>
+                <td style="padding:12px 16px;color:var(--text-secondary);">Informational, in progress, neutral update</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 16px;color:var(--text-secondary);font-weight:500;">Neutral / draft</td>
+                <td style="padding:12px 16px;color:var(--text-tertiary);font-size:12px;">—</td>
+                <td style="padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text-tertiary);">◇</td>
+                <td style="padding:12px 16px;color:var(--text-secondary);">Not yet acted on, saved but unsubmitted</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top:12px;font-size:12px;color:var(--text-secondary);line-height:1.6;"><strong style="color:var(--text-primary);font-weight:600;">Why ✓ ! × i and not free-form:</strong> These four glyphs carry 40+ years of design system heritage — Apple, Microsoft, GNOME, KDE, every modern OS. Users recognize them pre-consciously. Using different glyphs for the same meaning (a ! for error, a ⚠ for warning) costs comprehension without gaining anything.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- GOLD RULES -->
+  <section class="section">
+    <div class="section-label">03 · Gold discipline</div>
+    <h2 class="section-title">The three approved uses</h2>
+    <p class="section-note">Gold appears in exactly these three places across the entire product and marketing surface. Nowhere else. Not in chips, badges, focus rings, icons, or decoration. This restraint is what makes the gold feel premium instead of loud.</p>
+
+    <div class="rules-intro">
+      <div class="rules-intro-num">RULE</div>
+      <div class="rules-intro-text">
+        <strong>If a user sees more than two gold elements on any single screen, something is wrong.</strong> The palette works because gold is rare. Break the rule and the discipline collapses.
+      </div>
+    </div>
+
+    <div class="rule-grid">
+      <!-- Rule 1: Logo -->
+      <div class="rule-card">
+        <div class="rule-header">
+          <div class="rule-title">The logo dot</div>
+          <div class="rule-index">01 / 03</div>
+        </div>
+        <div class="rule-stage">
+          <div class="wordmark" style="font-size:44px;">nap<span class="wordmark-dot" style="width:8px;height:8px;"></span></div>
+        </div>
+        <div class="rule-note">The enlarged gold square dot acting as the period. Brand-consistent, scales from favicon to billboard.</div>
+      </div>
+
+      <!-- Rule 2: Nav active state -->
+      <div class="rule-card">
+        <div class="rule-header">
+          <div class="rule-title">Active nav indicator</div>
+          <div class="rule-index">02 / 03</div>
+        </div>
+        <div class="rule-stage" style="padding: 20px;">
+          <div class="nav-demo">
+            <div class="nav-item">Dashboard</div>
+            <div class="nav-item active">Projects</div>
+            <div class="nav-item">Accounts Payable</div>
+            <div class="nav-item">Accounts Receivable</div>
+            <div class="nav-item">General Ledger</div>
+            <div class="nav-item">Reports</div>
+          </div>
+        </div>
+        <div class="rule-note">2px gold vertical bar at the left edge of the active item. Icons and text stay neutral. One bar only — ever.</div>
+      </div>
+
+      <!-- Rule 3: Report total -->
+      <div class="rule-card">
+        <div class="rule-header">
+          <div class="rule-title">Final-total accent in reports</div>
+          <div class="rule-index">03 / 03</div>
+        </div>
+        <div class="rule-stage" style="padding: 28px 32px;">
+          <div class="report-demo">
+            <div class="report-row">
+              <span class="report-row-label">Revenue</span>
+              <span class="report-row-value">$2,842,500.00</span>
+            </div>
+            <div class="report-row">
+              <span class="report-row-label">Cost of goods</span>
+              <span class="report-row-value">$1,684,220.00</span>
+            </div>
+            <div class="report-row">
+              <span class="report-row-label">Operating expense</span>
+              <span class="report-row-value">$640,180.00</span>
+            </div>
+            <div class="report-total">
+              <span class="report-total-label">Net income</span>
+              <span class="report-total-value">$518,100.00</span>
+            </div>
+          </div>
+        </div>
+        <div class="rule-note">A short gold rule above the final total line on financial outputs. An accountant's double-underline, reimagined. Also echoes the logo's gold bar.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPONENTS -->
+  <section class="section">
+    <div class="section-label">04 · Components</div>
+    <h2 class="section-title">Buttons, navigation, menus</h2>
+    <p class="section-note">The system applied to the elements users see most often. One rule across all of it: count the gold on any screen — logo dot, max one active nav indicator, plus final-total accent in reports. Never more. Buttons carry none.</p>
+
+    <div class="component-grid">
+      <!-- Buttons: 3-button hierarchy -->
+      <div class="component-card component-card--wide">
+        <div class="component-header">
+          <div class="component-title">Three-button hierarchy</div>
+          <div class="component-meta">primary · secondary · tertiary</div>
+        </div>
+        <div class="component-stage">
+          <button class="btn-primary">Post journal entry</button>
+          <button class="btn-secondary">Save as draft</button>
+          <button class="btn-tertiary">Cancel</button>
+        </div>
+        <div class="component-note">One primary per screen. Primary is navy alone — no gold, because a product screen shows buttons far too often for gold on each to stay rare. Secondary is the common alternative, quiet by design. Tertiary is for escape hatches. The user always knows which action you expect them to take.</div>
+      </div>
+
+      <!-- Primary button states -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Primary button · all states</div>
+          <div class="component-meta">default · hover · disabled</div>
+        </div>
+        <div class="component-stage component-stage--col" style="gap:14px;">
+          <button class="btn-primary">Approve invoice</button>
+          <button class="btn-primary is-hover-demo">Approve invoice <span style="margin-left:6px;opacity:0.7;font-size:11px;">(hover)</span></button>
+          <button class="btn-primary is-disabled" disabled>Approve invoice</button>
+        </div>
+        <div class="component-note">Hover lifts the fill to --navy-hover; nothing else moves. Disabled drops to the strong border gray with tertiary text. No gold on any state.</div>
+      </div>
+
+      <!-- Destructive & ghost variants -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Destructive actions</div>
+          <div class="component-meta">tertiary · danger</div>
+        </div>
+        <div class="component-stage component-stage--col" style="gap:14px;">
+          <div>
+            <button class="btn-primary">Delete invoice</button>
+            <button class="btn-secondary">Cancel</button>
+          </div>
+          <button class="btn-tertiary btn-tertiary--danger">Discard changes</button>
+        </div>
+        <div class="component-note">For confirmed destructive actions, primary stays navy — don't swap Cancel into primary to be polite. For inline destructive actions in tables or forms, use the danger-tinted tertiary variant.</div>
+      </div>
+
+      <!-- Left nav with parent + children -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Left navigation</div>
+          <div class="component-meta">parent + expanded children</div>
+        </div>
+        <div class="component-stage" style="padding: 20px;">
+          <div class="nav-demo">
+            <div class="nav-item">Dashboard</div>
+            <div class="nav-item">Accounts Payable</div>
+            <div class="nav-item" style="color: var(--text-primary); font-weight: 500;">Projects <span style="float:right;color:var(--text-tertiary);font-size:10px;">▾</span></div>
+            <div class="nav-item nav-item--child">All projects</div>
+            <div class="nav-item nav-item--child active">Active projects</div>
+            <div class="nav-item nav-item--child">Closed projects</div>
+            <div class="nav-item">General Ledger</div>
+            <div class="nav-item">Reports</div>
+          </div>
+        </div>
+        <div class="component-note">2px gold bar marks the active leaf item. Parent of an active child is emphasized with Medium weight but no gold bar — one active indicator per nav, ever.</div>
+      </div>
+
+      <!-- Top tabs -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Section tabs</div>
+          <div class="component-meta">entity-level navigation</div>
+        </div>
+        <div class="component-stage" style="padding: 0; background: var(--card);">
+          <div style="width:100%;padding:20px 24px 0;">
+            <div class="tabs">
+              <div class="tab">Overview</div>
+              <div class="tab active">Transactions</div>
+              <div class="tab">Documents</div>
+              <div class="tab">Change Orders</div>
+              <div class="tab">History</div>
+            </div>
+            <div style="padding:20px 0;color:var(--text-tertiary);font-size:12px;">Tab content area</div>
+          </div>
+        </div>
+        <div class="component-note">2px gold underline on the active tab, flush to the border. Used for horizontal navigation within an entity (a project, an invoice, a vendor). Same restraint as the left nav: one active tab, one gold line.</div>
+      </div>
+
+      <!-- Dropdown menu -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Dropdown menu</div>
+          <div class="component-meta">no gold · hover + selected + danger</div>
+        </div>
+        <div class="component-stage" style="padding: 20px; align-items: flex-start;">
+          <div class="dropdown">
+            <div class="dropdown-item">Edit project</div>
+            <div class="dropdown-item dropdown-item--selected">Duplicate</div>
+            <div class="dropdown-item">Export to Excel</div>
+            <div class="dropdown-item dropdown-item--disabled">Archive (pending)</div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item dropdown-item--danger">Delete project</div>
+          </div>
+        </div>
+        <div class="component-note">Dropdowns never carry gold — they're too frequent and too small to use accent without becoming visual noise. Selected state uses a navy checkmark; destructive uses the semantic error color.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORMS -->
+  <section class="section">
+    <div class="section-label">05 · Forms</div>
+    <h2 class="section-title">Inputs, selects, controls</h2>
+    <p class="section-note">Every invoice, journal entry, vendor record, and project budget passes through a form. Restraint here means no gold on focus states (dozens of inputs per screen would overwhelm), monospace-right-aligned for numeric entry, and parentheses for negative values because that's the accounting standard.</p>
+
+    <div class="component-grid">
+
+      <!-- Text input states -->
+      <div class="component-card component-card--wide">
+        <div class="component-header">
+          <div class="component-title">Text input · all states</div>
+          <div class="component-meta">default · hover · focus · filled · disabled · readonly · error</div>
+        </div>
+        <div class="form-stage">
+          <div class="form-row form-row--three">
+            <div class="field">
+              <label class="field-label">Project name</label>
+              <input class="input" type="text" placeholder="Enter project name" />
+              <div class="field-helper">Default state with placeholder</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Vendor ID</label>
+              <input class="input input--filled" type="text" value="V-104927" />
+              <div class="field-helper">Filled — slightly stronger border</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Account code</label>
+              <input class="input" type="text" value="5100.02.AP" disabled />
+              <div class="field-helper">Disabled — system-assigned</div>
+            </div>
+          </div>
+          <div style="height:20px;"></div>
+          <div class="form-row form-row--three">
+            <div class="field">
+              <label class="field-label">Invoice number<span class="field-required">*</span></label>
+              <input class="input input--error" type="text" value="INV-2026-" />
+              <div class="field-error">Invoice number is required</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Posted by</label>
+              <input class="input input--readonly" type="text" value="J. Rodriguez" readonly />
+              <div class="field-helper">Read-only — looks like displayed data</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Reference tag</label>
+              <input class="input" type="text" value="Q2-2026-BUDGET" />
+              <div class="field-helper">With value, no error</div>
+            </div>
+          </div>
+        </div>
+        <div class="component-note">Required fields use a quiet neutral-gray asterisk — the convention is strong enough without color emphasis. Color is reserved for validation states: red for errors (with a filled-circle icon as a second channel). Focus ring is navy at 12% opacity — subtle glow, no gold.</div>
+      </div>
+
+      <!-- Numeric / currency input -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Currency input</div>
+          <div class="component-meta">monospace · right-aligned</div>
+        </div>
+        <div class="form-stage">
+          <div class="form-group">
+            <div class="field">
+              <label class="field-label">Invoice total</label>
+              <div class="input-currency">
+                <span class="input-currency-prefix">$</span>
+                <input class="input" type="text" value="12,480.50" />
+              </div>
+              <div class="field-helper">JetBrains Mono ensures decimals align when stacked</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Adjustment</label>
+              <div class="input-currency input-currency--negative">
+                <span class="input-currency-prefix">$</span>
+                <input class="input" type="text" value="(1,245.00)" />
+              </div>
+              <div class="field-helper">Negative values in parentheses — the accounting convention</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Net amount</label>
+              <div class="input-currency">
+                <span class="input-currency-prefix">$</span>
+                <input class="input" type="text" value="11,235.50" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="component-note">Currency symbol is a static prefix with a divider. Monospace digits mean stacked values align decimal-to-decimal. Up/down arrows increment by $1 (shift: $100, alt: $1,000).</div>
+      </div>
+
+      <!-- Select & multi-select -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Select · multi-select</div>
+          <div class="component-meta">closed states</div>
+        </div>
+        <div class="form-stage">
+          <div class="form-group">
+            <div class="field">
+              <label class="field-label">GL account</label>
+              <div class="select">
+                <button class="select-trigger">5100 · Professional Services</button>
+                <span class="select-chevron">▾</span>
+              </div>
+              <div class="field-helper">Single-select — looks like an input with a chevron</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Cost center</label>
+              <div class="select">
+                <button class="select-trigger select-trigger--placeholder">Select a cost center</button>
+                <span class="select-chevron">▾</span>
+              </div>
+              <div class="field-helper">Placeholder state</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Project tags</label>
+              <div class="input-multi">
+                <span class="chip-selected">construction<span class="chip-remove">×</span></span>
+                <span class="chip-selected">phase-2<span class="chip-remove">×</span></span>
+                <span class="chip-selected">q2-2026<span class="chip-remove">×</span></span>
+                <input class="input-multi-entry" placeholder="Add tag…" />
+              </div>
+              <div class="field-helper">Multi-select with navy chips inline</div>
+            </div>
+          </div>
+        </div>
+        <div class="component-note">Selects are visually indistinguishable from inputs aside from the chevron — feels like "an input where I pick from a list." Multi-select chips stay navy; removing is one click.</div>
+      </div>
+
+      <!-- Checkboxes -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Checkboxes</div>
+          <div class="component-meta">default · checked · indeterminate · disabled</div>
+        </div>
+        <div class="form-stage">
+          <div class="form-group">
+            <label class="checkbox-wrap">
+              <input type="checkbox" class="checkbox" />
+              <span class="checkbox-label">Auto-post to general ledger</span>
+            </label>
+            <label class="checkbox-wrap">
+              <input type="checkbox" class="checkbox" checked />
+              <span class="checkbox-label">Send email notification to approvers</span>
+            </label>
+            <label class="checkbox-wrap">
+              <input type="checkbox" class="checkbox checkbox--indeterminate" />
+              <span class="checkbox-label">Apply to all line items (3 of 8 selected)</span>
+            </label>
+            <label class="checkbox-wrap checkbox-wrap--disabled">
+              <input type="checkbox" class="checkbox" disabled />
+              <span class="checkbox-label">Close period after posting (locked)</span>
+            </label>
+          </div>
+        </div>
+        <div class="component-note">Navy fill on checked. Indeterminate state uses a horizontal dash — useful for "select all" when only some rows are selected. No gold.</div>
+      </div>
+
+      <!-- Radio buttons -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Radio buttons</div>
+          <div class="component-meta">exclusive selection</div>
+        </div>
+        <div class="form-stage">
+          <div class="form-group">
+            <div class="field-label" style="margin-bottom:4px;">Invoice status on post</div>
+            <label class="checkbox-wrap">
+              <input type="radio" name="post-status" class="radio" checked />
+              <span class="checkbox-label">Draft — save but do not notify</span>
+            </label>
+            <label class="checkbox-wrap">
+              <input type="radio" name="post-status" class="radio" />
+              <span class="checkbox-label">Pending approval — send to approvers</span>
+            </label>
+            <label class="checkbox-wrap">
+              <input type="radio" name="post-status" class="radio" />
+              <span class="checkbox-label">Post immediately (requires admin rights)</span>
+            </label>
+          </div>
+        </div>
+        <div class="component-note">Navy nested circles signal the selected option. Used for exclusive choices where the alternatives need to be visible, unlike a select which hides them.</div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="component-card component-card--wide">
+        <div class="component-header">
+          <div class="component-title">Toggle switches</div>
+          <div class="component-meta">binary on/off · settings</div>
+        </div>
+        <div class="form-stage form-stage--white">
+          <div class="form-group">
+            <label class="checkbox-wrap" style="justify-content:space-between;width:100%;">
+              <span style="display:flex;flex-direction:column;gap:2px;">
+                <span class="checkbox-label" style="font-weight:500;">Require dual approval for entries over $50,000</span>
+                <span style="font-size:12px;color:var(--text-secondary);">Applies to journal entries, vendor payments, and change orders</span>
+              </span>
+              <input type="checkbox" class="toggle" checked />
+            </label>
+            <label class="checkbox-wrap" style="justify-content:space-between;width:100%;">
+              <span style="display:flex;flex-direction:column;gap:2px;">
+                <span class="checkbox-label" style="font-weight:500;">Auto-lock period after month-end close</span>
+                <span style="font-size:12px;color:var(--text-secondary);">Prevents late postings to closed periods</span>
+              </span>
+              <input type="checkbox" class="toggle" checked />
+            </label>
+            <label class="checkbox-wrap" style="justify-content:space-between;width:100%;">
+              <span style="display:flex;flex-direction:column;gap:2px;">
+                <span class="checkbox-label" style="font-weight:500;">Enable vendor SKU auto-match</span>
+                <span style="font-size:12px;color:var(--text-secondary);">Uses pgvector embeddings to match new SKUs to the catalog</span>
+              </span>
+              <input type="checkbox" class="toggle" />
+            </label>
+          </div>
+        </div>
+        <div class="component-note">Toggles are for binary on/off settings — distinct from checkboxes which are for multi-select. The "label with sub-text + toggle on right" pattern is the dominant layout on settings pages.</div>
+      </div>
+
+      <!-- Realistic form example -->
+      <div class="component-card component-card--wide">
+        <div class="component-header">
+          <div class="component-title">Realistic example · new journal entry</div>
+          <div class="component-meta">labels above · grouped by rhythm, not boxes</div>
+        </div>
+        <div class="form-stage form-stage--white">
+          <div class="form-section">
+            <div class="form-section-head">Entry details</div>
+            <div class="form-row">
+              <div class="field">
+                <label class="field-label">Entry date<span class="field-required">*</span></label>
+                <input class="input input--filled" type="text" value="2026-04-21" />
+              </div>
+              <div class="field">
+                <label class="field-label">Reference<span class="field-required">*</span></label>
+                <input class="input input--filled" type="text" value="JE-2026-0842" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Description</label>
+              <input class="input input--filled" type="text" value="Q2 accrual — professional services" />
+            </div>
+
+            <div style="height:12px;"></div>
+            <div class="form-section-head">Posting</div>
+            <div class="form-row">
+              <div class="field">
+                <label class="field-label">GL account<span class="field-required">*</span></label>
+                <div class="select">
+                  <button class="select-trigger">5100 · Professional Services</button>
+                  <span class="select-chevron">▾</span>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label">Amount (debit)<span class="field-required">*</span></label>
+                <div class="input-currency">
+                  <span class="input-currency-prefix">$</span>
+                  <input class="input" type="text" value="42,500.00" />
+                </div>
+              </div>
+            </div>
+
+            <label class="checkbox-wrap" style="margin-top:4px;">
+              <input type="checkbox" class="checkbox" checked />
+              <span class="checkbox-label">Notify approvers immediately on save</span>
+            </label>
+
+            <div style="display:flex;gap:0;margin-top:16px;">
+              <button class="btn-primary">Post entry</button>
+              <button class="btn-secondary">Save as draft</button>
+              <button class="btn-tertiary">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="component-note">Sections are delineated by a thin bottom-border heading in uppercase letter-spaced type — not nested boxes. Form scans vertically, fields scale across two columns when the content warrants. One primary action per form. No visual noise.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- TABLES -->
+  <section class="section">
+    <div class="section-label">06 · Tables</div>
+    <h2 class="section-title">The workhorse</h2>
+    <p class="section-note">Tables should feel boring. The best table design is invisible — the user sees data, finds what they need, and thinks nothing about the chrome. No zebra stripes, no vertical gridlines, no gold except on the final totals row, no visual accents that aren't carrying meaning.</p>
+
+    <div class="component-grid">
+
+      <!-- Main AP aging table with totals -->
+      <div class="component-card component-card--wide">
+        <div class="component-header">
+          <div class="component-title">Accounts payable · aging report</div>
+          <div class="component-meta">status badges · right-aligned numerics · gold totals rule</div>
+        </div>
+        <div class="form-stage">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th class="th-sortable th-active" style="width:110px;">Invoice # <span class="th-sort-indicator">▾</span></th>
+                  <th class="th-sortable">Vendor <span class="th-sort-hover-hint">↕</span></th>
+                  <th class="th-sortable">Date <span class="th-sort-hover-hint">↕</span></th>
+                  <th style="width:130px;">Status</th>
+                  <th class="th-sortable th-num">Amount <span class="th-sort-hover-hint">↕</span></th>
+                  <th class="th-sortable th-num">Balance <span class="th-sort-hover-hint">↕</span></th>
+                  <th style="width:90px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="is-clickable">
+                  <td class="td-id">INV-2026-0842</td>
+                  <td>Apex Concrete Supply</td>
+                  <td class="td-date">2026-04-18</td>
+                  <td><span class="badge badge--warning"><span class="badge-icon">▲</span>Due in 3 days</span></td>
+                  <td class="td-num">12,480.50</td>
+                  <td class="td-num">12,480.50</td>
+                  <td>
+                    <div class="table-row-actions">
+                      <button class="table-row-action" title="View">⤢</button>
+                      <button class="table-row-action" title="More">⋯</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="is-clickable">
+                  <td class="td-id">INV-2026-0839</td>
+                  <td>Northgate Steel &amp; Rebar</td>
+                  <td class="td-date">2026-04-15</td>
+                  <td><span class="badge badge--error"><span class="badge-icon">●</span>Overdue</span></td>
+                  <td class="td-num">48,200.00</td>
+                  <td class="td-num td-negative">48,200.00</td>
+                  <td>
+                    <div class="table-row-actions">
+                      <button class="table-row-action" title="View">⤢</button>
+                      <button class="table-row-action" title="More">⋯</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="is-clickable">
+                  <td class="td-id">INV-2026-0835</td>
+                  <td>Pacific Lumber Co.</td>
+                  <td class="td-date">2026-04-12</td>
+                  <td><span class="badge badge--success"><span class="badge-icon">✓</span>Approved</span></td>
+                  <td class="td-num">8,742.25</td>
+                  <td class="td-num">8,742.25</td>
+                  <td>
+                    <div class="table-row-actions">
+                      <button class="table-row-action" title="View">⤢</button>
+                      <button class="table-row-action" title="More">⋯</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="is-clickable">
+                  <td class="td-id">INV-2026-0831</td>
+                  <td>Summit HVAC Services</td>
+                  <td class="td-date">2026-04-10</td>
+                  <td><span class="badge badge--info"><span class="badge-icon">i</span>Processing</span></td>
+                  <td class="td-num">4,150.00</td>
+                  <td class="td-num">4,150.00</td>
+                  <td>
+                    <div class="table-row-actions">
+                      <button class="table-row-action" title="View">⤢</button>
+                      <button class="table-row-action" title="More">⋯</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="is-clickable">
+                  <td class="td-id">INV-2026-0828</td>
+                  <td>Westside Electric</td>
+                  <td class="td-date">2026-04-08</td>
+                  <td><span class="badge badge--neutral"><span class="badge-icon">◇</span>Draft</span></td>
+                  <td class="td-num">—</td>
+                  <td class="td-num td-muted">—</td>
+                  <td>
+                    <div class="table-row-actions">
+                      <button class="table-row-action" title="View">⤢</button>
+                      <button class="table-row-action" title="More">⋯</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="is-clickable">
+                  <td class="td-id">INV-2026-0824</td>
+                  <td>Coastal Safety Gear</td>
+                  <td class="td-date">2026-04-05</td>
+                  <td><span class="badge badge--success"><span class="badge-icon">✓</span>Approved</span></td>
+                  <td class="td-num">1,892.00</td>
+                  <td class="td-num">0.00</td>
+                  <td>
+                    <div class="table-row-actions">
+                      <button class="table-row-action" title="View">⤢</button>
+                      <button class="table-row-action" title="More">⋯</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4" class="td-gold-rule" style="text-align:right;padding-right:20px;">Total outstanding</td>
+                  <td class="td-num td-gold-rule">75,464.75</td>
+                  <td class="td-num td-gold-rule">73,572.75</td>
+                  <td class="td-gold-rule"></td>
+                </tr>
+              </tfoot>
+            </table>
+            <div class="table-pagination">
+              <div>Showing 1–6 of 147</div>
+              <div class="table-pagination-group">
+                <span>Rows:</span>
+                <div class="select" style="width:70px;">
+                  <button class="select-trigger" style="padding:4px 28px 4px 10px;font-size:12px;">50</button>
+                  <span class="select-chevron" style="right:10px;">▾</span>
+                </div>
+                <button class="table-pagination-btn" disabled>Previous</button>
+                <button class="table-pagination-btn">Next</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="component-note">Row hover is a subtle warm-tint background — no border change, no emphasis. Action icons reveal only on hover so idle rows stay quiet. The 2px gold rule above the totals row is the only gold in this entire table.</div>
+      </div>
+
+      <!-- Selection mode with checkboxes -->
+      <div class="component-card component-card--wide">
+        <div class="component-header">
+          <div class="component-title">Selection mode · bulk actions</div>
+          <div class="component-meta">sticky action strip · indeterminate header</div>
+        </div>
+        <div class="form-stage">
+          <div class="table-wrap">
+            <div class="table-selection-strip">
+              <div class="table-selection-strip-count">2 of 6 selected</div>
+              <div class="table-selection-strip-actions">
+                <button class="table-selection-strip-btn">Export selected</button>
+                <button class="table-selection-strip-btn">Mark approved</button>
+                <button class="table-selection-strip-btn table-selection-strip-btn--danger">Delete</button>
+              </div>
+            </div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th class="td-checkbox">
+                    <input type="checkbox" class="checkbox checkbox--indeterminate" />
+                  </th>
+                  <th style="width:110px;">Invoice #</th>
+                  <th>Vendor</th>
+                  <th>Date</th>
+                  <th style="width:130px;">Status</th>
+                  <th class="th-num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="is-selected">
+                  <td class="td-checkbox">
+                    <input type="checkbox" class="checkbox" checked />
+                  </td>
+                  <td class="td-id">INV-2026-0842</td>
+                  <td>Apex Concrete Supply</td>
+                  <td class="td-date">2026-04-18</td>
+                  <td><span class="badge badge--warning"><span class="badge-icon">▲</span>Due in 3 days</span></td>
+                  <td class="td-num">12,480.50</td>
+                </tr>
+                <tr class="is-selected">
+                  <td class="td-checkbox">
+                    <input type="checkbox" class="checkbox" checked />
+                  </td>
+                  <td class="td-id">INV-2026-0839</td>
+                  <td>Northgate Steel &amp; Rebar</td>
+                  <td class="td-date">2026-04-15</td>
+                  <td><span class="badge badge--error"><span class="badge-icon">●</span>Overdue</span></td>
+                  <td class="td-num">48,200.00</td>
+                </tr>
+                <tr>
+                  <td class="td-checkbox">
+                    <input type="checkbox" class="checkbox" />
+                  </td>
+                  <td class="td-id">INV-2026-0835</td>
+                  <td>Pacific Lumber Co.</td>
+                  <td class="td-date">2026-04-12</td>
+                  <td><span class="badge badge--success"><span class="badge-icon">✓</span>Approved</span></td>
+                  <td class="td-num">8,742.25</td>
+                </tr>
+                <tr class="is-editing">
+                  <td class="td-checkbox">
+                    <input type="checkbox" class="checkbox" />
+                  </td>
+                  <td class="td-id">INV-2026-0831</td>
+                  <td>Summit HVAC Services</td>
+                  <td class="td-date">2026-04-10</td>
+                  <td><span class="badge badge--info"><span class="badge-icon">i</span>Processing</span></td>
+                  <td class="td-num">
+                    <input class="input" style="text-align:right;font-family:'JetBrains Mono',monospace;padding:5px 8px;font-size:12px;" value="4,150.00" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="component-note">Header checkbox shows indeterminate state when some (not all) rows are selected. Bulk-action strip appears only when selection is active. Fourth row shows inline-editing mode with a subtle navy left-bar signaling the active edit — no gold, because this is functional state, not brand moment.</div>
+      </div>
+
+      <!-- Empty state -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Empty state</div>
+          <div class="component-meta">no data</div>
+        </div>
+        <div class="form-stage">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Vendor</th>
+                  <th>Date</th>
+                  <th class="th-num">Amount</th>
+                </tr>
+              </thead>
+            </table>
+            <div class="table-empty">
+              <div class="table-empty-icon">⬚</div>
+              <div class="table-empty-title">No invoices yet</div>
+              <div class="table-empty-text">When your first invoice is posted, it will appear here with status and aging info.</div>
+              <button class="btn-primary">Create first invoice</button>
+            </div>
+          </div>
+        </div>
+        <div class="component-note">Empty states keep the table header visible so the user knows what the table would show. Primary button for the obvious next action, centered with generous negative space.</div>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div class="component-card">
+        <div class="component-header">
+          <div class="component-title">Loading skeleton</div>
+          <div class="component-meta">async data · layout-first</div>
+        </div>
+        <div class="form-stage">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th style="width:110px;">Invoice #</th>
+                  <th>Vendor</th>
+                  <th>Date</th>
+                  <th class="th-num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:160px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td style="text-align:right;"><span class="table-skeleton-cell" style="width:60px;"></span></td>
+                </tr>
+                <tr>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:200px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td style="text-align:right;"><span class="table-skeleton-cell" style="width:70px;"></span></td>
+                </tr>
+                <tr>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:140px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td style="text-align:right;"><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                </tr>
+                <tr>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:180px;"></span></td>
+                  <td><span class="table-skeleton-cell" style="width:80px;"></span></td>
+                  <td style="text-align:right;"><span class="table-skeleton-cell" style="width:50px;"></span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="component-note">Skeleton rows at the same height as real rows — 44px — with pulsing neutral gray cells. The layout is present immediately; data arrives into the existing structure. Never spinners for table data.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- VOICE & TAGLINES -->
+  <section class="section">
+    <div class="section-label">07 · Voice &amp; taglines</div>
+    <h2 class="section-title">What the brand sounds like</h2>
+    <p class="section-note">Two taglines, not one. The primary line does the selling work — it lands above the fold on the landing page and in sales conversations. The secondary line carries the confident, counterintuitive brand voice — it lives in footers, About pages, and brand moments where the buyer is already engaged.</p>
+
+    <!-- Primary tagline in its natural hero context -->
+    <div class="hero-mock">
+      <div class="hero-mock-kicker">Project-first accounting</div>
+      <h1 class="hero-mock-headline">TBD.</h1>
+      <p class="hero-mock-subhead">The accounting platform that thinks in projects — not periods. Built for construction, manufacturing, and services firms that run on projects and need cashflow truth in real time.</p>
+      <div class="hero-mock-actions">
+        <button class="btn-primary">Book a demo</button>
+        <button class="btn-secondary">See how it works</button>
+      </div>
+    </div>
+
+    <div class="tagline-comparison">
+      <div class="tagline-card">
+        <div class="tagline-card-head">
+          <div class="tagline-card-role">Primary · sales surface</div>
+          <div class="tagline-card-tag">hero / pricing / demo</div>
+        </div>
+        <div class="tagline-card-body">
+          <div class="tagline-primary">TBD · primary tagline</div>
+        </div>
+        <div class="tagline-card-note">The landing page headline. Primary sales-surface line — pending.</div>
+      </div>
+
+      <div class="tagline-card">
+        <div class="tagline-card-head">
+          <div class="tagline-card-role">Secondary · brand surface</div>
+          <div class="tagline-card-tag">footer / about / signature</div>
+        </div>
+        <div class="tagline-card-body">
+          <div class="tagline-secondary">TBD · secondary tagline</div>
+        </div>
+        <div class="tagline-card-note">The brand voice line. Secondary brand-surface line — pending.</div>
+      </div>
+    </div>
+
+    <!-- When to use each -->
+    <table class="usage-table">
+      <thead>
+        <tr>
+          <th style="width:30%;">Context</th>
+          <th style="width:34%;">Use this line</th>
+          <th>Why</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Landing page hero</strong></td>
+          <td>TBD · primary</td>
+          <td>First-touch conversion — promise first, personality second</td>
+        </tr>
+        <tr>
+          <td><strong>Pricing page hero</strong></td>
+          <td>TBD · primary</td>
+          <td>Keeps the selling line front-and-center at decision moment</td>
+        </tr>
+        <tr>
+          <td><strong>Demo / sales deck cover</strong></td>
+          <td>TBD · primary</td>
+          <td>One-line pitch for the first slide</td>
+        </tr>
+        <tr>
+          <td><strong>Email signature</strong></td>
+          <td>TBD · secondary</td>
+          <td>Brand voice shows personality; the recipient is already a contact</td>
+        </tr>
+        <tr>
+          <td><strong>Website footer</strong></td>
+          <td>TBD · secondary</td>
+          <td>The persistent brand mark — visitors have already engaged with the site</td>
+        </tr>
+        <tr>
+          <td><strong>About page headline</strong></td>
+          <td>TBD · secondary</td>
+          <td>Brand moment for visitors already interested in the story</td>
+        </tr>
+        <tr>
+          <td><strong>Conference booth / swag</strong></td>
+          <td>TBD · secondary</td>
+          <td>Memorable, quotable, earns retention in a noisy environment</td>
+        </tr>
+        <tr>
+          <td><strong>Social bio / LinkedIn</strong></td>
+          <td>Project-first accounting. TBD · primary.</td>
+          <td>Use both — category descriptor first, tagline second</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Voice principles -->
+    <h3 style="margin-top:40px;margin-bottom:8px;font-size:18px;font-weight:600;color:var(--navy);letter-spacing:-0.015em;">Voice principles</h3>
+    <p style="font-size:14px;color:var(--text-secondary);margin:0 0 8px 0;max-width:620px;">The rules that keep marketing copy sounding like one brand, not five.</p>
+
+    <div class="voice-principles">
+      <div class="voice-principle">
+        <div class="voice-principle-num">01</div>
+        <div class="voice-principle-title">Confident, never clever</div>
+        <div class="voice-principle-body">State things plainly. No puns beyond what the name already does. The product is serious finance software; the writing reflects that.</div>
+      </div>
+      <div class="voice-principle">
+        <div class="voice-principle-num">02</div>
+        <div class="voice-principle-title">Specific, never generic</div>
+        <div class="voice-principle-body">"Project-first accounting" beats "modern ERP." "Construction, manufacturing, services" beats "businesses." Vague language signals a vague product.</div>
+      </div>
+      <div class="voice-principle">
+        <div class="voice-principle-num">03</div>
+        <div class="voice-principle-title">Anti-bloat, not anti-competitor</div>
+        <div class="voice-principle-body">"Not another program" is about category fatigue, not naming rivals. Never trash SAP, NetSuite, or QuickBooks by name — that makes us look small.</div>
+      </div>
+      <div class="voice-principle">
+        <div class="voice-principle-num">04</div>
+        <div class="voice-principle-title">Short over long</div>
+        <div class="voice-principle-body">If a sentence can be three words instead of ten, it should be three. CFOs scan, they don't read. Earn their time.</div>
+      </div>
+      <div class="voice-principle">
+        <div class="voice-principle-num">05</div>
+        <div class="voice-principle-title">Nouns over adjectives</div>
+        <div class="voice-principle-body">"The ledger that thinks in projects" beats "Our revolutionary AI-powered accounting platform." Verbs and nouns carry weight; adjectives leak credibility.</div>
+      </div>
+    </div>
+
+    <!-- Words to avoid -->
+    <div style="margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div style="border:1px solid var(--border);border-radius:6px;background:var(--card);overflow:hidden;">
+        <div style="padding:12px 20px;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#15803D;border-bottom:1px solid var(--border);">Use</div>
+        <div style="padding:18px 20px;font-size:13px;color:var(--text-secondary);line-height:1.7;">
+          project-first · real-time · profitability · cashflow · truth · ledger · post · close · reconcile · approve · track · module · tenant · workspace · workflow
+        </div>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:6px;background:var(--card);overflow:hidden;">
+        <div style="padding:12px 20px;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#B91C1C;border-bottom:1px solid var(--border);">Avoid</div>
+        <div style="padding:18px 20px;font-size:13px;color:var(--text-secondary);line-height:1.7;">
+          synergy · leverage · solution · game-changing · revolutionary · next-gen · paradigm · unlock · empower · disrupt · seamless · robust · cutting-edge
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHY (marketing) -->
+  <section class="section">
+    <div class="section-label">08 · Typography</div>
+    <h2 class="section-title">The marketing type scale</h2>
+    <p class="section-note">Product typography (already covered in components and forms) uses a 14px body / 12px label rhythm optimized for dense data screens. Marketing typography needs a completely different scale — hero type at 56–72px, generous body at 17–18px — for reading at a distance and holding space on a landing page. Same family (Inter), different scale.</p>
+
+    <div class="type-scale">
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Display 1</div>
+          <div class="type-meta-spec">64px · 600 · -3% ls</div>
+        </div>
+        <div class="type-sample" style="font-size:64px;font-weight:600;letter-spacing:-0.03em;line-height:1.02;">TBD.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Display 2</div>
+          <div class="type-meta-spec">48px · 600 · -2.5% ls</div>
+        </div>
+        <div class="type-sample" style="font-size:48px;font-weight:600;letter-spacing:-0.025em;line-height:1.05;">Project-first accounting.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Display 3</div>
+          <div class="type-meta-spec">36px · 600 · -2% ls</div>
+        </div>
+        <div class="type-sample" style="font-size:36px;font-weight:600;letter-spacing:-0.02em;line-height:1.15;">Built for firms that run on projects.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Heading 1</div>
+          <div class="type-meta-spec">28px · 600 · -1.5% ls</div>
+        </div>
+        <div class="type-sample" style="font-size:28px;font-weight:600;letter-spacing:-0.015em;line-height:1.25;">See every project. Close every book.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Heading 2</div>
+          <div class="type-meta-spec">22px · 600 · -1% ls</div>
+        </div>
+        <div class="type-sample" style="font-size:22px;font-weight:600;letter-spacing:-0.01em;line-height:1.3;">What NAP handles</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Heading 3</div>
+          <div class="type-meta-spec">18px · 600 · -0.5% ls</div>
+        </div>
+        <div class="type-sample" style="font-size:18px;font-weight:600;letter-spacing:-0.005em;line-height:1.35;">Accounts payable</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Lede</div>
+          <div class="type-meta-spec">20px · 400 · 1.55 lh</div>
+        </div>
+        <div class="type-sample type-sample--body" style="font-size:20px;font-weight:400;line-height:1.55;max-width:620px;">The accounting platform that thinks in projects — not periods. Built for operators who need cashflow truth before month-end, not after.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Body large</div>
+          <div class="type-meta-spec">17px · 400 · 1.6 lh</div>
+        </div>
+        <div class="type-sample type-sample--body" style="font-size:17px;font-weight:400;line-height:1.6;max-width:620px;">For construction firms, manufacturers, and services businesses, the unit of financial truth isn't the month — it's the project. NAP unifies project management, cost control, and double-entry accounting in one system.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Body</div>
+          <div class="type-meta-spec">15px · 400 · 1.55 lh</div>
+        </div>
+        <div class="type-sample type-sample--body" style="font-size:15px;font-weight:400;line-height:1.55;max-width:620px;">Projects, budgets, units, change orders, and actual costs — tracked in one place. When an invoice posts, a change order is approved, or a vendor payment clears, the general ledger and the project ledger stay in sync.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Body small</div>
+          <div class="type-meta-spec">13px · 400 · 1.55 lh</div>
+        </div>
+        <div class="type-sample type-sample--muted" style="font-size:13px;font-weight:400;line-height:1.55;max-width:620px;">Schema-per-tenant isolation. Modular entitlements. Built on pg-schemata — an open source ORM NAP owns, not licenses. No vendor lock-in at the data layer.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Eyebrow</div>
+          <div class="type-meta-spec">11px · 600 · 14% ls · UC</div>
+        </div>
+        <div class="type-sample" style="font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);">Project-first accounting</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta">
+          <div class="type-meta-label">Mono · data</div>
+          <div class="type-meta-spec">13px · 500 · JetBrains</div>
+        </div>
+        <div class="type-sample" style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;color:var(--text-primary);">$2,842,500.00  ·  INV-2026-0842  ·  2026-04-21</div>
+      </div>
+    </div>
+
+    <!-- Full marketing hero in context -->
+    <h3 style="margin-top:40px;margin-bottom:8px;font-size:18px;font-weight:600;color:var(--navy);letter-spacing:-0.015em;">Hero composition · all scales working together</h3>
+    <p style="font-size:14px;color:var(--text-secondary);margin:0 0 16px 0;max-width:620px;">The eyebrow, display, lede, and CTA buttons in their natural hierarchy.</p>
+
+    <div class="marketing-mock">
+      <div class="marketing-mock-body">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;">Project-first accounting</div>
+        <h1 style="font-size:64px;font-weight:600;letter-spacing:-0.03em;line-height:1.02;color:var(--navy);margin:0 0 24px 0;max-width:820px;">TBD.</h1>
+        <p style="font-size:20px;font-weight:400;line-height:1.55;color:var(--text-secondary);max-width:620px;margin:0 0 36px 0;">The accounting platform that thinks in projects — not periods. Built for construction, manufacturing, and services firms that need cashflow truth in real time.</p>
+        <div style="display:flex;gap:12px;">
+          <button class="btn-primary">Book a demo</button>
+          <button class="btn-secondary">See how it works</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product vs marketing contrast -->
+    <div style="margin-top:32px;border-left:2px solid #2563EB;background:var(--info-tint-bg);padding:16px 20px;border-radius:0 4px 4px 0;">
+      <div style="font-size:12px;font-weight:600;color:#1D4ED8;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">Product vs. marketing scales</div>
+      <div style="font-size:13px;color:var(--text-primary);line-height:1.6;">Marketing type is bigger, looser, and more generous than product type by design. Inside the app, a user is scanning for a specific invoice among hundreds at 14px body and 12px labels. On the landing page, a prospect is being persuaded at 64px hero and 20px lede. Same brand, same font family, different scale rhythm. Don't mix them — a product screen with marketing-scale typography looks amateur; a marketing page with product-scale typography looks cramped.</div>
+    </div>
+  </section>
+
+  <!-- DO / DON'T -->
+  <section class="section">
+    <div class="section-label">09 · Discipline checklist</div>
+    <h2 class="section-title">What this system is and isn't</h2>
+
+    <div class="dodont">
+      <div class="dodont-card">
+        <div class="dodont-header dodont-header--do">Do</div>
+        <div class="dodont-body">
+          <ul>
+            <li>Let navy carry the weight — 70–80% of visual surface</li>
+            <li>Use gold only in the three approved places</li>
+            <li>Pair display type with JetBrains Mono for numbers</li>
+            <li>Use warm off-white for page backgrounds, pure white for cards</li>
+            <li>Keep primary buttons rare — one per screen, navy alone</li>
+            <li>Use Inter Medium for the wordmark, never Bold</li>
+            <li>Stack form labels above inputs, not to the left</li>
+            <li>Use parentheses for negative values — the accounting standard</li>
+            <li>Mark required fields with a neutral-gray asterisk — color is reserved for validation states, not markers</li>
+            <li>Every status indicator has a shape, not just a color</li>
+            <li>Monospace numerics in tables — decimals must align vertically</li>
+            <li>Use skeleton rows for loading tables, not spinners</li>
+            <li>Lead with "TBD" on sales surfaces</li>
+            <li>Use "Sleep on your books." in brand moments — footer, About page, swag</li>
+            <li>Match type scale to context — marketing is bigger, product is denser</li>
+          </ul>
+        </div>
+      </div>
+      <div class="dodont-card">
+        <div class="dodont-header dodont-header--dont">Don't</div>
+        <div class="dodont-body">
+          <ul>
+            <li>Add gold to chips, badges, icons, focus rings, or borders</li>
+            <li>Put gold on form focus states — dozens of inputs would overwhelm</li>
+            <li>Use gradients in the wordmark or gold color</li>
+            <li>Return to script or handwriting fonts (no Allura)</li>
+            <li>Reintroduce the cloud glyph</li>
+            <li>Use pure white as the page background</li>
+            <li>Flood CTA buttons with gold fill — always keep navy as the base</li>
+            <li>Use bold weight wordmarks — reads aggressive</li>
+            <li>Nest boxed sections within boxed sections in forms</li>
+            <li>Use red for destructive button fills — navy + clear labeling is safer</li>
+            <li>Zebra-stripe table rows — single-pixel borders do the job better</li>
+            <li>Add vertical gridlines in tables — horizontal rhythm is enough</li>
+            <li>Mix the two taglines — never use both on the same surface</li>
+            <li>Use product-scale typography on marketing pages — reads cramped</li>
+            <li>Use corporate buzzwords — "synergy," "disrupt," "seamless," "robust"</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div class="footer" style="flex-direction:column;gap:20px;align-items:flex-start;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;width:100%;gap:40px;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:inline-flex;align-items:baseline;font-weight:500;font-size:22px;color:var(--navy);line-height:1;">
+          <span style="letter-spacing:-0.02em;">nap</span><span style="display:inline-block;width:4.5px;height:4.5px;background:var(--gold);margin-left:2px;align-self:flex-end;margin-bottom:1.5px;"></span>
+        </div>
+        <div style="font-size:15px;color:var(--text-secondary);font-style:italic;letter-spacing:-0.005em;">TBD · secondary tagline</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-tertiary);letter-spacing:0.04em;">brand system · v1</div>
+    </div>
+    <div style="width:100%;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;color:var(--text-tertiary);">
+      <div>© 2026 NAP</div>
+      <div class="footer-meta">Inter · #2F3E52 · #F4B000</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

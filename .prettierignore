@@ -1,0 +1,7 @@
+dist/
+node_modules/
+docs/branding/
+# Will hold verbatim copies of docs/branding assets; keep them byte-identical.
+apps/web/public/
+package-lock.json
+CHANGELOG.md

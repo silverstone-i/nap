@@ -1,0 +1,37 @@
+{
+  "name": "@nap/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "npm run build && concurrently -n shared,tsc,node -c yellow,blue,green \"npm run dev --workspace @nap/shared\" \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch dist/server.js\"",
+    "prebuild": "npm run build --workspace @nap/shared",
+    "build": "tsc -p tsconfig.build.json",
+    "pretypecheck": "npm run build --workspace @nap/shared",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build --workspace @nap/shared",
+    "test": "vitest run",
+    "db:migrate:admin": "npm run build && node dist/scripts/migrate.js --target admin",
+    "db:migrate:cell": "npm run build && node dist/scripts/migrate.js --target cell",
+    "db:bootstrap": "npm run build && node dist/scripts/bootstrap.js"
+  },
+  "dependencies": {
+    "@nap/shared": "^0.0.0",
+    "argon2": "^0.45.1",
+    "express": "^5.2.1",
+    "jose": "^6.2.10",
+    "pg-schemata": "^3.1.0",
+    "pino": "^10.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.2.0",
+    "@types/supertest": "^7.2.1",
+    "concurrently": "^10.0.5",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.11"
+  }
+}

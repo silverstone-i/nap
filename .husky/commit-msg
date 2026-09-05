@@ -1,0 +1,6 @@
+# Reject commits without a valid DCO sign-off (CLAUDE.md commit rules).
+if ! grep -qE '^Signed-off-by: .+ <.+@.+>$' "$1"; then
+  echo "commit rejected: missing DCO sign-off trailer." >&2
+  echo "Use: git commit -s" >&2
+  exit 1
+fi

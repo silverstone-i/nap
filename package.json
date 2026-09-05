@@ -1,0 +1,46 @@
+{
+  "name": "nap",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "prelint": "npm run build --workspace @nap/shared",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev:api": "npm run dev --workspace @nap/api",
+    "dev:web": "npm run dev --workspace @nap/web",
+    "prepare": "husky",
+    "licenses": "node scripts/check-licenses.mjs",
+    "db:setup:test": "node scripts/setup-databases.mjs test",
+    "db:migrate:admin": "npm run db:migrate:admin --workspace @nap/api",
+    "db:migrate:cell": "npm run db:migrate:cell --workspace @nap/api",
+    "db:bootstrap": "npm run db:bootstrap --workspace @nap/api",
+    "db:setup:dev": "node scripts/setup-databases.mjs development"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "license-checker-rseidelsohn": "^5.0.1",
+    "prettier": "^3.9.6",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
+  }
+}
