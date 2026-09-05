@@ -47,9 +47,7 @@ Before designing or implementing work:
 1. Read the platform specification for platform-wide requirements, defined
    terms, code placement, module ownership, and import boundaries.
 2. Read the relevant component PRD.
-3. Read the ADR index, then every applicable ADR. No ADR exists yet: the
-   first is written with the capability that requires it and creates the index
-   alongside it.
+3. Read the [ADR index](ADRs/INDEX.md), then every applicable ADR.
 4. Read every applicable RULES document. None exists yet: until a subject has
    its own RULES file, the specification section that owns it governs —
    [operational standards](specs/nap-platform-specification.md#operational-standards)

@@ -1,8 +1,8 @@
 # NAP Platform Specification
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
-**Date:** 2026-09-04
+**Date:** 2026-09-05
 
 ## Overview
 
@@ -976,7 +976,7 @@ artifact that has never reached an environment.
 
 ### Module ownership map
 
-Fifteen modules, each targeting exactly one database and one schema
+Sixteen modules, each targeting exactly one database and one schema
 (`ARCH-047`). Component PRDs refine their owned group without moving another
 module's ownership silently.
 
@@ -986,20 +986,21 @@ module's ownership silently.
 | `cell-tenancy`        | `cell/cell`      | Tenant, membership, and entitlement enforcement projections                                                                                                                                                                  |
 | `reference-data`      | `cell/reference` | Country and policy catalogs                                                                                                                                                                                                  |
 | `core`                | `cell/app`       | Companies, employees, vendors, clients, contacts, addresses, contact methods, payment terms, tax identifiers, roles, permissions, state and field scopes, approvals, numbering, and preferences                              |
-| `catalog`             | `cell/app`       | Vendor SKU/pricing catalogs, external matching, and matching audit                                                                                                                                                           |
-| `projects`            | `cell/app`       | Company projects, recursive Project Components, memberships, tasks, templates, operational changes, and rollup targets                                                                                                       |
-| `bom`                 | `cell/app`       | Material and assembly definitions, component quantities, and nested assembly relationships                                                                                                                                   |
-| `budgeting`           | `cell/app`       | Estimates, turnkey and lump-sum inputs, BOM-derived costs, unit costs, and rollups into Projects                                                                                                                             |
-| `cost-control`        | `cell/app`       | Commitments, activities, deliverables, actual costs, and budget-to-actual tracking                                                                                                                                           |
+| `catalog`             | `cell/app`       | Material/product definitions, vendor SKUs and pricing, external matching and matching audit, material-only BOM assemblies, component quantities, and nested assembly relationships                                           |
+| `projects`            | `cell/app`       | Company projects, recursive Project Components, memberships, project management, and operational changes                                                                                                                     |
+| `cost-codes`          | `cell/app`       | Cost categories, activity definitions, and their valid combinations used to classify estimated, scheduled, committed, and actual project work                                                                                |
+| `estimating`          | `cell/app`       | Estimate templates and versions, turnkey and BOM-derived cost inputs, material/labor breakdowns, bids, estimate approval, and release to production                                                                          |
+| `scheduling`          | `cell/app`       | Project and Project Component schedules, activity occurrences, dependencies, operational milestones, gates, deliverables, and completion state                                                                               |
+| `project-costs`       | `cell/app`       | Approved project cost baselines, approved cost changes, commitment and actual-cost references and rollups, forecasts, and variances                                                                                          |
 | `sales`               | `cell/app`       | Opportunities, quotes, buyer selections, and pre-execution approval workflows                                                                                                                                                |
 | `contracts`           | `cell/app`       | Binding agreements, immutable versions and snapshots, amendments, contractual change orders, milestones, and execution history                                                                                               |
 | `accounting`          | `cell/app`       | Ledgers, accounts, journals, balances, periods, posting, and intercompany activity                                                                                                                                           |
-| `accounts-payable`    | `cell/app`       | AP invoices, payments, allocations, and credit memos                                                                                                                                                                         |
+| `accounts-payable`    | `cell/app`       | Purchase orders, vendor invoices, payment approvals, payments, allocations, and credit memos                                                                                                                                 |
 | `accounts-receivable` | `cell/app`       | AR invoices, receipts, allocations, and credit memos                                                                                                                                                                         |
 | `reporting`           | `cell/reporting` | Tenant-safe reporting views                                                                                                                                                                                                  |
 
-Tenant/company/project ownership and separate `projects`, `bom`, and
-`budgeting` owners implement `ARCH-039`–`ARCH-041`; separate `sales` and
+Tenant/company/project ownership implements `ARCH-039` and `ARCH-040`.
+The project workflow owners implement `ARCH-041`; separate `sales` and
 `contracts` owners implement `ARCH-046`.
 
 `admin-tenancy` owns both the operator-facing tenant-management routes and the
@@ -1030,21 +1031,21 @@ decomposition of the system: it assigns no table ownership, names no owner, and
 a module may appear in several areas without that meaning anything is shared.
 The module ownership map above is the only ownership record.
 
-| Product area  | Modules and services contributing                               | Product responsibility                                                                                             |
-| ------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Admin         | `admin-tenancy`, `cell-tenancy`                                 | Tenant, user, membership, cell, provisioning, and managed-operation workflows                                      |
-| Auth          | `admin-tenancy`; identity/session and authorization services    | Authentication, sessions, entitlement, RBAC, and access policy                                                     |
-| Core          | `reference-data`, `core`, `catalog`, future settings capability | Employees, clients, vendors, contacts, addresses, contact methods, countries, currencies, settings, and catalogs   |
-| Accounting    | `accounting`                                                    | General ledger, journals, periods, posting, balances, and close                                                    |
-| A/P           | `accounts-payable`                                              | Vendor invoices, payments, allocations, and credits                                                                |
-| A/R           | `accounts-receivable`                                           | Billing, invoices, receipts, allocations, and credits                                                              |
-| Projects      | `projects`, `cost-control`                                      | Projects, components, schedules, commitments, actual costs, and cost tracking                                      |
-| Budgets       | `bom`, `budgeting`, `cost-control`                              | Activities, categories, budgets, materials, and assemblies                                                         |
-| Estimating    | `budgeting`, `bom`                                              | Estimate composition, pricing inputs, versions, and project rollups                                                |
-| Sales         | `sales`                                                         | Opportunities, quotes, buyer selections, and pre-execution approvals                                               |
-| Contracts     | `contracts`                                                     | Executed agreements, immutable snapshots, amendments, contractual change orders, milestones, and execution history |
-| Reporting     | `reporting`                                                     | Tenant-safe reports, drill-through, export, and reconciliation                                                     |
-| Notifications | Future `notifications` module after its first accepted source   | Delivery of accepted business and operational events                                                               |
+| Product area  | Modules and services contributing                                                        | Product responsibility                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Admin         | `admin-tenancy`, `cell-tenancy`                                                          | Tenant, user, membership, cell, provisioning, and managed-operation workflows                                      |
+| Auth          | `admin-tenancy`; identity/session and authorization services                             | Authentication, sessions, entitlement, RBAC, and access policy                                                     |
+| Core          | `reference-data`, `core`, `catalog`, future settings capability                          | Employees, clients, vendors, contacts, addresses, contact methods, countries, currencies, settings, and catalogs   |
+| Accounting    | `accounting`                                                                             | General ledger, journals, periods, posting, balances, and close                                                    |
+| A/P           | `accounts-payable`                                                                       | Purchase orders, vendor invoices, payment approvals, payments, allocations, and credits                            |
+| A/R           | `accounts-receivable`                                                                    | Billing, invoices, receipts, allocations, and credits                                                              |
+| Projects      | `projects`, `scheduling`, `project-costs`, `cost-codes`, `accounts-payable`, `contracts` | Project structure, schedules, operational and contractual changes, purchase orders, and project cost tracking      |
+| Budgets       | `project-costs`, `estimating`, `cost-codes`                                              | Approved baselines, cost changes, commitments, actuals, forecasts, and variances                                   |
+| Estimating    | `estimating`, `catalog`, `cost-codes`, `projects`                                        | Estimate templates, cost composition, bids, approval, and release to production                                    |
+| Sales         | `sales`                                                                                  | Opportunities, quotes, buyer selections, and pre-execution approvals                                               |
+| Contracts     | `contracts`                                                                              | Executed agreements, immutable snapshots, amendments, contractual change orders, milestones, and execution history |
+| Reporting     | `reporting`                                                                              | Tenant-safe reports, drill-through, export, and reconciliation                                                     |
+| Notifications | Future `notifications` module after its first accepted source                            | Delivery of accepted business and operational events                                                               |
 
 ## API
 
@@ -1399,13 +1400,26 @@ role.
 
 ### ARCH-041 — Project cost module boundaries
 
-Projects owns company projects, the recursive Project Component hierarchy, and
-high-level cost rollup targets. BOM owns assemblies and material quantities.
-Budgeting/Estimating owns estimates that combine BOM-derived costs, turnkey or
-lump-sum costs, and other accepted inputs, then roll them through Project
-Components to the project. Manufacturing workflow, if introduced, is a
-separate module that may reference Projects and BOM without transferring their
-ownership.
+Projects owns company projects, the recursive Project Component hierarchy,
+project management, and operational changes. Cost Codes owns the shared cost
+categories, activity definitions, and valid combinations used across the project
+workflow. Catalog owns material/product definitions, vendor pricing and matching,
+and material-only BOM assemblies and quantities; BOM is not a separate module.
+
+Estimating owns pre-production estimates, templates, bids, approval, and release.
+Release preserves the approved estimate and establishes a Project Costs-owned
+baseline without transferring the estimate's ownership. Project Costs owns
+approved cost changes, commitment and actual-cost references and rollups,
+forecasts, and variances through Project Components to the project. A/P owns
+purchase orders and payable transactions; Project Costs references those source
+records rather than owning them.
+
+Scheduling owns project and Project Component schedules, occurrences of the
+activity definitions owned by Cost Codes, dependencies, operational milestones,
+gates, deliverables, and completion state. Contractual milestones and amendments
+remain with Contracts under `ARCH-046`. Component PRDs define exact release,
+approval, reconciliation, and event contracts. Manufacturing workflow, if
+introduced, may reference these owners without transferring their ownership.
 
 ### ARCH-042 — Composition-root exception
 
@@ -1455,16 +1469,18 @@ workflows before execution. Contracts owns executed binding agreements of any
 kind, agreement versions, immutable scope and pricing snapshots, amendments,
 contractual change orders, milestones, and execution history. Contracts may
 originate a generic agreement or accept an approved obligation from Sales,
-Projects, procurement, or another source module.
+Projects, A/P, or another source module.
 
-Catalog, Budgeting, Estimating, Projects, and other source modules retain their
+Catalog, Estimating, Projects, and other source modules retain their
 working records. Approval creates an immutable contract snapshot or amendment;
-it does not transfer the source record. Projects owns delivery, schedules,
-Project Components, and operational changes that do not amend an agreement.
+it does not transfer the source record. Projects owns project management,
+Project Components, and operational changes that do not amend an agreement;
+Scheduling owns operational schedules and milestones under `ARCH-041`.
 
 Contracts records milestone state and emits an auditable domain event. The
 consumer decides whether and how to create a downstream record. A/R and A/P
-own their invoices, receipts, payments, allocations, and accounting effects;
+own their financial source records, including A/P purchase orders, invoices,
+receipts, payments, allocations, and accounting effects;
 Contracts does not create those records directly. Component PRDs define exact
 agreement lifecycles, milestone types, event contracts, APIs, permissions, UI,
 and accounting treatment.
@@ -1541,8 +1557,8 @@ every production dependency carries an allowed license.
 - Materialized reporting requires a tenant-safe refresh and access design.
 - Microservice decomposition is not part of the initial platform.
 - OpenAPI generation is intentionally excluded.
-- Module-specific project, BOM, estimating, and manufacturing workflows belong
-  in their component PRDs.
+- Module-specific cost-code, catalog/BOM, estimating, scheduling, project-cost,
+  project, and manufacturing workflows belong in their component PRDs.
 - Sales and Contracts workflows, agreement types, signatures, lifecycle states,
   milestone types, and event payloads belong in their component PRDs.
 - Tenant-configurable Project Component labels and relationship catalogs belong
@@ -1553,33 +1569,35 @@ every production dependency carries an allowed license.
 
 ## Conformance
 
-| Requirement                                                | Observable proof                                                                                                                                                                                                 |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ARCH-001`–`ARCH-003`, `ARCH-027`                          | Web and API build and deploy independently; supported client and API versions interoperate                                                                                                                       |
-| `ARCH-004`–`ARCH-010`, `ARCH-024`, `ARCH-036`              | Admin and cell handles target distinct databases; each can migrate, close, back up, restore, and move without operating on the other                                                                             |
-| `ARCH-011`, `ARCH-012`, `ARCH-028`, `ARCH-034`, `ARCH-035` | Provisioning, placement, movement, dedicated-cell, and self-hosted acceptance tests preserve stable client addressing and recoverable state                                                                      |
-| `ARCH-013`–`ARCH-021`, `ARCH-033`, `ARCH-037`              | Automated negative tests fail every attempted cross-tenant read, write, delete, relationship, and reporting path even when application predicates are omitted                                                    |
-| `ARCH-022`, `ARCH-023`, `ARCH-029`                         | Membership revocation, stale tokens, cache eviction, and Redis outage cannot increase access and retain a database-backed decision path                                                                          |
-| `ARCH-025`, `ARCH-026`                                     | Release tests prove migrations run against explicit targets and permit the supported old/new application overlap                                                                                                 |
-| `ARCH-030`–`ARCH-032`                                      | Binary storage, worker execution, and immutable history follow their component contracts without bypassing tenant or audit boundaries                                                                            |
-| `ARCH-038`                                                 | Architecture tests for each new client, module, worker, tenant, or cell show no additional database reach or isolation privilege                                                                                 |
-| `ARCH-039`, `ARCH-040`                                     | Tests reject a second ordinary employee or client tenant membership, permit vendor multi-tenant membership, and prove ordinary and privileged tenant-data requests resolve one active tenant and cell assignment |
-| `ARCH-041`                                                 | Projects, BOM, and Budgeting tests prove separate ownership and correct cost rollups through the Project Component hierarchy                                                                                     |
-| `ARCH-042`                                                 | Import-boundary and registry tests prove composition roots assemble modules while middleware has no module dependency                                                                                            |
-| `ARCH-043`                                                 | Shared-package tests prove runtime request and response validation without importing API domain or persistence code                                                                                              |
-| `ARCH-044`                                                 | Migration and privilege tests prove assigned production-table profiles and every applicable actor, timestamp, deletion, projection, reference-data, and test-fixture isolation rule                              |
-| `ARCH-045`                                                 | Operational tests prove correlation propagation, safe error mapping, redaction, audit separation, bounded retry behavior, safe health responses, and low-cardinality metrics                                     |
-| `ARCH-046`                                                 | Ownership and integration tests prove mutable source records remain with their source module, executed agreement history is immutable, and milestone consumers create their own idempotent downstream records    |
-| `ARCH-047`                                                 | A registry test proves every registered production table resolves to exactly one owning module in the ownership map, and that each descriptor declares one database and one schema                               |
-| `ARCH-048`                                                 | Import-boundary tests prove no file under `services/` or `middleware/` imports `modules/`, and that no service owns a migration or a table                                                                       |
-| `ARCH-049`                                                 | A conformance test proves every production repository extends a `pg-schemata` model and every production migration is built with `defineMigration` without hand-written DDL outside its frozen table definition  |
-| `ARCH-050`                                                 | A conformance test proves every module router is produced by the framework router factory and that no controller reaches a database handle outside `withTenantTransaction`                                       |
-| `ARCH-051`                                                 | Dependency and import-boundary tests prove one dependency per stack role, no provider SDK imported by a module or a page, and an allowed license on every production dependency                                  |
+| Requirement                                                | Observable proof                                                                                                                                                                                                                               |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ARCH-001`–`ARCH-003`, `ARCH-027`                          | Web and API build and deploy independently; supported client and API versions interoperate                                                                                                                                                     |
+| `ARCH-004`–`ARCH-010`, `ARCH-024`, `ARCH-036`              | Admin and cell handles target distinct databases; each can migrate, close, back up, restore, and move without operating on the other                                                                                                           |
+| `ARCH-011`, `ARCH-012`, `ARCH-028`, `ARCH-034`, `ARCH-035` | Provisioning, placement, movement, dedicated-cell, and self-hosted acceptance tests preserve stable client addressing and recoverable state                                                                                                    |
+| `ARCH-013`–`ARCH-021`, `ARCH-033`, `ARCH-037`              | Automated negative tests fail every attempted cross-tenant read, write, delete, relationship, and reporting path even when application predicates are omitted                                                                                  |
+| `ARCH-022`, `ARCH-023`, `ARCH-029`                         | Membership revocation, stale tokens, cache eviction, and Redis outage cannot increase access and retain a database-backed decision path                                                                                                        |
+| `ARCH-025`, `ARCH-026`                                     | Release tests prove migrations run against explicit targets and permit the supported old/new application overlap                                                                                                                               |
+| `ARCH-030`–`ARCH-032`                                      | Binary storage, worker execution, and immutable history follow their component contracts without bypassing tenant or audit boundaries                                                                                                          |
+| `ARCH-038`                                                 | Architecture tests for each new client, module, worker, tenant, or cell show no additional database reach or isolation privilege                                                                                                               |
+| `ARCH-039`, `ARCH-040`                                     | Tests reject a second ordinary employee or client tenant membership, permit vendor multi-tenant membership, and prove ordinary and privileged tenant-data requests resolve one active tenant and cell assignment                               |
+| `ARCH-041`                                                 | Ownership and integration tests prove shared cost-code definitions, Catalog-owned BOMs, preserved released estimates, Project Costs-owned baselines and reconciled rollups, A/P-owned POs, and separate operational and contractual milestones |
+| `ARCH-042`                                                 | Import-boundary and registry tests prove composition roots assemble modules while middleware has no module dependency                                                                                                                          |
+| `ARCH-043`                                                 | Shared-package tests prove runtime request and response validation without importing API domain or persistence code                                                                                                                            |
+| `ARCH-044`                                                 | Migration and privilege tests prove assigned production-table profiles and every applicable actor, timestamp, deletion, projection, reference-data, and test-fixture isolation rule                                                            |
+| `ARCH-045`                                                 | Operational tests prove correlation propagation, safe error mapping, redaction, audit separation, bounded retry behavior, safe health responses, and low-cardinality metrics                                                                   |
+| `ARCH-046`                                                 | Ownership and integration tests prove mutable source records remain with their source module, executed agreement history is immutable, and milestone consumers create their own idempotent downstream records                                  |
+| `ARCH-047`                                                 | A registry test proves every registered production table resolves to exactly one owning module in the ownership map, and that each descriptor declares one database and one schema                                                             |
+| `ARCH-048`                                                 | Import-boundary tests prove no file under `services/` or `middleware/` imports `modules/`, and that no service owns a migration or a table                                                                                                     |
+| `ARCH-049`                                                 | A conformance test proves every production repository extends a `pg-schemata` model and every production migration is built with `defineMigration` without hand-written DDL outside its frozen table definition                                |
+| `ARCH-050`                                                 | A conformance test proves every module router is produced by the framework router factory and that no controller reaches a database handle outside `withTenantTransaction`                                                                     |
+| `ARCH-051`                                                 | Dependency and import-boundary tests prove one dependency per stack role, no provider SDK imported by a module or a page, and an allowed license on every production dependency                                                                |
 
 ## Revisions
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-05 | Clarified A/P as a source of approved obligations under `ARCH-046`, consistent with its purchase-order ownership                                                                                                                                                                                                                    |
+| 2026-09-05 | Restructured project workflow ownership under `ARCH-041`: combined Catalog/BOM, introduced Cost Codes and Scheduling, replaced Budgeting and Cost Control with Estimating and Project Costs, assigned purchase orders to A/P, and aligned `ARCH-046` and conformance                                                                |
 | 2026-09-04 | Inlined the tenant transaction contract, module authoring conventions, web shared behavior, database record conventions, implementation-plan triggers, and operational standards; stated transport-contract ownership directly                                                                                                      |
 | 2026-09-04 | Added the technology stack and `ARCH-051`, added the framework HTTP contract owning the standard route set, middleware order, list parameters, response envelope, and refusals, and reduced tactical detail in the schema example, router example, tenant-context rationale, fixture exception, drawer conventions, and plan format |
 | 2026-09-04 | Rewrote `ARCH-029` as "Redis accelerates, PostgreSQL decides": Redis is part of a managed deployment and keeps session and authorization lookups off the database path, correctness still never depends on it, and it is added in front of a proven PostgreSQL-backed path                                                          |

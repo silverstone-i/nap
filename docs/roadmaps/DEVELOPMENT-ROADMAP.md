@@ -2,7 +2,7 @@
 
 **Status:** Current integrated planning sequence
 
-**Date:** 2026-09-04
+**Date:** 2026-09-05
 
 **Requirements and structure:** [NAP Platform Specification](../specs/nap-platform-specification.md)
 
@@ -14,9 +14,10 @@ implementation slices, acceptance gates, and known gaps. It does not define
 behavior or architecture.
 
 Before implementation, each capability needs an accepted component PRD and any
-ADRs or RULES documents that capability actually requires. Nothing on this
-board is designed yet: the repository holds the specification, contributor
-guidance, and repository configuration, and no application code, PRD, ADR, or
+ADRs or RULES documents that capability actually requires. Component designs
+remain unaccepted: the repository holds the specification,
+[ADR 0001](../ADRs/0001-project-workflow-module-boundaries.md), contributor
+guidance, and repository configuration. No application code, component PRD, or
 RULES document exists.
 
 ## Capability record
@@ -74,16 +75,22 @@ flowchart TD
   rbac --> core[Reference data and Core]
   shell --> core
   core --> projects[Projects]
-  core --> bom[BOM]
+  core --> costCodes[Cost Codes]
+  core --> catalog[Catalog]
   core --> documents[Document storage]
-  projects --> budgeting[Budgeting / Estimating]
-  bom --> budgeting
-  budgeting --> cost[Cost control]
-  core --> catalog[Catalog and matching]
-  bom --> catalog
+  projects --> estimating[Estimating composition and bidding]
+  catalog --> estimating
+  costCodes --> estimating
+  projects --> scheduling[Scheduling]
+  costCodes --> scheduling
+  projects --> projectCosts[Project Costs]
+  costCodes --> projectCosts
+  estimating -. accepted release contract .-> projectCosts
+  estimating --> productionRelease[Estimating release]
+  projectCosts -. baseline acceptance .-> productionRelease
   core --> sales[Sales]
   catalog -. buyer-selection input .-> sales
-  budgeting -. buyer-selection input .-> sales
+  estimating -. buyer-selection input .-> sales
   core --> agreements[Contracts]
   sales -. approved obligation .-> agreements
   projects -. approved obligation .-> agreements
@@ -95,16 +102,26 @@ flowchart TD
   agreements -. contractual billing .-> ar
   ap --> completion[Accounting completion]
   ar --> completion
-  cost --> reporting[Reporting]
+  ap -. commitments and actuals .-> projectCosts
+  accounting -. accounting sources .-> projectCosts
+  agreements -. financial milestones .-> scheduling
+  ap -. financial approvals .-> scheduling
+  ar -. financial approvals .-> scheduling
+  projectCosts --> reporting[Reporting]
   completion --> reporting
 ```
 
-Projects and BOM follow Core and may be designed in parallel. Budgeting and
-Estimating begins only after both have accepted contracts for the records and
-rollups it consumes. Contracts foundation may begin after Core; each
-source-specific agreement flow waits for the applicable source PRD. Sales
-buyer-selection integration waits for the Catalog, Budgeting, and Estimating
-contracts it consumes.
+Projects, Catalog, and Cost Codes follow Core and may be designed in parallel.
+Estimating composition and bidding require their accepted contracts. Scheduling
+requires Projects and Cost Codes; financial milestone flows wait for the
+applicable Contracts, A/P, or A/R contracts. Design Estimating release and
+Project Costs baseline acceptance together before implementing release;
+composition and bidding can proceed independently. Commitment and actual-cost
+tracking waits for the A/P and accounting sources it consumes.
+
+Contracts foundation may begin after Core; each source-specific agreement flow
+waits for the applicable source PRD. Sales buyer-selection integration waits
+for the Catalog and Estimating contracts it consumes.
 
 ## Product-area implementation map
 
@@ -115,65 +132,69 @@ PRDs define exact tables, endpoints, permissions, screens, and workflows when
 each feature is discussed. Product areas in the same delivery wave may proceed
 in parallel once their dependencies are satisfied.
 
-| Delivery wave | Product area  | Depends on                                       | Expected API responsibility                                                | Expected web area                                         |
-| ------------- | ------------- | ------------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 0             | Platform      | —                                                | Handles, migrations, isolation, operations, transport, and `framework/`    | Branded entry surface only                                |
-| 1             | Auth          | Platform foundation                              | Login and sessions now; later entitlement and RBAC decisions               | Login and account now; later denied and permission states |
-| 2             | Admin         | Authentication                                   | Tenant, user, membership, cell, provisioning, and operator work            | Tenant and user management and provisioning status        |
-| 3             | Core          | Admin and RBAC                                   | Shared references, core party records, contact methods, settings, catalogs | Shared master-data and settings workflows                 |
-| 4             | Projects      | Core                                             | Projects, components, schedules, commitments, and actual costs             | Project tree, schedule, and cost-control workflows        |
-| 5             | Budgets       | Core; project use also needs Projects            | Activities, categories, materials, assemblies, and budget inputs           | Budget structure, activity, material, and BOM workflows   |
-| 6             | Estimating    | Projects and Budgets                             | Estimate versions, pricing inputs, calculations, and rollups               | Estimate composition, review, and approval                |
-| 7             | Sales         | Core; integrations also need their source        | Opportunities, quotes, buyer selections, and approvals                     | Sales pipeline, quote, selection, and approval            |
-| 7             | Accounting    | Core and Projects                                | Ledgers, journals, periods, posting, balances, and close                   | Accounting setup, journals, posting, and close            |
-| 8             | Contracts     | Core; source flows need their source capability  | Agreements, immutable snapshots, amendments, milestones, and events        | Agreement, amendment, milestone, and history workflows    |
-| 9             | A/P           | Accounting, Core, and applicable Contracts       | Vendor invoices, payments, allocations, and credits                        | Payables entry, approval, payment, and inquiry            |
-| 9             | A/R           | Accounting, Core, Projects, applicable Contracts | Billing, invoices, receipts, allocations, and credits                      | Receivables entry, billing, receipt, and inquiry          |
-| 10            | Reporting     | Each accepted source capability                  | Tenant-safe queries, exports, and reconciliation                           | Reports, filters, drill-through, and export               |
-| —             | Notifications | Auth plus the source capability                  | Event delivery and delivery status                                         | Preferences, delivery status, and source-linked actions   |
+| Delivery wave | Product area  | Depends on                                                                                         | Expected API responsibility                                                                     | Expected web area                                         |
+| ------------- | ------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 0             | Platform      | —                                                                                                  | Handles, migrations, isolation, operations, transport, and `framework/`                         | Branded entry surface only                                |
+| 1             | Auth          | Platform foundation                                                                                | Login and sessions now; later entitlement and RBAC decisions                                    | Login and account now; later denied and permission states |
+| 2             | Admin         | Authentication                                                                                     | Tenant, user, membership, cell, provisioning, and operator work                                 | Tenant and user management and provisioning status        |
+| 3             | Core          | Admin and RBAC                                                                                     | Shared references, core party records, contact methods, settings, catalogs                      | Shared master-data and settings workflows                 |
+| 4             | Projects      | Core; schedules also need Cost Codes; cost and financial flows need their source capabilities      | Projects and components; Scheduling, Project Costs, A/P, and Contracts integration as available | Project tree, schedules, changes, POs, and cost tracking  |
+| 5             | Estimating    | Projects, Catalog, Cost Codes; release also needs Project Costs baseline acceptance                | Templates, composition, bids, approval, and release                                             | Estimate composition, bidding, review, and release        |
+| 6             | Budgets       | Projects, Cost Codes, Estimating release contract; commitments and actuals need A/P and accounting | Approved baselines, cost changes, source references, forecasts, and variances                   | Baseline, commitment, actual-cost, and variance workflows |
+| 7             | Sales         | Core; integrations also need their source                                                          | Opportunities, quotes, buyer selections, and approvals                                          | Sales pipeline, quote, selection, and approval            |
+| 7             | Accounting    | Core and Projects                                                                                  | Ledgers, journals, periods, posting, balances, and close                                        | Accounting setup, journals, posting, and close            |
+| 8             | Contracts     | Core; source flows need their source capability                                                    | Agreements, immutable snapshots, amendments, milestones, and events                             | Agreement, amendment, milestone, and history workflows    |
+| 9             | A/P           | Accounting, Core, and applicable Contracts                                                         | Purchase orders, vendor invoices, payment approvals, payments, allocations, and credits         | Purchasing, payables approval, payment, and inquiry       |
+| 9             | A/R           | Accounting, Core, Projects, applicable Contracts                                                   | Billing, invoices, receipts, allocations, and credits                                           | Receivables entry, billing, receipt, and inquiry          |
+| 10            | Reporting     | Each accepted source capability                                                                    | Tenant-safe queries, exports, and reconciliation                                                | Reports, filters, drill-through, and export               |
+| —             | Notifications | Auth plus the source capability                                                                    | Event delivery and delivery status                                                              | Preferences, delivery status, and source-linked actions   |
 
-Catalog and matching remains a Core supporting capability. The future settings
+Delivery waves mark the first usable scope of each area; later integrations
+wait for their source capabilities. Catalog materials, assemblies, pricing, and
+matching support Core and Estimating. Cost Codes follows Core and supports
+Estimating, Scheduling, and Project Costs under `ARCH-041`. The future settings
 capability chooses its technical owner during design. Notifications is not a
 prerequisite phase: its design starts when the first source capability has an
 accepted notification need.
 
 ## Current delivery board
 
-Nothing is designed or implemented. Every capability below starts from the
-specification.
+No component design is accepted and no capability is implemented. Every
+capability below starts from the specification and applicable ADRs.
 
-| Capability                                    | Design | Implementation | Depends on                            |
-| --------------------------------------------- | ------ | -------------- | ------------------------------------- |
-| Workspace and toolchain                       | Draft  | Not started    | —                                     |
-| Database and migration foundation             | Draft  | Not started    | Workspace and toolchain               |
-| Tenant isolation foundation                   | Draft  | Not started    | Database foundation                   |
-| Operational baseline                          | Draft  | Not started    | Tenant isolation foundation           |
-| Shared transport package                      | Draft  | Not started    | Operational baseline                  |
-| Framework HTTP surface                        | Draft  | Not started    | Shared transport package              |
-| Brand, theme, and web entry surface           | Draft  | Not started    | Workspace and toolchain               |
-| Release, versioning, and licensing operations | Draft  | Not started    | Workspace and toolchain               |
-| Authentication and sessions                   | Draft  | Not started    | Framework HTTP surface; web entry     |
-| Tenant membership and control plane           | Draft  | Not started    | Authentication                        |
-| Cell tenancy and provisioning                 | Draft  | Not started    | Tenant control plane                  |
-| RBAC and module entitlement                   | Draft  | Not started    | Cell provisioning                     |
-| Authorization cache acceleration              | Draft  | Not started    | RBAC and module entitlement           |
-| Product shell and navigation                  | Draft  | Not started    | RBAC; first tenant-aware module       |
-| Reference data and Core                       | Draft  | Not started    | RBAC                                  |
-| Document storage                              | Draft  | Not started    | Core; first module storing a document |
-| Projects                                      | Draft  | Not started    | Core                                  |
-| BOM                                           | Draft  | Not started    | Core                                  |
-| Budgeting / Estimating                        | Draft  | Not started    | Projects and BOM                      |
-| Cost control                                  | Draft  | Not started    | Budgeting                             |
-| Catalog and matching                          | Draft  | Not started    | Core and BOM                          |
-| Sales                                         | Draft  | Not started    | Core; integration sources             |
-| Contracts                                     | Draft  | Not started    | Core; agreement sources               |
-| Accounting foundation                         | Draft  | Not started    | Core and Projects                     |
-| Accounts payable                              | Draft  | Not started    | Accounting, Core, Contracts           |
-| Accounts receivable                           | Draft  | Not started    | Accounting, Core, Projects, Contracts |
-| Accounting completion                         | Draft  | Not started    | A/P and A/R                           |
-| Reporting                                     | Draft  | Not started    | Each report's source module           |
-| Notifications                                 | Draft  | Not started    | First accepted source need            |
-| Operational scale units                       | Draft  | Not started    | Measured operational need             |
+| Capability                                    | Design | Implementation | Depends on                                                                                         |
+| --------------------------------------------- | ------ | -------------- | -------------------------------------------------------------------------------------------------- |
+| Workspace and toolchain                       | Draft  | Not started    | —                                                                                                  |
+| Database and migration foundation             | Draft  | Not started    | Workspace and toolchain                                                                            |
+| Tenant isolation foundation                   | Draft  | Not started    | Database foundation                                                                                |
+| Operational baseline                          | Draft  | Not started    | Tenant isolation foundation                                                                        |
+| Shared transport package                      | Draft  | Not started    | Operational baseline                                                                               |
+| Framework HTTP surface                        | Draft  | Not started    | Shared transport package                                                                           |
+| Brand, theme, and web entry surface           | Draft  | Not started    | Workspace and toolchain                                                                            |
+| Release, versioning, and licensing operations | Draft  | Not started    | Workspace and toolchain                                                                            |
+| Authentication and sessions                   | Draft  | Not started    | Framework HTTP surface; web entry                                                                  |
+| Tenant membership and control plane           | Draft  | Not started    | Authentication                                                                                     |
+| Cell tenancy and provisioning                 | Draft  | Not started    | Tenant control plane                                                                               |
+| RBAC and module entitlement                   | Draft  | Not started    | Cell provisioning                                                                                  |
+| Authorization cache acceleration              | Draft  | Not started    | RBAC and module entitlement                                                                        |
+| Product shell and navigation                  | Draft  | Not started    | RBAC; first tenant-aware module                                                                    |
+| Reference data and Core                       | Draft  | Not started    | RBAC                                                                                               |
+| Document storage                              | Draft  | Not started    | Core; first module storing a document                                                              |
+| Projects                                      | Draft  | Not started    | Core                                                                                               |
+| Cost Codes                                    | Draft  | Not started    | Core                                                                                               |
+| Catalog                                       | Draft  | Not started    | Core                                                                                               |
+| Estimating                                    | Draft  | Not started    | Projects, Catalog, Cost Codes; release needs Project Costs baseline contract                       |
+| Scheduling                                    | Draft  | Not started    | Projects, Cost Codes; financial flows need applicable Contracts, A/P, or A/R                       |
+| Project Costs                                 | Draft  | Not started    | Projects, Cost Codes, Estimating release contract; commitments and actuals need A/P and accounting |
+| Sales                                         | Draft  | Not started    | Core; integration sources                                                                          |
+| Contracts                                     | Draft  | Not started    | Core; agreement sources                                                                            |
+| Accounting foundation                         | Draft  | Not started    | Core and Projects                                                                                  |
+| Accounts payable                              | Draft  | Not started    | Accounting, Core, Contracts                                                                        |
+| Accounts receivable                           | Draft  | Not started    | Accounting, Core, Projects, Contracts                                                              |
+| Accounting completion                         | Draft  | Not started    | A/P and A/R                                                                                        |
+| Reporting                                     | Draft  | Not started    | Each report's source module                                                                        |
+| Notifications                                 | Draft  | Not started    | First accepted source need                                                                         |
+| Operational scale units                       | Draft  | Not started    | Measured operational need                                                                          |
 
 ## Platform foundation
 
@@ -521,7 +542,7 @@ the API would refuse.
 ### Shared references and company and party records
 
 **Outcome:** Provide the companies, vendors, clients, employees, contacts,
-payment terms, tax identifiers, and reference values Projects, BOM, and
+payment terms, tax identifiers, and reference values Projects, Catalog, and
 Accounting require.
 
 **Design:** Draft. **Implementation:** Not started.
@@ -572,8 +593,8 @@ Project Component tree.
 
 **Required design:** The smallest project lifecycle, recursive parent model,
 cycle rejection, tenant-configured component types and allowed relationships,
-progressive tree loading, permissions, templates, memberships, change control,
-and high-level cost rollup targets.
+progressive tree loading, permissions, memberships, and operational change
+control. Follow the ownership boundaries in `ARCH-041` and `ARCH-046`.
 
 **UI:** If Projects is the first tenant-aware product module, it also accepts
 and establishes the product shell.
@@ -582,73 +603,103 @@ and establishes the product shell.
 real API and web client; ownership, cycle, tenant, permission, state, loading,
 and relationship failures are tested.
 
-## BOM
+## Cost Codes
 
-### Materials and assemblies
+### Shared cost classification
 
-**Outcome:** Define material quantities and nested assemblies estimating can
-reuse, without making BOM responsible for project or manufacturing workflow.
-
-**Design:** Draft. **Implementation:** Not started.
-
-**Depends on:** Core and the reference values selected during design.
-
-**Required design:** Material identity, units, assemblies, nested components,
-quantity precision, cycle prevention, versioning, substitution, and the boundary
-with later vendor catalog matching.
-
-**Gate:** Assemblies calculate their accepted quantities, reject cycles and
-cross-tenant references, and expose runtime-validated contracts to Budgeting.
-
-## Budgeting and Estimating
-
-### Estimate composition and project rollup
-
-**Outcome:** Combine BOM-derived material costs, turnkey material-and-labor
-costs, lump-sum inputs, and other accepted estimate lines, then roll them from
-Project Components to the project.
+**Outcome:** Estimating, Scheduling, and Project Costs use a common classification
+vocabulary under `ARCH-041`.
 
 **Design:** Draft. **Implementation:** Not started.
 
-**Depends on:** Accepted and implemented Projects, BOM, and required Core
-contracts.
+**Depends on:** Core.
 
-**Required design:** Estimate versions, cost inputs, overrides, quantities,
-labor and material treatment, approval, snapshots, recalculation, rounding, and
-rollup rules. Manufacturing production workflow remains outside this module.
+**Required design:** Category and activity definitions, valid combinations,
+versioning, retirement, permissions, and references from consuming modules.
+
+**Gate:** Consumers reuse the same definitions; invalid combinations and
+cross-tenant references are rejected without breaking historical records.
+
+## Catalog
+
+### Materials, assemblies, vendor pricing, and matching
+
+**Outcome:** Provide reusable materials and assemblies with vendor pricing and
+matching under `ARCH-041`.
+
+**Design:** Draft. **Implementation:** Not started.
+
+**Depends on:** Core and the reference values selected during design. External
+providers wait for an accepted component design.
+
+**Required design:** Material identity, units, material-only assemblies, nested
+components, quantity precision, cycle prevention, versioning, substitution,
+vendor SKUs, pricing, and matching.
+
+**Gate:** Assemblies calculate accepted quantities, reject cycles and
+cross-tenant references, and expose runtime-validated contracts to Estimating.
+Matching is explainable and review decisions are append-only.
+
+## Estimating
+
+### Estimate composition, bidding, and release
+
+**Outcome:** Compose and approve estimates for release under `ARCH-041`.
+
+**Design:** Draft. **Implementation:** Not started.
+
+**Depends on:** Accepted and implemented Projects, Catalog, Cost Codes, and
+required Core contracts. Production release also requires the Project Costs
+baseline contract; this does not block estimate composition and bidding.
+
+**Required design:** Templates, versions, cost inputs, quantities, material/labor
+treatment, bids and revisions, approval, release snapshots, rounding, and rollup
+rules. Manufacturing production workflow remains outside this module.
 
 **Gate:** Mixed BOM and turnkey examples reconcile at component and project
-levels; version, approval, tenant, and permission tests pass through API and
-web.
+levels. Release preserves approved estimate history and establishes the accepted
+baseline without duplicate effects; version, approval, tenant, and permission
+checks pass through API and web.
 
-## Cost control
+## Scheduling
 
-### Commitments, actuals, and budget comparison
+### Project and work-unit production schedules
 
-**Outcome:** Track approved budget against commitments and actual costs tied to
-project scope.
-
-**Design:** Draft. **Implementation:** Not started.
-
-**Depends on:** Budgeting and the accounting contracts used for actual costs.
-
-**Gate:** Budget-to-actual results reconcile to accepted source records and do
-not bypass approvals, tenant scope, or immutable financial history.
-
-## Catalog and matching
-
-### Vendor catalog, pricing, and matching
-
-**Outcome:** Relate vendor SKUs and pricing to BOM materials with explainable,
-auditable matching.
+**Outcome:** Schedule and track project work under `ARCH-041` while preserving
+the contractual milestone boundary in `ARCH-046`.
 
 **Design:** Draft. **Implementation:** Not started.
 
-**Depends on:** Core and BOM. External providers wait for an accepted component
-design.
+**Depends on:** Projects, Cost Codes, and required Core contracts. Financial
+milestone flows additionally require their Contracts, A/P, or A/R contracts.
 
-**Gate:** Matching is explainable, review decisions are append-only, and source
-records retain one module owner.
+**Required design:** Activity occurrences, dependencies, milestones, gates,
+deliverables, completion, and work-unit schedules; acceptance and downstream
+approval handoffs for the first supported workflow.
+
+**Gate:** Schedules reuse activity definitions, respect dependencies and gates,
+and preserve distinct operational completion and financial approval records.
+
+## Project Costs
+
+### Released baselines, cost changes, and reconciliation
+
+**Outcome:** Track production costs against the released baseline under
+`ARCH-041`.
+
+**Design:** Draft. **Implementation:** Not started.
+
+**Depends on:** Projects, Cost Codes, and the accepted Estimating release
+contract. Commitment and actual-cost tracking additionally require A/P and the
+accounting source contracts they consume.
+
+**Required design:** Baseline creation, approved changes, source references,
+rollups, forecasts, variance, reconciliation, and replay-safe handoffs. Design
+Estimating release and baseline acceptance together before implementing release.
+
+**Gate:** Release and approved changes preserve history; commitments and actuals
+reconcile to source transactions without duplicating their ownership or counting
+the same cost twice.
 
 ## Sales
 
@@ -659,7 +710,7 @@ approval workflows before a binding agreement is executed.
 
 **Design:** Draft. **Implementation:** Not started.
 
-**Depends on:** Core. Catalog, Budgeting, and Estimating are required only for
+**Depends on:** Core. Catalog and Estimating are required only for
 the Sales workflows that consume their accepted contracts.
 
 **Required design:** The smallest opportunity, quote, selection, and approval
@@ -704,7 +755,7 @@ balances, and reversal before a subledger posts.
 
 **Design:** Draft. **Implementation:** Not started.
 
-**Depends on:** Core and Projects; Budgeting only where an accepted posting
+**Depends on:** Core and Projects; Estimating only where an accepted posting
 contract requires it.
 
 **Gate:** Balanced entries post atomically, closed periods reject posting,
@@ -712,8 +763,9 @@ corrections preserve history, and retries do not duplicate financial effects.
 
 ### Accounts payable
 
-**Outcome:** Process vendor invoices, approvals, payments, allocations, and
-credits through their accounting effects.
+**Outcome:** Process purchase orders, vendor invoices, approvals, payments,
+allocations, and credits through their accounting effects under `ARCH-041`
+and `ARCH-046`.
 
 **Design:** Draft. **Implementation:** Not started.
 

@@ -12,9 +12,8 @@ Before planning or changing code, follow the reading order in the
    structure — file, import, module-ownership, and deployment placement.
 2. Read the relevant component PRD. If it does not exist, create and accept it
    before implementing the component.
-3. Read every applicable ADR in `docs/ADRs/`, starting from its index. No ADR
-   exists yet: the first is written with the capability that requires it and
-   creates the index alongside it.
+3. Read every applicable ADR in `docs/ADRs/`, starting from its
+   [index](docs/ADRs/INDEX.md).
 4. Read every applicable convention in `docs/RULES/`. None exists yet: until a
    subject has its own RULES file, the specification section that owns that
    subject governs.
