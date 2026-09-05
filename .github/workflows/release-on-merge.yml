@@ -147,6 +147,9 @@ jobs:
         if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
         run: npm run typecheck
 
+      - name: Ensure PostgreSQL client
+        run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
+
       - name: Set up databases
         if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
         run: npm run db:setup:test
