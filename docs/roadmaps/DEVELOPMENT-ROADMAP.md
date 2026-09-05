@@ -17,8 +17,8 @@ Before implementation, each capability needs an accepted component PRD and any
 ADRs or RULES documents that capability actually requires. Component designs
 remain unaccepted: the repository holds the specification,
 [ADR 0001](../ADRs/0001-project-workflow-module-boundaries.md), contributor
-guidance, and repository configuration. No application code, component PRD, or
-RULES document exists.
+guidance, and repository configuration. Workspace startup scaffolds and toolchain checks are implemented; no component
+PRD or RULES document exists.
 
 ## Capability record
 
@@ -159,42 +159,43 @@ accepted notification need.
 
 ## Current delivery board
 
-No component design is accepted and no capability is implemented. Every
-capability below starts from the specification and applicable ADRs.
+Workspace and toolchain implements specification-owned architecture; its local
+checks and passing CI are recorded in [PR #1](https://github.com/silverstone-i/nap/pull/1). Component capabilities still
+start from the specification and applicable ADRs.
 
-| Capability                                    | Design | Implementation | Depends on                                                                                         |
-| --------------------------------------------- | ------ | -------------- | -------------------------------------------------------------------------------------------------- |
-| Workspace and toolchain                       | Draft  | Not started    | —                                                                                                  |
-| Database and migration foundation             | Draft  | Not started    | Workspace and toolchain                                                                            |
-| Tenant isolation foundation                   | Draft  | Not started    | Database foundation                                                                                |
-| Operational baseline                          | Draft  | Not started    | Tenant isolation foundation                                                                        |
-| Shared transport package                      | Draft  | Not started    | Operational baseline                                                                               |
-| Framework HTTP surface                        | Draft  | Not started    | Shared transport package                                                                           |
-| Brand, theme, and web entry surface           | Draft  | Not started    | Workspace and toolchain                                                                            |
-| Release, versioning, and licensing operations | Draft  | Not started    | Workspace and toolchain                                                                            |
-| Authentication and sessions                   | Draft  | Not started    | Framework HTTP surface; web entry                                                                  |
-| Tenant membership and control plane           | Draft  | Not started    | Authentication                                                                                     |
-| Cell tenancy and provisioning                 | Draft  | Not started    | Tenant control plane                                                                               |
-| RBAC and module entitlement                   | Draft  | Not started    | Cell provisioning                                                                                  |
-| Authorization cache acceleration              | Draft  | Not started    | RBAC and module entitlement                                                                        |
-| Product shell and navigation                  | Draft  | Not started    | RBAC; first tenant-aware module                                                                    |
-| Reference data and Core                       | Draft  | Not started    | RBAC                                                                                               |
-| Document storage                              | Draft  | Not started    | Core; first module storing a document                                                              |
-| Projects                                      | Draft  | Not started    | Core                                                                                               |
-| Cost Codes                                    | Draft  | Not started    | Core                                                                                               |
-| Catalog                                       | Draft  | Not started    | Core                                                                                               |
-| Estimating                                    | Draft  | Not started    | Projects, Catalog, Cost Codes; release needs Project Costs baseline contract                       |
-| Scheduling                                    | Draft  | Not started    | Projects, Cost Codes; financial flows need applicable Contracts, A/P, or A/R                       |
-| Project Costs                                 | Draft  | Not started    | Projects, Cost Codes, Estimating release contract; commitments and actuals need A/P and accounting |
-| Sales                                         | Draft  | Not started    | Core; integration sources                                                                          |
-| Contracts                                     | Draft  | Not started    | Core; agreement sources                                                                            |
-| Accounting foundation                         | Draft  | Not started    | Core and Projects                                                                                  |
-| Accounts payable                              | Draft  | Not started    | Accounting, Core, Contracts                                                                        |
-| Accounts receivable                           | Draft  | Not started    | Accounting, Core, Projects, Contracts                                                              |
-| Accounting completion                         | Draft  | Not started    | A/P and A/R                                                                                        |
-| Reporting                                     | Draft  | Not started    | Each report's source module                                                                        |
-| Notifications                                 | Draft  | Not started    | First accepted source need                                                                         |
-| Operational scale units                       | Draft  | Not started    | Measured operational need                                                                          |
+| Capability                                    | Design   | Implementation | Depends on                                                                                         |
+| --------------------------------------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------- |
+| Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
+| Database and migration foundation             | Draft    | Not started    | Workspace and toolchain                                                                            |
+| Tenant isolation foundation                   | Draft    | Not started    | Database foundation                                                                                |
+| Operational baseline                          | Draft    | Not started    | Tenant isolation foundation                                                                        |
+| Shared transport package                      | Draft    | Not started    | Operational baseline                                                                               |
+| Framework HTTP surface                        | Draft    | Not started    | Shared transport package                                                                           |
+| Brand, theme, and web entry surface           | Draft    | Not started    | Workspace and toolchain                                                                            |
+| Release, versioning, and licensing operations | Draft    | Not started    | Workspace and toolchain                                                                            |
+| Authentication and sessions                   | Draft    | Not started    | Framework HTTP surface; web entry                                                                  |
+| Tenant membership and control plane           | Draft    | Not started    | Authentication                                                                                     |
+| Cell tenancy and provisioning                 | Draft    | Not started    | Tenant control plane                                                                               |
+| RBAC and module entitlement                   | Draft    | Not started    | Cell provisioning                                                                                  |
+| Authorization cache acceleration              | Draft    | Not started    | RBAC and module entitlement                                                                        |
+| Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
+| Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
+| Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
+| Projects                                      | Draft    | Not started    | Core                                                                                               |
+| Cost Codes                                    | Draft    | Not started    | Core                                                                                               |
+| Catalog                                       | Draft    | Not started    | Core                                                                                               |
+| Estimating                                    | Draft    | Not started    | Projects, Catalog, Cost Codes; release needs Project Costs baseline contract                       |
+| Scheduling                                    | Draft    | Not started    | Projects, Cost Codes; financial flows need applicable Contracts, A/P, or A/R                       |
+| Project Costs                                 | Draft    | Not started    | Projects, Cost Codes, Estimating release contract; commitments and actuals need A/P and accounting |
+| Sales                                         | Draft    | Not started    | Core; integration sources                                                                          |
+| Contracts                                     | Draft    | Not started    | Core; agreement sources                                                                            |
+| Accounting foundation                         | Draft    | Not started    | Core and Projects                                                                                  |
+| Accounts payable                              | Draft    | Not started    | Accounting, Core, Contracts                                                                        |
+| Accounts receivable                           | Draft    | Not started    | Accounting, Core, Projects, Contracts                                                              |
+| Accounting completion                         | Draft    | Not started    | A/P and A/R                                                                                        |
+| Reporting                                     | Draft    | Not started    | Each report's source module                                                                        |
+| Notifications                                 | Draft    | Not started    | First accepted source need                                                                         |
+| Operational scale units                       | Draft    | Not started    | Measured operational need                                                                          |
 
 ## Platform foundation
 
@@ -209,7 +210,7 @@ one-concept pull requests.
 `packages/shared` workspaces on the specification's stack, with every
 repository check running green.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted (specification-owned). **Implementation:** Verified in [PR #1](https://github.com/silverstone-i/nap/pull/1); merge pending.
 
 **Depends on:** Nothing.
 
@@ -224,13 +225,19 @@ setup for each workspace, and the `lint`, `format:check`, `typecheck`, `test`,
 `build`, `licenses`, `dev:api`, and `dev:web` scripts the existing CI workflow
 and contributor guidance already name.
 
-**Current state:** The workspace skeleton, the root manifest, and the three
-workspace manifests are checked in alongside `.github/workflows/`,
-`.husky/commit-msg`, `.licenses-allowed.json`, `.nvmrc`, `tsconfig.base.json`,
-`eslint.config.mjs`, and the Prettier configuration. Still missing: the
-TypeScript project configurations each build script names, the lockfile,
-`scripts/check-licenses.mjs` and `scripts/setup-databases.mjs`, the Vite
-configuration, and every source file.
+**Current state:** Independent API, web, and shared builds, development entry
+points, strict TypeScript configurations, Vitest suites, import-boundary checks,
+license checking, and the npm lockfile are implemented. Development/test database
+setup provisions missing databases and least-privileged runtime roles for the
+existing CI gate. Migrations, application tables, runtime database handles, and
+startup role assertions remain in Database and migration foundation.
+
+**Plan:** [Workspace and toolchain](../implementation-plans/workspace-and-toolchain.md).
+
+**Evidence:** [Passing CI](https://github.com/silverstone-i/nap/actions/runs/33993431984)
+verifies clean installation, database setup, all repository checks, and 29 tests.
+Local checks additionally verified independent builds with generated output
+removed, browser rendering and hot reload, and API watch restart.
 
 **Gate:** Both applications build and start independently, the shared package
 builds, every check command runs green locally and in CI, and no workspace

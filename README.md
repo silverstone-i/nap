@@ -26,6 +26,51 @@ isolation and `ARCH-029` owns the Redis boundary. Package manifests, the
 lockfile, `.nvmrc`, and `tsconfig.base.json` own the exact installed versions
 and compiler settings.
 
+## Local development
+
+Use the Node version pinned in `.nvmrc` (`nvm use`), then run `npm ci`.
+
+- `npm run dev:api` starts the API on port 3000 and watches TypeScript output.
+- `npm run dev:web` starts Vite on its reported local URL (normally port 5173).
+- `npm run build --workspace @nap/api`, `@nap/web`, or `@nap/shared` builds
+  that workspace. Application builds first build the public shared package.
+
+The API currently returns empty 404 responses and the web displays NAP. Neither
+requires a database to start. Transport contracts, health endpoints, and product
+screens are later capabilities.
+
+Copy `apps/api/.env.example` to `apps/api/.env` for local configuration. The API
+and database setup load that file without overriding inherited environment values.
+Only `PORT` and the development/test setup settings are implemented in this slice;
+other sample settings remain proposals. Never commit the local environment file.
+
+### Database setup and checks
+
+Install PostgreSQL 18 or later, including `psql`, `initdb`, and `pg_ctl` on PATH.
+On macOS, Homebrew's `postgresql@18` provides these commands. Use an existing
+administrative login with permission to create roles and databases for setup.
+Set the `_DEV` connection settings and runtime role names in the example, then
+run `npm run db:setup:dev`. Use `_TEST` settings with `npm run db:setup:test`.
+Both targets must share the setup server, and migration credentials must match
+the setup owner. URLs must contain a password and no query parameters; database
+and role identifiers use lowercase letters, digits, and underscores, starting
+with a letter or underscore.
+
+Setup creates missing databases and runtime roles, validates existing ownership
+and privileges, and verifies credentials. It never resets passwords, drops data,
+or creates application tables. Only `test` and `development` modes are supported.
+Migration and bootstrap commands remain reserved for later capabilities.
+
+Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`,
+`npm run build`, and `npm run licenses` before pushing. Local toolchain tests
+start and clean up a temporary PostgreSQL cluster; they do not use your local
+application databases. CI uses its disposable PostgreSQL service and unique
+fixture databases/roles. HTTP tests require permission to open local sockets.
+
+The license gate checks installed production dependencies, including hoisted
+transitives, against `.licenses-allowed.json` using the lockfile's dependency
+classification. Unknown licenses and missing required packages fail the check.
+
 ## Documentation
 
 Start with the [documentation index](docs/README.md). It defines the authority,

@@ -24,6 +24,9 @@ export default defineConfig([
 
   {
     files: [
+      'packages/shared/src/**/*.ts',
+      'packages/shared/tests/**/*.ts',
+      'packages/shared/vitest.config.ts',
       'apps/api/src/**/*.ts',
       'apps/api/tests/**/*.ts',
       'apps/api/vitest.config.ts',
