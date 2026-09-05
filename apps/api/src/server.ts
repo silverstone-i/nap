@@ -10,9 +10,10 @@ import { loadLocalEnvironment, resolvePort } from './util/env.js';
 const logger = pino();
 try {
   loadLocalEnvironment();
-  const server = createApp().listen(resolvePort());
+  const port = resolvePort();
+  const server = createApp().listen(port);
   server.on('listening', () => {
-    logger.info('API listening');
+    logger.info(`API listening on port:${port}`);
   });
   server.on('error', () => {
     logger.error('API failed to listen');
