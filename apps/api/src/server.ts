@@ -25,10 +25,11 @@ let stopping: Promise<void> | undefined;
 function shutdown(code: number): Promise<void> {
   if (stopping) return stopping;
   stopping = (async () => {
-    if (server?.listening) {
+    const listener = server;
+    if (listener?.listening) {
       await new Promise<void>(resolve => {
-        server!.close(() => resolve());
-        server!.closeAllConnections();
+        listener.close(() => resolve());
+        listener.closeAllConnections();
       });
     }
     const results = await Promise.allSettled(

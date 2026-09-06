@@ -14,9 +14,10 @@ Before planning or changing code, follow the reading order in the
    before implementing the component.
 3. Read every applicable ADR in `docs/ADRs/`, starting from its
    [index](docs/ADRs/INDEX.md).
-4. Read every applicable convention in `docs/RULES/`. None exists yet: until a
-   subject has its own RULES file, the specification section that owns that
-   subject governs.
+4. Follow [JavaScript-first TypeScript](docs/RULES/javascript-first-typescript.md)
+   for all new and changed TypeScript code, and read every other applicable
+   convention in `docs/RULES/`. Until a subject has its own RULES file, the
+   specification section that owns that subject governs.
 
 Do not treat the roadmap or `docs/reference/` as architectural authority. Do
 not copy a requirement into a second document; link its stable ID instead.

@@ -19,7 +19,8 @@ remain unaccepted: the repository holds the specification,
 [accepted ADRs](../ADRs/INDEX.md), contributor
 guidance, and repository configuration. Workspace startup scaffolds, toolchain
 checks, and the database/migration foundation are implemented; no component
-PRD or RULES document exists.
+PRD exists. [JavaScript-first TypeScript](../RULES/javascript-first-typescript.md)
+owns the shared coding convention.
 
 ## Capability record
 

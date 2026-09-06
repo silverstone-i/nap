@@ -36,7 +36,11 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-/** Provide only the methods the fixture uses, without opening a real pool. */
+/**
+ * Provide only the methods the fixture uses, without opening a real pool.
+ * Cast these partial mocks only at the mocked library boundary; implementing
+ * unused Database methods would obscure the cleanup behavior under test.
+ */
 function mockDatabase() {
   return {
     one: vi.fn().mockResolvedValue({ version: 180000 }),
@@ -77,10 +81,8 @@ it('waits for handle closure and uses non-forcing drops so connection leaks rema
   const fixture = await postgresFixture();
   fixture.owner(fixture.adminUrl);
   control.none.mockClear();
-  let finishClose!: () => void;
-  const closed = new Promise<void>(resolve => {
-    finishClose = resolve;
-  });
+  const { promise: closed, resolve: finishClose } =
+    Promise.withResolvers<void>();
   handle.close.mockReturnValueOnce(closed);
   const cleanup = fixture.cleanup();
   expect(handle.close).toHaveBeenCalledOnce();

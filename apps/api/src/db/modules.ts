@@ -29,7 +29,7 @@ export function assertModules(
       module.databaseTarget !== target ||
       !(target === 'admin'
         ? module.schema === 'admin'
-        : CELL_SCHEMAS.includes(module.schema as CellSchema)) ||
+        : CELL_SCHEMAS.some(schema => schema === module.schema)) ||
       typeof module.name !== 'string' ||
       !module.name.trim() ||
       names.has(module.name) ||
