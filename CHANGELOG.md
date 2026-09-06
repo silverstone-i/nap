@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-09-06
+
 ### Added
 
 - Buildable API, web, and shared workspaces with development startup, automated
