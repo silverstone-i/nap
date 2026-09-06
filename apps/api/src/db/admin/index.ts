@@ -4,6 +4,7 @@
  */
 
 import { createDb } from 'pg-schemata';
+import { createDatabaseLogger } from '../../util/logger.js';
 import type { Database } from 'pg-schemata';
 
 const adminHandle = Symbol('adminDatabase');
@@ -15,6 +16,7 @@ export function createAdminDatabase(connectionString: string): AdminDatabase {
   return Object.assign(
     createDb({
       connectionString,
+      logger: createDatabaseLogger('admin'),
       repositories: {},
       pool: { connectionTimeoutMillis: 5000 },
     }),

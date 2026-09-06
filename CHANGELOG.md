@@ -11,6 +11,18 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add API liveness and readiness probes with fresh database role checks,
+  request correlation, and safe structured logging.
+
+### Changed
+
+- Return versioned JSON errors for unknown routes and invalid requests, with
+  bounded JSON bodies and refusal of compressed request payloads.
+- Drain active HTTP requests before closing database pools during shutdown,
+  with bounded cleanup and unsuccessful exits when deadlines are exceeded.
+
 ## [v0.3.0] - 2026-09-06
 
 ### Added

@@ -17,7 +17,7 @@ afterAll(async () => {
   await fixture?.cleanup();
 }, 30000);
 
-it('starts the compiled API, returns an empty 404, and releases its port on shutdown', async () => {
+it('starts the compiled API, returns a correlated error envelope, and releases its port on shutdown', async () => {
   // Ask the OS for an available port, then release it for the child. Unlike the
   // app factory test, this exercises the compiled entry point and signal handling.
   const probe = createServer();
@@ -48,7 +48,20 @@ it('starts the compiled API, returns an empty 404, and releases its port on shut
       }
     }
     expect(response?.status).toBe(404);
-    expect(await response.text()).toBe('');
+    expect(await response.json()).toEqual({
+      version: 1,
+      code: 'NOT_FOUND',
+      message: 'Not found',
+    });
+    expect(response.headers.get('x-request-id')).toMatch(/^[a-f0-9-]{36}$/);
+    for (const path of ['live', 'ready']) {
+      const health = await fetch(`http://127.0.0.1:${port}/health/${path}`);
+      expect(health.status).toBe(200);
+      expect(await health.json()).toEqual({
+        version: 1,
+        data: { status: 'ok' },
+      });
+    }
     child.kill('SIGTERM');
     expect((await exited)[0]).toBe(0);
     await expect(fetch(`http://127.0.0.1:${port}`)).rejects.toThrow();

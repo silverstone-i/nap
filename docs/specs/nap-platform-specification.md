@@ -1091,8 +1091,12 @@ Passwords, password hashes, session or access tokens, cookies, secrets,
 connection strings, raw authorization headers, raw throttle keys, and sensitive
 request and response payloads are never logged. Redaction happens before the
 logging call; a formatter is not the security boundary. The `pg-schemata`
-adapter forwards the library's message under the request's identifier and
-discards its structured payload, which can carry row values.
+adapter discards the library's structured payload, which can carry row values,
+and forwards only recognized safe message forms under the request's identifier.
+Other messages become fixed diagnostics before the logging call: message strings
+can themselves contain SQL, row values, or dependency errors. Request-scoped
+library failures are reported by the handling boundary rather than logged twice.
+See [ADR 0003](../ADRs/0003-safe-database-log-messages.md).
 
 API errors use the shared versioned envelope `ARCH-043` requires, and
 `@nap/shared` owns the registry of stable error codes that envelope carries. Expected
@@ -1598,6 +1602,7 @@ every production dependency carries an allowed license.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-06 | Required safe database message forms in addition to discarded metadata, and boundary-owned request failure logging (ADR 0003)                                                                                                                                                                                                       |
 | 2026-09-06 | Allowed capability-only implementation-plan filenames for specification-owned work without a component PRD (ADR 0002)                                                                                                                                                                                                               |
 | 2026-09-05 | Clarified A/P as a source of approved obligations under `ARCH-046`, consistent with its purchase-order ownership                                                                                                                                                                                                                    |
 | 2026-09-05 | Restructured project workflow ownership under `ARCH-041`: combined Catalog/BOM, introduced Cost Codes and Scheduling, replaced Budgeting and Cost Control with Estimating and Project Costs, assigned purchase orders to A/P, and aligned `ARCH-046` and conformance                                                                |

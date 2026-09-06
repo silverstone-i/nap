@@ -35,10 +35,10 @@ Use the Node version pinned in `.nvmrc` (`nvm use`), then run `npm ci`.
 - `npm run build --workspace @nap/api`, `@nap/web`, or `@nap/shared` builds
   that workspace. Application builds first build the public shared package.
 
-The API currently returns empty 404 responses and the web displays NAP. API
-startup verifies both runtime database connections and rejects unsafe roles before
-listening. The web starts independently. Transport contracts, health endpoints,
-and product screens are later capabilities.
+The API exposes `GET /health/live` and `GET /health/ready`; other paths return
+version-1 JSON errors. Every application response carries `X-Request-ID`.
+Startup verifies both runtime database roles before listening. The web starts
+independently and displays NAP; product screens remain later capabilities.
 
 Copy `apps/api/.env.example` to `apps/api/.env` for local configuration. The API
 and database commands load that file without overriding inherited environment
@@ -115,3 +115,31 @@ The maintainer (Ian Silverstone) has sole enforcement authority over project pol
 ## Copyright
 
 Copyright (c) 2026–present NapSoft, LLC. All contributors retain copyright in their contributions, licensed to the project under AGPL-3.0-or-later via the DCO sign-off.
+
+### API operations
+
+Configure process liveness with `GET /health/live` and traffic readiness with
+`GET /health/ready`. Successful probes return HTTP 200 and
+`{"version":1,"data":{"status":"ok"}}`. Unready probes return HTTP 503 with a
+safe shared error envelope; health responses are not cacheable. Probes reveal
+no infrastructure details. Readiness freshly checks both runtime roles, shares
+an outstanding check, and has a five-second total budget. Startup performs the
+same check before opening HTTP. Keep the deployment probe timeout above five
+seconds to receive the API's failure response.
+
+JSON requests have a 100 KiB ceiling; compressed bodies and unsupported media
+are refused. Unknown paths, parser errors, and unexpected faults use shared
+version-1 errors. Reuse one valid UUID `X-Request-ID` or let the API generate it;
+keep the returned value for support. Diagnostic logs are JSON on stdout with
+stable events and request IDs, without hostname, raw URLs, bodies, credentials,
+or arbitrary dependency messages. Database audit records remain independent.
+
+SIGINT/SIGTERM stop readiness and admission, allow ten seconds for active HTTP
+requests, and then allow five seconds for pool cleanup. Exhausted deadlines or
+cleanup failures exit unsuccessfully. Set the deployment termination grace
+period above fifteen seconds. Interrupted startup cannot later open a listener.
+There are no automatic retries, metrics exporter, or sampling policy yet.
+
+Deploy the API artifact and update probes together. No database migration or
+credential change is needed. Roll back both the artifact and probe configuration
+if reverting to a build without health endpoints.
