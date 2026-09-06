@@ -815,7 +815,9 @@ placement.
 
 `docs/implementation-plans/` holds conditional delivery records. Each filename
 is `NNNN-<capability>.md`, where `NNNN` matches its owning PRD and
-`<capability>` is its kebab-case capability name.
+`<capability>` is its kebab-case capability name. A specification-owned
+capability with no component PRD uses `<capability>.md`, without an invented
+PRD number; see [ADR 0002](../ADRs/0002-specification-owned-plan-filenames.md).
 
 A plan is required only when delivery has at least one of these properties:
 
@@ -1596,6 +1598,7 @@ every production dependency carries an allowed license.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-06 | Allowed capability-only implementation-plan filenames for specification-owned work without a component PRD (ADR 0002)                                                                                                                                                                                                               |
 | 2026-09-05 | Clarified A/P as a source of approved obligations under `ARCH-046`, consistent with its purchase-order ownership                                                                                                                                                                                                                    |
 | 2026-09-05 | Restructured project workflow ownership under `ARCH-041`: combined Catalog/BOM, introduced Cost Codes and Scheduling, replaced Budgeting and Cost Control with Estimating and Project Costs, assigned purchase orders to A/P, and aligned `ARCH-046` and conformance                                                                |
 | 2026-09-04 | Inlined the tenant transaction contract, module authoring conventions, web shared behavior, database record conventions, implementation-plan triggers, and operational standards; stated transport-contract ownership directly                                                                                                      |

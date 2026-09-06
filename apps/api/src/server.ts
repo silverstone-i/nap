@@ -5,34 +5,70 @@
 
 import pino from 'pino';
 import { createApp } from './app.js';
-import { loadLocalEnvironment, resolvePort } from './util/env.js';
+import { createAdminDatabase } from './db/admin/index.js';
+import { createCellDatabase } from './db/cell/index.js';
+import { assertRuntimeRole } from './db/assertRuntimeRole.js';
+import {
+  loadLocalEnvironment,
+  resolvePort,
+  resolveRuntimeConfiguration,
+} from './util/env.js';
+import type { Database } from 'pg-schemata';
+import type { Server } from 'node:http';
 
-// This process entry point owns the listener and signal handlers. Keep it
-// separate from createApp so importing the app does not start a server.
 const logger = pino();
+const handles: Database[] = [];
+let server: Server | undefined;
+let stopping: Promise<void> | undefined;
+
+/** Stop HTTP first, then release every pool even if one pool fails to close. */
+function shutdown(code: number): Promise<void> {
+  if (stopping) return stopping;
+  stopping = (async () => {
+    if (server?.listening) {
+      await new Promise<void>(resolve => {
+        server!.close(() => resolve());
+        server!.closeAllConnections();
+      });
+    }
+    const results = await Promise.allSettled(
+      handles.map(handle => handle.close())
+    );
+    process.exitCode = results.some(r => r.status === 'rejected') ? 1 : code;
+  })();
+  return stopping;
+}
+
+process.once('SIGINT', () => {
+  void shutdown(0);
+});
+process.once('SIGTERM', () => {
+  void shutdown(0);
+});
 try {
   loadLocalEnvironment();
   const port = resolvePort();
-  const server = createApp().listen(port);
-  server.on('listening', () => {
-    logger.info(`API listening on port:${port}`);
-  });
-  server.on('error', () => {
-    logger.error('API failed to listen');
-    process.exitCode = 1;
-  });
-  // Stop accepting requests before closing existing HTTP connections so the
-  // watcher can reuse the port. This scaffold has no in-flight business work to
-  // drain; feature delivery must revisit that lifecycle when work is introduced.
-  const shutdown = () => {
-    server.close(() => {
-      process.exitCode = 0;
+  const configuration = resolveRuntimeConfiguration();
+  handles.push(createAdminDatabase(configuration.admin));
+  handles.push(createCellDatabase(configuration.cell));
+  for (const handle of handles) {
+    if (stopping) break;
+    await handle.connect();
+    await assertRuntimeRole(handle);
+  }
+  if (!stopping) {
+    server = createApp().listen(port);
+    server.once('listening', () =>
+      logger.info(`API listening on port:${port}`)
+    );
+    server.once('error', () => {
+      logger.error('API failed to listen');
+      void shutdown(1);
     });
-    server.closeAllConnections();
-  };
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
+  }
 } catch {
-  logger.error('Invalid API startup configuration');
-  process.exitCode = 1;
+  logger.error(
+    'Invalid API startup configuration or unsafe/unavailable database'
+  );
+  await shutdown(1);
 }
