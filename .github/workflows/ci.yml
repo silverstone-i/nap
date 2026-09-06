@@ -73,6 +73,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Ensure PostgreSQL client
+        run: command -v psql || (sudo apt-get update && sudo apt-get install -y postgresql-client)
+
       - name: Set up databases
         run: npm run db:setup:test
 

@@ -11,3 +11,9 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Buildable API, web, and shared workspaces with development startup, automated
+  toolchain checks, production license validation, and safe development/test
+  database setup.
+- API startup logs display the listening port.

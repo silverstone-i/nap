@@ -15,7 +15,7 @@
     "prelint": "npm run build --workspace @nap/shared",
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test:toolchain && npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -27,7 +27,8 @@
     "db:migrate:admin": "npm run db:migrate:admin --workspace @nap/api",
     "db:migrate:cell": "npm run db:migrate:cell --workspace @nap/api",
     "db:bootstrap": "npm run db:bootstrap --workspace @nap/api",
-    "db:setup:dev": "node scripts/setup-databases.mjs development"
+    "db:setup:dev": "node scripts/setup-databases.mjs development",
+    "test:toolchain": "npm run build --workspace @nap/api && vitest run --config vitest.config.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
