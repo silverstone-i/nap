@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { loadEnvFile } from 'node:process';
 
 /**
@@ -18,7 +18,9 @@ export function loadLocalEnvironment() {
   // Resolve from this module so source and compiled entry points use the same
   // API .env regardless of the command's working directory.
   const file = new URL('../../.env', import.meta.url);
-  if (!existsSync(file)) return;
+  // Preserve access errors: existsSync hides them, and Node's loader can report
+  // ENOENT for an inaccessible path. Only a genuinely missing file is optional.
+  if (!statSync(file, { throwIfNoEntry: false })) return;
   loadEnvFile(file);
 }
 

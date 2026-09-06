@@ -30,14 +30,22 @@ it.each(['src/util/env.ts', 'dist/util/env.js'])(
       });
       writeFileSync(join(api, 'package.json'), '{"type":"module"}');
       copyFileSync(join('apps/api', relativePath), module);
-      const run = () =>
+      const run = (denyAccess = false) =>
         spawnSync(
           process.execPath,
           [
             '--input-type=module',
             '-e',
             `import { loadLocalEnvironment } from ${JSON.stringify(pathToFileURL(module).href)};
-             loadLocalEnvironment();
+             import { chmodSync } from 'node:fs';
+             const api = ${JSON.stringify(api)};
+             // Import first so only environment loading encounters the denial.
+             if (${denyAccess}) chmodSync(api, 0);
+             try {
+               loadLocalEnvironment();
+             } finally {
+               if (${denyAccess}) chmodSync(api, 0o755);
+             }
              console.log(JSON.stringify([
                process.env.NAP_TEST_LOCAL ?? null,
                process.env.NAP_TEST_EXISTING,
@@ -62,6 +70,14 @@ it.each(['src/util/env.ts', 'dist/util/env.js'])(
       const loaded = run();
       expect(loaded.status, loaded.stderr).toBe(0);
       expect(JSON.parse(loaded.stdout)).toEqual(['from file', 'inherited', '']);
+
+      // POSIX directory permissions exercise the actual filesystem failure.
+      // Root bypasses these permissions; Windows does not implement this mode.
+      if (process.platform !== 'win32' && process.getuid?.() !== 0) {
+        const denied = run(true);
+        expect(denied.status).toBe(1);
+        expect(denied.stderr).toContain('EACCES');
+      }
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
