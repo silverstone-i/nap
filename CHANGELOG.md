@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Adopt shared JavaScript-first TypeScript coding conventions and lint enforcement,
+  and simplify API and test code while preserving behavior.
+
 ## [v0.2.0] - 2026-09-06
 
 ### Added
