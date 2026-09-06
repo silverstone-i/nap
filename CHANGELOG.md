@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-09-06
+
 ### Added
 
 - Add independent admin and cell database handles, explicit schema migration
