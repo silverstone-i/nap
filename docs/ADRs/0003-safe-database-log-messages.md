@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-09-06
-- **Requirement:** `ARCH-045`
+- **Requirements:** `ARCH-045`
 
 ## Context
 

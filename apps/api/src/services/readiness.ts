@@ -8,10 +8,14 @@ import { assertRuntimeRole } from '../db/assertRuntimeRole.js';
 import type { Database } from 'pg-schemata';
 
 /**
- * Check both pools freshly, sharing only an outstanding cycle. A deadline kills
- * acquired probe connections. Keep an expired cycle until late acquisitions and
- * queries settle so repeated probes cannot queue more work behind a stuck pool.
- * Pool connectionTimeoutMillis also bounds acquisitions before a client exists.
+ * Create the readiness checker used before API startup opens its listener and
+ * by the readiness endpoint to verify both databases remain safe to serve work.
+ *
+ * Each cycle checks connectivity and runtime-role safety for both pools.
+ * Concurrent callers share the outstanding cycle. A deadline destroys acquired
+ * probe connections; an expired cycle remains shared until pending work settles
+ * so repeated probes cannot accumulate work behind a stuck pool.
+ * Pool connectionTimeoutMillis bounds acquisition before a client exists.
  */
 export function createReadiness(
   handles: readonly Database[],
