@@ -23,6 +23,9 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Fixed
 
+- Avoid forced connection termination during migration-test cleanup and report
+  database pool shutdown failures.
+
 - Report environment-file permission failures instead of treating inaccessible
   files as missing optional configuration.
 

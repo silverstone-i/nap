@@ -51,12 +51,16 @@ export async function postgresFixture() {
   let control: Database | undefined;
   const cleanup = async () => {
     try {
-      await Promise.allSettled(handles.map(db => db.close()));
+      const closed = await Promise.allSettled(handles.map(db => db.close()));
+      if (closed.some(result => result.status === 'rejected'))
+        throw new Error('Failed to close PostgreSQL fixture handles');
       if (control) {
+        // Pool shutdown can finish before PostgreSQL has processed every socket
+        // closure. FORCE can terminate a disconnecting session and deliver an
+        // unhandled 57P01 to a closing pool. Use ordinary DROP so connections
+        // finish normally and a genuine leaked session fails cleanup.
         for (const name of databases)
-          await control.none('DROP DATABASE IF EXISTS $1:name WITH (FORCE)', [
-            name,
-          ]);
+          await control.none('DROP DATABASE IF EXISTS $1:name', [name]);
         for (const name of roles)
           await control.none('DROP ROLE IF EXISTS $1:name', [name]);
       }

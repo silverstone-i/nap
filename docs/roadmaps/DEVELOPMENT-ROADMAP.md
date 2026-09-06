@@ -272,7 +272,7 @@ one fails startup; cell migrations run `cell`, `reference`, `app`, then
 produce identical schemas.
 
 **Local evidence (2026-09-06):** All repository checks passed: lint,
-format:check, typecheck, 52 tests, build, and licenses. Disposable PostgreSQL 18
+format:check, typecheck, 54 tests, build, and licenses. Disposable PostgreSQL 18
 tests verify separate pool lifecycles; elevated-role, ownership, creation-grant,
 and membership rejection; startup/listener failure cleanup; explicit CLI targets;
 empty-schema initialization; canonical ordering; repeatability and checksums;
