@@ -16,8 +16,9 @@ behavior or architecture.
 Before implementation, each capability needs an accepted component PRD and any
 ADRs or RULES documents that capability actually requires. Component designs
 remain unaccepted: the repository holds the specification,
-[ADR 0001](../ADRs/0001-project-workflow-module-boundaries.md), contributor
-guidance, and repository configuration. Workspace startup scaffolds and toolchain checks are implemented; no component
+[accepted ADRs](../ADRs/INDEX.md), contributor
+guidance, and repository configuration. Workspace startup scaffolds, toolchain
+checks, and the database/migration foundation are implemented; no component
 PRD or RULES document exists.
 
 ## Capability record
@@ -166,7 +167,7 @@ start from the specification and applicable ADRs.
 | Capability                                    | Design   | Implementation | Depends on                                                                                         |
 | --------------------------------------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------- |
 | Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
-| Database and migration foundation             | Draft    | Not started    | Workspace and toolchain                                                                            |
+| Database and migration foundation             | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Tenant isolation foundation                   | Draft    | Not started    | Database foundation                                                                                |
 | Operational baseline                          | Draft    | Not started    | Tenant isolation foundation                                                                        |
 | Shared transport package                      | Draft    | Not started    | Operational baseline                                                                               |
@@ -245,11 +246,13 @@ imports another except through its published entry point.
 
 ### Database and migration foundation
 
+**Delivery plan:** [Database and migration foundation](../implementation-plans/database-and-migration-foundation.md).
+
 **Outcome:** Separate admin and cell handles, explicit migration targets, least-
 privileged runtime roles, and a startup assertion that refuses a connection
 able to bypass row-level security.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted (specification-owned). **Implementation:** Verified in [PR #3](https://github.com/silverstone-i/nap/pull/3).
 
 **Depends on:** Workspace and toolchain.
 
@@ -267,6 +270,17 @@ role holding `SUPERUSER`, `BYPASSRLS`, table ownership, or a membership path to
 one fails startup; cell migrations run `cell`, `reference`, `app`, then
 `reporting` regardless of registration order; a fresh build and an upgrade path
 produce identical schemas.
+
+**Local evidence (2026-09-06):** All repository checks passed: lint,
+format:check, typecheck, 54 tests, build, and licenses. Disposable PostgreSQL 18
+tests verify separate pool lifecycles; elevated-role, ownership, creation-grant,
+and membership rejection; startup/listener failure cleanup; explicit CLI targets;
+empty-schema initialization; canonical ordering; repeatability and checksums;
+fresh/upgrade schema equivalence; per-schema rollback and retry; and independent
+dump/restore with fixture data. Production registries remain empty.
+[Passing CI](https://github.com/silverstone-i/nap/actions/runs/34035220909)
+verifies the implementation and teardown regression tests;
+[PR #3](https://github.com/silverstone-i/nap/pull/3) owns review and merge evidence.
 
 ### Tenant isolation foundation
 

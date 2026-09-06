@@ -35,18 +35,20 @@ Use the Node version pinned in `.nvmrc` (`nvm use`), then run `npm ci`.
 - `npm run build --workspace @nap/api`, `@nap/web`, or `@nap/shared` builds
   that workspace. Application builds first build the public shared package.
 
-The API currently returns empty 404 responses and the web displays NAP. Neither
-requires a database to start. Transport contracts, health endpoints, and product
-screens are later capabilities.
+The API currently returns empty 404 responses and the web displays NAP. API
+startup verifies both runtime database connections and rejects unsafe roles before
+listening. The web starts independently. Transport contracts, health endpoints,
+and product screens are later capabilities.
 
 Copy `apps/api/.env.example` to `apps/api/.env` for local configuration. The API
-and database setup load that file without overriding inherited environment values.
-Only `PORT` and the development/test setup settings are implemented in this slice;
-other sample settings remain proposals. Never commit the local environment file.
+and database commands load that file without overriding inherited environment
+values. `PORT`, runtime/migration database URLs, and development/test setup are
+implemented; other sample settings remain proposals. Never commit the local
+environment file.
 
 ### Database setup and checks
 
-Install PostgreSQL 18 or later, including `psql`, `initdb`, and `pg_ctl` on PATH.
+Install PostgreSQL 18 or later, including `psql`, `initdb`, `pg_ctl`, `pg_dump`, and `pg_restore` on PATH.
 On macOS, Homebrew's `postgresql@18` provides these commands. Use an existing
 administrative login with permission to create roles and databases for setup.
 Set the `_DEV` connection settings and runtime role names in the example, then
@@ -59,7 +61,28 @@ with a letter or underscore.
 Setup creates missing databases and runtime roles, validates existing ownership
 and privileges, and verifies credentials. It never resets passwords, drops data,
 or creates application tables. Only `test` and `development` modes are supported.
-Migration and bootstrap commands remain reserved for later capabilities.
+After setup, run `npm run db:migrate:admin` and `npm run db:migrate:cell`.
+These are explicit release operations, never API startup hooks. Empty registries
+initialize `admin` and the cell schemas in `cell`, `reference`, `app`, `reporting`
+order with pg-schemata tracking tables. No business tables or blanket runtime
+grants are created. Bootstrap remains a later capability.
+
+`NODE_ENV` selects `_DEV`, `_TEST`, or `_PROD` URLs (development when absent).
+Runtime startup needs only both `*_DATABASE_URL_*` values; a migration command
+needs only its selected `*_MIGRATION_URL_*`. Production roles/databases must be
+provisioned externally. Run migrations before deploying the runtime. Connections
+have a five-second timeout; startup role checks have a five-second query timeout.
+Runtime URLs must identify distinct database endpoints; deployment configuration
+must also avoid aliases that refer to the same database. Runtime and migration
+URLs preserve `sslmode`, `sslcert`, `sslkey`, `sslrootcert`, and `application_name`
+options; other query options are rejected. Setup URLs remain option-free.
+
+Runtime roles must not have elevated role flags, ownership, schema/database
+creation grants, or membership paths to privileged/owning roles. A failed check
+prevents listening. Shutdown and startup/listener failures close both pools.
+Migration transactions are per schema: earlier schemas remain committed on a
+later failure. Correct the cause and rerun without editing applied migrations.
+Application rollback leaves schemas and tracking tables in place.
 
 Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`,
 `npm run build`, and `npm run licenses` before pushing. Local toolchain tests

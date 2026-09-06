@@ -11,12 +11,20 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add independent admin and cell database handles, explicit schema migration
+  commands, and startup rejection of unsafe runtime roles.
+
 ### Changed
 
 - Use Node's built-in environment loader for API startup and database setup, and
   clarify function purpose and rationale in contributor guidance and code comments.
 
 ### Fixed
+
+- Avoid forced connection termination during migration-test cleanup and report
+  database pool shutdown failures.
 
 - Report environment-file permission failures instead of treating inaccessible
   files as missing optional configuration.

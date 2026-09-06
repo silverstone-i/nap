@@ -139,3 +139,81 @@ export function resolveSetupConfiguration(
   }
   return { setup, targets };
 }
+
+/** Select the deployment environment without reading a database credential. */
+export function resolveEnvironment(env: NodeJS.ProcessEnv = process.env) {
+  const mode = env.NODE_ENV ?? 'development';
+  if (mode !== 'development' && mode !== 'test' && mode !== 'production')
+    throw new Error('NODE_ENV must be development, test, or production');
+  return { development: 'DEV', test: 'TEST', production: 'PROD' }[mode];
+}
+
+/**
+ * Validate a driver URL without converting away TLS or application-name options.
+ * Only connection options that cannot override the parsed target or session role
+ * are accepted. Parser errors and sensitive values never become diagnostics.
+ */
+function databaseUrl(env: NodeJS.ProcessEnv, name: string) {
+  try {
+    const value = env[name];
+    if (!value) throw new Error();
+    const parsed = new URL(value);
+    const allowed = new Set([
+      'sslmode',
+      'sslcert',
+      'sslkey',
+      'sslrootcert',
+      'application_name',
+    ]);
+    if (
+      !['postgres:', 'postgresql:'].includes(parsed.protocol) ||
+      !parsed.hostname ||
+      !parsed.username ||
+      parsed.hash ||
+      !decodeURIComponent(parsed.pathname.slice(1)) ||
+      [...parsed.searchParams.keys()].some(key => !allowed.has(key))
+    )
+      throw new Error();
+    for (const field of [parsed.username, parsed.password, parsed.pathname]) {
+      if (decodeURIComponent(field).includes('\0')) throw new Error();
+    }
+    return {
+      connectionString: value,
+      target: JSON.stringify([
+        parsed.hostname.toLowerCase(),
+        parsed.port || '5432',
+        decodeURIComponent(parsed.pathname.slice(1)),
+      ]),
+    };
+  } catch {
+    throw new Error(`Invalid database configuration: ${name}`);
+  }
+}
+
+/**
+ * Resolve only runtime credentials. Returned values are secrets; do not log them.
+ * Reject identical normalized endpoints before constructing pools. Deployment
+ * configuration remains responsible for aliases that resolve to the same server.
+ */
+export function resolveRuntimeConfiguration(
+  env: NodeJS.ProcessEnv = process.env
+) {
+  const suffix = resolveEnvironment(env);
+  const admin = databaseUrl(env, `ADMIN_DATABASE_URL_${suffix}`);
+  const cell = databaseUrl(env, `CELL_DATABASE_URL_${suffix}`);
+  if (admin.target === cell.target)
+    throw new Error('Admin and cell database targets must be distinct');
+  return { admin: admin.connectionString, cell: cell.connectionString };
+}
+
+/** Resolve only the selected release credential, never the other target's URL. */
+export function resolveMigrationConfiguration(
+  target: 'admin' | 'cell',
+  env: NodeJS.ProcessEnv = process.env
+) {
+  if (target !== 'admin' && target !== 'cell')
+    throw new Error('Migration target must be admin or cell');
+  const suffix = resolveEnvironment(env);
+  return databaseUrl(env, `${target.toUpperCase()}_MIGRATION_URL_${suffix}`)
+    .connectionString;
+}
