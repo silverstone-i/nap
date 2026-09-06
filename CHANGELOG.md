@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-09-06
+
 ### Added
 
 - Add tenant-scoped database transactions and isolation verification covering
