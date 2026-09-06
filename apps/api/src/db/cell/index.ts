@@ -4,6 +4,7 @@
  */
 
 import { createDb } from 'pg-schemata';
+import { createDatabaseLogger } from '../../util/logger.js';
 import type {
   Database,
   DatabaseConfig,
@@ -27,6 +28,7 @@ export function createCellDatabase<
   return Object.assign(
     createDb({
       connectionString,
+      logger: createDatabaseLogger('cell'),
       repositories: options.repositories,
       pool: { connectionTimeoutMillis: 5000, ...options.pool },
     }),

@@ -11,11 +11,18 @@ import type { Database } from 'pg-schemata';
  * deployment roles must not belong to privileged or owning groups. Inspect the
  * login as well as current role so a connection cannot hide behind SET ROLE.
  * Catalog failures propagate as fixed diagnostics and therefore fail startup.
+ * Accept a transaction owner so readiness can use its cancellable pooled client;
+ * timeoutMs limits the catalog statement within the caller's remaining budget.
  */
-export async function assertRuntimeRole(database: Database): Promise<void> {
+export async function assertRuntimeRole(
+  database: Pick<Database, 'transaction'>,
+  timeoutMs = 5000
+): Promise<void> {
   try {
     const { unsafe } = await database.transaction(async tx => {
-      await tx.none("SET LOCAL statement_timeout = '5s'");
+      await tx.one("SELECT set_config('statement_timeout', $1, true)", [
+        String(Math.max(1, Math.floor(timeoutMs))),
+      ]);
       return tx.one<{ unsafe: boolean }>(`
         WITH RECURSIVE reachable(oid) AS (
           SELECT oid FROM pg_roles WHERE rolname IN (session_user, current_user)

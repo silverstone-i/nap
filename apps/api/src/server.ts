@@ -3,48 +3,33 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import pino from 'pino';
-import { createApp } from './app.js';
+import { createRuntime } from './runtime.js';
 import { createAdminDatabase } from './db/admin/index.js';
 import { createCellDatabase } from './db/cell/index.js';
-import { assertRuntimeRole } from './db/assertRuntimeRole.js';
+import { logger } from './util/logger.js';
 import {
   loadLocalEnvironment,
   resolvePort,
   resolveRuntimeConfiguration,
 } from './util/env.js';
 import type { Database } from 'pg-schemata';
-import type { Server } from 'node:http';
 
-const logger = pino();
 const handles: Database[] = [];
-let server: Server | undefined;
-let stopping: Promise<void> | undefined;
+const runtime = createRuntime(handles);
 
-/** Stop HTTP first, then release every pool even if one pool fails to close. */
-function shutdown(code: number): Promise<void> {
-  if (stopping) return stopping;
-  stopping = (async () => {
-    const listener = server;
-    if (listener?.listening) {
-      await new Promise<void>(resolve => {
-        listener.close(() => resolve());
-        listener.closeAllConnections();
-      });
-    }
-    const results = await Promise.allSettled(
-      handles.map(handle => handle.close())
-    );
-    process.exitCode = results.some(r => r.status === 'rejected') ? 1 : code;
-  })();
-  return stopping;
+/** Complete bounded cleanup before exiting, including pools that never settle. */
+function stop(code: number) {
+  void runtime.shutdown(code).then(exitCode => {
+    process.exit(exitCode);
+  });
 }
-
-process.once('SIGINT', () => {
-  void shutdown(0);
-});
-process.once('SIGTERM', () => {
-  void shutdown(0);
+process.on('SIGINT', () => stop(0));
+process.on('SIGTERM', () => stop(0));
+let listenerFailed = false;
+runtime.server.on('error', () => {
+  listenerFailed = true;
+  logger.error({ event: 'api.listen_failed' }, 'API failed to listen');
+  stop(1);
 });
 try {
   loadLocalEnvironment();
@@ -52,24 +37,14 @@ try {
   const configuration = resolveRuntimeConfiguration();
   handles.push(createAdminDatabase(configuration.admin));
   handles.push(createCellDatabase(configuration.cell));
-  for (const handle of handles) {
-    if (stopping) break;
-    await handle.connect();
-    await assertRuntimeRole(handle);
-  }
-  if (!stopping) {
-    server = createApp().listen(port);
-    server.once('listening', () =>
-      logger.info(`API listening on port:${port}`)
-    );
-    server.once('error', () => {
-      logger.error('API failed to listen');
-      void shutdown(1);
-    });
-  }
+  await runtime.start(port);
 } catch {
-  logger.error(
-    'Invalid API startup configuration or unsafe/unavailable database'
-  );
-  await shutdown(1);
+  // Listener errors already started shutdown at their boundary.
+  if (!listenerFailed) {
+    logger.error(
+      { event: 'api.startup_failed' },
+      'Invalid API startup configuration or unsafe/unavailable database'
+    );
+  }
+  stop(1);
 }

@@ -171,8 +171,8 @@ start from the specification and applicable ADRs.
 | Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
 | Database and migration foundation             | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Tenant isolation foundation                   | Accepted | Verified       | Database foundation                                                                                |
-| Operational baseline                          | Draft    | Not started    | Tenant isolation foundation                                                                        |
-| Shared transport package                      | Draft    | Not started    | Operational baseline                                                                               |
+| Operational baseline                          | Accepted | Implemented    | Tenant isolation foundation                                                                        |
+| Shared transport package                      | Draft    | In progress    | Operational baseline                                                                               |
 | Framework HTTP surface                        | Draft    | Not started    | Shared transport package                                                                           |
 | Brand, theme, and web entry surface           | Draft    | Not started    | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Draft    | Not started    | Workspace and toolchain                                                                            |
@@ -329,7 +329,7 @@ authentication capabilities, once authenticated routes exist.
 redacted, the API has liveness and readiness, and failures reach the client
 through the shared envelope.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted. **Implementation:** Implemented.
 
 **Depends on:** Tenant isolation foundation.
 
@@ -341,19 +341,35 @@ lifecycle — configuration, startup ordering, bounded readiness, graceful
 shutdown — and the boundary error handler.
 
 **Settled:** The specification names the logger, its output, and the owner of
-the error-code registry. Sampling policy remains unnamed.
+the error-code registry. Sampling policy remains deferred.
 
 **Gate:** Correlation propagation, safe error mapping, redaction, audit
 separation, bounded retry behavior, safe health responses, and low-cardinality
 metrics pass their tests, and no unknown path, malformed body, oversized body,
 or unmapped fault escapes the envelope.
 
+**Implementation:** Correlation context, safe Pino/database adapters, minimal
+shared error and health contracts, bounded JSON parsing, health probes, fresh
+coalesced runtime-role checks, and bounded HTTP/pool shutdown are implemented.
+[ADR 0003](../ADRs/0003-safe-database-log-messages.md) records the approved
+message-safety clarification. Delivery follows the
+[operational baseline plan](../implementation-plans/operational-baseline.md).
+
+**Deferred:** Automatic retries, metrics export, and sampling have no current
+consumer and are not implemented or claimed as verified. Diagnostic logging
+does not replace database audit records. Merge/CI evidence remains pending.
+
+**Local evidence (2026-09-06):** Node 24.19.0 passed lint, typecheck, all 106
+tests, build, format:check, and licenses. Tests cover real PostgreSQL readiness
+and isolation, safe HTTP contracts/logging, and bounded socket/pool lifecycle.
+The capability remains Implemented until merge and CI evidence is recorded.
+
 ### Shared transport package
 
 **Outcome:** `@nap/shared` carries the runtime validation schemas and inferred
 types both sides of the API boundary use.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Draft. **Implementation:** In progress.
 
 **Depends on:** Operational baseline.
 
@@ -367,6 +383,11 @@ per domain group, and one export line per folder in the root index.
 **Gate:** Request and response validation runs at the API boundary and in the
 client, and the package imports no API domain, persistence, configuration, or
 component code.
+
+**Already provided by Operational baseline:** The error-code registry,
+`apiErrorSchema`, health success schema, and transport/root barrels. Remaining
+work is broader success/list contracts and their API/client validation; do not
+recreate the existing contracts.
 
 ### Framework HTTP surface
 
