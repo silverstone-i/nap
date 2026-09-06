@@ -7,6 +7,8 @@ import pino from 'pino';
 import { createApp } from './app.js';
 import { loadLocalEnvironment, resolvePort } from './util/env.js';
 
+// This process entry point owns the listener and signal handlers. Keep it
+// separate from createApp so importing the app does not start a server.
 const logger = pino();
 try {
   loadLocalEnvironment();
@@ -19,6 +21,9 @@ try {
     logger.error('API failed to listen');
     process.exitCode = 1;
   });
+  // Stop accepting requests before closing existing HTTP connections so the
+  // watcher can reuse the port. This scaffold has no in-flight business work to
+  // drain; feature delivery must revisit that lifecycle when work is introduced.
   const shutdown = () => {
     server.close(() => {
       process.exitCode = 0;

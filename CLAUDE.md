@@ -111,6 +111,25 @@ The API development loop is `npm run dev:api`; the web development server is
 `npm run dev:web`. The web development server does not replace the typecheck.
 All applicable checks must pass before a push.
 
+## Code documentation
+
+- Document code as you implement or change it.
+- Start function documentation with its purpose: what it does and when or by
+  whom it is used. Utility and service functions need this context even when
+  they are not exported.
+- Use JSDoc/TSDoc to describe inputs, outputs, side effects, and errors when
+  these are not clear from the name and signature. Document exported types
+  when their intended use or constraints are not obvious.
+- Explain why non-obvious decisions, restrictions, security safeguards, and
+  workarounds exist. Rationale supplements the purpose; it does not replace it.
+  Do not invent a justification for an existing restriction; flag an unclear
+  rationale for review.
+- Keep comments proportional to the function. Use inline comments for local
+  reasoning, not to narrate each statement or repeat the function documentation.
+- Keep documentation accurate when behavior changes; link to owning
+  requirements instead of duplicating architectural policy.
+- Include documentation completeness and accuracy in the final review.
+
 ## Documentation changes
 
 - Update the current owning document; do not create parallel architecture
