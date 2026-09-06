@@ -11,6 +11,16 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Use Node's built-in environment loader for API startup and database setup, and
+  clarify function purpose and rationale in contributor guidance and code comments.
+
+### Fixed
+
+- Report environment-file permission failures instead of treating inaccessible
+  files as missing optional configuration.
+
 ## [v0.1.0] - 2026-09-06
 
 ### Added
