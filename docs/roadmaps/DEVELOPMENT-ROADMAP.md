@@ -167,7 +167,7 @@ start from the specification and applicable ADRs.
 | Capability                                    | Design   | Implementation | Depends on                                                                                         |
 | --------------------------------------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------- |
 | Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
-| Database and migration foundation             | Accepted | Implemented    | Workspace and toolchain                                                                            |
+| Database and migration foundation             | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Tenant isolation foundation                   | Draft    | Not started    | Database foundation                                                                                |
 | Operational baseline                          | Draft    | Not started    | Tenant isolation foundation                                                                        |
 | Shared transport package                      | Draft    | Not started    | Operational baseline                                                                               |
@@ -252,7 +252,7 @@ imports another except through its published entry point.
 privileged runtime roles, and a startup assertion that refuses a connection
 able to bypass row-level security.
 
-**Design:** Accepted (specification-owned). **Implementation:** Implemented; CI and merge pending.
+**Design:** Accepted (specification-owned). **Implementation:** Verified in [PR #3](https://github.com/silverstone-i/nap/pull/3).
 
 **Depends on:** Workspace and toolchain.
 
@@ -277,8 +277,10 @@ tests verify separate pool lifecycles; elevated-role, ownership, creation-grant,
 and membership rejection; startup/listener failure cleanup; explicit CLI targets;
 empty-schema initialization; canonical ordering; repeatability and checksums;
 fresh/upgrade schema equivalence; per-schema rollback and retry; and independent
-dump/restore with fixture data. Production registries remain empty. CI verification
-and merge evidence are pending, so this capability is not yet `Verified`.
+dump/restore with fixture data. Production registries remain empty.
+[Passing CI](https://github.com/silverstone-i/nap/actions/runs/34035220909)
+verifies the implementation and teardown regression tests;
+[PR #3](https://github.com/silverstone-i/nap/pull/3) owns review and merge evidence.
 
 ### Tenant isolation foundation
 
