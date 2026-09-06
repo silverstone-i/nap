@@ -18,7 +18,8 @@ ADRs or RULES documents that capability actually requires. Component designs
 remain unaccepted: the repository holds the specification,
 [accepted ADRs](../ADRs/INDEX.md), contributor
 guidance, and repository configuration. Workspace startup scaffolds, toolchain
-checks, and the database/migration foundation are implemented; no component
+checks, the database/migration foundation, and tenant isolation foundation are
+implemented; no component
 PRD exists. [JavaScript-first TypeScript](../RULES/javascript-first-typescript.md)
 owns the shared coding convention.
 
@@ -169,7 +170,7 @@ start from the specification and applicable ADRs.
 | --------------------------------------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------- |
 | Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
 | Database and migration foundation             | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Tenant isolation foundation                   | Draft    | Not started    | Database foundation                                                                                |
+| Tenant isolation foundation                   | Accepted | Verified       | Database foundation                                                                                |
 | Operational baseline                          | Draft    | Not started    | Tenant isolation foundation                                                                        |
 | Shared transport package                      | Draft    | Not started    | Operational baseline                                                                               |
 | Framework HTTP surface                        | Draft    | Not started    | Shared transport package                                                                           |
@@ -288,7 +289,7 @@ verifies the implementation and teardown regression tests;
 **Outcome:** Tenant-owned data is unreachable across tenants even when an
 application predicate is omitted.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted (specification-owned). **Implementation:** Verified locally; CI/merge evidence pending.
 
 **Depends on:** Database and migration foundation.
 
@@ -301,9 +302,26 @@ at `apps/api/tests/fixtures/tenantIsolationHarness.ts`, and the
 registered by the isolation suite and never by the cell module registry.
 
 **Gate:** Negative tests fail every attempted cross-tenant read, insert, update,
-delete, and foreign-key reference; operation with no tenant context and with an
-invalid one returns empty rather than erroring; the tenant value is rejected
-from body, query, route parameter, and header.
+delete, and foreign-key reference. Reads with no/empty context or a valid UUID
+with no matching tenant data return no rows; writes without matching context
+are denied. Malformed UUIDs are rejected before a transaction opens. Directly
+injecting malformed context into SQL is outside the empty-result guarantee.
+Reporting, rollback, concurrent transactions, and pooled connection reuse
+preserve isolation.
+
+**Plan:** [Tenant isolation foundation](../implementation-plans/tenant-isolation-foundation.md).
+
+**Evidence:** On 2026-09-06 with Node 24.19.0 and disposable PostgreSQL 18,
+the helper and isolation suites passed 25 tests; the complete repository suite
+passed 84 tests. `lint`, `typecheck`, `test`, `build`, `format:check`, and
+`licenses` passed. The suites exercise model and direct-SQL access, reporting,
+SQLSTATE-specific denials, immutable keys, rollback, concurrent tenants,
+backend-PID-verified pool reuse, role safety, and production-registry exclusion.
+No production tenant tables or HTTP tenant rejection routes are installed.
+
+**HTTP dependency:** Rejection of client-supplied tenant values from body,
+query, route parameters, and headers is verified with the framework and
+authentication capabilities, once authenticated routes exist.
 
 ### Operational baseline
 
@@ -375,7 +393,9 @@ leave the standard route set.
 factory, no controller reaches a database handle outside
 `withTenantTransaction`, a disabled route is indistinguishable from an
 unregistered one, an unknown filter column is rejected, and a batch write
-refuses all-or-nothing while naming the refused identifiers.
+refuses all-or-nothing while naming the refused identifiers. Reject client-supplied
+tenant values from body, query, route parameters, and headers; verify integration
+with the server-resolved tenant during authentication delivery.
 
 ### Brand, theme, and web entry surface
 
@@ -442,7 +462,9 @@ password web flows.
 **Gate:** A revoked session, an expired session, a throttled login, and a
 tampered cookie are all refused; the resolved actor and tenant come from the
 database on every request; import-boundary tests prove middleware imports no
-module.
+module. Authenticated-route tests prove tenant values supplied in body, query,
+route parameters, and headers are rejected rather than used as database context,
+completing the framework tenant-input rejection gate.
 
 ### Tenant membership and control plane
 
