@@ -13,6 +13,11 @@ const workspaces = ['apps/api', 'apps/web', 'packages/shared'];
 function owner(file) {
   return workspaces.find(w => file.startsWith(resolve(root, w) + '/'));
 }
+/**
+ * Find prohibited literal module specifiers with the TypeScript parser, avoiding
+ * matches inside comments or strings that are not imports. Covers declarations,
+ * re-exports, and literal import()/require() calls; computed paths are not resolved.
+ */
 function violations(file, source) {
   const found = [];
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
@@ -46,6 +51,7 @@ function violations(file, source) {
   visit(tree);
   return found;
 }
+// Inspect authored workspace code and tests, not generated output or dependencies.
 function sources(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const path = resolve(directory, entry.name);

@@ -9,6 +9,8 @@ import { createServer } from 'node:net';
 import { expect, it } from 'vitest';
 
 it('starts the compiled API, returns an empty 404, and releases its port on shutdown', async () => {
+  // Ask the OS for an available port, then release it for the child. Unlike the
+  // app factory test, this exercises the compiled entry point and signal handling.
   const probe = createServer();
   probe.listen(0, '127.0.0.1');
   await once(probe, 'listening');

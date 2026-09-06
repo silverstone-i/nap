@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+/** Startup-only entry surface; product routes and branding arrive separately. */
 export function App() {
   return (
     <main>

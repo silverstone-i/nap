@@ -15,6 +15,8 @@ import { setupDatabases } from '../setup-databases.mjs';
 let directory;
 let configuration;
 let started = false;
+// Unique names isolate this suite from other runs, including on the CI service.
+// Tests run sequentially: the first provisions the objects later cases perturb.
 const suffix = randomBytes(6).toString('hex');
 const names = {
   role: `nap_test_role_${suffix}`,
@@ -48,6 +50,8 @@ function sql(statement) {
 }
 beforeAll(() => {
   let setup;
+  // CI supplies a disposable PostgreSQL service. Local runs create a private
+  // socket-only cluster instead of using the developer's application databases.
   if (process.env.CI) {
     setup = resolveSetupConfiguration('test').setup;
   } else {
@@ -94,6 +98,8 @@ beforeAll(() => {
   };
   configuration.targets[1].password = configuration.targets[0].password;
 }, 30000);
+// Destructive cleanup is confined to this suite's generated names. Production
+// setup never deletes databases or roles; fixture mutations are restored per test.
 afterAll(() => {
   try {
     if (configuration) {

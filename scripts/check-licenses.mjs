@@ -7,6 +7,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { init } from 'license-checker-rseidelsohn';
 
+/**
+ * Select package IDs that checkLicenses must reject against the supplied allowlist.
+ * Missing, empty, unknown, and guessed licenses fail closed so absent or uncertain
+ * evidence cannot count as license approval. License expressions
+ * are compared as reported; this helper does not interpret SPDX alternatives.
+ * Neither the package inventory nor the allowlist is mutated.
+ */
 export function rejectedLicenses(packages, allowed) {
   return Object.entries(packages)
     .filter(([, entry]) => {
@@ -21,6 +28,18 @@ export function rejectedLicenses(packages, allowed) {
     .map(([name]) => name);
 }
 
+/**
+ * Implement the npm licenses gate for local checks and CI by auditing installed
+ * production packages against the repository's allowlist. Compare installed
+ * versions with the lockfile so approval applies to the expected dependency set.
+ * Reads the installation; does not install or change dependencies.
+ * @param {URL} root Repository directory URL, with a trailing slash. It must
+ * contain the manifests, npm lockfile, allowlist, and installed dependencies.
+ * @returns {Promise<number>} Number of distinct name/version package records
+ * checked, including local workspaces and installed optional production packages.
+ * @throws If files cannot be read, scanning fails, an installed version differs
+ * from the lockfile, a required package is absent, or a license is unapproved.
+ */
 export async function checkLicenses(root = new URL('../', import.meta.url)) {
   const { allowed } = JSON.parse(
     readFileSync(new URL('.licenses-allowed.json', root), 'utf8')
@@ -42,6 +61,8 @@ export async function checkLicenses(root = new URL('../', import.meta.url)) {
   const production = {};
   const firstParty = new Set(['', 'apps/api', 'apps/web', 'packages/shared']);
   for (const [location, entry] of Object.entries(lock.packages)) {
+    // Workspace links are represented by their target entries in the lockfile;
+    // skipping links avoids counting the same local package a second time.
     if (entry.dev || entry.link) continue;
     const manifestPath = new URL(
       `${location ? location + '/' : ''}package.json`,
