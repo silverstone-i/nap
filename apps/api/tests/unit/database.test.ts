@@ -81,9 +81,32 @@ it('rejects descriptor mismatch and duplicate names before any migration work', 
   expect(() => assertModules('admin', [valid])).not.toThrow();
   expect(() => assertModules('cell', [valid])).toThrow('descriptor');
   expect(() => assertModules('admin', [valid, valid])).toThrow('duplicate');
+  // Deliberately bypass static typing to exercise runtime rejection.
   expect(() =>
     assertModules('admin', [
       { ...valid, schema: 'app' } as unknown as NapModuleDescriptor,
     ])
   ).toThrow('descriptor');
+});
+
+it.each(['cell', 'reference', 'app', 'reporting'] as const)(
+  'accepts the %s cell schema',
+  schema => {
+    expect(() =>
+      assertModules('cell', [
+        { name: 'fixture', databaseTarget: 'cell', schema, migrations: [] },
+      ])
+    ).not.toThrow();
+  }
+);
+
+it('rejects an unknown cell schema at runtime', () => {
+  // Deliberately bypass static typing to exercise runtime rejection.
+  const invalid = {
+    name: 'fixture',
+    databaseTarget: 'cell',
+    schema: 'unknown',
+    migrations: [],
+  } as unknown as NapModuleDescriptor;
+  expect(() => assertModules('cell', [invalid])).toThrow('descriptor');
 });

@@ -41,13 +41,7 @@ export async function postgresFixture() {
   const databases: string[] = [];
   const roles: string[] = [];
   const handles: Database[] = [];
-  let setup: {
-    host: string;
-    port: string;
-    user: string;
-    password: string;
-    database: string;
-  };
+  let setup: ReturnType<typeof resolveSetupConfiguration>['setup'];
   let control: Database | undefined;
   const cleanup = async () => {
     try {
@@ -129,24 +123,25 @@ export async function postgresFixture() {
       password = setup.password
     ) =>
       `postgres://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${setup.host}:${setup.port}/${database}`;
-    control = createDb({ connectionString: url(setup.database) });
-    const version = await control.one<{ version: number }>(
+    const controlDatabase = createDb({ connectionString: url(setup.database) });
+    control = controlDatabase;
+    const version = await controlDatabase.one<{ version: number }>(
       "SELECT current_setting('server_version_num')::int AS version"
     );
     if (version.version < 180000)
       throw new Error('PostgreSQL 18 or later is required');
     const createDatabase = async (label: string) => {
       const name = `nap_${label}_${id}`;
-      await control!.none('CREATE DATABASE $1:name', [name]);
+      await controlDatabase.none('CREATE DATABASE $1:name', [name]);
       databases.push(name);
       return url(name);
     };
     const createRole = async (label: string) => {
       const name = `nap_${label}_${id}`;
-      await control!.none('CREATE ROLE $1:name LOGIN NOINHERIT PASSWORD $2', [
-        name,
-        setup.password,
-      ]);
+      await controlDatabase.none(
+        'CREATE ROLE $1:name LOGIN NOINHERIT PASSWORD $2',
+        [name, setup.password]
+      );
       roles.push(name);
       return name;
     };

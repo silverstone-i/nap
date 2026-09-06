@@ -42,6 +42,7 @@ export default defineConfig([
       },
     },
     rules: {
+      '@typescript-eslint/no-inferrable-types': 'error',
       // Underscore-prefixed params are intentionally unused — e.g. the 4-arg
       // Express error handler, whose arity is load-bearing.
       '@typescript-eslint/no-unused-vars': [

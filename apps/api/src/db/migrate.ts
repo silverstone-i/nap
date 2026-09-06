@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Database } from 'pg-schemata';
 import { createAdminDatabase } from './admin/index.js';
 import { createCellDatabase } from './cell/index.js';
 import { assertModules, CELL_SCHEMAS } from './modules.js';
@@ -21,7 +20,7 @@ export async function migrateDatabase(
   modules: readonly NapModuleDescriptor[]
 ): Promise<void> {
   assertModules(target, modules);
-  const database: Database =
+  const database =
     target === 'admin'
       ? createAdminDatabase(connectionString)
       : createCellDatabase(connectionString);
