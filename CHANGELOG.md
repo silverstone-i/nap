@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-09-06
+
 ### Added
 
 - Add API liveness and readiness probes with fresh database role checks,
