@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add tenant-scoped database transactions and isolation verification covering
+  cross-tenant access, relational integrity, reporting, and pooled connections.
+
 ### Changed
 
 - Adopt shared JavaScript-first TypeScript coding conventions and lint enforcement,
