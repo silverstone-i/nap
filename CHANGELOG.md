@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-09-07
+
 ### Added
 
 - Add shared success and list response envelopes with page metadata,
