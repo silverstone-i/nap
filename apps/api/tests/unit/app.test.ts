@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import express from 'express';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
@@ -10,6 +11,9 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { apiErrorSchema, healthResponseSchema } from '@nap/shared';
 import { createApp } from '../../src/app.js';
+import { correlation } from '../../src/middleware/correlation.js';
+import { requestLogging } from '../../src/middleware/requestLogging.js';
+import { errorHandler } from '../../src/middleware/errorHandler.js';
 import { logger, createDatabaseLogger } from '../../src/util/logger.js';
 import { requestContext } from '../../src/util/requestContext.js';
 
@@ -142,4 +146,44 @@ it('logs an unexpected failure once and never serializes raw fault, headers, or 
     ])
   ).not.toContain('private');
   expect(response.text).not.toContain('private');
+});
+it('logs one completion record per request with its ID and a fixed route name, never the path', async () => {
+  const id = randomUUID();
+  const app = createApp(() => Promise.resolve(true));
+  await request(app).get('/health/live').set('X-Request-ID', id);
+  await request(app).get('/nested/private?secret=private');
+  const records = vi
+    .mocked(logger.info)
+    .mock.calls.map(call => call[0] as Record<string, unknown>)
+    .filter(record => record.event === 'http.completed');
+  expect(records).toHaveLength(2);
+  expect(records[0]).toMatchObject({
+    requestId: id,
+    route: 'health.live',
+    status: 200,
+    outcome: 'finished',
+  });
+  expect(records[0]?.durationMs).toEqual(expect.any(Number));
+  expect(records[1]).toMatchObject({ route: 'unmatched', status: 404 });
+  expect(records[1]?.requestId).toMatch(/^[a-f0-9-]{36}$/);
+  expect(JSON.stringify(records)).not.toMatch(/private|nested|health\/live/);
+});
+it('destroys a response committed before an unmapped fault instead of writing error text', async () => {
+  const app = express();
+  app.use(correlation, requestLogging);
+  app.get('/', (_request, response) => {
+    response.write('partial');
+    throw new Error('private');
+  });
+  app.use(errorHandler);
+  await expect(request(app).get('/')).rejects.toThrow();
+  expect(logger.error).toHaveBeenCalledTimes(1);
+  const records = [
+    ...vi.mocked(logger.info).mock.calls,
+    ...vi.mocked(logger.error).mock.calls,
+  ];
+  expect(JSON.stringify(records)).not.toContain('private');
+  expect(records.map(call => call[0])).toContainEqual(
+    expect.objectContaining({ event: 'http.completed', outcome: 'aborted' })
+  );
 });

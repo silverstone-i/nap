@@ -1,7 +1,7 @@
 # 0001 — Brand, theme, and web entry surface
 
 **Design:** Accepted (owner approved implementation plan, 2026-09-07).
-**Implementation:** Implemented; merge and CI verification pending.
+**Implementation:** Verified in [PR #10](https://github.com/silverstone-i/nap/pull/10).
 
 ## Authority
 
@@ -57,8 +57,16 @@ reload persistence, font fallback without external font stylesheets, production
 assets, and unknown-page recovery. Rendered text contrast exceeded 4.5:1 in
 both themes; normal page navigation produced no console warnings or errors.
 
+## Merge and CI evidence
+
+[PR #10](https://github.com/silverstone-i/nap/pull/10) merged on 2026-09-07
+with the `changelog`, `checks`, and `release` workflows passing. Tests added on
+2026-09-07 prove no hex literal exists outside the token module and gold is
+confined to the wordmark dot.
+
 ## Revisions
 
-| Date       | Change                                                   |
-| ---------- | -------------------------------------------------------- |
-| 2026-09-07 | Accepted the owner-approved minimal holding-page design. |
+| Date       | Change                                                       |
+| ---------- | ------------------------------------------------------------ |
+| 2026-09-07 | Accepted the owner-approved minimal holding-page design.     |
+| 2026-09-07 | Marked Verified after merge, CI, and brand-discipline tests. |

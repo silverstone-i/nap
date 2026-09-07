@@ -48,4 +48,10 @@ Implemented, not Verified.
   dark mode minimum 7.64:1; wordmark 10.40:1 and 5.48:1 respectively.
 - Page-loading, import failure, render failure, and Retry covered by route tests.
 - No dependencies, API contracts, database schemas, or deployment settings changed.
-  Capability is Implemented; merge and CI evidence remain pending.
+
+## Merge and CI evidence
+
+[PR #10](https://github.com/silverstone-i/nap/pull/10) merged on 2026-09-07
+with the `changelog`, `checks`, and `release` workflows passing. On 2026-09-07
+the hex-literal and gold-placement gate items gained tests and every
+repository check was re-run on `main`; the roadmap records the result.
