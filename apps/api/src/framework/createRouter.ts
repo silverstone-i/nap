@@ -32,7 +32,12 @@ import { fieldError } from '../util/fieldErrors.js';
 import { describeModel } from './modelContract.js';
 import { WriteController } from './WriteController.js';
 import { encodeCursor, parseListQuery } from './listQuery.js';
-import { checkRecordColumns, parseAt, withTenant } from './recordInput.js';
+import {
+  checkRecordColumns,
+  parseAt,
+  parseRecord,
+  withTenant,
+} from './recordInput.js';
 import { resolvedSession, runInTenant, tableModel } from './runOperation.js';
 import {
   archiveRecords,
@@ -259,8 +264,7 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         checkRecordColumns(record, path, contract, 'insert'),
         tenantId
       );
-      parseAt(insertSchema, row, path);
-      return row;
+      return parseRecord(insertSchema, row, path);
     });
   }
 
@@ -291,9 +295,9 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         checkRecordColumns(request.body, '', contract, 'insert'),
         session.tenantId
       );
-      parseAt(insertSchema, row);
+      const record = parseRecord(insertSchema, row);
       const created = await runInTenant(cellDb, session, tx =>
-        createRecord(tableModel(tx, repository), row)
+        createRecord(tableModel(tx, repository), record)
       );
       sendContract(
         response,
@@ -333,13 +337,13 @@ export function createRouter<N extends string, R extends Repositories<N>>(
           fieldError('changes', 'No changes')
         );
       }
-      parseAt(updateSchema, changes, 'changes');
+      const parsed = parseRecord(updateSchema, changes, 'changes');
       const rows = await runInTenant(cellDb, session, tx =>
         updateRecords(
           tableModel(tx, repository),
           contract,
           { ids: body.ids, path: index => `ids.${index}` },
-          changes
+          parsed
         )
       );
       sendRecords(response, rows);
@@ -369,9 +373,9 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         if (Object.keys(checked).length === 0) {
           throw new HttpError('INVALID_INPUT', fieldError(path, 'No changes'));
         }
-        parseAt(updateSchema, checked, path);
+        const parsed = parseRecord(updateSchema, checked, path);
         ids.push(id);
-        records.push({ ...checked, [pk]: id });
+        records.push({ ...parsed, [pk]: id });
       }
       const rows = await runInTenant(cellDb, session, tx =>
         bulkUpdateRecords(

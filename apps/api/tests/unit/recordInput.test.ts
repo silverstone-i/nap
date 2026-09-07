@@ -9,6 +9,7 @@ import { HttpError } from '../../src/util/httpError.js';
 import {
   checkRecordColumns,
   parseAt,
+  parseRecord,
   withTenant,
 } from '../../src/framework/recordInput.js';
 import type { ModelContract } from '../../src/framework/modelContract.js';
@@ -88,4 +89,19 @@ it('adds the tenant and places schema issues under the given prefix', () => {
     code: 'c',
     quantity: 1,
   });
+});
+
+it('returns the value a record validator produced, coercions included', () => {
+  const schema = z.object({
+    code: z.string(),
+    when: z.union([z.date(), z.string(), z.number()]).pipe(z.coerce.date()),
+  });
+  const parsed = parseRecord(schema, { code: 'c', when: 1700000000000 });
+  expect(parsed.when).toBeInstanceOf(Date);
+  expect(parsed.code).toBe('c');
+  expect(refusal(() => parseRecord(schema, { code: 1 }, 'records.0'))).toEqual({
+    'records.0.code': [expect.any(String)],
+    'records.0.when': [expect.any(String)],
+  });
+  expect(() => parseRecord(z.string(), { code: 'c' })).toThrow();
 });

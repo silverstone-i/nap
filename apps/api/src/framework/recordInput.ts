@@ -44,6 +44,25 @@ export function parseAt<T extends z.ZodType>(
 }
 
 /**
+ * Does: Checks a record against a model validator and returns the value the
+ * validator produced, as a row.
+ * Called by: the create, batch, and import handlers after checkRecordColumns.
+ * Why: the generated validators coerce some values, timestamps in
+ * particular, so the value that reaches the database is the one the schema
+ * accepted, not the text the client sent.
+ * @throws HttpError INVALID_INPUT when the record fails the schema, and a
+ * plain Error if the validator yields something other than an object, which
+ * the generated object validators never do.
+ */
+export function parseRecord(schema: z.ZodType, record: Row, prefix = ''): Row {
+  const parsed: unknown = parseAt(schema, record, prefix);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Record validator did not produce an object');
+  }
+  return { ...parsed };
+}
+
+/**
  * Does: Checks that a record is a plain object whose keys are all columns a
  * client may write, and returns it as a row.
  * Called by: the create, batch, and import handlers for every record before
