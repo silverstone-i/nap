@@ -14,13 +14,13 @@ implementation slices, acceptance gates, and known gaps. It does not define
 behavior or architecture.
 
 Before implementation, each capability needs an accepted component PRD and any
-ADRs or RULES documents that capability actually requires. Component designs
-remain unaccepted: the repository holds the specification,
+ADRs or RULES documents that capability actually requires. Remaining component designs
+await acceptance: the repository holds the specification,
 [accepted ADRs](../ADRs/INDEX.md), contributor
 guidance, and repository configuration. Workspace startup scaffolds, toolchain
 checks, the database/migration foundation, the tenant isolation foundation, the
 operational baseline, the shared transport package, and the framework HTTP
-surface are implemented; no component PRD exists. [JavaScript-first TypeScript](../RULES/javascript-first-typescript.md)
+surface are implemented; component PRDs are listed in the documentation index. [JavaScript-first TypeScript](../RULES/javascript-first-typescript.md)
 owns the shared coding convention.
 
 ## Capability record
@@ -175,7 +175,7 @@ start from the specification and applicable ADRs.
 | Shared transport package                      | Accepted | Verified       | Operational baseline                                                                               |
 | Framework HTTP surface                        | Accepted | Verified       | Shared transport package                                                                           |
 | Brand, theme, and web entry surface           | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Release, versioning, and licensing operations | Draft    | Not started    | Workspace and toolchain                                                                            |
+| Release, versioning, and licensing operations | Accepted | Implemented    | Workspace and toolchain                                                                            |
 | Authentication and sessions                   | Draft    | Not started    | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Draft    | Not started    | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Draft    | Not started    | Tenant control plane                                                                               |
@@ -529,22 +529,24 @@ Node 24.19.0.
 
 ### Release, versioning, and licensing operations
 
-**Outcome:** The release contract, version source, changelog promotion, tag and
-GitHub Release behavior, and the production-license allowlist have an accepted
-owning PRD rather than only contributor guidance.
+**Outcome:** Repeatable, recoverable application releases and enforced production
+license approval under an accepted owning contract.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted. **Implementation:** Implemented (local checks passed; merge and live evidence pending).
 
-**Depends on:** Workspace and toolchain, because every workflow step runs an npm
-script that does not exist yet.
+**Depends on:** Workspace and toolchain (implemented).
 
-**Current state:** `ci.yml`, `changelog-check.yml`, `release-on-merge.yml`, the
-`commit-msg` hook, and `.licenses-allowed.json` are checked in. The license
-check script they invoke is not.
+**Documents:** [PRD 0002](../PRDs/0002-release-versioning-and-licensing-operations.md),
+[Release operations](../RULES/release-operations.md), and the
+[implementation plan](../implementation-plans/0002-release-versioning-and-licensing-operations.md).
 
-**Gate:** A labelled pull request bumps, promotes the changelog, tags, and
-publishes exactly once; an unlabelled one does none of it; a production
-dependency with a disallowed license fails the check.
+**Current state:** Release and changelog workflows and the production license
+script now enforce selection, validation, atomic publication, recovery, and
+failure paths. Local evidence is recorded in PRD 0002.
+
+**Gate:** `REL-001`–`REL-007` pass, with merged green CI and live publication and
+recovery evidence before Verified. An unlabelled merge contributes no bump but
+may publish a pending labelled batch.
 
 ## Identity and central control plane
 

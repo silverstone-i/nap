@@ -140,19 +140,10 @@ shape, the reader, the self-check, and the examples; do not restate them here.
 
 ## Commit and release operations
 
-The release contract is enforced by `.github/workflows/release-on-merge.yml`
-and `.github/workflows/changelog-check.yml`. Its conventions are the ones below
-until the release-operations PRD and RULES document are written with that
-capability:
+Release labels, version ownership, DCO sign-off, branch conventions, changelog
+requirements, and recovery follow [Release operations](docs/RULES/release-operations.md)
+and its [owning PRD](docs/PRDs/0002-release-versioning-and-licensing-operations.md).
 
-- Sign every commit using `git commit -s`.
-- Branch as `feat/`, `fix/`, `docs/`, or `chore/`; keep a pull request to one
-  concern. `main` is the only long-lived branch and is never pushed directly.
-- A releasing pull request carries exactly one `release:patch`,
-  `release:minor`, or `release:major` label and adds its entries under
-  `## [Unreleased]` in `CHANGELOG.md`.
-- CI owns version changes, changelog promotion, tags, and GitHub Releases. Do
-  not perform those operations manually.
 - Copilot re-reviews a pull request on every push; do not re-request a review
   by hand.
 - Review feedback that contradicts a decision already made, in a commit
@@ -161,18 +152,8 @@ capability:
 
 ## Licensing
 
-NAP is licensed AGPL-3.0-or-later. Every `.ts`, `.tsx`, `.js`, and `.mjs`
-file carries this header, with comment syntax adjusted to the language, as
-`eslint.config.mjs` does. Markdown, JSON, and YAML files do not.
-
-```text
-Copyright (c) 2026–present NapSoft, LLC.
-SPDX-License-Identifier: AGPL-3.0-or-later
-```
-
-Production dependencies must carry a license listed in
-`.licenses-allowed.json`; adding one requires justification in the same pull
-request.
+Source headers and production dependency approval follow
+[Release operations — Licensing](docs/RULES/release-operations.md#licensing).
 
 ## Security
 

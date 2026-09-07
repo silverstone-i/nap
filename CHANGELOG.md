@@ -13,6 +13,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Changed
 
+- Enforce release labels, Unreleased notes, and CI-owned versions; select pending
+  releases by Git ancestry and publish version commits and tags atomically.
+- Recover missing GitHub Releases without another version bump, and document
+  release operations with tests for publication and license-check failures.
+
 - Mark the operational baseline, shared transport package, framework HTTP
   surface, and brand, theme, and web entry surface capabilities Verified, with
   tests for the request completion log record, faults after headers commit,
