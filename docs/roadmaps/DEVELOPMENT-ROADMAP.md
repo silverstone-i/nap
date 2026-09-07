@@ -174,7 +174,7 @@ start from the specification and applicable ADRs.
 | Operational baseline                          | Accepted | Implemented    | Tenant isolation foundation                                                                        |
 | Shared transport package                      | Accepted | Implemented    | Operational baseline                                                                               |
 | Framework HTTP surface                        | Accepted | Implemented    | Shared transport package                                                                           |
-| Brand, theme, and web entry surface           | Draft    | Not started    | Workspace and toolchain                                                                            |
+| Brand, theme, and web entry surface           | Accepted | Implemented    | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Draft    | Not started    | Workspace and toolchain                                                                            |
 | Authentication and sessions                   | Draft    | Not started    | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Draft    | Not started    | Authentication                                                                                     |
@@ -482,7 +482,7 @@ Implemented until merge and CI evidence is recorded.
 the route-level error boundary, and a branded holding entry exist before any
 product screen does.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted. **Implementation:** Implemented.
 
 **Depends on:** Workspace and toolchain.
 
@@ -496,6 +496,18 @@ vocabulary, or shell layer. The first tenant-aware product module accepts those.
 **Gate:** No component contains a hex literal, gold appears only in its approved
 placements, the `system | light | dark` preference persists and follows
 `prefers-color-scheme`, and the error boundary renders with retry.
+
+**Component design:** [PRD 0001](../PRDs/0001-brand-theme-and-web-entry-surface.md),
+`ENTRY-001`–`ENTRY-005`. **Delivery plan:**
+[Brand, theme, and web entry surface](../implementation-plans/0001-brand-theme-and-web-entry-surface.md).
+
+**Local evidence (2026-09-07):** Node 24.19.0 passed lint, format:check,
+typecheck, all 196 tests (including 19 web tests), build, licenses, and diff
+check. Browser inspection covered desktop/mobile light and dark views,
+keyboard focus, preference persistence, short-screen scrolling, fallback fonts,
+unknown-page recovery, and text contrast. Route integration tests cover pending
+imports, failed imports, render failures, and full-reload Retry. Merge/CI
+verification remains pending.
 
 ### Release, versioning, and licensing operations
 

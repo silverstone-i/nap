@@ -2,16 +2,17 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { RouterProvider, type RouterProviderProps } from 'react-router';
+import { ThemeModeProvider } from './theme/ThemeModeProvider.js';
 
 /**
- * Does: Renders the placeholder page shown while the web shell has no
- * product routes or branding yet.
- * Called by: main.tsx at page load.
+ * Does: Composes the browser routes within the shared display-theme provider.
+ * Called by: main.tsx with the router created once at application startup.
  */
-export function App() {
+export function App({ router }: Pick<RouterProviderProps, 'router'>) {
   return (
-    <main>
-      <h1>NAP</h1>
-    </main>
+    <ThemeModeProvider>
+      <RouterProvider router={router} />
+    </ThemeModeProvider>
   );
 }

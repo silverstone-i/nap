@@ -5,12 +5,16 @@
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createBrowserRouter } from 'react-router';
+import { routes } from './routes.js';
 import { App } from './App.js';
 
+// Create browser subscriptions once, outside React's StrictMode render checks.
+const router = createBrowserRouter(routes);
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing application root');
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <App router={router} />
   </StrictMode>
 );
