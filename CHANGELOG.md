@@ -11,6 +11,12 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add shared success and list response envelopes with page metadata,
+  request-body and response-contract validation in the API, and a validating
+  web API client that keeps the request identifier.
+
 ### Changed
 
 - Adopt a code documentation convention for function, type, and constant

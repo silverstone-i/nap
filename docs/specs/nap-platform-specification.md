@@ -786,7 +786,9 @@ packages/shared/src/
 ├── index.ts            one export line per folder
 ├── transport/          contracts no domain owns
 │   ├── index.ts
-│   └── errors.ts       apiErrorSchema, ApiError
+│   ├── envelopes.ts    transportVersion, successResponseSchema, listResponseSchema
+│   ├── errors.ts       apiErrorSchema, ApiError
+│   └── health.ts       healthResponseSchema, HealthResponse
 ├── identity/           identity and session contracts
 │   ├── index.ts
 │   └── auth.ts
@@ -804,8 +806,39 @@ export const apiErrorSchema = z.object({
 });
 ```
 
-`packages/shared/src/identity/` keeps its name.
-to `admin-tenancy`.
+The success and list envelopes are factories over the schema of the value they
+carry. `page` names its fields `size`, the applied page size; `total`, the
+records matching the filter; and `cursor`, the keyset continuation value, which
+is absent on the last page.
+
+```ts
+export const transportVersion = 1;
+
+export function successResponseSchema<T extends z.ZodType>(dataSchema: T) {
+  return z.strictObject({
+    version: z.literal(transportVersion),
+    data: dataSchema,
+  });
+}
+
+export const pageSchema = z.strictObject({
+  size: z.int().positive(),
+  total: z.int().nonnegative(),
+  cursor: z.string().min(1).optional(),
+});
+
+export function listResponseSchema<T extends z.ZodType>(itemSchema: T) {
+  return z.strictObject({
+    version: z.literal(transportVersion),
+    data: z.array(itemSchema),
+    page: pageSchema,
+  });
+}
+```
+
+`packages/shared/src/identity/` keeps its name: it is named for the identity
+domain even though the endpoints that define its contracts belong to
+`admin-tenancy`.
 
 ### Documentation placement
 
@@ -1602,6 +1635,7 @@ every production dependency carries an allowed license.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-07 | Recorded the success and list envelope factories, the `page` fields `size`, `total`, and `cursor`, and the transport version constant beside the error schema in the shared package boundary, and completed the identity-folder sentence                                                                                            |
 | 2026-09-06 | Required safe database message forms in addition to discarded metadata, and boundary-owned request failure logging (ADR 0003)                                                                                                                                                                                                       |
 | 2026-09-06 | Allowed capability-only implementation-plan filenames for specification-owned work without a component PRD (ADR 0002)                                                                                                                                                                                                               |
 | 2026-09-05 | Clarified A/P as a source of approved obligations under `ARCH-046`, consistent with its purchase-order ownership                                                                                                                                                                                                                    |

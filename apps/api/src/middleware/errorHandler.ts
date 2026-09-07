@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { apiErrorSchema } from '@nap/shared';
+import { apiErrorSchema, transportVersion } from '@nap/shared';
 import { HttpError, errorResponses } from '../util/httpError.js';
 import { logger } from '../util/logger.js';
 import type { ErrorRequestHandler } from 'express';
@@ -16,7 +16,9 @@ import type { ErrorRequestHandler } from 'express';
  * table in errorResponses. Anything else becomes a generic 500 so unexpected
  * error text never reaches the client. Server-side failures are logged by
  * code only. If headers were already sent, the connection is destroyed
- * because a JSON body can no longer replace a partly written response.
+ * because a JSON body can no longer replace a partly written response. It
+ * builds the envelope itself rather than through sendContract: a throw here
+ * would reach Express's final handler, which writes HTML with the error text.
  */
 export const errorHandler: ErrorRequestHandler = (
   error: unknown,
@@ -34,7 +36,7 @@ export const errorHandler: ErrorRequestHandler = (
   }
   response.status(mapped.status).json(
     apiErrorSchema.parse({
-      version: 1,
+      version: transportVersion,
       code,
       message: mapped.message,
       ...(error instanceof HttpError &&

@@ -4,12 +4,13 @@
  */
 
 import express from 'express';
-import { healthResponseSchema } from '@nap/shared';
+import { healthResponseSchema, transportVersion } from '@nap/shared';
 import { correlation } from './middleware/correlation.js';
 import { requestLogging } from './middleware/requestLogging.js';
 import { jsonBody } from './middleware/jsonBody.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { HttpError } from './util/httpError.js';
+import { sendContract } from './util/sendContract.js';
 
 /**
  * Does: Builds the Express application: the shared middleware chain, the two
@@ -31,15 +32,17 @@ export function createApp(
     next();
   });
   app.get('/health/live', (_request, response) => {
-    response.json(
-      healthResponseSchema.parse({ version: 1, data: { status: 'ok' } })
-    );
+    sendContract(response, healthResponseSchema, {
+      version: transportVersion,
+      data: { status: 'ok' },
+    });
   });
   app.get('/health/ready', async (_request, response) => {
     if (!(await isReady())) throw new HttpError('SERVICE_UNAVAILABLE');
-    response.json(
-      healthResponseSchema.parse({ version: 1, data: { status: 'ok' } })
-    );
+    sendContract(response, healthResponseSchema, {
+      version: transportVersion,
+      data: { status: 'ok' },
+    });
   });
   app.use((_request, _response, next) => next(new HttpError('NOT_FOUND')));
   app.use(errorHandler);
