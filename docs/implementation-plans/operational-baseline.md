@@ -58,7 +58,13 @@ On 2026-09-06, Node 24.19.0 passed lint, typecheck, all 106 tests (15 toolchain,
 (220 package records). Focused tests exposed and verified fixes for keep-alive
 drain cleanup and server-side query deadlines after client disconnect. Real
 PostgreSQL fixtures verify role changes, timeout cleanup, and isolation.
-Commit, push, PR creation, merge, and CI verification remain pending.
+
+## Merge and CI evidence
+
+[PR #6](https://github.com/silverstone-i/nap/pull/6) merged on 2026-09-06 with
+the `changelog`, `checks`, and `release` workflows passing. On 2026-09-07 the
+completion log record and the committed-response fault path gained tests, and
+every repository check was re-run on `main`; the roadmap records the result.
 
 ## Defaults, rollout, and recovery
 

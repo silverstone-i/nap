@@ -171,10 +171,10 @@ start from the specification and applicable ADRs.
 | Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
 | Database and migration foundation             | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Tenant isolation foundation                   | Accepted | Verified       | Database foundation                                                                                |
-| Operational baseline                          | Accepted | Implemented    | Tenant isolation foundation                                                                        |
-| Shared transport package                      | Accepted | Implemented    | Operational baseline                                                                               |
-| Framework HTTP surface                        | Accepted | Implemented    | Shared transport package                                                                           |
-| Brand, theme, and web entry surface           | Accepted | Implemented    | Workspace and toolchain                                                                            |
+| Operational baseline                          | Accepted | Verified       | Tenant isolation foundation                                                                        |
+| Shared transport package                      | Accepted | Verified       | Operational baseline                                                                               |
+| Framework HTTP surface                        | Accepted | Verified       | Shared transport package                                                                           |
+| Brand, theme, and web entry surface           | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Draft    | Not started    | Workspace and toolchain                                                                            |
 | Authentication and sessions                   | Draft    | Not started    | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Draft    | Not started    | Authentication                                                                                     |
@@ -330,7 +330,7 @@ verification with real sessions once authenticated routes exist.
 redacted, the API has liveness and readiness, and failures reach the client
 through the shared envelope.
 
-**Design:** Accepted. **Implementation:** Implemented.
+**Design:** Accepted. **Implementation:** Verified in [PR #6](https://github.com/silverstone-i/nap/pull/6).
 
 **Depends on:** Tenant isolation foundation.
 
@@ -358,19 +358,26 @@ message-safety clarification. Delivery follows the
 
 **Deferred:** Automatic retries, metrics export, and sampling have no current
 consumer and are not implemented or claimed as verified. Diagnostic logging
-does not replace database audit records. Merge/CI evidence remains pending.
+does not replace database audit records; audit records arrive with the first
+module that owns immutable events.
 
-**Local evidence (2026-09-06):** Node 24.19.0 passed lint, typecheck, all 106
-tests, build, format:check, and licenses. Tests cover real PostgreSQL readiness
-and isolation, safe HTTP contracts/logging, and bounded socket/pool lifecycle.
-The capability remains Implemented until merge and CI evidence is recorded.
+**Evidence:** [PR #6](https://github.com/silverstone-i/nap/pull/6) merged on
+2026-09-06 with the `changelog`, `checks`, and `release` workflows passing.
+Tests cover correlation reuse and replacement, concurrent context isolation,
+the completion log record carrying the request ID and a fixed route name, safe
+404 and health envelopes, malformed, oversized, compressed, and unsupported
+bodies, single failure logging, a fault after headers commit, real PostgreSQL
+readiness and isolation, and bounded socket/pool lifecycle. A 2026-09-07
+reconciliation on `main` added the completion-record and committed-response
+tests and re-ran lint, typecheck, test, build, format:check, and licenses on
+Node 24.19.0.
 
 ### Shared transport package
 
 **Outcome:** `@nap/shared` carries the runtime validation schemas and inferred
 types both sides of the API boundary use.
 
-**Design:** Accepted (specification-owned). **Implementation:** Implemented.
+**Design:** Accepted (specification-owned). **Implementation:** Verified in [PR #8](https://github.com/silverstone-i/nap/pull/8).
 
 **Depends on:** Operational baseline.
 
@@ -402,21 +409,24 @@ with `sendContract`; the web client validates every reply with
 soft-deletion selector, and sort — were delivered by Framework HTTP surface,
 which owns list parameter parsing. No production route uses `validateBody` and
 no screen uses `requestContract` until authentication delivers the first.
-Merge/CI evidence remains pending.
 
-**Local evidence (2026-09-07):** Node 24.19.0 passed lint, typecheck, all 118
-tests, build, format:check, and licenses. Tests cover envelope acceptance and
-rejection at every level, dotted field errors and value non-disclosure at the
-API boundary, contract-violating responses answered as generic failures, and
-client handling of success, error, unreadable, and network outcomes. The
-capability remains Implemented until merge and CI evidence is recorded.
+**Evidence:** [PR #8](https://github.com/silverstone-i/nap/pull/8) merged on
+2026-09-07 with the `changelog`, `checks`, and `release` workflows passing.
+Tests cover envelope acceptance and rejection at every level, dotted field
+errors and value non-disclosure at the API boundary, contract-violating
+responses answered as generic failures, client handling of success, error,
+unreadable, and network outcomes, and the package import boundary: every
+source import is relative or a declared dependency, and the only declared
+dependency is `zod`. A 2026-09-07 reconciliation on `main` added the boundary
+test and re-ran lint, typecheck, test, build, format:check, and licenses on
+Node 24.19.0.
 
 ### Framework HTTP surface
 
 **Outcome:** Every module presents the same routes, middleware order,
 parameters, responses, and refusals without writing a handler.
 
-**Design:** Accepted (specification-owned). **Implementation:** Implemented.
+**Design:** Accepted (specification-owned). **Implementation:** Verified in [PR #9](https://github.com/silverstone-i/nap/pull/9).
 
 **Depends on:** Shared transport package.
 
@@ -461,20 +471,23 @@ its middleware after the permission gate; admin-targeted controllers arrive
 with the first admin router; filter operators beyond equality and membership
 have no consumer. The registry is empty, and every framework route answers
 `UNAUTHENTICATED` until the session resolver is installed, so no framework
-behaviour is reachable in production. Merge/CI evidence remains pending.
+behaviour is reachable in production.
 
-**Local evidence (2026-09-07):** Node 24.19.0 passed lint, typecheck, all
-180 tests (17 toolchain, 146 API, 5 web, 12 shared), build, format:check, and
-the production license check (220 package records). Disposable PostgreSQL 18
-tests drive every standard route and an extension route through a
-row-level-secured fixture table: the denial ladder, unknown filter columns,
-page clamping, keyset traversal in both directions, archived selectors and
-totals, a disabled route answering byte-identically to an unknown path, batch
-refusals that commit nothing, unique conflicts, tenant input refused in every
-location, cross-tenant reads answering not found, extension rollback, the
-export and import round trip, and the tenant-isolation harness. The compiled
-server still starts and answers both health probes. The capability remains
-Implemented until merge and CI evidence is recorded.
+**Evidence:** [PR #9](https://github.com/silverstone-i/nap/pull/9) merged on
+2026-09-07 with the `changelog`, `checks`, and `release` workflows passing.
+The conformance test proves every module router file exports a factory built
+with `createRouter` and that no controller or framework file reaches a
+repository through the cell handle. Disposable PostgreSQL 18 tests drive every
+standard route and an extension route through a row-level-secured fixture
+table: the denial ladder, unknown filter columns, page clamping, keyset
+traversal in both directions, archived selectors and totals, a disabled route
+answering byte-identically to an unknown path, batch refusals that commit
+nothing and name refused identifiers by position, unique conflicts, tenant
+input refused in headers, query, route parameters, and body, cross-tenant
+reads answering not found, extension rollback, the export and import round
+trip, and the tenant-isolation harness. A 2026-09-07 reconciliation on `main`
+found every gate item covered and re-ran lint, typecheck, test, build,
+format:check, and licenses on Node 24.19.0.
 
 ### Brand, theme, and web entry surface
 
@@ -482,7 +495,7 @@ Implemented until merge and CI evidence is recorded.
 the route-level error boundary, and a branded holding entry exist before any
 product screen does.
 
-**Design:** Accepted. **Implementation:** Implemented.
+**Design:** Accepted. **Implementation:** Verified in [PR #10](https://github.com/silverstone-i/nap/pull/10).
 
 **Depends on:** Workspace and toolchain.
 
@@ -501,13 +514,18 @@ placements, the `system | light | dark` preference persists and follows
 `ENTRY-001`–`ENTRY-005`. **Delivery plan:**
 [Brand, theme, and web entry surface](../implementation-plans/0001-brand-theme-and-web-entry-surface.md).
 
-**Local evidence (2026-09-07):** Node 24.19.0 passed lint, format:check,
-typecheck, all 196 tests (including 19 web tests), build, licenses, and diff
-check. Browser inspection covered desktop/mobile light and dark views,
-keyboard focus, preference persistence, short-screen scrolling, fallback fonts,
-unknown-page recovery, and text contrast. Route integration tests cover pending
-imports, failed imports, render failures, and full-reload Retry. Merge/CI
-verification remains pending.
+**Evidence:** [PR #10](https://github.com/silverstone-i/nap/pull/10) merged
+on 2026-09-07 with the `changelog`, `checks`, and `release` workflows passing.
+Tests cover the `system | light | dark` preference following the operating
+system and persisting across remounts, the error boundary rendering with
+Retry for import and render failures, the brand values matching `BRAND.md`,
+gold absent from the palette, no hex literal outside the token module, and
+gold confined to the wordmark dot. Browser inspection before merge covered
+desktop and mobile light and dark views, keyboard focus, short-screen
+scrolling, fallback fonts, unknown-page recovery, and text contrast. A
+2026-09-07 reconciliation on `main` added the hex-literal and gold-placement
+tests and re-ran lint, typecheck, test, build, format:check, and licenses on
+Node 24.19.0.
 
 ### Release, versioning, and licensing operations
 

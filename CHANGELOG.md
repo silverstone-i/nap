@@ -11,6 +11,13 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Mark the operational baseline, shared transport package, framework HTTP
+  surface, and brand, theme, and web entry surface capabilities Verified, with
+  tests for the request completion log record, faults after headers commit,
+  the shared package import boundary, and web brand discipline.
+
 ## [v0.7.0] - 2026-09-07
 
 ### Added

@@ -94,7 +94,13 @@ On 2026-09-07, Node 24.19.0 passed lint, typecheck, all 118 tests (15
 toolchain, 93 API, 5 web, 5 shared), build, format:check, and the production
 license check (220 package records). The API integration tests ran against
 disposable PostgreSQL 18 fixtures, which need a locale in the environment.
-Commit, push, PR creation, merge, and CI verification remain pending.
+
+## Merge and CI evidence
+
+[PR #8](https://github.com/silverstone-i/nap/pull/8) merged on 2026-09-07 with
+the `changelog`, `checks`, and `release` workflows passing. On 2026-09-07 the
+package import boundary gained a test and every repository check was re-run on
+`main`; the roadmap records the result.
 
 ## Defaults, rollout, and recovery
 
