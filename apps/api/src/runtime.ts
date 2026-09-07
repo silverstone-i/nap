@@ -91,7 +91,8 @@ export function createRuntime(
       server.once('listening', opened);
       server.listen(port);
     });
-    if (!stopped) logger.info({ event: 'api.started' }, 'API listening');
+    if (!stopped)
+      logger.info({ event: 'api.started' }, `API listening on port ${port}`);
   }
 
   /**
