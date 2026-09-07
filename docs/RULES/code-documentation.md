@@ -51,8 +51,9 @@ Every documentation comment has these labeled lines, in this order:
   `@throws` lines after `Why:` only when the name and signature do not already
   say them.
 
-A comment on a one-line helper may be a single `Does:` line when the caller
-is the enclosing function and there is nothing to say under `Why:`.
+A comment on a helper nested inside another function may be a single `Does:`
+line when its only caller is the enclosing function and there is nothing to
+say under `Why:`.
 
 ## What fails
 
