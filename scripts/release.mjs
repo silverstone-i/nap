@@ -52,11 +52,20 @@ export function changelogParts(text) {
 }
 
 /**
- * Does: Collects nonempty changelog bullets.
+ * Does: Collects nonempty bullet content with markers and whitespace normalized.
  * Called by: changelog validation and promotion.
+ * Why: REL-001 requires new content; formatting-only edits are not release notes.
  */
 function bullets(body) {
-  return body.split('\n').filter(line => /^\s*[-*] \S/.test(line));
+  return body
+    .split('\n')
+    .filter(line => /^\s*[-*][ \t]+\S/.test(line))
+    .map(line =>
+      line
+        .replace(/^\s*[-*][ \t]+/, '')
+        .trim()
+        .replace(/\s+/g, ' ')
+    );
 }
 
 /**

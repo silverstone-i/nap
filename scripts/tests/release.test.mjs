@@ -54,6 +54,29 @@ it('requires new bullets in a single Unreleased section and preserves history', 
   const empty = notes.replace('- New feature\n', '');
   expect(() => validateChangelog(empty, notes)).not.toThrow();
   expect(() => validateChangelog(notes, notes)).toThrow('nonempty');
+  for (const bullet of [
+    '- New feature ',
+    '-  New feature',
+    '-\tNew feature',
+    '  - New feature',
+    '* New feature',
+    '- New  feature',
+    '- New\tfeature',
+  ]) {
+    expect(() =>
+      validateChangelog(notes, notes.replace('- New feature', bullet))
+    ).toThrow('nonempty');
+    expect(() =>
+      validateChangelog(notes.replace('- New feature', bullet), notes)
+    ).toThrow('nonempty');
+  }
+  expect(() =>
+    validateChangelog(
+      notes,
+      notes.replace('- New feature', '- New feature\n- Another feature')
+    )
+  ).not.toThrow();
+
   expect(() =>
     validateChangelog(empty, notes.replace('- New feature', '- '))
   ).toThrow('nonempty');
