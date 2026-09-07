@@ -87,8 +87,8 @@ export async function requestContract<T extends z.ZodType>(
   let response: Response;
   try {
     response = await fetch(path, {
-      credentials: 'same-origin',
       ...init,
+      credentials: 'same-origin',
       headers,
     });
   } catch {
