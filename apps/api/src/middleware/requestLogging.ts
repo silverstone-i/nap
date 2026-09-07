@@ -13,8 +13,10 @@ import type { RequestHandler } from 'express';
  * closes, with the request ID, route name, status, duration, and outcome.
  * Called by: the app, second in the middleware chain, on every request.
  * Why: the record deliberately carries no URL, query string, headers, or
- * body, so nothing a client sends can land in the logs. The route is one of
- * three fixed names rather than the path for the same reason.
+ * body, so nothing a client sends can land in the logs. The route is a fixed
+ * name, never the path, for the same reason: one of three names for the
+ * health and unmatched cases, or the module.router.action label a framework
+ * router stores in response.locals.route once it has matched.
  */
 export const requestLogging: RequestHandler = (request, response, next) => {
   const started = performance.now();
@@ -33,7 +35,7 @@ export const requestLogging: RequestHandler = (request, response, next) => {
     logger.info({
       event: 'http.completed',
       requestId: context?.requestId,
-      route,
+      route: response.locals.route ?? route,
       status: response.statusCode,
       durationMs: Math.round(performance.now() - started),
       outcome: response.writableFinished ? 'finished' : 'aborted',

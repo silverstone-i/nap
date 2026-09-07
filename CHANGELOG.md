@@ -11,6 +11,20 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add the framework HTTP surface: read and write controllers, the router
+  factory with the standard route set, per-route disabling, and the extension
+  callback, session and permission gates, tenant-input rejection, keyset list
+  parameters, all-or-nothing batch writes, in-memory spreadsheet import and
+  export, and the route registry composition root.
+
+### Changed
+
+- Add `UNAUTHENTICATED`, `FORBIDDEN`, and `CONFLICT` to the shared error-code
+  registry, name the spreadsheet library in the technology stack, and give the
+  runtime named admin and cell database handles.
+
 ## [v0.5.0] - 2026-09-07
 
 ### Added

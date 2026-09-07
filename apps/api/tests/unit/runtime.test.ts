@@ -10,6 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { createRuntime } from '../../src/runtime.js';
 import { createReadiness } from '../../src/services/readiness.js';
 import { createAdminDatabase } from '../../src/db/admin/index.js';
+import { createCellDatabase } from '../../src/db/cell/index.js';
 import { logger } from '../../src/util/logger.js';
 
 vi.mock('../../src/services/readiness.js', () => ({
@@ -25,6 +26,13 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
+/** Does: Creates admin and cell handles for URLs that are never connected. */
+function handles() {
+  return {
+    admin: createAdminDatabase('postgres://unused:unused@localhost/unused'),
+    cell: createCellDatabase('postgres://unused:unused@localhost/unused'),
+  };
+}
 /** Read the OS-selected address of a test listener. */
 function url(runtime: ReturnType<typeof createRuntime>) {
   const address = runtime.server.address();
@@ -41,7 +49,7 @@ it('stops before opening a listener when shutdown interrupts startup', async () 
       }),
     stop: vi.fn(),
   });
-  const runtime = createRuntime([]);
+  const runtime = createRuntime(handles());
   const started = runtime.start(0);
   expect(await runtime.shutdown()).toBe(0);
   finish(true);
@@ -53,8 +61,9 @@ it('refuses a failed startup check and cleans partial initialization', async () 
     check: () => Promise.resolve(false),
     stop: vi.fn(),
   });
-  const db = createAdminDatabase('postgres://unused:unused@localhost/unused');
-  const runtime = createRuntime([db]);
+  const pools = handles();
+  const db = pools.admin;
+  const runtime = createRuntime(pools);
   await expect(runtime.start(0)).rejects.toThrow('readiness failed');
   expect(await runtime.shutdown(1)).toBe(1);
   expect(db.isClosed).toBe(true);
@@ -66,8 +75,9 @@ it('reports a listener bind failure and closes its handles', async () => {
   const address = occupied.address();
   if (!address || typeof address === 'string')
     throw new Error('Missing address');
-  const db = createAdminDatabase('postgres://unused:unused@localhost/unused');
-  const runtime = createRuntime([db]);
+  const pools = handles();
+  const db = pools.admin;
+  const runtime = createRuntime(pools);
   try {
     await expect(runtime.start(address.port)).rejects.toThrow(
       'failed to listen'
@@ -79,9 +89,9 @@ it('reports a listener bind failure and closes its handles', async () => {
   }
 });
 it('drains an active HTTP request before closing pools and shares repeated shutdown', async () => {
-  const db = createAdminDatabase('postgres://unused:unused@localhost/unused');
-  const close = vi.spyOn(db, 'close');
-  const runtime = createRuntime([db], { drainMs: 1000 });
+  const pools = handles();
+  const close = vi.spyOn(pools.admin, 'close');
+  const runtime = createRuntime(pools, { drainMs: 1000 });
   let complete: () => void = () => {};
   let admitted: () => void = () => {};
   const entered = new Promise<void>(resolve => {
@@ -105,7 +115,7 @@ it('drains an active HTTP request before closing pools and shares repeated shutd
   expect(close).toHaveBeenCalledTimes(1);
 });
 it('forces stuck requests closed after the drain deadline and returns failure', async () => {
-  const runtime = createRuntime([], { drainMs: 20 });
+  const runtime = createRuntime(handles(), { drainMs: 20 });
   const app = runtime.server.listeners('request')[0];
   if (app) runtime.server.removeListener('request', app);
   let entered: () => void = () => {};
@@ -122,7 +132,8 @@ it('forces stuck requests closed after the drain deadline and returns failure', 
 it.each(['reject', 'hang'] as const)(
   'bounds pool cleanup when a handle will %s',
   async mode => {
-    const db = createAdminDatabase('postgres://unused:unused@localhost/unused');
+    const pools = handles();
+    const db = pools.admin;
     const close = vi
       .spyOn(db, 'close')
       .mockImplementation(() =>
@@ -130,7 +141,7 @@ it.each(['reject', 'hang'] as const)(
           ? Promise.reject(new Error('private'))
           : new Promise(() => {})
       );
-    const runtime = createRuntime([db], { poolCloseMs: 20 });
+    const runtime = createRuntime(pools, { poolCloseMs: 20 });
     try {
       expect(await runtime.shutdown()).toBe(1);
     } finally {
@@ -140,7 +151,7 @@ it.each(['reject', 'hang'] as const)(
   }
 );
 it('cannot restart after shutdown and tolerates shutdown before start', async () => {
-  const runtime = createRuntime([]);
+  const runtime = createRuntime(handles());
   await runtime.shutdown();
   await runtime.start(0);
   await delay(1);

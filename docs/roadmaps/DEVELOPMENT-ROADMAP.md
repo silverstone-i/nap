@@ -18,9 +18,9 @@ ADRs or RULES documents that capability actually requires. Component designs
 remain unaccepted: the repository holds the specification,
 [accepted ADRs](../ADRs/INDEX.md), contributor
 guidance, and repository configuration. Workspace startup scaffolds, toolchain
-checks, the database/migration foundation, and tenant isolation foundation are
-implemented; no component
-PRD exists. [JavaScript-first TypeScript](../RULES/javascript-first-typescript.md)
+checks, the database/migration foundation, the tenant isolation foundation, the
+operational baseline, the shared transport package, and the framework HTTP
+surface are implemented; no component PRD exists. [JavaScript-first TypeScript](../RULES/javascript-first-typescript.md)
 owns the shared coding convention.
 
 ## Capability record
@@ -173,7 +173,7 @@ start from the specification and applicable ADRs.
 | Tenant isolation foundation                   | Accepted | Verified       | Database foundation                                                                                |
 | Operational baseline                          | Accepted | Implemented    | Tenant isolation foundation                                                                        |
 | Shared transport package                      | Accepted | Implemented    | Operational baseline                                                                               |
-| Framework HTTP surface                        | Draft    | Not started    | Shared transport package                                                                           |
+| Framework HTTP surface                        | Accepted | Implemented    | Shared transport package                                                                           |
 | Brand, theme, and web entry surface           | Draft    | Not started    | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Draft    | Not started    | Workspace and toolchain                                                                            |
 | Authentication and sessions                   | Draft    | Not started    | Framework HTTP surface; web entry                                                                  |
@@ -319,9 +319,10 @@ SQLSTATE-specific denials, immutable keys, rollback, concurrent tenants,
 backend-PID-verified pool reuse, role safety, and production-registry exclusion.
 No production tenant tables or HTTP tenant rejection routes are installed.
 
-**HTTP dependency:** Rejection of client-supplied tenant values from body,
-query, route parameters, and headers is verified with the framework and
-authentication capabilities, once authenticated routes exist.
+**HTTP dependency:** The framework HTTP surface rejects client-supplied tenant
+values from body, query, route parameters, and headers on every framework route
+and verifies it with test sessions; the authentication capability repeats the
+verification with real sessions once authenticated routes exist.
 
 ### Operational baseline
 
@@ -398,9 +399,9 @@ with `sendContract`; the web client validates every reply with
 [shared transport package plan](../implementation-plans/shared-transport-package.md).
 
 **Deferred:** List request parameters — page size, continuation cursor,
-soft-deletion selector, and sort — belong to Framework HTTP surface, which
-owns list parameter parsing. No production route uses `validateBody` and no
-screen uses `requestContract` until authentication delivers the first.
+soft-deletion selector, and sort — were delivered by Framework HTTP surface,
+which owns list parameter parsing. No production route uses `validateBody` and
+no screen uses `requestContract` until authentication delivers the first.
 Merge/CI evidence remains pending.
 
 **Local evidence (2026-09-07):** Node 24.19.0 passed lint, typecheck, all 118
@@ -415,21 +416,24 @@ capability remains Implemented until merge and CI evidence is recorded.
 **Outcome:** Every module presents the same routes, middleware order,
 parameters, responses, and refusals without writing a handler.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted (specification-owned). **Implementation:** Implemented.
 
 **Depends on:** Shared transport package.
 
-**Documents:** `ARCH-050` and the specification's
-[framework HTTP contract](../specs/nap-platform-specification.md#framework-http-contract).
+**Documents:** `ARCH-050`, the specification's
+[framework HTTP contract](../specs/nap-platform-specification.md#framework-http-contract),
+and the [framework HTTP surface plan](../implementation-plans/framework-http-surface.md).
 
 **Required surfaces:** `framework/ReadController.ts`,
 `framework/WriteController.ts`, `framework/createRouter.ts`, the route registry
 as a composition root, the ordered middleware chain, list parameter parsing,
-the multipart parser behind the spreadsheet routes, and the extension callback.
+the raw workbook body reader behind the spreadsheet routes, and the extension
+callback.
 
-**Blocked:** The specification's technology stack names no multipart parser.
-This capability cannot start until it does, or until the spreadsheet routes
-leave the standard route set.
+**Settled (2026-09-07):** The owner resolved the multipart blocker: no
+multipart parser enters the stack. `POST /import-xls` receives the workbook
+bytes as the request body, and the organization-owned `@nap-sft/tablsx`, now
+named in the technology stack, reads and writes workbook bytes in memory.
 
 **Gate:** A conformance test proves every module router is produced by the
 factory, no controller reaches a database handle outside
@@ -438,6 +442,39 @@ unregistered one, an unknown filter column is rejected, and a batch write
 refuses all-or-nothing while naming the refused identifiers. Reject client-supplied
 tenant values from body, query, route parameters, and headers; verify integration
 with the server-resolved tenant during authentication delivery.
+
+**Implementation:** The controllers, the router factory with the standard
+route set, per-route disabling, and the extension callback, the session gates
+(`requireSession`, `requireTenant`, `requireEntitlement`, `requirePermission`),
+tenant-input rejection, list parsing with keyset continuation, all-or-nothing
+batch writes naming refused identifiers by position, in-memory spreadsheet
+import and export, the SQLSTATE-to-error mapping, and the empty route registry
+mounted by the app are implemented. The shared package carries the list, batch,
+and spreadsheet contracts and the `UNAUTHENTICATED`, `FORBIDDEN`, and
+`CONFLICT` codes. The runtime takes named admin and cell handles. Delivery
+follows the plan above.
+
+**Deferred:** The session resolver and the audit actor resolver belong to
+Authentication and sessions; the entitlement and permission vocabulary and the
+resource-scope middleware belong to RBAC and module entitlement, which inserts
+its middleware after the permission gate; admin-targeted controllers arrive
+with the first admin router; filter operators beyond equality and membership
+have no consumer. The registry is empty, and every framework route answers
+`UNAUTHENTICATED` until the session resolver is installed, so no framework
+behaviour is reachable in production. Merge/CI evidence remains pending.
+
+**Local evidence (2026-09-07):** Node 24.19.0 passed lint, typecheck, all
+180 tests (17 toolchain, 146 API, 5 web, 12 shared), build, format:check, and
+the production license check (220 package records). Disposable PostgreSQL 18
+tests drive every standard route and an extension route through a
+row-level-secured fixture table: the denial ladder, unknown filter columns,
+page clamping, keyset traversal in both directions, archived selectors and
+totals, a disabled route answering byte-identically to an unknown path, batch
+refusals that commit nothing, unique conflicts, tenant input refused in every
+location, cross-tenant reads answering not found, extension rollback, the
+export and import round trip, and the tenant-isolation harness. The compiled
+server still starts and answers both health probes. The capability remains
+Implemented until merge and CI evidence is recorded.
 
 ### Brand, theme, and web entry surface
 

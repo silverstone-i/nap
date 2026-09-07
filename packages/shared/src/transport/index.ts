@@ -6,3 +6,6 @@
 export * from './envelopes.js';
 export * from './errors.js';
 export * from './health.js';
+export * from './lists.js';
+export * from './batches.js';
+export * from './spreadsheets.js';

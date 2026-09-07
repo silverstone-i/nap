@@ -7,7 +7,18 @@ import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { createReadiness } from './services/readiness.js';
 import { logger } from './util/logger.js';
-import type { Database } from 'pg-schemata';
+import type { AdminDatabase } from './db/admin/index.js';
+import type { CellHandle } from './db/cell/repositories.js';
+
+/**
+ * Does: Represents the two database connections the runtime serves with:
+ * the central admin database and this deployment's one cell database.
+ * Used by: createRuntime and the server entry point.
+ */
+export type RuntimeHandles = {
+  readonly admin: AdminDatabase;
+  readonly cell: CellHandle;
+};
 
 /**
  * Does: Creates the HTTP server and returns start and shutdown functions
@@ -18,21 +29,26 @@ import type { Database } from 'pg-schemata';
  * check. Shutdown drains HTTP connections before closing database pools so
  * in-flight requests finish against open connections. This function installs
  * no signal handlers and never exits the process; the entry point owns both.
- * All database handles are supplied here; none can be added after start.
+ * Both database handles are supplied here; none can be added after start,
+ * and the cell handle is what module routers are mounted against.
  */
 export function createRuntime(
-  handles: readonly Database[],
+  handles: RuntimeHandles,
   { readinessMs = 5000, drainMs = 10000, poolCloseMs = 5000 } = {}
 ) {
-  const readiness = createReadiness(handles, readinessMs);
+  const pools = [handles.admin, handles.cell];
+  const readiness = createReadiness(pools, readinessMs);
   let stopping: Promise<number> | undefined;
   let stopped = false;
   let listening = false;
   const server = createServer(
-    createApp(async () => {
-      if (stopped || !listening) return false;
-      return readiness.check();
-    })
+    createApp(
+      async () => {
+        if (stopped || !listening) return false;
+        return readiness.check();
+      },
+      { cell: handles.cell }
+    )
   );
 
   server.on('request', (_request, response) => {
@@ -75,7 +91,8 @@ export function createRuntime(
       server.once('listening', opened);
       server.listen(port);
     });
-    if (!stopped) logger.info({ event: 'api.started' }, 'API listening');
+    if (!stopped)
+      logger.info({ event: 'api.started' }, `API listening on port ${port}`);
   }
 
   /**
@@ -116,7 +133,7 @@ export function createRuntime(
           resolve();
         }, poolCloseMs);
         void Promise.allSettled(
-          handles.map(handle => Promise.resolve().then(() => handle.close()))
+          pools.map(handle => Promise.resolve().then(() => handle.close()))
         ).then(results => {
           clearTimeout(timer);
           if (results.some(result => result.status === 'rejected'))
