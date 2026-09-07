@@ -166,7 +166,7 @@ export function resolveEnvironment(env: NodeJS.ProcessEnv = process.env) {
 
 /**
  * Does: Reads one environment variable holding a PostgreSQL URL, checks it,
- * and returns the string unchanged plus a normalised host, port, and
+ * and returns the string unchanged plus a normalized host, port, and
  * database key.
  * Called by: resolveRuntimeConfiguration and resolveMigrationConfiguration.
  * Why: the string is returned as-is so TLS and application-name options

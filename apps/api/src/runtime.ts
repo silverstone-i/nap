@@ -60,7 +60,7 @@ export function createRuntime(
     }
     if (stopped) return;
     await new Promise<void>((resolve, reject) => {
-      /** Does: Rejects the listen promise when the port cannot be bound. */
+      /** Does: Rejects the listen promise when the server fails to listen. */
       function failed() {
         server.removeListener('listening', opened);
         reject(new Error('API failed to listen'));

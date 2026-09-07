@@ -71,7 +71,7 @@ A comment fails review when any of these is true:
   alternative that was never on the table. This `Why:` fails:
 
   ```ts
-   * Why: the logger is created once at import time, so an unrecognised level
+   * Why: the logger is created once at import time, so an unrecognized level
    * fails startup immediately with a fixed message rather than being silently
    * replaced by a default.
   ```
