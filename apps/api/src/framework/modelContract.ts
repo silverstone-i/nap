@@ -54,7 +54,8 @@ export type ModelContract = {
  * Why: this is the one place the framework touches a repository on the root
  * handle, and it reads metadata only; every query runs on the repository the
  * tenant transaction carries. A read-only projection has no generated
- * validators, so it must declare its own item schema.
+ * validators, so it must declare its own item schema, and its columns are
+ * then checked against that schema.
  * @throws If the repository is missing, its primary key is not one column,
  * it lacks tenant_id, a column is named like a list parameter, or no item
  * schema can be found.
@@ -98,6 +99,15 @@ export function describeModel<N extends string, R extends Repositories<N>>(
   if (!item) {
     throw new Error(`Model declares no item schema: ${repository}`);
   }
+  // Per-column schemas come from the generated base validator, which knows
+  // the database types, and otherwise from the declared item schema, which
+  // is all a read-only projection has.
+  const shape: Record<string, unknown> =
+    base instanceof z.ZodObject
+      ? base.shape
+      : item instanceof z.ZodObject
+        ? item.shape
+        : {};
   return {
     repository,
     primaryKey: primaryKey[0],
@@ -110,8 +120,6 @@ export function describeModel<N extends string, R extends Repositories<N>>(
     insertSchema: validators?.insertValidator,
     updateSchema: validators?.updateValidator,
     columnSchema: name => {
-      const shape: Record<string, unknown> =
-        base instanceof z.ZodObject ? base.shape : {};
       const column = shape[name];
       return column instanceof z.ZodType ? column : z.string();
     },

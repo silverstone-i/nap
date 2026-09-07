@@ -5,6 +5,7 @@
 
 import { expect, it } from 'vitest';
 import { z } from 'zod';
+import { QueryModel } from 'pg-schemata';
 import { createCellDatabase } from '../../src/db/cell/index.js';
 import {
   createRouter,
@@ -16,12 +17,28 @@ import {
   RecordsController,
   RecordsReadController,
 } from '../fixtures/frameworkApp.js';
-import { FrameworkRecords } from '../fixtures/frameworkRecord.js';
+import {
+  FrameworkRecords,
+  frameworkRecordSchema,
+} from '../fixtures/frameworkRecord.js';
 import { IsolationProbe } from '../fixtures/isolationProbe.js';
 import type { Router } from 'express';
+import type { DbConnection, Database } from 'pg-schemata';
+import type { ProbeRow } from '../fixtures/isolationProbe.js';
+
+/** Does: A read-only projection over the framework test table. */
+class RecordsView extends QueryModel<ProbeRow> {
+  constructor(db: DbConnection, pgp: Database['pgp']) {
+    super(db, pgp, frameworkRecordSchema);
+  }
+}
 
 const db = createCellDatabase('postgres://unused:unused@localhost/unused', {
-  repositories: { records: FrameworkRecords, probe: IsolationProbe },
+  repositories: {
+    records: FrameworkRecords,
+    probe: IsolationProbe,
+    view: RecordsView,
+  },
 });
 const options = { module: 'fixture', router: 'records' } as const;
 
@@ -141,4 +158,23 @@ it('refuses a disagreeing rbacConfig and a non-soft-deleting archive, and descri
     writable: true,
   });
   expect(describeModel(db, 'probe').softDelete).toBe(false);
+});
+
+it("checks a projection's columns against its declared item schema", () => {
+  expect(() => describeModel(db, 'view')).toThrow('no item schema');
+  const item = z.object({ id: z.guid(), quantity: z.number().nullable() });
+  const contract = describeModel(db, 'view', item);
+  expect(contract.writable).toBe(false);
+  expect(contract.columnSchema('id').safeParse('not-a-uuid').success).toBe(
+    false
+  );
+  expect(contract.columnSchema('quantity').safeParse('7').success).toBe(false);
+  expect(contract.columnSchema('code').safeParse('anything').success).toBe(
+    true
+  );
+  const generated = describeModel(db, 'records');
+  expect(generated.columnSchema('quantity').safeParse('7').success).toBe(false);
+  expect(generated.columnSchema('id').safeParse('not-a-uuid').success).toBe(
+    false
+  );
 });
