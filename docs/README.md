@@ -54,7 +54,7 @@ Before designing or implementing work:
    Until a subject has its own RULES file, the specification section that
    owns it governs —
    [operational standards](specs/nap-platform-specification.md#operational-standards)
-   for runtime work, and [CLAUDE.md](../CLAUDE.md#commit-and-release-operations)
+   for runtime work, and [Release operations](RULES/release-operations.md)
    for repository and release work.
 5. Consult the development roadmap for dependencies, status, and planned PRs.
 6. When the delivery-workflow triggers apply, create or update the capability
@@ -124,3 +124,8 @@ that supersedes the old one, and both records link the supersession.
 
 Document locations and the repository skeleton are defined in
 [Specification — Repository structure](specs/nap-platform-specification.md#repository-structure).
+
+## Component PRDs
+
+- [Brand, theme, and web entry surface](PRDs/0001-brand-theme-and-web-entry-surface.md)
+- [Release, versioning, and licensing operations](PRDs/0002-release-versioning-and-licensing-operations.md)
