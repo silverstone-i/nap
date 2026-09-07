@@ -11,9 +11,11 @@ import { expect, it } from 'vitest';
 const src = resolve(process.cwd(), 'apps/api/src');
 // Import direction from the specification's API import layers table: each
 // layer may import itself and the layers before it. Root files (app.ts,
-// runtime.ts, server.ts) and ambient types may import any runtime layer.
+// runtime.ts, server.ts) and ambient types may import any runtime layer
+// except modules, which only the composition roots below may import.
 const order = ['util', 'db', 'services', 'middleware', 'framework', 'modules'];
-// Composition roots may import modules to assemble the application (ARCH-042).
+// Only these files may import modules, to assemble the application
+// (ARCH-042); a root file reaching into a module would bypass the registries.
 const compositionRoots = new Set([
   'db/admin/modules.ts',
   'db/cell/modules.ts',
@@ -101,6 +103,15 @@ it('detects an upward import, a modules import outside a composition root, and a
     violations(
       resolve(src, 'framework/routeRegistry.ts'),
       "import '../modules/core/index.js';"
+    )
+  ).toEqual([]);
+  expect(
+    violations(resolve(src, 'app.ts'), "import './modules/core/index.js';")
+  ).toHaveLength(1);
+  expect(
+    violations(
+      resolve(src, 'app.ts'),
+      "import './framework/routeRegistry.js'; import './util/logger.js';"
     )
   ).toEqual([]);
   expect(
