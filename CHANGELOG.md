@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.8.0] - 2026-09-07
+
 ### Changed
 
 - Enforce release labels, Unreleased notes, and CI-owned versions; select pending
