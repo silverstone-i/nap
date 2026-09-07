@@ -36,10 +36,15 @@ Every documentation comment has these labeled lines, in this order:
 - `Called by:` is required. It names the caller and the moment: on every
   request, at startup, from tests only, from the setup script. When the
   function is called from many places, name the kind of caller.
-- `Why:` is optional. It holds everything the current comments already say
-  well: the rationale, the restriction, the security safeguard, the workaround.
-  Do not invent a reason for an existing restriction; if the reason is not
-  known, write `Why: unclear; review` and leave it for the owner.
+- `Why:` is optional. It holds the constraint, restriction, security
+  safeguard, or workaround the reader must not remove, and where it comes
+  from. A reason has a source: the task that asked for it, a requirement ID,
+  an accepted document, an owner's instruction, or a failure the code guards
+  against. Write the constraint and its source, not a motive. Do not contrast
+  the code with an alternative nobody proposed; "rather than" and "instead
+  of" are the usual signs. If a restriction exists and its reason is not
+  known, write `Why: unclear; review` and leave it for the owner. If there
+  is no constraint, omit the line.
 - A type or constant uses the same lines. `Does:` says what the value holds
   or represents; `Called by:` becomes `Used by:`.
 - Inputs, outputs, side effects, and errors get `@param`, `@returns`,
@@ -62,19 +67,38 @@ A comment fails review when any of these is true:
   else. `Does: Resolves the port.` on `resolvePort` says nothing.
 - The comment narrates the body statement by statement, or repeats what an
   inline comment already says.
+- Its `Why:` line gives a reason with no source, or argues against an
+  alternative that was never on the table. This `Why:` fails:
+
+  ```ts
+   * Why: the logger is created once at import time, so an unrecognised level
+   * fails startup immediately with a fixed message rather than being silently
+   * replaced by a default.
+  ```
+
+  The task said to throw on other values. The comment turns that instruction
+  into a motive nobody supplied. The passing form states the constraint and
+  its source, or omits the line:
+
+  ```ts
+   * Why: the logger reads this once at import, so a bad LOG_LEVEL fails
+   * startup; the task requires any other value to throw.
+  ```
+
 - The behavior changed and the comment did not.
 
 ## Self-check
 
 Before finishing, for each comment you wrote or changed: cover the function
 body, read only the comment, and write down what the function does and who
-calls it. If you cannot, the comment fails. The current repository comments
-all fail this test, which is why this rule exists.
+calls it. If you cannot, the comment fails. Every comment in the repository
+failed this test before this rule was written, which is why it exists.
 
 ## Examples
 
 Each pair uses a real function from this repository. The "before" text is the
-comment as merged; the "after" text is what this rule requires.
+comment as it stood before this rule; the "after" text is what this rule
+requires and what the file now carries.
 
 ### Middleware
 
