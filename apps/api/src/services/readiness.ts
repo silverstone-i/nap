@@ -8,14 +8,16 @@ import { assertRuntimeRole } from '../db/assertRuntimeRole.js';
 import type { Database } from 'pg-schemata';
 
 /**
- * Create the readiness checker used before API startup opens its listener and
- * by the readiness endpoint to verify both databases remain safe to serve work.
- *
- * Each cycle checks connectivity and runtime-role safety for both pools.
- * Concurrent callers share the outstanding cycle. A deadline destroys acquired
- * probe connections; an expired cycle remains shared until pending work settles
- * so repeated probes cannot accumulate work behind a stuck pool.
- * Pool connectionTimeoutMillis bounds acquisition before a client exists.
+ * Does: Builds a checker that reports whether both databases are reachable
+ * and running as a safe role, as a check function and a stop function.
+ * Called by: createRuntime, which uses it before opening the listener and
+ * for the readiness endpoint, and by readiness integration tests.
+ * Why: one check cycle runs at a time; callers arriving during a cycle share
+ * its result instead of starting more probes. A cycle that hits its deadline
+ * answers "not ready" and destroys the connections it took, and stays shared
+ * until that work settles, so a stuck database cannot pile up probe work.
+ * The pool's own connection timeout bounds the wait for a connection before
+ * a client exists.
  */
 export function createReadiness(
   handles: readonly Database[],
@@ -25,6 +27,11 @@ export function createReadiness(
   let stopped = false;
   let cancel: (() => void) | undefined;
 
+  /**
+   * Does: Runs one readiness cycle, or joins the one in progress, and
+   * resolves to true only when both databases pass within the deadline.
+   * Called by: createRuntime at startup and on each readiness request.
+   */
   function check(): Promise<boolean> {
     if (stopped || handles.length !== 2) return Promise.resolve(false);
     if (inFlight) return inFlight;
@@ -43,11 +50,13 @@ export function createReadiness(
     const work = handles.map(async handle => {
       const connection = await handle.db.connect();
       let released = false;
+      /** Does: Releases the probe connection once; kill destroys it instead. */
       function release(kill = false) {
         if (released) return;
         released = true;
         void connection.done(kill);
       }
+      /** Does: Destroys the probe connection when the cycle is cancelled. */
       function abort() {
         release(true);
       }
@@ -95,7 +104,11 @@ export function createReadiness(
     return result;
   }
 
-  /** Stop admitting probes and cancel the current cycle during process shutdown. */
+  /**
+   * Does: Makes every future check answer "not ready" and cancels the cycle
+   * in progress.
+   * Called by: the runtime's shutdown.
+   */
   function stop() {
     stopped = true;
     cancel?.();

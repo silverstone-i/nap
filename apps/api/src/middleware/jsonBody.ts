@@ -9,7 +9,16 @@ import type { RequestHandler } from 'express';
 
 const parse = express.json({ limit: '100kb', inflate: false });
 
-/** Classify parser errors here so arbitrary application error fields are untrusted. */
+/**
+ * Does: Reads the JSON body of an incoming request and stores it on
+ * request.body, or passes a fixed error to the next handler.
+ * Called by: the app, on every request, after correlation and logging and
+ * before any route handler.
+ * Why: parser failures are mapped here to one of three fixed error codes
+ * (PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_INPUT) so text from the
+ * parser library never reaches the client. Compressed bodies, bodies over
+ * 100 KB, and non-JSON content types are refused before parsing starts.
+ */
 export const jsonBody: RequestHandler = (request, response, next) => {
   const encoding = request.headers['content-encoding'];
   if (encoding && encoding.toLowerCase() !== 'identity') {

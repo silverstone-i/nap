@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-/** Startup-only entry surface; product routes and branding arrive separately. */
+/**
+ * Does: Renders the placeholder page shown while the web shell has no
+ * product routes or branding yet.
+ * Called by: main.tsx at page load.
+ */
 export function App() {
   return (
     <main>

@@ -7,7 +7,13 @@ import pino from 'pino';
 import { requestContext } from './requestContext.js';
 import type { Logger } from 'pg-schemata';
 
-/** Shared stdout destination; callers pass only preselected safe fields. */
+/**
+ * Does: Writes structured JSON log lines to stdout, adding the current
+ * request ID when one is in scope.
+ * Used by: every module that logs, and the database logger adapter below.
+ * Why: callers pass only fields they have chosen as safe; the logger adds
+ * nothing from the request. Process identifiers are left out (base: null).
+ */
 export const logger = pino({
   base: null,
   timestamp: pino.stdTimeFunctions.isoTime,
@@ -19,13 +25,19 @@ export const logger = pino({
 });
 
 /**
- * Adapt database diagnostics without accepting row metadata or arbitrary text.
- * Exact safe messages are deliberately conservative: regex secret replacement
- * cannot distinguish a SQL value from an ordinary word. Request errors are
- * emitted by the HTTP boundary; outside requests the adapter owns diagnostics.
+ * Does: Builds the logger object the database library expects, forwarding
+ * its messages to the shared logger tagged with the database name.
+ * Called by: createAdminDatabase and createCellDatabase when creating a pool.
+ * Why: messages from the library may contain SQL, row data, or connection
+ * details, so only a short list of known-safe messages is passed through;
+ * everything else is replaced with "Database diagnostic". Pattern-based
+ * secret scrubbing was rejected because it cannot tell a SQL value from an
+ * ordinary word. Errors raised during a request are dropped here because
+ * the HTTP error handler already logs that failure.
  */
 export function createDatabaseLogger(target: 'admin' | 'cell'): Logger {
   const safeMessages = new Set(['Truncating table']);
+  /** Does: Writes one message at the level given, unsafe text replaced. */
   function emit(
     level: 'debug' | 'info' | 'warn' | 'error',
     message: string | Error

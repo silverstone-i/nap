@@ -5,7 +5,15 @@
 
 import type { ApiError, ApiErrorCode } from '@nap/shared';
 
-/** Trusted application refusal; messages come from the boundary's fixed map. */
+/**
+ * Does: Represents an error the API deliberately returns to a client,
+ * identified by a code from the shared error-code list and, for
+ * INVALID_INPUT, optional per-field details.
+ * Used by: handlers and middleware to signal a refusal, and the error handler
+ * to choose the status and message.
+ * Why: the client-facing message is never taken from this error; it comes
+ * from errorResponses, so no free-form text reaches the client.
+ */
 export class HttpError extends Error {
   constructor(
     readonly code: ApiErrorCode,
@@ -15,6 +23,12 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * Does: Maps each API error code to the HTTP status and fixed message sent
+ * to the client.
+ * Used by: the error handler when writing an error response.
+ * Why: this table is the only source of client-facing error text.
+ */
 export const errorResponses = {
   INVALID_INPUT: { status: 400, message: 'Invalid request' },
   PAYLOAD_TOO_LARGE: { status: 413, message: 'Request body too large' },

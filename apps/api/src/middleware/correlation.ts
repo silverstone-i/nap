@@ -8,7 +8,15 @@ import { z } from 'zod';
 import { requestContext } from '../util/requestContext.js';
 import type { RequestHandler } from 'express';
 
-/** Open request scope before parsing, including malformed and unknown requests. */
+/**
+ * Does: Gives every request an ID, echoes it in the X-Request-ID response
+ * header, and makes it available to all code handling that request.
+ * Called by: the app, first in the middleware chain, on every request.
+ * Why: it runs before body parsing so malformed and unknown requests are
+ * still correlated. A client-supplied X-Request-ID is used only when it is
+ * exactly one header holding a valid UUID; anything else gets a fresh UUID,
+ * so clients cannot put arbitrary text into logs.
+ */
 export const correlation: RequestHandler = (request, response, next) => {
   const values = request.headersDistinct['x-request-id'];
   const supplied = values?.length === 1 ? values[0] : undefined;
