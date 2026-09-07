@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add the branded web entry page, shared MUI theme and wordmark, persistent
+  System/Light/Dark selection, lazy-route loading and recovery, and favicon assets.
+
 ## [v0.6.0] - 2026-09-07
 
 ### Added
