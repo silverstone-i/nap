@@ -9,7 +9,10 @@ import { expect, it } from 'vitest';
 
 const src = resolve(process.cwd(), 'src');
 
-/** Does: Lists every TypeScript source file under a directory, recursively. */
+/**
+ * Does: Lists every TypeScript source file under a directory, recursively.
+ * Called by: the boundary test, once per run, starting from the src root.
+ */
 function sources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const path = resolve(directory, entry.name);
@@ -18,7 +21,10 @@ function sources(directory: string): string[] {
   });
 }
 
-/** Does: Returns every module specifier a file imports or re-exports. */
+/**
+ * Does: Returns every module specifier a file imports or re-exports.
+ * Called by: the boundary test, for each source file it lists.
+ */
 function specifiers(file: string): string[] {
   return [
     ...readFileSync(file, 'utf8').matchAll(

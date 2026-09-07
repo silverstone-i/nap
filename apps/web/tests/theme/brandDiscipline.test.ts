@@ -9,7 +9,11 @@ import { expect, it } from 'vitest';
 
 const src = resolve(process.cwd(), 'src');
 
-/** Does: Lists every source file under a directory, recursively, as src-relative paths. */
+/**
+ * Does: Lists every source file under a directory, recursively, as
+ * src-relative paths.
+ * Called by: the module-level file scan, once when this test file loads.
+ */
 function sources(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const path = resolve(directory, entry.name);
@@ -18,7 +22,10 @@ function sources(directory: string): string[] {
   });
 }
 
-/** Does: Removes block and line comments so only code is inspected. */
+/**
+ * Does: Removes block and line comments so only code is inspected.
+ * Called by: the module-level file scan, for each source file it reads.
+ */
 function code(text: string) {
   return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 }
