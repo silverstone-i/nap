@@ -158,26 +158,27 @@ NAP is built on one fixed stack (`ARCH-051`). This section owns what may be
 depended on; package manifests, the lockfile, `.nvmrc`, and
 `tsconfig.base.json` own the exact installed versions and compiler settings.
 
-| Concern                | Choice                                                        | Boundary                                                                                             |
-| ---------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Runtime                | Node.js, version pinned by `.nvmrc`                           | Every workspace runs the same major version                                                          |
-| Language               | TypeScript in strict mode, ES modules, `nodenext` resolution  | No JavaScript source files and no implicit `any` in production code                                  |
-| Repository             | npm workspaces in one monorepo                                | `apps/api`, `apps/web`, and `packages/shared` build independently                                    |
-| Database               | PostgreSQL 18 or later                                        | Row-level security, `set_config`, and partial unique indexes are assumed available                   |
-| Persistence            | `pg-schemata` over `pg-promise`                               | The only data-access abstraction (`ARCH-049`); `pg-promise` is reached only through it               |
-| API framework          | Express                                                       | Used through `framework/`; modules do not construct routers or touch request objects directly        |
-| Transport contracts    | Zod schemas in `@nap/shared`                                  | The one validation library on both sides of the API boundary (`ARCH-043`)                            |
-| Credentials            | Argon2id password hashing                                     | No second hashing scheme; parameters are owned by the identity component PRD                         |
-| Sessions               | Session cookie signed with `jose`                             | The cookie carries a reference, never an authorization decision (`ARCH-022`, `ARCH-023`)             |
-| Logging                | `pino`, JSON records on standard output                       | One logger; the platform owns log destination and retention                                          |
-| Cache                  | Redis                                                         | Keeps session and authorization lookups off the database path; PostgreSQL still decides (`ARCH-029`) |
-| Object storage         | Amazon S3                                                     | Holds every binary document; the SDK stays behind an API service (`ARCH-030`)                        |
-| Web framework          | React with React Router                                       | One router; route-level lazy loading at module boundaries                                            |
-| Web UI kit             | MUI, MUI X Data Grid, and Emotion                             | One component library and one styling mechanism; no second UI kit or CSS framework                   |
-| Web build              | Vite                                                          | The web client is a static build served beside the API origin                                        |
-| Tests                  | Vitest, with Supertest for HTTP and Testing Library for React | One test runner across every workspace                                                               |
-| Lint and format        | ESLint with `typescript-eslint`, and Prettier                 | Formatting is checked, not negotiated per file                                                       |
-| Continuous integration | GitHub Actions                                                | The pull-request gate runs the repository checks below                                               |
+| Concern                | Choice                                                        | Boundary                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Runtime                | Node.js, version pinned by `.nvmrc`                           | Every workspace runs the same major version                                                                                 |
+| Language               | TypeScript in strict mode, ES modules, `nodenext` resolution  | No JavaScript source files and no implicit `any` in production code                                                         |
+| Repository             | npm workspaces in one monorepo                                | `apps/api`, `apps/web`, and `packages/shared` build independently                                                           |
+| Database               | PostgreSQL 18 or later                                        | Row-level security, `set_config`, and partial unique indexes are assumed available                                          |
+| Persistence            | `pg-schemata` over `pg-promise`                               | The only data-access abstraction (`ARCH-049`); `pg-promise` is reached only through it                                      |
+| Spreadsheets           | `@nap-sft/tablsx`                                             | Reads and writes workbook bytes in memory behind the framework's import and export routes; reached only inside `framework/` |
+| API framework          | Express                                                       | Used through `framework/`; modules do not construct routers or touch request objects directly                               |
+| Transport contracts    | Zod schemas in `@nap/shared`                                  | The one validation library on both sides of the API boundary (`ARCH-043`)                                                   |
+| Credentials            | Argon2id password hashing                                     | No second hashing scheme; parameters are owned by the identity component PRD                                                |
+| Sessions               | Session cookie signed with `jose`                             | The cookie carries a reference, never an authorization decision (`ARCH-022`, `ARCH-023`)                                    |
+| Logging                | `pino`, JSON records on standard output                       | One logger; the platform owns log destination and retention                                                                 |
+| Cache                  | Redis                                                         | Keeps session and authorization lookups off the database path; PostgreSQL still decides (`ARCH-029`)                        |
+| Object storage         | Amazon S3                                                     | Holds every binary document; the SDK stays behind an API service (`ARCH-030`)                                               |
+| Web framework          | React with React Router                                       | One router; route-level lazy loading at module boundaries                                                                   |
+| Web UI kit             | MUI, MUI X Data Grid, and Emotion                             | One component library and one styling mechanism; no second UI kit or CSS framework                                          |
+| Web build              | Vite                                                          | The web client is a static build served beside the API origin                                                               |
+| Tests                  | Vitest, with Supertest for HTTP and Testing Library for React | One test runner across every workspace                                                                                      |
+| Lint and format        | ESLint with `typescript-eslint`, and Prettier                 | Formatting is checked, not negotiated per file                                                                              |
+| Continuous integration | GitHub Actions                                                | The pull-request gate runs the repository checks below                                                                      |
 
 The repository check commands are `lint`, `format:check`, `typecheck`, `test`,
 `build`, and `licenses`. Continuous integration runs the same commands as the
@@ -572,12 +573,18 @@ so no static route is shadowed. Every route is individually disableable, and a
 disabled route answers exactly as an unregistered path does rather than
 admitting that the operation exists. An uploaded spreadsheet is bounded input
 that the request consumes; it does not become a stored document and does not
-change the object-storage boundary in `ARCH-030`.
+change the object-storage boundary in `ARCH-030`. `POST /import-xls` receives
+the workbook bytes as the request body with the media type
+`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` and the
+sheet index as a query parameter; the API parses no multipart form.
+`POST /export-xls` takes the list parameters of `GET /` as query parameters and
+answers with the same media type.
 
 An operation outside that set is registered through the factory's extension
 callback, which gives it the same middleware chain, transaction boundary,
 validation, and error mapping as a standard route. A hand-assembled router is a
-defect, not a variation.
+defect, not a variation. The route registry mounts a module's router at
+`/api/<module>/v<n>/<router>`.
 
 Every request passes the same ordered chain: correlation identifier,
 authentication, active-tenant resolution, module entitlement, permission,
@@ -588,9 +595,10 @@ the module registers runs inside that transaction so a refusal rolls back with
 it. An admin-targeted controller has no tenant context and uses the admin
 handle's repositories directly.
 
-List routes accept a bounded page size, a sort expression, and a soft-deletion
-selector that chooses active, archived, or both. Every other query parameter is
-a filter validated against the model's `TableSchema`; an unknown column is
+List routes accept a bounded page size as `size`, a sort expression as
+`sort`, a continuation value as `cursor`, and a soft-deletion selector as
+`archived` that chooses active, archived, or both. Every other query parameter
+is a filter validated against the model's `TableSchema`; an unknown column is
 rejected rather than ignored, so a mistyped filter cannot silently widen a
 result. A page size above the maximum is reduced to it, and the applied value
 is reported back with the results. Sequential traversal of a large result set
@@ -1635,6 +1643,7 @@ every production dependency carries an allowed license.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-07 | Added the spreadsheet library to the technology stack, and named the raw upload media type, the list parameter names, and the router mount path in the framework HTTP contract                                                                                                                                                      |
 | 2026-09-07 | Recorded the success and list envelope factories, the `page` fields `size`, `total`, and `cursor`, and the transport version constant beside the error schema in the shared package boundary, and completed the identity-folder sentence                                                                                            |
 | 2026-09-06 | Required safe database message forms in addition to discarded metadata, and boundary-owned request failure logging (ADR 0003)                                                                                                                                                                                                       |
 | 2026-09-06 | Allowed capability-only implementation-plan filenames for specification-owned work without a component PRD (ADR 0002)                                                                                                                                                                                                               |

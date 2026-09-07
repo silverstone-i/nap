@@ -36,7 +36,10 @@ export const errorResponses = {
     status: 415,
     message: 'Unsupported request media type',
   },
+  UNAUTHENTICATED: { status: 401, message: 'Authentication required' },
+  FORBIDDEN: { status: 403, message: 'Forbidden' },
   NOT_FOUND: { status: 404, message: 'Not found' },
+  CONFLICT: { status: 409, message: 'Conflicts with existing data' },
   SERVICE_UNAVAILABLE: { status: 503, message: 'Service unavailable' },
   INTERNAL_ERROR: { status: 500, message: 'Internal server error' },
 } satisfies Record<ApiErrorCode, { status: number; message: string }>;

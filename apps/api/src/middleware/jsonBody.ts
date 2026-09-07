@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import { xlsxMediaType } from '@nap/shared';
 import { HttpError } from '../util/httpError.js';
 import type { RequestHandler } from 'express';
 
@@ -17,12 +18,18 @@ const parse = express.json({ limit: '100kb', inflate: false });
  * Why: parser failures are mapped here to one of three fixed error codes
  * (PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, INVALID_INPUT) so text from the
  * parser library never reaches the client. Compressed bodies, bodies over
- * 100 KB, and non-JSON content types are refused before parsing starts.
+ * 100 KB, and non-JSON content types are refused before parsing starts. A
+ * workbook body is left unread for the framework's import route, which reads
+ * it behind its own ceiling; on any other route it is a missing body.
  */
 export const jsonBody: RequestHandler = (request, response, next) => {
   const encoding = request.headers['content-encoding'];
   if (encoding && encoding.toLowerCase() !== 'identity') {
     next(new HttpError('UNSUPPORTED_MEDIA_TYPE'));
+    return;
+  }
+  if (request.is(xlsxMediaType)) {
+    next();
     return;
   }
   const length = request.headers['content-length'];

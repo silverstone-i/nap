@@ -11,18 +11,23 @@ import { jsonBody } from './middleware/jsonBody.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { HttpError } from './util/httpError.js';
 import { sendContract } from './util/sendContract.js';
+import { mountRoutes } from './framework/routeRegistry.js';
+import type { CellHandle } from './db/cell/repositories.js';
 
 /**
  * Does: Builds the Express application: the shared middleware chain, the two
- * health endpoints, the not-found fallback, and the error handler.
+ * health endpoints, every registered module router, the not-found fallback,
+ * and the error handler.
  * Called by: createRuntime at startup, and by app tests directly.
  * Why: it opens no listener and connects to no database, so tests can drive
  * it with in-memory requests. The isReady callback decides what the readiness
  * endpoint answers and defaults to "not ready", so a bare app never reports
- * itself ready to serve.
+ * itself ready to serve. Module routers are mounted only when the cell handle
+ * is given; without it the app carries the health routes alone.
  */
 export function createApp(
-  isReady: () => Promise<boolean> = () => Promise.resolve(false)
+  isReady: () => Promise<boolean> = () => Promise.resolve(false),
+  handles?: { cell: CellHandle }
 ) {
   const app = express();
   app.disable('x-powered-by');
@@ -44,6 +49,7 @@ export function createApp(
       data: { status: 'ok' },
     });
   });
+  if (handles) mountRoutes(app, handles);
   app.use((_request, _response, next) => next(new HttpError('NOT_FOUND')));
   app.use(errorHandler);
   return app;
