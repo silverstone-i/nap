@@ -3,5 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+export * from './envelopes.js';
 export * from './errors.js';
 export * from './health.js';

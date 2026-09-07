@@ -172,7 +172,7 @@ start from the specification and applicable ADRs.
 | Database and migration foundation             | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Tenant isolation foundation                   | Accepted | Verified       | Database foundation                                                                                |
 | Operational baseline                          | Accepted | Implemented    | Tenant isolation foundation                                                                        |
-| Shared transport package                      | Draft    | In progress    | Operational baseline                                                                               |
+| Shared transport package                      | Accepted | Implemented    | Operational baseline                                                                               |
 | Framework HTTP surface                        | Draft    | Not started    | Shared transport package                                                                           |
 | Brand, theme, and web entry surface           | Draft    | Not started    | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Draft    | Not started    | Workspace and toolchain                                                                            |
@@ -369,7 +369,7 @@ The capability remains Implemented until merge and CI evidence is recorded.
 **Outcome:** `@nap/shared` carries the runtime validation schemas and inferred
 types both sides of the API boundary use.
 
-**Design:** Draft. **Implementation:** In progress.
+**Design:** Accepted (specification-owned). **Implementation:** Implemented.
 
 **Depends on:** Operational baseline.
 
@@ -388,6 +388,27 @@ component code.
 `apiErrorSchema`, health success schema, and transport/root barrels. Remaining
 work is broader success/list contracts and their API/client validation; do not
 recreate the existing contracts.
+
+**Implementation:** The success and list envelope factories, `pageSchema`
+with `size`, `total`, and optional `cursor`, and the `transportVersion`
+constant are implemented, and the health and error schemas are built from
+them. The API validates request bodies with `validateBody` and outgoing bodies
+with `sendContract`; the web client validates every reply with
+`requestContract` and keeps the request identifier. Delivery follows the
+[shared transport package plan](../implementation-plans/shared-transport-package.md).
+
+**Deferred:** List request parameters — page size, continuation cursor,
+soft-deletion selector, and sort — belong to Framework HTTP surface, which
+owns list parameter parsing. No production route uses `validateBody` and no
+screen uses `requestContract` until authentication delivers the first.
+Merge/CI evidence remains pending.
+
+**Local evidence (2026-09-07):** Node 24.19.0 passed lint, typecheck, all 118
+tests, build, format:check, and licenses. Tests cover envelope acceptance and
+rejection at every level, dotted field errors and value non-disclosure at the
+API boundary, contract-violating responses answered as generic failures, and
+client handling of success, error, unreadable, and network outcomes. The
+capability remains Implemented until merge and CI evidence is recorded.
 
 ### Framework HTTP surface
 
