@@ -6,13 +6,21 @@
 import type { Database } from 'pg-schemata';
 
 /**
- * Refuse a runtime connection that can bypass isolation or acquire ownership.
- * Walk every membership, including NOINHERIT/SET ROLE paths, conservatively:
- * deployment roles must not belong to privileged or owning groups. Inspect the
- * login as well as current role so a connection cannot hide behind SET ROLE.
- * Catalog failures propagate as fixed diagnostics and therefore fail startup.
- * Accept a transaction owner so readiness can use its cancellable pooled client;
- * timeoutMs limits the catalog statement within the caller's remaining budget.
+ * Does: Checks that the database role this connection runs as cannot bypass
+ * row-level security (the per-tenant row filter), own objects, or create
+ * roles, databases, or schemas.
+ * Called by: the readiness checker on every cycle, at startup and from the
+ * readiness endpoint, and by database integration tests.
+ * Why: a runtime role with any of those powers could read another tenant's
+ * rows or alter the schema, so startup must fail rather than serve. The query
+ * follows every role membership, including ones reachable only through SET
+ * ROLE, and checks the login role as well as the current role so a
+ * connection cannot hide behind SET ROLE. Any query failure is reported with
+ * one fixed message so catalog errors never leak detail.
+ * @param database Anything with a transaction method; readiness passes its
+ * own cancellable probe connection instead of the whole pool.
+ * @param timeoutMs Statement timeout for the catalog query, in milliseconds.
+ * @throws With a fixed message when the role is unsafe or the check fails.
  */
 export async function assertRuntimeRole(
   database: Pick<Database, 'transaction'>,

@@ -7,16 +7,29 @@ import { z } from 'zod';
 import type { DbConnection } from 'pg-schemata';
 import type { CellDatabase } from './cell/index.js';
 
-/** Executor and repositories valid only inside a tenant callback. */
+/**
+ * Does: Types the transaction handed to a tenant callback: the query
+ * executor plus the repositories registered on the cell database.
+ * Used by: withTenantTransaction and the callbacks passed to it.
+ * Why: it is valid only inside the callback; the transaction ends when the
+ * callback returns.
+ */
 export type CellTransaction<R = Record<never, never>> = DbConnection & R;
 const tenantUuid = z.uuid();
 
 /**
- * Run tenant business work from requests, jobs, imports, or reports in one
- * isolated cell transaction. The caller supplies a server-resolved tenant UUID.
- * Invalid UUIDs fail before database access; work failures roll back and propagate.
- * Return detached values only: never retain or return the transaction or its
- * repositories. Identity escape is checked; repository escape is a review boundary.
+ * Does: Runs a callback inside one database transaction that can only see
+ * the given tenant's rows, and returns whatever the callback returns.
+ * Called by: any code doing tenant business work: request handlers, jobs,
+ * imports, reports, and the tenant-isolation tests.
+ * Why: the tenant ID is set as a transaction-local setting that the
+ * database's row filters read, so every query in the callback is scoped to
+ * that tenant without each query saying so. The tenant ID must be one the
+ * server resolved, never one taken from the client, and it must be a UUID
+ * or the call fails before touching the database. If the callback throws,
+ * the transaction rolls back and the error propagates. Do not return or
+ * keep the transaction or its repositories: returning the transaction
+ * itself is detected and rejected; returning a repository is left to review.
  */
 export async function withTenantTransaction<T, R = Record<never, never>>(
   cellDb: CellDatabase<R>,

@@ -49,9 +49,10 @@ Before designing or implementing work:
 2. Read the relevant component PRD.
 3. Read the [ADR index](ADRs/INDEX.md), then every applicable ADR.
 4. Follow [JavaScript-first TypeScript](RULES/javascript-first-typescript.md)
-   for all new and changed TypeScript code, and read every other applicable
-   RULES document. Until a subject has its own RULES file, the specification
-   section that owns it governs —
+   and [Code documentation](RULES/code-documentation.md) for all new and
+   changed TypeScript code, and read every other applicable RULES document.
+   Until a subject has its own RULES file, the specification section that
+   owns it governs —
    [operational standards](specs/nap-platform-specification.md#operational-standards)
    for runtime work, and [CLAUDE.md](../CLAUDE.md#commit-and-release-operations)
    for repository and release work.

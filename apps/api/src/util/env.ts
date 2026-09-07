@@ -7,12 +7,14 @@ import { statSync } from 'node:fs';
 import { loadEnvFile } from 'node:process';
 
 /**
- * Load the API workspace's optional .env for API startup and database setup.
- * Uses Node's loader to fill missing process.env values; returns nothing.
- * Inherited values (including empty strings) win, so local settings cannot
- * override CI or deployment configuration. Reads the file synchronously during
- * initialization. A missing file is allowed for environments configured externally;
- * errors from loading an existing file propagate to the caller.
+ * Does: Loads the API workspace's .env file into process.env, if the file
+ * exists, without overwriting values already set.
+ * Called by: the server entry point, the migrate script, and the database
+ * setup script, before they read any configuration.
+ * Why: values already in the environment win, even empty ones, so a local
+ * .env can never override CI or deployment settings. A missing file is
+ * normal for environments configured externally; any other error reading
+ * the file propagates.
  */
 export function loadLocalEnvironment() {
   // Resolve from this module so source and compiled entry points use the same
@@ -25,10 +27,12 @@ export function loadLocalEnvironment() {
 }
 
 /**
- * Return the numeric listening port for API startup, using 3000 when PORT is absent.
- * Reads the supplied environment (process.env by default) without changing it.
- * Reject port 0 so startup uses a known port rather than an OS-assigned one.
- * @throws If PORT is not a decimal integer in 1–65535.
+ * Does: Returns the port the API should listen on, from PORT, defaulting
+ * to 3000.
+ * Called by: the server entry point at startup, and unit tests.
+ * Why: port 0 is rejected because it would let the OS pick a port, and
+ * startup needs a known one.
+ * @throws If PORT is set and is not a whole number from 1 to 65535.
  */
 export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
   const value = env.PORT ?? '3000';
@@ -39,17 +43,17 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
 }
 
 /**
- * Read one named environment URL for resolveSetupConfiguration and return its
- * host, port, user, password, and database. Does not connect to PostgreSQL.
- * Setup needs separate fields to pass connection settings to psql and compare
- * database targets and roles before provisioning.
- *
- * Only explicit credentials and simple database/role identifiers are supported.
- * Query options and fragments are rejected because this conversion does not carry
- * them into psql; accepting them would silently discard part of the supplied URL.
- * @throws If the URL is missing or unsupported. Errors identify only the variable
- * to avoid leaking passwords through URLs or parser diagnostics. Returned fields
- * contain credentials and must never be logged.
+ * Does: Reads one environment variable holding a PostgreSQL URL and splits
+ * it into host, port, user, password, and database name.
+ * Called by: resolveSetupConfiguration, once per URL it needs.
+ * Why: the setup script passes these fields to psql separately and compares
+ * them across URLs, so it needs the parts, not the string. Query options and
+ * fragments are rejected rather than dropped, because this conversion cannot
+ * carry them to psql and silently losing part of a URL is worse than
+ * failing. User and database names must be simple lowercase identifiers.
+ * The returned password is a secret; never log it.
+ * @throws With only the variable name when the URL is missing or invalid,
+ * so a password in a bad URL never appears in an error message.
  */
 function connection(env: NodeJS.ProcessEnv, name: string) {
   try {
@@ -82,20 +86,23 @@ function connection(env: NodeJS.ProcessEnv, name: string) {
 }
 
 /**
- * Read and validate configuration for the development/test database setup script,
- * not normal API startup. Selects DEV or TEST settings from the supplied environment
- * (process.env by default); does not load .env or connect to PostgreSQL.
- *
- * Returns the setup connection and admin/cell runtime targets with their owners.
- * Check target and role consistency before provisioning so contradictory settings
- * fail before any database changes. Targets must share the setup server and owner
- * because setup creates both databases through that connection. Database names
- * must differ to keep setup, admin, and cell targets separate. A shared runtime
- * role must have one password because setup creates that role only once.
- *
- * @throws On an unsupported mode, missing/invalid URL, or inconsistent target or
- * role configuration. Returned connection fields are sensitive; errors are safe
- * to report. See the specification's database composition roots and ARCH-019.
+ * Does: Reads and cross-checks the database URLs the development or test
+ * database setup script needs, and returns the setup connection plus the
+ * admin and cell targets with their owning role.
+ * Called by: the setup script in scripts/, the test PostgreSQL fixture, and
+ * unit tests. Not used by API startup.
+ * Why: setup creates both databases through one connection, so every URL
+ * must point at the setup server and the migration user must be the setup
+ * user. The runtime and migration URLs for a target must name the same
+ * database but different users, the runtime user must match the configured
+ * runtime role, and the three database names must differ. A runtime role
+ * shared by both targets must have one password because setup creates the
+ * role once. All of this is checked before any database is touched. This
+ * function does not load .env or connect to PostgreSQL. See ARCH-019 and
+ * the specification's database composition roots.
+ * @param mode "test" or "development"; selects the _TEST or _DEV variables.
+ * @throws On an unknown mode, a missing or invalid URL, or inconsistent
+ * settings. Error text is safe to show; the returned values are not.
  */
 export function resolveSetupConfiguration(
   mode: string | undefined,
@@ -140,7 +147,16 @@ export function resolveSetupConfiguration(
   return { setup, targets };
 }
 
-/** Select the deployment environment without reading a database credential. */
+/**
+ * Does: Returns DEV, TEST, or PROD from NODE_ENV, defaulting to DEV when
+ * NODE_ENV is unset.
+ * Called by: the runtime and migration configuration readers, to pick which
+ * database URL variables to read.
+ * Why: this runs before any credential is read, so a bad NODE_ENV fails with
+ * a message that cannot contain a secret.
+ * @throws If NODE_ENV is set to anything other than development, test, or
+ * production.
+ */
 export function resolveEnvironment(env: NodeJS.ProcessEnv = process.env) {
   const mode = env.NODE_ENV ?? 'development';
   if (mode !== 'development' && mode !== 'test' && mode !== 'production')
@@ -149,9 +165,16 @@ export function resolveEnvironment(env: NodeJS.ProcessEnv = process.env) {
 }
 
 /**
- * Validate a driver URL without converting away TLS or application-name options.
- * Only connection options that cannot override the parsed target or session role
- * are accepted. Parser errors and sensitive values never become diagnostics.
+ * Does: Reads one environment variable holding a PostgreSQL URL, checks it,
+ * and returns the string unchanged plus a normalized host, port, and
+ * database key.
+ * Called by: resolveRuntimeConfiguration and resolveMigrationConfiguration.
+ * Why: the string is returned as-is so TLS and application-name options
+ * survive into the driver. Only those options are allowed; anything that
+ * could redirect the connection or change the session role is rejected.
+ * The key lets callers detect two URLs pointing at the same database.
+ * @throws With only the variable name, so neither the URL nor the parser's
+ * message can leak a credential.
  */
 function databaseUrl(env: NodeJS.ProcessEnv, name: string) {
   try {
@@ -191,9 +214,14 @@ function databaseUrl(env: NodeJS.ProcessEnv, name: string) {
 }
 
 /**
- * Resolve only runtime credentials. Returned values are secrets; do not log them.
- * Reject identical normalized endpoints before constructing pools. Deployment
- * configuration remains responsible for aliases that resolve to the same server.
+ * Does: Returns the admin and cell database URLs for the current NODE_ENV.
+ * Called by: the server entry point at startup.
+ * Why: only the runtime URLs are read here, never the migration ones. The
+ * two URLs must not resolve to the same host, port, and database, or startup
+ * fails; two hostnames that are aliases of one server are not detected and
+ * remain the deployment's responsibility. The returned strings contain
+ * passwords; never log them.
+ * @throws If NODE_ENV or either URL is invalid, or both URLs match.
  */
 export function resolveRuntimeConfiguration(
   env: NodeJS.ProcessEnv = process.env
@@ -206,7 +234,16 @@ export function resolveRuntimeConfiguration(
   return { admin: admin.connectionString, cell: cell.connectionString };
 }
 
-/** Resolve only the selected release credential, never the other target's URL. */
+/**
+ * Does: Returns the migration database URL for one target, admin or cell,
+ * for the current NODE_ENV.
+ * Called by: the migrate script.
+ * Why: only the requested target's URL is read, so a release for one
+ * database never needs, or validates, the other's credential. The returned
+ * string contains a password; never log it.
+ * @throws If the target is not admin or cell, or NODE_ENV or the URL is
+ * invalid.
+ */
 export function resolveMigrationConfiguration(
   target: 'admin' | 'cell',
   env: NodeJS.ProcessEnv = process.env

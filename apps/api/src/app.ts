@@ -11,7 +11,15 @@ import { jsonBody } from './middleware/jsonBody.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { HttpError } from './util/httpError.js';
 
-/** Construct HTTP boundaries without connecting databases or opening a listener. */
+/**
+ * Does: Builds the Express application: the shared middleware chain, the two
+ * health endpoints, the not-found fallback, and the error handler.
+ * Called by: createRuntime at startup, and by app tests directly.
+ * Why: it opens no listener and connects to no database, so tests can drive
+ * it with in-memory requests. The isReady callback decides what the readiness
+ * endpoint answers and defaults to "not ready", so a bare app never reports
+ * itself ready to serve.
+ */
 export function createApp(
   isReady: () => Promise<boolean> = () => Promise.resolve(false)
 ) {

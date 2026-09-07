@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Adopt a code documentation convention for function, type, and constant
+  comments, and rewrite the existing API and web source comments to it.
+
 ## [v0.4.0] - 2026-09-06
 
 ### Added

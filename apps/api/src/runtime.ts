@@ -10,9 +10,15 @@ import { logger } from './util/logger.js';
 import type { Database } from 'pg-schemata';
 
 /**
- * Own the listener and database shutdown ordering without installing process
- * handlers. The entry point owns signals and final exit; tests use real sockets
- * with short deadlines. Handles are registered before start and never afterward.
+ * Does: Creates the HTTP server and returns start and shutdown functions
+ * for it, given the database connections it depends on.
+ * Called by: the server entry point at startup, and by runtime tests with
+ * short deadlines and real sockets.
+ * Why: start refuses to listen until every database passes a readiness
+ * check. Shutdown drains HTTP connections before closing database pools so
+ * in-flight requests finish against open connections. This function installs
+ * no signal handlers and never exits the process; the entry point owns both.
+ * All database handles are supplied here; none can be added after start.
  */
 export function createRuntime(
   handles: readonly Database[],
@@ -37,7 +43,15 @@ export function createRuntime(
     });
   });
 
-  /** Verify security and connectivity before allowing the listener to accept work. */
+  /**
+   * Does: Checks that both databases are reachable and running as a safe
+   * role, then opens the HTTP listener on the given port.
+   * Called by: the server entry point once at startup, and runtime tests.
+   * Why: refusing to listen until readiness passes means a misconfigured or
+   * over-privileged database fails startup instead of serving requests. If
+   * shutdown has already begun, this returns without doing anything.
+   * @throws If readiness fails or the port cannot be bound.
+   */
   async function start(port: number) {
     if (stopped) return;
     if (!(await readiness.check())) {
@@ -46,10 +60,12 @@ export function createRuntime(
     }
     if (stopped) return;
     await new Promise<void>((resolve, reject) => {
+      /** Does: Rejects the listen promise when the server fails to listen. */
       function failed() {
         server.removeListener('listening', opened);
         reject(new Error('API failed to listen'));
       }
+      /** Does: Marks the server listening and resolves the listen promise. */
       function opened() {
         server.removeListener('error', failed);
         listening = true;
@@ -62,7 +78,16 @@ export function createRuntime(
     if (!stopped) logger.info({ event: 'api.started' }, 'API listening');
   }
 
-  /** Drain HTTP before pools; terminal deadlines are reported to the entry point. */
+  /**
+   * Does: Stops accepting requests, waits for in-flight requests to finish,
+   * closes every database pool, and returns the exit code to use.
+   * Called by: the server entry point on SIGINT, SIGTERM, or startup failure,
+   * and by runtime tests.
+   * Why: HTTP drains before pools close so a request in progress never loses
+   * its database connection. Each stage has a deadline; if either expires, or
+   * any pool fails to close, the exit code is 1 so the entry point reports
+   * it. Repeated calls return the same promise.
+   */
   function shutdown(code = 0): Promise<number> {
     if (stopping) return stopping;
     stopped = true;

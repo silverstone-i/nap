@@ -9,10 +9,15 @@ import { assertModules, CELL_SCHEMAS } from './modules.js';
 import type { DatabaseTarget, NapModuleDescriptor } from './modules.js';
 
 /**
- * Execute one explicit release target. Validation precedes pool creation; each
- * schema uses the library's transaction, lock, and checksum enforcement. Earlier
- * schemas remain committed on failure. Always closes only this release handle.
- * Fixtures may supply descriptors, but the CLI uses static production registries.
+ * Does: Applies every pending migration for one database, schema by schema,
+ * using a pool opened and closed inside this call.
+ * Called by: the migrate script for a release, and by database test fixtures
+ * with their own module lists.
+ * Why: the module list is validated before any connection is opened, so a
+ * bad registry fails without touching the database. Each schema migrates
+ * inside the library's own transaction with locking and checksum checks, so
+ * a failure in one schema leaves earlier schemas committed and later ones
+ * untouched. The pool is always closed, even on failure.
  */
 export async function migrateDatabase(
   target: DatabaseTarget,

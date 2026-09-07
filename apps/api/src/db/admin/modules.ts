@@ -5,7 +5,13 @@
 
 import type { NapModuleDescriptor } from '../modules.js';
 
-/** Production composition root; feature modules register here when delivered. */
+/**
+ * Does: Lists every database module that lives in the admin database.
+ * Used by: the migrate script to run admin migrations.
+ * Why: this is the one place admin modules are registered; a feature adds
+ * its descriptor here when it ships. It is empty until the first admin
+ * module is delivered.
+ */
 export const adminModules: readonly Extract<
   NapModuleDescriptor,
   { databaseTarget: 'admin' }

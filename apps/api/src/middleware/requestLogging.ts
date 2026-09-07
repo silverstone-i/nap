@@ -8,7 +8,14 @@ import { logger } from '../util/logger.js';
 import { requestContext } from '../util/requestContext.js';
 import type { RequestHandler } from 'express';
 
-/** Emit one completion record without raw URL, query, header, or payload fields. */
+/**
+ * Does: Writes one log record when a request finishes or its connection
+ * closes, with the request ID, route name, status, duration, and outcome.
+ * Called by: the app, second in the middleware chain, on every request.
+ * Why: the record deliberately carries no URL, query string, headers, or
+ * body, so nothing a client sends can land in the logs. The route is one of
+ * three fixed names rather than the path for the same reason.
+ */
 export const requestLogging: RequestHandler = (request, response, next) => {
   const started = performance.now();
   const context = requestContext.getStore();
@@ -19,6 +26,7 @@ export const requestLogging: RequestHandler = (request, response, next) => {
       : request.path === '/health/ready'
         ? 'health.ready'
         : 'unmatched';
+  /** Does: Emits the completion record once, whichever event fires first. */
   function complete() {
     if (completed) return;
     completed = true;
