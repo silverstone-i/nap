@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.7.0] - 2026-09-07
+
 ### Added
 
 - Add the branded web entry page, shared MUI theme and wordmark, persistent
