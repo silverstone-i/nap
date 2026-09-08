@@ -1,7 +1,7 @@
 # 0005 — Core identity records
 
 **Design:** Accepted (owner approved, 2026-09-08).
-**Implementation:** Implemented (working tree; Verified upon merge with required checks passing).
+**Implementation:** Verified upon merge of [PR #15](https://github.com/silverstone-i/nap/pull/15) with required checks passing.
 
 ## Authority
 
@@ -57,3 +57,8 @@ immutable keys, replay-safe provisioning, and absence of business data in admin.
 | 2026-09-08 | Accepted minimal Core records brought forward for PRD 0004. |
 
 | 2026-09-08 | Completed implementation and local acceptance checks; merge and CI remain pending. |
+
+Verification evidence: 287 repository tests and all required local checks pass;
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
+
+| 2026-09-08 | Reconciled verification for PR #15; status becomes effective on merge with required checks passing. |

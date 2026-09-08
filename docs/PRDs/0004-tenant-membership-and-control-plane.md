@@ -1,7 +1,7 @@
 # 0004 — Tenant membership and control plane
 
 **Design:** Accepted (owner approved, 2026-09-08).
-**Implementation:** Implemented (working tree; Verified upon merge with required checks passing).
+**Implementation:** Verified upon merge of [PR #15](https://github.com/silverstone-i/nap/pull/15) with required checks passing.
 
 ## Authority
 
@@ -160,3 +160,8 @@ activated. Reverting application security behavior requires session revocation.
 | 2026-09-08 | Completed implementation and local acceptance checks; merge and CI remain pending. |
 
 | 2026-09-08 | Clarified retry validation errors separately from durable cell synchronization failures. |
+
+Verification evidence: 287 repository tests and all required local checks pass;
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
+
+| 2026-09-08 | Reconciled verification for PR #15; status becomes effective on merge with required checks passing. |

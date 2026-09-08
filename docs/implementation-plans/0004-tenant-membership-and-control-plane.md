@@ -35,8 +35,8 @@ operator reconciliation explicitly. Runtime never seeds or migrates. Incomplete
 provisioning remains inaccessible and retryable. Keep additive data on rollback;
 revoke affected sessions before deploying older code without the new gates.
 Redis, email, full business RBAC, tenant movement, and second-cell deployment
-verification remain deferred. Implementation is Implemented; Verified requires
-complete evidence and merge with required CI passing.
+verification remain deferred. **Implementation:** Verified upon merge of [PR #15](https://github.com/silverstone-i/nap/pull/15)
+with required checks passing.
 
 ## Completed evidence — 2026-09-08
 
@@ -59,10 +59,12 @@ Verification resources were closed and cleaned up; real environments were not
 modified. Authentication PRD 0003, its plan and roadmap now record PR #14 as
 Verified with its existing merge/CI evidence.
 
-No commit, push, PR creation, deployment or merge was performed. New capability
-Verified status becomes effective only upon merge with required CI passing.
+Implementation and review fixes are committed in [PR #15](https://github.com/silverstone-i/nap/pull/15).
+No deployment was performed. Verified status becomes effective upon merge of
+PR #15 with required checks passing.
 
 Review regression coverage verifies rejected/failed session extensions clear audit
 attribution, missing first-write names leave retry jobs unchanged, and safe login
 destinations survive session remounting. The initial PR CI run exposed the login
-redirect race; the reviewed fix still requires passing CI on its pushed commit.
+redirect race; [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed after the fix.
+Required CI must also pass on the final documentation commit before merge.

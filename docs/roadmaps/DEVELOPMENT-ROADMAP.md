@@ -621,7 +621,7 @@ passing CI. Refreshed 2026-09-08: all 263 tests and repository checks pass.
 **Outcome:** A portal identity can list current memberships, select one active
 tenant, and never select a cell or database.
 
-**Design:** Accepted. **Implementation:** Implemented (working tree).
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #15](https://github.com/silverstone-i/nap/pull/15) with required checks passing.
 
 **Depends on:** Authentication and sessions.
 
@@ -654,7 +654,8 @@ RBAC remain later gates.
 **Local evidence (2026-09-08):** All 287 repository tests and required local
 checks pass, including 16 control-plane integration cases, all 25 authentication
 cases, and browser verification with disposable databases. Verified is effective
-upon merge of the capability PR with required CI passing. One-cell evidence does
+upon merge of [PR #15](https://github.com/silverstone-i/nap/pull/15) with required CI passing.
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed; the final PR head must pass required checks. One-cell evidence does
 not close the later second-cell or full business RBAC gates.
 
 ## Cell tenancy and provisioning
