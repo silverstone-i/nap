@@ -136,3 +136,6 @@ Document locations and the repository skeleton are defined in
 - [Brand, theme, and web entry surface](PRDs/0001-brand-theme-and-web-entry-surface.md)
 - [Release, versioning, and licensing operations](PRDs/0002-release-versioning-and-licensing-operations.md)
 - [Authentication and sessions](PRDs/0003-authentication-and-sessions.md)
+
+- [Tenant membership and control plane](PRDs/0004-tenant-membership-and-control-plane.md)
+- [Core identity records](PRDs/0005-core-identity-records.md)

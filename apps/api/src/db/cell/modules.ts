@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { descriptor as core } from '../../modules/core/descriptor.js';
+import { descriptor as tenancy } from '../../modules/cell-tenancy/descriptor.js';
 import type { NapModuleDescriptor } from '../modules.js';
 
 /**
@@ -15,4 +17,4 @@ import type { NapModuleDescriptor } from '../modules.js';
 export const cellModules: readonly Extract<
   NapModuleDescriptor,
   { databaseTarget: 'cell' }
->[] = [];
+>[] = [tenancy, core];

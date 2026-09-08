@@ -3,9 +3,22 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import {
+  memberships,
+  selectTenant,
+  startAccess,
+  endAccess,
+} from '../../../../services/tenantSelection.js';
+import {
+  cookieOptions,
+  sessionCookieName,
+} from '../../../../util/sessionCookie.js';
 import { z } from 'zod';
 import {
   authSuccessSchema,
+  membershipsResponseSchema,
+  selectionBodySchema,
+  accessBodySchema,
   loginBodySchema,
   passwordBodySchema,
   sessionResponseSchema,
@@ -79,6 +92,87 @@ export default function authRouter(db: AdminHandle, config: AuthConfiguration) {
         params: empty,
         response: authSuccessSchema,
         operation: (tx, input) => changePassword(tx, input, config),
+      });
+      add({
+        action: 'memberships',
+        method: 'get',
+        path: '/memberships',
+        access: 'authenticated',
+        body: z.undefined(),
+        query: empty,
+        params: empty,
+        response: membershipsResponseSchema,
+        operation: async (tx, input) => ({
+          version: transportVersion,
+          data: await memberships(tx, input.session),
+        }),
+      });
+      add({
+        action: 'select',
+        method: 'post',
+        path: '/select',
+        access: 'authenticated',
+        body: selectionBodySchema,
+        query: empty,
+        params: empty,
+        response: authSuccessSchema,
+        operation: async (tx, input) => {
+          const cookie = await selectTenant(
+            tx,
+            input.session,
+            input.body.membership,
+            config
+          );
+          input.reply.setCookie(
+            sessionCookieName,
+            cookie,
+            cookieOptions(config)
+          );
+          return { version: transportVersion, data: null };
+        },
+      });
+      add({
+        action: 'access',
+        method: 'post',
+        path: '/access',
+        access: 'authenticated',
+        body: accessBodySchema,
+        query: empty,
+        params: empty,
+        response: authSuccessSchema,
+        operation: async (tx, input) => {
+          const cookie = await startAccess(
+            tx,
+            input.session,
+            input.body,
+            config
+          );
+          input.reply.setCookie(
+            sessionCookieName,
+            cookie,
+            cookieOptions(config)
+          );
+          return { version: transportVersion, data: null };
+        },
+      });
+      add({
+        action: 'end-access',
+        method: 'post',
+        path: '/end-access',
+        access: 'authenticated',
+        body: z.undefined(),
+        query: empty,
+        params: empty,
+        response: authSuccessSchema,
+        operation: async (tx, input) => {
+          const cookie = await endAccess(tx, input.session, config);
+          input.reply.setCookie(
+            sessionCookieName,
+            cookie,
+            cookieOptions(config)
+          );
+          return { version: transportVersion, data: null };
+        },
       });
     },
   });

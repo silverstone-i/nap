@@ -11,6 +11,7 @@ import type { DbConnection, Database, TableSchema } from 'pg-schemata';
  * Used by: the PortalUsers repository.
  */
 export type PortalUsersRow = {
+  must_change_password: boolean;
   id: string;
   created_at: Date;
   updated_at: Date;
@@ -38,6 +39,12 @@ export const portal_usersSchema: TableSchema = {
   },
   softDelete: true,
   columns: [
+    {
+      name: 'must_change_password',
+      type: 'boolean',
+      notNull: true,
+      default: false,
+    },
     {
       name: 'id',
       type: 'uuid',

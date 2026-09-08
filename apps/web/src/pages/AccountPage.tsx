@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Navigate } from 'react-router';
+import { Navigate, Link } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
@@ -63,6 +63,8 @@ export function AccountPage() {
     );
     if (result.ok) {
       element.reset();
+      const checked = await getSession();
+      if (checked.ok) setSession(checked.body.data);
       setNotice({
         message: 'Password changed. Other sessions have been signed out.',
         success: true,
@@ -102,6 +104,25 @@ export function AccountPage() {
         >
           Sign out
         </Button>
+        {state.session.state === 'password-change-required' ? (
+          <Alert severity="warning">
+            Change your temporary password before continuing.
+          </Alert>
+        ) : (
+          <>
+            {!state.session.controlledAccess && (
+              <Button component={Link} to="/tenants">
+                Choose tenant
+              </Button>
+            )}
+            {state.session.platformPermissions.length > 0 &&
+              !state.session.controlledAccess && (
+                <Button component={Link} to="/control">
+                  Administration
+                </Button>
+              )}
+          </>
+        )}
         <Divider />
         <Typography component="h2" variant="h6">
           Change password

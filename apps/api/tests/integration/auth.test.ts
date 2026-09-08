@@ -31,6 +31,9 @@ import {
 } from '../../src/util/sessionCookie.js';
 import * as passwords from '../../src/util/password.js';
 import { createApp } from '../../src/app.js';
+import { Sessions } from '../../src/modules/admin-tenancy/models/Sessions.js';
+import { resolveSession } from '../../src/services/sessions.js';
+import { requestContext } from '../../src/util/requestContext.js';
 import { logger } from '../../src/util/logger.js';
 
 let test: Awaited<ReturnType<typeof authDatabase>>;
@@ -178,7 +181,7 @@ it('clears only the email counter after successful login and retains the authent
   expect(rows[0]?.updated_by).toBe(test.root.actorId);
 });
 
-it('denies locked identities and memberships, inactive tenants, and zero or multiple memberships', async () => {
+it('denies locked identities and memberships, inactive tenants, and zero memberships; multiple bindings enter selection', async () => {
   const root = await test.admin.db.portal_users.findById(test.root.actorId);
   if (!root) throw new Error('Missing root');
   const user = await test.admin.db.portal_users.insert({
@@ -189,6 +192,9 @@ it('denies locked identities and memberships, inactive tenants, and zero or mult
   });
   const otherTenant = await test.admin.db.tenants.insert({
     tenant_code: 'OTHER',
+    cell_id: (await test.admin.db.tenants.findById(test.root.tenantId))!
+      .cell_id,
+    provisioned: true,
     company: 'Other',
     status: 'active',
   });
@@ -197,6 +203,9 @@ it('denies locked identities and memberships, inactive tenants, and zero or mult
     const membership = await test.admin.db.portal_user_tenants.insert({
       portal_user_id: user.id,
       tenant_id: test.root.tenantId,
+      ready: true,
+      user_type: 'vendor',
+      entity_id: randomUUID(),
       status: 'active',
     });
     expect((await login(undefined, user.email)).status).toBe(200);
@@ -220,9 +229,15 @@ it('denies locked identities and memberships, inactive tenants, and zero or mult
     await test.admin.db.portal_user_tenants.insert({
       portal_user_id: user.id,
       tenant_id: otherTenant.id,
+      ready: true,
+      user_type: 'vendor',
+      entity_id: randomUUID(),
       status: 'active',
     });
-    expect((await login(undefined, user.email)).status).toBe(401);
+    expect(
+      sessionResponseSchema.parse((await login(undefined, user.email)).body)
+        .data.state
+    ).toBe('tenant-selection-required');
   } finally {
     await test.admin.db.tenants.update(test.root.tenantId, {
       status: 'active',
@@ -450,7 +465,6 @@ it('enforces case-insensitive email uniqueness, root uniqueness, and root deleti
 it('rechecks locked membership and suspended tenant on the next cookie-bearing request', async () => {
   const value = cookie(await login());
   for (const [table, change, restore] of [
-    ['portal_user_tenants', "status = 'locked'", "status = 'active'"],
     ['tenants', "status = 'suspended'", "status = 'active'"],
   ]) {
     await test.owner.none('UPDATE admin.$1:name SET ' + change, [table]);
@@ -661,4 +675,31 @@ it('produces the same authentication schema after staged migrations as on a fres
     "SELECT event_object_table, trigger_name, action_statement FROM information_schema.triggers WHERE trigger_schema = 'admin' ORDER BY event_object_table, trigger_name, event_manipulation",
   ])
     expect(await upgraded.any(sql)).toEqual(await test.owner.any(sql));
+});
+
+it('clears audit attribution when session extension rejects or throws', async () => {
+  const signed = cookie(await login());
+  const extend = vi.spyOn(Sessions.prototype, 'extend');
+  try {
+    await requestContext.run({ requestId: randomUUID() }, async () => {
+      extend.mockResolvedValueOnce(null);
+      expect(
+        (await resolveSession(test.admin, signed, test.config))?.session
+      ).toBeUndefined();
+      expect(requestContext.getStore()?.actorId).toBeUndefined();
+      extend.mockRejectedValueOnce(new Error('extension failed'));
+      await expect(
+        resolveSession(test.admin, signed, test.config)
+      ).rejects.toThrow('extension failed');
+      expect(requestContext.getStore()?.actorId).toBeUndefined();
+    });
+  } finally {
+    extend.mockRestore();
+  }
+  await requestContext.run({ requestId: randomUUID() }, async () => {
+    expect(
+      (await resolveSession(test.admin, signed, test.config))?.session
+    ).toBeDefined();
+    expect(requestContext.getStore()?.actorId).toBe(test.root.actorId);
+  });
 });

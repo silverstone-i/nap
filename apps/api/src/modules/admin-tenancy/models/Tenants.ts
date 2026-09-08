@@ -11,6 +11,10 @@ import type { DbConnection, Database, TableSchema } from 'pg-schemata';
  * Used by: the Tenants repository.
  */
 export type TenantsRow = {
+  tier: string;
+  cell_id: string | null;
+  provisioned: boolean;
+  revision: number;
   id: string;
   created_at: Date;
   updated_at: Date;
@@ -37,6 +41,10 @@ export const tenantsSchema: TableSchema = {
   },
   softDelete: true,
   columns: [
+    { name: 'revision', type: 'integer', notNull: true, default: 1 },
+    { name: 'tier', type: 'text', notNull: true, default: 'starter' },
+    { name: 'cell_id', type: 'uuid' },
+    { name: 'provisioned', type: 'boolean', notNull: true, default: false },
     {
       name: 'id',
       type: 'uuid',
@@ -61,8 +69,20 @@ export const tenantsSchema: TableSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    checks: ["status IN ('pending', 'active', 'suspended')"],
+    checks: [
+      "status IN ('pending', 'active', 'suspended')",
+      "tier IN ('starter','growth','enterprise')",
+    ],
+    foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['cell_id'],
+        references: { schema: 'admin', table: 'cells', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+    ],
     indexes: [
+      { columns: ['cell_id'] },
       {
         columns: ['tenant_code'],
         unique: true,
@@ -102,7 +122,9 @@ export class Tenants extends TableModel<TenantsRow> {
       `GRANT USAGE ON SCHEMA admin TO $1:name;
       GRANT SELECT, INSERT, UPDATE ON admin.tenants, admin.portal_users,
         admin.portal_user_tenants, admin.sessions, admin.login_throttles TO $1:name;
-      GRANT DELETE ON admin.login_throttles TO $1:name`,
+      GRANT DELETE ON admin.login_throttles TO $1:name;
+      GRANT SELECT, INSERT, UPDATE ON admin.cells, admin.platform_grants, admin.provisioning_jobs TO $1:name;
+      GRANT SELECT, INSERT ON admin.managed_events TO $1:name`,
       [role]
     );
   }

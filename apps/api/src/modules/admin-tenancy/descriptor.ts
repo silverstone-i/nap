@@ -11,6 +11,8 @@ import { migration as migration3 } from './schema/migrations/003-portal_user_ten
 import { migration as migration4 } from './schema/migrations/004-sessions.js';
 import { migration as migration5 } from './schema/migrations/005-login_throttles.js';
 
+import { migration as migration6 } from './schema/migrations/006-control-plane.js';
+
 /**
  * Does: Registers authentication tables and migrations in the admin database.
  * Used by: the admin module registry.
@@ -20,5 +22,12 @@ export const descriptor = {
   databaseTarget: 'admin',
   schema: 'admin',
   models: repositories,
-  migrations: [migration1, migration2, migration3, migration4, migration5],
+  migrations: [
+    migration1,
+    migration2,
+    migration3,
+    migration4,
+    migration5,
+    migration6,
+  ],
 } satisfies NapModuleDescriptor;

@@ -186,6 +186,14 @@ it('proves only the admin-tenancy auth router declares anonymous or authenticate
   for (const file of sources(resolve(src, 'modules'))) {
     const name = relative(src, file);
     if (name === authRouterFile) continue;
+    if (name === 'modules/admin-tenancy/apiRoutes/v1/control.ts') {
+      expect(
+        accessDeclarations(tree(file)).every(value =>
+          value.endsWith("'platform'")
+        )
+      ).toBe(true);
+      continue;
+    }
     expect(accessDeclarations(tree(file)), name).toEqual([]);
   }
   const declaring =
@@ -201,7 +209,11 @@ it('proves only the admin-tenancy auth router declares anonymous or authenticate
 });
 
 it('registers the authentication module at its versioned path', () => {
-  expect(routeRegistry.map(mountPath)).toEqual(['/api/admin-tenancy/v1/auth']);
+  expect(routeRegistry.map(mountPath)).toEqual([
+    '/api/admin-tenancy/v1/control',
+    '/api/core/v1/identity',
+    '/api/admin-tenancy/v1/auth',
+  ]);
   expect(
     mountPath({
       module: 'core',

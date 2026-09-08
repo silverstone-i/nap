@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { cellRepositories } from '../db/cell/repositories.js';
+import { createCellDatabase } from '../db/cell/index.js';
 import { adminRepositories } from '../db/admin/repositories.js';
 import { createAdminDatabase } from '../db/admin/index.js';
 import { adminModules } from '../db/admin/modules.js';
@@ -37,6 +39,18 @@ try {
     try {
       await db.db.tenants.grantRuntime(
         process.env.ADMIN_RUNTIME_ROLE ?? 'nap_app'
+      );
+    } finally {
+      await db.close();
+    }
+  }
+  if (target === 'cell') {
+    const db = createCellDatabase(resolveMigrationConfiguration('cell'), {
+      repositories: cellRepositories,
+    });
+    try {
+      await db.db.employees.grantRuntime(
+        process.env.CELL_RUNTIME_ROLE ?? 'nap_app'
       );
     } finally {
       await db.close();

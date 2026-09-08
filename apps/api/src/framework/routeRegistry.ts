@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import controlRouter from '../modules/admin-tenancy/apiRoutes/v1/control.js';
+import identityRouter from '../modules/core/apiRoutes/v1/identity.js';
 import authRouter from '../modules/admin-tenancy/apiRoutes/v1/auth.js';
 import { authConfiguration } from '../util/authConfig.js';
 import type { AuthConfiguration } from '../util/authConfig.js';
@@ -27,7 +29,11 @@ export type RouteRegistration = {
   | { readonly target: 'cell'; readonly factory: (db: CellHandle) => Router }
   | {
       readonly target: 'admin';
-      readonly factory: (db: AdminHandle, config: AuthConfiguration) => Router;
+      readonly factory: (
+        db: AdminHandle,
+        config: AuthConfiguration,
+        cell: CellHandle
+      ) => Router;
     }
 );
 
@@ -40,6 +46,20 @@ export type RouteRegistration = {
  * only file outside the database registries that may import modules). Authentication is the first production router.
  */
 export const routeRegistry: readonly RouteRegistration[] = [
+  {
+    module: 'admin-tenancy',
+    version: 1,
+    router: 'control',
+    target: 'admin',
+    factory: controlRouter,
+  },
+  {
+    module: 'core',
+    version: 1,
+    router: 'identity',
+    target: 'cell',
+    factory: identityRouter,
+  },
   {
     module: 'admin-tenancy',
     version: 1,
@@ -77,7 +97,7 @@ export function mountRoutes(
     paths.add(path);
     const router =
       registration.target === 'admin'
-        ? registration.factory(handles.admin, config)
+        ? registration.factory(handles.admin, config, handles.cell)
         : registration.factory(handles.cell);
     app.use(path, router);
   }

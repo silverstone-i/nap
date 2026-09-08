@@ -94,6 +94,7 @@ export async function bootstrapRoot(
       if (existing.length === 0)
         await tx.portal_user_tenants.insert({
           portal_user_id: identity.id,
+          ready: true,
           tenant_id: tenant.id,
           status: 'active',
         });

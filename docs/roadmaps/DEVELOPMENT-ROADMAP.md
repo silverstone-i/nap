@@ -176,8 +176,8 @@ start from the specification and applicable ADRs.
 | Framework HTTP surface                        | Accepted | Verified       | Shared transport package                                                                           |
 | Brand, theme, and web entry surface           | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Authentication and sessions                   | Accepted | Implemented    | Framework HTTP surface; web entry                                                                  |
-| Tenant membership and control plane           | Draft    | Not started    | Authentication                                                                                     |
+| Authentication and sessions                   | Accepted | Verified       | Framework HTTP surface; web entry                                                                  |
+| Tenant membership and control plane           | Accepted | Implemented    | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Draft    | Not started    | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Draft    | Not started    | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Draft    | Not started    | RBAC and module entitlement                                                                        |
@@ -569,7 +569,7 @@ may publish a pending labelled batch.
 revocable, database-backed session bound to one tenant, and the seeded root
 identity exists so the operator can provision everything that follows.
 
-**Design:** Accepted (2026-09-07). **Implementation:** Implemented.
+**Design:** Accepted (2026-09-07). **Implementation:** Verified (PR #14; passing CI).
 
 **Depends on:** Framework HTTP surface, and the web entry surface for its
 routes.
@@ -613,18 +613,15 @@ identities with several memberships, cell assignment, and the
 employee-to-identity workflow belong to Tenant membership and control plane.
 Entitlement and permission sets stay empty until RBAC and module entitlement.
 
-**Current work:** Implemented in the working tree with pg-schemata 3.1.1,
-which resolves expression-index support. All 263 repository tests pass against
-the installed lockfile, including 24 authentication integration tests using
-disposable databases. Lint, typecheck, build, format, licenses, and diff checks
-pass. Verified remains pending merge and passing CI.
+**Evidence:** [PR #14](https://github.com/silverstone-i/nap/pull/14) merged with
+passing CI. Refreshed 2026-09-08: all 263 tests and repository checks pass.
 
 ### Tenant membership and control plane
 
 **Outcome:** A portal identity can list current memberships, select one active
 tenant, and never select a cell or database.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #15](https://github.com/silverstone-i/nap/pull/15) with required checks passing.
 
 **Depends on:** Authentication and sessions.
 
@@ -638,14 +635,28 @@ employee and client users one active tenant membership and allow vendor users
 several. Centrally authorized `package_admin` and `support` users may be
 granted access to or impersonation of any tenant without ordinary memberships
 in every tenant, but every tenant-data request still resolves one target
-tenant. Controlled administration owns the audit path; RBAC assigns the exact
-platform-role permissions.
+tenant. PRD 0004 owns the central permission vocabulary and audit path; later RBAC
+retains tenant business permissions.
 
 **Gate:** A second ordinary employee or client tenant membership is rejected;
 vendor multi-tenant memberships work with one active tenant at a time;
 unauthorized platform access is denied; authorized platform access or
 impersonation records its audit and resolves one target tenant to its one
 active cell assignment; revocation and stale state cannot increase access.
+
+**Accepted delivery:** [PRD 0004](../PRDs/0004-tenant-membership-and-control-plane.md),
+[PRD 0005](../PRDs/0005-core-identity-records.md), ADR 0006 and the
+[plan](../implementation-plans/0004-tenant-membership-and-control-plane.md)
+bring forward central platform permissions, minimal Core identity records and
+one-cell activation. Second-cell routing/provisioning proof and general tenant
+RBAC remain later gates.
+
+**Local evidence (2026-09-08):** All 287 repository tests and required local
+checks pass, including 16 control-plane integration cases, all 25 authentication
+cases, and browser verification with disposable databases. Verified is effective
+upon merge of [PR #15](https://github.com/silverstone-i/nap/pull/15) with required CI passing.
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed; the final PR head must pass required checks. One-cell evidence does
+not close the later second-cell or full business RBAC gates.
 
 ## Cell tenancy and provisioning
 
@@ -664,9 +675,11 @@ schema, exposes no API routes, is written only by the provisioning and
 synchronization service, and receives no PRD of its own; its projection tables
 are documented inside the `admin-tenancy` PRD.
 
-**Required surfaces:** Central workflow state, cell projections, idempotent
-synchronization and recovery services, tenant-selection middleware, one real
-web tenant-switch flow, operator status, and second-cell deployment tests.
+**Required surfaces:** PRD 0004 brings forward one-cell workflow state,
+projections, synchronization/recovery, tenant selection, web switching and
+operator status. This capability retains second-cell deployment/routing tests
+and any remaining provisioning requirements; it is not verified by one-cell
+evidence.
 
 **Gate:** Login, tenant selection, authoritative routing, a tenant-scoped cell
 read, cross-tenant denial, recoverable partial provisioning, and stable client
@@ -687,9 +700,9 @@ actor and active tenant before module code runs.
 numbering, preference, state-scope, or field-scope capabilities the first
 business release needs. Their tables belong to `core`; the request-time decision
 is a service. This capability also decides whether the module descriptor gains a
-`licensable` field, and it assigns the exact permissions for `package_admin` and
-`support`, including tenant selection, access, impersonation, reason capture,
-and audit review.
+`licensable` field. Central package_admin/support permissions, tenant selection,
+controlled access and audit are brought forward into PRD 0004; this capability
+adds tenant business authorization and its interaction with those controls.
 
 **Gate:** Allowed, denied, disabled, revoked, and stale-state cases pass through
 both API and web states. Platform-role tests prove privileged tenant access

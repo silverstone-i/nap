@@ -102,7 +102,7 @@ export type RouteMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
  * reserves them for the admin-tenancy authentication router, whose login
  * and logout routes run before a session exists.
  */
-export type RouteAccess = 'anonymous' | 'authenticated';
+export type RouteAccess = 'anonymous' | 'authenticated' | 'platform';
 
 /**
  * Does: Represents the session an extension operation receives for a given
@@ -114,7 +114,7 @@ export type RouteAccess = 'anonymous' | 'authenticated';
 export type SessionFor<A extends RouteAccess | undefined> =
   A extends 'anonymous'
     ? ResolvedSession | undefined
-    : A extends 'authenticated'
+    : A extends 'authenticated' | 'platform'
       ? ResolvedSession
       : ResolvedSession & { readonly tenantId: string };
 
@@ -361,12 +361,28 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         ? []
         : access === 'authenticated'
           ? [requireSession]
-          : [
-              requireSession,
-              requireTenant,
-              requireEntitlement(module),
-              requirePermission(`${module}::${name}::${action}`),
-            ];
+          : access === 'platform'
+            ? [
+                requireSession,
+                (_request, response, next) => {
+                  const session = response.locals.session;
+                  next(
+                    session?.view?.state !== 'password-change-required' &&
+                      !session?.view?.controlledAccess &&
+                      session?.platformPermissions?.has(
+                        `${module}::${name}::${action}`
+                      )
+                      ? undefined
+                      : new HttpError('FORBIDDEN')
+                  );
+                },
+              ]
+            : [
+                requireSession,
+                requireTenant,
+                requireEntitlement(module),
+                requirePermission(`${module}::${name}::${action}`),
+              ];
     router[method](path, label, ...gates, rejectTenantInput, ...handlers);
   }
 
@@ -656,7 +672,11 @@ export function createRouter<N extends string, R extends Repositories<N>>(
       const access = spec.access;
       if (
         access !== undefined &&
-        !mayDeclareAccess(module, name, binding.target)
+        !(access === 'platform'
+          ? module === 'admin-tenancy' &&
+            name === 'control' &&
+            binding.target === 'admin'
+          : mayDeclareAccess(module, name, binding.target))
       ) {
         throw new Error(
           `Route access may be declared only by the admin-bound admin-tenancy auth router: ${spec.action}`
@@ -672,7 +692,7 @@ export function createRouter<N extends string, R extends Repositories<N>>(
           // cast records the session shape the operation was declared for.
           const session = (access === 'anonymous'
             ? response.locals.session
-            : access === 'authenticated'
+            : access === 'authenticated' || access === 'platform'
               ? requiredSession(response)
               : resolvedSession(response)) as unknown as SessionFor<A>;
           const body = parseAt(spec.body, request.body);

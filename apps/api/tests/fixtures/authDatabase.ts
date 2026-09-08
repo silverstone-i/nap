@@ -9,6 +9,8 @@ import { postgresFixture } from './postgres.js';
 import { createAdminDatabase } from '../../src/db/admin/index.js';
 import { adminModules } from '../../src/db/admin/modules.js';
 import { adminRepositories } from '../../src/db/admin/repositories.js';
+import { cellRepositories } from '../../src/db/cell/repositories.js';
+import { cellModules } from '../../src/db/cell/modules.js';
 import { createCellDatabase } from '../../src/db/cell/index.js';
 import { migrateDatabase } from '../../src/db/migrate.js';
 import { authConfiguration } from '../../src/util/authConfig.js';
@@ -41,9 +43,20 @@ export async function authDatabase() {
   const admin = createAdminDatabase(fixture.runtimeUrl(fixture.adminUrl), {
     repositories: adminRepositories,
   });
-  const cell = createCellDatabase(fixture.runtimeUrl(fixture.cellUrl));
+  const cell = createCellDatabase(fixture.runtimeUrl(fixture.cellUrl), {
+    repositories: cellRepositories,
+  });
   try {
     await migrateDatabase('admin', fixture.adminUrl, adminModules);
+    await migrateDatabase('cell', fixture.cellUrl, cellModules);
+    const cellOwner = createCellDatabase(fixture.cellUrl, {
+      repositories: cellRepositories,
+    });
+    try {
+      await cellOwner.db.employees.grantRuntime(fixture.role);
+    } finally {
+      await cellOwner.close();
+    }
     const owner = fixture.owner(fixture.adminUrl);
     const grantDb = createAdminDatabase(fixture.adminUrl, {
       repositories: adminRepositories,
@@ -57,6 +70,13 @@ export async function authDatabase() {
     const root = await bootstrapRoot(
       admin,
       bootstrapConfiguration(authEnv, [])
+    );
+    const registered = await owner.one<{ id: string }>(
+      "INSERT INTO admin.cells(code,name,enabled) VALUES('cell-1','Fixture cell',true) RETURNING id"
+    );
+    await owner.none(
+      'UPDATE admin.tenants SET cell_id=$1,provisioned=true WHERE id=$2',
+      [registered.id, root.tenantId]
     );
     const app = createApp(undefined, { admin, cell }, { auth: config });
     const server = createServer(app);

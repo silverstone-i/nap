@@ -278,6 +278,7 @@ it('runs compiled CLI targets with only their selected credentials and safe fail
         PATH: process.env.PATH,
         NODE_ENV: 'test',
         ADMIN_RUNTIME_ROLE: fixture.role,
+        CELL_RUNTIME_ROLE: fixture.role,
         ADMIN_MIGRATION_URL_TEST: '',
         CELL_MIGRATION_URL_TEST: '',
         ...extra,

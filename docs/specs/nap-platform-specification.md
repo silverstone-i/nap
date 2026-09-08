@@ -608,6 +608,18 @@ authentication router may declare either, because they exist so the routes that
 create and end a session pass through the factory rather than around it, and
 the `ARCH-050` conformance test proves no other router does.
 
+Platform extension routes may declare `platform` access: authenticate, reject
+restricted-password and impersonated sessions, and require the route's current
+central platform permission. This variation skips ordinary tenant and product
+entitlement gates, never authorization. It is limited to admin-tenancy control
+routes. Its independently validated target identifiers are operation scope,
+never database context. Authentication membership-selection actions accept a
+membership id as intent and retain tenant-input rejection. Operator-only cell
+registry contracts may expose cell record identifiers; customer contracts may
+not. Core's initial identity-record read requires a resolved tenant and is
+restricted to the caller's linked record unless controlled access is authorized.
+ADR 0006 and PRDs 0004/0005 define these bounded additions.
+
 For AUTH-005, the anonymous login operation may queue `UNAUTHENTICATED` or
 `THROTTLED` through the factory's `refuseLogin` reply control. The transaction
 commits its throttle counters before the factory sends that refusal, with no
@@ -1046,24 +1058,24 @@ Sixteen modules, each targeting exactly one database and one schema
 (`ARCH-047`). Component PRDs refine their owned group without moving another
 module's ownership silently.
 
-| Module                | Database/schema  | Owned capability group                                                                                                                                                                                                       |
-| --------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `admin-tenancy`       | `admin/admin`    | Tenants, tenant status, cell registry, tenant-to-cell assignment, module entitlements, managed-operation and impersonation audit, portal identities, credentials, sessions, login throttling, and user-to-tenant memberships |
-| `cell-tenancy`        | `cell/cell`      | Tenant, membership, and entitlement enforcement projections                                                                                                                                                                  |
-| `reference-data`      | `cell/reference` | Country and policy catalogs                                                                                                                                                                                                  |
-| `core`                | `cell/app`       | Companies, employees, vendors, clients, contacts, addresses, contact methods, payment terms, tax identifiers, roles, permissions, state and field scopes, approvals, numbering, and preferences                              |
-| `catalog`             | `cell/app`       | Material/product definitions, vendor SKUs and pricing, external matching and matching audit, material-only BOM assemblies, component quantities, and nested assembly relationships                                           |
-| `projects`            | `cell/app`       | Company projects, recursive Project Components, memberships, project management, and operational changes                                                                                                                     |
-| `cost-codes`          | `cell/app`       | Cost categories, activity definitions, and their valid combinations used to classify estimated, scheduled, committed, and actual project work                                                                                |
-| `estimating`          | `cell/app`       | Estimate templates and versions, turnkey and BOM-derived cost inputs, material/labor breakdowns, bids, estimate approval, and release to production                                                                          |
-| `scheduling`          | `cell/app`       | Project and Project Component schedules, activity occurrences, dependencies, operational milestones, gates, deliverables, and completion state                                                                               |
-| `project-costs`       | `cell/app`       | Approved project cost baselines, approved cost changes, commitment and actual-cost references and rollups, forecasts, and variances                                                                                          |
-| `sales`               | `cell/app`       | Opportunities, quotes, buyer selections, and pre-execution approval workflows                                                                                                                                                |
-| `contracts`           | `cell/app`       | Binding agreements, immutable versions and snapshots, amendments, contractual change orders, milestones, and execution history                                                                                               |
-| `accounting`          | `cell/app`       | Ledgers, accounts, journals, balances, periods, posting, and intercompany activity                                                                                                                                           |
-| `accounts-payable`    | `cell/app`       | Purchase orders, vendor invoices, payment approvals, payments, allocations, and credit memos                                                                                                                                 |
-| `accounts-receivable` | `cell/app`       | AR invoices, receipts, allocations, and credit memos                                                                                                                                                                         |
-| `reporting`           | `cell/reporting` | Tenant-safe reporting views                                                                                                                                                                                                  |
+| Module                | Database/schema  | Owned capability group                                                                                                                                                                                                                                |
+| --------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin-tenancy`       | `admin/admin`    | Tenants, tenant status, cell registry, tenant-to-cell assignment, module entitlements, central platform grants, managed-operation and impersonation audit, portal identities, credentials, sessions, login throttling, and user-to-tenant memberships |
+| `cell-tenancy`        | `cell/cell`      | Tenant, membership, and entitlement enforcement projections                                                                                                                                                                                           |
+| `reference-data`      | `cell/reference` | Country and policy catalogs                                                                                                                                                                                                                           |
+| `core`                | `cell/app`       | Companies, employees, vendors, clients, contacts, addresses, contact methods, payment terms, tax identifiers, roles, permissions, state and field scopes, approvals, numbering, and preferences                                                       |
+| `catalog`             | `cell/app`       | Material/product definitions, vendor SKUs and pricing, external matching and matching audit, material-only BOM assemblies, component quantities, and nested assembly relationships                                                                    |
+| `projects`            | `cell/app`       | Company projects, recursive Project Components, memberships, project management, and operational changes                                                                                                                                              |
+| `cost-codes`          | `cell/app`       | Cost categories, activity definitions, and their valid combinations used to classify estimated, scheduled, committed, and actual project work                                                                                                         |
+| `estimating`          | `cell/app`       | Estimate templates and versions, turnkey and BOM-derived cost inputs, material/labor breakdowns, bids, estimate approval, and release to production                                                                                                   |
+| `scheduling`          | `cell/app`       | Project and Project Component schedules, activity occurrences, dependencies, operational milestones, gates, deliverables, and completion state                                                                                                        |
+| `project-costs`       | `cell/app`       | Approved project cost baselines, approved cost changes, commitment and actual-cost references and rollups, forecasts, and variances                                                                                                                   |
+| `sales`               | `cell/app`       | Opportunities, quotes, buyer selections, and pre-execution approval workflows                                                                                                                                                                         |
+| `contracts`           | `cell/app`       | Binding agreements, immutable versions and snapshots, amendments, contractual change orders, milestones, and execution history                                                                                                                        |
+| `accounting`          | `cell/app`       | Ledgers, accounts, journals, balances, periods, posting, and intercompany activity                                                                                                                                                                    |
+| `accounts-payable`    | `cell/app`       | Purchase orders, vendor invoices, payment approvals, payments, allocations, and credit memos                                                                                                                                                          |
+| `accounts-receivable` | `cell/app`       | AR invoices, receipts, allocations, and credit memos                                                                                                                                                                                                  |
+| `reporting`           | `cell/reporting` | Tenant-safe reporting views                                                                                                                                                                                                                           |
 
 Tenant/company/project ownership implements `ARCH-039` and `ARCH-040`.
 The project workflow owners implement `ARCH-041`; separate `sales` and
@@ -1077,7 +1089,7 @@ one. Do not split the module back apart on the assumption that it does.
 
 `identity` and `access-control` are not modules. Session and identity
 resolution is a service reading `admin-tenancy` tables; authorization is a
-service reading `core`'s role and permission tables. Both are consequences of
+service reading central platform grants and `core`'s tenant business role and permission tables. Both are consequences of
 `ARCH-042` and `ARCH-048`: middleware needs them before authorization
 completes, and middleware may not import a module.
 
@@ -1464,9 +1476,7 @@ to or impersonation of any tenant through RBAC and controlled-administration
 rules without creating ordinary memberships in every tenant. Each privileged
 tenant-data request still has exactly one target tenant and uses the controlled
 authorization and audit path. A cross-tenant operation remains a separate,
-explicitly scoped administrative entry point under `ARCH-021`. The RBAC and
-controlled-administration PRDs assign the exact permissions to each platform
-role.
+explicitly scoped administrative entry point under `ARCH-021`. PRD 0004 assigns central platform permissions; tenant business RBAC remains Core-owned (ADR 0006).
 
 Portal identities are created by controlled provisioning (`ARCH-028`) and the
 membership workflow, with one exception: the operator seeds a root
@@ -1675,6 +1685,7 @@ every production dependency carries an allowed license.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-08 | Accepted central platform grants, declared platform routes, restricted selection sessions, and operator-only cell registry contracts (ADR 0006).                                                                                                                                                                                    |
 | 2026-09-08 | Accepted the anonymous login-throttle audit-actor exception (ADR 0005) and documented the factory control that preserves failed-login throttle counters.                                                                                                                                                                            |
 | 2026-09-07 | Named the seeded root identity as the one exception to provisioned portal identities under `ARCH-040` (ADR 0004), and added admin-targeted routers and declared `anonymous` and `authenticated` extension-route access to the framework HTTP contract, with the matching conformance rows                                           |
 | 2026-09-07 | Added the spreadsheet library to the technology stack, and named the raw upload media type, the list parameter names, and the router mount path in the framework HTTP contract                                                                                                                                                      |

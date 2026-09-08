@@ -11,6 +11,10 @@ import type { DbConnection, Database, TableSchema } from 'pg-schemata';
  * Used by: the PortalUserTenants repository.
  */
 export type PortalUserTenantsRow = {
+  user_type: string | null;
+  entity_id: string | null;
+  ready: boolean;
+  revision: number;
   id: string;
   created_at: Date;
   updated_at: Date;
@@ -37,6 +41,10 @@ export const portal_user_tenantsSchema: TableSchema = {
   },
   softDelete: true,
   columns: [
+    { name: 'revision', type: 'integer', notNull: true, default: 1 },
+    { name: 'user_type', type: 'text' },
+    { name: 'entity_id', type: 'uuid' },
+    { name: 'ready', type: 'boolean', notNull: true, default: false },
     {
       name: 'id',
       type: 'uuid',
@@ -117,11 +125,18 @@ export class PortalUserTenants extends TableModel<PortalUserTenantsRow> {
    * Called by: authentication services during a request.
    */
   async activeFor(actorId: string) {
-    return this.db.any<{ tenant_id: string; tenant_code: string }>(
+    return this.db.any<{
+      id: string;
+      tenant_id: string;
+      tenant_code: string;
+      company: string;
+      user_type: string | null;
+      entity_id: string | null;
+    }>(
       `
-      SELECT m.tenant_id, t.tenant_code FROM admin.portal_user_tenants m
+      SELECT m.id, m.tenant_id, t.tenant_code,t.company,m.user_type,m.entity_id FROM admin.portal_user_tenants m
       JOIN admin.tenants t ON t.id = m.tenant_id
-      WHERE m.portal_user_id = $1 AND m.status = 'active' AND m.deactivated_at IS NULL
+      WHERE m.portal_user_id = $1 AND m.ready AND m.status = 'active' AND m.deactivated_at IS NULL
         AND t.status = 'active' AND t.deactivated_at IS NULL
       ORDER BY m.tenant_id FOR SHARE OF m, t`,
       [actorId]

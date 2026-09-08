@@ -27,6 +27,20 @@ export const routes: RouteObject[] = [
     ErrorBoundary: RouteError,
     children: [
       {
+        path: '/tenants',
+        HydrateFallback: RouteLoading,
+        lazy: async () => ({
+          Component: (await import('./pages/TenantsPage.js')).TenantsPage,
+        }),
+      },
+      {
+        path: '/control',
+        HydrateFallback: RouteLoading,
+        lazy: async () => ({
+          Component: (await import('./pages/ControlPage.js')).ControlPage,
+        }),
+      },
+      {
         path: '/login',
         HydrateFallback: RouteLoading,
         lazy: async () => ({

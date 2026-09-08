@@ -24,7 +24,6 @@ export function LoginPage() {
   const { state, setSession } = useSession();
   const [search] = useSearchParams();
   const [busy, setBusy] = useState(false);
-  const [destination, setDestination] = useState('/account');
   const [message, setMessage] = useState('');
   /** Does: Sends credentials and stores a checked session before navigating. */
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -43,10 +42,8 @@ export function LoginPage() {
     }
     const result = await login(parsed.data.email, parsed.data.password);
     setBusy(false);
-    if (result.ok) {
-      setDestination(safeNext(search.get('next')));
-      setSession(result.body.data);
-    } else
+    if (result.ok) setSession(result.body.data);
+    else
       setMessage(
         result.error.code === 'UNAUTHENTICATED'
           ? 'Email or password could not be verified.'
@@ -59,7 +56,19 @@ export function LoginPage() {
         <SessionStatus />
       </AuthFrame>
     );
-  if (state.session) return <Navigate to={destination} replace />;
+  if (state.session)
+    return (
+      <Navigate
+        to={
+          state.session.state === 'password-change-required'
+            ? '/account'
+            : state.session.state === 'tenant-selection-required'
+              ? '/tenants'
+              : safeNext(search.get('next'))
+        }
+        replace
+      />
+    );
   return (
     <AuthFrame title="Sign in">
       <Stack
