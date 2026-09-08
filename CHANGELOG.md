@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.10.0] - 2026-09-08
+
 ### Changed
 
 - Update pg-schemata to 3.1.1 and use explicit expression indexes for case-insensitive email uniqueness.
