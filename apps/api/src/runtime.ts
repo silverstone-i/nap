@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { RoutingConfiguration } from './util/routingConfig.js';
 import type { AuthConfiguration } from './util/authConfig.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
@@ -11,8 +12,8 @@ import { logger } from './util/logger.js';
 import type { AppHandles } from './app.js';
 
 /**
- * Does: Represents the two database connections the runtime serves with:
- * the central admin database and this deployment's one cell database.
+ * Does: Represents the database connections used by this API process:
+ * admin and one local cell database, or admin alone in routing mode.
  * Used by: createRuntime and the server entry point.
  */
 export type RuntimeHandles = AppHandles;
@@ -26,7 +27,7 @@ export type RuntimeHandles = AppHandles;
  * check. Shutdown drains HTTP connections before closing database pools so
  * in-flight requests finish against open connections. This function installs
  * no signal handlers and never exits the process; the entry point owns both.
- * Both database handles are supplied here; none can be added after start,
+ * All database handles are supplied here; none can be added after start,
  * and module routers are mounted against whichever of the two their
  * registration names. The trusted proxy hop count is passed to the app.
  */
@@ -38,16 +39,20 @@ export function createRuntime(
     poolCloseMs = 5000,
     trustProxyHops = 0,
     auth,
+    routing,
   }: {
     readinessMs?: number;
     drainMs?: number;
     poolCloseMs?: number;
     trustProxyHops?: number;
     auth?: AuthConfiguration;
+    routing?: RoutingConfiguration;
   } = {}
 ) {
-  const pools = [handles.admin, handles.cell];
-  const readiness = createReadiness(pools, readinessMs);
+  if (Boolean(routing) === Boolean(handles.cell))
+    throw new Error('Runtime requires either routing or one cell database');
+  const pools = handles.cell ? [handles.admin, handles.cell] : [handles.admin];
+  const readiness = createReadiness(pools, readinessMs, routing ? 1 : 2);
   let stopping: Promise<number> | undefined;
   let stopped = false;
   let listening = false;
@@ -58,7 +63,7 @@ export function createRuntime(
         return readiness.check();
       },
       handles,
-      { trustProxyHops, auth }
+      { trustProxyHops, auth, routing }
     )
   );
 

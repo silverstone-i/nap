@@ -606,7 +606,7 @@ it('retains absolute expiry across switching and rejects another deployment cell
         .get('/api/core/v1/identity/profile')
         .set('Cookie', cookie(switchReply))
     ).status
-  ).toBe(401);
+  ).toBe(403);
 });
 it('enforces RLS and immutable tenant keys on every new Core and projection table', async () => {
   const a = await activeTenant();

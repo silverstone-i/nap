@@ -208,7 +208,7 @@ async function runJob(
 /** Does: Executes a permission-checked central command and its audit. Called by: the factory's admin transaction. */
 export async function controlCommand(
   tx: AdminTransaction<AdminRepositories>,
-  cell: CellHandle,
+  cell: CellHandle | undefined,
   actor: string,
   body: z.infer<typeof controlBodySchema>,
   config: AuthConfiguration
@@ -375,9 +375,11 @@ export async function controlCommand(
       break;
     }
     case 'retry':
+      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
       await runJob(tx, cell, body.job, config, body.name);
       break;
     case 'reconcile': {
+      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
       const root = await tx.portal_users.lockIdentity(actor);
       if (!root?.is_root) throw new HttpError('FORBIDDEN');
       const memberships = await tx.portal_user_tenants.findWhere({
@@ -411,8 +413,13 @@ export async function controlCommand(
       break;
     }
     case 'activate': {
+      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
       const tenant = await assigned(tx, body.target, config);
-      if (tenant.status !== 'pending') throw new HttpError('CONFLICT');
+      if (
+        tenant.status !== 'pending' &&
+        !(tenant.status === 'active' && tenant.provisioned)
+      )
+        throw new HttpError('CONFLICT');
       const members = await tx.portal_user_tenants.findWhere({
         tenant_id: tenant.id,
         status: 'active',
@@ -422,18 +429,71 @@ export async function controlCommand(
       if (!admin || !admin.entity_id) throw new HttpError('CONFLICT');
       await projectTenant(tx, cell, tenant.id);
       await withTenantTransaction(cell, tenant.id, async local => {
-        if (!(await local.employees.findById(admin.entity_id!)))
+        const source = await tx.tenants.findById(tenant.id);
+        const projected = await local.cell_tenants.findById(tenant.id);
+        // A prior cell commit may survive an admin rollback. Accept only the exact next activation revision.
+        const current =
+          projected?.revision === source?.revision &&
+          projected?.status === source?.status;
+        const interrupted =
+          source?.status === 'pending' &&
+          projected?.status === 'active' &&
+          projected.revision === source.revision + 1;
+        if (
+          !source ||
+          !projected ||
+          projected.code !== source.tenant_code ||
+          (!current && !interrupted)
+        )
           throw new HttpError('CONFLICT');
+        for (const member of members) {
+          const binding = await local.tenant_user_bindings.findById(member.id);
+          if (
+            !binding ||
+            binding.revision !== member.revision ||
+            binding.status !== member.status ||
+            binding.portal_user_id !== member.portal_user_id ||
+            binding.entity_id !== member.entity_id ||
+            binding.user_type !== member.user_type ||
+            !member.entity_id
+          )
+            throw new HttpError('CONFLICT');
+          const record =
+            member.user_type === 'employee'
+              ? await local.employees.findById(member.entity_id)
+              : member.user_type === 'client'
+                ? await local.clients.findById(member.entity_id)
+                : member.user_type === 'vendor'
+                  ? await local.vendor_contacts.findById(member.entity_id)
+                  : null;
+          if (!record?.is_app_user) throw new HttpError('CONFLICT');
+          if (
+            'vendor_id' in record &&
+            (typeof record.vendor_id !== 'string' ||
+              !(await local.vendors.findById(record.vendor_id)))
+          )
+            throw new HttpError('CONFLICT');
+        }
       });
       await withTenantTransaction(cell, randomUUID(), async local => {
-        if (await local.employees.findById(admin.entity_id!))
-          throw new Error('Isolation proof failed');
+        for (const repository of [
+          local.cell_tenants,
+          local.tenant_user_bindings,
+          local.employees,
+          local.clients,
+          local.vendors,
+          local.vendor_contacts,
+        ]) {
+          if ((await repository.findWhere({ tenant_id: tenant.id })).length)
+            throw new Error('Isolation proof failed');
+        }
       });
-      await tx.tenants.update(tenant.id, {
-        revision: tenant.revision + 1,
-        status: 'active',
-        provisioned: true,
-      });
+      if (tenant.status === 'pending')
+        await tx.tenants.update(tenant.id, {
+          revision: tenant.revision + 1,
+          status: 'active',
+          provisioned: true,
+        });
       await projectTenant(tx, cell, tenant.id);
       break;
     }

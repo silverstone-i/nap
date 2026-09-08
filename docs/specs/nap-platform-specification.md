@@ -120,6 +120,36 @@ The dotted paths are prohibited. A dedicated managed tenant may be the only
 tenant in a cell. A self-hosted installation runs the same topology with its
 own admin database and one or more local cells.
 
+### Shared-origin routing contract
+
+`server.ts` runs the same API artifact as either `API_MODE=cell` (default) or
+`API_MODE=router`. Router mode has only an admin database handle, mounts central
+factory-generated routes, and forwards tenant operations through Node HTTP(S)
+to origins in deployment-only `CELL_API_ORIGINS` (a JSON code-to-origin map).
+It never constructs a cell database handle. `services/cellRouting.ts` owns
+central destination lookup; `middleware/routeToCell.ts` owns bounded forwarding.
+No additional dependency or business module is introduced (ADR 0007).
+
+Login, password changes, membership selection, controlled-access transitions,
+and central registry operations execute against admin independently of cell
+availability. Selection validates global membership and active assignment;
+actual tenant data access additionally requires the destination's local cell
+code. Router mode never executes tenant-data handlers. Provisioning member,
+retry, activate and root reconcile commands go to their centrally resolved
+cell, even when the operator selected another tenant. Backends independently
+repeat authorization and assignment checks; forwarding is not a grant.
+
+Cell origins are private deployment addresses, inaccessible from customer
+networks. HTTPS is required except for loopback development origins. The router
+forwards the original cookie and a sanitized client address, strips untrusted
+forwarding/identity headers, preserves correlation, never follows redirects or
+retries mutations, and bounds upstream requests to 30 seconds. JSON retains its
+100 KiB limit; workbook forwarding retains the framework's 5 MiB limit.
+Cells trust exactly the private router hop when deployed behind it. All modes
+share session signing, throttle and cookie policy. Missing, disabled or failed
+cell destinations fail closed without another cell fallback. Central readiness
+checks admin only; a cell's readiness checks admin and its own database.
+
 ## Authenticated request flow
 
 ```mermaid
@@ -1701,3 +1731,4 @@ every production dependency carries an allowed license.
 | 2026-09-04 | Named `pino` as the logger and `jose` as the session-cookie signing library in the technology stack, and named `@nap/shared` as the owner of the error-code registry                                                                                                                                                                |
 | 2026-09-04 | Stated the transport envelope's actual fields — `version`, `code`, `message`, `fieldErrors` for failures and `version`, `data`, `page` for successes — and recorded the error schema beside the shared package layout                                                                                                               |
 | 2026-09-04 | Reissued PRD 0000 as the NAP Platform Specification: added a version, added the section defining how PRDs, ADRs, and RULES derive from it, removed the user-scenario narratives, and renamed the requirement and conformance sections                                                                                               |
+| 2026-09-08 | Accepted shared-origin API routing mode, central session transitions and independent cell validation (ADR 0007).                                                                                                                                                                                                                    |

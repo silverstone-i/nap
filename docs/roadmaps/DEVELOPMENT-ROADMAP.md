@@ -177,8 +177,8 @@ start from the specification and applicable ADRs.
 | Brand, theme, and web entry surface           | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Authentication and sessions                   | Accepted | Verified       | Framework HTTP surface; web entry                                                                  |
-| Tenant membership and control plane           | Accepted | Implemented    | Authentication                                                                                     |
-| Cell tenancy and provisioning                 | Draft    | Not started    | Tenant control plane                                                                               |
+| Tenant membership and control plane           | Accepted | Verified       | Authentication                                                                                     |
+| Cell tenancy and provisioning                 | Accepted | Implemented    | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Draft    | Not started    | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Draft    | Not started    | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
@@ -666,7 +666,7 @@ not close the later second-cell or full business RBAC gates.
 confirmed its tenant and membership projections, seed configuration, and
 negative isolation proof.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted. **Implementation:** Implemented; 299 local tests and browser verification pass. Merge/CI pending.
 
 **Depends on:** Tenant membership and control plane.
 
@@ -684,6 +684,11 @@ evidence.
 **Gate:** Login, tenant selection, authoritative routing, a tenant-scoped cell
 read, cross-tenant denial, recoverable partial provisioning, and stable client
 addressing pass with the same build in two cells.
+
+**Delivery:** [Plan](../implementation-plans/0004-cell-tenancy-and-provisioning.md),
+PRD 0004 TEN-008/TEN-009 and ADR 0007. The same artifact runs an admin-only
+router and two independently credentialed cell APIs. Required local checks and
+multi-cell/browser evidence are recorded in the plan; merge/CI remain pending.
 
 ## Access control
 

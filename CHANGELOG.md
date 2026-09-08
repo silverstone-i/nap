@@ -11,6 +11,16 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Shared-origin routing mode, cross-cell tenant selection and operator provisioning,
+  with independent database credentials and recoverable two-cell acceptance tests.
+
+### Fixed
+
+- Verify current cell projections and linked records before tenant activation, and
+  recover activation after a cell commit survives a failed central transaction.
+
 ### Changed
 
 - Share project-local shipping guidance across Codex and Claude, including capability verification before merge.

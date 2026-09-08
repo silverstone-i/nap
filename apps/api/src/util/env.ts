@@ -275,3 +275,12 @@ export function resolveMigrationConfiguration(
   return databaseUrl(env, `${target.toUpperCase()}_MIGRATION_URL_${suffix}`)
     .connectionString;
 }
+
+/**
+ * Does: Reads the central database URL without reading any cell credentials.
+ * Called by: the server when starting in router mode.
+ */
+export function resolveRouterDatabase(env: NodeJS.ProcessEnv = process.env) {
+  return databaseUrl(env, `ADMIN_DATABASE_URL_${resolveEnvironment(env)}`)
+    .connectionString;
+}

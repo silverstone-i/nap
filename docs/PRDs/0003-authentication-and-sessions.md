@@ -193,3 +193,14 @@ reconciliation.
 Authentication verification refreshed 2026-09-08: 263 tests and all repository checks passed.
 [PR #14](https://github.com/silverstone-i/nap/pull/14) merged; [CI](https://github.com/silverstone-i/nap/actions/runs/34180826031) passed.
 PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and onboarding.
+
+## Multi-cell authentication amendment
+
+Login evaluates all centrally eligible memberships. Session and password actions
+are central and selection validates the assigned active cell without requiring
+it to be the receiving deployment. A cell-data request still requires a local
+assignment. See PRD 0004 TEN-008 and ADR 0007; cookie rotation and expiry are unchanged.
+
+| Date       | Change                                                       |
+| ---------- | ------------------------------------------------------------ |
+| 2026-09-08 | Accepted central authentication across cells under ADR 0007. |

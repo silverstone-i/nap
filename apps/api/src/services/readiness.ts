@@ -8,7 +8,7 @@ import { assertRuntimeRole } from '../db/assertRuntimeRole.js';
 import type { Database } from 'pg-schemata';
 
 /**
- * Does: Builds a checker that reports whether both databases are reachable
+ * Does: Builds a checker that reports whether the configured databases are reachable
  * and running as a safe role, as a check function and a stop function.
  * Called by: createRuntime, which uses it before opening the listener and
  * for the readiness endpoint, and by readiness integration tests.
@@ -21,7 +21,8 @@ import type { Database } from 'pg-schemata';
  */
 export function createReadiness(
   handles: readonly Database[],
-  timeoutMs = 5000
+  timeoutMs = 5000,
+  expectedHandles = 2
 ) {
   let inFlight: Promise<boolean> | undefined;
   let stopped = false;
@@ -29,11 +30,12 @@ export function createReadiness(
 
   /**
    * Does: Runs one readiness cycle, or joins the one in progress, and
-   * resolves to true only when both databases pass within the deadline.
+   * resolves to true only when all configured databases pass within the deadline.
    * Called by: createRuntime at startup and on each readiness request.
    */
   function check(): Promise<boolean> {
-    if (stopped || handles.length !== 2) return Promise.resolve(false);
+    if (stopped || handles.length !== expectedHandles)
+      return Promise.resolve(false);
     if (inFlight) return inFlight;
     const controller = new AbortController();
     const deadline = performance.now() + timeoutMs;
