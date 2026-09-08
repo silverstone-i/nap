@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.9.0] - 2026-09-08
+
 ### Added
 
 - Design Authentication and sessions: PRD 0003, ADR 0004 for the seeded root
