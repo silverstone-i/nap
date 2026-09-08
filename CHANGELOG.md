@@ -21,6 +21,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 - Extend authentication with mandatory initial password change and restricted selection sessions.
 - Reconcile Authentication and sessions verification against merged PR #14 and passing checks.
 
+### Fixed
+
+- Clear rejected-session audit attribution, distinguish retry input errors from cell failures,
+  and preserve safe login destinations across session updates.
+
 ## [v0.10.0] - 2026-09-08
 
 ### Changed

@@ -31,6 +31,9 @@ import {
 } from '../../src/util/sessionCookie.js';
 import * as passwords from '../../src/util/password.js';
 import { createApp } from '../../src/app.js';
+import { Sessions } from '../../src/modules/admin-tenancy/models/Sessions.js';
+import { resolveSession } from '../../src/services/sessions.js';
+import { requestContext } from '../../src/util/requestContext.js';
 import { logger } from '../../src/util/logger.js';
 
 let test: Awaited<ReturnType<typeof authDatabase>>;
@@ -672,4 +675,31 @@ it('produces the same authentication schema after staged migrations as on a fres
     "SELECT event_object_table, trigger_name, action_statement FROM information_schema.triggers WHERE trigger_schema = 'admin' ORDER BY event_object_table, trigger_name, event_manipulation",
   ])
     expect(await upgraded.any(sql)).toEqual(await test.owner.any(sql));
+});
+
+it('clears audit attribution when session extension rejects or throws', async () => {
+  const signed = cookie(await login());
+  const extend = vi.spyOn(Sessions.prototype, 'extend');
+  try {
+    await requestContext.run({ requestId: randomUUID() }, async () => {
+      extend.mockResolvedValueOnce(null);
+      expect(
+        (await resolveSession(test.admin, signed, test.config))?.session
+      ).toBeUndefined();
+      expect(requestContext.getStore()?.actorId).toBeUndefined();
+      extend.mockRejectedValueOnce(new Error('extension failed'));
+      await expect(
+        resolveSession(test.admin, signed, test.config)
+      ).rejects.toThrow('extension failed');
+      expect(requestContext.getStore()?.actorId).toBeUndefined();
+    });
+  } finally {
+    extend.mockRestore();
+  }
+  await requestContext.run({ requestId: randomUUID() }, async () => {
+    expect(
+      (await resolveSession(test.admin, signed, test.config))?.session
+    ).toBeDefined();
+    expect(requestContext.getStore()?.actorId).toBe(test.root.actorId);
+  });
 });

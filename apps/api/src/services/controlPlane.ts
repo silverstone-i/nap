@@ -188,7 +188,9 @@ async function runJob(
           ...data,
         });
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof HttpError && error.code === 'INVALID_INPUT')
+      throw error;
     await tx.provisioning_jobs.update(job.id, {
       stage: 'failed',
       failure_code: 'CELL_SYNC_FAILED',

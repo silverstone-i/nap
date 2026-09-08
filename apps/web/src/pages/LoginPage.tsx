@@ -5,7 +5,7 @@
 
 import { loginBodySchema } from '@nap/shared';
 import { useState } from 'react';
-import { Navigate, useSearchParams, useNavigate } from 'react-router';
+import { Navigate, useSearchParams } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -24,7 +24,6 @@ export function LoginPage() {
   const { state, setSession } = useSession();
   const [search] = useSearchParams();
   const [busy, setBusy] = useState(false);
-  const navigate = useNavigate();
   const [message, setMessage] = useState('');
   /** Does: Sends credentials and stores a checked session before navigating. */
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -43,16 +42,8 @@ export function LoginPage() {
     }
     const result = await login(parsed.data.email, parsed.data.password);
     setBusy(false);
-    if (result.ok) {
-      const destination =
-        result.body.data.state === 'password-change-required'
-          ? '/account'
-          : result.body.data.state === 'tenant-selection-required'
-            ? '/tenants'
-            : safeNext(search.get('next'));
-      setSession(result.body.data);
-      await navigate(destination, { replace: true });
-    } else
+    if (result.ok) setSession(result.body.data);
+    else
       setMessage(
         result.error.code === 'UNAUTHENTICATED'
           ? 'Email or password could not be verified.'
@@ -73,7 +64,7 @@ export function LoginPage() {
             ? '/account'
             : state.session.state === 'tenant-selection-required'
               ? '/tenants'
-              : '/account'
+              : safeNext(search.get('next'))
         }
         replace
       />

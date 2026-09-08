@@ -132,8 +132,9 @@ write. The web form follows that reply with an explicit retry command carrying
 the name. A new member operation persists only identity metadata and record IDs centrally;
 the person's display name lives in Core. If the first cell write fails, retry
 requires the name again. Once the cell record exists, replay needs only the job
-ID. Passwords are hashed before storage and are never persisted in jobs. A failed
-job returns normal command completion with failure visible in the job's status;
+ID. Passwords are hashed before storage and are never persisted in jobs. A missing name before first-time record creation returns `INVALID_INPUT` without
+changing the durable job status. A cell synchronization failure returns normal
+command completion with failure visible in the job's status;
 it never activates the membership. Revocation queues a job for projection retry
 and denies access centrally immediately. New tenant activation requires every
 active membership ready and at least one confirmed employee administrator.
@@ -157,3 +158,5 @@ activated. Reverting application security behavior requires session revocation.
 | 2026-09-08 | Accepted owner-approved control-plane design; implementation started. |
 
 | 2026-09-08 | Completed implementation and local acceptance checks; merge and CI remain pending. |
+
+| 2026-09-08 | Clarified retry validation errors separately from durable cell synchronization failures. |

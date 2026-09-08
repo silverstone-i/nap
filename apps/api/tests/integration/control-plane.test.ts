@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { authDatabase, authEnv } from '../fixtures/authDatabase.js';
 import { withTenantTransaction } from '../../src/db/withTenantTransaction.js';
 import {
+  apiErrorSchema,
   sessionResponseSchema,
   controlCommandResponseSchema,
   identityResponseSchema,
@@ -822,4 +823,42 @@ it('protects the original root binding when its owner or readiness is changed di
       [binding.id]
     )
   ).rejects.toMatchObject({ code: '23514' });
+});
+
+it('rejects a missing first-write name without marking a cell failure and replays existing records without it', async () => {
+  const t = await tenant();
+  const created = await request(test.server)
+    .post(control + '/members')
+    .set('Cookie', rootCookie)
+    .send({
+      operation: 'member',
+      target: t.id,
+      kind: 'employee',
+      name: 'Retry input',
+      email: randomUUID() + '@nap.test',
+      password: temporary,
+    });
+  expect(created.status).toBe(200);
+  const job = controlCommandResponseSchema.parse(created.body).data.jobId!;
+  const missing = await request(test.server)
+    .post(control + '/provision')
+    .set('Cookie', rootCookie)
+    .send({ operation: 'retry', job });
+  expect(missing.status).toBe(400);
+  expect(apiErrorSchema.parse(missing.body).code).toBe('INVALID_INPUT');
+  const pending = await test.admin.db.provisioning_jobs.findById(job);
+  expect(pending?.stage).toBe('pending');
+  expect(pending?.failure_code).toBeNull();
+  expect(
+    (await test.admin.db.portal_user_tenants.findById(pending!.membership_id))
+      ?.ready
+  ).toBe(false);
+  await command('provision', { operation: 'retry', job, name: 'Retry input' });
+  await command('provision', { operation: 'retry', job });
+  expect((await test.admin.db.provisioning_jobs.findById(job))?.stage).toBe(
+    'complete'
+  );
+  await withTenantTransaction(test.cell, t.id, async tx => {
+    expect(await tx.employees.countAll()).toBe(1);
+  });
 });

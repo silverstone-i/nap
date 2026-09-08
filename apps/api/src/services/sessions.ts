@@ -153,8 +153,15 @@ export async function resolveSession(
     }
     const context = requestContext.getStore();
     if (context) context.actorId = identity.id;
-    const touched = await tx.sessions.extend(row.id, config.idleMinutes);
+    let touched;
+    try {
+      touched = await tx.sessions.extend(row.id, config.idleMinutes);
+    } finally {
+      // Extension needs an audit actor, but a rejected or failed lookup must not retain it.
+      if (context) delete context.actorId;
+    }
     if (!touched) return { presented };
+    if (context) context.actorId = identity.id;
     const usable =
       selected?.provisioned &&
       selected.enabled &&

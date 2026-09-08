@@ -197,3 +197,9 @@ it('returns an expired session to login after a refused password change', async 
   fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
 });
+
+it('honors safe next when login mounts with an existing session', async () => {
+  fetchMock.mockResolvedValue(sessionReply());
+  const router = mount('/login?next=%2F');
+  await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+});

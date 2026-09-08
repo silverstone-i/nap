@@ -651,8 +651,8 @@ bring forward central platform permissions, minimal Core identity records and
 one-cell activation. Second-cell routing/provisioning proof and general tenant
 RBAC remain later gates.
 
-**Local evidence (2026-09-08):** All 284 repository tests and required local
-checks pass, including 15 control-plane integration cases, all 24 authentication
+**Local evidence (2026-09-08):** All 287 repository tests and required local
+checks pass, including 16 control-plane integration cases, all 25 authentication
 cases, and browser verification with disposable databases. Verified is effective
 upon merge of the capability PR with required CI passing. One-cell evidence does
 not close the later second-cell or full business RBAC gates.

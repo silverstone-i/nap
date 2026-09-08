@@ -40,8 +40,8 @@ complete evidence and merge with required CI passing.
 
 ## Completed evidence — 2026-09-08
 
-All 284 repository tests pass: 28 toolchain, 204 API (including 24 authentication
-and 15 control-plane integration cases), 39 web, and 13 shared. Lint, typecheck,
+All 287 repository tests pass: 28 toolchain, 206 API (including 25 authentication
+and 16 control-plane integration cases), 40 web, and 13 shared. Lint, typecheck,
 build, formatting, licenses (220 production records), and diff checks pass.
 
 Disposable PostgreSQL tests prove pending jobs commit before cell work, retries
@@ -61,3 +61,8 @@ Verified with its existing merge/CI evidence.
 
 No commit, push, PR creation, deployment or merge was performed. New capability
 Verified status becomes effective only upon merge with required CI passing.
+
+Review regression coverage verifies rejected/failed session extensions clear audit
+attribution, missing first-write names leave retry jobs unchanged, and safe login
+destinations survive session remounting. The initial PR CI run exposed the login
+redirect race; the reviewed fix still requires passing CI on its pushed commit.
