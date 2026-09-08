@@ -17,6 +17,7 @@ import {
   checkThrottle,
   throttleKeys,
 } from '../../../services/loginThrottle.js';
+import { audit, platformGrants } from '../../../services/platform.js';
 import { createSession } from '../../../services/sessions.js';
 import type { AdminRepositories } from '../../../db/admin/repositories.js';
 import type { AdminTransaction } from '../../../db/withAdminTransaction.js';
@@ -62,11 +63,28 @@ export function loginOperation(config: AuthConfiguration) {
       await verifyPassword(fallback, input.body.password);
     }
     // Always query membership, including for unknown or locked identities.
-    const tenants = await tx.portal_user_tenants.activeFor(
+    const memberships = await tx.portal_user_tenants.activeFor(
       identity?.id ?? '00000000-0000-0000-0000-000000000000'
     );
+    const tenants = [];
+    for (const membership of memberships) {
+      const assignment = await tx.cells.assignment(membership.tenant_id);
+      if (
+        identity?.is_root ||
+        (assignment?.provisioned &&
+          assignment.enabled &&
+          assignment.code === config.cellCode)
+      )
+        tenants.push(membership);
+    }
     const tenant = tenants.length === 1 ? tenants[0] : undefined;
-    if (!identity || identity.status !== 'active' || !valid || !tenant) {
+    if (
+      !identity ||
+      identity.status !== 'active' ||
+      !valid ||
+      (tenants.length === 0 &&
+        (await platformGrants(tx, identity.id)).length === 0)
+    ) {
       for (const key of keys) await tx.login_throttles.fail(key);
       logger.info({ event: 'auth.login_failed' });
       input.reply.refuseLogin('UNAUTHENTICATED');
@@ -102,6 +120,17 @@ export async function logout(
     const context = requestContext.getStore();
     if (!context) throw new Error('Missing request context');
     context.actorId = presented.actorId;
+    const row = await tx.sessions.reference(presented.id);
+    if (row?.access_mode && !row.deactivated_at)
+      await audit(
+        tx,
+        presented.actorId,
+        `${row.access_mode}.end`,
+        row.tenant_id,
+        row.access_reason ?? 'Logout',
+        row.effective_user_id,
+        row.id
+      );
     await tx.sessions.removeWhere({ id: presented.id });
   }
   input.reply.clearCookie(sessionCookieName, cookieOptions(config));
@@ -122,6 +151,7 @@ export async function changePassword(
   >,
   config: AuthConfiguration
 ) {
+  if (input.session.view?.controlledAccess) throw new HttpError('FORBIDDEN');
   const identity = await tx.portal_users.lockIdentity(input.session.actorId);
   const sessionId = input.session.sessionId;
   if (!identity || !sessionId || identity.status !== 'active')
@@ -133,7 +163,9 @@ export async function changePassword(
     row.deactivated_at ||
     row.idle_expires_at.getTime() <= Date.now() ||
     row.absolute_expires_at.getTime() <= Date.now() ||
-    !memberships.some(m => m.tenant_id === row.tenant_id)
+    (row.tenant_id !== null &&
+      !identity.must_change_password &&
+      !memberships.some(m => m.tenant_id === row.tenant_id))
   )
     throw new HttpError('UNAUTHENTICATED');
   if (
@@ -142,6 +174,7 @@ export async function changePassword(
     throw new HttpError('UNAUTHENTICATED');
   await tx.portal_users.update(identity.id, {
     password_hash: await hashPassword(input.body.newPassword, config.password),
+    must_change_password: false,
   });
   await tx.sessions.revokeOthers(identity.id, sessionId);
   return { version: transportVersion, data: null };

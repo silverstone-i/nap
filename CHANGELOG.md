@@ -11,6 +11,16 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Tenant membership selection, central platform grants, audited controlled access,
+  minimal Core identity records, and recoverable one-cell provisioning with operator web flows.
+
+### Changed
+
+- Extend authentication with mandatory initial password change and restricted selection sessions.
+- Reconcile Authentication and sessions verification against merged PR #14 and passing checks.
+
 ## [v0.10.0] - 2026-09-08
 
 ### Changed

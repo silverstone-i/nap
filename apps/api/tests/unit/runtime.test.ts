@@ -11,6 +11,7 @@ import { adminRepositories } from '../../src/db/admin/repositories.js';
 import { createRuntime } from '../../src/runtime.js';
 import { createReadiness } from '../../src/services/readiness.js';
 import { createAdminDatabase } from '../../src/db/admin/index.js';
+import { cellRepositories } from '../../src/db/cell/repositories.js';
 import { createCellDatabase } from '../../src/db/cell/index.js';
 import { logger } from '../../src/util/logger.js';
 
@@ -38,7 +39,9 @@ function handles() {
     admin: createAdminDatabase('postgres://unused:unused@localhost/unused', {
       repositories: adminRepositories,
     }),
-    cell: createCellDatabase('postgres://unused:unused@localhost/unused'),
+    cell: createCellDatabase('postgres://unused:unused@localhost/unused', {
+      repositories: cellRepositories,
+    }),
   };
 }
 /** Read the OS-selected address of a test listener. */

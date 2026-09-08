@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { repositories as core } from '../../modules/core/repositories.js';
+import { repositories as tenancy } from '../../modules/cell-tenancy/repositories.js';
 import type { RepositoryCtor, RepositoryInstances } from 'pg-schemata';
 import type { CellDatabase } from './index.js';
 
@@ -15,7 +17,10 @@ import type { CellDatabase } from './index.js';
  * its models here when it ships (a composition root under ARCH-042). It is
  * empty until the first cell module is delivered.
  */
-export const cellRepositories = {} satisfies Record<string, RepositoryCtor>;
+export const cellRepositories = { ...tenancy, ...core } satisfies Record<
+  string,
+  RepositoryCtor
+>;
 
 /**
  * Does: Represents the repositories the runtime cell handle carries.

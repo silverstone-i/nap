@@ -36,6 +36,7 @@ beforeEach(() => {
     }))
   );
   fetchMock.mockReset();
+  fetchMock.mockResolvedValue(anonymous());
 });
 afterEach(() => {
   cleanup();
@@ -159,8 +160,10 @@ it.each([
 
 it('changes a password, shows success, and signs out', async () => {
   fetchMock
+    .mockResolvedValue(anonymous())
     .mockResolvedValueOnce(sessionReply())
     .mockResolvedValueOnce(reply({ version: 1, data: null }))
+    .mockResolvedValueOnce(sessionReply())
     .mockResolvedValueOnce(reply({ version: 1, data: null }));
   const router = mount('/account');
   fireEvent.change(

@@ -48,15 +48,14 @@ Implemented requires passing local checks; Verified requires merge and CI eviden
 
 ## Current evidence
 
-The working tree uses published pg-schemata 3.1.1 with an explicitly named
+The merged implementation uses published pg-schemata 3.1.1 with an explicitly named
 `{ expression: 'lower(email)' }` index in the portal-user model and frozen
 migration. The dependency blocker is resolved.
 
 All 263 repository tests pass against the installed lockfile (28 toolchain,
 189 API, 33 web, 13 shared), including all 24 authentication integration tests
 using disposable databases. Lint, typecheck, build, formatting, license checks,
-and diff checking pass. This capability is Implemented; Verified remains pending
-merge and passing CI.
+and diff checking pass. This capability is Verified: [PR #14](https://github.com/silverstone-i/nap/pull/14) merged with passing CI.
 
 ## Rollout, defaults, and recovery
 
@@ -65,5 +64,9 @@ migrates or seeds. Rollback restores the prior artifact and leaves additive tabl
 Root recovery uses --reset-root-password and revokes existing sessions. Rotation of
 SESSION_SECRET invalidates cookies; rotation of AUTH_THROTTLE_SECRET resets keys.
 Use the accepted session, cookie, proxy, throttle, and Argon2 configuration defaults.
-Real environment values remain untouched. Tenant switching, provisioning, RBAC,
-Redis, forgotten-password email, and product navigation remain later capabilities.
+Real environment values remain untouched. PRD 0004 brings forward tenant switching, provisioning and central permissions.
+Business RBAC, Redis and forgotten-password email retain their later gates.
+
+Authentication verification refreshed 2026-09-08: 263 tests and all repository checks passed.
+[PR #14](https://github.com/silverstone-i/nap/pull/14) merged; [CI](https://github.com/silverstone-i/nap/actions/runs/34180826031) passed.
+PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and onboarding.

@@ -31,8 +31,24 @@ export const passwordBodySchema = z.strictObject({
 export const sessionViewSchema = z.strictObject({
   actorId: z.uuid(),
   email: z.email(),
-  tenantId: z.uuid(),
-  tenantCode: z.string().min(1).max(16),
+  tenantId: z.uuid().nullable(),
+  tenantCode: z.string().min(1).max(16).nullable(),
+  state: z
+    .enum([
+      'password-change-required',
+      'tenant-selection-required',
+      'tenant-selected',
+    ])
+    .default('tenant-selected'),
+  platformPermissions: z.array(z.string()).default([]),
+  controlledAccess: z
+    .strictObject({
+      mode: z.enum(['access', 'impersonation']),
+      operatorId: z.uuid(),
+      reason: z.string(),
+    })
+    .nullable()
+    .default(null),
   expiresAt: z.iso.datetime(),
 });
 

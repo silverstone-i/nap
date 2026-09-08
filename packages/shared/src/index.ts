@@ -4,3 +4,5 @@
  */
 
 export * from './transport/index.js';
+
+export * from './transport/control.js';

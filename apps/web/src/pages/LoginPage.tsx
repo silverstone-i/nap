@@ -5,7 +5,7 @@
 
 import { loginBodySchema } from '@nap/shared';
 import { useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router';
+import { Navigate, useSearchParams, useNavigate } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -24,7 +24,7 @@ export function LoginPage() {
   const { state, setSession } = useSession();
   const [search] = useSearchParams();
   const [busy, setBusy] = useState(false);
-  const [destination, setDestination] = useState('/account');
+  const navigate = useNavigate();
   const [message, setMessage] = useState('');
   /** Does: Sends credentials and stores a checked session before navigating. */
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -44,8 +44,14 @@ export function LoginPage() {
     const result = await login(parsed.data.email, parsed.data.password);
     setBusy(false);
     if (result.ok) {
-      setDestination(safeNext(search.get('next')));
+      const destination =
+        result.body.data.state === 'password-change-required'
+          ? '/account'
+          : result.body.data.state === 'tenant-selection-required'
+            ? '/tenants'
+            : safeNext(search.get('next'));
       setSession(result.body.data);
+      await navigate(destination, { replace: true });
     } else
       setMessage(
         result.error.code === 'UNAUTHENTICATED'
@@ -59,7 +65,19 @@ export function LoginPage() {
         <SessionStatus />
       </AuthFrame>
     );
-  if (state.session) return <Navigate to={destination} replace />;
+  if (state.session)
+    return (
+      <Navigate
+        to={
+          state.session.state === 'password-change-required'
+            ? '/account'
+            : state.session.state === 'tenant-selection-required'
+              ? '/tenants'
+              : '/account'
+        }
+        replace
+      />
+    );
   return (
     <AuthFrame title="Sign in">
       <Stack

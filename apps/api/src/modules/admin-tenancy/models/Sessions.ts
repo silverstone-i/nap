@@ -11,6 +11,9 @@ import type { DbConnection, Database, TableSchema } from 'pg-schemata';
  * Used by: the Sessions repository.
  */
 export type SessionsRow = {
+  access_mode: string | null;
+  effective_user_id: string | null;
+  access_reason: string | null;
   id: string;
   created_at: Date;
   updated_at: Date;
@@ -18,7 +21,7 @@ export type SessionsRow = {
   updated_by: string | null;
   deactivated_at: Date | null;
   portal_user_id: string;
-  tenant_id: string;
+  tenant_id: string | null;
   token_hash: string;
   idle_expires_at: Date;
   absolute_expires_at: Date;
@@ -40,6 +43,9 @@ export const sessionsSchema: TableSchema = {
   },
   softDelete: true,
   columns: [
+    { name: 'access_mode', type: 'text' },
+    { name: 'effective_user_id', type: 'uuid' },
+    { name: 'access_reason', type: 'text' },
     {
       name: 'id',
       type: 'uuid',
@@ -54,7 +60,6 @@ export const sessionsSchema: TableSchema = {
     {
       name: 'tenant_id',
       type: 'uuid',
-      notNull: true,
     },
     {
       name: 'token_hash',
@@ -81,6 +86,7 @@ export const sessionsSchema: TableSchema = {
     primaryKey: ['id'],
     unique: [['token_hash']],
     indexes: [
+      { columns: ['effective_user_id'] },
       {
         columns: ['portal_user_id'],
       },
@@ -89,6 +95,12 @@ export const sessionsSchema: TableSchema = {
       },
     ],
     foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['effective_user_id'],
+        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
       {
         type: 'ForeignKey',
         columns: ['portal_user_id'],

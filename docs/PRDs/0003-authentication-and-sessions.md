@@ -1,7 +1,7 @@
 # 0003 — Authentication and sessions
 
 **Design:** Accepted (owner approved, 2026-09-07).
-**Implementation:** Implemented (working tree; merge and CI pending).
+**Implementation:** Verified (PR #14 merged; required CI passed).
 
 ## Authority
 
@@ -20,24 +20,17 @@ owns admin-targeted routers and declared route access; and
 root identity.
 
 This capability owns login, logout, session resolution, password change, login
-throttling, the bootstrap seed, and the five tables below. Cell assignment,
-tenant attributes beyond the columns named here, multi-tenant membership and
-tenant switching, the employee-to-identity provisioning workflow, and
-forgotten-password reset belong to later capabilities; the roadmap records
-where.
+throttling, the bootstrap seed, and the five tables below. PRD 0004 owns the added membership, selection, assignment and onboarding
+behavior; forgotten-password delivery remains a later capability.
 
 ## Accepted behavior
 
-- **AUTH-001 Login.** `POST /login` takes `email` and `password`. It succeeds
-  only when an active identity matches the normalized email, the Argon2id
-  hash verifies, and the identity holds exactly one active membership in an
-  active tenant. Success creates a session bound to that identity and tenant,
-  sets the session cookie, and returns the session view. Every other outcome,
-  including an unknown email, a wrong password, a locked identity, a locked
-  membership, and a suspended tenant, answers `UNAUTHENTICATED` after the same
-  work, so the caller cannot tell them apart. An identity with zero or several
-  active memberships cannot log in until Tenant membership adds tenant
-  selection.
+- **AUTH-001 Login.** `POST /login` takes normalized `email` and `password`.
+  Wrong credentials, locked identities and absence of eligible membership or
+  central authorization answer `UNAUTHENTICATED` with the same credential work.
+  PRD 0004 TEN-003 now owns single-membership selection, restricted multi-membership
+  sessions and platform administration without an ordinary membership. Temporary
+  credentials require password change before selection or tenant work.
 - **AUTH-002 Session cookie.** The cookie is `HttpOnly`, `Secure` unless
   `COOKIE_SECURE=false`, `SameSite` from `COOKIE_SAMESITE` (default `lax`),
   path `/`, and holds a `jose`-signed compact token carrying the session
@@ -47,11 +40,11 @@ where.
 - **AUTH-003 Session resolution.** A service under `services/` resolves every
   request that presents a cookie: verify the signature, load the session by
   identifier, compare the secret digest, and require the session unrevoked and
-  inside both its idle and absolute expiry, the identity and membership
-  active, and the tenant active. Any failure resolves no session and the
+  inside both its idle and absolute expiry, the identity active, and any selected membership and tenant active. TEN-003
+  additionally checks assignment, readiness, restrictions, and controlled access. Any failure resolves no session and the
   request continues as anonymous, so the framework gates answer as they do
-  today. A resolved session stores the actor, the tenant, and empty
-  entitlement and permission sets on the response until RBAC and module
+  today. A resolved session stores the actor, the selected tenant when available, and resolved
+  permission sets on the response until RBAC and module
   entitlement fill them, and extends the idle expiry.
 - **AUTH-004 Expiry and revocation.** Idle expiry is `SESSION_IDLE_MINUTES`
   (default 30) after the last resolved request; absolute expiry is
@@ -72,7 +65,8 @@ where.
 - **AUTH-006 Password change.** `PUT /password` requires a session, the
   current password, and a new password of 12 to 128 characters with no other
   composition rule. It rehashes with the configured Argon2id parameters and
-  revokes every other session of the identity. The root identity changes its
+  revokes every other session of the identity. TEN-006 clears the mandatory
+  password-change restriction after success; impersonated sessions cannot change credentials. The root identity changes its
   password only this way or through the seed's reset flag.
 - **AUTH-007 Seeded root identity.** `npm run db:bootstrap` reads
   `ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, and `ROOT_PASSWORD`,
@@ -100,8 +94,7 @@ where.
   change form with its success and failure states. An unauthenticated visit
   to `/account` redirects to `/login?next=%2Faccount`; a signed-in visit to
   `/login` redirects to `/account`. `auth/` owns session state loaded from
-  `GET /session`, and every reply is validated with `requestContract`. No
-  product navigation, tenant switch, or shell is added.
+  `GET /session`, and every reply is validated with `requestContract`. PRD 0004 adds tenant selection and operator navigation without a business shell.
 
 ## Data
 
@@ -111,19 +104,19 @@ columns unless a departure is named.
 
 | Table                 | Columns beyond the standard set                                                                                                                                                         | Constraints and departures                                                                                                                                                                                                                                                       |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenants`             | `tenant_code varchar(16)`, `company varchar(128)`, `status text` in `pending`, `active`, `suspended`                                                                                    | Unique active `tenant_code`. Cell assignment, tier, and every other attribute arrive by additive migration under Tenant membership                                                                                                                                               |
+| `tenants`             | `tenant_code varchar(16)`, `company varchar(128)`, `status text` in `pending`, `active`, `suspended`                                                                                    | Unique active `tenant_code`. PRD 0004 owns additive assignment, tier, provisioning and revision columns                                                                                                                                                                          |
 | `portal_users`        | `email varchar(128)`, `password_hash text`, `status text` in `active`, `locked`, `is_root boolean default false`                                                                        | Unique active `lower(email)`; partial unique index on `is_root` where true, so at most one root exists; the migration-owned trigger rejects changing the root row's `email`, `status`, `is_root`, or `deactivated_at`                                                            |
-| `portal_user_tenants` | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `status text` in `active`, `locked`                                                                             | Unique active `(portal_user_id, tenant_id)`; both FKs indexed, `ON DELETE RESTRICT`; `user_type` and `entity_id` arrive with Tenant membership                                                                                                                                   |
+| `portal_user_tenants` | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `status text` in `active`, `locked`                                                                             | Unique active `(portal_user_id, tenant_id)`; both FKs indexed, `ON DELETE RESTRICT`; PRD 0004 owns the additional type, record, readiness and revision columns                                                                                                                   |
 | `sessions`            | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `token_hash text`, `idle_expires_at timestamptz`, `absolute_expires_at timestamptz`, `last_seen_at timestamptz` | Unique `token_hash`; FKs indexed, `ON DELETE RESTRICT`; `deactivated_at` is the revocation timestamp; rows are never hard-deleted in this release                                                                                                                                |
 | `login_throttles`     | `key_hash text`, `failures integer`, `window_started_at timestamptz`, `locked_until timestamptz`                                                                                        | Unique `key_hash`. Anonymous audit actors follow the specification exception (ADR 0005). Departure: a row whose window and lock have both passed is hard-deleted by the throttle service on the next write to that key, because it is transient control state holding no history |
 
-This capability creates no cell projection. The `cell-tenancy` projection
-section this PRD must carry arrives with Cell tenancy and provisioning.
+Authentication itself creates no cell projection. PRD 0004 owns the
+cell-tenancy projection design and implementation brought forward for provisioning.
 
 ## API
 
 The route registry mounts one admin-targeted router at
-`/api/admin-tenancy/v1/auth`, with every standard route disabled and the four
+`/api/admin-tenancy/v1/auth`, with every standard route disabled and the original four
 routes below added through the extension callback. Request and response
 contracts are Zod schemas in `@nap/shared` under `transport/auth.ts`, and the
 error-code registry gains `THROTTLED`. `rejectTenantInput` stays on every
@@ -136,8 +129,9 @@ route.
 | `GET /session`  | authenticated | none                               | 200, session view     |
 | `PUT /password` | authenticated | `{ currentPassword, newPassword }` | 200, `data` is `null` |
 
-The session view is `{ actorId, email, tenantId, tenantCode, expiresAt }`,
-where `expiresAt` is the sooner of the idle and absolute expiries.
+The session view is defined by `transport/auth.ts` in @nap/shared. PRD 0004
+extends it with restricted states, nullable selection, central permissions and
+controlled-access display context. `expiresAt` remains the sooner deadline.
 
 ## Configuration
 
@@ -160,12 +154,11 @@ The implementation promotes these names in
 
 - Session resolution and the actor resolver are services and import no module
   (`ARCH-048`); the framework gates are unchanged.
-- Entitlement and permission sets stay empty until RBAC and module
-  entitlement, so no framework route beyond this router is reachable. That is
-  intended.
+- PRD 0004 adds explicit central permissions and the bounded Core self-read
+  permission. General tenant business RBAC remains deferred.
 - No email is sent. Forgotten-password reset waits for the capability that
   introduces email delivery; until then the seed's reset flag recovers root,
-  and no other identity exists.
+  Ordinary identity onboarding now follows PRD 0004.
 - Redis is not used; every session decision reads PostgreSQL.
 - Diagnostic logs never carry an email, password, hash, cookie, token, or
   throttle key. A login failure logs an event name and the correlation
@@ -195,3 +188,8 @@ reconciliation.
 | 2026-09-08 | Recorded the owner-approved anonymous throttle actor exception, configuration bounds, and runtime grants; implementation started. |
 | 2026-09-08 | Linked AUTH-005 to AUTH-008 and named the nullable audit columns explicitly to clarify pre-authentication throttle writes.        |
 | 2026-09-08 | Updated to pg-schemata 3.1.1 and verified all local checks; implementation complete, merge and CI pending.                        |
+| 2026-09-08 | Verified merged PR #14 and passing CI; linked intentional session/onboarding extensions to PRD 0004.                              |
+
+Authentication verification refreshed 2026-09-08: 263 tests and all repository checks passed.
+[PR #14](https://github.com/silverstone-i/nap/pull/14) merged; [CI](https://github.com/silverstone-i/nap/actions/runs/34180826031) passed.
+PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and onboarding.

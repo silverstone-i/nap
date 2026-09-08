@@ -49,6 +49,7 @@ export function authConfiguration(env: NodeJS.ProcessEnv = process.env) {
     .refine(value => !placeholder(value));
   const parsed = z
     .object({
+      cellCode: z.string().min(1).max(64).default('cell-1'),
       sessionSecret: secret,
       throttleSecret: secret,
       idleMinutes: z.coerce.number().int().min(1).max(1440).default(30),
@@ -60,6 +61,7 @@ export function authConfiguration(env: NodeJS.ProcessEnv = process.env) {
       sameSite: z.enum(['lax', 'strict', 'none']).default('lax'),
     })
     .parse({
+      cellCode: env.CELL_CODE,
       sessionSecret: env.SESSION_SECRET,
       throttleSecret: env.AUTH_THROTTLE_SECRET,
       idleMinutes: env.SESSION_IDLE_MINUTES,
