@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.11.0] - 2026-09-08
+
 ### Added
 
 - Tenant membership selection, central platform grants, audited controlled access,
