@@ -175,8 +175,8 @@ start from the specification and applicable ADRs.
 | Shared transport package                      | Accepted | Verified       | Operational baseline                                                                               |
 | Framework HTTP surface                        | Accepted | Verified       | Shared transport package                                                                           |
 | Brand, theme, and web entry surface           | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Release, versioning, and licensing operations | Accepted | Implemented    | Workspace and toolchain                                                                            |
-| Authentication and sessions                   | Draft    | Not started    | Framework HTTP surface; web entry                                                                  |
+| Release, versioning, and licensing operations | Accepted | Verified       | Workspace and toolchain                                                                            |
+| Authentication and sessions                   | Accepted | Not started    | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Draft    | Not started    | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Draft    | Not started    | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Draft    | Not started    | Cell provisioning                                                                                  |
@@ -459,7 +459,11 @@ route set, per-route disabling, and the extension callback, the session gates
 tenant-input rejection, list parsing with keyset continuation, all-or-nothing
 batch writes naming refused identifiers by position, in-memory spreadsheet
 import and export, the SQLSTATE-to-error mapping, and the empty route registry
-mounted by the app are implemented. The shared package carries the list, batch,
+mounted by the app are implemented. The 2026-09-07 amendment is implemented
+with it: a controller binds to the admin or cell pool, an admin-bound router
+runs in a plain admin transaction, an extension route may declare `anonymous`
+or `authenticated` access on the `admin-tenancy` auth router only, and the
+registry mounts each router against the pool its target names. The shared package carries the list, batch,
 and spreadsheet contracts and the `UNAUTHENTICATED`, `FORBIDDEN`, and
 `CONFLICT` codes. The runtime takes named admin and cell handles. Delivery
 follows the plan above.
@@ -467,9 +471,8 @@ follows the plan above.
 **Deferred:** The session resolver and the audit actor resolver belong to
 Authentication and sessions; the entitlement and permission vocabulary and the
 resource-scope middleware belong to RBAC and module entitlement, which inserts
-its middleware after the permission gate; admin-targeted controllers arrive
-with the first admin router; filter operators beyond equality and membership
-have no consumer. The registry is empty, and every framework route answers
+its middleware after the permission gate; filter operators beyond equality and
+membership have no consumer. The registry is empty, and every framework route answers
 `UNAUTHENTICATED` until the session resolver is installed, so no framework
 behaviour is reachable in production.
 
@@ -487,7 +490,10 @@ input refused in headers, query, route parameters, and body, cross-tenant
 reads answering not found, extension rollback, the export and import round
 trip, and the tenant-isolation harness. A 2026-09-07 reconciliation on `main`
 found every gate item covered and re-ran lint, typecheck, test, build,
-format:check, and licenses on Node 24.19.0.
+format:check, and licenses on Node 24.19.0. The amendment's tests, listed in the
+[plan](../implementation-plans/framework-http-surface.md), passed locally on
+2026-09-07; merge evidence arrives with the Authentication design pull
+request.
 
 ### Brand, theme, and web entry surface
 
@@ -532,7 +538,7 @@ Node 24.19.0.
 **Outcome:** Repeatable, recoverable application releases and enforced production
 license approval under an accepted owning contract.
 
-**Design:** Accepted. **Implementation:** Implemented (local checks passed; merge and live evidence pending).
+**Design:** Accepted. **Implementation:** Verified in [PR #12](https://github.com/silverstone-i/nap/pull/12).
 
 **Depends on:** Workspace and toolchain (implemented).
 
@@ -540,9 +546,16 @@ license approval under an accepted owning contract.
 [Release operations](../RULES/release-operations.md), and the
 [implementation plan](../implementation-plans/0002-release-versioning-and-licensing-operations.md).
 
-**Current state:** Release and changelog workflows and the production license
-script now enforce selection, validation, atomic publication, recovery, and
-failure paths. Local evidence is recorded in PRD 0002.
+**Evidence:** [PR #12](https://github.com/silverstone-i/nap/pull/12) merged on
+2026-09-07 with the `changelog`, `checks`, and `release` workflows passing. Its
+merge-triggered release run published version 0.8.0, tag `v0.8.0`, and
+[Release 0.8.0](https://github.com/silverstone-i/nap/releases/tag/v0.8.0), and
+CI passed on the merge and version commits. A manual
+[recovery dispatch](https://github.com/silverstone-i/nap/actions/runs/34154652568)
+on 2026-09-07 found no pending batch, treated the existing Release as a no-op,
+and changed nothing. Isolated tests cover `REL-001`–`REL-006`; a 2026-09-07
+reconciliation added the `REL-007` workflow-contract test. PRD 0002 records the
+run links.
 
 **Gate:** `REL-001`–`REL-007` pass, with merged green CI and live publication and
 recovery evidence before Verified. An unlabelled merge contributes no bump but
@@ -552,30 +565,51 @@ may publish a pending labelled batch.
 
 ### Authentication and sessions
 
-**Outcome:** A portal user authenticates against central authority and receives
-a revocable, database-backed session.
+**Outcome:** A portal identity logs in with a password and receives a
+revocable, database-backed session bound to one tenant, and the seeded root
+identity exists so the operator can provision everything that follows.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted (2026-09-07). **Implementation:** Not started.
 
 **Depends on:** Framework HTTP surface, and the web entry surface for its
 routes.
 
-**Required design:** A PRD for the `admin-tenancy` module covering portal
-identities, credential storage, session lifetime and revocation, login
-throttling, logout, and password reset. The session and identity resolution
+**Documents:** [PRD 0003](../PRDs/0003-authentication-and-sessions.md),
+[ADR 0004](../ADRs/0004-seeded-root-identity.md), `ARCH-022`, `ARCH-023`,
+`ARCH-040`, `ARCH-048`, `ARCH-050`, and the
+[implementation plan](../implementation-plans/0003-authentication-and-sessions.md).
+
+**Settled (2026-09-07):** Portal identities arrive through tenant provisioning,
+which needs `admin-tenancy` and `core` tables that do not exist yet. The owner
+resolved the ordering by seeding one root identity bound to the operator's own
+tenant and having no employee record (ADR 0004). The `tenants` table and the
+membership table therefore move into this capability with the columns login
+needs; Tenant membership extends them. The session and identity resolution
 that middleware needs is a service under `ARCH-048`, not part of the module.
 
-**Required surfaces:** Admin identity, credential, and session migrations;
-repositories, the session service, session middleware, and the module's
-versioned auth routes; shared transport contracts; login, logout, session, and
-password web flows.
+**Required surfaces:** The `admin-tenancy` module with its tenant, identity,
+membership, session, and throttle migrations and repositories; the bootstrap
+seed behind `db:bootstrap`; the session service, the actor resolver, and the
+resolving middleware; the module's versioned auth routes; shared transport
+contracts; login, account, and password web flows.
+
+**Slices:** Design; data; service and routes; web. The plan owns the sequence.
 
 **Gate:** A revoked session, an expired session, a throttled login, and a
 tampered cookie are all refused; the resolved actor and tenant come from the
-database on every request; import-boundary tests prove middleware imports no
-module. Authenticated-route tests prove tenant values supplied in body, query,
-route parameters, and headers are rejected rather than used as database context,
+database on every request; the seed is idempotent and never rewrites an
+existing password; the root identity cannot be locked, deactivated, or demoted
+through user routes; import-boundary tests prove middleware imports no module.
+Authenticated-route tests prove tenant values supplied in body, query, route
+parameters, and headers are rejected rather than used as database context,
 completing the framework tenant-input rejection gate.
+
+**Deferred:** Forgotten-password reset needs a delivery channel and waits for
+the capability that introduces email delivery; until then only the seeded root
+exists and its recovery path is the seed's reset flag. Tenant selection for
+identities with several memberships, cell assignment, and the
+employee-to-identity workflow belong to Tenant membership and control plane.
+Entitlement and permission sets stay empty until RBAC and module entitlement.
 
 ### Tenant membership and control plane
 
@@ -586,9 +620,12 @@ tenant, and never select a cell or database.
 
 **Depends on:** Authentication and sessions.
 
-**Required design:** PRDs for the tenant registry, membership, cell registry
-and assignment, and controlled administration. The membership model supports
-multiple tenants for every portal identity. Application guards allow ordinary
+**Required design:** PRDs extending the `admin-tenancy` tenant and membership
+tables that Authentication created with cell registry and assignment, tenant
+tier and status, the employee-to-identity provisioning workflow, tenant
+selection, and controlled administration. The seeded root identity
+(ADR 0004) is the one exception to that workflow, not a template for it. The
+membership model supports multiple tenants for every portal identity. Application guards allow ordinary
 employee and client users one active tenant membership and allow vendor users
 several. Centrally authorized `package_admin` and `support` users may be
 granted access to or impersonation of any tenant without ordinary memberships

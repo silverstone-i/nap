@@ -95,6 +95,12 @@ The specification is amended first. A PRD, an ADR, or an implementation that
 needs something the specification does not permit stops there: the conflict is
 raised and resolved with the owner before either document changes.
 
+An amendment that changes how existing code must behave lands with that code
+in the same pull request. When the code is deliberately delayed, each required
+change is opened as a GitHub issue that links the amended document, and the
+roadmap entry of the capability that owns the code links the issue until it
+closes.
+
 Accepted ADR rationale is not rewritten. A changed decision receives a new ADR
 that supersedes the old one, and both records link the supersession.
 
@@ -129,3 +135,4 @@ Document locations and the repository skeleton are defined in
 
 - [Brand, theme, and web entry surface](PRDs/0001-brand-theme-and-web-entry-surface.md)
 - [Release, versioning, and licensing operations](PRDs/0002-release-versioning-and-licensing-operations.md)
+- [Authentication and sessions](PRDs/0003-authentication-and-sessions.md)

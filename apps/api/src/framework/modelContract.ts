@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { QueryModel, TableModel } from 'pg-schemata';
 import { listParameterNames } from '@nap/shared';
-import type { CellDatabase } from '../db/cell/index.js';
+import type { HandleBinding } from './ReadController.js';
 
 /**
  * Does: Represents one database row as the framework handles it: column
@@ -16,8 +16,8 @@ import type { CellDatabase } from '../db/cell/index.js';
 export type Row = Record<string, unknown>;
 
 /**
- * Does: Represents the repositories a controller's cell handle must carry:
- * the one named repository, as a read model at least.
+ * Does: Represents the repositories a controller's database pool must
+ * carry: the one named repository, as a read model at least.
  * Used by: the controller base classes and createRouter.
  */
 export type Repositories<N extends string> = Record<N, QueryModel<Row>>;
@@ -35,6 +35,7 @@ const reserved = new Set<string>(listParameterNames);
  */
 export type ModelContract = {
   readonly repository: string;
+  readonly target: 'cell' | 'admin';
   readonly primaryKey: string;
   readonly columns: ReadonlySet<string>;
   readonly managed: ReadonlySet<string>;
@@ -48,24 +49,27 @@ export type ModelContract = {
 };
 
 /**
- * Does: Reads a repository's table schema from the cell handle and returns
- * the model contract the framework works from.
+ * Does: Reads a repository's table schema from the controller's database
+ * pool and returns the model contract the framework works from.
  * Called by: createRouter, once per router at construction.
  * Why: this is the one place the framework touches a repository on the root
- * handle, and it reads metadata only; every query runs on the repository the
- * tenant transaction carries. A read-only projection has no generated
- * validators, so it must declare its own item schema, and its columns are
- * then checked against that schema.
+ * pool, and it reads metadata only; every query runs on the repository the
+ * transaction carries. A cell model must carry tenant_id, which the
+ * framework manages and the row-level policy checks; an admin model carries
+ * no tenant boundary (database record conventions), so tenant_id, when a
+ * central table has one, is an ordinary column there. A read-only projection
+ * has no generated validators, so it must declare its own item schema, and
+ * its columns are then checked against that schema.
  * @throws If the repository is missing, its primary key is not one column,
- * it lacks tenant_id, a column is named like a list parameter, or no item
- * schema can be found.
+ * a cell model lacks tenant_id, a column is named like a list parameter, or
+ * no item schema can be found.
  */
 export function describeModel<N extends string, R extends Repositories<N>>(
-  cellDb: CellDatabase<R>,
+  binding: HandleBinding<R>,
   repository: N,
   itemSchema?: z.ZodType
 ): ModelContract {
-  const model: unknown = cellDb.db[repository];
+  const model: unknown = binding.handle.db[repository];
   if (!(model instanceof QueryModel)) {
     throw new Error(`Repository is not registered: ${repository}`);
   }
@@ -75,7 +79,7 @@ export function describeModel<N extends string, R extends Repositories<N>>(
     throw new Error(`Model needs a single-column primary key: ${repository}`);
   }
   const columns = new Set(schema.columns.map(column => column.name));
-  if (!columns.has('tenant_id')) {
+  if (binding.target === 'cell' && !columns.has('tenant_id')) {
     throw new Error(`Model is not tenant-owned: ${repository}`);
   }
   for (const column of columns) {
@@ -84,7 +88,7 @@ export function describeModel<N extends string, R extends Repositories<N>>(
     }
   }
   const softDelete = schema.softDelete === true;
-  const managed = new Set(['tenant_id']);
+  const managed = new Set(binding.target === 'cell' ? ['tenant_id'] : []);
   for (const column of auditColumns)
     if (columns.has(column)) managed.add(column);
   if (softDelete) managed.add('deactivated_at');
@@ -110,6 +114,7 @@ export function describeModel<N extends string, R extends Repositories<N>>(
         : {};
   return {
     repository,
+    target: binding.target,
     primaryKey: primaryKey[0],
     columns,
     managed,

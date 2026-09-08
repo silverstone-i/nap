@@ -187,3 +187,9 @@ it('destroys a response committed before an unmapped fault instead of writing er
     expect.objectContaining({ event: 'http.completed', outcome: 'aborted' })
   );
 });
+it('trusts no proxy hop unless told how many', () => {
+  expect(createApp().get('trust proxy')).toBe(0);
+  expect(
+    createApp(undefined, undefined, { trustProxyHops: 2 }).get('trust proxy')
+  ).toBe(2);
+});

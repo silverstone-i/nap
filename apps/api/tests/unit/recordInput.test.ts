@@ -16,6 +16,7 @@ import type { ModelContract } from '../../src/framework/modelContract.js';
 
 const contract: ModelContract = {
   repository: 'records',
+  target: 'cell',
   primaryKey: 'id',
   columns: new Set([
     'id',

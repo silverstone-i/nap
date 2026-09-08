@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   writeFileSync,
   readFileSync,
+  readdirSync,
   rmSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -331,4 +332,22 @@ it('fails on missing or inconsistent baseline tags and invalid PR version change
   } finally {
     cleanup(state);
   }
+});
+
+it('runs pull-request content read-only and releases only from main', () => {
+  // REL-007: PR content is data. It runs only under read-only workflows with
+  // no persisted credentials; the release workflow checks out main, never a
+  // pull-request ref, and no workflow grants PR content a write token.
+  const workflows = new URL('../../.github/workflows/', import.meta.url);
+  const read = name => readFileSync(new URL(name, workflows), 'utf8');
+  for (const name of readdirSync(workflows)) {
+    expect(read(name)).not.toMatch(/pull_request_target/);
+  }
+  for (const name of ['ci.yml', 'changelog-check.yml']) {
+    expect(read(name)).toMatch(/^permissions:\n {2}contents: read$/m);
+  }
+  expect(read('changelog-check.yml')).toMatch(/persist-credentials: false/);
+  const release = read('release-on-merge.yml');
+  expect(release).toMatch(/^\s+ref: main$/m);
+  expect(release).not.toMatch(/github\.event\.pull_request\.head/);
 });

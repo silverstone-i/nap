@@ -38,7 +38,12 @@ import {
   parseRecord,
   withTenant,
 } from './recordInput.js';
-import { resolvedSession, runInTenant, tableModel } from './runOperation.js';
+import {
+  requiredSession,
+  resolvedSession,
+  runOperation,
+  tableModel,
+} from './runOperation.js';
 import {
   archiveRecords,
   bulkInsertRecords,
@@ -51,11 +56,11 @@ import {
   updateRecords,
 } from './operations.js';
 import { recordsFromWorkbook, workbookFromRecords } from './spreadsheets.js';
-import type { RequestHandler, Response, Router } from 'express';
-import type { CellTransaction } from '../db/withTenantTransaction.js';
+import type { CookieOptions, RequestHandler, Response, Router } from 'express';
 import type { ResolvedSession } from '../middleware/session.js';
 import type { ModelContract, Repositories, Row } from './modelContract.js';
 import type { ReadController } from './ReadController.js';
+import type { RepositoryTransaction } from './runOperation.js';
 
 /**
  * Does: Lists the actions of the standard route set, in registration order.
@@ -89,40 +94,102 @@ export type StandardAction = (typeof standardActions)[number];
 export type RouteMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 /**
+ * Does: Represents the two ways an extension route may relax the session
+ * gates: anonymous runs with no session at all, authenticated needs a
+ * session but no active tenant, entitlement, or permission.
+ * Used by: ExtensionRoute and createRouter.
+ * Why: the framework HTTP contract admits these two declarations and
+ * reserves them for the admin-tenancy authentication router, whose login
+ * and logout routes run before a session exists.
+ */
+export type RouteAccess = 'anonymous' | 'authenticated';
+
+/**
+ * Does: Represents the session an extension operation receives for a given
+ * access declaration: possibly none for an anonymous route, one without a
+ * guaranteed tenant for an authenticated route, and one with its active
+ * tenant otherwise.
+ * Used by: ExtensionInput.
+ */
+export type SessionFor<A extends RouteAccess | undefined> =
+  A extends 'anonymous'
+    ? ResolvedSession | undefined
+    : A extends 'authenticated'
+      ? ResolvedSession
+      : ResolvedSession & { readonly tenantId: string };
+
+/**
+ * Does: Lets an extension operation set or clear a cookie on the response
+ * it will produce.
+ * Used by: ExtensionInput, and the login and logout operations of the
+ * authentication router.
+ * Why: the cookie is applied only after the operation returns, so a
+ * refusal that rolls the transaction back leaves no cookie behind.
+ */
+export type ReplyControls = {
+  readonly setCookie: (
+    name: string,
+    value: string,
+    options?: CookieOptions
+  ) => void;
+  readonly clearCookie: (name: string, options?: CookieOptions) => void;
+};
+
+/**
  * Does: Represents the checked inputs an extension operation receives: its
  * body, query, and route parameters, each validated by the route's own
- * schema, and the resolved session.
+ * schema, the session its access declaration allows, the client's network
+ * address, and the cookie controls for its reply.
  * Used by: ExtensionRoute operations.
+ * Why: the client address is the socket address unless the app trusts a
+ * number of proxy hops, so a caller cannot choose the address the
+ * authentication router throttles against.
  */
-export type ExtensionInput<B, Q, P> = {
+export type ExtensionInput<
+  B,
+  Q,
+  P,
+  A extends RouteAccess | undefined = undefined,
+> = {
   readonly body: B;
   readonly query: Q;
   readonly params: P;
-  readonly session: ResolvedSession & { readonly tenantId: string };
+  readonly session: SessionFor<A>;
+  readonly clientAddress: string | undefined;
+  readonly reply: ReplyControls;
 };
 
 /**
  * Does: Describes one operation a module adds beyond the standard set: its
- * action name, method and path, the schemas of its inputs and response, and
- * the operation run inside the tenant transaction.
+ * action name, method and path, the schemas of its inputs and response, an
+ * optional access declaration, and the operation run inside the router's
+ * transaction.
  * Used by: the extend callback of createRouter.
  * Why: the schemas are required so an extension is validated like a standard
  * route (framework HTTP contract); a route without a body declares
  * z.undefined(), and one without query or route parameters declares an
- * empty strict object.
+ * empty strict object. Access may be declared only on the admin-tenancy
+ * authentication router; createRouter refuses it anywhere else.
  */
-export type ExtensionRoute<R, B, Q, P> = {
+export type ExtensionRoute<
+  R,
+  B,
+  Q,
+  P,
+  A extends RouteAccess | undefined = undefined,
+> = {
   readonly action: string;
   readonly method: RouteMethod;
   readonly path: string;
+  readonly access?: A;
   readonly body: z.ZodType<B>;
   readonly query: z.ZodType<Q>;
   readonly params: z.ZodType<P>;
   readonly response: z.ZodType;
   readonly status?: number;
   readonly operation: (
-    tx: CellTransaction<R>,
-    input: ExtensionInput<B, Q, P>
+    tx: RepositoryTransaction<R>,
+    input: ExtensionInput<B, Q, P, A>
   ) => Promise<unknown>;
 };
 
@@ -131,7 +198,7 @@ export type ExtensionRoute<R, B, Q, P> = {
  * controller: the module and router names, which standard routes to leave
  * unregistered, and a callback that adds extension routes.
  * Used by: createRouter and every module router file.
- * Why: R is the repository set of the controller's handle, so an extension
+ * Why: R is the repository set of the controller's pool, so an extension
  * operation is typed against the module's own repositories.
  */
 export type RouterOptions<R> = {
@@ -139,7 +206,9 @@ export type RouterOptions<R> = {
   readonly router: string;
   readonly routes?: Partial<Record<StandardAction, boolean>>;
   readonly extend?: (
-    add: <B, Q, P>(route: ExtensionRoute<R, B, Q, P>) => void
+    add: <B, Q, P, A extends RouteAccess | undefined = undefined>(
+      route: ExtensionRoute<R, B, Q, P, A>
+    ) => void
   ) => void;
 };
 
@@ -162,9 +231,41 @@ function writeSchemas(contract: ModelContract) {
 }
 
 /**
+ * Does: Returns true when a router is the one the framework HTTP contract
+ * lets declare route access: the authentication router of admin-tenancy.
+ * Called by: createRouter when an extension declares access.
+ */
+function mayDeclareAccess(module: string, router: string) {
+  return module === 'admin-tenancy' && router === 'auth';
+}
+
+/**
+ * Does: Collects the cookies an extension operation asks for and applies
+ * them to the response once the operation has succeeded.
+ * Called by: the extension handler, once per request.
+ */
+function collectReply() {
+  const pending: ((response: Response) => void)[] = [];
+  const controls: ReplyControls = {
+    setCookie: (name, value, options) =>
+      pending.push(response => response.cookie(name, value, options ?? {})),
+    clearCookie: (name, options) =>
+      pending.push(response => response.clearCookie(name, options ?? {})),
+  };
+  return {
+    controls,
+    /** Does: Writes every collected cookie onto the response. */
+    apply(response: Response) {
+      for (const write of pending) write(response);
+    },
+  };
+}
+
+/**
  * Does: Builds the Express router for a controller: the standard route set,
- * any extension routes, each behind the same gate chain, validation, one
- * tenant transaction, and response-contract check.
+ * any extension routes, each behind the gate chain its access allows,
+ * validation, one transaction on the controller's database, and the
+ * response-contract check.
  * Called by: a module's router file, once per router, from its exported
  * factory; and by framework tests.
  * Why: this is the one HTTP surface every module presents (ARCH-050). Static
@@ -172,9 +273,13 @@ function writeSchemas(contract: ModelContract) {
  * route disabled through the routes option is never registered, so it
  * answers exactly as an unknown path. Write routes exist only for a
  * WriteController, and archive and restore only for a soft-deleting model.
- * A controller's rbacConfig, when set, must agree with the options.
+ * A controller's rbacConfig, when set, must agree with the options. A
+ * cell-bound router stamps the active tenant on every inserted row and runs
+ * inside a tenant transaction; an admin-bound router does neither (framework
+ * HTTP contract).
  * @throws At construction on a defective model, a disagreeing rbacConfig,
- * or an extension that reuses an action or a method and path.
+ * an extension that reuses an action or a method and path, or an access
+ * declaration on any router but the admin-tenancy authentication router.
  */
 export function createRouter<N extends string, R extends Repositories<N>>(
   controller: ReadController<N, R>,
@@ -185,8 +290,8 @@ export function createRouter<N extends string, R extends Repositories<N>>(
   if (rbac && (rbac.module !== module || rbac.router !== name)) {
     throw new Error('Controller rbacConfig disagrees with the router options');
   }
-  const { cellDb, repository } = controller;
-  const contract = describeModel(cellDb, repository, controller.itemSchema);
+  const { binding, repository } = controller;
+  const contract = describeModel(binding, repository, controller.itemSchema);
   const writable = controller instanceof WriteController;
   if (writable && !contract.writable) {
     throw new Error(`Repository is not writable: ${repository}`);
@@ -205,13 +310,14 @@ export function createRouter<N extends string, R extends Repositories<N>>(
   const pk = contract.primaryKey;
 
   /**
-   * Does: Registers one route behind the gate chain unless it is disabled,
-   * after checking its action and path are unused.
+   * Does: Registers one route behind the gates its access needs unless it
+   * is disabled, after checking its action and path are unused.
    */
   function route(
     action: string,
     method: RouteMethod,
     path: string,
+    access: RouteAccess | 'full',
     ...handlers: RequestHandler[]
   ) {
     if (actions.has(action))
@@ -225,16 +331,18 @@ export function createRouter<N extends string, R extends Repositories<N>>(
       response.locals.route = `${module}.${name}.${action}`;
       next();
     };
-    router[method](
-      path,
-      label,
-      requireSession,
-      requireTenant,
-      requireEntitlement(module),
-      requirePermission(`${module}::${name}::${action}`),
-      rejectTenantInput,
-      ...handlers
-    );
+    const gates: RequestHandler[] =
+      access === 'anonymous'
+        ? []
+        : access === 'authenticated'
+          ? [requireSession]
+          : [
+              requireSession,
+              requireTenant,
+              requireEntitlement(module),
+              requirePermission(`${module}::${name}::${action}`),
+            ];
+    router[method](path, label, ...gates, rejectTenantInput, ...handlers);
   }
 
   /** Does: Sends the affected records under data. */
@@ -248,9 +356,17 @@ export function createRouter<N extends string, R extends Repositories<N>>(
   }
 
   /**
+   * Does: Returns a record with the active tenant written in for a
+   * cell-bound router, and unchanged for an admin-bound one.
+   */
+  function stamped(row: Row, tenantId: string) {
+    return binding.target === 'cell' ? withTenant(row, tenantId) : row;
+  }
+
+  /**
    * Does: Checks and prepares records for insertion: each must be an object
-   * of writable columns, receives the active tenant, and passes the model's
-   * insert validator.
+   * of writable columns, receives the active tenant on a cell-bound router,
+   * and passes the model's insert validator.
    */
   function insertable(
     records: unknown[],
@@ -260,7 +376,7 @@ export function createRouter<N extends string, R extends Repositories<N>>(
   ) {
     return records.map((record, index) => {
       const path = `${prefix}.${index}`;
-      const row = withTenant(
+      const row = stamped(
         checkRecordColumns(record, path, contract, 'insert'),
         tenantId
       );
@@ -268,10 +384,10 @@ export function createRouter<N extends string, R extends Repositories<N>>(
     });
   }
 
-  route('list', 'get', '/', async (request, response) => {
+  route('list', 'get', '/', 'full', async (request, response) => {
     const session = resolvedSession(response);
     const query = parseListQuery(request.query, contract, listPageSize);
-    const result = await runInTenant(cellDb, session, tx =>
+    const result = await runOperation(binding, session, tx =>
       listRecords(tx[repository], contract, query)
     );
     const page = {
@@ -289,14 +405,14 @@ export function createRouter<N extends string, R extends Repositories<N>>(
   if (writable) {
     const { insertSchema, updateSchema } = writeSchemas(contract);
 
-    route('create', 'post', '/', async (request, response) => {
+    route('create', 'post', '/', 'full', async (request, response) => {
       const session = resolvedSession(response);
-      const row = withTenant(
+      const row = stamped(
         checkRecordColumns(request.body, '', contract, 'insert'),
         session.tenantId
       );
       const record = parseRecord(insertSchema, row);
-      const created = await runInTenant(cellDb, session, tx =>
+      const created = await runOperation(binding, session, tx =>
         createRecord(tableModel(tx, repository), record)
       );
       sendContract(
@@ -307,22 +423,28 @@ export function createRouter<N extends string, R extends Repositories<N>>(
       );
     });
 
-    route('bulk-insert', 'post', '/bulk-insert', async (request, response) => {
-      const session = resolvedSession(response);
-      const body = parseAt(bulkInsertBodySchema(genericRecord), request.body);
-      const rows = insertable(
-        body.records,
-        session.tenantId,
-        insertSchema,
-        'records'
-      );
-      const inserted = await runInTenant(cellDb, session, tx =>
-        bulkInsertRecords(tableModel(tx, repository), contract, rows)
-      );
-      sendRecords(response, inserted, 201);
-    });
+    route(
+      'bulk-insert',
+      'post',
+      '/bulk-insert',
+      'full',
+      async (request, response) => {
+        const session = resolvedSession(response);
+        const body = parseAt(bulkInsertBodySchema(genericRecord), request.body);
+        const rows = insertable(
+          body.records,
+          session.tenantId,
+          insertSchema,
+          'records'
+        );
+        const inserted = await runOperation(binding, session, tx =>
+          bulkInsertRecords(tableModel(tx, repository), contract, rows)
+        );
+        sendRecords(response, inserted, 201);
+      }
+    );
 
-    route('update', 'put', '/update', async (request, response) => {
+    route('update', 'put', '/update', 'full', async (request, response) => {
       const session = resolvedSession(response);
       const body = parseAt(updateShape, request.body);
       const changes = checkRecordColumns(
@@ -338,7 +460,7 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         );
       }
       const parsed = parseRecord(updateSchema, changes, 'changes');
-      const rows = await runInTenant(cellDb, session, tx =>
+      const rows = await runOperation(binding, session, tx =>
         updateRecords(
           tableModel(tx, repository),
           contract,
@@ -349,69 +471,90 @@ export function createRouter<N extends string, R extends Repositories<N>>(
       sendRecords(response, rows);
     });
 
-    route('bulk-update', 'put', '/bulk-update', async (request, response) => {
-      const session = resolvedSession(response);
-      const body = parseAt(bulkUpdateShape, request.body);
-      const ids: string[] = [];
-      const records: Row[] = [];
-      for (const [index, record] of body.records.entries()) {
-        const path = `records.${index}`;
-        const { [pk]: id, ...changes } = record;
-        if (typeof id !== 'string' || !id) {
-          throw new HttpError(
-            'INVALID_INPUT',
-            fieldError(`${path}.${pk}`, 'Identifier required')
-          );
+    route(
+      'bulk-update',
+      'put',
+      '/bulk-update',
+      'full',
+      async (request, response) => {
+        const session = resolvedSession(response);
+        const body = parseAt(bulkUpdateShape, request.body);
+        const ids: string[] = [];
+        const records: Row[] = [];
+        for (const [index, record] of body.records.entries()) {
+          const path = `records.${index}`;
+          const { [pk]: id, ...changes } = record;
+          if (typeof id !== 'string' || !id) {
+            throw new HttpError(
+              'INVALID_INPUT',
+              fieldError(`${path}.${pk}`, 'Identifier required')
+            );
+          }
+          if (ids.includes(id)) {
+            throw new HttpError(
+              'INVALID_INPUT',
+              fieldError(`${path}.${pk}`, 'Duplicate identifier')
+            );
+          }
+          const checked = checkRecordColumns(changes, path, contract, 'update');
+          if (Object.keys(checked).length === 0) {
+            throw new HttpError(
+              'INVALID_INPUT',
+              fieldError(path, 'No changes')
+            );
+          }
+          const parsed = parseRecord(updateSchema, checked, path);
+          ids.push(id);
+          records.push({ ...parsed, [pk]: id });
         }
-        if (ids.includes(id)) {
-          throw new HttpError(
-            'INVALID_INPUT',
-            fieldError(`${path}.${pk}`, 'Duplicate identifier')
-          );
-        }
-        const checked = checkRecordColumns(changes, path, contract, 'update');
-        if (Object.keys(checked).length === 0) {
-          throw new HttpError('INVALID_INPUT', fieldError(path, 'No changes'));
-        }
-        const parsed = parseRecord(updateSchema, checked, path);
-        ids.push(id);
-        records.push({ ...parsed, [pk]: id });
+        const rows = await runOperation(binding, session, tx =>
+          bulkUpdateRecords(
+            tableModel(tx, repository),
+            contract,
+            { ids, path: index => `records.${index}.${pk}` },
+            records
+          )
+        );
+        sendRecords(response, rows);
       }
-      const rows = await runInTenant(cellDb, session, tx =>
-        bulkUpdateRecords(
-          tableModel(tx, repository),
-          contract,
-          { ids, path: index => `records.${index}.${pk}` },
-          records
-        )
-      );
-      sendRecords(response, rows);
-    });
+    );
 
     if (contract.softDelete) {
-      route('archive', 'delete', '/archive', async (request, response) => {
-        const session = resolvedSession(response);
-        const { ids } = parseAt(idsBodySchema, request.body);
-        const rows = await runInTenant(cellDb, session, tx =>
-          archiveRecords(tableModel(tx, repository), contract, {
-            ids,
-            path: index => `ids.${index}`,
-          })
-        );
-        sendRecords(response, rows);
-      });
+      route(
+        'archive',
+        'delete',
+        '/archive',
+        'full',
+        async (request, response) => {
+          const session = resolvedSession(response);
+          const { ids } = parseAt(idsBodySchema, request.body);
+          const rows = await runOperation(binding, session, tx =>
+            archiveRecords(tableModel(tx, repository), contract, {
+              ids,
+              path: index => `ids.${index}`,
+            })
+          );
+          sendRecords(response, rows);
+        }
+      );
 
-      route('restore', 'patch', '/restore', async (request, response) => {
-        const session = resolvedSession(response);
-        const { ids } = parseAt(idsBodySchema, request.body);
-        const rows = await runInTenant(cellDb, session, tx =>
-          restoreRecords(tableModel(tx, repository), contract, {
-            ids,
-            path: index => `ids.${index}`,
-          })
-        );
-        sendRecords(response, rows);
-      });
+      route(
+        'restore',
+        'patch',
+        '/restore',
+        'full',
+        async (request, response) => {
+          const session = resolvedSession(response);
+          const { ids } = parseAt(idsBodySchema, request.body);
+          const rows = await runOperation(binding, session, tx =>
+            restoreRecords(tableModel(tx, repository), contract, {
+              ids,
+              path: index => `ids.${index}`,
+            })
+          );
+          sendRecords(response, rows);
+        }
+      );
     } else if (routes.archive === true || routes.restore === true) {
       throw new Error(`Model does not soft-delete: ${repository}`);
     }
@@ -420,6 +563,7 @@ export function createRouter<N extends string, R extends Repositories<N>>(
       'import-xls',
       'post',
       '/import-xls',
+      'full',
       xlsxBody,
       async (request, response) => {
         const session = resolvedSession(response);
@@ -438,7 +582,7 @@ export function createRouter<N extends string, R extends Repositories<N>>(
           insertSchema,
           'records'
         );
-        const inserted = await runInTenant(cellDb, session, tx =>
+        const inserted = await runOperation(binding, session, tx =>
           bulkInsertRecords(tableModel(tx, repository), contract, rows)
         );
         sendRecords(response, inserted, 201);
@@ -446,51 +590,88 @@ export function createRouter<N extends string, R extends Repositories<N>>(
     );
   }
 
-  route('export-xls', 'post', '/export-xls', async (request, response) => {
-    const session = resolvedSession(response);
-    const query = parseListQuery(request.query, contract, {
-      default: exportRowLimit,
-      max: exportRowLimit,
-    });
-    const rows = await runInTenant(cellDb, session, tx =>
-      exportRecords(tx[repository], contract, query)
-    );
-    if (!z.array(contract.itemSchema).safeParse(rows).success) {
-      throw new Error('Exported rows violate their transport contract');
-    }
-    const bytes = workbookFromRecords(rows, name);
-    response.setHeader('Content-Type', xlsxMediaType);
-    response.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${module}-${name}.xlsx"`
-    );
-    response.setHeader('Cache-Control', 'no-store');
-    response.status(200).send(Buffer.from(bytes));
-  });
-
-  options.extend?.(spec => {
-    if (standardActions.some(action => action === spec.action)) {
-      throw new Error(`Extension reuses a standard action: ${spec.action}`);
-    }
-    if (/:tenant/i.test(spec.path)) {
-      throw new Error(`Extension path names a tenant: ${spec.path}`);
-    }
-    route(spec.action, spec.method, spec.path, async (request, response) => {
+  route(
+    'export-xls',
+    'post',
+    '/export-xls',
+    'full',
+    async (request, response) => {
       const session = resolvedSession(response);
-      const body = parseAt(spec.body, request.body);
-      const query = parseAt(spec.query, request.query, 'query');
-      const params = parseAt(spec.params, request.params, 'params');
-      const value = await runInTenant(cellDb, session, tx =>
-        spec.operation(tx, { body, query, params, session })
+      const query = parseListQuery(request.query, contract, {
+        default: exportRowLimit,
+        max: exportRowLimit,
+      });
+      const rows = await runOperation(binding, session, tx =>
+        exportRecords(tx[repository], contract, query)
       );
-      sendContract(response, spec.response, value, spec.status ?? 200);
-    });
-  });
+      if (!z.array(contract.itemSchema).safeParse(rows).success) {
+        throw new Error('Exported rows violate their transport contract');
+      }
+      const bytes = workbookFromRecords(rows, name);
+      response.setHeader('Content-Type', xlsxMediaType);
+      response.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${module}-${name}.xlsx"`
+      );
+      response.setHeader('Cache-Control', 'no-store');
+      response.status(200).send(Buffer.from(bytes));
+    }
+  );
 
-  route('read', 'get', '/:id', async (request, response) => {
+  options.extend?.(
+    <B, Q, P, A extends RouteAccess | undefined>(
+      spec: ExtensionRoute<R, B, Q, P, A>
+    ) => {
+      if (standardActions.some(action => action === spec.action)) {
+        throw new Error(`Extension reuses a standard action: ${spec.action}`);
+      }
+      if (/:tenant/i.test(spec.path)) {
+        throw new Error(`Extension path names a tenant: ${spec.path}`);
+      }
+      const access = spec.access;
+      if (access !== undefined && !mayDeclareAccess(module, name)) {
+        throw new Error(
+          `Route access may be declared only by the admin-tenancy auth router: ${spec.action}`
+        );
+      }
+      route(
+        spec.action,
+        spec.method,
+        spec.path,
+        access ?? 'full',
+        async (request, response) => {
+          // Each access mode is narrowed by its gates before this runs; the
+          // cast records the session shape the operation was declared for.
+          const session = (access === 'anonymous'
+            ? response.locals.session
+            : access === 'authenticated'
+              ? requiredSession(response)
+              : resolvedSession(response)) as unknown as SessionFor<A>;
+          const body = parseAt(spec.body, request.body);
+          const query = parseAt(spec.query, request.query, 'query');
+          const params = parseAt(spec.params, request.params, 'params');
+          const reply = collectReply();
+          const value = await runOperation(binding, session, tx =>
+            spec.operation(tx, {
+              body,
+              query,
+              params,
+              session,
+              clientAddress: request.ip,
+              reply: reply.controls,
+            })
+          );
+          reply.apply(response);
+          sendContract(response, spec.response, value, spec.status ?? 200);
+        }
+      );
+    }
+  );
+
+  route('read', 'get', '/:id', 'full', async (request, response) => {
     const session = resolvedSession(response);
     const id = parseAt(contract.columnSchema(pk), request.params.id, 'id');
-    const row = await runInTenant(cellDb, session, tx =>
+    const row = await runOperation(binding, session, tx =>
       readRecord(tx[repository], String(id))
     );
     sendContract(response, single, { version: transportVersion, data: row });

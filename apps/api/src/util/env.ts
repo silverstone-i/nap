@@ -43,6 +43,27 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
 }
 
 /**
+ * Does: Returns how many reverse-proxy hops in front of the API may be
+ * trusted when reading the client's address, from TRUST_PROXY_HOPS,
+ * defaulting to 0.
+ * Called by: the server entry point at startup, and unit tests.
+ * Why: with 0 hops the socket address is the client address and any
+ * X-Forwarded-For header is ignored, so a caller cannot choose the address
+ * login throttling counts against (PRD 0003, AUTH-005). The deployment
+ * sets the real hop count.
+ * @throws If TRUST_PROXY_HOPS is set and is not a whole number from 0 to 16.
+ */
+export function resolveTrustProxyHops(
+  env: NodeJS.ProcessEnv = process.env
+): number {
+  const value = env.TRUST_PROXY_HOPS ?? '0';
+  if (!/^\d+$/.test(value) || Number(value) > 16) {
+    throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 16');
+  }
+  return Number(value);
+}
+
+/**
  * Does: Reads one environment variable holding a PostgreSQL URL and splits
  * it into host, port, user, password, and database name.
  * Called by: resolveSetupConfiguration, once per URL it needs.

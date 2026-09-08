@@ -31,6 +31,21 @@ recreate them.
 - [x] Add the fixture model, unit, integration, isolation, conformance, and
       layer tests.
 - [x] Verify, then reconcile the roadmap, changelog, and this plan.
+- [x] Amendment of 2026-09-07: admin-targeted routers and declared route
+      access, delivered with the amendment in the Authentication design pull
+      request.
+  - [x] `db/admin/index.ts` carries repositories like the cell pool,
+        `db/admin/repositories.ts` is the admin composition root, and
+        `db/withAdminTransaction.ts` opens a plain admin transaction.
+  - [x] `framework/ReadController.ts` records a binding of pool and target;
+        `describeModel` and `runOperation` dispatch on it.
+  - [x] `framework/createRouter.ts` pushes gates by declared access, gives
+        extension operations the client address and cookie controls, and
+        refuses access declarations outside the `admin-tenancy` auth router.
+  - [x] `framework/routeRegistry.ts` registers a target per router and
+        `mountRoutes` passes the matching pool; `app.ts` and `runtime.ts` pass
+        both pools and the trusted proxy hop count from `TRUST_PROXY_HOPS`.
+  - [x] Unit, conformance, layer, and admin-router integration tests.
 
 ## Outcome and accepted design
 
@@ -92,10 +107,22 @@ Every framework route answers `UNAUTHENTICATED` until the authentication
 capability installs the session resolver, and the registry is empty, so no
 production route is reachable. A batch refusal answers `INVALID_INPUT` with
 field errors keyed `ids.<i>` or `records.<i>.id`, the only envelope slot that
-can name a refused item under `ARCH-043`, without echoing values. Cell-targeted
-controllers only; admin-targeted controllers, resource-scope middleware, the
-permission vocabulary, the actor resolver, and filter operators are deferred
-to the capabilities that own them.
+can name a refused item under `ARCH-043`, without echoing values.
+Resource-scope middleware, the permission vocabulary, the actor resolver, and
+filter operators are deferred to the capabilities that own them.
+
+The 2026-09-07 amendment adds two declared variations. A controller records a
+binding of its pool and target, `cell` or `admin`; `describeModel` requires
+`tenant_id` only for a cell model, and `runOperation` opens a tenant
+transaction for a cell pool and a plain `withAdminTransaction` for an admin
+pool, with the same failure mapping. An extension route may declare `access`
+as `anonymous` or `authenticated`; the factory pushes no session gate or only
+`requireSession` for those, keeps tenant-input rejection on every route, hands
+the operation the client address (Express's trusted-proxy setting, from
+`TRUST_PROXY_HOPS`) and cookie controls applied only after the operation
+succeeds, and throws at construction when any router but `admin-tenancy`'s
+`auth` declares access. The route registry records a target per registration
+and `mountRoutes` receives both pools.
 
 ## Verification and evidence
 
@@ -126,6 +153,16 @@ toolchain, 146 API, 5 web, 12 shared), build, format:check, and the production
 license check (220 package records). The API integration and isolation tests
 ran against disposable PostgreSQL 18 fixtures, which need a locale in the
 environment.
+
+On 2026-09-07 the amendment's tests passed locally: router construction with
+each access mode and the `admin-tenancy` restriction, admin binding and the
+dropped tenant requirement, `runInAdmin` failure mapping and dispatch by
+target, the conformance scan for access declarations, the layer test with the
+admin composition root, and the admin-router integration suite against
+disposable PostgreSQL 18: standard routes with no tenant setting, an anonymous
+route without a session whose cookie is applied only on success, an
+authenticated route with a tenantless session, tenant input refused on both,
+and the client address by socket unless proxy hops are trusted.
 
 ## Merge and CI evidence
 

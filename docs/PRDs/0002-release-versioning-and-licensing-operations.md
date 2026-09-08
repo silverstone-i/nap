@@ -1,7 +1,7 @@
 # 0002 — Release, versioning, and licensing operations
 
 **Design:** Accepted (owner approved implementation plan, 2026-09-07).
-**Implementation:** Implemented (local validation; merge and live release evidence pending).
+**Implementation:** Verified in [PR #12](https://github.com/silverstone-i/nap/pull/12).
 
 ## Authority
 
@@ -56,8 +56,32 @@ filesystem sandbox. Publication tests used temporary Git repositories and a
 local bare remote; GitHub recovery used mocked responses. No live release was
 created and no repository version was changed.
 
+## Merge and live evidence
+
+[PR #12](https://github.com/silverstone-i/nap/pull/12) carried `release:minor`
+and merged on 2026-09-07 with the `changelog`, `checks`, and `release`
+workflows passing. The merge-triggered
+[release run](https://github.com/silverstone-i/nap/actions/runs/34148239227)
+selected the batch, passed every repository check, bumped the root version to
+0.8.0, promoted the Unreleased section, pushed the DCO-signed commit and the
+annotated tag `v0.8.0` atomically, and created
+[Release 0.8.0](https://github.com/silverstone-i/nap/releases/tag/v0.8.0)
+(`REL-003`, `REL-004`, `REL-007`). CI passed on the
+[merge commit](https://github.com/silverstone-i/nap/actions/runs/34148239245)
+and on the
+[version commit](https://github.com/silverstone-i/nap/actions/runs/34148380311).
+A manual
+[recovery dispatch](https://github.com/silverstone-i/nap/actions/runs/34154652568)
+on 2026-09-07 found no pending batch, confirmed Release 0.8.0 already existed,
+skipped publication, and left the tag, the Release, and `main` unchanged
+(`REL-005`). A workflow-contract test added during reconciliation asserts that
+pull-request workflows run with read-only permissions and no persisted
+credentials, that no workflow uses `pull_request_target`, and that the release
+workflow checks out `main` rather than pull-request content (`REL-007`).
+
 ## Revisions
 
 | Date       | Change                                                    |
 | ---------- | --------------------------------------------------------- |
 | 2026-09-07 | Accepted initial release and dependency-license contract. |
+| 2026-09-07 | Marked Verified after merge, live release, and recovery.  |
