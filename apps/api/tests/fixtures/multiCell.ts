@@ -39,7 +39,10 @@ async function apiProcess(env: NodeJS.ProcessEnv) {
   const listen = await port();
   const origin = `http://127.0.0.1:${listen}`;
   let child: ReturnType<typeof spawn> | undefined;
-  /** Does: Starts the same compiled entry point and waits for readiness. */
+  /**
+   * Does: Starts the compiled API process and waits until it can serve requests.
+   * Called by: apiProcess during setup and acceptance tests when restarting a stopped process.
+   */
   async function start() {
     child = spawn(
       process.execPath,
@@ -101,7 +104,10 @@ export async function multiCell() {
   const cell2 = createCellDatabase(base.fixture.runtimeUrl(url2, role2), {
     repositories: cellRepositories,
   });
-  /** Does: Closes all test processes and connections before deleting fixture resources. */
+  /**
+   * Does: Closes the test processes and database connections before deleting their temporary resources.
+   * Called by: multiCell on setup failure and acceptance tests during suite cleanup.
+   */
   async function cleanup() {
     await Promise.all(processes.map(p => p.stop()));
     await cell2.close();

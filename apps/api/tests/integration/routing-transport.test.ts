@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { beforeEach, afterEach, afterAll, expect, it, vi } from 'vitest';
 import express from 'express';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -52,10 +52,15 @@ beforeEach(async () => {
 afterEach(async () => {
   server.closeAllConnections();
   await new Promise<void>(resolve => server.close(() => resolve()));
+});
+afterAll(async () => {
   await db.close();
 });
 
-/** Does: Constructs the real forwarding middleware with a short deadline. Called by: transport tests. */
+/**
+ * Does: Creates an HTTP application that forwards requests with a short deadline.
+ * Called by: transport tests before sending requests to the test upstream server.
+ */
 function app(timeoutMs = 1000) {
   const value = express();
   value.use(

@@ -24,7 +24,10 @@ const profile = '/api/core/v1/identity/profile';
 const temporary = 'temporary-password-123';
 const replacement = 'replacement-password-123';
 
-/** Does: Extracts the opaque browser cookie from a successful transition. Called by: test helpers. */
+/**
+ * Does: Extracts the browser cookie returned by a successful login or tenant selection.
+ * Called by: test helpers and acceptance cases after session transitions.
+ */
 function cookie(reply: { headers: Record<string, unknown> }) {
   const values = reply.headers['set-cookie'];
   if (!Array.isArray(values) || typeof values[0] !== 'string')
