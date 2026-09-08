@@ -132,22 +132,26 @@ Before, [requestContext.ts](../../apps/api/src/util/requestContext.ts):
 
 ```ts
 /** Execution identity only; never an actor, tenant, or authorization source. */
-export const requestContext = new AsyncLocalStorage<{ requestId: string }>();
+export const requestContext = new AsyncLocalStorage<{
+  requestId: string;
+  actorId?: string;
+}>();
 ```
 
 After:
 
 ```ts
 /**
- * Does: Holds the ID of the request currently being handled, so any code
- * running for that request can read it without being passed it.
- * Used by: the correlation middleware to set it, and the logger and request
- * logging middleware to read it.
- * Why: it carries the request ID and nothing else. It must never be used to
- * find out who the caller is, which tenant they belong to, or what they are
- * allowed to do; those come from server-resolved data, not request scope.
+ * Does: Holds the current request ID and the actor verified by authentication.
+ * Used by: correlation and authentication to set them, and logging and the
+ * database actor resolver to read them.
+ * Why: AUTH-008 permits a verified actor ID written by authentication for
+ * database audit attribution. Request input never supplies the actor.
  */
-export const requestContext = new AsyncLocalStorage<{ requestId: string }>();
+export const requestContext = new AsyncLocalStorage<{
+  requestId: string;
+  actorId?: string;
+}>();
 ```
 
 ### Factory function

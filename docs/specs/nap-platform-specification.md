@@ -608,6 +608,12 @@ authentication router may declare either, because they exist so the routes that
 create and end a session pass through the factory rather than around it, and
 the `ARCH-050` conformance test proves no other router does.
 
+For AUTH-005, the anonymous login operation may queue `UNAUTHENTICATED` or
+`THROTTLED` through the factory's `refuseLogin` reply control. The transaction
+commits its throttle counters before the factory sends that refusal, with no
+success cookie or payload. Only the auth router's anonymous login action may
+use this control. Thrown failures on every route still roll back normally.
+
 List routes accept a bounded page size as `size`, a sort expression as
 `sort`, a continuation value as `cursor`, and a soft-deletion selector as
 `archived` that chooses active, archived, or both. Every other query parameter
@@ -986,8 +992,8 @@ tables use:
 id              uuid          primary key, default gen_random_uuid(), immutable
 created_at      timestamptz   not null, database default transaction_timestamp()
 updated_at      timestamptz   not null, database default transaction_timestamp()
-created_by      uuid          actor id; nullable only for bootstrap or migration
-updated_by      uuid          actor id; nullable only for bootstrap or migration
+created_by      uuid          actor id; nullable for bootstrap, migration, or anonymous login throttling
+updated_by      uuid          actor id; nullable for bootstrap, migration, or anonymous login throttling
 deactivated_at  timestamptz   nullable soft-deletion timestamp
 ```
 
@@ -1002,7 +1008,11 @@ the row.
 identity or a trusted service, and the authoritative actor record holds the
 service's name rather than a free-form name in an audit column. NULL is allowed
 only while bootstrapping or in a migration that runs before an actor exists, and
-a component PRD must not introduce another meaning for NULL. Actor UUIDs copied
+the sole additional exception is anonymous writes to `admin.login_throttles`,
+which may carry null audit actors because no identity has been authenticated
+([ADR 0005](../ADRs/0005-anonymous-login-throttle-actors.md)). Authenticated
+writes retain their resolved actor; this exception applies to no other table.
+A component PRD must not introduce another meaning for NULL. Actor UUIDs copied
 into a cell do not create cross-database foreign keys.
 
 Mutable records use soft deletion by default: queries representing active
@@ -1665,6 +1675,7 @@ every production dependency carries an allowed license.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-08 | Accepted the anonymous login-throttle audit-actor exception (ADR 0005) and documented the factory control that preserves failed-login throttle counters.                                                                                                                                                                            |
 | 2026-09-07 | Named the seeded root identity as the one exception to provisioned portal identities under `ARCH-040` (ADR 0004), and added admin-targeted routers and declared `anonymous` and `authenticated` extension-route access to the framework HTTP contract, with the matching conformance rows                                           |
 | 2026-09-07 | Added the spreadsheet library to the technology stack, and named the raw upload media type, the list parameter names, and the router mount path in the framework HTTP contract                                                                                                                                                      |
 | 2026-09-07 | Recorded the success and list envelope factories, the `page` fields `size`, `total`, and `cursor`, and the transport version constant beside the error schema in the shared package boundary, and completed the identity-folder sentence                                                                                            |

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { SessionView } from '@nap/shared';
 import { z } from 'zod';
 import { HttpError } from '../util/httpError.js';
 import type { RequestHandler } from 'express';
@@ -19,6 +20,8 @@ import type { RequestHandler } from 'express';
  */
 export type ResolvedSession = {
   readonly actorId: string;
+  readonly sessionId?: string;
+  readonly view?: SessionView;
   readonly tenantId?: string;
   readonly entitlements: ReadonlySet<string>;
   readonly permissions: ReadonlySet<string>;
@@ -30,9 +33,7 @@ const tenantUuid = z.uuid();
  * Does: Lets the request continue only when a resolved session is stored on
  * the response, and otherwise passes an UNAUTHENTICATED error on.
  * Called by: the framework router, first gate on every framework route.
- * Why: nothing in production stores a session until the authentication
- * capability installs its resolver, so every framework route refuses until
- * then, which keeps unfinished behaviour unreachable.
+ * Why: only database-verified sessions pass this gate (AUTH-003).
  */
 export const requireSession: RequestHandler = (_request, response, next) => {
   next(response.locals.session ? undefined : new HttpError('UNAUTHENTICATED'));

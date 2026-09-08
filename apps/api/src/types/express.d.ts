@@ -12,11 +12,11 @@ declare global {
      * response.locals: the server-resolved session and the route label.
      * Used by: the session gates, the framework router, and request logging.
      * Why: response.locals lives for one response only, so a session or
-     * label set here cannot leak into another request; the correlation
-     * store carries the request ID and nothing else by design.
+     * label set here cannot leak into another request; the request context carries the request ID and verified audit actor.
      */
     interface Locals {
       session?: ResolvedSession;
+      presentedSession?: { id: string; actorId: string };
       route?: string;
     }
   }

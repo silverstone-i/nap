@@ -19,6 +19,7 @@ export const apiErrorCodes = [
   'PAYLOAD_TOO_LARGE',
   'UNSUPPORTED_MEDIA_TYPE',
   'UNAUTHENTICATED',
+  'THROTTLED',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',

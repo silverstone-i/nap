@@ -9,3 +9,4 @@ export * from './health.js';
 export * from './lists.js';
 export * from './batches.js';
 export * from './spreadsheets.js';
+export * from './auth.js';

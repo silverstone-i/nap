@@ -1,113 +1,69 @@
 # Authentication and sessions implementation plan
 
-## Features already implemented
+## Features
 
-Delivered by earlier platform capabilities. This plan reuses them and does not
-recreate them.
+- [x] Five admin tables, migrations, and repositories.
+- [x] Idempotent root bootstrap and explicit password recovery.
+- [x] Login/logout with signed cookies and database-backed sessions.
+- [x] Idle/absolute expiry and immediate session revocation.
+- [x] Email/address login throttling.
+- [x] Password changes and request-scoped audit actors.
+- [x] Login/account pages with redirects and loading/error states.
+- [x] Corrected documents, security tests, and repository validation.
 
-- The admin and cell database handles, the admin module registry, the
-  migration runner, and the `db:migrate:admin` script.
-- `createRouter`, the route registry, the four session gates,
-  `rejectTenantInput`, `validateBody`, `sendContract`, and the SQLSTATE
-  mapping.
-- The success and error envelopes, the error-code registry, and
-  `requestContract` on the web client.
-- `util/requestContext.ts`, correlation, request logging, and the boundary
-  error handler.
-- The `.env` loader, the disposable PostgreSQL fixture, and the workspace
-  import-boundary test.
-- The theme, route-level loading and error boundaries, and the holding page.
+## Accepted design and delivery
 
-## Work checklist
+Implement [PRD 0003](../PRDs/0003-authentication-and-sessions.md), AUTH-001
+through AUTH-009, using ADR 0004 and the owner-approved audit exception in
+[ADR 0005](../ADRs/0005-anonymous-login-throttle-actors.md). The original design
+work is complete. This task delivers the remaining capability together in the
+working tree; the former data/service/web pull-request split no longer applies.
+Commit, push, PR creation, merge, and deployment require separate authorization.
 
-- [ ] Amend the specification, record ADR 0004, write PRD 0003, update the
-      roadmap and this plan (this design pull request).
-- [ ] Data: the `admin-tenancy` module with its descriptor, five tables,
-      migrations, repositories, and the bootstrap seed.
-- [ ] Service and routes: the session service, the actor resolver, the
-      resolving middleware, the auth router, and the shared contracts.
-- [ ] Web: `auth/`, `/login`, `/account`, and the redirects.
-- [ ] Verify, then reconcile the roadmap, the changelog, PRD 0003, and this
-      plan.
+## Implementation sequence
 
-## Outcome and accepted design
+1. Correct the specification, ADR index, PRD, and this feature-first plan.
+2. Register the admin-tenancy tables and frozen migrations, their TableModel
+   repositories, Argon2id password helpers, and transactional bootstrap/reset.
+3. Implement PostgreSQL session resolution and HMAC-keyed throttling, the actor
+   resolver, shared contracts, resolving middleware, and factory-generated auth
+   routes. Invalid-cookie failures resolve anonymously; database errors propagate.
+   Failed-attempt counters must commit before the login refusal is sent, while
+   all ordinary operation failures retain framework rollback behavior.
+4. Add web auth state, login/account forms, safe next paths, and redirects using
+   requestContract and existing branding and route boundaries.
+5. Run focused security and UI tests, then all repository checks; reconcile PRD,
+   roadmap, configuration guidance, and changelog against the actual evidence.
 
-Implement [PRD 0003](../PRDs/0003-authentication-and-sessions.md), the
-requirements `AUTH-001` to `AUTH-009`, under
-[ADR 0004](../ADRs/0004-seeded-root-identity.md) and the amended `ARCH-040`
-and framework HTTP contract. The plan is required because the capability
-establishes the authentication boundary and stores credentials. The owner
-accepted the design on 2026-09-07; implementation starts with the data pull
-request.
+## Validation
 
-## Work and PR sequence
+Disposable PostgreSQL tests cover fresh and repeated migrations, seed/reset,
+root guards, actor attribution, all identity/membership/tenant denials, signed
+cookie tampering, expiry/revocation, password-change atomicity, concurrent
+throttling and persisted failures, proxy trust, and tenant-input rejection with
+real sessions. Conformance tests retain import and route-access restrictions.
+Web tests cover forms, redirect safety, loading, expired sessions, and API/network
+failures. Run lint, typecheck, tests, build, format:check, licenses, and diff check.
+Implemented requires passing local checks; Verified requires merge and CI evidence.
 
-Four pull requests. The first is documentation only. Each of the remaining
-three keeps every intermediate merge deployable: no route is reachable until
-the third, and the web flows arrive in the fourth. Commit, push, PR creation,
-and merge each require separate authorization.
+## Current evidence
 
-The framework changes the 2026-09-07 amendment requires (admin-targeted
-routers and declared route access) landed with the amendment in the design
-pull request, under the Framework HTTP surface
-[plan](framework-http-surface.md), not as part of this capability.
+The working tree uses published pg-schemata 3.1.1 with an explicitly named
+`{ expression: 'lower(email)' }` index in the portal-user model and frozen
+migration. The dependency blocker is resolved.
 
-1. **Design.** This plan, PRD 0003, ADR 0004, the ADR index, the
-   specification amendments, the documentation index, and the roadmap.
-2. **Data.** `modules/admin-tenancy/` with `descriptor.ts` targeting `admin`
-   and schema `admin`; `TableSchema` definitions and models for `tenants`,
-   `portal_users`, `portal_user_tenants`, `sessions`, and `login_throttles`;
-   one migration per table, including the root-row guard trigger and the
-   partial unique indexes; the repositories file; registration in the admin
-   module registry; `util/password.ts` wrapping Argon2id with the configured
-   parameters; and `scripts/bootstrap.ts` behind the existing `db:bootstrap`
-   script with its `--reset-root-password` flag. `.env.example` promotes the
-   Argon2 and `ROOT_*` names. Nothing reads the tables at request time yet.
-3. **Service and routes.** `services/sessions.ts` (create, resolve, touch,
-   revoke, revoke others) and `services/loginThrottle.ts`; the actor field in
-   the request context and the `pg-schemata` actor resolver registered at
-   startup; `middleware/resolveSession.ts` installed after correlation on
-   every request; `modules/admin-tenancy/apiRoutes/v1/auth.ts`
-   with the four routes; `transport/auth.ts` and `THROTTLED` in
-   `@nap/shared`; `.env.example` promotes the session, cookie, throttle, and
-   proxy names.
-4. **Web.** `auth/` with the session store, `useSession`, the
-   authenticated-route gate, and login and password form behavior;
-   `pages/LoginPage.tsx` and `pages/AccountPage.tsx`; the routes and
-   redirects in `routes.ts`; and `api/auth.ts` calling the four contracts
-   through `requestContract`.
+All 263 repository tests pass against the installed lockfile (28 toolchain,
+189 API, 33 web, 13 shared), including all 24 authentication integration tests
+using disposable databases. Lint, typecheck, build, formatting, license checks,
+and diff checking pass. This capability is Implemented; Verified remains pending
+merge and passing CI.
 
-## Verification and evidence
+## Rollout, defaults, and recovery
 
-Unit tests cover password hashing bounds, cookie signing and tampering, the
-throttle window arithmetic, the seed's argument and placeholder handling, and
-the `next` path restriction. Integration tests against disposable PostgreSQL 18
-drive the seed twice and assert one tenant, one root, one membership, and an
-unchanged hash; run the reset flag and assert a new hash and revoked sessions;
-attempt to lock, deactivate, demote, and re-address root and assert refusal;
-log in with every failing combination and assert `UNAUTHENTICATED`; log in
-successfully and assert the cookie attributes and the session view; replay a
-tampered, expired, idle, revoked, and logged-out cookie; exhaust the throttle
-and assert `THROTTLED` before hash evaluation and release after the window;
-change the password and assert other sessions revoked; assert `created_by` on
-a row written inside a resolved request; and send tenant values in headers,
-query, route parameters, and body to every auth route and to a fixture
-framework route with a real session. Conformance tests prove no file under
-`services/` or `middleware/` imports `modules/` and that only the auth router
-declares route access. Web tests cover the login form states, both redirects,
-`next` handling, the account page, and the password change states. Run
-focused tests first, then `lint`, `typecheck`, `test`, `build`,
-`format:check`, and `licenses` on the pinned Node. The roadmap records actual
-evidence; Verified requires merged, passing delivery.
-
-## Defaults, rollout, and recovery
-
-The data pull request adds admin tables and a seed that only the operator runs;
-deploying it changes no endpoint. The service pull request installs the
-resolver and the auth router; every other framework route still answers
-`UNAUTHENTICATED` or `FORBIDDEN` because entitlements are empty. Rollback
-restores the previous artifact; the tables are additive and can stay. Root
-password recovery is `db:bootstrap --reset-root-password` with a new
-`ROOT_PASSWORD`. Rotating `SESSION_SECRET` invalidates every cookie and forces
-re-login; rotating `AUTH_THROTTLE_SECRET` resets throttle state. No feature
-gates or ordered release units.
+Deploy additive admin migrations, then explicitly run db:bootstrap. Runtime never
+migrates or seeds. Rollback restores the prior artifact and leaves additive tables.
+Root recovery uses --reset-root-password and revokes existing sessions. Rotation of
+SESSION_SECRET invalidates cookies; rotation of AUTH_THROTTLE_SECRET resets keys.
+Use the accepted session, cookie, proxy, throttle, and Argon2 configuration defaults.
+Real environment values remain untouched. Tenant switching, provisioning, RBAC,
+Redis, forgotten-password email, and product navigation remain later capabilities.

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
+import { adminRepositories } from '../../src/db/admin/repositories.js';
 import { createRuntime } from '../../src/runtime.js';
 import { createReadiness } from '../../src/services/readiness.js';
 import { createAdminDatabase } from '../../src/db/admin/index.js';
@@ -17,6 +18,8 @@ vi.mock('../../src/services/readiness.js', () => ({
   createReadiness: vi.fn(),
 }));
 beforeEach(() => {
+  vi.stubEnv('SESSION_SECRET', 'a'.repeat(64));
+  vi.stubEnv('AUTH_THROTTLE_SECRET', 'b'.repeat(64));
   vi.mocked(createReadiness).mockReturnValue({
     check: () => Promise.resolve(true),
     stop: vi.fn(),
@@ -24,12 +27,17 @@ beforeEach(() => {
   vi.spyOn(logger, 'info').mockImplementation(() => {});
   vi.spyOn(logger, 'error').mockImplementation(() => {});
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 /** Does: Creates admin and cell handles for URLs that are never connected. */
 function handles() {
   return {
-    admin: createAdminDatabase('postgres://unused:unused@localhost/unused'),
+    admin: createAdminDatabase('postgres://unused:unused@localhost/unused', {
+      repositories: adminRepositories,
+    }),
     cell: createCellDatabase('postgres://unused:unused@localhost/unused'),
   };
 }

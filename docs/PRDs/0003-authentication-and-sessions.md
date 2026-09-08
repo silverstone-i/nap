@@ -1,7 +1,7 @@
 # 0003 — Authentication and sessions
 
 **Design:** Accepted (owner approved, 2026-09-07).
-**Implementation:** Not started.
+**Implementation:** Implemented (working tree; merge and CI pending).
 
 ## Authority
 
@@ -66,7 +66,9 @@ where.
   throttled attempt answers `THROTTLED` (HTTP 429) before the password is
   evaluated. A successful login clears the email key. The client address is
   the socket address unless `TRUST_PROXY_HOPS` names how many trailing
-  `X-Forwarded-For` hops to trust (default 0).
+  `X-Forwarded-For` hops to trust (default 0). Throttle writes follow
+  AUTH-008's actor policy, including its specification-backed exception for
+  writes before an identity is authenticated.
 - **AUTH-006 Password change.** `PUT /password` requires a session, the
   current password, and a new password of 12 to 128 characters with no other
   composition rule. It rehashes with the configured Argon2id parameters and
@@ -86,7 +88,11 @@ where.
   actor, and the application registers one `pg-schemata` actor resolver at
   startup that reads it, so `created_by` and `updated_by` hold the identity
   id without being threaded through signatures. Scripts supply an explicit
-  service actor or, for the seed, none.
+  service actor or, for the seed, none. For anonymous writes to
+  `admin.login_throttles`, `created_by` and `updated_by` may be null under
+  the [specification exception](../specs/nap-platform-specification.md#database-record-conventions)
+  recorded in [ADR 0005](../ADRs/0005-anonymous-login-throttle-actors.md);
+  authenticated writes retain their resolved actor.
 - **AUTH-009 Web flows.** `/login` renders email and password fields, a
   visible message for `UNAUTHENTICATED` and `THROTTLED`, a loading state, and
   honors `?next=<encoded path>` restricted to same-origin paths. `/account`
@@ -103,13 +109,13 @@ All tables live in the admin database, schema `admin`, are owned by
 `admin-tenancy`, use the Central mutable profile, and carry the standard
 columns unless a departure is named.
 
-| Table                 | Columns beyond the standard set                                                                                                                                                         | Constraints and departures                                                                                                                                                                                            |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenants`             | `tenant_code varchar(16)`, `company varchar(128)`, `status text` in `pending`, `active`, `suspended`                                                                                    | Unique active `tenant_code`. Cell assignment, tier, and every other attribute arrive by additive migration under Tenant membership                                                                                    |
-| `portal_users`        | `email varchar(128)`, `password_hash text`, `status text` in `active`, `locked`, `is_root boolean default false`                                                                        | Unique active `lower(email)`; partial unique index on `is_root` where true, so at most one root exists; the migration-owned trigger rejects changing the root row's `email`, `status`, `is_root`, or `deactivated_at` |
-| `portal_user_tenants` | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `status text` in `active`, `locked`                                                                             | Unique active `(portal_user_id, tenant_id)`; both FKs indexed, `ON DELETE RESTRICT`; `user_type` and `entity_id` arrive with Tenant membership                                                                        |
-| `sessions`            | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `token_hash text`, `idle_expires_at timestamptz`, `absolute_expires_at timestamptz`, `last_seen_at timestamptz` | Unique `token_hash`; FKs indexed, `ON DELETE RESTRICT`; `deactivated_at` is the revocation timestamp; rows are never hard-deleted in this release                                                                     |
-| `login_throttles`     | `key_hash text`, `failures integer`, `window_started_at timestamptz`, `locked_until timestamptz`                                                                                        | Unique `key_hash`. Departure: a row whose window and lock have both passed is hard-deleted by the throttle service on the next write to that key, because it is transient control state holding no history            |
+| Table                 | Columns beyond the standard set                                                                                                                                                         | Constraints and departures                                                                                                                                                                                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tenants`             | `tenant_code varchar(16)`, `company varchar(128)`, `status text` in `pending`, `active`, `suspended`                                                                                    | Unique active `tenant_code`. Cell assignment, tier, and every other attribute arrive by additive migration under Tenant membership                                                                                                                                               |
+| `portal_users`        | `email varchar(128)`, `password_hash text`, `status text` in `active`, `locked`, `is_root boolean default false`                                                                        | Unique active `lower(email)`; partial unique index on `is_root` where true, so at most one root exists; the migration-owned trigger rejects changing the root row's `email`, `status`, `is_root`, or `deactivated_at`                                                            |
+| `portal_user_tenants` | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `status text` in `active`, `locked`                                                                             | Unique active `(portal_user_id, tenant_id)`; both FKs indexed, `ON DELETE RESTRICT`; `user_type` and `entity_id` arrive with Tenant membership                                                                                                                                   |
+| `sessions`            | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `token_hash text`, `idle_expires_at timestamptz`, `absolute_expires_at timestamptz`, `last_seen_at timestamptz` | Unique `token_hash`; FKs indexed, `ON DELETE RESTRICT`; `deactivated_at` is the revocation timestamp; rows are never hard-deleted in this release                                                                                                                                |
+| `login_throttles`     | `key_hash text`, `failures integer`, `window_started_at timestamptz`, `locked_until timestamptz`                                                                                        | Unique `key_hash`. Anonymous audit actors follow the specification exception (ADR 0005). Departure: a row whose window and lock have both passed is hard-deleted by the throttle service on the next write to that key, because it is transient control state holding no history |
 
 This capability creates no cell projection. The `cell-tenancy` projection
 section this PRD must carry arrives with Cell tenancy and provisioning.
@@ -140,7 +146,14 @@ The API reads `SESSION_SECRET` (replacing the proposed `ACCESS_TOKEN_SECRET`),
 `COOKIE_SECURE`, `COOKIE_SAMESITE`, `TRUST_PROXY_HOPS`, `ARGON2_MEMORY_KIB`,
 `ARGON2_TIME_COST`, and `ARGON2_PARALLELISM`; the seed reads the four `ROOT_*`
 values. Startup refuses a missing or placeholder `SESSION_SECRET` or
-`AUTH_THROTTLE_SECRET`. The implementation promotes these names in
+`AUTH_THROTTLE_SECRET`. Argon2id defaults are 19456 KiB, time cost 2, and parallelism 1. Accepted
+configuration bounds are 19456–1048576 KiB, time cost 2–20, parallelism 1–16,
+idle minutes 1–1440, and absolute hours 1–8760. Secrets require at least 32
+characters. SameSite `none` requires secure cookies. The admin migration script
+grants `ADMIN_RUNTIME_ROLE` (default `nap_app`) schema usage and select/insert/update
+on these five tables, with delete access only on `login_throttles`.
+
+The implementation promotes these names in
 `.env.example` from proposed to implemented.
 
 ## Boundaries and interfaces
@@ -175,7 +188,10 @@ reconciliation.
 
 ## Revisions
 
-| Date       | Change                                                                     |
-| ---------- | -------------------------------------------------------------------------- |
-| 2026-09-07 | Drafted from the roadmap's Authentication and sessions entry and ADR 0004. |
-| 2026-09-07 | Accepted by the owner.                                                     |
+| Date       | Change                                                                                                                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-07 | Drafted from the roadmap's Authentication and sessions entry and ADR 0004.                                                        |
+| 2026-09-07 | Accepted by the owner.                                                                                                            |
+| 2026-09-08 | Recorded the owner-approved anonymous throttle actor exception, configuration bounds, and runtime grants; implementation started. |
+| 2026-09-08 | Linked AUTH-005 to AUTH-008 and named the nullable audit columns explicitly to clarify pre-authentication throttle writes.        |
+| 2026-09-08 | Updated to pg-schemata 3.1.1 and verified all local checks; implementation complete, merge and CI pending.                        |
