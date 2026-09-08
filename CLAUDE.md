@@ -144,6 +144,12 @@ Release labels, version ownership, DCO sign-off, branch conventions, changelog
 requirements, and recovery follow [Release operations](docs/RULES/release-operations.md)
 and its [owning PRD](docs/PRDs/0002-release-versioning-and-licensing-operations.md).
 
+Use the [NAP ship skill](.claude/skills/ship/SKILL.md) rather than the global
+copy for this repository. Its [pre-merge verification step](.claude/skills/ship/references/merge.md#reconcile-capability-verification-before-merge)
+reconciles the roadmap, PRD, and implementation plan in the capability PR,
+with Verified status effective upon merge and passing required checks.
+Both tools share `.claude/skills`; `.agents/skills` is a relative symlink to it.
+
 - Copilot re-reviews a pull request on every push; do not re-request a review
   by hand.
 - Review feedback that contradicts a decision already made, in a commit
