@@ -11,6 +11,10 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Share project-local shipping guidance across Codex and Claude, including capability verification before merge.
+
 ## [v0.11.0] - 2026-09-08
 
 ### Added
