@@ -24,10 +24,7 @@ export function bootstrapConfiguration(env: NodeJS.ProcessEnv, args: string[]) {
     .object({
       tenantCode: z.string().trim().min(1).max(16),
       company: z.string().trim().min(1).max(128),
-      email: z
-        .email()
-        .max(128)
-        .transform(value => value.trim().toLowerCase()),
+      email: z.string().trim().toLowerCase().pipe(z.email().max(128)),
       password: z
         .string()
         .min(12)

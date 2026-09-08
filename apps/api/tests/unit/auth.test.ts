@@ -50,6 +50,15 @@ it('uses accepted defaults and rejects missing, sample, or short secrets and inv
 
 it('validates root seed arguments and refuses sample and short passwords', () => {
   expect(bootstrapConfiguration(authEnv, []).reset).toBe(false);
+  expect(
+    bootstrapConfiguration(
+      { ...authEnv, ROOT_EMAIL: '  Root@Example.COM  ' },
+      []
+    ).email
+  ).toBe('root@example.com');
+  expect(() =>
+    bootstrapConfiguration({ ...authEnv, ROOT_EMAIL: ' invalid-email ' }, [])
+  ).toThrow();
   expect(bootstrapConfiguration(authEnv, ['--reset-root-password']).reset).toBe(
     true
   );

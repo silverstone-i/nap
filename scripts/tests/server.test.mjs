@@ -27,10 +27,10 @@ it('starts the compiled API, returns a correlated error envelope, and releases i
   await new Promise(resolve => probe.close(resolve));
   const child = spawn(process.execPath, ['apps/api/dist/server.js'], {
     env: {
-      SESSION_SECRET: 'a'.repeat(64),
-      AUTH_THROTTLE_SECRET: 'b'.repeat(64),
       ...process.env,
       ...fixture.env,
+      SESSION_SECRET: 'a'.repeat(64),
+      AUTH_THROTTLE_SECRET: 'b'.repeat(64),
       PORT: String(port),
       ADMIN_MIGRATION_URL_TEST: '',
       CELL_MIGRATION_URL_TEST: '',
