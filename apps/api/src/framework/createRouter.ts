@@ -123,8 +123,9 @@ export type SessionFor<A extends RouteAccess | undefined> =
  * it will produce.
  * Used by: ExtensionInput, and the login and logout operations of the
  * authentication router.
- * Why: the cookie is applied only after the operation returns, so a
- * refusal that rolls the transaction back leaves no cookie behind.
+ * Why: the cookie is applied only after the operation returns and its
+ * result passes the response contract, so a refusal that rolls the
+ * transaction back, or a contract violation, leaves no cookie behind.
  */
 export type ReplyControls = {
   readonly setCookie: (
@@ -232,11 +233,19 @@ function writeSchemas(contract: ModelContract) {
 
 /**
  * Does: Returns true when a router is the one the framework HTTP contract
- * lets declare route access: the authentication router of admin-tenancy.
+ * lets declare route access: the authentication router of admin-tenancy,
+ * bound to the admin pool.
  * Called by: createRouter when an extension declares access.
+ * Why: an anonymous route has no session and an authenticated one no
+ * guaranteed tenant, so neither can open a tenant transaction; only an
+ * admin-bound router can run them.
  */
-function mayDeclareAccess(module: string, router: string) {
-  return module === 'admin-tenancy' && router === 'auth';
+function mayDeclareAccess(
+  module: string,
+  router: string,
+  target: 'cell' | 'admin'
+) {
+  return module === 'admin-tenancy' && router === 'auth' && target === 'admin';
 }
 
 /**
@@ -629,9 +638,12 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         throw new Error(`Extension path names a tenant: ${spec.path}`);
       }
       const access = spec.access;
-      if (access !== undefined && !mayDeclareAccess(module, name)) {
+      if (
+        access !== undefined &&
+        !mayDeclareAccess(module, name, binding.target)
+      ) {
         throw new Error(
-          `Route access may be declared only by the admin-tenancy auth router: ${spec.action}`
+          `Route access may be declared only by the admin-bound admin-tenancy auth router: ${spec.action}`
         );
       }
       route(
@@ -661,6 +673,11 @@ export function createRouter<N extends string, R extends Repositories<N>>(
               reply: reply.controls,
             })
           );
+          // Check the contract before any cookie is written, so a violation
+          // answers as a generic failure with no cookie attached.
+          if (!spec.response.safeParse(value).success) {
+            throw new Error('Response body violates its transport contract');
+          }
           reply.apply(response);
           sendContract(response, spec.response, value, spec.status ?? 200);
         }

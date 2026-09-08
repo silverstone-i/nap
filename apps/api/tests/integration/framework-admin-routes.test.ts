@@ -98,7 +98,11 @@ function appFor(session?: ResolvedSession, trustProxyHops = 0) {
           method: 'post',
           path: '/login',
           access: 'anonymous',
-          body: z.strictObject({ code: z.string(), fail: z.boolean() }),
+          body: z.strictObject({
+            code: z.string(),
+            fail: z.boolean(),
+            malformed: z.boolean().optional(),
+          }),
           query: z.strictObject({}),
           params: z.strictObject({}),
           response: loginSchema,
@@ -111,6 +115,7 @@ function appFor(session?: ResolvedSession, trustProxyHops = 0) {
               httpOnly: true,
             });
             if (input.body.fail) throw new HttpError('UNAUTHENTICATED');
+            if (input.body.malformed) return { version: 1, data: 'bad' };
             return {
               version: 1,
               data: {
@@ -234,6 +239,12 @@ it('answers an anonymous route without a session, applies its cookie only on suc
   expect(refusal(failed.body)).toEqual({ code: 'UNAUTHENTICATED', keys: [] });
   expect(failed.headers['set-cookie']).toBeUndefined();
   expect(await rowCount()).toBe(1);
+  const malformed = await request(app)
+    .post(`${authPath}/login`)
+    .send({ code: 'l5', fail: false, malformed: true });
+  expect(malformed.status).toBe(500);
+  expect(refusal(malformed.body)).toEqual({ code: 'INTERNAL_ERROR', keys: [] });
+  expect(malformed.headers['set-cookie']).toBeUndefined();
   const tenantInput = await request(app)
     .post(`${authPath}/login`)
     .set('X-Tenant-Id', randomUUID())

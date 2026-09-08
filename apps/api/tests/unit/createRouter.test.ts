@@ -299,6 +299,13 @@ it('registers declared access only on the admin-tenancy auth router, with the ga
       })
     ).toThrow('admin-tenancy auth router');
   }
+  class CellAuth extends WriteController<'records'> {}
+  expect(() =>
+    createRouter(new CellAuth(db, 'records'), {
+      ...auth,
+      extend: add => add(extension('session', '/session', 'authenticated')),
+    })
+  ).toThrow('admin-bound');
   expect(() =>
     createRouter(new RecordsController(db), {
       ...options,
