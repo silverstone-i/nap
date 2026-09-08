@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { createDb } from 'pg-schemata';
+import { createDb, getAuditActor } from 'pg-schemata';
 import { createDatabaseLogger } from '../../util/logger.js';
 import type {
   Database,
@@ -43,6 +43,7 @@ export function createAdminDatabase<
   return Object.assign(
     createDb({
       connectionString,
+      auditActorResolver: getAuditActor,
       logger: createDatabaseLogger('admin'),
       repositories: options.repositories,
       pool: { connectionTimeoutMillis: 5000, ...options.pool },

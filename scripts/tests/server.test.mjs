@@ -27,6 +27,8 @@ it('starts the compiled API, returns a correlated error envelope, and releases i
   await new Promise(resolve => probe.close(resolve));
   const child = spawn(process.execPath, ['apps/api/dist/server.js'], {
     env: {
+      SESSION_SECRET: 'a'.repeat(64),
+      AUTH_THROTTLE_SECRET: 'b'.repeat(64),
       ...process.env,
       ...fixture.env,
       PORT: String(port),
@@ -92,7 +94,13 @@ it('fails startup for an invalid port without echoing its value', async () => {
 /** Run a compiled startup failure and capture only its public diagnostics. */
 async function failedStartup(overrides) {
   const child = spawn(process.execPath, ['apps/api/dist/server.js'], {
-    env: { ...process.env, ...fixture.env, ...overrides },
+    env: {
+      ...process.env,
+      ...fixture.env,
+      SESSION_SECRET: 'a'.repeat(64),
+      AUTH_THROTTLE_SECRET: 'b'.repeat(64),
+      ...overrides,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';

@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import authRouter from '../modules/admin-tenancy/apiRoutes/v1/auth.js';
+import { authConfiguration } from '../util/authConfig.js';
+import type { AuthConfiguration } from '../util/authConfig.js';
 import type { Express, Router } from 'express';
 import type { AdminHandle } from '../db/admin/repositories.js';
 import type { CellHandle } from '../db/cell/repositories.js';
@@ -22,7 +25,10 @@ export type RouteRegistration = {
   readonly router: string;
 } & (
   | { readonly target: 'cell'; readonly factory: (db: CellHandle) => Router }
-  | { readonly target: 'admin'; readonly factory: (db: AdminHandle) => Router }
+  | {
+      readonly target: 'admin';
+      readonly factory: (db: AdminHandle, config: AuthConfiguration) => Router;
+    }
 );
 
 /**
@@ -31,11 +37,17 @@ export type RouteRegistration = {
  * Used by: mountRoutes at app construction.
  * Why: this is the one place routers are registered; a module adds its
  * router factory here when it ships (a composition root under ARCH-042, the
- * only file outside the database registries that may import modules). It is
- * empty until the first module is delivered, so no framework route is
- * reachable in production yet.
+ * only file outside the database registries that may import modules). Authentication is the first production router.
  */
-export const routeRegistry: readonly RouteRegistration[] = [];
+export const routeRegistry: readonly RouteRegistration[] = [
+  {
+    module: 'admin-tenancy',
+    version: 1,
+    router: 'auth',
+    target: 'admin',
+    factory: authRouter,
+  },
+];
 
 /**
  * Does: Returns the path a registration is mounted at.
@@ -55,7 +67,8 @@ export function mountPath(registration: RouteRegistration) {
  */
 export function mountRoutes(
   app: Express,
-  handles: { admin: AdminHandle; cell: CellHandle }
+  handles: { admin: AdminHandle; cell: CellHandle },
+  config: AuthConfiguration = authConfiguration()
 ) {
   const paths = new Set<string>();
   for (const registration of routeRegistry) {
@@ -64,7 +77,7 @@ export function mountRoutes(
     paths.add(path);
     const router =
       registration.target === 'admin'
-        ? registration.factory(handles.admin)
+        ? registration.factory(handles.admin, config)
         : registration.factory(handles.cell);
     app.use(path, router);
   }

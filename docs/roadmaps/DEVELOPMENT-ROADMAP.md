@@ -176,7 +176,7 @@ start from the specification and applicable ADRs.
 | Framework HTTP surface                        | Accepted | Verified       | Shared transport package                                                                           |
 | Brand, theme, and web entry surface           | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Release, versioning, and licensing operations | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Authentication and sessions                   | Accepted | Not started    | Framework HTTP surface; web entry                                                                  |
+| Authentication and sessions                   | Accepted | Implemented    | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Draft    | Not started    | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Draft    | Not started    | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Draft    | Not started    | Cell provisioning                                                                                  |
@@ -569,13 +569,14 @@ may publish a pending labelled batch.
 revocable, database-backed session bound to one tenant, and the seeded root
 identity exists so the operator can provision everything that follows.
 
-**Design:** Accepted (2026-09-07). **Implementation:** Not started.
+**Design:** Accepted (2026-09-07). **Implementation:** Implemented.
 
 **Depends on:** Framework HTTP surface, and the web entry surface for its
 routes.
 
 **Documents:** [PRD 0003](../PRDs/0003-authentication-and-sessions.md),
-[ADR 0004](../ADRs/0004-seeded-root-identity.md), `ARCH-022`, `ARCH-023`,
+[ADR 0004](../ADRs/0004-seeded-root-identity.md),
+[ADR 0005](../ADRs/0005-anonymous-login-throttle-actors.md), `ARCH-022`, `ARCH-023`,
 `ARCH-040`, `ARCH-048`, `ARCH-050`, and the
 [implementation plan](../implementation-plans/0003-authentication-and-sessions.md).
 
@@ -593,7 +594,8 @@ seed behind `db:bootstrap`; the session service, the actor resolver, and the
 resolving middleware; the module's versioned auth routes; shared transport
 contracts; login, account, and password web flows.
 
-**Slices:** Design; data; service and routes; web. The plan owns the sequence.
+**Delivery:** Design is complete. Data, service/routes, and web are implemented
+together in this task; the plan owns their implementation order.
 
 **Gate:** A revoked session, an expired session, a throttled login, and a
 tampered cookie are all refused; the resolved actor and tenant come from the
@@ -610,6 +612,12 @@ exists and its recovery path is the seed's reset flag. Tenant selection for
 identities with several memberships, cell assignment, and the
 employee-to-identity workflow belong to Tenant membership and control plane.
 Entitlement and permission sets stay empty until RBAC and module entitlement.
+
+**Current work:** Implemented in the working tree with pg-schemata 3.1.1,
+which resolves expression-index support. All 263 repository tests pass against
+the installed lockfile, including 24 authentication integration tests using
+disposable databases. Lint, typecheck, build, format, licenses, and diff checks
+pass. Verified remains pending merge and passing CI.
 
 ### Tenant membership and control plane
 

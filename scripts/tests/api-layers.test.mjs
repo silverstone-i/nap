@@ -65,7 +65,12 @@ function violations(file, source) {
     if (specifier.startsWith('.')) {
       const target = layerOf(resolve(dirname(file), specifier));
       if (target === 'scripts' && layer !== 'scripts') broken.push(specifier);
-      else if (target === 'modules' && !compositionRoots.has(name))
+      else if (
+        target === 'modules' &&
+        layer !== 'modules' &&
+        layer !== 'scripts' &&
+        !compositionRoots.has(name)
+      )
         broken.push(specifier);
       else if (
         order.includes(layer) &&

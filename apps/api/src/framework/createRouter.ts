@@ -128,6 +128,11 @@ export type SessionFor<A extends RouteAccess | undefined> =
  * transaction back, or a contract violation, leaves no cookie behind.
  */
 export type ReplyControls = {
+  /**
+   * Does: Queues a login refusal after committing its throttle counters.
+   * Called by: the anonymous login operation only; every other route is refused.
+   */
+  readonly refuseLogin: (code: 'UNAUTHENTICATED' | 'THROTTLED') => void;
   readonly setCookie: (
     name: string,
     value: string,
@@ -157,6 +162,7 @@ export type ExtensionInput<
   readonly params: P;
   readonly session: SessionFor<A>;
   readonly clientAddress: string | undefined;
+  readonly presentedSession: { id: string; actorId: string } | undefined;
   readonly reply: ReplyControls;
 };
 
@@ -253,9 +259,15 @@ function mayDeclareAccess(
  * them to the response once the operation has succeeded.
  * Called by: the extension handler, once per request.
  */
-function collectReply() {
+function collectReply(allowLoginRefusal: boolean) {
+  let refusal: HttpError | undefined;
   const pending: ((response: Response) => void)[] = [];
   const controls: ReplyControls = {
+    refuseLogin: code => {
+      if (!allowLoginRefusal)
+        throw new Error('Deferred refusal is reserved for login throttling');
+      refusal = new HttpError(code);
+    },
     setCookie: (name, value, options) =>
       pending.push(response => response.cookie(name, value, options ?? {})),
     clearCookie: (name, options) =>
@@ -263,6 +275,10 @@ function collectReply() {
   };
   return {
     controls,
+    /** Does: Raises the pending credential refusal after the counters commit. */
+    checkRefusal() {
+      if (refusal) throw refusal;
+    },
     /** Does: Writes every collected cookie onto the response. */
     apply(response: Response) {
       for (const write of pending) write(response);
@@ -662,7 +678,11 @@ export function createRouter<N extends string, R extends Repositories<N>>(
           const body = parseAt(spec.body, request.body);
           const query = parseAt(spec.query, request.query, 'query');
           const params = parseAt(spec.params, request.params, 'params');
-          const reply = collectReply();
+          const reply = collectReply(
+            mayDeclareAccess(module, name, binding.target) &&
+              spec.action === 'login' &&
+              spec.access === 'anonymous'
+          );
           const value = await runOperation(binding, session, tx =>
             spec.operation(tx, {
               body,
@@ -670,9 +690,11 @@ export function createRouter<N extends string, R extends Repositories<N>>(
               params,
               session,
               clientAddress: request.ip,
+              presentedSession: response.locals.presentedSession,
               reply: reply.controls,
             })
           );
+          reply.checkRefusal();
           // Check the contract before any cookie is written, so a violation
           // answers as a generic failure with no cookie attached.
           if (!spec.response.safeParse(value).success) {

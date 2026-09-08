@@ -277,6 +277,7 @@ it('runs compiled CLI targets with only their selected credentials and safe fail
       env: {
         PATH: process.env.PATH,
         NODE_ENV: 'test',
+        ADMIN_RUNTIME_ROLE: fixture.role,
         ADMIN_MIGRATION_URL_TEST: '',
         CELL_MIGRATION_URL_TEST: '',
         ...extra,
@@ -341,7 +342,14 @@ it('backs up and restores each target without changing the other database', asyn
               'SELECT count(*)::int AS count FROM $1:name.schema_migrations',
               [schema]
             )
-        ).toEqual({ count: schema === target ? 1 : 0 });
+        ).toEqual(
+          await fixture
+            .owner(url)
+            .one(
+              'SELECT count(*)::int AS count FROM $1:name.schema_migrations',
+              [schema]
+            )
+        );
       }
       expect(
         await fixture

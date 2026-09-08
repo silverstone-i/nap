@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuthConfiguration } from './util/authConfig.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { createReadiness } from './services/readiness.js';
@@ -36,6 +37,13 @@ export function createRuntime(
     drainMs = 10000,
     poolCloseMs = 5000,
     trustProxyHops = 0,
+    auth,
+  }: {
+    readinessMs?: number;
+    drainMs?: number;
+    poolCloseMs?: number;
+    trustProxyHops?: number;
+    auth?: AuthConfiguration;
   } = {}
 ) {
   const pools = [handles.admin, handles.cell];
@@ -50,7 +58,7 @@ export function createRuntime(
         return readiness.check();
       },
       handles,
-      { trustProxyHops }
+      { trustProxyHops, auth }
     )
   );
 

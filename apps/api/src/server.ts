@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { authConfiguration } from './util/authConfig.js';
 import { createRuntime } from './runtime.js';
 import { createAdminDatabase } from './db/admin/index.js';
 import { adminRepositories } from './db/admin/repositories.js';
@@ -40,6 +41,7 @@ process.on('SIGTERM', () => stop(0));
 let listenerFailed = false;
 try {
   loadLocalEnvironment();
+  const auth = authConfiguration();
   const port = resolvePort();
   const configuration = resolveRuntimeConfiguration();
   const trustProxyHops = resolveTrustProxyHops();
@@ -52,7 +54,7 @@ try {
         repositories: cellRepositories,
       }),
     },
-    { trustProxyHops }
+    { trustProxyHops, auth }
   );
   runtime.server.on('error', () => {
     listenerFailed = true;

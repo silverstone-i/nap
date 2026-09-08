@@ -4,6 +4,11 @@
  */
 
 import express from 'express';
+import { setAuditActorResolver } from 'pg-schemata';
+import { requestContext } from './util/requestContext.js';
+import { authConfiguration } from './util/authConfig.js';
+import type { AuthConfiguration } from './util/authConfig.js';
+import { sessionResolver } from './middleware/resolveSession.js';
 import { healthResponseSchema, transportVersion } from '@nap/shared';
 import { correlation } from './middleware/correlation.js';
 import { requestLogging } from './middleware/requestLogging.js';
@@ -42,12 +47,19 @@ export type AppHandles = {
 export function createApp(
   isReady: () => Promise<boolean> = () => Promise.resolve(false),
   handles?: AppHandles,
-  { trustProxyHops = 0 } = {}
+  {
+    trustProxyHops = 0,
+    auth,
+  }: { trustProxyHops?: number; auth?: AuthConfiguration } = {}
 ) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', trustProxyHops);
-  app.use(correlation, requestLogging, jsonBody);
+  const config = handles ? (auth ?? authConfiguration()) : undefined;
+  setAuditActorResolver(() => requestContext.getStore()?.actorId ?? null);
+  app.use(correlation, requestLogging);
+  if (handles && config) app.use(sessionResolver(handles.admin, config));
+  app.use(jsonBody);
   app.use(['/health/live', '/health/ready'], (_request, response, next) => {
     response.setHeader('Cache-Control', 'no-store');
     next();
@@ -65,7 +77,7 @@ export function createApp(
       data: { status: 'ok' },
     });
   });
-  if (handles) mountRoutes(app, handles);
+  if (handles) mountRoutes(app, handles, config);
   app.use((_request, _response, next) => next(new HttpError('NOT_FOUND')));
   app.use(errorHandler);
   return app;

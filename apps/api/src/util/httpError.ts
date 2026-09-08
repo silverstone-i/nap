@@ -37,6 +37,10 @@ export const errorResponses = {
     message: 'Unsupported request media type',
   },
   UNAUTHENTICATED: { status: 401, message: 'Authentication required' },
+  THROTTLED: {
+    status: 429,
+    message: 'Too many login attempts; try again later',
+  },
   FORBIDDEN: { status: 403, message: 'Forbidden' },
   NOT_FOUND: { status: 404, message: 'Not found' },
   CONFLICT: { status: 409, message: 'Conflicts with existing data' },

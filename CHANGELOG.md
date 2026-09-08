@@ -11,6 +11,16 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Update pg-schemata to 3.1.1 and use explicit expression indexes for case-insensitive email uniqueness.
+
+### Added
+
+- Authentication tables, root bootstrap/recovery, signed database-backed sessions,
+  login throttling, password changes, and login/account web flows (PRD 0003).
+- The narrowly scoped anonymous throttle audit-actor exception (ADR 0005).
+
 ## [v0.9.0] - 2026-09-08
 
 ### Added

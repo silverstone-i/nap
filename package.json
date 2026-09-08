@@ -26,7 +26,7 @@
     "db:setup:test": "node scripts/setup-databases.mjs test",
     "db:migrate:admin": "npm run db:migrate:admin --workspace @nap/api",
     "db:migrate:cell": "npm run db:migrate:cell --workspace @nap/api",
-    "db:bootstrap": "npm run db:bootstrap --workspace @nap/api",
+    "db:bootstrap": "npm run db:bootstrap --workspace @nap/api --",
     "db:setup:dev": "node scripts/setup-databases.mjs development",
     "test:toolchain": "npm run build --workspace @nap/api && vitest run --config vitest.config.mjs"
   },

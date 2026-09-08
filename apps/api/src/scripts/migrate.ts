@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { adminRepositories } from '../db/admin/repositories.js';
+import { createAdminDatabase } from '../db/admin/index.js';
 import { adminModules } from '../db/admin/modules.js';
 import { cellModules } from '../db/cell/modules.js';
 import { migrateDatabase } from '../db/migrate.js';
@@ -28,6 +30,18 @@ try {
     resolveMigrationConfiguration(target),
     target === 'admin' ? adminModules : cellModules
   );
+  if (target === 'admin') {
+    const db = createAdminDatabase(resolveMigrationConfiguration('admin'), {
+      repositories: adminRepositories,
+    });
+    try {
+      await db.db.tenants.grantRuntime(
+        process.env.ADMIN_RUNTIME_ROLE ?? 'nap_app'
+      );
+    } finally {
+      await db.close();
+    }
+  }
   console.log(`${target} migrations complete`);
 } catch {
   console.error(

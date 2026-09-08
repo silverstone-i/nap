@@ -200,8 +200,8 @@ it('proves only the admin-tenancy auth router declares anonymous or authenticate
   ).toEqual([]);
 });
 
-it('keeps the route registry empty until a module ships and its paths well-formed', () => {
-  expect(routeRegistry).toEqual([]);
+it('registers the authentication module at its versioned path', () => {
+  expect(routeRegistry.map(mountPath)).toEqual(['/api/admin-tenancy/v1/auth']);
   expect(
     mountPath({
       module: 'core',
