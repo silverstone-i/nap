@@ -2,12 +2,13 @@
 
 ## Why the diff alone is not enough
 
-All three repos — pg-schemata, tablsx, and seqori (verified 2026-07-31 in
-each repo's `.github/workflows/release-on-merge.yml`) — aggregate `release:*`
-labels across **every** PR merged since the last release tag and apply the
-highest of patch < minor < major. A label on this PR is therefore combined
-with labels already queued on merged-but-unreleased PRs, so the effective
-bump cannot be proposed from the current diff alone.
+NAP's [release script](../../../../scripts/release.mjs), run by the
+[Release on Merge workflow](../../../../.github/workflows/release-on-merge.yml),
+selects pending labeled PRs from the unreleased Git history and applies the
+highest bump: patch < minor < major. The current PR's label is combined with
+labels on merged-but-unreleased PRs. An unlabeled merge contributes no bump,
+but can trigger publication of that existing backlog, so the effective release
+cannot be inferred from the current diff alone.
 
 ## Query the queued labels
 

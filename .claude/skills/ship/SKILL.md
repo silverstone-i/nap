@@ -51,8 +51,9 @@ question. Never perform the action first and explain the assumption later.
    (absence of a PR is a valid state, not an error)
 5. `git branch --format='%(refname:short) %(objectname:short)'` — every
    local branch and its tip, for branch resolution below
-6. `grep -n '## \[Unreleased\]' CHANGELOG.md` — and whether the section has
-   body content beneath it or is empty
+6. Locate `## [Unreleased]` in `CHANGELOG.md`, then read the section up to
+   the next release heading and verify that it contains a nonempty bullet
+   describing this PR's changes.
 7. Read the repo's applicable AGENTS.md and CLAUDE.md for check commands and release rules
 
 ## Branch resolution — before any commit

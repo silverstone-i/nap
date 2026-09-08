@@ -35,11 +35,10 @@ git diff main...HEAD --stat
 git diff main...HEAD            # read the parts that matter
 ```
 
-Write one bullet per user-visible change. Internal refactors with no
-behavior change usually get one `### Changed` bullet or none at all — if
-the PR is CI/docs-only and heading for an unlabeled merge, it may
-legitimately add no entries (confirm with the user before treating it that
-way, since `ship` refuses to merge with an empty section).
+Write one bullet per user-visible change. Internal refactors and CI/docs-only
+PRs include a concise `### Changed` entry explaining the maintenance or
+contributor-facing change, including when the PR uses `unlabeled`. The ship
+workflow requires a nonempty entry for the PR before merge.
 
 ## Mapping entry types to a suggested bump
 
