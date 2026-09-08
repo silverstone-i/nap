@@ -18,6 +18,7 @@ const order = ['util', 'db', 'services', 'middleware', 'framework', 'modules'];
 // (ARCH-042); a root file reaching into a module would bypass the registries.
 const compositionRoots = new Set([
   'db/admin/modules.ts',
+  'db/admin/repositories.ts',
   'db/cell/modules.ts',
   'db/cell/repositories.ts',
   'framework/routeRegistry.ts',

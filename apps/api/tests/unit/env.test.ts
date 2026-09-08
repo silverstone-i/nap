@@ -4,7 +4,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { resolvePort, resolveSetupConfiguration } from '../../src/util/env.js';
+import {
+  resolvePort,
+  resolveSetupConfiguration,
+  resolveTrustProxyHops,
+} from '../../src/util/env.js';
 
 const env = {
   SETUP_ADMIN_URL_TEST: 'postgres://nap_admin:secret@localhost:5432/postgres',
@@ -31,6 +35,14 @@ describe('startup configuration', () => {
       expect(() => resolvePort({ PORT })).toThrow('PORT');
     }
   );
+  it('trusts no proxy hop by default and accepts a small whole number', () => {
+    expect(resolveTrustProxyHops({})).toBe(0);
+    expect(resolveTrustProxyHops({ TRUST_PROXY_HOPS: '2' })).toBe(2);
+    for (const TRUST_PROXY_HOPS of ['-1', '17', 'one', '1.5', ''])
+      expect(() => resolveTrustProxyHops({ TRUST_PROXY_HOPS })).toThrow(
+        'TRUST_PROXY_HOPS'
+      );
+  });
 });
 
 describe('setup configuration', () => {

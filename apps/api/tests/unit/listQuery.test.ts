@@ -21,6 +21,7 @@ const columnSchemas: Record<string, z.ZodType> = {
 };
 const contract: ModelContract = {
   repository: 'records',
+  target: 'cell',
   primaryKey: 'id',
   columns: new Set([
     'id',

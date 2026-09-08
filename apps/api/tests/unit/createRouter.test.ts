@@ -6,6 +6,7 @@
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { QueryModel } from 'pg-schemata';
+import { createAdminDatabase } from '../../src/db/admin/index.js';
 import { createCellDatabase } from '../../src/db/cell/index.js';
 import {
   createRouter,
@@ -21,6 +22,7 @@ import {
   FrameworkRecords,
   frameworkRecordSchema,
 } from '../fixtures/frameworkRecord.js';
+import { AdminRecords } from '../fixtures/adminRecord.js';
 import { IsolationProbe } from '../fixtures/isolationProbe.js';
 import type { Router } from 'express';
 import type { DbConnection, Database } from 'pg-schemata';
@@ -40,13 +42,59 @@ const db = createCellDatabase('postgres://unused:unused@localhost/unused', {
     view: RecordsView,
   },
 });
+const adminDb = createAdminDatabase(
+  'postgres://unused:unused@localhost/unused',
+  { repositories: { records: AdminRecords, tenantRecords: FrameworkRecords } }
+);
+const cell = { target: 'cell', handle: db } as const;
 const options = { module: 'fixture', router: 'records' } as const;
+
+/** Does: A writable controller over the admin framework test table. */
+class AdminRecordsController extends WriteController<
+  'records',
+  { records: AdminRecords; tenantRecords: FrameworkRecords }
+> {}
 
 /** Does: Lists a router's routes as "method path" in registration order. */
 function routesOf(router: Router) {
   return router.stack.flatMap(layer =>
     layer.route ? [`${layer.route.stack[0]?.method} ${layer.route.path}`] : []
   );
+}
+
+/** Does: Counts the handlers, gates included, behind each route. */
+function chainLengths(router: Router) {
+  return Object.fromEntries(
+    router.stack.flatMap(layer =>
+      layer.route
+        ? [
+            [
+              `${layer.route.stack[0]?.method} ${layer.route.path}`,
+              layer.route.stack.length,
+            ],
+          ]
+        : []
+    )
+  );
+}
+
+/** Does: Builds an extension spec with the given action, path, and access. */
+function extension(
+  action: string,
+  path: string,
+  access?: 'anonymous' | 'authenticated'
+) {
+  return {
+    action,
+    method: 'get',
+    path,
+    ...(access ? { access } : {}),
+    body: z.undefined(),
+    query: z.strictObject({}),
+    params: z.strictObject({}),
+    response: z.strictObject({ version: z.literal(1), data: z.number() }),
+    operation: () => Promise.resolve(1),
+  } as const;
 }
 
 it('registers the standard set with static paths first and the read route last', () => {
@@ -136,6 +184,9 @@ it('refuses a disagreeing rbacConfig and a non-soft-deleting archive, and descri
       router: 'records',
     })
   ).toThrow('rbacConfig');
+  expect(
+    chainLengths(createRouter(new RecordsController(db), options))['get /']
+  ).toBe(7);
   class ProbeWrite extends WriteController<'probe'> {}
   const probeRoutes = routesOf(
     createRouter(new ProbeWrite(db, 'probe'), {
@@ -152,18 +203,19 @@ it('refuses a disagreeing rbacConfig and a non-soft-deleting archive, and descri
       routes: { archive: true },
     })
   ).toThrow('soft-delete');
-  expect(describeModel(db, 'records')).toMatchObject({
+  expect(describeModel(cell, 'records')).toMatchObject({
+    target: 'cell',
     primaryKey: 'id',
     softDelete: true,
     writable: true,
   });
-  expect(describeModel(db, 'probe').softDelete).toBe(false);
+  expect(describeModel(cell, 'probe').softDelete).toBe(false);
 });
 
 it("checks a projection's columns against its declared item schema", () => {
-  expect(() => describeModel(db, 'view')).toThrow('no item schema');
+  expect(() => describeModel(cell, 'view')).toThrow('no item schema');
   const item = z.object({ id: z.guid(), quantity: z.number().nullable() });
-  const contract = describeModel(db, 'view', item);
+  const contract = describeModel(cell, 'view', item);
   expect(contract.writable).toBe(false);
   expect(contract.columnSchema('id').safeParse('not-a-uuid').success).toBe(
     false
@@ -172,9 +224,92 @@ it("checks a projection's columns against its declared item schema", () => {
   expect(contract.columnSchema('code').safeParse('anything').success).toBe(
     true
   );
-  const generated = describeModel(db, 'records');
+  const generated = describeModel(cell, 'records');
   expect(generated.columnSchema('quantity').safeParse('7').success).toBe(false);
   expect(generated.columnSchema('id').safeParse('not-a-uuid').success).toBe(
     false
   );
+});
+
+it('binds a controller to the admin pool and drops the tenant requirement there', () => {
+  const controller = new AdminRecordsController(adminDb, 'records');
+  expect(controller.binding.target).toBe('admin');
+  expect(new RecordsController(db).binding.target).toBe('cell');
+  const admin = { target: 'admin', handle: adminDb } as const;
+  expect(describeModel(admin, 'records')).toMatchObject({
+    target: 'admin',
+    writable: true,
+    softDelete: true,
+  });
+  expect(describeModel(admin, 'records').managed.has('tenant_id')).toBe(false);
+  // A central table may carry tenant_id as an ordinary column.
+  expect(describeModel(admin, 'tenantRecords').managed.has('tenant_id')).toBe(
+    false
+  );
+  expect(() =>
+    describeModel(
+      {
+        target: 'cell',
+        handle: createCellDatabase('postgres://u:u@h/d', {
+          repositories: { records: AdminRecords },
+        }),
+      },
+      'records'
+    )
+  ).toThrow('not tenant-owned');
+  expect(
+    routesOf(
+      createRouter(controller, { module: 'admin-tenancy', router: 'records' })
+    )
+  ).toContain('post /');
+});
+
+it('registers declared access only on the admin-tenancy auth router, with the gates it allows', () => {
+  const auth = { module: 'admin-tenancy', router: 'auth' } as const;
+  const router = createRouter(new AdminRecordsController(adminDb, 'records'), {
+    ...auth,
+    routes: Object.fromEntries(standardActions.map(action => [action, false])),
+    extend: add => {
+      add(extension('login', '/login', 'anonymous'));
+      add(extension('session', '/session', 'authenticated'));
+      add(extension('summary', '/summary'));
+    },
+  });
+  expect(routesOf(router)).toEqual([
+    'get /login',
+    'get /session',
+    'get /summary',
+  ]);
+  // label, gates, tenant-input rejection, handler
+  expect(chainLengths(router)).toEqual({
+    'get /login': 3,
+    'get /session': 4,
+    'get /summary': 7,
+  });
+  for (const [module, name] of [
+    ['fixture', 'records'],
+    ['admin-tenancy', 'tenants'],
+    ['core', 'auth'],
+  ] as const) {
+    expect(() =>
+      createRouter(new AdminRecordsController(adminDb, 'records'), {
+        module,
+        router: name,
+        extend: add => add(extension('login', '/login', 'anonymous')),
+      })
+    ).toThrow('admin-tenancy auth router');
+  }
+  class CellAuth extends WriteController<'records'> {}
+  expect(() =>
+    createRouter(new CellAuth(db, 'records'), {
+      ...auth,
+      extend: add => add(extension('session', '/session', 'authenticated')),
+    })
+  ).toThrow('admin-bound');
+  expect(() =>
+    createRouter(new RecordsController(db), {
+      ...options,
+      extend: add => add(extension('summary', '/summary')),
+    })
+  ).not.toThrow();
 });

@@ -12,7 +12,18 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { HttpError } from './util/httpError.js';
 import { sendContract } from './util/sendContract.js';
 import { mountRoutes } from './framework/routeRegistry.js';
+import type { AdminHandle } from './db/admin/repositories.js';
 import type { CellHandle } from './db/cell/repositories.js';
+
+/**
+ * Does: Represents the two database pools the app mounts module routers
+ * against: the central admin database and this deployment's cell database.
+ * Used by: createApp and createRuntime.
+ */
+export type AppHandles = {
+  readonly admin: AdminHandle;
+  readonly cell: CellHandle;
+};
 
 /**
  * Does: Builds the Express application: the shared middleware chain, the two
@@ -22,15 +33,20 @@ import type { CellHandle } from './db/cell/repositories.js';
  * Why: it opens no listener and connects to no database, so tests can drive
  * it with in-memory requests. The isReady callback decides what the readiness
  * endpoint answers and defaults to "not ready", so a bare app never reports
- * itself ready to serve. Module routers are mounted only when the cell handle
- * is given; without it the app carries the health routes alone.
+ * itself ready to serve. Module routers are mounted only when the pools are
+ * given; without them the app carries the health routes alone. The trusted
+ * proxy hop count decides which address counts as the client's; it defaults
+ * to none, so a forwarded-address header is ignored unless the deployment
+ * says otherwise (PRD 0003, AUTH-005).
  */
 export function createApp(
   isReady: () => Promise<boolean> = () => Promise.resolve(false),
-  handles?: { cell: CellHandle }
+  handles?: AppHandles,
+  { trustProxyHops = 0 } = {}
 ) {
   const app = express();
   app.disable('x-powered-by');
+  app.set('trust proxy', trustProxyHops);
   app.use(correlation, requestLogging, jsonBody);
   app.use(['/health/live', '/health/ready'], (_request, response, next) => {
     response.setHeader('Cache-Control', 'no-store');

@@ -7,10 +7,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import ts from 'typescript';
 import { expect, it } from 'vitest';
-import {
-  cellRouteRegistry,
-  mountPath,
-} from '../../src/framework/routeRegistry.js';
+import { mountPath, routeRegistry } from '../../src/framework/routeRegistry.js';
+
+const handleNames = new Set(['cellDb', 'adminDb', 'handle']);
+const authRouterFile = 'modules/admin-tenancy/apiRoutes/v1/auth.ts';
 
 const src = resolve(process.cwd(), 'src');
 
@@ -72,8 +72,9 @@ function exportsRouterFactory(root: ts.SourceFile) {
 }
 
 /**
- * Does: Lists every property read off a value named cellDb, or this.cellDb,
- * in a file, as "line: text".
+ * Does: Lists every property read off a value named cellDb, adminDb, or
+ * handle, or off a property of one of those names such as this.handle or
+ * binding.handle, in a file, as "line: text".
  */
 function handleReaches(root: ts.SourceFile) {
   const reaches: string[] = [];
@@ -85,10 +86,9 @@ function handleReaches(root: ts.SourceFile) {
     ) {
       const target = node.expression;
       const named =
-        (ts.isIdentifier(target) && target.text === 'cellDb') ||
+        (ts.isIdentifier(target) && handleNames.has(target.text)) ||
         (ts.isPropertyAccessExpression(target) &&
-          target.expression.kind === ts.SyntaxKind.ThisKeyword &&
-          target.name.text === 'cellDb');
+          handleNames.has(target.name.text));
       if (named) {
         const line =
           root.getLineAndCharacterOfPosition(node.getStart()).line + 1;
@@ -126,7 +126,7 @@ it('proves every module router file exports a factory built with createRouter', 
   ).toBe(false);
 });
 
-it('proves no controller or framework file reaches a repository through the cell handle', () => {
+it('proves no controller or framework file reaches a repository through a database pool', () => {
   const allowed = new Set(['framework/modelContract.ts']);
   for (const file of [
     ...sources(resolve(src, 'modules')),
@@ -137,8 +137,13 @@ it('proves no controller or framework file reaches a repository through the cell
     expect(handleReaches(tree(file)), name).toEqual([]);
   }
   expect(
-    handleReaches(tree('x.ts', 'const r = cellDb.db.clients; this.cellDb.db;'))
-  ).toHaveLength(2);
+    handleReaches(
+      tree(
+        'x.ts',
+        'const r = cellDb.db.clients; this.cellDb.db; adminDb.db.users; this.binding.handle.db;'
+      )
+    )
+  ).toHaveLength(4);
   expect(
     handleReaches(
       tree(
@@ -146,16 +151,63 @@ it('proves no controller or framework file reaches a repository through the cell
         readFileSync(resolve(src, 'framework/modelContract.ts'), 'utf8')
       )
     )
-  ).toEqual([expect.stringContaining('cellDb.db')]);
+  ).toEqual([expect.stringContaining('handle.db')]);
+});
+
+/**
+ * Does: Lists every access declaration inside a createRouter call in a
+ * file, as "line: value".
+ */
+function accessDeclarations(root: ts.SourceFile) {
+  const found: string[] = [];
+  /** Does: Walks the tree collecting access properties under createRouter. */
+  function visit(node: ts.Node, inFactory: boolean) {
+    const entering =
+      inFactory ||
+      (ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === 'createRouter');
+    if (
+      entering &&
+      ts.isPropertyAssignment(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === 'access'
+    ) {
+      const line = root.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+      found.push(`${line}: ${node.initializer.getText()}`);
+    }
+    ts.forEachChild(node, child => visit(child, entering));
+  }
+  visit(root, false);
+  return found;
+}
+
+it('proves only the admin-tenancy auth router declares anonymous or authenticated access', () => {
+  for (const file of sources(resolve(src, 'modules'))) {
+    const name = relative(src, file);
+    if (name === authRouterFile) continue;
+    expect(accessDeclarations(tree(file)), name).toEqual([]);
+  }
+  const declaring =
+    'export default (db) => createRouter(new C(db), { module: "admin-tenancy", router: "auth", extend: add => add({ action: "login", access: "anonymous", path: "/login" }) });';
+  expect(accessDeclarations(tree('auth.ts', declaring))).toEqual([
+    '1: "anonymous"',
+  ]);
+  expect(
+    accessDeclarations(
+      tree('other.ts', 'const spec = { access: "anonymous" }; helper(spec);')
+    )
+  ).toEqual([]);
 });
 
 it('keeps the route registry empty until a module ships and its paths well-formed', () => {
-  expect(cellRouteRegistry).toEqual([]);
+  expect(routeRegistry).toEqual([]);
   expect(
     mountPath({
       module: 'core',
       version: 1,
       router: 'clients',
+      target: 'cell',
       factory: () => {
         throw new Error('unused');
       },

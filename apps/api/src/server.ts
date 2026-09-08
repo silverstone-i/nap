@@ -5,6 +5,7 @@
 
 import { createRuntime } from './runtime.js';
 import { createAdminDatabase } from './db/admin/index.js';
+import { adminRepositories } from './db/admin/repositories.js';
 import { createCellDatabase } from './db/cell/index.js';
 import { cellRepositories } from './db/cell/repositories.js';
 import { logger } from './util/logger.js';
@@ -12,6 +13,7 @@ import {
   loadLocalEnvironment,
   resolvePort,
   resolveRuntimeConfiguration,
+  resolveTrustProxyHops,
 } from './util/env.js';
 
 let runtime: ReturnType<typeof createRuntime> | undefined;
@@ -40,12 +42,18 @@ try {
   loadLocalEnvironment();
   const port = resolvePort();
   const configuration = resolveRuntimeConfiguration();
-  runtime = createRuntime({
-    admin: createAdminDatabase(configuration.admin),
-    cell: createCellDatabase(configuration.cell, {
-      repositories: cellRepositories,
-    }),
-  });
+  const trustProxyHops = resolveTrustProxyHops();
+  runtime = createRuntime(
+    {
+      admin: createAdminDatabase(configuration.admin, {
+        repositories: adminRepositories,
+      }),
+      cell: createCellDatabase(configuration.cell, {
+        repositories: cellRepositories,
+      }),
+    },
+    { trustProxyHops }
+  );
   runtime.server.on('error', () => {
     listenerFailed = true;
     logger.error({ event: 'api.listen_failed' }, 'API failed to listen');

@@ -7,18 +7,14 @@ import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { createReadiness } from './services/readiness.js';
 import { logger } from './util/logger.js';
-import type { AdminDatabase } from './db/admin/index.js';
-import type { CellHandle } from './db/cell/repositories.js';
+import type { AppHandles } from './app.js';
 
 /**
  * Does: Represents the two database connections the runtime serves with:
  * the central admin database and this deployment's one cell database.
  * Used by: createRuntime and the server entry point.
  */
-export type RuntimeHandles = {
-  readonly admin: AdminDatabase;
-  readonly cell: CellHandle;
-};
+export type RuntimeHandles = AppHandles;
 
 /**
  * Does: Creates the HTTP server and returns start and shutdown functions
@@ -30,11 +26,17 @@ export type RuntimeHandles = {
  * in-flight requests finish against open connections. This function installs
  * no signal handlers and never exits the process; the entry point owns both.
  * Both database handles are supplied here; none can be added after start,
- * and the cell handle is what module routers are mounted against.
+ * and module routers are mounted against whichever of the two their
+ * registration names. The trusted proxy hop count is passed to the app.
  */
 export function createRuntime(
   handles: RuntimeHandles,
-  { readinessMs = 5000, drainMs = 10000, poolCloseMs = 5000 } = {}
+  {
+    readinessMs = 5000,
+    drainMs = 10000,
+    poolCloseMs = 5000,
+    trustProxyHops = 0,
+  } = {}
 ) {
   const pools = [handles.admin, handles.cell];
   const readiness = createReadiness(pools, readinessMs);
@@ -47,7 +49,8 @@ export function createRuntime(
         if (stopped || !listening) return false;
         return readiness.check();
       },
-      { cell: handles.cell }
+      handles,
+      { trustProxyHops }
     )
   );
 

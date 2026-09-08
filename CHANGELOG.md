@@ -11,6 +11,16 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Design Authentication and sessions: PRD 0003, ADR 0004 for the seeded root
+  identity, the `ARCH-040` and framework HTTP contract amendments, and the
+  change-workflow rule that an amendment lands with the code it changes.
+- Framework support for admin-bound routers, declared `anonymous` and
+  `authenticated` extension-route access on the `admin-tenancy` auth router,
+  cookie and client-address controls for extension operations, and the
+  `TRUST_PROXY_HOPS` setting.
+
 ## [v0.8.0] - 2026-09-07
 
 ### Changed

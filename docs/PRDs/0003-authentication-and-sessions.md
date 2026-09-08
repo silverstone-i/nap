@@ -1,0 +1,181 @@
+# 0003 — Authentication and sessions
+
+**Design:** Accepted (owner approved, 2026-09-07).
+**Implementation:** Not started.
+
+## Authority
+
+Implements `ARCH-022`, `ARCH-023`, `ARCH-040`, `ARCH-044`, `ARCH-045`,
+`ARCH-048`, and `ARCH-050` in the
+[platform specification](../specs/nap-platform-specification.md). The
+[technology stack](../specs/nap-platform-specification.md#technology-stack)
+owns Argon2id and the `jose`-signed session cookie; the
+[module ownership map](../specs/nap-platform-specification.md#module-ownership-map)
+gives `admin-tenancy` the identities, credentials, sessions, login throttling,
+and login routes; the
+[framework HTTP contract](../specs/nap-platform-specification.md#framework-http-contract)
+owns admin-targeted routers and declared route access; and
+[web structure](../specs/nap-platform-specification.md#web-structure) owns
+`auth/`. [ADR 0004](../ADRs/0004-seeded-root-identity.md) records the seeded
+root identity.
+
+This capability owns login, logout, session resolution, password change, login
+throttling, the bootstrap seed, and the five tables below. Cell assignment,
+tenant attributes beyond the columns named here, multi-tenant membership and
+tenant switching, the employee-to-identity provisioning workflow, and
+forgotten-password reset belong to later capabilities; the roadmap records
+where.
+
+## Accepted behavior
+
+- **AUTH-001 Login.** `POST /login` takes `email` and `password`. It succeeds
+  only when an active identity matches the normalized email, the Argon2id
+  hash verifies, and the identity holds exactly one active membership in an
+  active tenant. Success creates a session bound to that identity and tenant,
+  sets the session cookie, and returns the session view. Every other outcome,
+  including an unknown email, a wrong password, a locked identity, a locked
+  membership, and a suspended tenant, answers `UNAUTHENTICATED` after the same
+  work, so the caller cannot tell them apart. An identity with zero or several
+  active memberships cannot log in until Tenant membership adds tenant
+  selection.
+- **AUTH-002 Session cookie.** The cookie is `HttpOnly`, `Secure` unless
+  `COOKIE_SECURE=false`, `SameSite` from `COOKIE_SAMESITE` (default `lax`),
+  path `/`, and holds a `jose`-signed compact token carrying the session
+  identifier and a random secret. The database row stores only the SHA-256
+  digest of the secret. The cookie is a reference: it carries no actor,
+  tenant, role, or expiry that the server trusts.
+- **AUTH-003 Session resolution.** A service under `services/` resolves every
+  request that presents a cookie: verify the signature, load the session by
+  identifier, compare the secret digest, and require the session unrevoked and
+  inside both its idle and absolute expiry, the identity and membership
+  active, and the tenant active. Any failure resolves no session and the
+  request continues as anonymous, so the framework gates answer as they do
+  today. A resolved session stores the actor, the tenant, and empty
+  entitlement and permission sets on the response until RBAC and module
+  entitlement fill them, and extends the idle expiry.
+- **AUTH-004 Expiry and revocation.** Idle expiry is `SESSION_IDLE_MINUTES`
+  (default 30) after the last resolved request; absolute expiry is
+  `SESSION_ABSOLUTE_HOURS` (default 12) after login. `POST /logout` revokes
+  the presented session, clears the cookie, and answers success whether or
+  not a session resolved. A revoked or expired session is refused on the next
+  request; no decision is cached.
+- **AUTH-005 Login throttling.** Failed logins are counted per normalized
+  email and per client address, each keyed by an HMAC under
+  `AUTH_THROTTLE_SECRET` so the table holds no raw email or address. Ten
+  failures within fifteen minutes lock that key for fifteen minutes, and a
+  throttled attempt answers `THROTTLED` (HTTP 429) before the password is
+  evaluated. A successful login clears the email key. The client address is
+  the socket address unless `TRUST_PROXY_HOPS` names how many trailing
+  `X-Forwarded-For` hops to trust (default 0).
+- **AUTH-006 Password change.** `PUT /password` requires a session, the
+  current password, and a new password of 12 to 128 characters with no other
+  composition rule. It rehashes with the configured Argon2id parameters and
+  revokes every other session of the identity. The root identity changes its
+  password only this way or through the seed's reset flag.
+- **AUTH-007 Seeded root identity.** `npm run db:bootstrap` reads
+  `ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, and `ROOT_PASSWORD`,
+  refuses a placeholder or short password, and inserts the operator tenant
+  (status `active`), the root identity (`is_root`), and the membership
+  between them when each is absent. It writes the password only when it
+  creates the identity. `--reset-root-password` rehashes the root password
+  from `ROOT_PASSWORD` and revokes root's sessions; it is the operator's
+  recovery path. Seeded rows carry null actors. The root identity's email is
+  immutable, and no route may lock, deactivate, or demote it. The script logs
+  no configured value.
+- **AUTH-008 Actor resolution.** The request context carries the resolved
+  actor, and the application registers one `pg-schemata` actor resolver at
+  startup that reads it, so `created_by` and `updated_by` hold the identity
+  id without being threaded through signatures. Scripts supply an explicit
+  service actor or, for the seed, none.
+- **AUTH-009 Web flows.** `/login` renders email and password fields, a
+  visible message for `UNAUTHENTICATED` and `THROTTLED`, a loading state, and
+  honors `?next=<encoded path>` restricted to same-origin paths. `/account`
+  shows the signed-in email and tenant, a logout action, and a password
+  change form with its success and failure states. An unauthenticated visit
+  to `/account` redirects to `/login?next=%2Faccount`; a signed-in visit to
+  `/login` redirects to `/account`. `auth/` owns session state loaded from
+  `GET /session`, and every reply is validated with `requestContract`. No
+  product navigation, tenant switch, or shell is added.
+
+## Data
+
+All tables live in the admin database, schema `admin`, are owned by
+`admin-tenancy`, use the Central mutable profile, and carry the standard
+columns unless a departure is named.
+
+| Table                 | Columns beyond the standard set                                                                                                                                                         | Constraints and departures                                                                                                                                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tenants`             | `tenant_code varchar(16)`, `company varchar(128)`, `status text` in `pending`, `active`, `suspended`                                                                                    | Unique active `tenant_code`. Cell assignment, tier, and every other attribute arrive by additive migration under Tenant membership                                                                                    |
+| `portal_users`        | `email varchar(128)`, `password_hash text`, `status text` in `active`, `locked`, `is_root boolean default false`                                                                        | Unique active `lower(email)`; partial unique index on `is_root` where true, so at most one root exists; the migration-owned trigger rejects changing the root row's `email`, `status`, `is_root`, or `deactivated_at` |
+| `portal_user_tenants` | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `status text` in `active`, `locked`                                                                             | Unique active `(portal_user_id, tenant_id)`; both FKs indexed, `ON DELETE RESTRICT`; `user_type` and `entity_id` arrive with Tenant membership                                                                        |
+| `sessions`            | `portal_user_id uuid` FK `portal_users`, `tenant_id uuid` FK `tenants`, `token_hash text`, `idle_expires_at timestamptz`, `absolute_expires_at timestamptz`, `last_seen_at timestamptz` | Unique `token_hash`; FKs indexed, `ON DELETE RESTRICT`; `deactivated_at` is the revocation timestamp; rows are never hard-deleted in this release                                                                     |
+| `login_throttles`     | `key_hash text`, `failures integer`, `window_started_at timestamptz`, `locked_until timestamptz`                                                                                        | Unique `key_hash`. Departure: a row whose window and lock have both passed is hard-deleted by the throttle service on the next write to that key, because it is transient control state holding no history            |
+
+This capability creates no cell projection. The `cell-tenancy` projection
+section this PRD must carry arrives with Cell tenancy and provisioning.
+
+## API
+
+The route registry mounts one admin-targeted router at
+`/api/admin-tenancy/v1/auth`, with every standard route disabled and the four
+routes below added through the extension callback. Request and response
+contracts are Zod schemas in `@nap/shared` under `transport/auth.ts`, and the
+error-code registry gains `THROTTLED`. `rejectTenantInput` stays on every
+route.
+
+| Method and path | Access        | Request                            | Success               |
+| --------------- | ------------- | ---------------------------------- | --------------------- |
+| `POST /login`   | anonymous     | `{ email, password }`              | 200, session view     |
+| `POST /logout`  | anonymous     | none                               | 200, `data` is `null` |
+| `GET /session`  | authenticated | none                               | 200, session view     |
+| `PUT /password` | authenticated | `{ currentPassword, newPassword }` | 200, `data` is `null` |
+
+The session view is `{ actorId, email, tenantId, tenantCode, expiresAt }`,
+where `expiresAt` is the sooner of the idle and absolute expiries.
+
+## Configuration
+
+The API reads `SESSION_SECRET` (replacing the proposed `ACCESS_TOKEN_SECRET`),
+`AUTH_THROTTLE_SECRET`, `SESSION_IDLE_MINUTES`, `SESSION_ABSOLUTE_HOURS`,
+`COOKIE_SECURE`, `COOKIE_SAMESITE`, `TRUST_PROXY_HOPS`, `ARGON2_MEMORY_KIB`,
+`ARGON2_TIME_COST`, and `ARGON2_PARALLELISM`; the seed reads the four `ROOT_*`
+values. Startup refuses a missing or placeholder `SESSION_SECRET` or
+`AUTH_THROTTLE_SECRET`. The implementation promotes these names in
+`.env.example` from proposed to implemented.
+
+## Boundaries and interfaces
+
+- Session resolution and the actor resolver are services and import no module
+  (`ARCH-048`); the framework gates are unchanged.
+- Entitlement and permission sets stay empty until RBAC and module
+  entitlement, so no framework route beyond this router is reachable. That is
+  intended.
+- No email is sent. Forgotten-password reset waits for the capability that
+  introduces email delivery; until then the seed's reset flag recovers root,
+  and no other identity exists.
+- Redis is not used; every session decision reads PostgreSQL.
+- Diagnostic logs never carry an email, password, hash, cookie, token, or
+  throttle key. A login failure logs an event name and the correlation
+  identifier only.
+
+## Acceptance evidence
+
+Tests cover every AUTH requirement: correct and wrong credentials answering
+alike; locked identity, locked membership, and suspended tenant; zero and two
+memberships; cookie tampering of signature, identifier, and secret; idle and
+absolute expiry; revocation on logout and on password change; throttle lock,
+release, and reset; seed idempotence, placeholder refusal, an existing password
+never rewritten, and the reset flag; the root immutability guards; actor ids
+landing in `created_by` and `updated_by`; tenant input rejected on every auth
+route and on a fixture framework route with a real session; the `ARCH-048` and
+`ARCH-050` conformance tests; and the web login, redirect, `next`, account,
+password change, loading, and error states. Repository checks pass before
+Implemented. Verified requires merged code, passing CI, and roadmap
+reconciliation.
+
+## Revisions
+
+| Date       | Change                                                                     |
+| ---------- | -------------------------------------------------------------------------- |
+| 2026-09-07 | Drafted from the roadmap's Authentication and sessions entry and ADR 0004. |
+| 2026-09-07 | Accepted by the owner.                                                     |
