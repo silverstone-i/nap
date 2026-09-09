@@ -3,23 +3,20 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuditFields } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 
 /** Does: Describes stored managed_events values. Used by: its repository and services. */
 export type ManagedEventsRow = {
   id: string;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
   operator_id: string;
   effective_user_id: string | null;
   target_id: string | null;
   event: string;
   reason: string;
   session_id: string | null;
-};
+} & AuditFields;
 /** Does: Defines admin.managed_events. Used by: the ManagedEvents repository. */
 export const schema: TableSchema = {
   dbSchema: 'admin',

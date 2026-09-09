@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import type { AuditFields, SoftDelete } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 /** Does: Describes stored platform_roles records. Used by: transaction services. */
@@ -9,12 +10,8 @@ export type PlatformRolesRow = {
   id: string;
   portal_user_id: string;
   role: string;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-  deactivated_at: Date | null;
-};
+} & AuditFields &
+  SoftDelete;
 /** Does: Defines the admin.platform_roles schema. Used by: PlatformRoles. */
 export const schema: TableSchema = {
   dbSchema: 'admin',

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuditFields, SoftDelete } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 
@@ -11,22 +12,18 @@ import type { DbConnection, Database, TableSchema } from 'pg-schemata';
  * Used by: the Sessions repository.
  */
 export type SessionsRow = {
+  id: string;
   access_mode: string | null;
   effective_user_id: string | null;
   access_reason: string | null;
-  id: string;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-  deactivated_at: Date | null;
   portal_user_id: string;
   tenant_id: string | null;
   token_hash: string;
   idle_expires_at: Date;
   absolute_expires_at: Date;
   last_seen_at: Date;
-};
+} & AuditFields &
+  SoftDelete;
 
 /**
  * Does: Declares the columns and constraints of admin.sessions.

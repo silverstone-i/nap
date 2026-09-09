@@ -3,24 +3,21 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuditFields, SoftDelete } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 
 /** Does: Describes stored tenant_user_bindings values. Used by: its repository and services. */
 export type TenantBindingsRow = {
-  revision: number;
   id: string;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-  deactivated_at: Date | null;
+  revision: number;
   tenant_id: string;
   portal_user_id: string;
   entity_id: string | null;
   user_type: string | null;
   status: string;
-};
+} & AuditFields &
+  SoftDelete;
 /** Does: Defines cell.tenant_user_bindings. Used by: the TenantBindings repository. */
 export const schema: TableSchema = {
   dbSchema: 'cell',

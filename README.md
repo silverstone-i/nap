@@ -84,6 +84,29 @@ Migration transactions are per schema: earlier schemas remain committed on a
 later failure. Correct the cause and rerun without editing applied migrations.
 Application rollback leaves schemas and tracking tables in place.
 
+To erase a database's NAP schemas and start again, stop the API and run the
+appropriate command with an explicit acknowledgement:
+
+```sh
+npm run db:reset:admin -- --confirm
+npm run db:reset:cell -- --confirm
+```
+
+Admin reset drops `admin`; cell reset drops `reporting`, `app`, `reference`,
+and `cell` in the configured cell database. Each reset removes all data and
+migration history in those schemas, including dependent objects through
+`CASCADE`, in one transaction. Databases and PostgreSQL roles are retained.
+The commands select migration credentials using `NODE_ENV`, just like migrations;
+check that it selects the environment you intend to erase. They do not discover
+or reset other registered cells. A lock wait longer than five seconds aborts
+the reset and rolls back its changes.
+
+After resetting both targets, run `npm run db:migrate:admin`,
+`npm run db:migrate:cell`, then `npm run db:bootstrap` to recreate the root login.
+Cell registration and tenant provisioning must also be repeated. Resetting
+only one target leaves the other target's records intact and may require
+reconciliation before the application can use them again.
+
 Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`,
 `npm run build`, and `npm run licenses` before pushing. Local toolchain tests
 start and clean up a temporary PostgreSQL cluster; they do not use your local

@@ -3,17 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuditFields, SoftDelete } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 
 /** Does: Describes stored provisioning_jobs values. Used by: its repository and services. */
 export type ProvisioningJobsRow = {
   id: string;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-  deactivated_at: Date | null;
   tenant_id: string;
   membership_id: string;
   record_id: string;
@@ -21,7 +17,8 @@ export type ProvisioningJobsRow = {
   kind: string;
   stage: string;
   failure_code: string | null;
-};
+} & AuditFields &
+  SoftDelete;
 /** Does: Defines admin.provisioning_jobs. Used by: the ProvisioningJobs repository. */
 export const schema: TableSchema = {
   dbSchema: 'admin',

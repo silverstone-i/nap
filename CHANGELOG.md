@@ -11,6 +11,21 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add separate admin and cell database reset commands with explicit confirmation,
+  transactional schema removal, and migration replay verification.
+
+### Fixed
+
+- Forward local web `/api` requests to the API so the login page receives session
+  JSON instead of the Vite HTML fallback.
+
+### Changed
+
+- Compose database row types from shared audit and soft-delete fields, keeping
+  table-specific fields first without changing schemas or migration history.
+
 ## [v0.13.0] - 2026-09-09
 
 ### Changed
