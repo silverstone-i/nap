@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.12.0] - 2026-09-09
+
 ### Added
 
 - Shared-origin routing mode, cross-cell tenant selection and operator provisioning,
