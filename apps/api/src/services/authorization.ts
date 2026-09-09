@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { cachedLookup } from './authorizationCache.js';
 import { z } from 'zod';
 import { fieldGrantSchema, scopeKinds } from '@nap/shared';
 import { HttpError } from '../util/httpError.js';
@@ -31,6 +32,20 @@ export type ResourcePolicy = {
   redact: (row: Row) => Row;
   query: (columns: string[]) => void;
 };
+const scopedGrantsSchema = z.object({
+  admin: z.boolean(),
+  grants: z.array(
+    z.object({
+      id: z.uuid(),
+      roleId: z.uuid(),
+      scope: z.enum(scopeKinds),
+      companies: z.array(z.uuid()),
+      projects: z.array(z.uuid()),
+      capabilities: z.array(z.string()),
+      fields: z.array(fieldGrantSchema),
+    })
+  ),
+});
 /** Does: Loads active assignments without flattening their scopes. Called by: request authorization inside the tenant transaction. */
 export async function loadGrants(
   tx: CellTransaction<CellRepositories>,
@@ -38,52 +53,67 @@ export async function loadGrants(
 ) {
   if (!session.tenantId) throw new HttpError('FORBIDDEN');
   await tx.roles.lockTenant(session.tenantId, true);
-  const binding = await tx.tenant_user_bindings.findOneBy({
-    portal_user_id: session.actorId,
-    status: 'active',
-  });
-  const assignments = binding
-    ? await tx.role_assignments.findWhere({ binding_id: binding.id })
-    : [];
-  const assignmentIds = assignments.map(a => a.id);
-  const roleIds = [...new Set(assignments.map(a => a.role_id))];
-  const roles = roleIds.length
-    ? await tx.roles.findWhere({ id: { $in: roleIds } })
-    : [];
-  const companies = assignmentIds.length
-    ? await tx.assignment_companies.findWhere({
-        assignment_id: { $in: assignmentIds },
-      })
-    : [];
-  const projects = assignmentIds.length
-    ? await tx.assignment_projects.findWhere({
-        assignment_id: { $in: assignmentIds },
-      })
-    : [];
-  const grants: ScopedGrant[] = [];
-  let admin =
-    session.platformAdmin === true &&
-    session.view?.controlledAccess?.mode === 'access';
-  for (const assignment of assignments) {
-    const role = roles.find(r => r.id === assignment.role_id);
-    if (!role) continue;
-    if (role.code === 'tenant_admin' && assignment.scope === 'tenant')
-      admin = true;
-    grants.push({
-      id: assignment.id,
-      roleId: role.id,
-      scope: z.enum(scopeKinds).parse(assignment.scope),
-      companies: companies
-        .filter(c => c.assignment_id === assignment.id)
-        .map(c => c.company_id),
-      projects: projects
-        .filter(p => p.assignment_id === assignment.id)
-        .map(p => p.project_id),
-      capabilities: z.array(z.string()).parse(role.capabilities),
-      fields: z.array(fieldGrantSchema).parse(role.fields),
-    });
-  }
-  return { admin, grants };
+  const tenantId = session.tenantId;
+  const state = await cachedLookup(
+    tx,
+    'grants',
+    `${tenantId}.${session.actorId}`,
+    scopedGrantsSchema,
+    () => tx.cache_revisions.current(tenantId),
+    async () => {
+      const binding = await tx.tenant_user_bindings.findOneBy({
+        portal_user_id: session.actorId,
+        status: 'active',
+      });
+      const assignments = binding
+        ? await tx.role_assignments.findWhere({ binding_id: binding.id })
+        : [];
+      const assignmentIds = assignments.map(a => a.id);
+      const roleIds = [...new Set(assignments.map(a => a.role_id))];
+      const roles = roleIds.length
+        ? await tx.roles.findWhere({ id: { $in: roleIds } })
+        : [];
+      const companies = assignmentIds.length
+        ? await tx.assignment_companies.findWhere({
+            assignment_id: { $in: assignmentIds },
+          })
+        : [];
+      const projects = assignmentIds.length
+        ? await tx.assignment_projects.findWhere({
+            assignment_id: { $in: assignmentIds },
+          })
+        : [];
+      const grants: ScopedGrant[] = [];
+      let admin = false;
+      for (const assignment of assignments) {
+        const role = roles.find(r => r.id === assignment.role_id);
+        if (!role) continue;
+        if (role.code === 'tenant_admin' && assignment.scope === 'tenant')
+          admin = true;
+        grants.push({
+          id: assignment.id,
+          roleId: role.id,
+          scope: z.enum(scopeKinds).parse(assignment.scope),
+          companies: companies
+            .filter(c => c.assignment_id === assignment.id)
+            .map(c => c.company_id),
+          projects: projects
+            .filter(p => p.assignment_id === assignment.id)
+            .map(p => p.project_id),
+          capabilities: z.array(z.string()).parse(role.capabilities),
+          fields: z.array(fieldGrantSchema).parse(role.fields),
+        });
+      }
+      return { admin, grants };
+    }
+  );
+  return {
+    ...state,
+    admin:
+      state.admin ||
+      (session.platformAdmin === true &&
+        session.view?.controlledAccess?.mode === 'access'),
+  };
 }
 /** Does: Builds scoped record/field decisions from resolved assignments. Called by: resource authorization and policy tests. */
 export function buildPolicy(

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { createAuthorizationCache } from './db/redis.js';
 import { routingConfiguration } from './util/routingConfig.js';
 import { authConfiguration } from './util/authConfig.js';
 import { createRuntime } from './runtime.js';
@@ -13,6 +14,7 @@ import { cellRepositories } from './db/cell/repositories.js';
 import { logger } from './util/logger.js';
 import {
   loadLocalEnvironment,
+  resolveCacheConfiguration,
   resolvePort,
   resolveRouterDatabase,
   resolveRuntimeConfiguration,
@@ -50,20 +52,31 @@ try {
     ? { admin: resolveRouterDatabase(), cell: undefined }
     : resolveRuntimeConfiguration();
   const trustProxyHops = resolveTrustProxyHops();
+  const cacheConfiguration = resolveCacheConfiguration();
+  const cache = cacheConfiguration.url
+    ? createAuthorizationCache({
+        ...cacheConfiguration,
+        url: cacheConfiguration.url,
+      })
+    : undefined;
   runtime = createRuntime(
     {
       admin: createAdminDatabase(configuration.admin, {
         repositories: adminRepositories,
+        authorizationCache: cache ? { cache, database: 'admin' } : undefined,
       }),
       ...(configuration.cell
         ? {
             cell: createCellDatabase(configuration.cell, {
               repositories: cellRepositories,
+              authorizationCache: cache
+                ? { cache, database: auth.cellCode }
+                : undefined,
             }),
           }
         : {}),
     },
-    { trustProxyHops, auth, routing }
+    { trustProxyHops, auth, routing, cache }
   );
   runtime.server.on('error', () => {
     listenerFailed = true;

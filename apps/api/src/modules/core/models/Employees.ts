@@ -88,7 +88,7 @@ export class Employees extends TableModel<EmployeesRow> {
   /** Does: Grants runtime cell operations without ownership or RLS bypass. Called by: cell migration script. */
   async grantRuntime(role: string) {
     await this.db.none(
-      'GRANT USAGE ON SCHEMA app,cell TO $1:name; GRANT SELECT,INSERT,UPDATE ON app.employees,app.clients,app.vendors,app.vendor_contacts,cell.tenants,cell.tenant_user_bindings,cell.entitlement_projections,app.companies,app.roles,app.role_assignments,app.assignment_companies,app.projects,app.assignment_projects TO $1:name; GRANT SELECT,INSERT ON app.access_events TO $1:name',
+      'GRANT USAGE ON SCHEMA app,cell TO $1:name; GRANT SELECT,INSERT,UPDATE ON cell.cache_revisions,app.employees,app.clients,app.vendors,app.vendor_contacts,cell.tenants,cell.tenant_user_bindings,cell.entitlement_projections,app.companies,app.roles,app.role_assignments,app.assignment_companies,app.projects,app.assignment_projects TO $1:name; GRANT SELECT,INSERT ON app.access_events TO $1:name',
       [role]
     );
   }

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuthorizationCache } from './db/authorizationCache.js';
 import type { RoutingConfiguration } from './util/routingConfig.js';
 import type { AuthConfiguration } from './util/authConfig.js';
 import { createServer } from 'node:http';
@@ -40,6 +41,7 @@ export function createRuntime(
     trustProxyHops = 0,
     auth,
     routing,
+    cache,
   }: {
     readinessMs?: number;
     drainMs?: number;
@@ -47,6 +49,7 @@ export function createRuntime(
     trustProxyHops?: number;
     auth?: AuthConfiguration;
     routing?: RoutingConfiguration;
+    cache?: AuthorizationCache;
   } = {}
 ) {
   if (Boolean(routing) === Boolean(handles.cell))
@@ -157,6 +160,7 @@ export function createRuntime(
           resolve();
         });
       });
+      await cache?.close();
       const exitCode = failed ? 1 : 0;
       logger[failed ? 'error' : 'info']({ event: 'api.stopped', exitCode });
       return exitCode;

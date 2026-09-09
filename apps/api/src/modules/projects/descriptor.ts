@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { migration as cacheMigration } from './schema/migrations/002-cache-invalidation.js';
 import { repositories } from './repositories.js';
 import { migration } from './schema/migrations/001-projects.js';
 import type { NapModuleDescriptor } from '../../db/modules.js';
@@ -12,5 +13,5 @@ export const descriptor = {
   databaseTarget: 'cell',
   schema: 'app',
   models: repositories,
-  migrations: [migration],
+  migrations: [migration, cacheMigration],
 } satisfies NapModuleDescriptor;

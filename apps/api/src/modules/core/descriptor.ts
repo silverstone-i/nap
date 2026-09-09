@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { migration as rbacMigration } from './schema/migrations/002-rbac.js';
+import { migration as cacheMigration } from './schema/migrations/003-cache-invalidation.js';
 import { repositories } from './repositories.js';
 import { migration } from './schema/migrations/001-identity.js';
 import type { NapModuleDescriptor } from '../../db/modules.js';
@@ -13,5 +14,5 @@ export const descriptor = {
   databaseTarget: 'cell',
   schema: 'app',
   models: repositories,
-  migrations: [migration, rbacMigration],
+  migrations: [migration, rbacMigration, cacheMigration],
 } satisfies NapModuleDescriptor;

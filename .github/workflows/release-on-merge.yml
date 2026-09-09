@@ -33,12 +33,21 @@ jobs:
       ADMIN_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_admin_test
       CELL_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_cell_test
       CELL_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_cell_test
+      REDIS_URL_TEST: redis://127.0.0.1:6379
       ADMIN_RUNTIME_ROLE: nap_app
       CELL_RUNTIME_ROLE: nap_app
 
     # Mirrors ci.yml: the pre-bump checks below are the same checks, so they
     # need the same database or a release fails on tests that just passed.
     services:
+      redis:
+        image: redis:8
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
       postgres:
         image: postgres:18
         env:

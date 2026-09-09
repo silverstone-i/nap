@@ -4,6 +4,8 @@
  */
 
 import { z } from 'zod';
+import { cacheTransaction, publishCache } from './authorizationCache.js';
+import type { CacheTransaction } from './authorizationCache.js';
 import type { DbConnection } from 'pg-schemata';
 import type { CellDatabase } from './cell/index.js';
 
@@ -14,7 +16,9 @@ import type { CellDatabase } from './cell/index.js';
  * Why: it is valid only inside the callback; the transaction ends when the
  * callback returns.
  */
-export type CellTransaction<R = Record<never, never>> = DbConnection & R;
+export type CellTransaction<R = Record<never, never>> = DbConnection &
+  R &
+  CacheTransaction;
 const tenantUuid = z.uuid();
 
 /**
@@ -38,7 +42,11 @@ export async function withTenantTransaction<T, R = Record<never, never>>(
 ): Promise<T> {
   if (!tenantUuid.safeParse(tenantId).success)
     throw new Error('Tenant ID must be a UUID');
-  return cellDb.transaction(async tx => {
+  const state = cellDb.authorizationCache
+    ? { ...cellDb.authorizationCache, fills: new Map<string, string>() }
+    : undefined;
+  const value = await cellDb.transaction(async tx => {
+    if (state) Object.assign(tx, { [cacheTransaction]: state });
     await tx.one("SELECT set_config('nap.tenant_id', $1, true)", [tenantId]);
     // pg-schemata's extend hook binds this handle's repositories to every
     // transaction, but its transaction signature erases that repository type.
@@ -47,4 +55,6 @@ export async function withTenantTransaction<T, R = Record<never, never>>(
       throw new Error('Tenant transaction must not escape its callback');
     return result;
   });
+  await publishCache(state);
+  return value;
 }

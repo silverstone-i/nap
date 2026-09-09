@@ -46,3 +46,19 @@ absence of grants from tier/client state. Missing authority always refuses.
 | 2026-09-09 | Accepted initial explicit entitlement contract. |
 
 | 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing. |
+
+## Cache integration
+
+ARCH-029 and [ADR 0009](../ADRs/0009-authorization-cache-freshness.md) permit
+caching central entitlement rows and local projections under independent database
+revision checks. The existing enabled-state and entitlement-revision comparison
+remains mandatory. A failed projection cannot undo a central revocation; a Redis
+outage cannot preserve a stale enablement. Cache UUID revisions are separate from
+the entitlement's existing integer projection revision.
+
+| Date       | Change                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------- |
+| 2026-09-09 | Documented revision-checked entitlement caching without changing projection authority. |
+
+**Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
+[verification record](../implementation-plans/authorization-cache-acceleration.md#verification).

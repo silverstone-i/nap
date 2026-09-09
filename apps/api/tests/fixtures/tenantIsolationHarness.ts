@@ -20,7 +20,7 @@ export type IsolationOperations<R> = {
   ) => Promise<{ id: string }>;
   update: (tx: CellTransaction<R>, id: string) => Promise<unknown>;
   remove: (tx: CellTransaction<R>, id: string) => Promise<number>;
-  relate: (
+  relate?: (
     tx: CellTransaction<R>,
     tenantId: string,
     id: string,
@@ -95,12 +95,19 @@ export function registerTenantIsolationSuite<R>(
         expect.objectContaining({ id: bId }),
       ]);
     });
-    it('allows same-tenant CRUD and relationships but rejects foreign parents', async () => {
+    it('allows same-tenant updates and rejects foreign relationships when present', async () => {
+      const relate = op.relate;
+      if (!relate) {
+        expect(
+          await withTenantTransaction(db, a, tx => op.update(tx, aId))
+        ).not.toBeNull();
+        return;
+      }
       await expect(
-        withTenantTransaction(db, a, tx => op.relate(tx, a, randomUUID(), bId))
+        withTenantTransaction(db, a, tx => relate(tx, a, randomUUID(), bId))
       ).rejects.toMatchObject({ code: '23503' });
       const { id: child } = await withTenantTransaction(db, a, tx =>
-        op.relate(tx, a, randomUUID(), aId)
+        relate(tx, a, randomUUID(), aId)
       );
       expect(
         await withTenantTransaction(db, a, tx => op.update(tx, child))

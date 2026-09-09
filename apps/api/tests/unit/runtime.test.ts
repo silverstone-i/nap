@@ -102,7 +102,13 @@ it('reports a listener bind failure and closes its handles', async () => {
 it('drains an active HTTP request before closing pools and shares repeated shutdown', async () => {
   const pools = handles();
   const close = vi.spyOn(pools.admin, 'close');
-  const runtime = createRuntime(pools, { drainMs: 1000 });
+  const cache = {
+    namespace: 'runtime-test',
+    read: vi.fn(() => Promise.reject(new Error('offline'))),
+    write: vi.fn(() => Promise.reject(new Error('offline'))),
+    close: vi.fn(() => Promise.resolve()),
+  };
+  const runtime = createRuntime(pools, { drainMs: 1000, cache });
   let complete: () => void = () => {};
   let admitted: () => void = () => {};
   const entered = new Promise<void>(resolve => {
@@ -120,10 +126,12 @@ it('drains an active HTTP request before closing pools and shares repeated shutd
   const stopped = runtime.shutdown();
   expect(runtime.shutdown()).toBe(stopped);
   expect(close).not.toHaveBeenCalled();
+  expect(cache.close).not.toHaveBeenCalled();
   complete();
   expect(await (await response).text()).toBe('finished');
   expect(await stopped).toBe(0);
   expect(close).toHaveBeenCalledTimes(1);
+  expect(cache.close).toHaveBeenCalledTimes(1);
 });
 it('forces stuck requests closed after the drain deadline and returns failure', async () => {
   const runtime = createRuntime(handles(), { drainMs: 20 });

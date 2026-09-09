@@ -196,3 +196,19 @@ sections above describe the pre-RBAC baseline. RBAC changes are Verified upon me
 Self-profile remains available; broader access requires current scoped grants.
 New provisioning seeds the initial tenant administrator before activation.
 Existing privileged identities require reviewed transition mappings.
+
+## Authorization cache integration
+
+Derived lookups follow ARCH-029 and [ADR 0009](../ADRs/0009-authorization-cache-freshness.md).
+Session credentials, identity eligibility and expiry writes remain PostgreSQL-backed.
+Cached membership eligibility includes the selected tenant revision. Database triggers
+invalidate principal, tenant, support and routing revisions inside the modifying
+transaction, including provisioning and administrative scripts. Redis failure does
+not change session, revocation or controlled-access outcomes.
+
+| Date       | Change                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| 2026-09-09 | Recorded revision-checked authorization cache integration without changing access semantics. |
+
+**Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
+[verification record](../implementation-plans/authorization-cache-acceleration.md#verification).

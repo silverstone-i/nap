@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { CacheBinding } from '../authorizationCache.js';
 import { createDb, getAuditActor } from 'pg-schemata';
 import { createDatabaseLogger } from '../../util/logger.js';
 import type {
@@ -24,6 +25,7 @@ const adminHandle = Symbol('adminDatabase');
  */
 export type AdminDatabase<R = Record<never, never>> = Database<R> & {
   readonly [adminHandle]: true;
+  authorizationCache?: CacheBinding;
 };
 
 /**
@@ -38,7 +40,9 @@ export function createAdminDatabase<
   const C extends Record<string, RepositoryCtor> = Record<never, never>,
 >(
   connectionString: string,
-  options: Pick<DatabaseConfig<C>, 'repositories' | 'pool'> = {}
+  options: Pick<DatabaseConfig<C>, 'repositories' | 'pool'> & {
+    authorizationCache?: CacheBinding;
+  } = {}
 ): AdminDatabase<RepositoryInstances<C>> {
   return Object.assign(
     createDb({
@@ -48,7 +52,10 @@ export function createAdminDatabase<
       repositories: options.repositories,
       pool: { connectionTimeoutMillis: 5000, ...options.pool },
     }),
-    { [adminHandle]: true as const }
+    {
+      [adminHandle]: true as const,
+      authorizationCache: options.authorizationCache,
+    }
   );
 }
 

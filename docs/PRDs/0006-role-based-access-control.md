@@ -125,7 +125,8 @@ business requirement establishes it.
 
 Authorization remains PostgreSQL-backed under ARCH-023 and ARCH-029. Role,
 assignment, and field-grant revocations affect subsequent requests; stale client
-state cannot retain access. Cache acceleration remains a later capability.
+state cannot retain access. Cache acceleration follows ARCH-029 and ADR 0009: each authorization transaction
+checks database revisions before using derived grants.
 
 ### RBAC-006 — Permanent built-in roles
 
@@ -250,5 +251,8 @@ extra grants, and cannot hold grant-management capability.
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-09-09 | Drafted the owner-agreed capability, scoped-assignment, field-grant, built-in-role, and template-seeding direction; recorded adoption requirements. |
 | 2026-09-09 | Accepted scope, administration and transition contracts for implementation under ADR 0008.                                                          |
+| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing.                                                              |
+| 2026-09-09 | Adopted revision-checked cache acceleration under ARCH-029 and ADR 0009; revocation semantics remain unchanged.                                     |
 
-| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing. |
+**Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
+[verification record](../implementation-plans/authorization-cache-acceleration.md#verification).

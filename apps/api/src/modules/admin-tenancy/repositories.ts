@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { CacheRevisions } from './models/CacheRevisions.js';
 import { ModuleEntitlements } from './models/ModuleEntitlements.js';
 import { SupportPolicy } from './models/SupportPolicy.js';
 import { PlatformRoles } from './models/PlatformRoles.js';
@@ -16,6 +17,7 @@ import { LoginThrottles } from './models/LoginThrottles.js';
  * Used by: the admin registry and module descriptor.
  */
 export const repositories = {
+  cache_revisions: CacheRevisions,
   module_entitlements: ModuleEntitlements,
   support_policy: SupportPolicy,
   platform_roles: PlatformRoles,

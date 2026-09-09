@@ -98,7 +98,7 @@ async function apiProcess(env: NodeJS.ProcessEnv) {
  * Does: Builds two separately credentialed databases and three processes from the same API artifact.
  * Called by: multi-cell acceptance tests and disposable browser verification.
  */
-export async function multiCell() {
+export async function multiCell(cacheEnv: NodeJS.ProcessEnv = {}) {
   const base = await authDatabase();
   const processes: Awaited<ReturnType<typeof apiProcess>>[] = [];
   const url2 = await base.fixture.createDatabase('cell_two');
@@ -147,6 +147,7 @@ export async function multiCell() {
         );
     }
     const one = await apiProcess({
+      ...cacheEnv,
       API_MODE: 'cell',
       CELL_CODE: 'cell-1',
       ADMIN_DATABASE_URL_TEST: base.fixture.runtimeUrl(base.fixture.adminUrl),
@@ -154,6 +155,7 @@ export async function multiCell() {
     });
     processes.push(one);
     const two = await apiProcess({
+      ...cacheEnv,
       API_MODE: 'cell',
       CELL_CODE: 'cell-2',
       ADMIN_DATABASE_URL_TEST: base.fixture.runtimeUrl(
@@ -164,6 +166,7 @@ export async function multiCell() {
     });
     processes.push(two);
     const router = await apiProcess({
+      ...cacheEnv,
       API_MODE: 'router',
       ADMIN_DATABASE_URL_TEST: base.fixture.runtimeUrl(
         base.fixture.adminUrl,

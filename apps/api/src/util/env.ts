@@ -284,3 +284,36 @@ export function resolveRouterDatabase(env: NodeJS.ProcessEnv = process.env) {
   return databaseUrl(env, `ADMIN_DATABASE_URL_${resolveEnvironment(env)}`)
     .connectionString;
 }
+
+/**
+ * Does: Reads Redis connection and namespace settings without exposing credentials.
+ * Called by: server startup after local environment loading.
+ * Why: managed production requires Redis configuration unless explicitly disabled.
+ */
+export function resolveCacheConfiguration(
+  env: NodeJS.ProcessEnv = process.env
+) {
+  const environment = resolveEnvironment(env);
+  const enabled = env.REDIS_CACHE_ENABLED?.trim();
+  if (enabled && !['true', 'false'].includes(enabled))
+    throw new Error('Invalid REDIS_CACHE_ENABLED');
+  const namespace = env.REDIS_CACHE_NAMESPACE?.trim() || 'nap';
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(namespace))
+    throw new Error('Invalid REDIS_CACHE_NAMESPACE');
+  if (enabled === 'false') return { namespace, url: undefined };
+  const url = (
+    environment === 'TEST' ? env.REDIS_URL_TEST : env.REDIS_URL
+  )?.trim();
+  if (!url) {
+    if (enabled === 'true' || environment === 'PROD')
+      throw new Error('Redis URL is required when caching is enabled');
+    return { namespace, url: undefined };
+  }
+  try {
+    if (!['redis:', 'rediss:'].includes(new URL(url).protocol))
+      throw new Error();
+  } catch {
+    throw new Error('Invalid Redis URL');
+  }
+  return { namespace, url };
+}

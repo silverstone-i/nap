@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { cachedAssignment } from './cachedSecurityState.js';
 import { controlBodySchema, entitlementChangeSchema } from '@nap/shared';
 import { withAdminTransaction } from '../db/withAdminTransaction.js';
 import { HttpError } from '../util/httpError.js';
@@ -35,7 +36,7 @@ export async function assignedDestination(
           session.operatorId ?? session.actorId,
           'entitlement'
         );
-        const target = await tx.cells.assignment(body.data.tenant);
+        const target = await cachedAssignment(tx, body.data.tenant);
         if (!target?.enabled || !target.code) throw new HttpError('FORBIDDEN');
         return target.code;
       }
@@ -68,7 +69,7 @@ export async function assignedDestination(
       } else throw new HttpError('INVALID_INPUT');
     }
     if (!tenantId) throw new HttpError('FORBIDDEN');
-    const target = await tx.cells.assignment(tenantId);
+    const target = await cachedAssignment(tx, tenantId);
     if (!target?.enabled || !target.code) throw new HttpError('FORBIDDEN');
     if (
       !command &&

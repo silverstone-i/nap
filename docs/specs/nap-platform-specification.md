@@ -201,7 +201,7 @@ depended on; package manifests, the lockfile, `.nvmrc`, and
 | Credentials            | Argon2id password hashing                                     | No second hashing scheme; parameters are owned by the identity component PRD                                                |
 | Sessions               | Session cookie signed with `jose`                             | The cookie carries a reference, never an authorization decision (`ARCH-022`, `ARCH-023`)                                    |
 | Logging                | `pino`, JSON records on standard output                       | One logger; the platform owns log destination and retention                                                                 |
-| Cache                  | Redis                                                         | Keeps session and authorization lookups off the database path; PostgreSQL still decides (`ARCH-029`)                        |
+| Cache                  | Redis                                                         | Reduces derived session and authorization lookups; PostgreSQL still decides (`ARCH-029`)                                    |
 | Object storage         | Amazon S3                                                     | Holds every binary document; the SDK stays behind an API service (`ARCH-030`)                                               |
 | Web framework          | React with React Router                                       | One router; route-level lazy loading at module boundaries                                                                   |
 | Web UI kit             | MUI, MUI X Data Grid, and Emotion                             | One component library and one styling mechanism; no second UI kit or CSS framework                                          |
@@ -1409,14 +1409,22 @@ the tenant.
 
 ### ARCH-029 — Redis accelerates, PostgreSQL decides
 
-Redis caches derived session, routing, and authorization state so those lookups
-do not reach the database on every request. It is part of a managed deployment,
+Redis caches derived session, routing, and authorization state to reduce repeated
+database lookups. PostgreSQL freshness checks remain at each authorization
+transaction boundary, and session validation and expiry writes remain live. It is part of a managed deployment,
 not a possibility a deployment may ignore.
 
 Correctness never depends on it. Cache misses, eviction, restart, and outage
 retain a correct PostgreSQL-backed path, Redis is never the sole copy of
 security state, and a write that changes authorization invalidates the entries
 it affects.
+
+Transactional database triggers change opaque revision identifiers for affected
+principals, tenants, routing and support policy. Cache entries include those
+revisions and become unusable after the change commits, even if Redis is offline.
+Only stable lookup results from committed transactions may populate the cache.
+Revision records are internal metadata, with tenant RLS on local records; they
+are not business records and carry no soft deletion or actor audit columns.
 
 The PostgreSQL-backed path is built and proven first. Redis is added in front of
 a working path, so it can be switched off without changing any authorization
@@ -1714,6 +1722,7 @@ every production dependency carries an allowed license.
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-09 | Clarified ARCH-029: PostgreSQL freshness checks and live session writes; transactional revision invalidation and internal revision metadata under ADR 0009.                                                                                                                                                                         |
 | 2026-09-08 | Accepted central platform grants, declared platform routes, restricted selection sessions, and operator-only cell registry contracts (ADR 0006).                                                                                                                                                                                    |
 | 2026-09-08 | Accepted the anonymous login-throttle audit-actor exception (ADR 0005) and documented the factory control that preserves failed-login throttle counters.                                                                                                                                                                            |
 | 2026-09-07 | Named the seeded root identity as the one exception to provisioned portal identities under `ARCH-040` (ADR 0004), and added admin-targeted routers and declared `anonymous` and `authenticated` extension-route access to the framework HTTP contract, with the matching conformance rows                                           |

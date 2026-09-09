@@ -119,7 +119,7 @@ export class Tenants extends TableModel<TenantsRow> {
   async grantRuntime(role: string) {
     await this.db.none(
       `GRANT USAGE ON SCHEMA admin TO $1:name;
-      GRANT SELECT, INSERT, UPDATE ON admin.tenants, admin.portal_users,
+      GRANT SELECT, INSERT, UPDATE ON admin.cache_revisions, admin.tenants, admin.portal_users,
         admin.portal_user_tenants, admin.sessions, admin.login_throttles TO $1:name;
       GRANT DELETE ON admin.login_throttles TO $1:name;
       GRANT SELECT, INSERT, UPDATE ON admin.cells, admin.platform_grants, admin.provisioning_jobs,admin.platform_roles,admin.support_policy,admin.module_entitlements TO $1:name;
