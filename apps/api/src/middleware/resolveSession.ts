@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { cachedProjections } from '../services/cachedSecurityState.js';
 import { tenantCapabilities } from '../services/authorization.js';
 import { withTenantTransaction } from '../db/withTenantTransaction.js';
 import type { CellHandle } from '../db/cell/repositories.js';
@@ -31,7 +32,7 @@ export function sessionResolver(
       if (cell && session.tenantId)
         await withTenantTransaction(cell, session.tenantId, async tx => {
           session.permissions = await tenantCapabilities(tx, session);
-          const projections = await tx.entitlement_projections.findWhere({});
+          const projections = await cachedProjections(tx, session.tenantId!);
           for (const grant of session.entitlementState)
             if (
               grant.enabled &&

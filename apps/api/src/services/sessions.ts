@@ -2,6 +2,11 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import {
+  cachedAssignment,
+  cachedMembership,
+  cachedEntitlements,
+} from './cachedSecurityState.js';
 import { cellModules } from '../db/cell/modules.js';
 import { withAdminTransaction } from '../db/withAdminTransaction.js';
 import { requestContext } from '../util/requestContext.js';
@@ -112,7 +117,7 @@ export async function resolveSession(
     let kind: string | undefined;
     let selected: Awaited<ReturnType<typeof tx.cells.assignment>> = null;
     if (row.tenant_id && !identity.must_change_password) {
-      selected = await tx.cells.assignment(row.tenant_id);
+      selected = await cachedAssignment(tx, row.tenant_id);
       if (!selected || selected.status !== 'active') return { presented };
       if (row.access_mode) {
         const permission =
@@ -139,9 +144,11 @@ export async function resolveSession(
         }
       }
       if (!row.access_mode || row.access_mode === 'impersonation') {
-        const membership = (
-          await tx.portal_user_tenants.activeFor(effective.id)
-        ).find(m => m.tenant_id === row.tenant_id);
+        const membership = await cachedMembership(
+          tx,
+          effective.id,
+          row.tenant_id
+        );
         if (!membership) return { presented };
         linked = membership.entity_id ?? undefined;
         kind = membership.user_type ?? undefined;
@@ -190,7 +197,7 @@ export async function resolveSession(
           'admin-tenancy::control::grants'
         ),
         entitlementState: usable
-          ? await tx.module_entitlements.findWhere({ tenant_id: selected!.id })
+          ? await cachedEntitlements(tx, selected!.id)
           : [],
         operatorId: identity.id,
         tenantId: usable ? selected?.id : undefined,

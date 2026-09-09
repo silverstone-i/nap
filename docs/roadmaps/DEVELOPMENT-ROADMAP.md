@@ -180,7 +180,7 @@ start from the specification and applicable ADRs.
 | Tenant membership and control plane           | Accepted | Verified       | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
-| Authorization cache acceleration              | Draft    | Not started    | RBAC and module entitlement                                                                        |
+| Authorization cache acceleration              | Accepted | In progress    | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
 | Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
 | Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
@@ -708,18 +708,23 @@ repeatable two-cell verification. Redis and operational workflows remain later g
 
 ### Authorization cache acceleration
 
-**Outcome:** Session, routing, and authorization lookups stop reaching the
-database on every request.
+**Outcome:** Derived session, routing, and authorization lookups are cached,
+retaining PostgreSQL freshness checks and live session validation/expiry writes.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted. **Implementation:** Locally complete and verified; merge
+pending. The capability table remains In progress until shipping completes.
+
+[Implementation plan](../implementation-plans/authorization-cache-acceleration.md)
+and [ADR 0009](../ADRs/0009-authorization-cache-freshness.md) record the adopted design.
 
 **Depends on:** RBAC and module entitlement, working against PostgreSQL alone.
 
 **Documents:** `ARCH-023`, `ARCH-029`.
 
-**Required design:** What is cached, its key shape and lifetime, and which
-writes invalidate which entries. The cache is added in front of a proven path
-and never becomes the decision.
+**Adopted design:** Independent derived lookups use revision-keyed Redis entries
+with a five-minute cleanup TTL. PostgreSQL revisions are checked at each
+authorization transaction boundary; transactional triggers invalidate changed
+security state. Session validation and expiry writes remain live.
 
 **Gate:** With Redis stopped, every authorization outcome is unchanged and only
 latency differs. A membership revocation, role change, or tenant suspension is

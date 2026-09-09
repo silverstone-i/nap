@@ -13,6 +13,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Added
 
+- Add revision-checked Redis acceleration for authorization with PostgreSQL fallback.
+
 - Add separate admin and cell database reset commands with explicit confirmation,
   transactional schema removal, and migration replay verification.
 

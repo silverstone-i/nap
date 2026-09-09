@@ -144,3 +144,5 @@ Document locations and the repository skeleton are defined in
 - [RBAC and module entitlement implementation plan](implementation-plans/0006-rbac-and-module-entitlement.md)
 - [Module entitlements](PRDs/0007-module-entitlements.md)
 - [Company and project scope records](PRDs/0008-company-and-project-scope-records.md)
+
+- [Authorization cache acceleration implementation plan](implementation-plans/authorization-cache-acceleration.md)
