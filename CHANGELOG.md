@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.13.0] - 2026-09-09
+
 ### Changed
 
 - Add scoped multi-role authorization, shared support policy, explicit module
