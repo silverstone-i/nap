@@ -34,7 +34,10 @@ function cookie(reply: { headers: Record<string, unknown> }) {
     throw new Error('Missing cookie');
   return values[0].split(';')[0];
 }
-/** Does: Issues an operator command through the real router. Called by: fixture setup and acceptance cases. */
+/**
+ * Does: Sends an operator command through the HTTP router and checks the response status.
+ * Called by: fixture setup and acceptance cases when creating or updating test records.
+ */
 async function command(action: string, body: object, expected = 200) {
   const reply = await request(test.router.origin)
     .post(control + '/' + action)

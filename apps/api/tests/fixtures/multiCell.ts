@@ -70,7 +70,10 @@ async function apiProcess(env: NodeJS.ProcessEnv) {
     }
     throw new Error('Test API readiness deadline exceeded');
   }
-  /** Does: Stops only this fixture process and waits for pool shutdown. */
+  /**
+   * Does: Stops the test API process and waits for its database connections to close.
+   * Called by: apiProcess on startup failure, fixture cleanup, and acceptance tests simulating an outage.
+   */
   async function stop() {
     if (!child || child.exitCode !== null) return;
     const exited = once(child, 'exit');
