@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import type { AuditFields, SoftDelete } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 /** Does: Describes stored module_entitlements records. Used by: transaction services. */
@@ -11,12 +12,8 @@ export type ModuleEntitlementsRow = {
   module: string;
   enabled: boolean;
   revision: number;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-  deactivated_at: Date | null;
-};
+} & AuditFields &
+  SoftDelete;
 /** Does: Defines the admin.module_entitlements schema. Used by: ModuleEntitlements. */
 export const schema: TableSchema = {
   dbSchema: 'admin',

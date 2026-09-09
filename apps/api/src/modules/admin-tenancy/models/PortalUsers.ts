@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuditFields, SoftDelete } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 
@@ -11,18 +12,14 @@ import type { DbConnection, Database, TableSchema } from 'pg-schemata';
  * Used by: the PortalUsers repository.
  */
 export type PortalUsersRow = {
-  must_change_password: boolean;
   id: string;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-  deactivated_at: Date | null;
+  must_change_password: boolean;
   email: string;
   password_hash: string;
   status: string;
   is_root: boolean;
-};
+} & AuditFields &
+  SoftDelete;
 
 /**
  * Does: Declares the columns and constraints of admin.portal_users.

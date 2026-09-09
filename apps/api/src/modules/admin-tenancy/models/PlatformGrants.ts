@@ -3,21 +3,18 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { AuditFields, SoftDelete } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 
 /** Does: Describes stored platform_grants values. Used by: its repository and services. */
 export type PlatformGrantsRow = {
   id: string;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-  deactivated_at: Date | null;
   portal_user_id: string;
   role: string;
   permission: string;
-};
+} & AuditFields &
+  SoftDelete;
 /** Does: Defines admin.platform_grants. Used by: the PlatformGrants repository. */
 export const schema: TableSchema = {
   dbSchema: 'admin',

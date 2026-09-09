@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import type { AuditFields } from '../../../db/rowFields.js';
 import { TableModel } from 'pg-schemata';
 import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 /** Does: Describes stored access_events records. Used by: transaction services. */
@@ -11,11 +12,7 @@ export type AccessEventsRow = {
   operator_id: string;
   event: string;
   detail: unknown;
-  created_at: Date;
-  updated_at: Date;
-  created_by: string | null;
-  updated_by: string | null;
-};
+} & AuditFields;
 /** Does: Defines the app.access_events schema. Used by: AccessEvents. */
 export const schema: TableSchema = {
   dbSchema: 'app',
