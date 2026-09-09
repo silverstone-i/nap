@@ -144,3 +144,40 @@ it('validates configuration without printing URLs and isolates test configuratio
     resolveCacheConfiguration({ REDIS_CACHE_NAMESPACE: 'bad:namespace' })
   ).toThrow('Invalid REDIS_CACHE_NAMESPACE');
 });
+
+it('normalizes cold, warm, and fallback results without publishing unstable fills', async () => {
+  const f = fixture();
+  const schema = z.object({ grant: z.string() });
+  const raw = { grant: 'read', databaseOnly: 'metadata' };
+  const expected = { grant: 'read' };
+  const load = vi.fn(() => Promise.resolve(raw));
+  const revision = vi.fn<() => Promise<string | undefined>>(() =>
+    Promise.resolve('v1')
+  );
+  /** Does: Reads the same derived record across cache states. Called by: this parity regression. */
+  const lookup = () =>
+    cachedLookup(f.tx, 'grants', 'actor', schema, revision, load);
+
+  expect(await lookup()).toEqual(expected);
+  await publishCache(f.state);
+  expect(await lookup()).toEqual(expected);
+  expect(load).toHaveBeenCalledTimes(1);
+  f.state.fills.clear();
+
+  f.cache.read.mockRejectedValueOnce(new Error('offline'));
+  expect(await lookup()).toEqual(expected);
+  f.cache.read.mockResolvedValueOnce('malformed');
+  expect(await lookup()).toEqual(expected);
+  f.state.fills.clear();
+
+  revision.mockResolvedValueOnce('v2').mockResolvedValueOnce('v3');
+  expect(await lookup()).toEqual(expected);
+  expect(f.state.fills.size).toBe(0);
+
+  const reads = f.cache.read.mock.calls.length;
+  revision.mockResolvedValueOnce(undefined);
+  expect(await lookup()).toEqual(expected);
+  expect(f.cache.read).toHaveBeenCalledTimes(reads);
+  expect(f.state.fills.size).toBe(0);
+  expect(raw).toEqual({ grant: 'read', databaseOnly: 'metadata' });
+});

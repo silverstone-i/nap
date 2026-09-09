@@ -25,7 +25,7 @@ export async function cachedLookup<T>(
   const started = performance.now();
   // A database error must propagate; Redis alone never grants access.
   const before = await revision();
-  if (!before) return load();
+  if (!before) return schema.parse(await load());
   const key = [
     'nap',
     'authz',
@@ -59,10 +59,9 @@ export async function cachedLookup<T>(
   } catch {
     outcome = 'fallback';
   }
-  const result = await load();
+  // Normalize database results to the same contract used for warm hits.
+  const value = schema.parse(await load());
   if (before === (await revision())) {
-    // Parse into an immutable JSON snapshot, discarding fields outside the contract.
-    const value = schema.parse(result);
     state.fills.set(key, JSON.stringify({ key, value }));
   }
   logger.debug({
@@ -71,5 +70,5 @@ export async function cachedLookup<T>(
     outcome,
     durationMs: performance.now() - started,
   });
-  return result;
+  return value;
 }

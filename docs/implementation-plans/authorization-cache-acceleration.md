@@ -62,8 +62,11 @@ retain the existing transaction boundaries.
 
 ## Verification
 
-The complete suite passes: **366 tests** (28 toolchain, 285 API, 40 web,
-13 shared). Focused cache and isolation checks also pass (17 tests).
+The complete suite passes: **367 tests** (28 toolchain, 286 API, 40 web,
+13 shared). Focused cache and isolation checks also pass. Review regression coverage confirms
+that cache-enabled cold, warm, malformed-entry, offline, missing-revision, and
+unstable-fill paths return the same schema-normalized shape; unstable fills are
+not published.
 
 - Authentication and RBAC suites run with acceleration disabled and enabled,
   including three API processes and two independent cells. Coverage includes live
