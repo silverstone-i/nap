@@ -230,3 +230,6 @@ not change session, revocation or controlled-access outcomes.
 | Date       | Change                                                                                       |
 | ---------- | -------------------------------------------------------------------------------------------- |
 | 2026-09-09 | Recorded revision-checked authorization cache integration without changing access semantics. |
+
+**Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
+[verification record](../implementation-plans/authorization-cache-acceleration.md#verification).

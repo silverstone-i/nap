@@ -59,3 +59,6 @@ the entitlement's existing integer projection revision.
 | Date       | Change                                                                                 |
 | ---------- | -------------------------------------------------------------------------------------- |
 | 2026-09-09 | Documented revision-checked entitlement caching without changing projection authority. |
+
+**Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
+[verification record](../implementation-plans/authorization-cache-acceleration.md#verification).

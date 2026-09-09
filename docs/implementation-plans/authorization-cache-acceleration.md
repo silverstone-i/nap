@@ -14,8 +14,10 @@
 ## Authority and status
 
 **Plan:** Accepted by owner implementation authorization, 2026-09-09.
-**Implementation:** Complete and locally verified. PR publication with `release:minor`
-is authorized; merge remains pending.
+**Implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing.
+
+[CI evidence](https://github.com/silverstone-i/nap/actions/runs/34409273920)
+confirms the implementation checks; the final documentation head must also pass CI.
 
 ARCH-023 and ARCH-029 govern. ADR 0009 records the approved freshness design.
 RBAC and entitlement were implemented in PR #18. This work reduces derived

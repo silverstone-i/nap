@@ -180,7 +180,7 @@ start from the specification and applicable ADRs.
 | Tenant membership and control plane           | Accepted | Verified       | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
-| Authorization cache acceleration              | Accepted | In progress    | RBAC and module entitlement                                                                        |
+| Authorization cache acceleration              | Accepted | Verified       | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
 | Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
 | Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
@@ -711,8 +711,7 @@ repeatable two-cell verification. Redis and operational workflows remain later g
 **Outcome:** Derived session, routing, and authorization lookups are cached,
 retaining PostgreSQL freshness checks and live session validation/expiry writes.
 
-**Design:** Accepted. **Implementation:** Locally complete and verified; merge
-pending. The capability table remains In progress until shipping completes.
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing.
 
 [Implementation plan](../implementation-plans/authorization-cache-acceleration.md)
 and [ADR 0009](../ADRs/0009-authorization-cache-freshness.md) record the adopted design.
