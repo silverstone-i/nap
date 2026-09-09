@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.14.0] - 2026-09-09
+
 ### Added
 
 - Add revision-checked Redis acceleration for authorization with PostgreSQL fallback.
