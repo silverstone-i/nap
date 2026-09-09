@@ -94,6 +94,17 @@ export function AccountPage() {
   if (!state.session) return <Navigate to="/login?next=%2Faccount" replace />;
   return (
     <AuthFrame title="Account">
+      <Stack direction="row">
+        <Button component={Link} to="/companies">
+          Companies
+        </Button>
+        <Button component={Link} to="/projects">
+          Projects
+        </Button>
+        <Button component={Link} to="/access">
+          Roles and access
+        </Button>
+      </Stack>
       <Stack spacing={2}>
         <Typography>{state.session.email}</Typography>
         <Typography>Tenant: {state.session.tenantCode}</Typography>

@@ -43,6 +43,34 @@ function login(email = authEnv.ROOT_EMAIL, password = authEnv.ROOT_PASSWORD) {
 }
 /** Does: Runs an operator action through its actual permission endpoint. Called by: fixture builders. */
 async function command(action: string, body: object, session = rootCookie) {
+  if (
+    action === 'grants' &&
+    'operation' in body &&
+    body.operation === 'grant' &&
+    'user' in body &&
+    'permission' in body &&
+    'enabled' in body
+  ) {
+    const assignment = await request(test.server)
+      .post(control + '/role-policy')
+      .set('Cookie', session)
+      .send({
+        operation: 'platform-role',
+        user: body.user,
+        role: 'support',
+        enabled: true,
+      });
+    expect(assignment.status).toBe(200);
+    const result = await request(test.server)
+      .post(control + '/role-policy')
+      .set('Cookie', session)
+      .send({
+        operation: 'support-policy',
+        permissions: body.enabled ? [body.permission] : [],
+      });
+    expect(result.status).toBe(200);
+    return;
+  }
   const result = await request(test.server)
     .post(control + '/' + action)
     .set('Cookie', session)
@@ -285,7 +313,8 @@ it('supports vendor selection, reference rotation and independent sessions', asy
   ).toBe(403);
 });
 it('revokes centrally before synchronization and refuses stale cookies', async () => {
-  const { m } = await activeTenant();
+  const { t } = await activeTenant();
+  const m = await member(t.id);
   const c = await onboard(m.email);
   await command('members', {
     operation: 'revoke',

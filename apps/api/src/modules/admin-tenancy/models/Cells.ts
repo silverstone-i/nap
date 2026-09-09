@@ -88,6 +88,7 @@ export class Cells extends TableModel<CellsRow> {
       status: string;
       cell_id: string | null;
       provisioned: boolean;
+      rbac_ready: boolean;
       revision: number;
       code: string | null;
       enabled: boolean | null;

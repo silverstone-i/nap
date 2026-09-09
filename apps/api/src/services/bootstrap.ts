@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
+import { seedPlatformPolicy } from './platform.js';
 import { z } from 'zod';
 import { withAdminTransaction } from '../db/withAdminTransaction.js';
 import { hashPassword } from '../util/password.js';
@@ -51,6 +51,7 @@ export async function bootstrapRoot(
   return requestContext.run({ requestId: 'bootstrap' }, () =>
     withAdminTransaction(db, async tx => {
       await tx.tenants.lockBootstrap();
+      await seedPlatformPolicy(tx);
       let tenant = await tx.tenants.findOneBy({
         tenant_code: config.tenantCode,
       });

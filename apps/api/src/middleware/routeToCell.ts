@@ -115,7 +115,12 @@ export function routeToCell(
     const path = request.path.toLowerCase().replace(/\/$/, '');
     if (!path.startsWith('/api/')) return next();
     let command: { body: unknown; action: string } | undefined;
-    if (path.startsWith('/api/admin-tenancy/')) {
+    if (
+      path === '/api/admin-tenancy/v1/control/entitlement' &&
+      request.method === 'POST'
+    ) {
+      command = { body: request.body, action: 'entitlement' };
+    } else if (path.startsWith('/api/admin-tenancy/')) {
       const body: unknown = request.body;
       if (
         request.method !== 'POST' ||
@@ -126,7 +131,7 @@ export function routeToCell(
         !body ||
         typeof body !== 'object' ||
         !('operation' in body) ||
-        !['member', 'retry', 'activate', 'reconcile'].includes(
+        !['member', 'retry', 'activate', 'reconcile', 'revoke'].includes(
           String(body.operation)
         )
       )

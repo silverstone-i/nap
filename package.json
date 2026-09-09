@@ -28,7 +28,8 @@
     "db:migrate:cell": "npm run db:migrate:cell --workspace @nap/api",
     "db:bootstrap": "npm run db:bootstrap --workspace @nap/api --",
     "db:setup:dev": "node scripts/setup-databases.mjs development",
-    "test:toolchain": "npm run build --workspace @nap/api && vitest run --config vitest.config.mjs"
+    "test:toolchain": "npm run build --workspace @nap/api && vitest run --config vitest.config.mjs",
+    "db:access": "npm run db:access --workspace @nap/api --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

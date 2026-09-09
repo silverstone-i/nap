@@ -62,3 +62,14 @@ Verification evidence: 287 repository tests and all required local checks pass;
 [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
 
 | 2026-09-08 | Reconciled verification for PR #15; status becomes effective on merge with required checks passing. |
+
+## RBAC adoption (2026-09-09)
+
+ADR 0008 and PRDs 0006–0008 replace the initial authorization policy: platform_admin
+replaces package_admin, support grants are shared and editable only by platform
+administrators, and tenant roles resolve in Core. Historical implementation
+sections above describe the pre-RBAC baseline. RBAC changes are Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing. See the
+[delivery plan](../implementation-plans/0006-rbac-and-module-entitlement.md).
+Self-profile remains available; broader access requires current scoped grants.
+New provisioning seeds the initial tenant administrator before activation.
+Existing privileged identities require reviewed transition mappings.

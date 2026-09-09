@@ -75,7 +75,7 @@ export async function authDatabase() {
       "INSERT INTO admin.cells(code,name,enabled) VALUES('cell-1','Fixture cell',true) RETURNING id"
     );
     await owner.none(
-      'UPDATE admin.tenants SET cell_id=$1,provisioned=true WHERE id=$2',
+      'UPDATE admin.tenants SET cell_id=$1,provisioned=true,rbac_ready=true WHERE id=$2',
       [registered.id, root.tenantId]
     );
     const app = createApp(undefined, { admin, cell }, { auth: config });

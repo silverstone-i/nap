@@ -179,7 +179,7 @@ start from the specification and applicable ADRs.
 | Authentication and sessions                   | Accepted | Verified       | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Accepted | Verified       | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
-| RBAC and module entitlement                   | Draft    | Not started    | Cell provisioning                                                                                  |
+| RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Draft    | Not started    | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
 | Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
@@ -694,26 +694,17 @@ multi-cell/browser evidence are recorded in the plan. [CI on the reviewed implem
 
 ### RBAC and module entitlement
 
-**Outcome:** Generic middleware authorizes a registered endpoint for the current
-actor and active tenant before module code runs.
+**Outcome:** Registered operations enforce current tenant module grants and scoped roles.
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing.
 
-**Design:** Draft. **Implementation:** Not started.
-
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34385270254) passed. Required CI must also pass on the final PR head.
 **Depends on:** Cell tenancy and tenant activation.
-
-**Required design:** PRDs for RBAC, module entitlement, and only the approval,
-numbering, preference, state-scope, or field-scope capabilities the first
-business release needs. Their tables belong to `core`; the request-time decision
-is a service. This capability also decides whether the module descriptor gains a
-`licensable` field. Central package_admin/support permissions, tenant selection,
-controlled access and audit are brought forward into PRD 0004; this capability
-adds tenant business authorization and its interaction with those controls.
-
-**Gate:** Allowed, denied, disabled, revoked, and stale-state cases pass through
-both API and web states. Platform-role tests prove privileged tenant access
-requires an assigned permission, resolves one target tenant per request, and
-records the controlled audit. Registry consistency and import-boundary tests
-pass.
+**Design:** PRDs [0006](../PRDs/0006-role-based-access-control.md),
+[0007](../PRDs/0007-module-entitlements.md), [0008](../PRDs/0008-company-and-project-scope-records.md)
+and ADR 0008. [Delivery plan](../implementation-plans/0006-rbac-and-module-entitlement.md).
+**Gate:** API/browser allowed, denied, revoked and stale-state cases, scoped/field
+security, explicit privileged-user transition, support boundaries, audit and
+repeatable two-cell verification. Redis and operational workflows remain later gates.
 
 ### Authorization cache acceleration
 

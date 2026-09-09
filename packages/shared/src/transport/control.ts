@@ -8,6 +8,9 @@ import { successResponseSchema } from './envelopes.js';
 
 /** Does: Names explicit central route permissions. Used by: grants, middleware and operator UI. */
 export const platformPermissions = [
+  'admin-tenancy::control::role-policy',
+  'admin-tenancy::control::access-overview',
+  'admin-tenancy::control::entitlement',
   'admin-tenancy::control::overview',
   'admin-tenancy::control::registry',
   'admin-tenancy::control::provision',
@@ -74,7 +77,11 @@ export const controlBodySchema = z.discriminatedUnion('operation', [
     job: z.uuid(),
     name: z.string().trim().min(1).max(128).optional(),
   }),
-  z.strictObject({ operation: z.literal('activate'), target: z.uuid() }),
+  z.strictObject({
+    operation: z.literal('activate'),
+    target: z.uuid(),
+    administrator: z.uuid().optional(),
+  }),
   z.strictObject({ operation: z.literal('reconcile'), cell: z.uuid() }),
 ]);
 /** Does: Defines controlled tenant access intent. Used by: operator access form and auth action. */

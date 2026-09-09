@@ -28,8 +28,9 @@ export type DatabaseTarget = 'admin' | 'cell';
  * the cell schemas, so a module cannot be registered against the wrong
  * database.
  */
-export type NapModuleDescriptor = ModuleDescriptor &
-  (
+export type NapModuleDescriptor = ModuleDescriptor & {
+  readonly entitlement: 'foundation' | 'optional' | 'infrastructure';
+} & (
     | { databaseTarget: 'admin'; schema: 'admin' }
     | { databaseTarget: 'cell'; schema: CellSchema }
   );
@@ -52,6 +53,9 @@ export function assertModules(
   for (const module of modules) {
     if (
       !module ||
+      !['foundation', 'optional', 'infrastructure'].includes(
+        module.entitlement
+      ) ||
       module.databaseTarget !== target ||
       !(target === 'admin'
         ? module.schema === 'admin'

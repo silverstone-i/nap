@@ -11,6 +11,15 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Add scoped multi-role authorization, shared support policy, explicit module
+  entitlements, company/project and access-administration screens, and reviewed
+  tenant transition with fail-closed readiness and replay-safe role templates.
+
+- Isolate CI and release PostgreSQL client installation from unrelated runner
+  APT repositories while retaining package integrity checks.
+
 ## [v0.12.0] - 2026-09-09
 
 ### Added

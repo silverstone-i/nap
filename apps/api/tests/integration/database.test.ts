@@ -52,8 +52,20 @@ const module = (
   migrations = [first, second]
 ): NapModuleDescriptor =>
   schema === 'admin'
-    ? { name: 'fixture', databaseTarget: 'admin', schema, migrations }
-    : { name: `fixture_${schema}`, databaseTarget: 'cell', schema, migrations };
+    ? {
+        entitlement: 'infrastructure',
+        name: 'fixture',
+        databaseTarget: 'admin',
+        schema,
+        migrations,
+      }
+    : {
+        entitlement: 'infrastructure',
+        name: `fixture_${schema}`,
+        databaseTarget: 'cell',
+        schema,
+        migrations,
+      };
 
 it('connects and closes handles independently, with safe runtime roles', async () => {
   const admin = createAdminDatabase(fixture.env.ADMIN_DATABASE_URL_TEST);

@@ -99,6 +99,17 @@ jobs:
         # https://www.postgresql.org/download/linux/ubuntu/
         run: |
           if [ ! -x /usr/lib/postgresql/18/bin/pg_dump ]; then
+            # Runner images include unrelated vendor repositories (for example
+            # Chrome). Their index failures must not block PostgreSQL setup.
+            apt_backup="$RUNNER_TEMP/nap-disabled-apt-sources"
+            sudo mkdir -p "$apt_backup"
+            for source in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+              [ -e "$source" ] || continue
+              case "${source##*/}" in
+                ubuntu.list|ubuntu.sources|pgdg.list|pgdg.sources) ;;
+                *) sudo mv "$source" "$apt_backup/" ;;
+              esac
+            done
             sudo apt-get update
             sudo apt-get install -y postgresql-common ca-certificates
             sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y

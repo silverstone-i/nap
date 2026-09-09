@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
+import type { ResourcePolicy } from '../services/authorization.js';
 import { z } from 'zod';
 import { QueryModel, TableModel } from 'pg-schemata';
 import { listParameterNames } from '@nap/shared';
@@ -34,6 +34,7 @@ const reserved = new Set<string>(listParameterNames);
  * startup, and it is the only view of the model the request path needs.
  */
 export type ModelContract = {
+  readonly policy?: ResourcePolicy;
   readonly repository: string;
   readonly target: 'cell' | 'admin';
   readonly primaryKey: string;
