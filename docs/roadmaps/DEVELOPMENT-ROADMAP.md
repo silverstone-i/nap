@@ -178,7 +178,7 @@ start from the specification and applicable ADRs.
 | Release, versioning, and licensing operations | Accepted | Verified       | Workspace and toolchain                                                                            |
 | Authentication and sessions                   | Accepted | Verified       | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Accepted | Verified       | Authentication                                                                                     |
-| Cell tenancy and provisioning                 | Accepted | Implemented    | Tenant control plane                                                                               |
+| Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Draft    | Not started    | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Draft    | Not started    | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
@@ -666,7 +666,7 @@ not close the later second-cell or full business RBAC gates.
 confirmed its tenant and membership projections, seed configuration, and
 negative isolation proof.
 
-**Design:** Accepted. **Implementation:** Implemented; 299 local tests and browser verification pass. Merge/CI pending.
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing. 299 local tests and browser verification pass.
 
 **Depends on:** Tenant membership and control plane.
 
@@ -688,7 +688,7 @@ addressing pass with the same build in two cells.
 **Delivery:** [Plan](../implementation-plans/0004-cell-tenancy-and-provisioning.md),
 PRD 0004 TEN-008/TEN-009 and ADR 0007. The same artifact runs an admin-only
 router and two independently credentialed cell APIs. Required local checks and
-multi-cell/browser evidence are recorded in the plan; merge/CI remain pending.
+multi-cell/browser evidence are recorded in the plan. [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.
 
 ## Access control
 

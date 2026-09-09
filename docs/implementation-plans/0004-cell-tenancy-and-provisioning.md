@@ -25,7 +25,7 @@
 ## Outcome and design status
 
 **Plan:** Accepted by owner implementation authorization, 2026-09-08.
-Implementation complete; local verification recorded below. ADR 0007 and the specification shared-origin routing
+**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing; local verification recorded below. ADR 0007 and the specification shared-origin routing
 contract settle placement, central transitions, targeted commands and transport trust.
 
 Complete the remaining [Cell tenancy and provisioning roadmap gate](../roadmaps/DEVELOPMENT-ROADMAP.md#cell-tenancy-and-provisioning)
@@ -79,7 +79,7 @@ specification's [shared-origin routing contract](../specs/nap-platform-specifica
 settle the design: one API artifact, an admin-only router mode, deployment-only
 private origins, central account operations and independently authorized cell
 requests. PRD 0004 TEN-008 and TEN-009 own the added acceptance requirements.
-The changes below were delivered in the working tree as one capability change.
+The changes below are delivered in PR #17 as one capability change.
 
 ## 2. Implement authoritative routing and session transitions
 
@@ -235,6 +235,10 @@ first; replay only the documented retry/activation operations, not user creation
   of Cell 1 followed by Cell 2 at the same origin. No console errors or warnings.
   The unavailable browser CLI was replaced by Codex's in-app browser. Temporary
   browser resources were closed and deleted after verification.
-- Lint, typecheck, build, formatting, licenses and diff checks are run after the
-  final fixes and passed (220 production license records). No real environment files or databases were changed. No commit,
-  push, deployment or merge was performed; CI/merge verification remains pending.
+- Lint, typecheck, build, formatting, licenses and diff checks passed after the
+  final review fixes on 2026-09-09 (220 production license records). No real
+  environment files or databases were changed.
+
+## Merge verification — 2026-09-09
+
+Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing. [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.

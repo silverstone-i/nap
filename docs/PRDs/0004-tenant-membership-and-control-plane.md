@@ -1,7 +1,7 @@
 # 0004 — Tenant membership and control plane
 
 **Design:** Accepted (owner approved, 2026-09-08).
-**Implementation:** Implemented locally, including TEN-008/TEN-009; new merge/CI evidence pending. The one-cell baseline was verified by PR #15.
+**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing, including TEN-008/TEN-009. The one-cell baseline was verified by PR #15.
 
 ## Authority
 
@@ -168,7 +168,7 @@ Verification evidence: 287 repository tests and all required local checks pass;
 
 ## Multi-cell delivery — 2026-09-08
 
-**Design:** Accepted by implementation authorization. **Implementation:** Implemented locally; see the [multi-cell plan](../implementation-plans/0004-cell-tenancy-and-provisioning.md#local-evidence--2026-09-08).
+**Design:** Accepted by implementation authorization. **Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing; see the [multi-cell plan](../implementation-plans/0004-cell-tenancy-and-provisioning.md#local-evidence--2026-09-08).
 
 - **TEN-008 Routing.** Implement the specification's shared-origin routing contract
   and ADR 0007. TEN-003 selection and TEN-005 controlled transitions validate
@@ -183,3 +183,5 @@ Verification evidence: 287 repository tests and all required local checks pass;
 | Date       | Change                                                                                      |
 | ---------- | ------------------------------------------------------------------------------------------- |
 | 2026-09-08 | Accepted TEN-008 and TEN-009, extending one-cell selection and provisioning under ADR 0007. |
+
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.

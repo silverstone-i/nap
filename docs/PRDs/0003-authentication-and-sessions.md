@@ -204,3 +204,5 @@ assignment. See PRD 0004 TEN-008 and ADR 0007; cookie rotation and expiry are un
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
 | 2026-09-08 | Accepted central authentication across cells under ADR 0007. |
+
+Multi-cell amendment: Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing. [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.
