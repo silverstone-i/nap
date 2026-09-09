@@ -62,12 +62,7 @@ export async function selectTenant(
   );
   if (!m) throw new HttpError('FORBIDDEN');
   const target = await tx.cells.assignment(m.tenant_id);
-  if (
-    !target ||
-    !target.provisioned ||
-    !target.enabled ||
-    target.code !== config.cellCode
-  )
+  if (!target || !target.provisioned || !target.enabled)
     throw new HttpError('FORBIDDEN');
   await tx.sessions.update(row.id, { tenant_id: m.tenant_id });
   return rotateSession(tx, row.id, config);
@@ -88,8 +83,7 @@ export async function startAccess(
     !target ||
     target.status !== 'active' ||
     !target.provisioned ||
-    !target.enabled ||
-    target.code !== config.cellCode
+    !target.enabled
   )
     throw new HttpError('FORBIDDEN');
   if (input.user) {

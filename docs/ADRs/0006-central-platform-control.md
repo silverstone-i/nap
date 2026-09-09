@@ -31,3 +31,5 @@ RBAC retain their later roadmap gates. PostgreSQL remains authoritative.
 The specification ownership map and factory access contract change first.
 Central permissions do not imply arbitrary business access; controlled tenant
 access still requires a reason, audit, and the configured cell boundary.
+
+ADR [0007](0007-shared-origin-cell-routing.md) supersedes the one-cell selection limitation; other decisions remain in force.

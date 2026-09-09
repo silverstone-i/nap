@@ -79,7 +79,11 @@ export async function createSession(
     view,
   };
 }
-/** Does: Rechecks the current operator, effective identity, membership, cell and grant. Called by: middleware on each signed request. */
+/**
+ * Does: Checks the current identity, membership and assignment and returns a central session with local data eligibility.
+ * Called by: session middleware on each signed request in router and cell modes.
+ * Why: TEN-008 permits account operations across cells; tenantId is granted only to the assigned cell.
+ */
 export async function resolveSession(
   db: AdminHandle,
   cookie: string | undefined,
@@ -116,8 +120,7 @@ export async function resolveSession(
           !grants.includes(`admin-tenancy::control::${permission}`) ||
           !row.access_reason ||
           !selected.provisioned ||
-          !selected.enabled ||
-          selected.code !== config.cellCode
+          !selected.enabled
         )
           return { presented };
         if (row.access_mode === 'impersonation') {
@@ -143,12 +146,7 @@ export async function resolveSession(
         kind = membership.user_type ?? undefined;
       }
       // Root can administer before explicit reconciliation, but cannot read cell data.
-      if (
-        (!selected.provisioned ||
-          !selected.enabled ||
-          selected.code !== config.cellCode) &&
-        !identity.is_root
-      )
+      if ((!selected.provisioned || !selected.enabled) && !identity.is_root)
         return { presented };
     }
     const context = requestContext.getStore();

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { routingConfiguration } from './util/routingConfig.js';
 import { authConfiguration } from './util/authConfig.js';
 import { createRuntime } from './runtime.js';
 import { createAdminDatabase } from './db/admin/index.js';
@@ -13,6 +14,7 @@ import { logger } from './util/logger.js';
 import {
   loadLocalEnvironment,
   resolvePort,
+  resolveRouterDatabase,
   resolveRuntimeConfiguration,
   resolveTrustProxyHops,
 } from './util/env.js';
@@ -43,18 +45,25 @@ try {
   loadLocalEnvironment();
   const auth = authConfiguration();
   const port = resolvePort();
-  const configuration = resolveRuntimeConfiguration();
+  const routing = routingConfiguration();
+  const configuration = routing
+    ? { admin: resolveRouterDatabase(), cell: undefined }
+    : resolveRuntimeConfiguration();
   const trustProxyHops = resolveTrustProxyHops();
   runtime = createRuntime(
     {
       admin: createAdminDatabase(configuration.admin, {
         repositories: adminRepositories,
       }),
-      cell: createCellDatabase(configuration.cell, {
-        repositories: cellRepositories,
-      }),
+      ...(configuration.cell
+        ? {
+            cell: createCellDatabase(configuration.cell, {
+              repositories: cellRepositories,
+            }),
+          }
+        : {}),
     },
-    { trustProxyHops, auth }
+    { trustProxyHops, auth, routing }
   );
   runtime.server.on('error', () => {
     listenerFailed = true;

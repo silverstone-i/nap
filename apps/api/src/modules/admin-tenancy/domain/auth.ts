@@ -69,12 +69,7 @@ export function loginOperation(config: AuthConfiguration) {
     const tenants = [];
     for (const membership of memberships) {
       const assignment = await tx.cells.assignment(membership.tenant_id);
-      if (
-        identity?.is_root ||
-        (assignment?.provisioned &&
-          assignment.enabled &&
-          assignment.code === config.cellCode)
-      )
+      if (identity?.is_root || (assignment?.provisioned && assignment.enabled))
         tenants.push(membership);
     }
     const tenant = tenants.length === 1 ? tenants[0] : undefined;

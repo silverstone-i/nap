@@ -4,6 +4,8 @@
  */
 
 import express from 'express';
+import { routeToCell } from './middleware/routeToCell.js';
+import type { RoutingConfiguration } from './util/routingConfig.js';
 import { setAuditActorResolver } from 'pg-schemata';
 import { requestContext } from './util/requestContext.js';
 import { authConfiguration } from './util/authConfig.js';
@@ -21,13 +23,13 @@ import type { AdminHandle } from './db/admin/repositories.js';
 import type { CellHandle } from './db/cell/repositories.js';
 
 /**
- * Does: Represents the two database pools the app mounts module routers
- * against: the central admin database and this deployment's cell database.
+ * Does: Represents the database pools available to mounted module routers:
+ * admin in every mode and one local cell database in cell mode.
  * Used by: createApp and createRuntime.
  */
 export type AppHandles = {
   readonly admin: AdminHandle;
-  readonly cell: CellHandle;
+  readonly cell?: CellHandle;
 };
 
 /**
@@ -50,7 +52,12 @@ export function createApp(
   {
     trustProxyHops = 0,
     auth,
-  }: { trustProxyHops?: number; auth?: AuthConfiguration } = {}
+    routing,
+  }: {
+    trustProxyHops?: number;
+    auth?: AuthConfiguration;
+    routing?: RoutingConfiguration;
+  } = {}
 ) {
   const app = express();
   app.disable('x-powered-by');
@@ -60,6 +67,7 @@ export function createApp(
   app.use(correlation, requestLogging);
   if (handles && config) app.use(sessionResolver(handles.admin, config));
   app.use(jsonBody);
+  if (routing && handles) app.use(routeToCell(handles.admin, routing));
   app.use(['/health/live', '/health/ready'], (_request, response, next) => {
     response.setHeader('Cache-Control', 'no-store');
     next();

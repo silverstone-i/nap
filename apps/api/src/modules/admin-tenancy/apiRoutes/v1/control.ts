@@ -30,7 +30,7 @@ import type { AuthConfiguration } from '../../../../util/authConfig.js';
 export default function controlRouter(
   db: AdminHandle,
   config: AuthConfiguration,
-  cell: CellHandle
+  cell: CellHandle | undefined
 ) {
   const empty = z.strictObject({});
   const controller = new ReadController(db, 'tenants');

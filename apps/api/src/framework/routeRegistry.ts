@@ -32,7 +32,7 @@ export type RouteRegistration = {
       readonly factory: (
         db: AdminHandle,
         config: AuthConfiguration,
-        cell: CellHandle
+        cell: CellHandle | undefined
       ) => Router;
     }
 );
@@ -87,18 +87,21 @@ export function mountPath(registration: RouteRegistration) {
  */
 export function mountRoutes(
   app: Express,
-  handles: { admin: AdminHandle; cell: CellHandle },
+  handles: { admin: AdminHandle; cell?: CellHandle },
   config: AuthConfiguration = authConfiguration()
 ) {
   const paths = new Set<string>();
   for (const registration of routeRegistry) {
+    if (registration.target === 'cell' && !handles.cell) continue;
     const path = mountPath(registration);
     if (paths.has(path)) throw new Error(`Duplicate route mount: ${path}`);
     paths.add(path);
     const router =
       registration.target === 'admin'
         ? registration.factory(handles.admin, config, handles.cell)
-        : registration.factory(handles.cell);
-    app.use(path, router);
+        : handles.cell
+          ? registration.factory(handles.cell)
+          : undefined;
+    if (router) app.use(path, router);
   }
 }
