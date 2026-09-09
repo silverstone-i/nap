@@ -42,12 +42,24 @@ export async function loadGrants(
     portal_user_id: session.actorId,
     status: 'active',
   });
-  const roles = await tx.roles.findWhere({});
   const assignments = binding
     ? await tx.role_assignments.findWhere({ binding_id: binding.id })
     : [];
-  const companies = await tx.assignment_companies.findWhere({});
-  const projects = await tx.assignment_projects.findWhere({});
+  const assignmentIds = assignments.map(a => a.id);
+  const roleIds = [...new Set(assignments.map(a => a.role_id))];
+  const roles = roleIds.length
+    ? await tx.roles.findWhere({ id: { $in: roleIds } })
+    : [];
+  const companies = assignmentIds.length
+    ? await tx.assignment_companies.findWhere({
+        assignment_id: { $in: assignmentIds },
+      })
+    : [];
+  const projects = assignmentIds.length
+    ? await tx.assignment_projects.findWhere({
+        assignment_id: { $in: assignmentIds },
+      })
+    : [];
   const grants: ScopedGrant[] = [];
   let admin =
     session.platformAdmin === true &&
