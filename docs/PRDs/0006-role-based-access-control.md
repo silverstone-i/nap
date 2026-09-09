@@ -1,7 +1,9 @@
 # 0006 — Role-based access control
 
 **Design:** Accepted (owner implementation authorization, 2026-09-09).
-**Implementation:** Implemented locally; merge and required CI verification pending.
+**Implementation:** Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing.
+
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34385270254) passed. Required CI must also pass on the final PR head.
 
 ## Authority and status
 
@@ -248,3 +250,5 @@ extra grants, and cannot hold grant-management capability.
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-09-09 | Drafted the owner-agreed capability, scoped-assignment, field-grant, built-in-role, and template-seeding direction; recorded adoption requirements. |
 | 2026-09-09 | Accepted scope, administration and transition contracts for implementation under ADR 0008.                                                          |
+
+| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing. |

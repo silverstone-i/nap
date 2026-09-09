@@ -1,7 +1,9 @@
 # 0008 — Company and project scope records
 
 **Design:** Accepted (owner implementation authorization, 2026-09-09).
-**Implementation:** Implemented locally; merge and required CI verification pending.
+**Implementation:** Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing.
+
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34385270254) passed. Required CI must also pass on the final PR head.
 
 ## Authority
 
@@ -38,3 +40,5 @@ negative cross-tenant reads/writes, and real browser CRUD and denied states.
 | Date       | Change                                            |
 | ---------- | ------------------------------------------------- |
 | 2026-09-09 | Accepted minimal scope records for RBAC delivery. |
+
+| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing. |

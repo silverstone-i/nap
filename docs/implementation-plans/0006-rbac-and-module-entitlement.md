@@ -17,10 +17,12 @@
 ## Outcome and authority
 
 **Plan:** Accepted by owner implementation authorization, 2026-09-09.
-**Implementation:** Implemented locally; merge and required CI verification pending.
+**Implementation:** Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing.
+
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34385270254) passed. Required CI must also pass on the final PR head.
 
 Implement PRDs 0006–0008 and ADR 0008 in one capability change on codex/rbac.
-Keep code uncommitted until shipping is explicitly authorized. Specification
+Shipping is authorized through PR #18. Specification
 ARCH-006, ARCH-013–ARCH-023, ARCH-029, ARCH-040, ARCH-043, ARCH-045,
 ARCH-047–ARCH-050 govern. The owner approved the role model, explicit module
 grants, Core foundation, minimal company/project UI, shared support permissions,
@@ -100,8 +102,10 @@ Local verification completed on 2026-09-09 with Node 24.19.0:
   appeared after rebuilding and reloading.
 
 No development/production data was migrated or seeded. Temporary browser
-servers were stopped and their fixture removed. No commit, push, PR, or merge
-was performed. Required CI and shipping reconciliation remain before Verified.
+servers were stopped and their fixture removed. Implementation and review fixes
+are committed in PR #18. CI passed after isolating PostgreSQL installation from
+unrelated runner APT sources in both CI and release workflows. The verification
+condition becomes effective only upon merge with final-head checks passing.
 
 ## Operator transition contract
 

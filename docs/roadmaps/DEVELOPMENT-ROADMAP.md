@@ -179,7 +179,7 @@ start from the specification and applicable ADRs.
 | Authentication and sessions                   | Accepted | Verified       | Framework HTTP surface; web entry                                                                  |
 | Tenant membership and control plane           | Accepted | Verified       | Authentication                                                                                     |
 | Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
-| RBAC and module entitlement                   | Accepted | Implemented    | Cell provisioning                                                                                  |
+| RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Draft    | Not started    | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
 | Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
@@ -695,7 +695,9 @@ multi-cell/browser evidence are recorded in the plan. [CI on the reviewed implem
 ### RBAC and module entitlement
 
 **Outcome:** Registered operations enforce current tenant module grants and scoped roles.
-**Design:** Accepted. **Implementation:** Implemented locally; merge and required CI pending.
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing.
+
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34385270254) passed. Required CI must also pass on the final PR head.
 **Depends on:** Cell tenancy and tenant activation.
 **Design:** PRDs [0006](../PRDs/0006-role-based-access-control.md),
 [0007](../PRDs/0007-module-entitlements.md), [0008](../PRDs/0008-company-and-project-scope-records.md)
