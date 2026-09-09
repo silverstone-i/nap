@@ -1,7 +1,7 @@
 # 0006 — Role-based access control
 
-**Design:** Draft (owner-agreed product direction, pending adoption review).
-**Implementation:** Not started.
+**Design:** Accepted (owner implementation authorization, 2026-09-09).
+**Implementation:** Implemented locally; merge and required CI verification pending.
 
 ## Authority and status
 
@@ -12,12 +12,10 @@ ARCH-043, ARCH-045, ARCH-047, ARCH-048, and ARCH-050 in the
 membership, provisioning, platform grants, and controlled access.
 [PRD 0005](0005-core-identity-records.md) owns linked Core identity records.
 
-This draft records the agreed target behavior for review. It does not supersede
-the accepted specification, PRD 0004, or ADRs
-[0004](../ADRs/0004-seeded-root-identity.md) and
-[0006](../ADRs/0006-central-platform-control.md). The proposed platform role name
-and support policy differ from those documents; the adoption steps below must
-resolve that difference before acceptance or implementation.
+ADR [0008](../ADRs/0008-scoped-rbac-and-module-entitlements.md) adopts this design
+and supersedes the identified platform naming/support decisions. Existing grants
+transition only through explicit reviewed mappings; deployment remains a controlled
+maintenance operation. See the [implementation plan](../implementation-plans/0006-rbac-and-module-entitlement.md) for local evidence.
 
 ## Outcome and concepts
 
@@ -208,32 +206,45 @@ inability to manage grants. Tenant administrators cannot assign central roles.
 | Seed replay and template update                                   | No duplicate roles, overwritten customizations, restored revoked privileges, or silent permission changes.                                          |
 | Isolation and audit                                               | Cross-tenant scope selections are rejected; authorization changes and controlled access retain required audit attribution.                          |
 
-## Adoption before acceptance
+## Data and API contract
 
-1. Amend the specification explicitly for the proposed `platform_admin` naming
-   and platform/support authority changes, retaining controlled access and
-   isolation requirements.
-2. Record a new ADR that identifies the portions of ADRs 0004 and 0006 it
-   supersedes. Preserve their historical rationale and add supersession links.
-3. Reconcile PRD 0004's `package_admin` vocabulary, root behavior, per-operator
-   grant contract, and narrower support policy with RBAC-006. Reconcile PRD
-   0005's initial access boundary and affected authentication contracts. Define
-   existing-user/grant transition behavior without silently broadening access.
-4. Complete the component data and API contracts needed for implementation,
-   including grant administration, role assignment, effective-access queries,
-   and applicable resource-scope/field definitions. Detailed module-entitlement
-   design, business workflows, and executable SQL remain in their owning work.
-5. Follow the documentation change workflow: accepted changes to existing
-   behavior land with their implementation, or receive linked implementation
-   issues and roadmap tracking when code is deliberately delayed. Prepare the
-   capability implementation plan when implementation begins.
+Core stores roles (code, name, permanent flag, capability list, named field grants),
+assignments (role, tenant user binding, scope kind), and normalized selected
+company/project targets. Projects owns the project-target relationship table
+so its same-tenant project foreign key is created with that module; Core owns
+assignment behavior. IDs/foreign keys are tenant-inclusive. Archived roles
+and bindings contribute no grants. Seed identity survives archival so replay
+never recreates a removed role. RBAC changes append tenant audit events in the
+same transaction. Serialize role/assignment administration on the tenant row;
+protect the final active tenant administrator.
 
-Until those steps are complete, this draft and its roadmap link record proposed
-behavior only. They do not mark existing platform-role behavior as changed or
-RBAC as implemented.
+GET /api/core/v1/access/overview returns roles, assignments, active users,
+resource catalog, and company/project choices. POST /api/core/v1/access/change
+creates/edits/archives roles and creates/revokes assignments. GET
+/api/core/v1/access/effective accepts a tenant-user binding and explains each
+assignment's grants and scope. Only tenant_admin and controlled platform_admin
+manage tenant access. Self-profile access remains a baseline for eligible users.
+
+Role scopes: self, companies, projects, all_companies, all_projects,
+company_projects, tenant. Selected scopes require nonempty unique targets;
+all/self/tenant carry no targets. Capability names and field groups must exist
+in the registered resource catalog. Companies cannot grant project capabilities
+without an explicit project scope. Field definitions are application metadata;
+tenants edit grants, not arbitrary SQL/column policies.
+
+Built-ins are seeded separately from migrations. Initial tenant administrators
+are seeded before activation; existing tenants require reviewed explicit mapping.
+Activation accepts an administrator membership identifier. A sole eligible
+employee may be selected unambiguously; multiple eligible employees require
+an explicit designation.
+Ordinary role templates grant only registered capabilities. Tenant-admin role
+assignment is tenant-wide; permanent role identity and fixed privileges cannot
+be edited or archived. Support uses one central role definition, never per-user
+extra grants, and cannot hold grant-management capability.
 
 ## Revisions
 
 | Date       | Change                                                                                                                                              |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-09-09 | Drafted the owner-agreed capability, scoped-assignment, field-grant, built-in-role, and template-seeding direction; recorded adoption requirements. |
+| 2026-09-09 | Accepted scope, administration and transition contracts for implementation under ADR 0008.                                                          |

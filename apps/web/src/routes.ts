@@ -27,6 +27,32 @@ export const routes: RouteObject[] = [
     ErrorBoundary: RouteError,
     children: [
       {
+        path: '/access',
+        lazy: async () => ({
+          Component: (await import('./pages/AccessPage.js')).AccessPage,
+        }),
+      },
+      {
+        path: '/platform-access',
+        lazy: async () => ({
+          Component: (await import('./pages/PlatformAccessPage.js'))
+            .PlatformAccessPage,
+        }),
+      },
+      {
+        path: '/companies',
+        lazy: async () => ({
+          Component: (await import('./pages/ScopeRecordsPage.js'))
+            .ScopeRecordsPage,
+        }),
+      },
+      {
+        path: '/projects',
+        lazy: async () => ({
+          Component: (await import('./pages/ProjectsPage.js')).ProjectsPage,
+        }),
+      },
+      {
         path: '/tenants',
         HydrateFallback: RouteLoading,
         lazy: async () => ({

@@ -13,8 +13,9 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Changed
 
-- Document the draft RBAC design for scoped role assignments, sensitive-field
-  grants, and platform roles, with adoption requirements before implementation.
+- Add scoped multi-role authorization, shared support policy, explicit module
+  entitlements, company/project and access-administration screens, and reviewed
+  tenant transition with fail-closed readiness and replay-safe role templates.
 
 ## [v0.12.0] - 2026-09-09
 

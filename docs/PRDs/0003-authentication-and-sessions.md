@@ -206,3 +206,15 @@ assignment. See PRD 0004 TEN-008 and ADR 0007; cookie rotation and expiry are un
 | 2026-09-08 | Accepted central authentication across cells under ADR 0007. |
 
 Multi-cell amendment: Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing. [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.
+
+## RBAC adoption (2026-09-09)
+
+ADR 0008 and PRDs 0006–0008 replace the initial authorization policy: platform_admin
+replaces package_admin, support grants are shared and editable only by platform
+administrators, and tenant roles resolve in Core. Historical implementation
+sections above describe the pre-RBAC baseline. RBAC changes are implemented
+locally; merge and required CI verification remain pending (see the
+[delivery plan](../implementation-plans/0006-rbac-and-module-entitlement.md)).
+Self-profile remains available; broader access requires current scoped grants.
+New provisioning seeds the initial tenant administrator before activation.
+Existing privileged identities require reviewed transition mappings.

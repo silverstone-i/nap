@@ -208,8 +208,11 @@ it('proves only the admin-tenancy auth router declares anonymous or authenticate
   ).toEqual([]);
 });
 
-it('registers the authentication module at its versioned path', () => {
+it('registers business and control modules at their versioned paths', () => {
   expect(routeRegistry.map(mountPath)).toEqual([
+    '/api/projects/v1/projects',
+    '/api/core/v1/access',
+    '/api/core/v1/companies',
     '/api/admin-tenancy/v1/control',
     '/api/core/v1/identity',
     '/api/admin-tenancy/v1/auth',

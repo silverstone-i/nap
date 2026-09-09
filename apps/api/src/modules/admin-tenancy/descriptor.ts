@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
+import { migration as rbacMigration } from './schema/migrations/007-rbac.js';
 import { repositories } from './repositories.js';
 import type { NapModuleDescriptor } from '../../db/modules.js';
 import { migration as migration1 } from './schema/migrations/001-tenants.js';
@@ -18,6 +18,7 @@ import { migration as migration6 } from './schema/migrations/006-control-plane.j
  * Used by: the admin module registry.
  */
 export const descriptor = {
+  entitlement: 'infrastructure',
   name: 'admin-tenancy',
   databaseTarget: 'admin',
   schema: 'admin',
@@ -29,5 +30,6 @@ export const descriptor = {
     migration4,
     migration5,
     migration6,
+    rbacMigration,
   ],
 } satisfies NapModuleDescriptor;

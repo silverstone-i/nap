@@ -1501,16 +1501,16 @@ to one active tenant membership; vendor users may hold active memberships in
 multiple tenants. Every ordinary tenant-data request has exactly one active
 tenant, and a user must explicitly switch before accessing another.
 
-Centrally authorized `package_admin` and `support` users may be granted access
+Centrally authorized `platform_admin` and `support` users may be granted access
 to or impersonation of any tenant through RBAC and controlled-administration
 rules without creating ordinary memberships in every tenant. Each privileged
 tenant-data request still has exactly one target tenant and uses the controlled
 authorization and audit path. A cross-tenant operation remains a separate,
-explicitly scoped administrative entry point under `ARCH-021`. PRD 0004 assigns central platform permissions; tenant business RBAC remains Core-owned (ADR 0006).
+explicitly scoped administrative entry point under `ARCH-021`. PRDs 0004 and 0006 govern central platform roles and controlled access; tenant business RBAC remains Core-owned (ADR 0008).
 
 Portal identities are created by controlled provisioning (`ARCH-028`) and the
 membership workflow, with one exception: the operator seeds a root
-`package_admin` identity so that provisioning has an authenticated actor before
+`platform_admin` identity so that provisioning has an authenticated actor before
 any other identity exists. The root identity holds an ordinary membership in
 the platform operator's own tenant and no other, corresponds to no employee or
 other cell record, has an immutable login identifier, and cannot be locked,
@@ -1682,9 +1682,8 @@ every production dependency carries an allowed license.
   milestone types, and event payloads belong in their component PRDs.
 - Tenant-configurable Project Component labels and relationship catalogs belong
   in the Projects component PRDs.
-- The request-time module entitlement gate, including whether the descriptor
-  gains a `licensable` field, belongs to the RBAC and module-entitlement
-  capability in the development roadmap.
+- Detailed tenant module grants belong to PRD 0007; descriptors declare their
+  entitlement mode as `foundation`, `optional`, or `infrastructure`.
 
 ## Conformance
 
@@ -1732,3 +1731,25 @@ every production dependency carries an allowed license.
 | 2026-09-04 | Stated the transport envelope's actual fields — `version`, `code`, `message`, `fieldErrors` for failures and `version`, `data`, `page` for successes — and recorded the error schema beside the shared package layout                                                                                                               |
 | 2026-09-04 | Reissued PRD 0000 as the NAP Platform Specification: added a version, added the section defining how PRDs, ADRs, and RULES derive from it, removed the user-scenario narratives, and renamed the requirement and conformance sections                                                                                               |
 | 2026-09-08 | Accepted shared-origin API routing mode, central session transitions and independent cell validation (ADR 0007).                                                                                                                                                                                                                    |
+
+## RBAC adoption — 2026-09-09
+
+ADR 0008 and PRDs 0006–0008 adopt platform_admin naming, fixed tenant-admin
+privileges, shared editable support permissions, and scoped additive business
+roles. Admin-tenancy owns central role assignments, support grants and module
+entitlements. Core owns tenant role definitions/assignments and companies;
+Projects owns projects. Cell-tenancy owns revisioned entitlement projections.
+Descriptors require an entitlement mode: foundation, optional or infrastructure.
+Core is foundation; Projects is optional. Platform operations are independently
+authorized and infrastructure modules expose no business routes.
+
+Framework resource authorization carries scope and field policy into its single
+operation transaction. Candidate capability gates precede execution; resource
+queries and mutation targets are constrained inside that transaction before
+business work, pagination, counts or exports. A response may omit fields denied
+by policy without weakening validation of the underlying module response.
+Extension routes declare and enforce their resource policy through the same
+boundary. Authorization decisions remain in shared services, not module imports
+from middleware. Root/controlled-access isolation and audit remain mandatory.
+
+Revision: 2026-09-09 — Owner authorized PRDs 0006–0008 and ADR 0008 implementation.

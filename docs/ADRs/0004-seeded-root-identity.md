@@ -43,3 +43,5 @@ history. The consequence accepted here is one identity that provisioning did
 not create and one guard in the identity code protecting it. The exception is
 not a template: the Tenant membership PRD owns the ordinary identity workflow
 and must not widen it.
+
+Naming and platform grant policy are partially superseded by [ADR 0008](0008-scoped-rbac-and-module-entitlements.md); other decisions remain in force.

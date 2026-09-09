@@ -2,6 +2,17 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import {
+  platformRoleChangeSchema,
+  platformAccessSchema,
+  accessChangedSchema,
+  entitlementChangeSchema,
+} from '@nap/shared';
+import {
+  platformAccessOverview,
+  changePlatformRole,
+} from '../../../../services/platformAdministration.js';
+import { changeEntitlement } from '../../../../services/entitlements.js';
 import { z } from 'zod';
 import {
   controlBodySchema,
@@ -39,6 +50,59 @@ export default function controlRouter(
     router: 'control',
     routes: Object.fromEntries(standardActions.map(a => [a, false])),
     extend: add => {
+      add({
+        action: 'role-policy',
+        method: 'post',
+        path: '/role-policy',
+        access: 'platform',
+        body: platformRoleChangeSchema,
+        query: empty,
+        params: empty,
+        response: accessChangedSchema,
+        operation: async (tx, input) => ({
+          version: transportVersion,
+          data: await changePlatformRole(tx, input.session.actorId, input.body),
+        }),
+      });
+      add({
+        action: 'access-overview',
+        method: 'get',
+        path: '/access-overview',
+        access: 'platform',
+        body: z.undefined(),
+        query: empty,
+        params: empty,
+        response: platformAccessSchema,
+        operation: async (tx, input) => ({
+          version: transportVersion,
+          data: await platformAccessOverview(tx, input.session.actorId),
+        }),
+      });
+
+      add({
+        action: 'entitlement',
+        method: 'post',
+        path: '/entitlement',
+        access: 'platform',
+        body: entitlementChangeSchema,
+        query: empty,
+        params: empty,
+        response: z.object({
+          version: z.literal(1),
+          data: z.object({ id: z.uuid(), projected: z.boolean() }),
+        }),
+        operation: async (tx, input) => ({
+          version: transportVersion,
+          data: await changeEntitlement(
+            tx,
+            cell,
+            input.session.actorId,
+            input.body,
+            config.cellCode
+          ),
+        }),
+      });
+
       // One command endpoint per permission keeps route middleware authoritative.
       for (const action of [
         'registry',

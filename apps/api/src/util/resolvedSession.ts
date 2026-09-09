@@ -17,6 +17,12 @@ import type { SessionView } from '@nap/shared';
  */
 export type ResolvedSession = {
   readonly actorId: string;
+  readonly platformAdmin?: boolean;
+  readonly entitlementState?: readonly {
+    module: string;
+    enabled: boolean;
+    revision: number;
+  }[];
   readonly operatorId?: string;
   readonly entityId?: string;
   readonly userType?: string;

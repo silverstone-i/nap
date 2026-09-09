@@ -2,7 +2,15 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
+import {
+  accessCatalog,
+  businessPermissions,
+} from '../services/accessCatalog.js';
+import { routerAuthorization } from './createRouter.js';
+import { cellModules } from '../db/cell/modules.js';
+import projectsRouter from '../modules/projects/apiRoutes/v1/projects.js';
+import accessRouter from '../modules/core/apiRoutes/v1/access.js';
+import companiesRouter from '../modules/core/apiRoutes/v1/companies.js';
 import controlRouter from '../modules/admin-tenancy/apiRoutes/v1/control.js';
 import identityRouter from '../modules/core/apiRoutes/v1/identity.js';
 import authRouter from '../modules/admin-tenancy/apiRoutes/v1/auth.js';
@@ -46,6 +54,27 @@ export type RouteRegistration = {
  * only file outside the database registries that may import modules). Authentication is the first production router.
  */
 export const routeRegistry: readonly RouteRegistration[] = [
+  {
+    module: 'projects',
+    router: 'projects',
+    version: 1,
+    target: 'cell',
+    factory: projectsRouter,
+  },
+  {
+    module: 'core',
+    router: 'access',
+    version: 1,
+    target: 'cell',
+    factory: accessRouter,
+  },
+  {
+    module: 'core',
+    router: 'companies',
+    version: 1,
+    target: 'cell',
+    factory: companiesRouter,
+  },
   {
     module: 'admin-tenancy',
     version: 1,
@@ -92,6 +121,11 @@ export function mountRoutes(
 ) {
   const paths = new Set<string>();
   for (const registration of routeRegistry) {
+    if (registration.target === 'cell') {
+      const descriptor = cellModules.find(m => m.name === registration.module);
+      if (!descriptor || descriptor.entitlement === 'infrastructure')
+        throw new Error('Business router lacks module entitlement policy');
+    }
     if (registration.target === 'cell' && !handles.cell) continue;
     const path = mountPath(registration);
     if (paths.has(path)) throw new Error(`Duplicate route mount: ${path}`);
@@ -102,6 +136,27 @@ export function mountRoutes(
         : handles.cell
           ? registration.factory(handles.cell)
           : undefined;
+    if (router && registration.target === 'cell') {
+      const policy = routerAuthorization(router);
+      const resource = accessCatalog.find(r => r.resource === policy?.resource);
+      const special = ['core::identity', 'core::access'].includes(
+        policy?.resource ?? ''
+      );
+      if (
+        !policy ||
+        policy.module !== registration.module ||
+        policy.resource !== `${registration.module}::${registration.router}` ||
+        policy.capabilities.some(c => !businessPermissions.includes(c)) ||
+        (!special && (!resource || !policy.scoped)) ||
+        (resource &&
+          resource.fields
+            .flatMap(f => f.columns)
+            .some(c => !policy.protectedFields.includes(c)))
+      )
+        throw new Error(
+          'Business router lacks a registered authorization contract'
+        );
+    }
     if (router) app.use(path, router);
   }
 }

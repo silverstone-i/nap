@@ -33,3 +33,5 @@ Central permissions do not imply arbitrary business access; controlled tenant
 access still requires a reason, audit, and the configured cell boundary.
 
 ADR [0007](0007-shared-origin-cell-routing.md) supersedes the one-cell selection limitation; other decisions remain in force.
+
+Naming and platform grant policy are partially superseded by [ADR 0008](0008-scoped-rbac-and-module-entitlements.md); other decisions remain in force.

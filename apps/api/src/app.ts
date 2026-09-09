@@ -65,7 +65,8 @@ export function createApp(
   const config = handles ? (auth ?? authConfiguration()) : undefined;
   setAuditActorResolver(() => requestContext.getStore()?.actorId ?? null);
   app.use(correlation, requestLogging);
-  if (handles && config) app.use(sessionResolver(handles.admin, config));
+  if (handles && config)
+    app.use(sessionResolver(handles.admin, config, handles.cell));
   app.use(jsonBody);
   if (routing && handles) app.use(routeToCell(handles.admin, routing));
   app.use(['/health/live', '/health/ready'], (_request, response, next) => {

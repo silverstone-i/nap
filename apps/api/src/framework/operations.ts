@@ -4,7 +4,7 @@
  */
 
 import { HttpError } from '../util/httpError.js';
-import type { QueryModel, TableModel } from 'pg-schemata';
+import type { QueryModel, TableModel, WhereCondition } from 'pg-schemata';
 import type { FieldErrors } from '../util/fieldErrors.js';
 import type { ListRequest } from './listQuery.js';
 import type { ModelContract, Row } from './modelContract.js';
@@ -50,6 +50,7 @@ async function requireAll(
   const rows = await model.findWhere(where, 'AND', {
     includeDeactivated: archived === 'only',
   });
+  for (const row of rows) contract.policy?.check(row);
   const present = new Set(rows.map(row => String(row[contract.primaryKey])));
   const missing: FieldErrors = {};
   for (const [index, id] of batch.ids.entries()) {
@@ -66,16 +67,17 @@ async function requireAll(
  * Called by: the batch operations after they have written, to return the
  * affected records.
  */
-function reread(
+async function reread(
   model: QueryModel<Row>,
   contract: ModelContract,
   ids: readonly string[],
   includeDeactivated = false
 ) {
-  return model.findWhere(keyed(contract, ids), 'AND', {
+  const rows = await model.findWhere(keyed(contract, ids), 'AND', {
     orderBy: [contract.primaryKey],
     includeDeactivated,
   });
+  return rows.map(row => projectRecord(contract, row));
 }
 
 /**
@@ -90,6 +92,7 @@ export async function listRecords(
   contract: ModelContract,
   request: ListRequest
 ) {
+  request = scopedQuery(contract, request);
   const includeDeactivated = request.archived !== 'exclude';
   const page = await model.findAfterCursor(
     request.cursor ?? {},
@@ -105,7 +108,11 @@ export async function listRecords(
     filters: request.filters,
     includeDeactivated,
   });
-  return { rows: page.rows, next: page.nextCursor, total };
+  return {
+    rows: page.rows.map(row => projectRecord(contract, row)),
+    next: page.nextCursor,
+    total,
+  };
 }
 
 /**
@@ -118,6 +125,7 @@ export async function exportRecords(
   contract: ModelContract,
   request: ListRequest
 ) {
+  request = scopedQuery(contract, request);
   const page = await model.findAfterCursor(
     {},
     request.size,
@@ -128,7 +136,7 @@ export async function exportRecords(
       includeDeactivated: request.archived !== 'exclude',
     }
   );
-  return page.rows;
+  return page.rows.map(row => projectRecord(contract, row));
 }
 
 /**
@@ -138,18 +146,31 @@ export async function exportRecords(
  * it answers exactly like a missing one.
  * @throws HttpError NOT_FOUND when no active record has the key.
  */
-export async function readRecord(model: QueryModel<Row>, id: string) {
+export async function readRecord(
+  model: QueryModel<Row>,
+  id: string,
+  contract?: ModelContract
+) {
   const row = await model.findById(id);
   if (!row) throw new HttpError('NOT_FOUND');
-  return row;
+  contract?.policy?.check(row);
+  return contract ? projectRecord(contract, row) : row;
 }
 
 /**
  * Does: Inserts one record and returns it as stored.
  * Called by: the create handler inside the tenant transaction.
  */
-export function createRecord(model: TableModel<Row>, record: Row) {
-  return model.insert(record);
+export async function createRecord(
+  model: TableModel<Row>,
+  record: Row,
+  contract?: ModelContract
+) {
+  await contract?.policy?.beforeCreate?.(record);
+  contract?.policy?.check(record, true);
+  contract?.policy?.write(record, record);
+  const row = await model.insert(record);
+  return contract ? projectRecord(contract, row) : row;
 }
 
 /**
@@ -167,6 +188,11 @@ export async function bulkInsertRecords(
   contract: ModelContract,
   records: Row[]
 ) {
+  for (const row of records) {
+    await contract.policy?.beforeCreate?.(row);
+    contract.policy?.check(row, true);
+    contract.policy?.write(row, row);
+  }
   const groups = new Map<string, Row[]>();
   for (const record of records) {
     const key = Object.keys(record).sort().join(',');
@@ -177,7 +203,7 @@ export async function bulkInsertRecords(
     const rows = await model.bulkInsert(group, [...contract.columns]);
     if (Array.isArray(rows)) inserted.push(...rows);
   }
-  return inserted;
+  return inserted.map(row => projectRecord(contract, row));
 }
 
 /**
@@ -192,6 +218,13 @@ export async function updateRecords(
   changes: Row
 ) {
   await requireAll(model, contract, batch, 'exclude');
+  for (const id of batch.ids) {
+    const row = await model.findById(id);
+    if (row) {
+      contract.policy?.check({ ...row, ...changes });
+      contract.policy?.write(changes, row);
+    }
+  }
   await model.updateWhere(keyed(contract, batch.ids), changes);
   return reread(model, contract, batch.ids);
 }
@@ -208,6 +241,13 @@ export async function bulkUpdateRecords(
   records: Row[]
 ) {
   await requireAll(model, contract, batch, 'exclude');
+  for (const record of records) {
+    const row = await model.findById(String(record[contract.primaryKey]));
+    if (row) {
+      contract.policy?.check({ ...row, ...record });
+      contract.policy?.write(record, row);
+    }
+  }
   await model.bulkUpdate(records);
   return reread(model, contract, batch.ids);
 }
@@ -240,4 +280,34 @@ export async function restoreRecords(
   await requireAll(model, contract, batch, 'only');
   await model.restoreWhere(keyed(contract, batch.ids));
   return reread(model, contract, batch.ids);
+}
+
+/** Does: Validates full records before omitting protected fields. Called by: resource operations before replies. */
+function projectRecord(contract: ModelContract, row: Row) {
+  if (!contract.policy) return row;
+  if (!contract.itemSchema.safeParse(row).success)
+    throw new Error('Resource response violates its contract');
+  return contract.policy.redact(row);
+}
+/** Does: Adds scope constraints before pagination and totals. Called by: list and export operations. */
+function scopedQuery(
+  contract: ModelContract,
+  request: ListRequest
+): ListRequest {
+  if (!contract.policy) return request;
+  contract.policy.query([
+    ...request.orderBy,
+    ...Object.keys(request.filters),
+    ...Object.keys(request.cursor ?? {}),
+  ]);
+  if (Object.keys(contract.policy.filters).length === 0) return request;
+  return {
+    ...request,
+    filters: {
+      $and: [
+        request.filters as WhereCondition,
+        contract.policy.filters as WhereCondition,
+      ].filter(condition => Object.keys(condition).length > 0),
+    },
+  };
 }

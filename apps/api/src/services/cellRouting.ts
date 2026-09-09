@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { controlBodySchema } from '@nap/shared';
+import { controlBodySchema, entitlementChangeSchema } from '@nap/shared';
 import { withAdminTransaction } from '../db/withAdminTransaction.js';
 import { HttpError } from '../util/httpError.js';
 import { commandPermission } from './controlPlane.js';
@@ -27,6 +27,18 @@ export async function assignedDestination(
     let tenantId = session.view?.tenantId;
     if (command) {
       if (session.view?.controlledAccess) throw new HttpError('FORBIDDEN');
+      if (command.action === 'entitlement') {
+        const body = entitlementChangeSchema.safeParse(command.body);
+        if (!body.success) throw new HttpError('INVALID_INPUT');
+        await requirePlatform(
+          tx,
+          session.operatorId ?? session.actorId,
+          'entitlement'
+        );
+        const target = await tx.cells.assignment(body.data.tenant);
+        if (!target?.enabled || !target.code) throw new HttpError('FORBIDDEN');
+        return target.code;
+      }
       const parsed = controlBodySchema.safeParse(command.body);
       if (!parsed.success) throw new HttpError('INVALID_INPUT');
       const body = parsed.data;
@@ -41,6 +53,10 @@ export async function assignedDestination(
         const job = await tx.provisioning_jobs.findById(body.job);
         if (!job) throw new HttpError('NOT_FOUND');
         tenantId = job.tenant_id;
+      } else if (body.operation === 'revoke') {
+        const member = await tx.portal_user_tenants.findById(body.membership);
+        if (!member) throw new HttpError('NOT_FOUND');
+        tenantId = member.tenant_id;
       } else if (body.operation === 'activate' || body.operation === 'member') {
         tenantId = body.target;
       } else if (body.operation === 'reconcile') {
@@ -54,7 +70,10 @@ export async function assignedDestination(
     if (!tenantId) throw new HttpError('FORBIDDEN');
     const target = await tx.cells.assignment(tenantId);
     if (!target?.enabled || !target.code) throw new HttpError('FORBIDDEN');
-    if (!command && (!target.provisioned || target.status !== 'active'))
+    if (
+      !command &&
+      (!target.provisioned || !target.rbac_ready || target.status !== 'active')
+    )
       throw new HttpError('FORBIDDEN');
     return target.code;
   });

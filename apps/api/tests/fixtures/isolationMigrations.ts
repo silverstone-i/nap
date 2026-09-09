@@ -10,6 +10,7 @@ import type { NapModuleDescriptor } from '../../src/db/modules.js';
 export const isolationModules: readonly NapModuleDescriptor[] = [
   {
     name: 'isolation_probe',
+    entitlement: 'infrastructure',
     databaseTarget: 'cell',
     schema: 'app',
     migrations: [
@@ -49,6 +50,7 @@ export const isolationModules: readonly NapModuleDescriptor[] = [
   },
   {
     name: 'isolation_reporting',
+    entitlement: 'infrastructure',
     databaseTarget: 'cell',
     schema: 'reporting',
     migrations: [

@@ -6,31 +6,49 @@ import { platformPermissions } from '@nap/shared';
 import { HttpError } from '../util/httpError.js';
 import type { AdminRepositories } from '../db/admin/repositories.js';
 import type { AdminTransaction } from '../db/withAdminTransaction.js';
-
-/** Does: Loads current central permissions. Called by: session and control authorization. */
+/** Does: Lists the initial operational support grants. Used by: explicit seeding. */
+export const defaultSupportPermissions = platformPermissions.filter(
+  p =>
+    !['grants', 'role-policy', 'access', 'impersonate'].some(action =>
+      p.endsWith(`::${action}`)
+    )
+);
+/** Does: Seeds the shared support policy without overwriting edits. Called by: bootstrap and transition. */
+export async function seedPlatformPolicy(
+  tx: AdminTransaction<AdminRepositories>
+) {
+  const rows = await tx.support_policy.findWhere({ code: 'support' }, 'AND', {
+    includeDeactivated: true,
+  });
+  if (!rows.length)
+    await tx.support_policy.insert({
+      code: 'support',
+      permissions: JSON.stringify(defaultSupportPermissions),
+    });
+}
+/** Does: Loads current central permissions from the new role model. Called by: session and control authorization. */
 export async function platformGrants(
   tx: AdminTransaction<AdminRepositories>,
   actorId: string
-) {
+): Promise<string[]> {
   const user = await tx.portal_users.lockIdentity(actorId);
   if (!user || user.status !== 'active' || user.must_change_password) return [];
   if (user.is_root) return [...platformPermissions];
-  const grants = await tx.platform_grants.findWhere({
-    portal_user_id: actorId,
-  });
-  return grants
-    .filter(
-      g =>
-        g.role === 'package_admin' ||
-        [
-          'admin-tenancy::control::access',
-          'admin-tenancy::control::impersonate',
-          'admin-tenancy::control::audit',
-        ].includes(g.permission)
-    )
-    .map(g => g.permission);
+  const roles = await tx.platform_roles.findWhere({ portal_user_id: actorId });
+  if (roles.some(r => r.role === 'platform_admin'))
+    return [...platformPermissions];
+  if (!roles.some(r => r.role === 'support')) return [];
+  const policy = await tx.support_policy.findOneBy({ code: 'support' });
+  if (!policy || !Array.isArray(policy.permissions)) return [];
+  return platformPermissions.filter(
+    p =>
+      !p.endsWith('::grants') &&
+      !p.endsWith('::role-policy') &&
+      policy.permissions instanceof Array &&
+      policy.permissions.includes(p)
+  );
 }
-/** Does: Requires a current central grant. Called by: each privileged operation inside its admin transaction. */
+/** Does: Checks one central operation against current grants. Called by: privileged operations inside the admin transaction. */
 export async function requirePlatform(
   tx: AdminTransaction<AdminRepositories>,
   actorId: string,
@@ -43,7 +61,7 @@ export async function requirePlatform(
   )
     throw new HttpError('FORBIDDEN');
 }
-/** Does: Appends an operator event atomically with central state changes. Called by: controlled operations. */
+/** Does: Appends an operator event atomically with central changes. Called by: controlled operations. */
 export async function audit(
   tx: AdminTransaction<AdminRepositories>,
   operator: string,

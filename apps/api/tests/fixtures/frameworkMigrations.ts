@@ -14,6 +14,7 @@ import type { NapModuleDescriptor } from '../../src/db/modules.js';
 export const frameworkModules: readonly NapModuleDescriptor[] = [
   {
     name: 'framework_record',
+    entitlement: 'infrastructure',
     databaseTarget: 'cell',
     schema: 'app',
     migrations: [

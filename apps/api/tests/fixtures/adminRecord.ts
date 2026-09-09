@@ -67,6 +67,7 @@ export class AdminRecords extends TableModel<AdminRecordRow> {
 export const adminRecordModules: readonly NapModuleDescriptor[] = [
   {
     name: 'framework_admin_record',
+    entitlement: 'infrastructure',
     databaseTarget: 'admin',
     schema: 'admin',
     migrations: [

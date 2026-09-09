@@ -16,7 +16,6 @@ import Divider from '@mui/material/Divider';
 import {
   controlBodySchema,
   controlResponseSchema,
-  platformPermissions,
   accessBodySchema,
 } from '@nap/shared';
 import { z } from 'zod';
@@ -60,6 +59,7 @@ export function ControlPage() {
     if (values.enabled !== undefined)
       values.enabled = values.enabled === 'true';
     if (values.password === '') delete values.password;
+    if (values.administrator === '') delete values.administrator;
     const parsed = controlBodySchema.safeParse(values);
     if (!parsed.success) {
       setMessage('Check the fields and try again.');
@@ -122,6 +122,9 @@ export function ControlPage() {
     permissions.includes(`admin-tenancy::control::${action}`);
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
+      <Button component={Link} to="/platform-access">
+        Platform roles and module entitlements
+      </Button>
       <Stack spacing={3}>
         <Typography variant="h4" component="h1">
           Administration
@@ -450,6 +453,11 @@ export function ControlPage() {
                       </MenuItem>
                     ))}
                 </TextField>
+                <TextField
+                  name="administrator"
+                  label="Initial administrator membership ID"
+                  helperText="Required when more than one employee is eligible."
+                />
                 <Button type="submit" disabled={busy}>
                   Verify and activate
                 </Button>
@@ -480,65 +488,6 @@ export function ControlPage() {
                 />
                 <Button type="submit" disabled={busy}>
                   Retry
-                </Button>
-              </Stack>
-            </Box>
-          </>
-        )}
-        {can('grants') && (
-          <>
-            <Divider />
-            <Box
-              component="details"
-              sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}
-            >
-              <Box component="summary" sx={{ cursor: 'pointer' }}>
-                <Typography component="span" variant="h6">
-                  Platform permissions
-                </Typography>
-              </Box>
-              <Stack
-                component="form"
-                spacing={2}
-                onSubmit={e => void submit(e)}
-                sx={{ pt: 2 }}
-              >
-                <input type="hidden" name="operation" value="grant" />
-                <TextField name="user" label="Portal user ID" required />
-                <TextField
-                  select
-                  name="role"
-                  label="Role"
-                  defaultValue="support"
-                >
-                  <MenuItem value="support">Support</MenuItem>
-                  <MenuItem value="package_admin">
-                    Package administrator
-                  </MenuItem>
-                </TextField>
-                <TextField
-                  select
-                  name="permission"
-                  label="Permission"
-                  defaultValue={platformPermissions[0]}
-                >
-                  {platformPermissions.map(p => (
-                    <MenuItem key={p} value={p}>
-                      {p.split('::').at(-1)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  select
-                  name="enabled"
-                  label="Grant"
-                  defaultValue="true"
-                >
-                  <MenuItem value="true">Allow</MenuItem>
-                  <MenuItem value="false">Revoke</MenuItem>
-                </TextField>
-                <Button type="submit" disabled={busy}>
-                  Save grant
                 </Button>
               </Stack>
             </Box>

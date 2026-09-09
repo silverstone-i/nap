@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
+import type { ResourcePolicy } from '../services/authorization.js';
 import express from 'express';
 import { z } from 'zod';
 import {
@@ -61,6 +61,20 @@ import type { ResolvedSession } from '../middleware/session.js';
 import type { ModelContract, Repositories, Row } from './modelContract.js';
 import type { ReadController } from './ReadController.js';
 import type { RepositoryTransaction } from './runOperation.js';
+
+/** Does: Describes factory registration for startup authorization validation. Used by: route composition. */
+export type RouterAuthorization = {
+  module: string;
+  resource: string;
+  capabilities: string[];
+  scoped: boolean;
+  protectedFields: readonly string[];
+};
+const routerPolicies = new WeakMap<Router, RouterAuthorization>();
+/** Does: Reads the factory's actual enabled operations and policy declaration. Called by: mountRoutes. */
+export function routerAuthorization(router: Router) {
+  return routerPolicies.get(router);
+}
 
 /**
  * Does: Lists the actions of the standard route set, in registration order.
@@ -157,6 +171,7 @@ export type ExtensionInput<
   P,
   A extends RouteAccess | undefined = undefined,
 > = {
+  readonly authorization?: ResourcePolicy;
   readonly body: B;
   readonly query: Q;
   readonly params: P;
@@ -209,6 +224,12 @@ export type ExtensionRoute<
  * operation is typed against the module's own repositories.
  */
 export type RouterOptions<R> = {
+  readonly authorize?: (
+    tx: RepositoryTransaction<R>,
+    session: ResolvedSession,
+    action: string
+  ) => Promise<ResourcePolicy & { checkParent?: (row: Row) => Promise<void> }>;
+  readonly protectedFields?: readonly string[];
   readonly module: string;
   readonly router: string;
   readonly routes?: Partial<Record<StandardAction, boolean>>;
@@ -328,10 +349,25 @@ export function createRouter<N extends string, R extends Repositories<N>>(
   );
   const router = express.Router();
   const actions = new Set<string>();
+  const capabilities: string[] = [];
   const paths = new Set<string>();
-  const single = successResponseSchema(contract.itemSchema);
-  const many = successResponseSchema(z.array(contract.itemSchema));
-  const list = listResponseSchema(contract.itemSchema);
+  const item =
+    options.protectedFields?.length &&
+    contract.itemSchema instanceof z.ZodObject
+      ? z.object(
+          Object.fromEntries(
+            Object.entries(contract.itemSchema.shape).map(([key, value]) => [
+              key,
+              options.protectedFields!.includes(key)
+                ? (value as z.ZodType).optional()
+                : (value as z.ZodType),
+            ])
+          )
+        )
+      : contract.itemSchema;
+  const single = successResponseSchema(item);
+  const many = successResponseSchema(z.array(item));
+  const list = listResponseSchema(item);
   const pk = contract.primaryKey;
 
   /**
@@ -352,6 +388,7 @@ export function createRouter<N extends string, R extends Repositories<N>>(
     if (paths.has(key)) throw new Error(`Duplicate route path: ${key}`);
     paths.add(key);
     if (disabled.has(action)) return;
+    capabilities.push(`${module}::${name}::${action}`);
     const label: RequestHandler = (_request, response, next) => {
       response.locals.route = `${module}.${name}.${action}`;
       next();
@@ -425,11 +462,23 @@ export function createRouter<N extends string, R extends Repositories<N>>(
     });
   }
 
+  /** Does: Runs a scoped resource operation in the existing transaction. */
+  async function runResource<T>(
+    action: string,
+    session: ResolvedSession,
+    work: (tx: RepositoryTransaction<R>, scoped: ModelContract) => Promise<T>
+  ) {
+    return runOperation(binding, session, async tx => {
+      const policy = await options.authorize?.(tx, session, action);
+      return work(tx, { ...contract, policy });
+    });
+  }
+
   route('list', 'get', '/', 'full', async (request, response) => {
     const session = resolvedSession(response);
     const query = parseListQuery(request.query, contract, listPageSize);
-    const result = await runOperation(binding, session, tx =>
-      listRecords(tx[repository], contract, query)
+    const result = await runResource('list', session, (tx, scoped) =>
+      listRecords(tx[repository], scoped, query)
     );
     const page = {
       size: query.size,
@@ -453,8 +502,8 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         session.tenantId
       );
       const record = parseRecord(insertSchema, row);
-      const created = await runOperation(binding, session, tx =>
-        createRecord(tableModel(tx, repository), record)
+      const created = await runResource('create', session, (tx, scoped) =>
+        createRecord(tableModel(tx, repository), record, scoped)
       );
       sendContract(
         response,
@@ -478,8 +527,11 @@ export function createRouter<N extends string, R extends Repositories<N>>(
           insertSchema,
           'records'
         );
-        const inserted = await runOperation(binding, session, tx =>
-          bulkInsertRecords(tableModel(tx, repository), contract, rows)
+        const inserted = await runResource(
+          'bulk-insert',
+          session,
+          (tx, scoped) =>
+            bulkInsertRecords(tableModel(tx, repository), scoped, rows)
         );
         sendRecords(response, inserted, 201);
       }
@@ -501,10 +553,10 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         );
       }
       const parsed = parseRecord(updateSchema, changes, 'changes');
-      const rows = await runOperation(binding, session, tx =>
+      const rows = await runResource('update', session, (tx, scoped) =>
         updateRecords(
           tableModel(tx, repository),
-          contract,
+          scoped,
           { ids: body.ids, path: index => `ids.${index}` },
           parsed
         )
@@ -548,10 +600,10 @@ export function createRouter<N extends string, R extends Repositories<N>>(
           ids.push(id);
           records.push({ ...parsed, [pk]: id });
         }
-        const rows = await runOperation(binding, session, tx =>
+        const rows = await runResource('bulk-update', session, (tx, scoped) =>
           bulkUpdateRecords(
             tableModel(tx, repository),
-            contract,
+            scoped,
             { ids, path: index => `records.${index}.${pk}` },
             records
           )
@@ -569,8 +621,8 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         async (request, response) => {
           const session = resolvedSession(response);
           const { ids } = parseAt(idsBodySchema, request.body);
-          const rows = await runOperation(binding, session, tx =>
-            archiveRecords(tableModel(tx, repository), contract, {
+          const rows = await runResource('archive', session, (tx, scoped) =>
+            archiveRecords(tableModel(tx, repository), scoped, {
               ids,
               path: index => `ids.${index}`,
             })
@@ -587,8 +639,8 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         async (request, response) => {
           const session = resolvedSession(response);
           const { ids } = parseAt(idsBodySchema, request.body);
-          const rows = await runOperation(binding, session, tx =>
-            restoreRecords(tableModel(tx, repository), contract, {
+          const rows = await runResource('restore', session, (tx, scoped) =>
+            restoreRecords(tableModel(tx, repository), scoped, {
               ids,
               path: index => `ids.${index}`,
             })
@@ -623,8 +675,11 @@ export function createRouter<N extends string, R extends Repositories<N>>(
           insertSchema,
           'records'
         );
-        const inserted = await runOperation(binding, session, tx =>
-          bulkInsertRecords(tableModel(tx, repository), contract, rows)
+        const inserted = await runResource(
+          'import-xls',
+          session,
+          (tx, scoped) =>
+            bulkInsertRecords(tableModel(tx, repository), scoped, rows)
         );
         sendRecords(response, inserted, 201);
       }
@@ -642,10 +697,10 @@ export function createRouter<N extends string, R extends Repositories<N>>(
         default: exportRowLimit,
         max: exportRowLimit,
       });
-      const rows = await runOperation(binding, session, tx =>
-        exportRecords(tx[repository], contract, query)
+      const rows = await runResource('export-xls', session, (tx, scoped) =>
+        exportRecords(tx[repository], scoped, query)
       );
-      if (!z.array(contract.itemSchema).safeParse(rows).success) {
+      if (!z.array(item).safeParse(rows).success) {
         throw new Error('Exported rows violate their transport contract');
       }
       const bytes = workbookFromRecords(rows, name);
@@ -703,8 +758,12 @@ export function createRouter<N extends string, R extends Repositories<N>>(
               spec.action === 'login' &&
               spec.access === 'anonymous'
           );
-          const value = await runOperation(binding, session, tx =>
+          const value = await runOperation(binding, session, async tx =>
             spec.operation(tx, {
+              authorization:
+                !access && session
+                  ? await options.authorize?.(tx, session, spec.action)
+                  : undefined,
               body,
               query,
               params,
@@ -730,11 +789,18 @@ export function createRouter<N extends string, R extends Repositories<N>>(
   route('read', 'get', '/:id', 'full', async (request, response) => {
     const session = resolvedSession(response);
     const id = parseAt(contract.columnSchema(pk), request.params.id, 'id');
-    const row = await runOperation(binding, session, tx =>
-      readRecord(tx[repository], String(id))
+    const row = await runResource('read', session, (tx, scoped) =>
+      readRecord(tx[repository], String(id), scoped)
     );
     sendContract(response, single, { version: transportVersion, data: row });
   });
 
+  routerPolicies.set(router, {
+    module,
+    resource: `${module}::${name}`,
+    capabilities,
+    scoped: !!options.authorize,
+    protectedFields: options.protectedFields ?? [],
+  });
   return router;
 }

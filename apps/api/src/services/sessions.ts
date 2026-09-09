@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { cellModules } from '../db/cell/modules.js';
 import { withAdminTransaction } from '../db/withAdminTransaction.js';
 import { requestContext } from '../util/requestContext.js';
 import {
@@ -162,6 +163,7 @@ export async function resolveSession(
     if (context) context.actorId = identity.id;
     const usable =
       selected?.provisioned &&
+      selected.rbac_ready &&
       selected.enabled &&
       selected.code === config.cellCode;
     const view = sessionView(
@@ -184,12 +186,24 @@ export async function resolveSession(
       presented,
       session: {
         actorId: effective.id,
+        platformAdmin: view.platformPermissions.includes(
+          'admin-tenancy::control::grants'
+        ),
+        entitlementState: usable
+          ? await tx.module_entitlements.findWhere({ tenant_id: selected!.id })
+          : [],
         operatorId: identity.id,
         tenantId: usable ? selected?.id : undefined,
         entityId: linked,
         userType: kind,
         platformPermissions: new Set(view.platformPermissions),
-        entitlements: new Set<string>(usable ? ['core'] : []),
+        entitlements: new Set<string>(
+          usable
+            ? cellModules
+                .filter(m => m.entitlement === 'foundation')
+                .map(m => m.name)
+            : []
+        ),
         permissions: new Set<string>(usable ? ['core::identity::profile'] : []),
         sessionId: row.id,
         view,

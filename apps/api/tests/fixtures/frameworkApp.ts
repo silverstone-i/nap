@@ -68,6 +68,8 @@ export function createFrameworkApp(
   db: CellDatabase<FixtureRepositories>,
   options: {
     session?: ResolvedSession;
+    authorize?: RouterOptions<FixtureRepositories>['authorize'];
+    protectedFields?: readonly string[];
     readOnly?: boolean;
     routes?: RouterOptions<FixtureRepositories>['routes'];
     extend?: RouterOptions<FixtureRepositories>['extend'];
@@ -85,6 +87,8 @@ export function createFrameworkApp(
       module: 'fixture',
       router: 'records',
       routes: options.routes,
+      authorize: options.authorize,
+      protectedFields: options.protectedFields,
       extend: options.extend,
     })
   );

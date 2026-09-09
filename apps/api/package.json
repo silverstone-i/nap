@@ -15,7 +15,8 @@
     "test": "vitest run",
     "db:migrate:admin": "npm run build && node dist/scripts/migrate.js --target admin",
     "db:migrate:cell": "npm run build && node dist/scripts/migrate.js --target cell",
-    "db:bootstrap": "npm run build && node dist/scripts/bootstrap.js"
+    "db:bootstrap": "npm run build && node dist/scripts/bootstrap.js",
+    "db:access": "npm run build && node dist/scripts/access.js"
   },
   "dependencies": {
     "@nap-sft/tablsx": "^0.1.3",

@@ -2,6 +2,8 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { seedTenantRoles, seedTenantAdmin } from './roleSeeds.js';
+import { protectTenantAdmin } from './accessAdministration.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { controlBodySchema } from '@nap/shared';
@@ -279,32 +281,7 @@ export async function controlCommand(
       break;
     }
     case 'grant': {
-      const user = await tx.portal_users.lockIdentity(body.user);
-      if (!user || user.is_root) throw new HttpError('FORBIDDEN');
-      if (
-        body.role === 'support' &&
-        ![
-          'admin-tenancy::control::access',
-          'admin-tenancy::control::impersonate',
-          'admin-tenancy::control::audit',
-        ].includes(body.permission)
-      )
-        throw new HttpError('FORBIDDEN');
-      const existing = await tx.platform_grants.findOneBy({
-        portal_user_id: body.user,
-        permission: body.permission,
-      });
-      if (!body.enabled) {
-        if (existing) await tx.platform_grants.removeWhere({ id: existing.id });
-      } else if (existing)
-        await tx.platform_grants.update(existing.id, { role: body.role });
-      else
-        await tx.platform_grants.insert({
-          portal_user_id: body.user,
-          role: body.role,
-          permission: body.permission,
-        });
-      break;
+      throw new HttpError('CONFLICT');
     }
     case 'member': {
       await assigned(tx, body.target, config);
@@ -359,10 +336,22 @@ export async function controlCommand(
       if (!member) throw new HttpError('NOT_FOUND');
       const user = await tx.portal_users.lockIdentity(member.portal_user_id);
       if (!user || user.is_root) throw new HttpError('FORBIDDEN');
-      await tx.portal_user_tenants.update(member.id, {
-        status: 'locked',
-        ready: false,
-        revision: member.revision + 1,
+      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
+      await assigned(tx, member.tenant_id, config);
+      await withTenantTransaction(cell, member.tenant_id, async local => {
+        await local.roles.lockTenant(member.tenant_id);
+        await protectTenantAdmin(local, member.id);
+        const binding = await local.tenant_user_bindings.findById(member.id);
+        if (binding)
+          await local.tenant_user_bindings.update(binding.id, {
+            status: 'locked',
+            revision: member.revision + 1,
+          });
+        await tx.portal_user_tenants.update(member.id, {
+          status: 'locked',
+          ready: false,
+          revision: member.revision + 1,
+        });
       });
       const job = await tx.provisioning_jobs.findOneBy({
         membership_id: member.id,
@@ -399,6 +388,7 @@ export async function controlCommand(
       await tx.tenants.update(tenant.id, { cell_id: body.cell });
       await projectTenant(tx, cell, tenant.id);
       await withTenantTransaction(cell, tenant.id, async local => {
+        await seedTenantRoles(local, tenant.id);
         if (!(await local.tenant_user_bindings.findById(membership.id)))
           await local.tenant_user_bindings.insert({
             id: membership.id,
@@ -409,12 +399,20 @@ export async function controlCommand(
             status: 'active',
           });
       });
-      await tx.tenants.update(tenant.id, { provisioned: true });
+      await withTenantTransaction(cell, tenant.id, local =>
+        seedTenantAdmin(local, tenant.id, membership.id)
+      );
+      await tx.tenants.update(tenant.id, {
+        provisioned: true,
+        rbac_ready: true,
+      });
       break;
     }
     case 'activate': {
       if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
       const tenant = await assigned(tx, body.target, config);
+      if (tenant.provisioned && !tenant.rbac_ready)
+        throw new HttpError('CONFLICT');
       if (
         tenant.status !== 'pending' &&
         !(tenant.status === 'active' && tenant.provisioned)
@@ -425,10 +423,27 @@ export async function controlCommand(
         status: 'active',
       });
       if (members.some(m => !m.ready)) throw new HttpError('CONFLICT');
-      const admin = members.find(m => m.user_type === 'employee');
+      const eligible = members.filter(m => m.user_type === 'employee');
+      const admin = body.administrator
+        ? eligible.find(m => m.id === body.administrator)
+        : eligible.length === 1 || tenant.status === 'active'
+          ? eligible[0]
+          : undefined;
       if (!admin || !admin.entity_id) throw new HttpError('CONFLICT');
       await projectTenant(tx, cell, tenant.id);
       await withTenantTransaction(cell, tenant.id, async local => {
+        await local.roles.lockTenant(tenant.id);
+        if (tenant.status === 'pending')
+          await seedTenantAdmin(local, tenant.id, admin.id);
+        const role = await local.roles.findOneBy({ code: 'tenant_admin' });
+        const assignments = role
+          ? await local.role_assignments.findWhere({
+              role_id: role.id,
+              scope: 'tenant',
+            })
+          : [];
+        if (!assignments.some(a => members.some(m => m.id === a.binding_id)))
+          throw new HttpError('CONFLICT');
         const source = await tx.tenants.findById(tenant.id);
         const projected = await local.cell_tenants.findById(tenant.id);
         // A prior cell commit may survive an admin rollback. Accept only the exact next activation revision.
@@ -493,6 +508,7 @@ export async function controlCommand(
           revision: tenant.revision + 1,
           status: 'active',
           provisioned: true,
+          rbac_ready: true,
         });
       await projectTenant(tx, cell, tenant.id);
       break;

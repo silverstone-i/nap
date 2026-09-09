@@ -24,6 +24,7 @@ it('keeps admin and cell handle types and module targets distinct', () => {
     // @ts-expect-error Admin modules cannot target a cell schema.
     const wrongModule: NapModuleDescriptor = {
       name: 'bad',
+      entitlement: 'infrastructure',
       databaseTarget: 'admin',
       schema: 'app',
       migrations: [],
@@ -74,6 +75,7 @@ it('rejects overlapping endpoints, target overrides, missing and malformed crede
 it('rejects descriptor mismatch and duplicate names before any migration work', () => {
   const valid: NapModuleDescriptor = {
     name: 'fixture',
+    entitlement: 'infrastructure',
     databaseTarget: 'admin',
     schema: 'admin',
     migrations: [],
@@ -94,7 +96,13 @@ it.each(['cell', 'reference', 'app', 'reporting'] as const)(
   schema => {
     expect(() =>
       assertModules('cell', [
-        { name: 'fixture', databaseTarget: 'cell', schema, migrations: [] },
+        {
+          entitlement: 'infrastructure',
+          name: 'fixture',
+          databaseTarget: 'cell',
+          schema,
+          migrations: [],
+        },
       ])
     ).not.toThrow();
   }
@@ -104,6 +112,7 @@ it('rejects an unknown cell schema at runtime', () => {
   // Deliberately bypass static typing to exercise runtime rejection.
   const invalid = {
     name: 'fixture',
+    entitlement: 'infrastructure',
     databaseTarget: 'cell',
     schema: 'unknown',
     migrations: [],
