@@ -701,6 +701,11 @@ actor and active tenant before module code runs.
 
 **Depends on:** Cell tenancy and tenant activation.
 
+**Draft design:** [PRD 0006 — Role-based access control](../PRDs/0006-role-based-access-control.md)
+records the proposed roles, scoped assignments, and field grants. Its adoption
+section identifies the platform-policy changes required before acceptance;
+current accepted platform behavior remains governed by PRD 0004.
+
 **Required design:** PRDs for RBAC, module entitlement, and only the approval,
 numbering, preference, state-scope, or field-scope capabilities the first
 business release needs. Their tables belong to `core`; the request-time decision

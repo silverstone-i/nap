@@ -139,3 +139,4 @@ Document locations and the repository skeleton are defined in
 
 - [Tenant membership and control plane](PRDs/0004-tenant-membership-and-control-plane.md)
 - [Core identity records](PRDs/0005-core-identity-records.md)
+- [Role-based access control — Draft](PRDs/0006-role-based-access-control.md)

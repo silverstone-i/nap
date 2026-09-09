@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Document the draft RBAC design for scoped role assignments, sensitive-field
+  grants, and platform roles, with adoption requirements before implementation.
+
 ## [v0.12.0] - 2026-09-09
 
 ### Added
