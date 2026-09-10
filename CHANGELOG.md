@@ -18,6 +18,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Changed
 
+- Consolidate account controls in an initial-avatar menu with Profile and Settings
+  placeholders, and provide a dedicated password-change page with confirmation.
 - Require tenant selection after every vendor login, preserve safe tenant deep
   links, and clear stale responses when session or access context changes.
 - Accept PRD 0009, ADR 0010, linked specification/PRD amendments, and deferred

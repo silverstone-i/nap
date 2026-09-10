@@ -12,6 +12,10 @@ import {
   useNavigation,
 } from 'react-router';
 import AppBar from '@mui/material/AppBar';
+import Avatar from '@mui/material/Avatar';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
@@ -35,7 +39,7 @@ import { SessionStatus } from '../auth/SessionStatus.js';
 import { logout } from '../api/auth.js';
 import { getNavigation } from '../api/shell.js';
 import { Wordmark } from '../components/Wordmark.js';
-import { ThemeSelector } from '../components/ThemeSelector.js';
+import { useThemeMode } from '../theme/useThemeMode.js';
 import { RouteLoading } from '../components/RouteLoading.js';
 import { ShellContext, readScope } from './scope.js';
 import {
@@ -60,6 +64,14 @@ export function ProductShell() {
   const desktop = useMediaQuery(theme => theme.breakpoints.up('lg'));
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [profileAnchor, setProfileAnchor] = useState<HTMLElement | null>(null);
+  const [modeMenu, setModeMenu] = useState(false);
+  const { preference, setPreference } = useThemeMode();
+  /** Does: Dismisses the profile menu and resets its mode selection view. */
+  function closeProfile() {
+    setProfileAnchor(null);
+    setModeMenu(false);
+  }
   const [collapsed, setCollapsed] = useState(false);
   const [navigation, setNavigation] = useState<{
     tenant: string;
@@ -278,15 +290,70 @@ export function ProductShell() {
               Change tenant
             </Button>
           )}
-          <Button
-            component={Link}
-            to="/account"
-            aria-label={`Account: ${session.email}`}
+          <IconButton
+            id="profile-trigger"
+            aria-label={`Profile: ${session.email}`}
+            aria-haspopup="menu"
+            aria-controls={profileAnchor ? 'profile-menu' : undefined}
+            aria-expanded={!!profileAnchor}
+            onClick={event => setProfileAnchor(event.currentTarget)}
           >
-            Account
-          </Button>
-          <Button onClick={() => void signOut()}>Sign out</Button>
-          <ThemeSelector />
+            <Avatar>{session.email.trim().charAt(0).toUpperCase()}</Avatar>
+          </IconButton>
+          <Menu
+            id="profile-menu"
+            anchorEl={profileAnchor}
+            open={!!profileAnchor}
+            onClose={closeProfile}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ list: { 'aria-labelledby': 'profile-trigger' } }}
+          >
+            {modeMenu
+              ? (['light', 'dark', 'system'] as const).map(mode => (
+                  <MenuItem
+                    key={mode}
+                    role="menuitemradio"
+                    aria-checked={preference === mode}
+                    selected={preference === mode}
+                    onClick={() => {
+                      setPreference(mode);
+                      closeProfile();
+                    }}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </MenuItem>
+                ))
+              : [
+                  <MenuItem key="profile" disabled>
+                    Profile
+                  </MenuItem>,
+                  <MenuItem key="settings" disabled>
+                    Settings
+                  </MenuItem>,
+                  <MenuItem key="mode" onClick={() => setModeMenu(true)}>
+                    <ListItemText primary="Mode" />
+                    <ChevronRightIcon />
+                  </MenuItem>,
+                  <MenuItem
+                    key="password"
+                    component={Link}
+                    to={`/account/password?next=${encodeURIComponent(here)}`}
+                    onClick={closeProfile}
+                  >
+                    Change password
+                  </MenuItem>,
+                  <MenuItem
+                    key="logout"
+                    onClick={() => {
+                      closeProfile();
+                      void signOut();
+                    }}
+                  >
+                    Logout
+                  </MenuItem>,
+                ]}
+          </Menu>
         </Toolbar>
       </AppBar>
       <Box sx={shellBodyStyles}>

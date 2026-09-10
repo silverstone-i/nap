@@ -17,9 +17,11 @@ import type { ReactNode } from 'react';
 export function AuthFrame({
   title,
   children,
+  showTheme = true,
 }: {
   title: string;
   children: ReactNode;
+  showTheme?: boolean;
 }) {
   return (
     <Box
@@ -44,7 +46,7 @@ export function AuthFrame({
         </Typography>
         {children}
       </Paper>
-      <ThemeSelector />
+      {showTheme && <ThemeSelector />}
     </Box>
   );
 }

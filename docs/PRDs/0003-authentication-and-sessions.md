@@ -89,12 +89,17 @@ behavior; forgotten-password delivery remains a later capability.
   authenticated writes retain their resolved actor.
 - **AUTH-009 Web flows.** `/login` renders email and password fields, a
   visible message for `UNAUTHENTICATED` and `THROTTLED`, a loading state, and
-  honors `?next=<encoded path>` restricted to same-origin paths. `/account`
-  shows the signed-in email and tenant, a logout action, and a password
-  change form with its success and failure states. An unauthenticated visit
-  to `/account` redirects to `/login?next=%2Faccount`; a signed-in visit to
-  `/login` redirects to `/account`. `auth/` owns session state loaded from
-  `GET /session`, and every reply is validated with `requestContract`. PRD 0004 adds tenant selection and operator navigation without a business shell.
+  honors `?next=<encoded path>` restricted to same-origin paths.
+  `/account/password` provides a focused password-change page with current,
+  new, and confirmation fields, a show/hide control, submission progress,
+  and success/error feedback. Confirmation must match before submission.
+  Voluntary changes offer Cancel back to the safe originating destination;
+  required changes omit Cancel and continue the session workflow after success.
+  Controlled-access sessions cannot edit credentials. `/account` redirects to
+  this page for compatibility. Anonymous visits preserve the destination through
+  login. Signed-in login visits follow the current session workflow.
+  `auth/` owns session state loaded from `GET /session`, and every reply is
+  validated with `requestContract`. PRD 0004 owns tenant selection.
 
 ## Data
 
@@ -258,3 +263,5 @@ from the earlier Verified status.
 The session transport now includes the selected tenant's display name, effective
 membership type and vendor-switch availability for SHELL-003. These are computed
 from current server state; customer contracts do not disclose deployment details.
+
+| 2026-09-10 | Dedicated password page replaces the combined account screen, with confirmation, visibility control, and voluntary/required navigation. |

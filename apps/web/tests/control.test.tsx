@@ -87,8 +87,9 @@ it('forces password replacement before selection or administration', async () =>
   );
   const router = mount('/control');
   await screen.findByText('Change your temporary password before continuing.');
-  expect(router.state.location.pathname).toBe('/account');
+  expect(router.state.location.pathname).toBe('/account/password');
   expect(screen.queryByText('Administration')).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Cancel' })).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 it('lists memberships, switches the current session and clears the selection page', async () => {
@@ -167,7 +168,7 @@ it('shows controlled access and exits through a fresh authoritative session', as
         : null,
     });
   });
-  mount('/account');
+  mount('/account/password');
   await screen.findByText(/Controlled impersonation/);
   expect(screen.queryByRole('link', { name: 'Administration' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Exit access' }));

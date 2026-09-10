@@ -44,8 +44,13 @@ Historical verification evidence does not establish shell verification.
 ### SHELL-001 — Application frame
 
 The header spans the application: menu control and tenant logo at the left,
-active tenant context alongside, and user/account/sign-out controls at the
-right. Where no tenant logo is available, show the tenant name; logo upload and
+active tenant context alongside, and a circular profile button showing the
+first letter of the signed-in email at the right. Its dropdown starts with
+Profile and Settings, currently disabled placeholders for personal information
+and personal preferences; editable fields and page behavior remain undecided.
+These are followed by Mode
+(Light, Dark, System), Change password (`/account/password`), and Logout.
+Mode uses the existing device-local theme preference. Where no tenant logo is available, show the tenant name; logo upload and
 storage are not introduced by this capability. The rail sits below the header
 on the left, with a small NAP wordmark at its bottom. Content occupies the
 remaining area. No footer or notification subsystem is included.
@@ -192,3 +197,7 @@ The implementation plan records current verification evidence.
 | 2026-09-10 | Owner accepted this design and linked amendments with the implementation plan. |
 
 | 2026-09-10 | Implemented SHELL-001–005 with local API, web and browser acceptance; evidence is in the delivery plan, with merge/CI verification pending. |
+
+| 2026-09-10 | Replaced separate header account, sign-out, and theme controls with an initial avatar and profile menu under SHELL-001. |
+
+| 2026-09-10 | Added disabled Profile and Settings menu placeholders; their pages and editable data are deferred. |

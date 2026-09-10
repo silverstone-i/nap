@@ -106,6 +106,14 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        path: '/account/password',
+        HydrateFallback: RouteLoading,
+        lazy: async () => ({
+          Component: (await import('./pages/ChangePasswordPage.js'))
+            .ChangePasswordPage,
+        }),
+      },
+      {
         path: '/account',
         HydrateFallback: RouteLoading,
         lazy: async () => ({

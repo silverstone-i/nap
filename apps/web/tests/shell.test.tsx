@@ -395,9 +395,13 @@ it('retains a tenant deep link through password change and vendor selection', as
     await screen.findByLabelText('Current password', { exact: false }),
     { target: { value: 'test-password-original' } }
   );
-  fireEvent.change(screen.getByLabelText('New password', { exact: false }), {
+  fireEvent.change(screen.getByLabelText(/^New password/), {
     target: { value: 'test-password-replacement' },
   });
+  fireEvent.change(
+    screen.getByLabelText('Confirm new password', { exact: false }),
+    { target: { value: 'test-password-replacement' } }
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
   fireEvent.click(
     await screen.findByRole('button', { name: 'Test tenant (TEST)' })
@@ -432,4 +436,38 @@ it('clears an expired employee session and preserves the destination for login',
     destination
   );
   expect(screen.queryByRole('heading', { name: 'Employees' })).toBeNull();
+});
+
+it('opens the initial profile menu, changes mode, and reaches password management', async () => {
+  const router = mount(`/app/${tenant}/dashboard`);
+  const profile = await screen.findByRole('button', {
+    name: `Profile: ${view.email}`,
+  });
+  expect(profile.textContent).toBe('E');
+  fireEvent.click(profile);
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Mode' }));
+  fireEvent.click(screen.getByRole('menuitemradio', { name: 'Light' }));
+  expect(localStorage.getItem('nap:theme-mode')).toBe('light');
+  await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  fireEvent.click(profile);
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Change password' }));
+  await screen.findByLabelText('Current password', { exact: false });
+  expect(router.state.location.pathname).toBe('/account/password');
+});
+
+it('logs out through the profile menu', async () => {
+  fetchMock.mockImplementation(url => {
+    const path =
+      typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+    if (path.endsWith('/logout')) return reply(null);
+    if (path.endsWith('/navigation')) return reply({ employees: true });
+    return reply(view);
+  });
+  const router = mount(`/app/${tenant}/dashboard`);
+  fireEvent.click(
+    await screen.findByRole('button', { name: `Profile: ${view.email}` })
+  );
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Logout' }));
+  await screen.findByRole('button', { name: 'Sign in' });
+  expect(router.state.location.pathname).toBe('/login');
 });

@@ -61,7 +61,8 @@ export function sessionDestination(
 ): string {
   const target = safeNext(next);
   const suffix = target === '/' ? '' : `?next=${encodeURIComponent(target)}`;
-  if (session.state === 'password-change-required') return '/account' + suffix;
+  if (session.state === 'password-change-required')
+    return '/account/password' + suffix;
   if (session.state === 'tenant-selection-required') {
     if (session.canChangeTenant || !session.platformPermissions.length)
       return '/tenants' + suffix;
