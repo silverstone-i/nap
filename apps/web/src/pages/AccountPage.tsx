@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Navigate, Link } from 'react-router';
+import { Navigate, Link, useNavigate, useSearchParams } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
@@ -13,7 +13,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { passwordBodySchema } from '@nap/shared';
 import { logout, changePassword, getSession } from '../api/auth.js';
-import { useSession } from '../auth/session.js';
+import { useSession, sessionDestination } from '../auth/session.js';
 import { AuthFrame } from '../auth/AuthFrame.js';
 import { SessionStatus } from '../auth/SessionStatus.js';
 import type { FormEvent } from 'react';
@@ -23,6 +23,8 @@ import type { FormEvent } from 'react';
  * Called by: the account route.
  */
 export function AccountPage() {
+  const navigate = useNavigate();
+  const [search] = useSearchParams();
   const { state, setSession } = useSession();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{
@@ -64,7 +66,19 @@ export function AccountPage() {
     if (result.ok) {
       element.reset();
       const checked = await getSession();
-      if (checked.ok) setSession(checked.body.data);
+      if (checked.ok) {
+        setSession(checked.body.data);
+        if (
+          state.status === 'ready' &&
+          state.session?.state === 'password-change-required'
+        ) {
+          await navigate(
+            sessionDestination(checked.body.data, search.get('next')),
+            { replace: true }
+          );
+          return;
+        }
+      }
       setNotice({
         message: 'Password changed. Other sessions have been signed out.',
         success: true,
@@ -95,6 +109,9 @@ export function AccountPage() {
   return (
     <AuthFrame title="Account">
       <Stack direction="row">
+        <Button component={Link} to="/">
+          Open application
+        </Button>
         <Button component={Link} to="/companies">
           Companies
         </Button>

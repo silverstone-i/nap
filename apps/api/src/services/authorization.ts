@@ -259,6 +259,7 @@ export async function tenantCapabilities(
       ? businessPermissions
       : [
           'core::identity::profile',
+          'core::identity::navigation',
           ...state.grants.flatMap(g => g.capabilities),
         ]
   );

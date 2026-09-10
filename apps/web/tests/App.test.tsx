@@ -26,6 +26,21 @@ beforeEach(() => {
     }))
   );
   window.history.replaceState({}, '', '/');
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            version: 1,
+            code: 'UNAUTHENTICATED',
+            message: 'Authentication required',
+          }),
+          { status: 401 }
+        )
+      )
+    )
+  );
 });
 afterEach(() => {
   cleanup();
@@ -54,12 +69,12 @@ it('renders the actual app with accessible entry content and theme control', asy
   expect(
     await screen.findByRole('heading', {
       level: 1,
-      name: 'Project-first accounting & ERP',
+      name: 'Sign in',
     })
   ).toBeDefined();
   expect(screen.getByRole('main')).toBeDefined();
   expect(screen.getByRole('img', { name: 'nap.' })).toBeDefined();
-  expect(screen.getByText('Application under development')).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Sign in' })).toBeDefined();
   expect(screen.getByRole('combobox', { name: 'Theme' })).toBeDefined();
   expect(screen.queryByRole('navigation')).toBeNull();
 });
@@ -76,7 +91,15 @@ it('announces loading while a route import is pending', async () => {
   const pending = Promise.withResolvers<{
     Component: () => React.JSX.Element;
   }>();
-  mount([{ ...routes[0], lazy: () => pending.promise }]);
+  mount([
+    {
+      ...routes[0],
+      path: '/',
+      children: undefined,
+      Component: undefined,
+      lazy: () => pending.promise,
+    },
+  ]);
   expect(screen.getByRole('status').textContent).toBe('Loading…');
   pending.resolve({ Component: () => <h1>Loaded page</h1> });
   expect(
@@ -97,9 +120,18 @@ it.each(['import', 'render'])(
       failure === 'import'
         ? {
             ...routes[0],
+            path: '/',
+            children: undefined,
+            Component: undefined,
             lazy: () => Promise.reject(new Error('private-internal-detail')),
           }
-        : { ...routes[0], lazy: undefined, Component: BrokenPage };
+        : {
+            ...routes[0],
+            path: '/',
+            children: undefined,
+            lazy: undefined,
+            Component: BrokenPage,
+          };
     mount([route]);
     expect(
       await screen.findByRole('heading', {

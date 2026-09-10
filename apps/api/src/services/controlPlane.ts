@@ -44,24 +44,51 @@ export async function controlOverview(tx: AdminTransaction<AdminRepositories>) {
           provisioned,
         })
       ),
+    users: (await tx.portal_users.findWhere({}))
+      .slice(0, 200)
+      .map(({ id, email, status }) => ({ id, email, status })),
     members: (await tx.portal_user_tenants.findWhere({}))
       .slice(0, 200)
-      .map(({ id, portal_user_id, tenant_id, status, user_type, ready }) => ({
-        id,
-        portal_user_id,
-        tenant_id,
-        status,
-        user_type,
-        ready,
-      })),
+      .map(
+        ({
+          id,
+          portal_user_id,
+          tenant_id,
+          status,
+          user_type,
+          ready,
+          entity_id,
+        }) => ({
+          id,
+          portal_user_id,
+          tenant_id,
+          status,
+          user_type,
+          ready,
+          entity_id,
+        })
+      ),
     jobs: (await tx.provisioning_jobs.findWhere({}))
       .slice(0, 200)
-      .map(({ id, tenant_id, stage, failure_code }) => ({
-        id,
-        tenant_id,
-        stage,
-        failure_code,
-      })),
+      .map(
+        ({
+          id,
+          tenant_id,
+          stage,
+          failure_code,
+          membership_id,
+          record_id,
+          kind,
+        }) => ({
+          id,
+          tenant_id,
+          stage,
+          failure_code,
+          membership_id,
+          record_id,
+          kind,
+        })
+      ),
     grants: (await tx.platform_grants.findWhere({}))
       .slice(0, 200)
       .map(({ id, portal_user_id, role, permission }) => ({

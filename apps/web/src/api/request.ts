@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { requestGeneration, reportRefusal } from './lifecycle.js';
 import { apiErrorSchema } from '@nap/shared';
 import type { ApiError } from '@nap/shared';
 import type { z } from 'zod';
@@ -11,11 +12,11 @@ import type { z } from 'zod';
  * Does: Represents a failure the browser detected itself: the server could not
  * be reached, or its reply was not a valid response envelope.
  * Used by: requestContract, and screens that show a failure.
- * Why: the two codes sit outside the shared registry so a screen never
+ * Why: these codes sit outside the shared registry so a screen never
  * mistakes a client-side failure for a server refusal.
  */
 export type ClientFailure = {
-  code: 'NETWORK_FAILURE' | 'UNREADABLE_RESPONSE';
+  code: 'NETWORK_FAILURE' | 'UNREADABLE_RESPONSE' | 'STALE_RESPONSE';
   message: string;
 };
 
@@ -66,6 +67,19 @@ function unreadable(
   };
 }
 
+/** Does: Returns a discarded-response marker without exposing old data. Called by: transport when its session generation changes. */
+function staleResponse(): ApiResult<never> {
+  return {
+    ok: false,
+    error: {
+      code: 'STALE_RESPONSE',
+      message: 'The session changed. Try again.',
+    },
+    status: undefined,
+    requestId: undefined,
+  };
+}
+
 /**
  * Does: Sends one same-origin HTTP request, checks the JSON reply against the
  * given success schema or the shared error schema, and returns the outcome
@@ -82,6 +96,7 @@ export async function requestContract<T extends z.ZodType>(
   schema: T,
   init: RequestInit = {}
 ): Promise<ApiResult<z.output<T>>> {
+  const generation = requestGeneration();
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
   let response: Response;
@@ -92,6 +107,7 @@ export async function requestContract<T extends z.ZodType>(
       headers,
     });
   } catch {
+    if (generation !== requestGeneration()) return staleResponse();
     return {
       ok: false,
       error: {
@@ -107,8 +123,10 @@ export async function requestContract<T extends z.ZodType>(
   try {
     json = await response.json();
   } catch {
+    if (generation !== requestGeneration()) return staleResponse();
     return unreadable(response.status, requestId);
   }
+  if (generation !== requestGeneration()) return staleResponse();
   if (response.ok) {
     const parsed = schema.safeParse(json);
     return parsed.success
@@ -116,6 +134,12 @@ export async function requestContract<T extends z.ZodType>(
       : unreadable(response.status, requestId);
   }
   const parsed = apiErrorSchema.safeParse(json);
+  if (
+    parsed.success &&
+    !path.startsWith('/api/admin-tenancy/v1/auth/') &&
+    (parsed.data.code === 'UNAUTHENTICATED' || parsed.data.code === 'FORBIDDEN')
+  )
+    reportRefusal(parsed.data.code);
   return parsed.success
     ? { ok: false, error: parsed.data, status: response.status, requestId }
     : unreadable(response.status, requestId);

@@ -91,12 +91,13 @@ it('redirects anonymous account visits and renders login', async () => {
   );
 });
 
-it('redirects signed-in login visits to account and displays identity and tenant', async () => {
+it('redirects signed-in login visits to Dashboard', async () => {
   fetchMock.mockResolvedValue(sessionReply());
   const router = mount('/login');
-  await screen.findByText(view.email);
-  expect(router.state.location.pathname).toBe('/account');
-  expect(screen.getByText('Tenant: NAP')).toBeDefined();
+  await screen.findByRole('heading', { name: 'Dashboard' });
+  expect(router.state.location.pathname).toBe(
+    `/app/${view.tenantId}/dashboard`
+  );
 });
 
 it('shows session loading and allows retry after a network failure', async () => {
@@ -145,7 +146,11 @@ it('honors a safe next path after a successful login', async () => {
     .mockResolvedValueOnce(sessionReply());
   const router = mount('/login?next=%2F');
   await submitLogin();
-  await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(
+      `/app/${view.tenantId}/dashboard`
+    )
+  );
 });
 
 it.each([
@@ -155,7 +160,7 @@ it.each([
   '/login',
   '/	/evil.test',
 ])('refuses unsafe next value %s', value => {
-  expect(safeNext(value)).toBe('/account');
+  expect(safeNext(value)).toBe('/');
 });
 
 it('changes a password, shows success, and signs out', async () => {
@@ -201,5 +206,9 @@ it('returns an expired session to login after a refused password change', async 
 it('honors safe next when login mounts with an existing session', async () => {
   fetchMock.mockResolvedValue(sessionReply());
   const router = mount('/login?next=%2F');
-  await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(
+      `/app/${view.tenantId}/dashboard`
+    )
+  );
 });

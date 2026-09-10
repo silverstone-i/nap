@@ -72,7 +72,10 @@ export function loginOperation(config: AuthConfiguration) {
       if (identity?.is_root || (assignment?.provisioned && assignment.enabled))
         tenants.push(membership);
     }
-    const tenant = tenants.length === 1 ? tenants[0] : undefined;
+    const tenant =
+      tenants.length === 1 && tenants[0]?.user_type !== 'vendor'
+        ? tenants[0]
+        : undefined;
     if (
       !identity ||
       identity.status !== 'active' ||
@@ -88,7 +91,13 @@ export function loginOperation(config: AuthConfiguration) {
     const context = requestContext.getStore();
     if (!context) throw new Error('Missing request context');
     context.actorId = identity.id;
-    const result = await createSession(tx, config, identity, tenant);
+    const result = await createSession(
+      tx,
+      config,
+      identity,
+      tenant,
+      tenants.some(m => m.user_type === 'vendor')
+    );
     const emailKey = keys[0];
     if (emailKey) await tx.login_throttles.clearEmail(emailKey);
     input.reply.setCookie(

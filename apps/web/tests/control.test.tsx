@@ -119,8 +119,10 @@ it('lists memberships, switches the current session and clears the selection pag
   fireEvent.click(
     await screen.findByRole('button', { name: 'Test company (TEST)' })
   );
-  await waitFor(() => expect(router.state.location.pathname).toBe('/account'));
-  await screen.findByText('Tenant: TEST');
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(`/app/${tenant}/dashboard`)
+  );
+  await screen.findByRole('heading', { name: 'Dashboard' });
   expect(
     screen.queryByRole('button', { name: 'Test company (TEST)' })
   ).toBeNull();
@@ -172,7 +174,7 @@ it('shows controlled access and exits through a fresh authoritative session', as
   await waitFor(() =>
     expect(screen.queryByText(/Controlled impersonation/)).toBeNull()
   );
-  await screen.findByText('Tenant: TEST');
+  await screen.findByRole('heading', { name: 'Dashboard' });
 });
 it('limits support forms to explicit permissions', async () => {
   fetchMock.mockResolvedValue(

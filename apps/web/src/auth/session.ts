@@ -23,6 +23,7 @@ export const SessionContext = createContext<{
   state: SessionState;
   setSession: (session: SessionView | null) => void;
   reload: () => void;
+  refusal?: boolean;
 } | null>(null);
 
 /**
@@ -36,7 +37,7 @@ export function useSession() {
 }
 
 /**
- * Does: Returns a local navigation path or the account fallback for unsafe destinations.
+ * Does: Returns a local navigation path or the product-entry fallback for unsafe destinations.
  * Called by: the login page after sign-in.
  */
 export function safeNext(value: string | null) {
@@ -46,9 +47,38 @@ export function safeNext(value: string | null) {
     value.startsWith('//') ||
     /[\\\u0000- ]/.test(value)
   )
-    return '/account';
+    return '/';
   const parsed = new URL(value, 'https://nap.invalid');
   if (parsed.origin !== 'https://nap.invalid' || parsed.pathname === '/login')
-    return '/account';
+    return '/';
   return parsed.pathname + parsed.search + parsed.hash;
+}
+
+/** Does: Chooses the next permitted session workflow while retaining a safe destination. Called by: login, password completion and product entry. */
+export function sessionDestination(
+  session: SessionView,
+  next: string | null = null
+): string {
+  const target = safeNext(next);
+  const suffix = target === '/' ? '' : `?next=${encodeURIComponent(target)}`;
+  if (session.state === 'password-change-required') return '/account' + suffix;
+  if (session.state === 'tenant-selection-required') {
+    if (session.canChangeTenant || !session.platformPermissions.length)
+      return '/tenants' + suffix;
+    return session.platformPermissions.includes(
+      'admin-tenancy::control::overview'
+    )
+      ? '/management/tenants'
+      : '/control';
+  }
+  if (
+    !session.userType &&
+    !session.controlledAccess &&
+    session.platformPermissions.includes('admin-tenancy::control::overview') &&
+    target === '/'
+  )
+    return '/management/tenants';
+  if (target !== '/' && target !== '/login' && target !== '/tenants')
+    return target;
+  return session.tenantId ? `/app/${session.tenantId}/dashboard` : '/tenants';
 }

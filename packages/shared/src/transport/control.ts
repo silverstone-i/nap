@@ -97,6 +97,7 @@ export const membershipsResponseSchema = successResponseSchema(
   z.array(
     z.strictObject({
       id: z.uuid(),
+      tenantId: z.uuid().optional(),
       tenantCode: z.string(),
       company: z.string(),
       userType: z.string().nullable(),
@@ -125,6 +126,11 @@ export const controlResponseSchema = successResponseSchema(
         provisioned: z.boolean(),
       })
     ),
+    users: z
+      .array(
+        z.strictObject({ id: z.uuid(), email: z.email(), status: z.string() })
+      )
+      .default([]),
     members: z.array(
       z.strictObject({
         id: z.uuid(),
@@ -133,6 +139,7 @@ export const controlResponseSchema = successResponseSchema(
         status: z.string(),
         user_type: z.string().nullable(),
         ready: z.boolean(),
+        entity_id: z.uuid().nullable().default(null),
       })
     ),
     jobs: z.array(
@@ -141,6 +148,9 @@ export const controlResponseSchema = successResponseSchema(
         tenant_id: z.uuid(),
         stage: z.string(),
         failure_code: z.string().nullable(),
+        membership_id: z.uuid().nullable().default(null),
+        record_id: z.uuid().nullable().default(null),
+        kind: z.string().nullable().default(null),
       })
     ),
     grants: z.array(
@@ -180,4 +190,14 @@ export const identityResponseSchema = successResponseSchema(
 /** Does: Returns the durable job created by a control command. Used by: operator provisioning follow-up. */
 export const controlCommandResponseSchema = successResponseSchema(
   z.strictObject({ jobId: z.uuid().nullable() })
+);
+
+/**
+ * Does: Describes the current tenant's bounded navigation eligibility.
+ * Used by: the Core identity navigation endpoint and product shell.
+ */
+export const navigationResponseSchema = successResponseSchema(
+  z.strictObject({
+    employees: z.boolean(),
+  })
 );

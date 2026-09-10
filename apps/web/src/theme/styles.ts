@@ -63,3 +63,52 @@ export const wordmarkDotStyles: SxProps<Theme> = {
   ml: '0.06em',
   mb: '0.06em',
 };
+
+/** Does: Places the product frame below its header. Used by: the shell on desktop and mobile. */
+export const shellBodyStyles: SxProps<Theme> = {
+  display: 'flex',
+  minHeight: 'calc(100dvh - 64px)',
+};
+/** Does: Keeps product content flexible and readable. Used by: the shell main landmark. */
+export const shellContentStyles: SxProps<Theme> = {
+  flex: 1,
+  minWidth: 0,
+  p: { xs: 2, md: 4 },
+};
+/** Does: Sizes the navigation rail and its anchored branding. Used by: both shell drawer variants. */
+export function railStyles(collapsed: boolean): SxProps<Theme> {
+  return {
+    width: collapsed ? 80 : 240,
+    flexShrink: 0,
+    '& .MuiDrawer-paper': {
+      width: collapsed ? 80 : 240,
+      boxSizing: 'border-box',
+      position: { lg: 'relative' },
+      minHeight: '100%',
+      display: 'flex',
+    },
+  };
+}
+/** Does: Marks active navigation with the approved gold rail indicator. Used by: shell destination links. */
+export const activeNavigationStyles: SxProps<Theme> = {
+  gap: 1.5,
+  '&.Mui-selected': { borderLeft: `3px solid ${gold}` },
+};
+/** Does: Reveals the keyboard skip link on focus. Used by: the product shell. */
+export const skipLinkStyles: SxProps<Theme> = {
+  position: 'absolute',
+  left: -10000,
+  '&:focus': {
+    left: 8,
+    top: 8,
+    zIndex: 1500,
+    bgcolor: 'background.paper',
+    p: 2,
+  },
+};
+/** Does: Keeps small product branding at the rail bottom. Used by: shell navigation. */
+export const railBrandStyles: SxProps<Theme> = {
+  mt: 'auto',
+  p: 2,
+  '& [role="img"]': { fontSize: 28 },
+};

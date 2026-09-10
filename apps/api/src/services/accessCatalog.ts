@@ -39,6 +39,7 @@ export const accessPermissions = [
 /** Does: Names every shipped tenant capability. Used by: administrator roles and validation. */
 export const businessPermissions = [
   'core::identity::profile',
+  'core::identity::navigation',
   ...accessPermissions,
   ...accessCatalog.flatMap(r => r.capabilities),
 ];
