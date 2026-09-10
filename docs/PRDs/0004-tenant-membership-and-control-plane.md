@@ -212,3 +212,43 @@ not change session, revocation or controlled-access outcomes.
 
 **Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
 [verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
+
+## Vendor selection amendment — accepted
+
+Amendment to TEN-003: after required password change, every vendor
+must select an eligible tenant after each login, even with one eligible
+membership. Non-vendor single-membership selection, zero-membership/platform-only
+handling, membership validation, reference rotation and expiry remain unchanged.
+TEN-007 reuses the same tenant-selection screen from the persistent vendor
+Change tenant control; the shell owns its presentation under SHELL-003.
+The TEN-003 text above records the historical baseline; this amendment supersedes
+its vendor auto-selection policy.
+
+See [PRD 0009](0009-product-shell-and-navigation.md) and
+[ADR 0010](../ADRs/0010-product-shell-and-vendor-selection.md).
+Owner accepted this amendment with PRD 0009 implementation on 2026-09-10.
+Its implementation evidence is tracked in the shell delivery plan, separately
+from the earlier Verified status.
+
+| Date       | Change                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history. |
+
+## Shell provisioning integration — accepted
+
+[PRD 0009 SHELL-002](0009-product-shell-and-navigation.md#shell-002--business-navigation)
+owns initial shell exposure of tenants, portal users, and employees for the
+TEN-006/007 provisioning workflow. Its presentation work retains the existing
+provisioning, membership, permission, retry, and activation contracts.
+
+| Date       | Change                                                                 |
+| ---------- | ---------------------------------------------------------------------- |
+| 2026-09-09 | Linked the initial tenant-provisioning shell requirements in PRD 0009. |
+
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
+
+Shell implementation exposes permitted portal identity/status and provisioning
+relationships through the existing control overview contract. Customer membership
+choices include their tenant identifier for checked deep-link matching and omit
+unusable assignments. Shared transport schemas own the exact response fields;
+no credentials or cell addresses are added to customer contracts.

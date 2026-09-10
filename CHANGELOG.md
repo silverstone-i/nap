@@ -11,6 +11,18 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add the responsive product shell, Dashboard navigation, tenant and portal-user
+  provisioning screens, and bounded Employees view with controlled-access recovery.
+
+### Changed
+
+- Require tenant selection after every vendor login, preserve safe tenant deep
+  links, and clear stale responses when session or access context changes.
+- Accept PRD 0009, ADR 0010, linked specification/PRD amendments, and deferred
+  settings registers with the shell implementation.
+
 ## [v0.14.0] - 2026-09-09
 
 ### Added

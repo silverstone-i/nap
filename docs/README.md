@@ -146,3 +146,16 @@ Document locations and the repository skeleton are defined in
 - [Company and project scope records](PRDs/0008-company-and-project-scope-records.md)
 
 - [Authorization cache acceleration implementation plan](implementation-plans/authorization-cache-acceleration.md)
+
+- [Product shell and navigation](PRDs/0009-product-shell-and-navigation.md)
+
+## Settings registers
+
+[User settings](settings/user-settings.md) and
+[Tenant settings](settings/tenant-settings.md) own their inventory and
+defaults, with resolution/persistence notes. They derive from PRD 0009 and the
+accepted documentation-placement amendment, not from a runtime settings store.
+
+The shell documentation set was accepted with implementation on 2026-09-10.
+See the [shell delivery plan](implementation-plans/0009-product-shell-and-navigation.md)
+for implementation coordination and evidence.

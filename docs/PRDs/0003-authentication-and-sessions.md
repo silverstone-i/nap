@@ -233,3 +233,28 @@ not change session, revocation or controlled-access outcomes.
 
 **Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
 [verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
+
+## Shell entry and vendor selection amendment — accepted
+
+AUTH-001 and the membership references above follow PRD 0004's accepted
+vendor-selection amendment: vendor selection is mandatory even for one eligible
+membership. Password-change requirements still precede selection. AUTH-009
+account/login remain standalone; SHELL-003 owns product entry and safe deep-link
+continuation. Session validation, logout, throttling, and credential contracts
+are unchanged. Existing acceptance evidence describes the implemented baseline.
+
+See [PRD 0009](0009-product-shell-and-navigation.md) and
+[ADR 0010](../ADRs/0010-product-shell-and-vendor-selection.md).
+Owner accepted this amendment with PRD 0009 implementation on 2026-09-10.
+Its implementation evidence is tracked in the shell delivery plan, separately
+from the earlier Verified status.
+
+| Date       | Change                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history. |
+
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
+
+The session transport now includes the selected tenant's display name, effective
+membership type and vendor-switch availability for SHELL-003. These are computed
+from current server state; customer contracts do not disclose deployment details.

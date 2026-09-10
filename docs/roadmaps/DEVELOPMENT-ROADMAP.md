@@ -181,7 +181,7 @@ start from the specification and applicable ADRs.
 | Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Accepted | Verified       | RBAC and module entitlement                                                                        |
-| Product shell and navigation                  | Draft    | Not started    | RBAC; first tenant-aware module                                                                    |
+| Product shell and navigation                  | Accepted | Implemented    | RBAC; tenant provisioning and Core employee identity records                                       |
 | Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
 | Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
 | Projects                                      | Draft    | Not started    | Core                                                                                               |
@@ -199,6 +199,7 @@ start from the specification and applicable ADRs.
 | Reporting                                     | Draft    | Not started    | Each report's source module                                                                        |
 | Notifications                                 | Draft    | Not started    | First accepted source need                                                                         |
 | Operational scale units                       | Draft    | Not started    | Measured operational need                                                                          |
+| Dashboard                                     | Draft    | Not started    | Final planned capability; shell and implemented source modules                                     |
 
 ## Platform foundation
 
@@ -510,7 +511,10 @@ and visual specifications, `ARCH-001`, `ARCH-003`, and the specification's web
 structure and web shared behavior.
 
 **Constraint:** This capability establishes no product navigation, tenant URL
-vocabulary, or shell layer. The first tenant-aware product module accepts those.
+vocabulary, or shell layer. Its historical first-product-module dependency is
+replaced by the administration integration in
+[PRD 0009](../PRDs/0009-product-shell-and-navigation.md); the entry amendment
+was accepted on 2026-09-10 and does not alter this capability's verified history.
 
 **Gate:** No component contains a hex literal, gold appears only in its approved
 placements, the `system | light | dark` preference persists and follows
@@ -736,19 +740,36 @@ reflected on the next request. No security state exists only in Redis.
 **Outcome:** An authenticated, tenant-aware application frame with
 authorization-aware navigation and one shared reader for URL-derived scope.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted. **Implementation:** Implemented (local acceptance passed; merge/CI pending).
 
-**Depends on:** RBAC and module entitlement, and the first tenant-aware product
-module, which accepts and establishes it.
+**Depends on:** RBAC and module entitlement; tenant provisioning
+(PRD 0004) and Core employee identity records (PRD 0005). This replaces the first-new-product-module gate under ADR 0010.
 
-**Required design:** The tenant, company, and project route vocabulary; the rail
-and overlay navigation behavior; module lazy boundaries; and the normalized
-scope reader that treats a resource outside the active tenant as unset.
+**Required design:** [PRD 0009](../PRDs/0009-product-shell-and-navigation.md)
+(Accepted) owns initial navigation, Directories tabs, breadcrumbs, branding,
+static Dashboard, vendor selection, and tenant provisioning through tenants,
+portal_users, and employees. Delivery includes the missing presentation and
+bounded API support required by that workflow under SHELL-002; Companies and
+other independent management screens are outside initial integration.
+
+**Delivery:** Owner approved ADR 0010 and the linked amendments with implementation
+on 2026-09-10. See the [delivery plan](../implementation-plans/0009-product-shell-and-navigation.md).
+Documentation and code are delivered together; historical verification remains separate.
+
+**Deferred settings:** Registers at [User settings](../settings/user-settings.md)
+and [Tenant settings](../settings/tenant-settings.md) precede storage and editing
+UI. Settings persistence/configurable landing pages need their own accepted
+design; no generic settings subsystem is included in the initial shell.
 
 **Gate:** Navigation lists only implemented, entitled, permitted modules;
 back and forward replay module, resource, filter, drawer, and tab state; a
 denied or revoked state renders intentionally; hiding navigation grants nothing
 the API would refuse.
+
+**Local evidence:** Full repository tests and additional web regressions passed;
+real disposable-database browser checks covered provisioning, controlled employee
+access, vendor selection/reload, mobile navigation and themes. The delivery plan
+records details. Verified remains gated on the final shipping evidence.
 
 ## Reference data and Core
 
@@ -809,8 +830,10 @@ cycle rejection, tenant-configured component types and allowed relationships,
 progressive tree loading, permissions, memberships, and operational change
 control. Follow the ownership boundaries in `ARCH-041` and `ARCH-046`.
 
-**UI:** If Projects is the first tenant-aware product module, it also accepts
-and establishes the product shell.
+**UI:** Projects integrates into the shell established
+by [PRD 0009](../PRDs/0009-product-shell-and-navigation.md) when its own product
+workflow is accepted. Initial shell delivery does not expose Projects in the
+rail. This replaces the earlier first-module establishment dependency under ADR 0010.
 
 **Gate:** A permitted user operates a project and nested components through the
 real API and web client; ownership, cycle, tenant, permission, state, loading,
@@ -1069,6 +1092,25 @@ cutover, and recovery; create the plan as the first step of implementation.
 
 **Gate:** Recovery, compatibility, observability, and negative-isolation
 exercises pass before the new pattern carries production traffic.
+
+## Final planned capability — Dashboard
+
+**Outcome:** Design and implement the full dashboard layout and useful widgets
+against implemented, authorized product data.
+
+**Design:** Draft. **Implementation:** Not started.
+
+**Depends on:** Product shell and the business capabilities supplying its data.
+This is the final planned delivery item; it does not delay the shell's static
+Dashboard. Later evidence-driven operational work is not prohibited by this
+ordering.
+
+**Required design:** A dedicated accepted dashboard design covering layout,
+content, data access, and any personalization. Do not infer widgets from the
+static shell page or build mock metrics.
+
+**Gate:** Real data, tenant isolation, applicable permissions, and loading,
+empty, denied and failure states are verified through the web client and API.
 
 ## Capability completion gate
 

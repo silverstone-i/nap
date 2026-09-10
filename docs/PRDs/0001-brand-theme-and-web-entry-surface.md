@@ -70,3 +70,24 @@ confined to the wordmark dot.
 | ---------- | ------------------------------------------------------------ |
 | 2026-09-07 | Accepted the owner-approved minimal holding-page design.     |
 | 2026-09-07 | Marked Verified after merge, CI, and brand-discipline tests. |
+
+## Product entry amendment — accepted
+
+ENTRY-001 and ENTRY-003 currently describe the implemented holding entry.
+PRD 0009 SHELL-003/004 now owns product
+entry and the static Dashboard, replacing that holding-page experience.
+ENTRY-002 theme behavior and ENTRY-004/005 shared recovery/assets remain owned
+here. SHELL-001 adds tenant branding and relocates the small NAP wordmark in the
+product frame without changing existing brand tokens or historical evidence.
+
+See [PRD 0009](0009-product-shell-and-navigation.md) and
+[ADR 0010](../ADRs/0010-product-shell-and-vendor-selection.md).
+Owner accepted this amendment with PRD 0009 implementation on 2026-09-10.
+Its implementation evidence is tracked in the shell delivery plan, separately
+from the earlier Verified status.
+
+| Date       | Change                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history. |
+
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
