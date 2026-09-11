@@ -52,6 +52,15 @@ before its design discussion.
 - The specification governs. A capability that needs something it does not
   permit stops: the conflict is raised and the specification is amended before
   the PRD or the code is written.
+- Every capability with a user or operator workflow delivers usable UI alongside
+  its server functionality. Each increment must support manual workflow testing
+  so the interface can be refined as the capability develops; server completion
+  alone does not establish workflow completion. Infrastructure-only capabilities
+  do not require management screens.
+- Before marking such a capability `Verified`, record manual verification through
+  the real UI and API, covering prerequisites, successful completion, and
+  applicable failure, retry, and permission states. Automated tests remain
+  required; preconfigured test data alone does not verify prerequisite UI.
 - Every capability with client UI applies the specification's web shared
   behavior, and its component PRD defines routes, drawer use, full-page
   workflows, responsive behavior, loading, empty, denied, and error states, and
@@ -76,7 +85,10 @@ flowchart TD
   rbac --> cache[Authorization cache acceleration]
   rbac --> shell[Product shell and navigation]
   rbac --> core[Reference data and Core]
-  shell --> core
+  shell --> provisioningUI[Cell registration and tenant provisioning UI]
+  provisioning --> provisioningUI
+  rbac --> provisioningUI
+  provisioningUI --> core
   core --> projects[Projects]
   core --> costCodes[Cost Codes]
   core --> catalog[Catalog]
@@ -182,7 +194,8 @@ start from the specification and applicable ADRs.
 | RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Accepted | Verified       | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Accepted | Verified       | RBAC; tenant provisioning and Core employee identity records                                       |
-| Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
+| Cell registration and tenant provisioning UI  | Draft    | Not started    | Product shell and navigation; Cell tenancy and provisioning; RBAC and module entitlement           |
+| Reference data and Core                       | Draft    | Not started    | Cell registration and tenant provisioning UI; RBAC                                                 |
 | Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
 | Projects                                      | Draft    | Not started    | Core                                                                                               |
 | Cost Codes                                    | Draft    | Not started    | Core                                                                                               |
@@ -777,6 +790,56 @@ real disposable-database browser checks covered provisioning, controlled employe
 access, vendor selection/reload, mobile navigation and themes. The delivery plan
 records details. Verified remains gated on the final shipping evidence.
 
+### Cell registration and tenant provisioning UI
+
+**Outcome:** Complete the operator UI workflow from registering an available
+cell through activating a tenant with an initial `tenant_admin`, then signing
+in as that administrator to verify tenant access.
+
+**Design:** Draft. **Implementation:** Not started.
+
+**Depends on:** Product shell and navigation; Cell tenancy and provisioning;
+RBAC and module entitlement. This is the next delivery step before Reference
+data and Core.
+
+**Known gap:** Historical Verified statuses and evidence for the control plane,
+cell provisioning, RBAC, and product shell remain intact. They do not establish
+that all prerequisites are available through the UI: the missing cell
+registration UI prevents the complete operator workflow when the cell registry
+is empty.
+
+**Required design:** Use the existing owners:
+[Tenant membership and control plane, PRD 0004](../PRDs/0004-tenant-membership-and-control-plane.md),
+[Core identity records, PRD 0005](../PRDs/0005-core-identity-records.md),
+[RBAC, PRD 0006](../PRDs/0006-role-based-access-control.md), and
+[Product shell and navigation, PRD 0009](../PRDs/0009-product-shell-and-navigation.md).
+Accept any missing UI behavior in those documents before feature implementation.
+The roadmap records the delivery gap and acceptance gate, not new API or data
+contracts.
+
+**Delivery workflow:**
+
+1. Register and enable an existing, configured cell through the UI.
+2. Create a pending tenant assigned to that cell.
+3. Create or link the initial portal user and provision its employee membership.
+4. Inspect provisioning progress and retry failures.
+5. Activate the tenant with an initial `tenant_admin`.
+6. Sign in as that administrator and verify tenant access.
+
+Cell infrastructure deployment, database migrations, and API process startup
+remain operational prerequisites; this step does not add infrastructure startup
+controls to the UI. Broader Reference data and Core workflows are not required
+for the existing initial employee and administrator provisioning scope.
+
+**Gate:** Record manual verification through the real UI and API, with automated
+tests for the applicable contracts. Cover an empty cell registry followed by UI
+registration, successful tenant provisioning and activation, a recoverable
+provisioning failure and retry, unauthorized access denial, and initial
+administrator login including required temporary-password change. UI evidence
+must exercise prerequisite setup rather than relying on a cell record created beforehand.
+This entry records planned work and does not claim UI implementation or
+verification.
+
 ## Reference data and Core
 
 ### Shared references and company and party records
@@ -787,7 +850,8 @@ Accounting require.
 
 **Design:** Draft. **Implementation:** Not started.
 
-**Depends on:** RBAC and module entitlement.
+**Depends on:** Cell registration and tenant provisioning UI; RBAC and module
+entitlement.
 
 **Required design:** Accept capability PRDs in dependency order. A company
 belongs to one tenant; do not introduce a generic business `entity` model. The
