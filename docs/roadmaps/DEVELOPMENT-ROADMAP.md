@@ -836,7 +836,7 @@ tests for the applicable contracts. Cover an empty cell registry followed by UI
 registration, successful tenant provisioning and activation, a recoverable
 provisioning failure and retry, unauthorized access denial, and initial
 administrator login including required temporary-password change. UI evidence
-must exercise prerequisite setup rather than relying on a preseeded cell row.
+must exercise prerequisite setup rather than relying on a cell record created beforehand.
 This entry records planned work and does not claim UI implementation or
 verification.
 
