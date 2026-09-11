@@ -252,3 +252,33 @@ relationships through the existing control overview contract. Customer membershi
 choices include their tenant identifier for checked deep-link matching and omit
 unusable assignments. Shared transport schemas own the exact response fields;
 no credentials or cell addresses are added to customer contracts.
+
+## TEN-010 — Cell registration and provisioning UI
+
+**Design:** Accepted by owner, 2026-09-11. New implementation evidence is tracked
+in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
+
+Authorized operators can register configured cells and edit their display name
+and enabled state. Codes identify existing records and are read-only on edit.
+Creation detects codes already in the overview and directs the operator to edit.
+Disabling requires confirmation explaining loss of assigned tenant access.
+Overview permission controls viewing; registry permission controls mutations.
+Registration does not deploy infrastructure or establish operational readiness.
+
+Tenant creation offers enabled cells only and links to cell setup when none exist.
+Existing employee provisioning and activation use TEN-006/TEN-009 and PRD 0006:
+a sole eligible employee may be preselected; multiple employees require a choice.
+Show assigned cell, readiness, durable job stage and safe failure information,
+with explicit refresh and retry. Preserve a created job ID when synchronization
+fails; retry that job without recreating membership. Do not equate HTTP success
+with provisioning completion or status unavailability with success. Ask for the
+name again when the first Core write requires it. Never persist passwords in UI
+storage or jobs. After activation explain first login and required temporary
+password change; existing linked identities retain their credentials.
+
+Revision, 2026-09-11: Owner accepted TEN-010 for the cell registration and tenant
+provisioning UI; prior implementation verification remains historical.
+
+UI implementation, 2026-09-11: Cells and provisioning completion are implemented
+locally with real UI/API acceptance evidence in the UI delivery plan. Merge and
+CI remain pending; historical Verified entries retain their original scope.

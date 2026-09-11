@@ -220,3 +220,27 @@ The implementation plan records current verification evidence.
 | 2026-09-11 | Applied owner-requested management UI guidelines: focused Header1, MUI X DataGrid, record actions, and Tenant Management collapse/flyout navigation. |
 
 | 2026-09-11 | Reconciled SHELL-001–005 verification for PR #21; final local checks and CI passed, with Verified effective upon merge. |
+
+## SHELL-009 — Cells and provisioning completion
+
+**Design:** Accepted by owner, 2026-09-11.
+
+Tenant Management adds Cells alongside Tenants and Portal users in expanded,
+collapsed and mobile navigation. Routes are `/management/cells`,
+`/management/cells/new` and `/management/cells/:target`. Use Header1 for title,
+search and Register cell; DataGrid for code, name, enabled state and row actions.
+Explicit Save/Cancel forms provide registration and editing; disabling uses a
+confirmation dialog. Lists retain the existing URL-state conventions.
+
+PRD 0004 TEN-010 owns the cell and provisioning behavior. Reuse existing tenant
+and portal-user pages, presenting next actions, status and recoverable failures
+in the tenant context. Empty enabled-cell choices link to Cells and prevent
+submission. Preserve permission gates and clear stale replies on session changes.
+No wizard, infrastructure controls or generic employee administration is added.
+
+Revision, 2026-09-11: Owner accepted SHELL-009 with implementation authorization.
+Evidence is tracked in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
+
+UI implementation, 2026-09-11: Cells and provisioning completion are implemented
+locally with real UI/API acceptance evidence in the UI delivery plan. Merge and
+CI remain pending; historical Verified entries retain their original scope.

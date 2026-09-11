@@ -56,6 +56,16 @@ export const routes: RouteObject[] = [
                 .ManagementPage,
             }),
           })),
+          ...[
+            '/management/cells',
+            '/management/cells/new',
+            '/management/cells/:target',
+          ].map(path => ({
+            path,
+            lazy: async () => ({
+              Component: (await import('./pages/CellsPage.js')).CellsPage,
+            }),
+          })),
         ],
       },
       {

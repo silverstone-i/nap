@@ -57,7 +57,9 @@ export function ManagementPage() {
     anchor: HTMLElement;
     id: string;
   } | null>(null);
-  const [severity, setSeverity] = useState<'error' | 'success'>('error');
+  const [severity, setSeverity] = useState<'error' | 'success' | 'warning'>(
+    'error'
+  );
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -88,8 +90,10 @@ export function ManagementPage() {
     let active = true;
     void overview().then(result => {
       if (!active) return;
-      if (result.ok) setData(result.body.data);
-      else {
+      if (result.ok) {
+        setData(result.body.data);
+        setMessage('');
+      } else {
         setData(null);
         setMessage(result.error.message);
       }
@@ -111,9 +115,14 @@ export function ManagementPage() {
     );
     if (!values.password) delete values.password;
     if (!values.administrator) delete values.administrator;
+    if (values.operation === 'retry' && !values.name) delete values.name;
     const parsed = controlBodySchema.safeParse(values);
     if (!parsed.success) {
-      setMessage('Check the fields and try again.');
+      setMessage(
+        parsed.error.issues
+          .map(issue => `${issue.path.join('.')}: ${issue.message}`)
+          .join(' ')
+      );
       return;
     }
     setBusy(true);
@@ -124,22 +133,58 @@ export function ManagementPage() {
     const password = form.elements.namedItem('password');
     if (password instanceof HTMLInputElement) password.value = '';
     if (!mounted.current || generation !== requestGeneration()) return;
+    const refreshed = await overview();
+    if (!mounted.current || generation !== requestGeneration()) return;
     setBusy(false);
-    setSeverity(result.ok ? 'success' : 'error');
-    if (result.ok) setAction('');
-    setMessage(
-      result.ok
-        ? 'Saved. Provisioning status has been refreshed.'
-        : result.error.message
+    if (refreshed.ok) setData(refreshed.body.data);
+    else setData(null);
+    const jobId =
+      result.jobId ??
+      (parsed.data.operation === 'retry' ? parsed.data.job : null);
+    const job = refreshed.ok
+      ? refreshed.body.data.jobs.find(j => j.id === jobId)
+      : undefined;
+    setSeverity(
+      !result.ok || !refreshed.ok
+        ? 'error'
+        : jobId && job?.stage !== 'complete'
+          ? 'warning'
+          : 'success'
     );
-    setRevision(v => v + 1);
-    if (result.ok && scope.create) {
-      await navigate(
+    setMessage(
+      !refreshed.ok
+        ? `Status unavailable. ${refreshed.error.message}${jobId ? ` Saved job: ${jobId}. Refresh status before retrying; do not create another membership.` : ''}`
+        : !result.ok
+          ? `${result.error.message}${jobId ? ' Retry the existing provisioning job; do not create another membership.' : ''}`
+          : jobId
+            ? job?.stage === 'complete'
+              ? 'Provisioning complete. Review tenant readiness before activation.'
+              : job?.stage === 'failed'
+                ? `Provisioning failed${job.failure_code ? ` (${job.failure_code})` : ''}. Retry the existing job.`
+                : 'Provisioning is pending or its status is unavailable. Refresh status before retrying the existing job.'
+            : 'Saved.'
+    );
+    if (result.ok) setAction('');
+    if (
+      scope.create &&
+      (result.ok || (parsed.data.operation === 'member' && jobId))
+    ) {
+      const createdCode =
+        parsed.data.operation === 'tenant' ? parsed.data.code : null;
+      const createdTenant =
+        refreshed.ok && createdCode
+          ? refreshed.body.data.tenants.find(t => t.tenant_code === createdCode)
+          : undefined;
+      const destination =
         scope.portalUsers && scope.target
           ? `/management/tenants/${scope.target}`
           : scope.portalUsers
             ? '/management/portal-users'
-            : '/management/tenants'
+            : createdTenant
+              ? `/management/tenants/${createdTenant.id}`
+              : '/management/tenants';
+      await navigate(
+        `${destination}${jobId ? `?job=${encodeURIComponent(jobId)}` : ''}`
       );
     }
   }
@@ -278,6 +323,21 @@ export function ManagementPage() {
     m => m.user_type === 'employee' && m.ready && m.status === 'active'
   );
   const jobs = data.jobs.filter(j => j.tenant_id === tenant?.id);
+  const enabledCells = data.cells.filter(c => c.enabled);
+  const assignedCell = data.cells.find(c => c.id === tenant?.cell_id);
+  const pendingMembers = members.some(m => m.status === 'active' && !m.ready);
+  const activationBlocked =
+    !assignedCell?.enabled || !employees.length || pendingMembers;
+  const requestedJob = new URLSearchParams(location.search).get('job');
+  const savedJob = data.jobs.find(j => j.id === requestedJob);
+  const savedJobMessage =
+    savedJob?.stage === 'complete'
+      ? tenant?.status === 'active'
+        ? 'Provisioning complete.'
+        : 'Provisioning complete. Review tenant readiness before activation.'
+      : savedJob?.stage === 'failed'
+        ? `Provisioning failed${savedJob.failure_code ? ` (${savedJob.failure_code})` : ''}. Retry the existing job.`
+        : 'Provisioning is pending or its status is unavailable. Refresh status before retrying the existing job.';
   const size = defaultRowsPerPage();
   const user = scope.portalUsers
     ? data.users.find(u => u.id === scope.record)
@@ -412,6 +472,7 @@ export function ManagementPage() {
               variant="contained"
               component={Link}
               to="/management/tenants/new"
+              disabled={!enabledCells.length}
             >
               Create tenant
             </Button>
@@ -432,7 +493,33 @@ export function ManagementPage() {
         )}
       </Toolbar>
       <Box sx={managementContentStyles}>
-        {message && <Alert severity={severity}>{message}</Alert>}
+        {message && (!requestedJob || message !== savedJobMessage) && (
+          <Alert severity={severity}>{message}</Alert>
+        )}
+        {requestedJob && (
+          <Alert
+            severity={savedJob?.stage === 'complete' ? 'success' : 'warning'}
+          >
+            {savedJobMessage}
+            {savedJob && !tenant && (
+              <Button
+                component={Link}
+                to={`/management/tenants/${savedJob.tenant_id}?job=${encodeURIComponent(savedJob.id)}`}
+              >
+                View tenant provisioning
+              </Button>
+            )}
+          </Alert>
+        )}
+        {!scope.portalUsers && !tenant && !enabledCells.length && (
+          <Alert severity="info">
+            No enabled cells are available. Register or enable a configured cell
+            before creating a tenant.
+            <Button component={Link} to="/management/cells">
+              Go to Cells
+            </Button>
+          </Alert>
+        )}
         {scope.create ? (
           scope.portalUsers ? (
             can('members') && (
@@ -461,6 +548,7 @@ export function ManagementPage() {
                   name="kind"
                   label="Relationship"
                   defaultValue="employee"
+                  helperText="An employee can be designated as the initial tenant administrator during activation."
                   required
                 >
                   {['employee', 'client', 'vendor'].map(kind => (
@@ -532,7 +620,7 @@ export function ManagementPage() {
                       </MenuItem>
                     ))}
                 </TextField>
-                <Button type="submit" disabled={busy}>
+                <Button type="submit" disabled={busy || !enabledCells.length}>
                   Create pending tenant
                 </Button>
               </Stack>
@@ -578,6 +666,33 @@ export function ManagementPage() {
                   </Button>
                 )}
             </Stack>
+            <Typography>
+              Assigned cell:{' '}
+              {assignedCell
+                ? `${assignedCell.name} (${assignedCell.enabled ? 'enabled' : 'disabled'})`
+                : 'Unavailable'}
+            </Typography>
+            {tenant.status === 'pending' && (
+              <Alert severity={activationBlocked ? 'info' : 'success'}>
+                {!assignedCell?.enabled
+                  ? 'Enable the assigned cell before activation.'
+                  : !members.length
+                    ? 'Next: create or link the initial employee portal user.'
+                    : pendingMembers
+                      ? 'Next: retry incomplete provisioning before activation.'
+                      : !employees.length
+                        ? 'Next: provision an active employee for the initial administrator.'
+                        : 'Ready for activation checks. Choose the initial tenant administrator and activate.'}
+              </Alert>
+            )}
+            {tenant.status === 'active' && (
+              <Alert severity="success">
+                Tenant activated. The initial administrator can sign in at
+                /login. New portal users must change their temporary password
+                before entering the tenant. Linked users keep their existing
+                credentials.
+              </Alert>
+            )}
             <Typography>
               Projection: {tenant.provisioned ? 'Confirmed' : 'Pending'}
             </Typography>
@@ -641,8 +756,7 @@ export function ManagementPage() {
                 <TextField
                   name="name"
                   label="Employee or contact name"
-                  required
-                  helperText="Used if the original record could not be saved."
+                  helperText="Enter the name if the original record could not be saved. An existing record can be retried without a name."
                 />
                 <Button type="submit" disabled={busy}>
                   Retry provisioning
@@ -667,7 +781,9 @@ export function ManagementPage() {
                     select
                     name="administrator"
                     label="Initial administrator"
-                    defaultValue=""
+                    defaultValue={
+                      employees.length === 1 ? employees[0]?.id : ''
+                    }
                     required
                   >
                     {employees.map(m => (
@@ -680,7 +796,7 @@ export function ManagementPage() {
                     Activation checks that the tenant and initial administrator
                     are ready.
                   </Typography>
-                  <Button type="submit" disabled={busy || !employees.length}>
+                  <Button type="submit" disabled={busy || activationBlocked}>
                     Verify and activate
                   </Button>
                 </Stack>
