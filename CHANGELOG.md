@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.15.0] - 2026-09-11
+
 ### Added
 
 - Add the responsive product shell, Dashboard navigation, tenant and portal-user
