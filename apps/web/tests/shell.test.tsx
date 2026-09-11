@@ -676,3 +676,34 @@ it('restores status filtering and sorting from a management bookmark', async () 
       .getAttribute('aria-sort')
   ).toBe('descending');
 });
+
+it('clears a navigation failure while refetching after returning from management', async () => {
+  managementFixture();
+  const fallback = fetchMock.getMockImplementation()!;
+  const pending = Promise.withResolvers<Response>();
+  let calls = 0;
+  fetchMock.mockImplementation((url, init) => {
+    const path =
+      typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+    if (path.endsWith('/navigation')) {
+      calls++;
+      if (calls === 1) return Promise.reject(new Error('Offline'));
+      return pending.promise;
+    }
+    return fallback(url, init);
+  });
+  const router = mount(`/app/${tenant}/dashboard`);
+  await screen.findByText('The server could not be reached');
+  await router.navigate('/management/tenants');
+  await screen.findByRole('heading', { name: 'Tenants' });
+  await router.navigate(`/app/${tenant}/dashboard`);
+  await waitFor(() => expect(calls).toBe(2));
+  expect(screen.queryByText('The server could not be reached')).toBeNull();
+  expect(
+    screen.queryByText('Dashboard widgets are under construction.')
+  ).toBeNull();
+  expect(screen.getByText('Loading…')).toBeDefined();
+  pending.resolve(await reply({ employees: true }));
+  await screen.findByText('Dashboard widgets are under construction.');
+  expect(screen.queryByText('The server could not be reached')).toBeNull();
+});

@@ -76,6 +76,20 @@ export class Cells extends TableModel<CellsRow> {
   async lockControl() {
     await this.db.any('SELECT pg_advisory_xact_lock(732,1)');
   }
+  /**
+   * Does: Returns tenant IDs whose assignments are provisioned and enabled.
+   * Called by: membership listing after locking the identity's active memberships.
+   * Why: One query checks all assignments without changing membership lock order.
+   */
+  async availableAssignments(ids: string[]) {
+    return this.db.any<{ id: string }>(
+      `SELECT t.id FROM admin.tenants t
+       JOIN admin.cells c ON c.id=t.cell_id AND c.deactivated_at IS NULL
+       WHERE t.id=ANY($1::uuid[]) AND t.deactivated_at IS NULL
+         AND t.provisioned AND c.enabled`,
+      [ids]
+    );
+  }
   /** Does: Loads tenant assignment and cell availability. Called by: request-time authorization. */
   async assignment(id: string) {
     return this.db.oneOrNone<{

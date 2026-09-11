@@ -97,7 +97,7 @@ export const membershipsResponseSchema = successResponseSchema(
   z.array(
     z.strictObject({
       id: z.uuid(),
-      tenantId: z.uuid().optional(),
+      tenantId: z.uuid(),
       tenantCode: z.string(),
       company: z.string(),
       userType: z.string().nullable(),

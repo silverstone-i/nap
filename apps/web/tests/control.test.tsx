@@ -99,6 +99,7 @@ it('lists memberships, switches the current session and clears the selection pag
       return respond([
         {
           id: membership,
+          tenantId: tenant,
           tenantCode: 'TEST',
           company: 'Test company',
           userType: 'vendor',
@@ -134,6 +135,7 @@ it('shows selection failures and permits retry', async () => {
       ? respond([
           {
             id: membership,
+            tenantId: tenant,
             tenantCode: 'TEST',
             company: 'Test company',
             userType: 'vendor',

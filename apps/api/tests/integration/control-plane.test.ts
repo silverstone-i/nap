@@ -1009,3 +1009,41 @@ it('retains central administration for a vendor whose only assignment is unavail
     .set('Cookie', cookie(response));
   expect(membershipsResponseSchema.parse(choices.body).data).toEqual([]);
 });
+
+it('lists only available assignments across multiple vendor memberships', async () => {
+  const first = await activeTenant();
+  const second = await activeTenant();
+  const vendor = await member(first.t.id, 'vendor');
+  await member(second.t.id, 'vendor', vendor.email);
+  const session = await onboard(vendor.email);
+  await test.owner.none(
+    'UPDATE admin.tenants SET provisioned=false WHERE id=$1',
+    [second.t.id]
+  );
+  const choices = await request(test.server)
+    .get(auth + '/memberships')
+    .set('Cookie', session)
+    .expect(200);
+  expect(membershipsResponseSchema.parse(choices.body).data).toEqual([
+    {
+      id: vendor.binding.id,
+      tenantId: first.t.id,
+      tenantCode: first.t.tenant_code,
+      company: first.t.company,
+      userType: 'vendor',
+    },
+  ]);
+  expect(await test.admin.db.cells.availableAssignments([])).toEqual([]);
+  await test.owner.none('UPDATE admin.cells SET enabled=false WHERE id=$1', [
+    cellId,
+  ]);
+  try {
+    expect(
+      await test.admin.db.cells.availableAssignments([first.t.id])
+    ).toEqual([]);
+  } finally {
+    await test.owner.none('UPDATE admin.cells SET enabled=true WHERE id=$1', [
+      cellId,
+    ]);
+  }
+});

@@ -91,14 +91,24 @@ export function ProductShell() {
     session.state === 'tenant-selected' &&
     scope.tenant === session.tenantId &&
     !refusal;
+  const requestScope = ready ? scope.tenant : null;
+  const [navigationScope, setNavigationScope] = useState(requestScope);
+  // Reset before rendering a new scope so old errors and permissions cannot flash.
+  if (navigationScope !== requestScope) {
+    setNavigationScope(requestScope);
+    setNavigation(null);
+    setFailure('');
+  }
   useEffect(() => {
     if (!ready || !scope.tenant) return;
     let active = true;
     const tenant = scope.tenant;
     void getNavigation().then(result => {
       if (!active) return;
-      if (result.ok) setNavigation({ tenant, ...result.body.data });
-      else setFailure(result.error.message);
+      if (result.ok) {
+        setNavigation({ tenant, ...result.body.data });
+        setFailure('');
+      } else setFailure(result.error.message);
     });
     return () => {
       active = false;
