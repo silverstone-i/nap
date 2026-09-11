@@ -73,3 +73,21 @@ sections above describe the pre-RBAC baseline. RBAC changes are Verified upon me
 Self-profile remains available; broader access requires current scoped grants.
 New provisioning seeds the initial tenant administrator before activation.
 Existing privileged identities require reviewed transition mappings.
+
+## Shell employee integration — accepted
+
+[PRD 0009 SHELL-002](0009-product-shell-and-navigation.md#shell-002--business-navigation)
+requires employee exposure in the initial tenant-provisioning shell. CID-001–004
+continue to own employee records and access; the shell supplies the required
+provisioning presentation under PRD 0004.
+
+| Date       | Change                                                                 |
+| ---------- | ---------------------------------------------------------------------- |
+| 2026-09-09 | Linked the initial tenant-provisioning shell requirements in PRD 0009. |
+
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
+
+The shell uses `GET /api/core/v1/identity/navigation` for a bounded Employees
+eligibility hint. It applies the normal tenant, entitlement and permission gates;
+CID-004 profile authorization remains authoritative. The hint adds no record
+listing or editing permission. Shared transport schemas own its response shape.

@@ -87,8 +87,9 @@ it('forces password replacement before selection or administration', async () =>
   );
   const router = mount('/control');
   await screen.findByText('Change your temporary password before continuing.');
-  expect(router.state.location.pathname).toBe('/account');
+  expect(router.state.location.pathname).toBe('/account/password');
   expect(screen.queryByText('Administration')).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Cancel' })).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 it('lists memberships, switches the current session and clears the selection page', async () => {
@@ -98,6 +99,7 @@ it('lists memberships, switches the current session and clears the selection pag
       return respond([
         {
           id: membership,
+          tenantId: tenant,
           tenantCode: 'TEST',
           company: 'Test company',
           userType: 'vendor',
@@ -119,8 +121,10 @@ it('lists memberships, switches the current session and clears the selection pag
   fireEvent.click(
     await screen.findByRole('button', { name: 'Test company (TEST)' })
   );
-  await waitFor(() => expect(router.state.location.pathname).toBe('/account'));
-  await screen.findByText('Tenant: TEST');
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(`/app/${tenant}/dashboard`)
+  );
+  await screen.findByRole('heading', { name: 'Dashboard' });
   expect(
     screen.queryByRole('button', { name: 'Test company (TEST)' })
   ).toBeNull();
@@ -131,6 +135,7 @@ it('shows selection failures and permits retry', async () => {
       ? respond([
           {
             id: membership,
+            tenantId: tenant,
             tenantCode: 'TEST',
             company: 'Test company',
             userType: 'vendor',
@@ -165,14 +170,14 @@ it('shows controlled access and exits through a fresh authoritative session', as
         : null,
     });
   });
-  mount('/account');
+  mount('/account/password');
   await screen.findByText(/Controlled impersonation/);
   expect(screen.queryByRole('link', { name: 'Administration' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Exit access' }));
   await waitFor(() =>
     expect(screen.queryByText(/Controlled impersonation/)).toBeNull()
   );
-  await screen.findByText('Tenant: TEST');
+  await screen.findByRole('heading', { name: 'Dashboard' });
 });
 it('limits support forms to explicit permissions', async () => {
   fetchMock.mockResolvedValue(

@@ -23,11 +23,18 @@ const names = {
   admin: `nap_test_admin_${suffix}`,
   cell: `nap_test_cell_${suffix}`,
 };
+/**
+ * Run fixture tooling and fail closed on any nonzero exit. A locale is always
+ * set: PostgreSQL 18 on macOS aborts postmaster startup when LC_ALL is empty,
+ * which is the state of a bare non-interactive shell.
+ */
 function command(program, args, options = {}) {
+  const env = options.env ?? process.env;
   const result = spawnSync(program, args, {
     encoding: 'utf8',
     timeout: 15000,
     ...options,
+    env: { ...env, LC_ALL: env.LC_ALL || 'C' },
   });
   if (result.status !== 0 || result.error)
     throw new Error(`Test fixture command failed: ${program}`);

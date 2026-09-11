@@ -19,6 +19,7 @@ import {
   identityResponseSchema,
   controlResponseSchema,
   membershipsResponseSchema,
+  navigationResponseSchema,
 } from '@nap/shared';
 
 let test: Awaited<ReturnType<typeof authDatabase>>;
@@ -890,4 +891,159 @@ it('rejects a missing first-write name without marking a cell failure and replay
   await withTenantTransaction(test.cell, t.id, async tx => {
     expect(await tx.employees.countAll()).toBe(1);
   });
+});
+
+it('requires a sole vendor to select after each login while preserving a selected reload', async () => {
+  const { t } = await activeTenant();
+  const vendor = await member(t.id, 'vendor');
+  const initial = await onboard(vendor.email);
+  const afterPassword = await request(test.server)
+    .get(auth + '/session')
+    .set('Cookie', initial);
+  expect(sessionResponseSchema.parse(afterPassword.body).data).toMatchObject({
+    state: 'tenant-selection-required',
+    tenantId: null,
+    canChangeTenant: true,
+  });
+  const fresh = await login(vendor.email, replacement);
+  expect(sessionResponseSchema.parse(fresh.body).data.state).toBe(
+    'tenant-selection-required'
+  );
+  const selected = await request(test.server)
+    .post(auth + '/select')
+    .set('Cookie', cookie(fresh))
+    .send({ membership: vendor.binding.id });
+  expect(selected.status).toBe(200);
+  const checked = await request(test.server)
+    .get(auth + '/session')
+    .set('Cookie', cookie(selected));
+  expect(sessionResponseSchema.parse(checked.body).data).toMatchObject({
+    tenantId: t.id,
+    tenantName: t.company,
+    userType: 'vendor',
+    canChangeTenant: true,
+    state: 'tenant-selected',
+  });
+  const nextLogin = await login(vendor.email, replacement);
+  expect(sessionResponseSchema.parse(nextLogin.body).data.tenantId).toBeNull();
+});
+
+it('exposes safe provisioning relationships and bounded employee navigation without central grants', async () => {
+  const { m } = await activeTenant();
+  const c = await onboard(m.email);
+  const navigation = await request(test.server)
+    .get('/api/core/v1/identity/navigation')
+    .set('Cookie', c);
+  expect(navigation.status).toBe(200);
+  expect(navigationResponseSchema.parse(navigation.body).data).toEqual({
+    employees: true,
+  });
+  expect(
+    (
+      await request(test.server)
+        .get(control + '/overview')
+        .set('Cookie', c)
+    ).status
+  ).toBe(403);
+  const result = await request(test.server)
+    .get(control + '/overview')
+    .set('Cookie', rootCookie);
+  const data = controlResponseSchema.parse(result.body).data;
+  expect(data.users.find(u => u.id === m.user.id)).toEqual({
+    id: m.user.id,
+    email: m.email,
+    status: 'active',
+  });
+  expect(data.members.find(b => b.id === m.binding.id)?.entity_id).toBe(
+    m.binding.entity_id
+  );
+  expect(data.jobs.find(j => j.membership_id === m.binding.id)?.record_id).toBe(
+    m.binding.entity_id
+  );
+  expect(JSON.stringify(result.body)).not.toMatch(
+    /password_hash|must_change_password|temporary-password/
+  );
+  expect(
+    (
+      await request(test.server)
+        .get('/api/core/v1/identity/profile')
+        .query({ record: m.binding.entity_id, kind: 'employee' })
+        .set('Cookie', c)
+    ).status
+  ).toBe(403);
+});
+
+it('retains central administration for a vendor whose only assignment is unavailable', async () => {
+  const { t } = await activeTenant();
+  const vendor = await member(t.id, 'vendor');
+  await onboard(vendor.email);
+  await request(test.server)
+    .post(control + '/role-policy')
+    .set('Cookie', rootCookie)
+    .send({
+      operation: 'platform-role',
+      user: vendor.user.id,
+      role: 'platform_admin',
+      enabled: true,
+    })
+    .expect(200);
+  await test.owner.none(
+    'UPDATE admin.tenants SET provisioned=false WHERE id=$1',
+    [t.id]
+  );
+  const response = await login(vendor.email, replacement);
+  expect(response.status).toBe(200);
+  const initial = sessionResponseSchema.parse(response.body).data;
+  expect(initial).toMatchObject({ tenantId: null, canChangeTenant: false });
+  expect(initial.platformPermissions).toContain(
+    'admin-tenancy::control::overview'
+  );
+  const checked = await request(test.server)
+    .get(auth + '/session')
+    .set('Cookie', cookie(response));
+  expect(sessionResponseSchema.parse(checked.body).data.canChangeTenant).toBe(
+    false
+  );
+  const choices = await request(test.server)
+    .get(auth + '/memberships')
+    .set('Cookie', cookie(response));
+  expect(membershipsResponseSchema.parse(choices.body).data).toEqual([]);
+});
+
+it('lists only available assignments across multiple vendor memberships', async () => {
+  const first = await activeTenant();
+  const second = await activeTenant();
+  const vendor = await member(first.t.id, 'vendor');
+  await member(second.t.id, 'vendor', vendor.email);
+  const session = await onboard(vendor.email);
+  await test.owner.none(
+    'UPDATE admin.tenants SET provisioned=false WHERE id=$1',
+    [second.t.id]
+  );
+  const choices = await request(test.server)
+    .get(auth + '/memberships')
+    .set('Cookie', session)
+    .expect(200);
+  expect(membershipsResponseSchema.parse(choices.body).data).toEqual([
+    {
+      id: vendor.binding.id,
+      tenantId: first.t.id,
+      tenantCode: first.t.tenant_code,
+      company: first.t.company,
+      userType: 'vendor',
+    },
+  ]);
+  expect(await test.admin.db.cells.availableAssignments([])).toEqual([]);
+  await test.owner.none('UPDATE admin.cells SET enabled=false WHERE id=$1', [
+    cellId,
+  ]);
+  try {
+    expect(
+      await test.admin.db.cells.availableAssignments([first.t.id])
+    ).toEqual([]);
+  } finally {
+    await test.owner.none('UPDATE admin.cells SET enabled=true WHERE id=$1', [
+      cellId,
+    ]);
+  }
 });

@@ -39,6 +39,9 @@ export function sessionView(
     email,
     tenantId,
     tenantCode,
+    tenantName: null,
+    userType: null,
+    canChangeTenant: false,
     expiresAt: new Date(
       Math.min(row.idle_expires_at.getTime(), row.absolute_expires_at.getTime())
     ).toISOString(),
@@ -52,7 +55,13 @@ export async function createSession(
   tx: AdminTransaction<AdminRepositories>,
   config: AuthConfiguration,
   identity: { id: string; email: string; must_change_password?: boolean },
-  tenant?: { tenant_id: string; tenant_code: string }
+  tenant?: {
+    tenant_id: string;
+    tenant_code: string;
+    company: string;
+    user_type: string | null;
+  },
+  canChangeTenant = false
 ) {
   const secret = sessionSecret();
   const now = new Date();
@@ -75,10 +84,14 @@ export async function createSession(
     tenant?.tenant_code ?? null
   );
   view.platformPermissions = await platformGrants(tx, identity.id);
+  view.tenantName = tenant?.company ?? null;
+  view.userType = membershipType(tenant?.user_type);
+  view.canChangeTenant = canChangeTenant;
   if (identity.must_change_password) {
     view.state = 'password-change-required';
     view.tenantId = null;
     view.tenantCode = null;
+    view.tenantName = null;
   }
   return {
     cookie: await signReference(row.id, secret, config.sessionSecret),
@@ -180,6 +193,21 @@ export async function resolveSession(
       selected?.id ?? null,
       selected?.tenant_code ?? null
     );
+    view.tenantName = selected?.company ?? null;
+    view.userType = membershipType(kind);
+    view.canChangeTenant = !row.access_mode && kind === 'vendor';
+    if (!selected && !row.access_mode) {
+      for (const membership of await tx.portal_user_tenants.activeFor(
+        identity.id
+      )) {
+        if (membership.user_type !== 'vendor') continue;
+        const assignment = await cachedAssignment(tx, membership.tenant_id);
+        if (assignment?.provisioned && assignment.enabled) {
+          view.canChangeTenant = true;
+          break;
+        }
+      }
+    }
     view.platformPermissions =
       row.access_mode === 'impersonation' ? [] : grants;
     if (identity.must_change_password) view.state = 'password-change-required';
@@ -227,4 +255,14 @@ export async function rotateSession(
   const secret = sessionSecret();
   await tx.sessions.update(id, { token_hash: secretDigest(secret) });
   return signReference(id, secret, config.sessionSecret);
+}
+
+/**
+ * Does: Converts a stored membership kind to the public session vocabulary.
+ * Called by: session creation and resolution before validating the response.
+ */
+function membershipType(value: string | null | undefined) {
+  return value === 'employee' || value === 'client' || value === 'vendor'
+    ? value
+    : null;
 }

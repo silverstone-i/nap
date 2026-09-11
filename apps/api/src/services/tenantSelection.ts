@@ -41,12 +41,24 @@ export async function memberships(
 ) {
   const { user, row } = await current(tx, session);
   if (row.access_mode) throw new HttpError('FORBIDDEN');
-  return (await tx.portal_user_tenants.activeFor(user.id)).map(m => ({
-    id: m.id,
-    tenantCode: m.tenant_code,
-    company: m.company,
-    userType: m.user_type,
-  }));
+  const memberships = await tx.portal_user_tenants.activeFor(user.id);
+  const available = new Set(
+    (
+      await tx.cells.availableAssignments(memberships.map(m => m.tenant_id))
+    ).map(assignment => assignment.id)
+  );
+  const rows = [];
+  for (const m of memberships) {
+    if (!available.has(m.tenant_id)) continue;
+    rows.push({
+      id: m.id,
+      tenantId: m.tenant_id,
+      tenantCode: m.tenant_code,
+      company: m.company,
+      userType: m.user_type,
+    });
+  }
+  return rows;
 }
 /** Does: Selects a checked membership and rotates only this session. Called by: tenant picker. */
 export async function selectTenant(

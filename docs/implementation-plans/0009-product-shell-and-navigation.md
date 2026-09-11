@@ -1,0 +1,114 @@
+# Product shell and navigation implementation
+
+Owner approved PRD 0009 and its linked amendments on 2026-09-10.
+Implementation: Verified upon merge of [PR #21](https://github.com/silverstone-i/nap/pull/21) with required checks passing.
+
+## Features
+
+- Responsive header, two-level navigation and accessible menu.
+- Explicit static Dashboard and session-aware product entry.
+- Tenant and portal-user provisioning screens and bounded Employees view.
+- Vendor selection after every login, safe deep links and tenant transitions.
+- Recoverable access/failure states and existing theme/default settings.
+
+## Delivery order
+
+1. Accept the specification amendments, ADR 0010, PRD 0009 and related registers.
+2. Extend checked session/navigation and control-overview contracts using existing permissions.
+3. Establish the shared shell and normalized tenant URL reader, then integrate login, account and selection.
+4. Deliver provisioning pages and Employees using the existing commands and profile endpoint.
+5. Verify SHELL-001–005 and reconcile the capability documentation with local evidence.
+
+## Routes and boundaries
+
+- `/` establishes product entry; `/app/:tenantId/dashboard` is tenant home.
+- `/app/:tenantId/accounting/directories?tab=employees` exposes bounded employee identity.
+- `/management/tenants` and `/management/portal-users` are central management destinations.
+- Login, account and tenant selection remain standalone. Existing operator utilities remain available.
+- URL tenant identifiers are intent, never authorization or an implicit switch.
+- Employee access retains CID-004; provisioning retains TEN-006/007. No generic employee CRUD, settings persistence, logo storage, migration or new dependency is planned.
+- Documentation and implementation ship together. Deferred-code issue requirements do not apply to this combined delivery.
+- Delivery and shipping are authorized together through PR #21.
+
+## Verification
+
+Local evidence, 2026-09-10:
+
+- Full repository suite passed: 28 toolchain, 288 API, 50 web and 13 shared tests.
+  Two additional web regressions subsequently passed with the complete web suite
+  (52 web tests): password-change/selection deep-link restoration and expired-session clearing.
+- The final control-plane suite (19 tests) also passed after adding the
+  unavailable-vendor-assignment/central-administration regression. Total coverage
+  across suites is 382 tests.
+- API coverage includes sole-vendor selection on every login, selected reload,
+  safe overview relationships, existing/new identities, failed-job retry,
+  activation, controlled access, negative tenant isolation and multi-cell routing.
+- Browser acceptance against disposable PostgreSQL: created a tenant, provisioned
+  its portal identity and employee, confirmed activation, entered/exited explicit
+  controlled employee access, and navigated to Dashboard. A sole vendor selected
+  its tenant, reloaded in context and returned through Change tenant.
+- Desktop and 390px mobile checks covered two-level navigation, active destination,
+  overlay dismissal, Escape/focus restoration, persistent controlled banner,
+  Employees tab, and light/dark themes. Browser console had no errors.
+- Lint, typecheck, production build and production license checks passed.
+  Final formatting and `git diff --check` passed.
+
+The initial development-browser transition was interrupted by Vite's first-use
+optimization reload; after dependency optimization the actual controlled
+transition passed, and a dedicated route regression test also passed.
+
+No migration or dependency was introduced. The
+existing bounded overview retains its 200-record cap. General employee CRUD,
+settings persistence, logo storage and dashboard widgets remain deferred.
+
+Acceptance behavior remains owned by PRD 0009 SHELL-001–005. Final shipping
+evidence and the merge condition are recorded below.
+
+## Management UI refinement — 2026-09-11
+
+Owner requested applying the UI guidelines to Tenants and Portal users.
+The earlier acceptance evidence above predates this refinement.
+
+- Add focused Header1 controls and MUI X DataGrid lists with URL-backed search,
+  status, sorting, pagination, and portal-user membership selection.
+- Keep record menus scoped to existing operations; show tenant action forms on
+  demand and retain routed creation with explicit submission.
+- Remove shell breadcrumbs, collapse Tenant Management navigation, and provide
+  its collapsed-rail group flyout with keyboard dismissal.
+- Preserve bounded overview, permission checks, stale-response rejection, and
+  controlled access. No API, schema, or dependency changes are required.
+- Verify routes, filtering/history, row targets, permitted actions, creation
+  return paths, failed submissions, and desktop/mobile layouts. Run repository
+  checks and record fresh evidence before reporting completion.
+- Deliver together on the current branch; rollback is reverting these UI changes.
+
+Refinement verification, 2026-09-11:
+
+- Real-API browser verification used disposable PostgreSQL: sign-in, tenant
+  creation and list refresh, Portal users navigation, and management group flyout.
+- Desktop dark/light screenshots and a 390px mobile screenshot were inspected.
+  The mobile document matched viewport width/height; the grid owns horizontal
+  scrolling. The browser reported no page errors.
+- Route regressions cover URL search/history, status/sorting bookmarks, row
+  targets, membership details, prefilled linking and return destination,
+  permission-filtered menus, controlled employee access, and failed-form recovery.
+- The existing overview remains bounded to 200 records; list controls operate on
+  that authorized overview, not an unbounded server-side directory.
+
+- Final checks passed: lint, typecheck, production build, formatting, licenses,
+  and diff checks. Test coverage passed across 28 toolchain, 289 API, 60 web,
+  and 13 shared tests. The browser flyout restored trigger focus on Escape.
+- Refinement acceptance is complete; final verification is recorded below.
+
+## Shipping verification — 2026-09-11
+
+- SHELL-001–005 and the management refinement are complete within the documented
+  scope; the deferred capabilities above remain deferred.
+- Review fixes in `7d388bd8` batch membership assignment reads, require tenant IDs
+  in membership responses, and recover navigation after scope changes.
+- All final local checks passed: lint, typecheck, build, formatting, licenses,
+  and diff checks; 393 tests passed (28 toolchain, 290 API, 61 web, 14 shared).
+- [CI checks](https://github.com/silverstone-i/nap/actions/runs/34563543761)
+  and the changelog check passed on `7d388bd8`; all six review threads were resolved.
+- Verified upon merge of [PR #21](https://github.com/silverstone-i/nap/pull/21)
+  with required checks passing on the final head, including this reconciliation.

@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { ProductShell } from './shell/ProductShell.js';
 import { SessionProvider } from './auth/SessionProvider.js';
 import type { RouteObject } from 'react-router';
 import { RouteError } from './components/RouteError.js';
@@ -14,18 +15,49 @@ import { NotFoundPage } from './pages/NotFoundPage.js';
  */
 export const routes: RouteObject[] = [
   {
-    path: '/',
-    ErrorBoundary: RouteError,
-    HydrateFallback: RouteLoading,
-    lazy: async () => {
-      const { HoldingPage } = await import('./pages/HoldingPage.js');
-      return { Component: HoldingPage };
-    },
-  },
-  {
     Component: SessionProvider,
     ErrorBoundary: RouteError,
+    HydrateFallback: RouteLoading,
     children: [
+      {
+        path: '/',
+        lazy: async () => ({
+          Component: (await import('./pages/EntryPage.js')).EntryPage,
+        }),
+      },
+      {
+        Component: ProductShell,
+        ErrorBoundary: RouteError,
+        children: [
+          {
+            path: '/app/:tenantId/dashboard',
+            lazy: async () => ({
+              Component: (await import('./pages/DashboardPage.js'))
+                .DashboardPage,
+            }),
+          },
+          {
+            path: '/app/:tenantId/accounting/directories',
+            lazy: async () => ({
+              Component: (await import('./pages/EmployeesPage.js'))
+                .EmployeesPage,
+            }),
+          },
+          ...[
+            '/management/tenants',
+            '/management/tenants/new',
+            '/management/tenants/:target',
+            '/management/portal-users',
+            '/management/portal-users/new',
+          ].map(path => ({
+            path,
+            lazy: async () => ({
+              Component: (await import('./pages/ManagementPage.js'))
+                .ManagementPage,
+            }),
+          })),
+        ],
+      },
       {
         path: '/access',
         lazy: async () => ({
@@ -71,6 +103,14 @@ export const routes: RouteObject[] = [
         HydrateFallback: RouteLoading,
         lazy: async () => ({
           Component: (await import('./pages/LoginPage.js')).LoginPage,
+        }),
+      },
+      {
+        path: '/account/password',
+        HydrateFallback: RouteLoading,
+        lazy: async () => ({
+          Component: (await import('./pages/ChangePasswordPage.js'))
+            .ChangePasswordPage,
         }),
       },
       {

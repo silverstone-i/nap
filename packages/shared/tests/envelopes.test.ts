@@ -7,6 +7,7 @@ import { expect, expectTypeOf, it } from 'vitest';
 import { z } from 'zod';
 import {
   healthResponseSchema,
+  membershipsResponseSchema,
   listResponseSchema,
   pageSchema,
   successResponseSchema,
@@ -83,4 +84,29 @@ it('infers the same types the schemas parse to', () => {
     ListResponse<{ id: string }>
   >();
   expectTypeOf(pageSchema.parse(list.page)).toEqualTypeOf<Page>();
+});
+
+it('requires a valid tenant ID in every membership response', () => {
+  const membership = {
+    id: '00000000-0000-4000-8000-000000000001',
+    tenantCode: 'TEST',
+    company: 'Test company',
+    userType: 'vendor',
+  };
+  for (const tenantId of [undefined, null, 'invalid']) {
+    expect(
+      membershipsResponseSchema.safeParse({
+        version: 1,
+        data: [{ ...membership, tenantId }],
+      }).success
+    ).toBe(false);
+  }
+  expect(
+    membershipsResponseSchema.safeParse({
+      version: 1,
+      data: [
+        { ...membership, tenantId: '00000000-0000-4000-8000-000000000002' },
+      ],
+    }).success
+  ).toBe(true);
 });

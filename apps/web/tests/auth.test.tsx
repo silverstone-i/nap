@@ -87,16 +87,17 @@ it('redirects anonymous account visits and renders login', async () => {
   const router = mount('/account');
   await screen.findByRole('button', { name: 'Sign in' });
   expect(router.state.location.pathname + router.state.location.search).toBe(
-    '/login?next=%2Faccount'
+    '/login?next=%2Faccount%2Fpassword'
   );
 });
 
-it('redirects signed-in login visits to account and displays identity and tenant', async () => {
+it('redirects signed-in login visits to Dashboard', async () => {
   fetchMock.mockResolvedValue(sessionReply());
   const router = mount('/login');
-  await screen.findByText(view.email);
-  expect(router.state.location.pathname).toBe('/account');
-  expect(screen.getByText('Tenant: NAP')).toBeDefined();
+  await screen.findByRole('heading', { name: 'Dashboard' });
+  expect(router.state.location.pathname).toBe(
+    `/app/${view.tenantId}/dashboard`
+  );
 });
 
 it('shows session loading and allows retry after a network failure', async () => {
@@ -145,7 +146,11 @@ it('honors a safe next path after a successful login', async () => {
     .mockResolvedValueOnce(sessionReply());
   const router = mount('/login?next=%2F');
   await submitLogin();
-  await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(
+      `/app/${view.tenantId}/dashboard`
+    )
+  );
 });
 
 it.each([
@@ -155,10 +160,10 @@ it.each([
   '/login',
   '/	/evil.test',
 ])('refuses unsafe next value %s', value => {
-  expect(safeNext(value)).toBe('/account');
+  expect(safeNext(value)).toBe('/');
 });
 
-it('changes a password, shows success, and signs out', async () => {
+it('changes a password and shows a focused success screen', async () => {
   fetchMock
     .mockResolvedValue(anonymous())
     .mockResolvedValueOnce(sessionReply())
@@ -170,15 +175,21 @@ it('changes a password, shows success, and signs out', async () => {
     await screen.findByLabelText('Current password', { exact: false }),
     { target: { value: 'a-long-test-password' } }
   );
-  fireEvent.change(screen.getByLabelText('New password', { exact: false }), {
+  fireEvent.change(screen.getByLabelText(/^New password/), {
     target: { value: 'a-new-test-password' },
   });
+  fireEvent.change(
+    screen.getByLabelText('Confirm new password', { exact: false }),
+    { target: { value: 'a-new-test-password' } }
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
   await screen.findByText(
     'Password changed. Other sessions have been signed out.'
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
-  await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
+  expect(
+    screen.getByRole('link', { name: 'Return to application' })
+  ).toBeDefined();
+  expect(router.state.location.pathname).toBe('/account/password');
 });
 
 it('returns an expired session to login after a refused password change', async () => {
@@ -191,9 +202,13 @@ it('returns an expired session to login after a refused password change', async 
     await screen.findByLabelText('Current password', { exact: false }),
     { target: { value: 'a-long-test-password' } }
   );
-  fireEvent.change(screen.getByLabelText('New password', { exact: false }), {
+  fireEvent.change(screen.getByLabelText(/^New password/), {
     target: { value: 'a-new-test-password' },
   });
+  fireEvent.change(
+    screen.getByLabelText('Confirm new password', { exact: false }),
+    { target: { value: 'a-new-test-password' } }
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
   await waitFor(() => expect(router.state.location.pathname).toBe('/login'));
 });
@@ -201,5 +216,38 @@ it('returns an expired session to login after a refused password change', async 
 it('honors safe next when login mounts with an existing session', async () => {
   fetchMock.mockResolvedValue(sessionReply());
   const router = mount('/login?next=%2F');
-  await waitFor(() => expect(router.state.location.pathname).toBe('/'));
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(
+      `/app/${view.tenantId}/dashboard`
+    )
+  );
+});
+
+it('checks confirmation locally, toggles visibility, and cancels to the originating page', async () => {
+  fetchMock.mockResolvedValue(sessionReply());
+  const destination = `/app/${view.tenantId}/dashboard`;
+  const router = mount(
+    `/account/password?next=${encodeURIComponent(destination)}`
+  );
+  const current = await screen.findByLabelText('Current password', {
+    exact: false,
+  });
+  fireEvent.change(current, { target: { value: 'a-long-test-password' } });
+  fireEvent.change(screen.getByLabelText(/^New password/), {
+    target: { value: 'a-new-test-password' },
+  });
+  fireEvent.change(
+    screen.getByLabelText('Confirm new password', { exact: false }),
+    { target: { value: 'different-password' } }
+  );
+  const calls = fetchMock.mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
+  expect(screen.getByText('Passwords do not match.')).toBeDefined();
+  expect(fetchMock.mock.calls.length).toBe(calls);
+  fireEvent.click(screen.getByRole('button', { name: 'Show passwords' }));
+  expect(current.getAttribute('type')).toBe('text');
+  fireEvent.click(screen.getByRole('button', { name: 'Hide passwords' }));
+  expect(current.getAttribute('type')).toBe('password');
+  fireEvent.click(screen.getByRole('link', { name: 'Cancel' }));
+  await waitFor(() => expect(router.state.location.pathname).toBe(destination));
 });

@@ -743,12 +743,13 @@ reach for it.
 does not grow a private copy of a genuinely shared helper.
 
 Module PRDs define their routed pages, workflows, actions, fields, and states.
-The first tenant-aware product module must accept and establish the real product
-shell, authorization-aware navigation, tenant URL vocabulary, and product-module
-lazy boundaries. Authentication's login and account routes stay outside
-`shell/` and may install session-aware production routing and shared transport
-contracts, with real loading and error boundaries, without making any product
-module reachable.
+[PRD 0009](../PRDs/0009-product-shell-and-navigation.md) establishes the initial
+shell through tenant provisioning and Core employee identity under existing
+ownership and access contracts (ADR 0010). Business navigation groups may differ
+from module ownership. Accounting can expose Core records without moving their
+ownership or granting access. The shell accepts tenant route vocabulary; future
+company/project vocabulary is accepted with its real integration.
+Authentication's login and account routes remain outside `shell/`.
 
 ### Web shared behavior
 
@@ -768,8 +769,8 @@ scope. Pages consume its normalized result instead of parsing route state
 independently. If a selected project, company, or other resource does not belong
 to the active tenant or parent scope, the reader treats it as unset, and every
 consumer — pages, navigation, and badges — uses that same normalized scope so
-displayed totals cannot disagree. The final tenant, company, and project route
-vocabulary is accepted with the first real module shell integration.
+displayed totals cannot disagree. Tenant route vocabulary is recorded in the PRD 0009 delivery plan. Company and
+project vocabulary is accepted with their real product integration.
 
 Login and standalone account workflows remain outside the authenticated product
 shell. An unauthenticated redirect carries its target in `?next=<encoded path>`
@@ -914,6 +915,11 @@ domain even though the endpoints that define its contracts belong to
 The purpose and authority of each documentation folder are defined in the
 [documentation index](../README.md). This section owns only their physical
 placement.
+
+Under [ADR 0010](../ADRs/0010-product-shell-and-vendor-selection.md), `docs/settings/user-settings.md` and
+`docs/settings/tenant-settings.md` hold settings registers and their resolution
+and persistence notes. Registers own setting values/defaults and link to the
+owning component PRD; they are not runtime configuration or physical schemas.
 
 `docs/implementation-plans/` holds conditional delivery records. Each filename
 is `NNNN-<capability>.md`, where `NNNN` matches its owning PRD and
@@ -1720,6 +1726,10 @@ every production dependency carries an allowed license.
 
 ## Revisions
 
+Revision, 2026-09-10: accepted tenant-provisioning shell scope (tenants,
+portal_users, and employees), shell establishment and settings register placement
+under ADR 0010, delivered with PRD 0009 implementation.
+
 | Date       | Change                                                                                                                                                                                                                                                                                                                              |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-09-09 | Clarified ARCH-029: PostgreSQL freshness checks and live session writes; transactional revision invalidation and internal revision metadata under ADR 0009.                                                                                                                                                                         |
@@ -1762,3 +1772,5 @@ boundary. Authorization decisions remain in shared services, not module imports
 from middleware. Root/controlled-access isolation and audit remain mandatory.
 
 Revision: 2026-09-09 — Owner authorized PRDs 0006–0008 and ADR 0008 implementation.
+
+Revision: 2026-09-10 — Owner accepted the PRD 0009 shell, vendor-selection and settings-placement amendments with their implementation.

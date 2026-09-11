@@ -13,14 +13,18 @@ import { createDb } from 'pg-schemata';
 import type { Database } from 'pg-schemata';
 import { resolveSetupConfiguration } from '../../src/util/env.js';
 
-/** Run fixture tooling with private diagnostics; subprocess errors may contain secrets. */
+/**
+ * Run fixture tooling with private diagnostics; subprocess errors may contain secrets.
+ * A locale is always set: PostgreSQL 18 on macOS aborts postmaster startup when
+ * LC_ALL is empty, which is the state of a bare non-interactive shell.
+ */
 function command(
   program: string,
   args: string[],
   env: NodeJS.ProcessEnv = process.env
 ) {
   const result = spawnSync(program, args, {
-    env,
+    env: { ...env, LC_ALL: env.LC_ALL || 'C' },
     encoding: 'utf8',
     timeout: 30000,
   });

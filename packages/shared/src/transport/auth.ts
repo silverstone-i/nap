@@ -33,6 +33,9 @@ export const sessionViewSchema = z.strictObject({
   email: z.email(),
   tenantId: z.uuid().nullable(),
   tenantCode: z.string().min(1).max(16).nullable(),
+  tenantName: z.string().nullable().default(null),
+  userType: z.enum(['employee', 'client', 'vendor']).nullable().default(null),
+  canChangeTenant: z.boolean().default(false),
   state: z
     .enum([
       'password-change-required',

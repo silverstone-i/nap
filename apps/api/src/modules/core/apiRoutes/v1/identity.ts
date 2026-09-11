@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { z } from 'zod';
-import { identityResponseSchema, transportVersion } from '@nap/shared';
+import {
+  identityResponseSchema,
+  navigationResponseSchema,
+  transportVersion,
+} from '@nap/shared';
 import {
   createRouter,
   standardActions,
@@ -19,6 +23,25 @@ export default function identityRouter(db: CellHandle) {
     router: 'identity',
     routes: Object.fromEntries(standardActions.map(a => [a, false])),
     extend: add => {
+      add({
+        action: 'navigation',
+        method: 'get',
+        path: '/navigation',
+        body: z.undefined(),
+        params: z.strictObject({}),
+        query: z.strictObject({}),
+        response: navigationResponseSchema,
+        operation: (_tx, input) =>
+          Promise.resolve({
+            version: transportVersion,
+            data: {
+              employees:
+                input.session.permissions.has('core::identity::profile') &&
+                (input.session.userType === 'employee' ||
+                  input.session.view?.controlledAccess?.mode === 'access'),
+            },
+          }),
+      });
       add({
         action: 'profile',
         method: 'get',

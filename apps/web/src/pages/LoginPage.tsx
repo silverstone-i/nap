@@ -11,7 +11,7 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { login } from '../api/auth.js';
-import { useSession, safeNext } from '../auth/session.js';
+import { useSession, sessionDestination } from '../auth/session.js';
 import { AuthFrame } from '../auth/AuthFrame.js';
 import { SessionStatus } from '../auth/SessionStatus.js';
 import type { FormEvent } from 'react';
@@ -59,13 +59,7 @@ export function LoginPage() {
   if (state.session)
     return (
       <Navigate
-        to={
-          state.session.state === 'password-change-required'
-            ? '/account'
-            : state.session.state === 'tenant-selection-required'
-              ? '/tenants'
-              : safeNext(search.get('next'))
-        }
+        to={sessionDestination(state.session, search.get('next'))}
         replace
       />
     );
