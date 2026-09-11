@@ -18,6 +18,9 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Changed
 
+- Focus tenant and portal-user management around feature toolbars, MUI X DataGrid
+  lists, record actions, and collapsible Tenant Management navigation with flyouts.
+
 - Consolidate account controls in an initial-avatar menu with Profile and Settings
   placeholders, and provide a dedicated password-change page with confirmation.
 - Require tenant selection after every vendor login, preserve safe tenant deep

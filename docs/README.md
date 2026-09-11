@@ -149,6 +149,13 @@ Document locations and the repository skeleton are defined in
 
 - [Product shell and navigation](PRDs/0009-product-shell-and-navigation.md)
 
+## Design guidance
+
+[UI design guidelines](guides/ui-design-guidelines.md) provide non-authoritative
+defaults for shell layout, navigation, datasets, editing, dialogs, and component
+selection. Consult them when designing a feature; accepted requirements retain
+precedence, and alternatives are appropriate when the workflow benefits.
+
 ## Settings registers
 
 [User settings](settings/user-settings.md) and

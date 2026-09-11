@@ -4,7 +4,7 @@
 
 - Tenant logo and menu control at top left; user, account, and sign-out controls
   at top right; small NAP branding at the navigation rail's bottom left.
-- Responsive two-level navigation, page headings/actions, and breadcrumbs.
+- Responsive two-level navigation and page headings/actions.
 - Tenant provisioning through tenants, portal_users, and employees, with
   authorized screens and actions for the complete provisioning workflow.
 - Tenant Management for tenants and portal users; Accounting → Directories
@@ -41,6 +41,10 @@ Historical verification evidence does not establish shell verification.
 
 ## Requirements
 
+For non-binding layout and interaction preferences, consult the
+[UI design guidelines](../guides/ui-design-guidelines.md). They supplement design
+discussions without changing this PRD's requirements or implementation status.
+
 ### SHELL-001 — Application frame
 
 The header spans the application: menu control and tenant logo at the left,
@@ -56,10 +60,19 @@ on the left, with a small NAP wordmark at its bottom. Content occupies the
 remaining area. No footer or notification subsystem is included.
 
 Each page supplies its heading and permitted page-level actions. Record actions
-remain with the record. Breadcrumbs show the business location, for example
-Accounting → Directories → Employees. Implement accessible navigation, visible
+remain with the record. Implement accessible navigation, visible
 focus, and skip-to-content behavior using the specification's responsive rail,
 overlay, theme, and focus-restoration contracts.
+
+The management pages provide a compact Header1 with title, relevant filters,
+and feature actions. Tenants and Portal users use MUI X DataGrid with row action
+menus and no default bulk selection. Search, status, sorting, pagination, and
+selected portal-user membership details follow the shared URL-state contract.
+Tenant details show provisioning information and reveal existing action forms
+on demand. Creation stays routed and explicitly submitted; portal-user creation
+returns to Portal users unless initiated for a specific tenant.
+Tenant Management expands in the full Navbar and opens a keyboard-accessible
+group flyout in the collapsed rail.
 
 ### SHELL-002 — Business navigation
 
@@ -131,7 +144,7 @@ working local preference until tenant-specific persistence is adopted.
 ### SHELL-005 — Routing, authorization, and recovery
 
 Apply the specification's shared URL-state contract to the implemented page
-state, including the active Directories tab and breadcrumbs. Back, forward,
+state, including the active Directories tab. Back, forward,
 and reload restore that state. Pages consume the shared normalized scope rather
 than independently interpreting tenant or resource input. Do not introduce
 company/project selectors, preview drawers, filters, or tabs solely to exercise
@@ -170,7 +183,7 @@ and API. Current code is not verification of the future shell.
 
 | Scenario                                            | Required result                                                                                                                                                                             |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Desktop/mobile and keyboard navigation              | Correct branding, two rail levels, accessible overlay dismissal/focus return, breadcrumbs and active tab                                                                                    |
+| Desktop/mobile and keyboard navigation              | Correct branding, two rail levels, accessible overlay dismissal/focus return, active tab                                                                                                    |
 | Ordinary login; vendor with one or multiple tenants | Ordinary tenant established; every vendor chooses; password restrictions run first                                                                                                          |
 | Vendor reload and Change tenant                     | Selected-session reload remains in context; Change tenant reuses selection and clears prior content                                                                                         |
 | Deep link, back/forward, mismatched tenant          | Safe target retained; implemented URL state restored; no silent switch or cross-tenant data                                                                                                 |
@@ -201,3 +214,7 @@ The implementation plan records current verification evidence.
 | 2026-09-10 | Replaced separate header account, sign-out, and theme controls with an initial avatar and profile menu under SHELL-001. |
 
 | 2026-09-10 | Added disabled Profile and Settings menu placeholders; their pages and editable data are deferred. |
+
+| 2026-09-10 | Linked non-authoritative UI design guidelines; accepted behavior and implementation status are unchanged. |
+
+| 2026-09-11 | Applied owner-requested management UI guidelines: focused Header1, MUI X DataGrid, record actions, and Tenant Management collapse/flyout navigation. |

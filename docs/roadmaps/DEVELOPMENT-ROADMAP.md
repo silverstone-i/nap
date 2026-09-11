@@ -745,8 +745,12 @@ authorization-aware navigation and one shared reader for URL-derived scope.
 **Depends on:** RBAC and module entitlement; tenant provisioning
 (PRD 0004) and Core employee identity records (PRD 0005). This replaces the first-new-product-module gate under ADR 0010.
 
+Management UI refinement (2026-09-11) adds focused toolbars, MUI X DataGrid
+lists, record actions, and Tenant Management collapse/flyout navigation. Local
+verification is recorded in the existing delivery plan; merge/CI remain pending.
+
 **Required design:** [PRD 0009](../PRDs/0009-product-shell-and-navigation.md)
-(Accepted) owns initial navigation, Directories tabs, breadcrumbs, branding,
+(Accepted) owns initial navigation, Directories tabs, branding,
 static Dashboard, vendor selection, and tenant provisioning through tenants,
 portal_users, and employees. Delivery includes the missing presentation and
 bounded API support required by that workflow under SHELL-002; Companies and

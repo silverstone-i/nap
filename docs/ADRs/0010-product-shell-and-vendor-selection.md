@@ -20,7 +20,7 @@ behavior owner, including its provisioning delivery inventory. Expose tenants
 and portal users through Tenant Management and employees through Accounting →
 Directories, retaining the existing provisioning and record-ownership contracts.
 Retain two rail
-levels; Directories tabs and breadcrumbs express the deeper business location.
+levels; Directories tabs express the deeper business location.
 Core remains the record owner even when screens appear under Accounting or Sales.
 
 Require vendor tenant selection after every login regardless of eligible

@@ -334,6 +334,9 @@ it('enters explicit controlled employee access from the provisioning record', as
     });
   });
   const router = mount(`/management/tenants/${tenant}`);
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Inspect employee' })
+  );
   fireEvent.mouseDown(
     await screen.findByRole('combobox', { name: 'Employee' })
   );
@@ -470,4 +473,206 @@ it('logs out through the profile menu', async () => {
   fireEvent.click(screen.getByRole('menuitem', { name: 'Logout' }));
   await screen.findByRole('button', { name: 'Sign in' });
   expect(router.state.location.pathname).toBe('/login');
+});
+
+/**
+ * Does: Supplies management records and action permissions to the real page routes.
+ * Called by: management layout and interaction regression tests.
+ */
+function managementFixture(
+  permissions = ['overview', 'registry', 'members', 'provision']
+) {
+  fetchMock.mockImplementation(url => {
+    const path =
+      typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+    if (path.endsWith('/overview'))
+      return reply({
+        cells: [{ id: other, code: 'CELL', name: 'Test cell', enabled: true }],
+        tenants: [
+          {
+            id: tenant,
+            tenant_code: 'TEST',
+            company: 'Test tenant',
+            tier: 'starter',
+            status: 'active',
+            cell_id: other,
+            provisioned: true,
+          },
+          {
+            id: other,
+            tenant_code: 'OTHER',
+            company: 'Other tenant',
+            tier: 'growth',
+            status: 'pending',
+            cell_id: other,
+            provisioned: false,
+          },
+        ],
+        users: [{ id: actor, email: view.email, status: 'active' }],
+        members: [
+          {
+            id: other,
+            portal_user_id: actor,
+            tenant_id: tenant,
+            status: 'active',
+            user_type: 'employee',
+            ready: true,
+            entity_id: actor,
+          },
+        ],
+        jobs: [],
+        grants: [],
+      });
+    if (
+      ['/members', '/registry', '/provision'].some(action =>
+        path.endsWith(action)
+      )
+    )
+      return reply({ jobId: null });
+    return reply({
+      ...view,
+      platformPermissions: permissions.map(p => `admin-tenancy::control::${p}`),
+    });
+  });
+}
+
+it('filters management grids through URL state and keeps actions focused on the current feature', async () => {
+  managementFixture();
+  const router = mount('/management/tenants');
+  await screen.findByRole('grid', { name: 'Tenants' });
+  expect(screen.queryByRole('navigation', { name: 'Breadcrumbs' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Operator utilities' })).toBeNull();
+  expect(screen.queryByRole('checkbox')).toBeNull();
+  const search = screen.getByRole('textbox', { name: 'Search tenants' });
+  fireEvent.change(search, { target: { value: 'Other' } });
+  expect(router.state.location.search).toContain('q=Other');
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Actions for Test tenant' })
+    ).toBeNull()
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Actions for Other tenant' })
+  );
+  fireEvent.click(screen.getByRole('menuitem', { name: 'View tenant' }));
+  await screen.findByRole('heading', { name: 'Other tenant', level: 1 });
+  expect(
+    screen.queryByRole('combobox', { name: 'Initial administrator' })
+  ).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Activate tenant' }));
+  expect(
+    screen.getByRole('combobox', { name: 'Initial administrator' })
+  ).toBeDefined();
+  await router.navigate(-1);
+  expect(await screen.findByDisplayValue('Other')).toBeDefined();
+});
+
+it('opens portal-user memberships and prefills a record-specific linking form', async () => {
+  managementFixture();
+  const router = mount('/management/portal-users');
+  await screen.findByRole('grid', { name: 'Portal users' });
+  fireEvent.click(
+    screen.getByRole('button', { name: `Actions for ${view.email}` })
+  );
+  fireEvent.click(screen.getByRole('menuitem', { name: 'View memberships' }));
+  await screen.findByRole('heading', { name: 'Tenant memberships' });
+  expect(router.state.location.search).toBe(`?record=${actor}`);
+  fireEvent.click(
+    screen.getByRole('link', { name: 'Create or link portal user' })
+  );
+  await screen.findByRole('button', { name: 'Provision user' });
+  expect(screen.getByDisplayValue(view.email)).toBeDefined();
+  expect(
+    screen.getByRole('link', { name: 'Cancel' }).getAttribute('href')
+  ).toBe('/management/portal-users');
+  fireEvent.change(
+    screen.getByLabelText('Employee or contact name', { exact: false }),
+    { target: { value: 'Example employee' } }
+  );
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Tenant' }));
+  fireEvent.click(await screen.findByRole('option', { name: 'Test tenant' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Provision user' }));
+  await screen.findByRole('grid', { name: 'Portal users' });
+  expect(router.state.location.pathname).toBe('/management/portal-users');
+});
+
+it('hides unavailable management mutations and exposes the collapsed navigation group flyout', async () => {
+  managementFixture(['overview']);
+  mount('/management/tenants');
+  await screen.findByRole('grid', { name: 'Tenants' });
+  expect(screen.queryByRole('link', { name: 'Create tenant' })).toBeNull();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Actions for Test tenant' })
+  );
+  expect(
+    screen.queryByRole('menuitem', { name: 'Create or link portal user' })
+  ).toBeNull();
+  fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+  fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Tenant Management' }));
+  fireEvent.click(
+    await screen.findByRole('menuitem', { name: 'Portal users' })
+  );
+  await screen.findByRole('grid', { name: 'Portal users' });
+});
+
+it('retains a failed creation form and displays the server error', async () => {
+  managementFixture();
+  const original = fetchMock.getMockImplementation();
+  fetchMock.mockImplementation((url, init) => {
+    const path =
+      typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+    if (path.endsWith('/registry'))
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            version: 1,
+            code: 'CONFLICT',
+            message: 'Tenant code already exists.',
+          }),
+          { status: 409 }
+        )
+      );
+    if (!original) throw new Error('Management fixture missing');
+    return original(url, init);
+  });
+  mount('/management/tenants/new');
+  fireEvent.change(
+    await screen.findByLabelText('Tenant code', { exact: false }),
+    { target: { value: 'TEST' } }
+  );
+  fireEvent.change(screen.getByLabelText('Tenant name', { exact: false }), {
+    target: { value: 'Keep my draft' },
+  });
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Assigned cell' }));
+  fireEvent.click(await screen.findByRole('option', { name: 'Test cell' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Create pending tenant' })
+  );
+  await screen.findByText('Tenant code already exists.');
+  expect(screen.getByDisplayValue('Keep my draft')).toBeDefined();
+  expect(
+    screen
+      .getByRole('button', { name: 'Create pending tenant' })
+      .hasAttribute('disabled')
+  ).toBe(false);
+});
+
+it('restores status filtering and sorting from a management bookmark', async () => {
+  managementFixture();
+  mount(
+    '/management/tenants?status=pending&sort=label&direction=desc&page=999'
+  );
+  await screen.findByRole('grid', { name: 'Tenants' });
+  expect(
+    screen.getByRole('button', { name: 'Actions for Other tenant' })
+  ).toBeDefined();
+  expect(
+    screen.queryByRole('button', { name: 'Actions for Test tenant' })
+  ).toBeNull();
+  expect(
+    screen
+      .getByRole('columnheader', { name: /^Tenant/ })
+      .getAttribute('aria-sort')
+  ).toBe('descending');
 });

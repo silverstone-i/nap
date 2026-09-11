@@ -18,7 +18,10 @@ import MenuItem from '@mui/material/MenuItem';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Collapse from '@mui/material/Collapse';
+import Tooltip from '@mui/material/Tooltip';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
@@ -73,6 +76,10 @@ export function ProductShell() {
     setModeMenu(false);
   }
   const [collapsed, setCollapsed] = useState(false);
+  const [managementOpen, setManagementOpen] = useState(true);
+  const [managementAnchor, setManagementAnchor] = useState<HTMLElement | null>(
+    null
+  );
   const [navigation, setNavigation] = useState<{
     tenant: string;
     employees: boolean;
@@ -103,6 +110,7 @@ export function ProductShell() {
    */
   function closeMenu() {
     setOpen(false);
+    setManagementAnchor(null);
     trigger.current?.focus();
   }
   /**
@@ -200,41 +208,103 @@ export function ProductShell() {
         )}
         {canManage && (
           <>
-            {!(desktop && collapsed) && (
-              <Typography component="div" variant="overline" sx={{ px: 2 }}>
-                Tenant Management
-              </Typography>
-            )}
-            <ListItemButton
-              component={Link}
-              to="/management/tenants"
-              selected={scope.central && !scope.portalUsers}
-              onClick={closeMenu}
-              sx={activeNavigationStyles}
-              aria-label="Tenants"
-              aria-current={
-                scope.central && !scope.portalUsers ? 'page' : undefined
-              }
+            <Tooltip
+              title={desktop && collapsed ? 'Tenant Management' : ''}
+              placement="right"
             >
-              <BusinessIcon />
-              {!(desktop && collapsed) && <ListItemText primary="Tenants" />}
-            </ListItemButton>
-            <ListItemButton
-              component={Link}
-              to="/management/portal-users"
-              selected={scope.central && scope.portalUsers}
-              onClick={closeMenu}
-              sx={activeNavigationStyles}
-              aria-label="Portal users"
-              aria-current={
-                scope.central && scope.portalUsers ? 'page' : undefined
-              }
+              <ListItemButton
+                aria-label="Tenant Management"
+                aria-expanded={
+                  desktop && collapsed ? !!managementAnchor : managementOpen
+                }
+                aria-controls={
+                  desktop && collapsed
+                    ? managementAnchor
+                      ? 'management-flyout'
+                      : undefined
+                    : 'management-links'
+                }
+                aria-haspopup={desktop && collapsed ? 'menu' : undefined}
+                onClick={event =>
+                  desktop && collapsed
+                    ? setManagementAnchor(event.currentTarget)
+                    : setManagementOpen(value => !value)
+                }
+              >
+                {desktop && collapsed ? (
+                  <BusinessIcon />
+                ) : (
+                  <>
+                    <ListItemText primary="Tenant Management" />
+                    {managementOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </>
+                )}
+              </ListItemButton>
+            </Tooltip>
+            <Collapse
+              id="management-links"
+              in={!(desktop && collapsed) && managementOpen}
             >
-              <PeopleIcon />
-              {!(desktop && collapsed) && (
-                <ListItemText primary="Portal users" />
-              )}
-            </ListItemButton>
+              <List disablePadding sx={{ pl: 2 }}>
+                <ListItemButton
+                  component={Link}
+                  to="/management/tenants"
+                  selected={scope.central && !scope.portalUsers}
+                  onClick={closeMenu}
+                  sx={activeNavigationStyles}
+                  aria-label="Tenants"
+                  aria-current={
+                    scope.central && !scope.portalUsers ? 'page' : undefined
+                  }
+                >
+                  <BusinessIcon />
+                  {!(desktop && collapsed) && (
+                    <ListItemText primary="Tenants" />
+                  )}
+                </ListItemButton>
+                <ListItemButton
+                  component={Link}
+                  to="/management/portal-users"
+                  selected={scope.central && scope.portalUsers}
+                  onClick={closeMenu}
+                  sx={activeNavigationStyles}
+                  aria-label="Portal users"
+                  aria-current={
+                    scope.central && scope.portalUsers ? 'page' : undefined
+                  }
+                >
+                  <PeopleIcon />
+                  {!(desktop && collapsed) && (
+                    <ListItemText primary="Portal users" />
+                  )}
+                </ListItemButton>
+              </List>
+            </Collapse>
+            <Menu
+              id="management-flyout"
+              anchorEl={managementAnchor}
+              open={!!managementAnchor && desktop && collapsed}
+              onClose={() => setManagementAnchor(null)}
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            >
+              <MenuItem
+                component={Link}
+                to="/management/tenants"
+                selected={scope.central && !scope.portalUsers}
+                onClick={closeMenu}
+              >
+                Tenants
+              </MenuItem>
+              <MenuItem
+                component={Link}
+                to="/management/portal-users"
+                selected={scope.central && scope.portalUsers}
+                onClick={closeMenu}
+              >
+                Portal users
+              </MenuItem>
+            </Menu>
           </>
         )}
         {employees && (
@@ -268,138 +338,151 @@ export function ProductShell() {
   );
   return (
     <ShellContext value={{ ...scope, employees: !!employees }}>
-      <Box component="a" href="#product-content" sx={skipLinkStyles}>
-        Skip to content
-      </Box>
-      <AppBar position="static" color="default">
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-          <IconButton
-            ref={trigger}
-            aria-label="Toggle navigation"
-            aria-controls="product-navigation"
-            aria-expanded={desktop ? !collapsed : open}
-            onClick={() => (desktop ? setCollapsed(v => !v) : setOpen(v => !v))}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography sx={{ flex: 1 }}>
-            {session.tenantName ?? session.tenantCode ?? 'Tenant Management'}
-          </Typography>
-          {session.canChangeTenant && !session.controlledAccess && (
-            <Button component={Link} to="/tenants">
-              Change tenant
-            </Button>
-          )}
-          <IconButton
-            id="profile-trigger"
-            aria-label={`Profile: ${session.email}`}
-            aria-haspopup="menu"
-            aria-controls={profileAnchor ? 'profile-menu' : undefined}
-            aria-expanded={!!profileAnchor}
-            onClick={event => setProfileAnchor(event.currentTarget)}
-          >
-            <Avatar>{session.email.trim().charAt(0).toUpperCase()}</Avatar>
-          </IconButton>
-          <Menu
-            id="profile-menu"
-            anchorEl={profileAnchor}
-            open={!!profileAnchor}
-            onClose={closeProfile}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{ list: { 'aria-labelledby': 'profile-trigger' } }}
-          >
-            {modeMenu
-              ? (['light', 'dark', 'system'] as const).map(mode => (
-                  <MenuItem
-                    key={mode}
-                    role="menuitemradio"
-                    aria-checked={preference === mode}
-                    selected={preference === mode}
-                    onClick={() => {
-                      setPreference(mode);
-                      closeProfile();
-                    }}
-                  >
-                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                  </MenuItem>
-                ))
-              : [
-                  <MenuItem key="profile" disabled>
-                    Profile
-                  </MenuItem>,
-                  <MenuItem key="settings" disabled>
-                    Settings
-                  </MenuItem>,
-                  <MenuItem key="mode" onClick={() => setModeMenu(true)}>
-                    <ListItemText primary="Mode" />
-                    <ChevronRightIcon />
-                  </MenuItem>,
-                  <MenuItem
-                    key="password"
-                    component={Link}
-                    to={`/account/password?next=${encodeURIComponent(here)}`}
-                    onClick={closeProfile}
-                  >
-                    Change password
-                  </MenuItem>,
-                  <MenuItem
-                    key="logout"
-                    onClick={() => {
-                      closeProfile();
-                      void signOut();
-                    }}
-                  >
-                    Logout
-                  </MenuItem>,
-                ]}
-          </Menu>
-        </Toolbar>
-      </AppBar>
-      <Box sx={shellBodyStyles}>
-        <Drawer
-          variant={desktop ? 'permanent' : 'temporary'}
-          open={desktop || open}
-          onClose={closeMenu}
-          sx={railStyles(desktop && collapsed)}
-        >
-          {links}
-        </Drawer>
-        <Box
-          component="main"
-          id="product-content"
-          tabIndex={-1}
-          sx={shellContentStyles}
-        >
-          <Stack spacing={3}>
-            <Breadcrumbs aria-label="Breadcrumbs">
-              {scope.central ? (
-                <Typography>Tenant Management</Typography>
-              ) : scope.directory ? (
-                <Typography>Accounting</Typography>
-              ) : null}
-              {scope.directory && <Link to={directory}>Directories</Link>}
-              <Typography aria-current="page">{heading}</Typography>
-            </Breadcrumbs>
-            <Typography component="h1" variant="h4">
-              {heading}
+      <Box
+        sx={{
+          height: scope.central ? '100dvh' : undefined,
+          minHeight: '100dvh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Box component="a" href="#product-content" sx={skipLinkStyles}>
+          Skip to content
+        </Box>
+        <AppBar position="static" color="default">
+          <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
+            <IconButton
+              ref={trigger}
+              aria-label="Toggle navigation"
+              aria-controls="product-navigation"
+              aria-expanded={desktop ? !collapsed : open}
+              onClick={() =>
+                desktop ? setCollapsed(v => !v) : setOpen(v => !v)
+              }
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography sx={{ flex: 1 }}>
+              {session.tenantName ?? session.tenantCode ?? 'Tenant Management'}
             </Typography>
-            {denied ? (
-              <Alert severity="warning">
-                Access is unavailable.{' '}
-                <Button onClick={reload}>Recheck access</Button>
-              </Alert>
-            ) : failure ? (
-              <Alert severity="error">
-                {failure} <Button onClick={reload}>Retry</Button>
-              </Alert>
-            ) : transition.state === 'loading' ||
-              (!scope.central && !navigation) ? (
-              <RouteLoading />
-            ) : (
-              <Outlet key={here} />
+            {session.canChangeTenant && !session.controlledAccess && (
+              <Button component={Link} to="/tenants">
+                Change tenant
+              </Button>
             )}
-          </Stack>
+            <IconButton
+              id="profile-trigger"
+              aria-label={`Profile: ${session.email}`}
+              aria-haspopup="menu"
+              aria-controls={profileAnchor ? 'profile-menu' : undefined}
+              aria-expanded={!!profileAnchor}
+              onClick={event => setProfileAnchor(event.currentTarget)}
+            >
+              <Avatar>{session.email.trim().charAt(0).toUpperCase()}</Avatar>
+            </IconButton>
+            <Menu
+              id="profile-menu"
+              anchorEl={profileAnchor}
+              open={!!profileAnchor}
+              onClose={closeProfile}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{ list: { 'aria-labelledby': 'profile-trigger' } }}
+            >
+              {modeMenu
+                ? (['light', 'dark', 'system'] as const).map(mode => (
+                    <MenuItem
+                      key={mode}
+                      role="menuitemradio"
+                      aria-checked={preference === mode}
+                      selected={preference === mode}
+                      onClick={() => {
+                        setPreference(mode);
+                        closeProfile();
+                      }}
+                    >
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </MenuItem>
+                  ))
+                : [
+                    <MenuItem key="profile" disabled>
+                      Profile
+                    </MenuItem>,
+                    <MenuItem key="settings" disabled>
+                      Settings
+                    </MenuItem>,
+                    <MenuItem key="mode" onClick={() => setModeMenu(true)}>
+                      <ListItemText primary="Mode" />
+                      <ChevronRightIcon />
+                    </MenuItem>,
+                    <MenuItem
+                      key="password"
+                      component={Link}
+                      to={`/account/password?next=${encodeURIComponent(here)}`}
+                      onClick={closeProfile}
+                    >
+                      Change password
+                    </MenuItem>,
+                    <MenuItem
+                      key="logout"
+                      onClick={() => {
+                        closeProfile();
+                        void signOut();
+                      }}
+                    >
+                      Logout
+                    </MenuItem>,
+                  ]}
+            </Menu>
+          </Toolbar>
+        </AppBar>
+        <Box sx={shellBodyStyles}>
+          <Drawer
+            variant={desktop ? 'permanent' : 'temporary'}
+            open={desktop || open}
+            onClose={closeMenu}
+            sx={railStyles(desktop && collapsed)}
+          >
+            {links}
+          </Drawer>
+          <Box
+            component="main"
+            id="product-content"
+            tabIndex={-1}
+            sx={
+              scope.central
+                ? { ...shellContentStyles, p: 0 }
+                : shellContentStyles
+            }
+          >
+            <Stack
+              spacing={scope.central ? 0 : 3}
+              sx={{ minHeight: 0, height: '100%' }}
+            >
+              {!scope.central && (
+                <Typography component="h1" variant="h4">
+                  {heading}
+                </Typography>
+              )}
+              {denied ? (
+                <Alert severity="warning">
+                  Access is unavailable.{' '}
+                  <Button onClick={reload}>Recheck access</Button>
+                </Alert>
+              ) : failure ? (
+                <Alert severity="error">
+                  {failure} <Button onClick={reload}>Retry</Button>
+                </Alert>
+              ) : transition.state === 'loading' ||
+                (!scope.central && !navigation) ? (
+                <RouteLoading />
+              ) : (
+                <Outlet
+                  key={`${location.pathname}:${scope.record ?? ''}:${scope.target ?? ''}`}
+                />
+              )}
+            </Stack>
+          </Box>
         </Box>
       </Box>
     </ShellContext>

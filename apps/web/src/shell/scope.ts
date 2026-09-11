@@ -33,6 +33,10 @@ export function readScope(pathname: string, search: string) {
     page: /^\d+$/.test(query.get('page') ?? '')
       ? Math.min(Number(query.get('page')), 100000)
       : 0,
+    search: query.get('q') ?? '',
+    status: query.get('status') ?? '',
+    sort: query.get('sort') ?? '',
+    descending: query.get('direction') === 'desc',
     create: parts[3] === 'new',
     portalUsers: parts[2] === 'portal-users',
   };

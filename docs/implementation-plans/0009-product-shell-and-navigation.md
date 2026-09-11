@@ -5,7 +5,7 @@ Implementation: Implemented; local acceptance passed. No merge or CI verificatio
 
 ## Features
 
-- Responsive header, two-level navigation, breadcrumbs and accessible menu.
+- Responsive header, two-level navigation and accessible menu.
 - Explicit static Dashboard and session-aware product entry.
 - Tenant and portal-user provisioning screens and bounded Employees view.
 - Vendor selection after every login, safe deep links and tenant transitions.
@@ -49,7 +49,7 @@ Local evidence, 2026-09-10:
   its tenant, reloaded in context and returned through Change tenant.
 - Desktop and 390px mobile checks covered two-level navigation, active destination,
   overlay dismissal, Escape/focus restoration, persistent controlled banner,
-  Employees breadcrumbs/tab, and light/dark themes. Browser console had no errors.
+  Employees tab, and light/dark themes. Browser console had no errors.
 - Lint, typecheck, production build and production license checks passed.
   Final formatting and `git diff --check` passed.
 
@@ -63,3 +63,40 @@ settings persistence, logo storage and dashboard widgets remain deferred.
 
 Acceptance behavior remains owned by PRD 0009 SHELL-001–005. Merge and CI evidence
 must be reconciled during a separately authorized shipping task before Verified.
+
+## Management UI refinement — 2026-09-11
+
+Owner requested applying the UI guidelines to Tenants and Portal users.
+The earlier acceptance evidence above predates this refinement.
+
+- Add focused Header1 controls and MUI X DataGrid lists with URL-backed search,
+  status, sorting, pagination, and portal-user membership selection.
+- Keep record menus scoped to existing operations; show tenant action forms on
+  demand and retain routed creation with explicit submission.
+- Remove shell breadcrumbs, collapse Tenant Management navigation, and provide
+  its collapsed-rail group flyout with keyboard dismissal.
+- Preserve bounded overview, permission checks, stale-response rejection, and
+  controlled access. No API, schema, or dependency changes are required.
+- Verify routes, filtering/history, row targets, permitted actions, creation
+  return paths, failed submissions, and desktop/mobile layouts. Run repository
+  checks and record fresh evidence before reporting completion.
+- Deliver together on the current branch; rollback is reverting these UI changes.
+
+Refinement verification, 2026-09-11:
+
+- Real-API browser verification used disposable PostgreSQL: sign-in, tenant
+  creation and list refresh, Portal users navigation, and management group flyout.
+- Desktop dark/light screenshots and a 390px mobile screenshot were inspected.
+  The mobile document matched viewport width/height; the grid owns horizontal
+  scrolling. The browser reported no page errors.
+- Route regressions cover URL search/history, status/sorting bookmarks, row
+  targets, membership details, prefilled linking and return destination,
+  permission-filtered menus, controlled employee access, and failed-form recovery.
+- The existing overview remains bounded to 200 records; list controls operate on
+  that authorized overview, not an unbounded server-side directory.
+
+- Final checks passed: lint, typecheck, production build, formatting, licenses,
+  and diff checks. Test coverage passed across 28 toolchain, 289 API, 60 web,
+  and 13 shared tests. The browser flyout restored trigger focus on Escape.
+- Refinement is implemented and locally verified; no commit, push, merge, or
+  CI verification is claimed.
