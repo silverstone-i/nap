@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Require incremental UI delivery and manual workflow verification in the roadmap,
+  and schedule cell registration and tenant provisioning UI before Core.
+
 ## [v0.15.0] - 2026-09-11
 
 ### Added
