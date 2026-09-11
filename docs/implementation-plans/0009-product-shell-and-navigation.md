@@ -1,7 +1,7 @@
 # Product shell and navigation implementation
 
 Owner approved PRD 0009 and its linked amendments on 2026-09-10.
-Implementation: Implemented; local acceptance passed. No merge or CI verification claimed.
+Implementation: Verified upon merge of [PR #21](https://github.com/silverstone-i/nap/pull/21) with required checks passing.
 
 ## Features
 
@@ -28,7 +28,7 @@ Implementation: Implemented; local acceptance passed. No merge or CI verificatio
 - URL tenant identifiers are intent, never authorization or an implicit switch.
 - Employee access retains CID-004; provisioning retains TEN-006/007. No generic employee CRUD, settings persistence, logo storage, migration or new dependency is planned.
 - Documentation and implementation ship together. Deferred-code issue requirements do not apply to this combined delivery.
-- Preserve existing uncommitted work. No commit, push or PR is authorized.
+- Delivery and shipping are authorized together through PR #21.
 
 ## Verification
 
@@ -57,12 +57,12 @@ The initial development-browser transition was interrupted by Vite's first-use
 optimization reload; after dependency optimization the actual controlled
 transition passed, and a dedicated route regression test also passed.
 
-No migration, dependency, commit, push or pull request was introduced. The
+No migration or dependency was introduced. The
 existing bounded overview retains its 200-record cap. General employee CRUD,
 settings persistence, logo storage and dashboard widgets remain deferred.
 
-Acceptance behavior remains owned by PRD 0009 SHELL-001–005. Merge and CI evidence
-must be reconciled during a separately authorized shipping task before Verified.
+Acceptance behavior remains owned by PRD 0009 SHELL-001–005. Final shipping
+evidence and the merge condition are recorded below.
 
 ## Management UI refinement — 2026-09-11
 
@@ -98,5 +98,17 @@ Refinement verification, 2026-09-11:
 - Final checks passed: lint, typecheck, production build, formatting, licenses,
   and diff checks. Test coverage passed across 28 toolchain, 289 API, 60 web,
   and 13 shared tests. The browser flyout restored trigger focus on Escape.
-- Refinement is implemented and locally verified; no commit, push, merge, or
-  CI verification is claimed.
+- Refinement acceptance is complete; final verification is recorded below.
+
+## Shipping verification — 2026-09-11
+
+- SHELL-001–005 and the management refinement are complete within the documented
+  scope; the deferred capabilities above remain deferred.
+- Review fixes in `7d388bd8` batch membership assignment reads, require tenant IDs
+  in membership responses, and recover navigation after scope changes.
+- All final local checks passed: lint, typecheck, build, formatting, licenses,
+  and diff checks; 393 tests passed (28 toolchain, 290 API, 61 web, 14 shared).
+- [CI checks](https://github.com/silverstone-i/nap/actions/runs/34563543761)
+  and the changelog check passed on `7d388bd8`; all six review threads were resolved.
+- Verified upon merge of [PR #21](https://github.com/silverstone-i/nap/pull/21)
+  with required checks passing on the final head, including this reconciliation.

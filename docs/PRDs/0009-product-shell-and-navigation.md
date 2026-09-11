@@ -15,7 +15,7 @@
   navigation menu.
 - Documented user and tenant settings, default resolution, and deferred storage.
 
-**Design:** Accepted (owner approved 2026-09-10). **Implementation:** Implemented (local acceptance passed; merge/CI pending).
+**Design:** Accepted (owner approved 2026-09-10). **Implementation:** Verified upon merge of [PR #21](https://github.com/silverstone-i/nap/pull/21) with required checks passing.
 
 ## Authority and approval
 
@@ -218,3 +218,5 @@ The implementation plan records current verification evidence.
 | 2026-09-10 | Linked non-authoritative UI design guidelines; accepted behavior and implementation status are unchanged. |
 
 | 2026-09-11 | Applied owner-requested management UI guidelines: focused Header1, MUI X DataGrid, record actions, and Tenant Management collapse/flyout navigation. |
+
+| 2026-09-11 | Reconciled SHELL-001–005 verification for PR #21; final local checks and CI passed, with Verified effective upon merge. |

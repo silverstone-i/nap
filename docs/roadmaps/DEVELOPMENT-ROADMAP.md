@@ -181,7 +181,7 @@ start from the specification and applicable ADRs.
 | Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
 | RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Accepted | Verified       | RBAC and module entitlement                                                                        |
-| Product shell and navigation                  | Accepted | Implemented    | RBAC; tenant provisioning and Core employee identity records                                       |
+| Product shell and navigation                  | Accepted | Verified       | RBAC; tenant provisioning and Core employee identity records                                       |
 | Reference data and Core                       | Draft    | Not started    | RBAC                                                                                               |
 | Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
 | Projects                                      | Draft    | Not started    | Core                                                                                               |
@@ -740,14 +740,16 @@ reflected on the next request. No security state exists only in Redis.
 **Outcome:** An authenticated, tenant-aware application frame with
 authorization-aware navigation and one shared reader for URL-derived scope.
 
-**Design:** Accepted. **Implementation:** Implemented (local acceptance passed; merge/CI pending).
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #21](https://github.com/silverstone-i/nap/pull/21) with required checks passing.
 
 **Depends on:** RBAC and module entitlement; tenant provisioning
 (PRD 0004) and Core employee identity records (PRD 0005). This replaces the first-new-product-module gate under ADR 0010.
 
 Management UI refinement (2026-09-11) adds focused toolbars, MUI X DataGrid
-lists, record actions, and Tenant Management collapse/flyout navigation. Local
-verification is recorded in the existing delivery plan; merge/CI remain pending.
+lists, record actions, and Tenant Management collapse/flyout navigation. Final local and
+[CI verification](https://github.com/silverstone-i/nap/actions/runs/34563543761)
+is recorded in the existing delivery plan; Verified takes effect upon merge
+with required checks passing on the final PR head.
 
 **Required design:** [PRD 0009](../PRDs/0009-product-shell-and-navigation.md)
 (Accepted) owns initial navigation, Directories tabs, branding,
