@@ -48,63 +48,31 @@ values. Never commit the local environment file.
 
 ### Database setup and checks
 
-Install PostgreSQL 18 or later, including `psql`, `initdb`, `pg_ctl`, `pg_dump`, and `pg_restore` on PATH.
-On macOS, Homebrew's `postgresql@18` provides these commands. Use an existing
-administrative login with permission to create roles and databases for setup.
-Set the `_DEV` endpoints and fixed-role passwords in the example, then
-run `npm run db:setup:dev -- --cell-id <configured-cell-uuid>`. Use `_TEST`
-settings with `npm run db:setup:test -- --cell-id <configured-cell-uuid>`.
-Both targets must share the setup server, and migration credentials must match
-the fixed nap_admin setup owner. Local endpoints accept no query parameters;
-database identifiers use lowercase letters, digits, and underscores, starting
-with a letter or underscore.
+Install PostgreSQL 18 client/server tooling and OpenSSL on PATH. Operator commands
+require an explicit `--env dev|test|prod`. Follow the
+[database provisioning runbook](docs/guides/database-provisioning.md) for credentials,
+Render settings, recovery, and activation.
 
-Setup creates missing databases and runtime roles, validates existing ownership
-and privileges, and verifies credentials. It never resets passwords, drops data,
-or creates application tables. Only `test` and `development` modes are supported.
-After setup, run `npm run db:migrate:admin` and `npm run db:migrate:cell -- --cell-id <configured-cell-uuid>`.
-These are explicit release operations, never API startup hooks. Migrations initialize the registered module schemas and tables with pg-schemata
-tracking. Setup itself creates no application tables; module migrations own
-tables and runtime grants.
-
-`NODE_ENV` selects DEV, TEST, or PROD settings (development when absent).
-Configuration follows the DEV (including isolated TEST), PROD, and Common
-sections in `apps/api/.env.example`. NODE_ENV selects the environment. Code
-builds URLs using fixed roles nap_app and nap_admin, shared local role passwords,
-and separate endpoint entries. Production entries carry per-database passwords;
-the API deployment omits adminPassword. Migration commands read only the selected
-maintenance password. Inherited process values override the local file.
-See [ADR 0012](docs/ADRs/0012-environment-configuration.md).
-
-Runtime roles must not have elevated role flags, ownership, schema/database
-creation grants, or membership paths to privileged/owning roles. A failed check
-prevents listening. Shutdown and startup/listener failures close both pools.
-Migration transactions are per schema: earlier schemas remain committed on a
-later failure. Correct the cause and rerun without editing applied migrations.
-Application rollback leaves schemas and tracking tables in place.
-
-To erase a database's NAP schemas and start again, stop the API and run the
-appropriate command with an explicit acknowledgement:
-
-```sh
-npm run db:reset:admin -- --confirm
-npm run db:reset:cell -- --cell-id <configured-cell-uuid> --confirm
+```bash
+npm run db:setup:admin -- --env dev
+npm run db:migrate:admin -- --env dev
+npm run db:bootstrap -- --env dev
+npm run db:setup:cell -- --env dev --cell-name east
+npm run db:migrate:cell -- --env dev --cell-id <returned-uuid>
+npm run db:seed:cell -- --env dev --cell-id <returned-uuid>
+npm run db:activate:cell -- --env dev --cell-id <returned-uuid>
 ```
 
-Admin reset drops `admin`; cell reset drops `reporting`, `app`, `reference`,
-and `cell` in the configured cell database. Each reset removes all data and
-migration history in those schemas, including dependent objects through
-`CASCADE`, in one transaction. Databases and PostgreSQL roles are retained.
-The commands select migration credentials using `NODE_ENV`, just like migrations;
-check that it selects the environment you intend to erase. They do not discover
-or reset other registered cells. A lock wait longer than five seconds aborts
-the reset and rolls back its changes.
+Setup creates infrastructure; migrations create application tables; admin bootstrap
+creates root records; cell seeding inserts shared reference codes. Activation is
+separate. Tenant assignment and tenant RBAC seeds remain tenant-provisioning work.
+The new admin baseline requires empty databases; existing historical migration
+ledgers are refused. No reset or rename is performed automatically.
 
-After resetting both targets, run `npm run db:migrate:admin`,
-`npm run db:migrate:cell -- --cell-id <configured-cell-uuid>`, then `npm run db:bootstrap` to recreate the root login.
-Cell registration and tenant provisioning must also be repeated. Resetting
-only one target leaves the other target's records intact and may require
-reconciliation before the application can use them again.
+Runtime still selects configuration using NODE_ENV. Maintenance commands use their
+explicit environment and private provisioning state. DEV and TEST use independently
+shared role passwords; PROD uses independent instance passwords. Never commit
+`.env` or provisioning state. The test suite owns disposable databases and test data.
 
 Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`,
 `npm run build`, and `npm run licenses` before pushing. Local toolchain tests

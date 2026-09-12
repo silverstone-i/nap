@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { resolveSetupConnection } from '../../apps/api/src/util/env.ts';
-import { setupDatabases } from '../setup-databases.mjs';
+import { setupDatabases } from './fixtures/setup-databases.mjs';
 
 let directory;
 let configuration;

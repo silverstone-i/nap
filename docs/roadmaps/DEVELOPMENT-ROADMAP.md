@@ -1221,3 +1221,13 @@ and the [configuration plan](../implementation-plans/environment-configuration.m
 cover component-based DEV/TEST/PROD configuration and existing command inputs.
 Database setup/provisioning correction and physical identity validation remain
 separate work; no migrations or deployment are included here.
+
+## Admin and cell database provisioning
+
+Design: Accepted. Implementation: Implemented locally; not shipped.
+
+ADR 0013 and the [implementation plan](../implementation-plans/database-provisioning.md)
+cover separate setup/migration/bootstrap/seeding/activation, descriptive database
+names, Render provisioning, physical identity, and the five-file admin baseline.
+PRD 0008 covers the countries/currencies seed subset; broader Reference data and Core
+workflows remain separate. Verification status follows recorded test evidence.

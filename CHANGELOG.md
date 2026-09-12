@@ -13,6 +13,10 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Changed
 
+- Separate database setup, migrations, root bootstrap, cell reference seeding, and
+  activation with explicit environments, descriptive cell names, resumable Render
+  provisioning, physical identity checks, and a consolidated empty-admin baseline.
+
 - Serve admin and multiple cell databases from one API process, using UUID-keyed
   connection maps, fixed per-cell controllers, and independent cell recovery.
   Replace inter-API forwarding and obsolete singular-cell runtime configuration.

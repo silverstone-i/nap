@@ -1,3 +1,6 @@
+import { resolveEnvironment } from '../../../../util/env.js';
+import { physicalIdentity } from '../../../cell-tenancy/verifyProvisioning.js';
+import { referenceReady } from '../../../reference-data/seed.js';
 /*
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -50,6 +53,47 @@ export default function controlRouter(
     router: 'control',
     routes: Object.fromEntries(standardActions.map(a => [a, false])),
     extend: add => {
+      add({
+        action: 'cell-readiness',
+        method: 'get',
+        path: '/cell-readiness',
+        access: 'platform',
+        body: z.undefined(),
+        query: z.strictObject({ cell: z.uuid() }),
+        params: empty,
+        response: z.object({
+          version: z.literal(1),
+          data: z.object({
+            cellId: z.uuid(),
+            database: z.string(),
+            environment: z.enum(['dev', 'test', 'prod']),
+            operationId: z.uuid(),
+            ready: z.boolean(),
+          }),
+        }),
+        operation: async (tx, input) => {
+          await requirePlatform(tx, input.session.actorId, 'registry');
+          const selected = cells.get(input.query.cell.toLowerCase());
+          const identity = await physicalIdentity(selected);
+          const ready = await referenceReady(selected);
+          if (
+            identity.id !== input.query.cell.toLowerCase() ||
+            identity.actual !== identity.database_name ||
+            identity.environment !== resolveEnvironment().toLowerCase()
+          )
+            throw new HttpError('SERVICE_UNAVAILABLE');
+          return {
+            version: 1 as const,
+            data: {
+              cellId: identity.id,
+              database: identity.actual,
+              environment: identity.environment,
+              operationId: identity.operation_id,
+              ready,
+            },
+          };
+        },
+      });
       add({
         action: 'role-policy',
         method: 'post',

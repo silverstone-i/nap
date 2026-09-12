@@ -268,3 +268,14 @@ from current server state; customer contracts do not disclose deployment details
 Revision, 2026-09-11: ADR 0011 supersedes ADR 0007 topology. Sessions resolve centrally without cell reads; module requests and provisioning select UUID-keyed database handles inside one API process. Individual cell outages do not block central operations.
 
 Revision, 2026-09-12: ADR 0012 separates secrets, bootstrap inputs, cookies and proxy trust by environment; common tuning and authentication behavior remain unchanged.
+
+## Database provisioning integration
+
+The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
+root records without a cell. Disabled cell registration precedes database creation;
+physical identity checks precede migration/seeding/activation. Cell reference seeding
+is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
+through registry edits before activation has verified the running API.
+
+Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.

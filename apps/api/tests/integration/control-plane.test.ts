@@ -724,7 +724,7 @@ it('enforces RLS and immutable tenant keys on every new Core and projection tabl
   );
   expect(policies.every(p => p.relrowsecurity)).toBe(true);
 });
-it('refuses upgrades with unexplained non-root bindings and rolls back the additive migration', async () => {
+it('replays the consolidated baseline without converting existing non-root memberships', async () => {
   const url = await test.fixture.createDatabase('legacy_membership');
   const descriptor = adminModules[0];
   await migrateDatabase('admin', url, [
@@ -734,10 +734,13 @@ it('refuses upgrades with unexplained non-root bindings and rolls back the addit
   await owner.none(
     "WITH t AS (INSERT INTO admin.tenants(tenant_code,company,status) VALUES('LEGACY','Legacy','active') RETURNING id), u AS (INSERT INTO admin.portal_users(email,password_hash,status) VALUES('legacy@nap.test','unused','active') RETURNING id) INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,status) SELECT u.id,t.id,'active' FROM u,t"
   );
-  await expect(migrateDatabase('admin', url, adminModules)).rejects.toThrow();
+  await migrateDatabase('admin', url, adminModules);
   expect(await owner.one("SELECT to_regclass('admin.cells') AS table")).toEqual(
-    { table: null }
+    { table: 'admin.cells' }
   );
+  expect(
+    await owner.one('SELECT ready FROM admin.portal_user_tenants')
+  ).toEqual({ ready: false });
 });
 it('audits controlled access as the operator, denies active assignment changes and ignores forged tenant context', async () => {
   const { t, m } = await activeTenant();

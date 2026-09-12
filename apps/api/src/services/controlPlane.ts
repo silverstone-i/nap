@@ -252,6 +252,12 @@ export async function controlCommand(
   switch (body.operation) {
     case 'cell': {
       const existing = await tx.cells.findOneBy({ code: body.code });
+      if (
+        existing &&
+        body.enabled &&
+        !(await tx.cells.setupAllowsEnable(existing.id))
+      )
+        throw new HttpError('INVALID_INPUT');
       if (existing)
         await tx.cells.update(existing.id, {
           name: body.name,

@@ -7,7 +7,7 @@
     "declaration": true,
     "tsBuildInfoFile": "dist/build.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.json"],
   "references": [
     {
       "path": "../../packages/shared/tsconfig.build.json"

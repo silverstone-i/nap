@@ -296,23 +296,17 @@ it('runs compiled CLI targets with only their selected credentials and safe fail
       encoding: 'utf8',
       timeout: 10000,
     });
+  // The public provisioning CLI is covered by scripts/tests/provisioning.test.mjs.
+  // Legacy selectors must no longer bypass explicit environment and identity checks.
+  expect(run(['--target', 'admin']).status).toBe(1);
   expect(
-    run(['--target', 'admin'], {
-      NAP_ADMIN_PSWD_TEST: fixture.env.NAP_ADMIN_PSWD_TEST,
-    }).status
-  ).toBe(0);
-  expect(
-    run(
-      ['--target', 'cell', '--cell-id', '00000000-0000-4000-8000-000000000001'],
-      {
-        NAP_ADMIN_PSWD_TEST: fixture.env.NAP_ADMIN_PSWD_TEST,
-        CELL_DATABASES_TEST: JSON.stringify({
-          '00000000-0000-4000-8000-000000000001':
-            new URL(fixture.cellUrl).host + new URL(fixture.cellUrl).pathname,
-        }),
-      }
-    ).status
-  ).toBe(0);
+    run([
+      '--target',
+      'cell',
+      '--cell-id',
+      '00000000-0000-4000-8000-000000000001',
+    ]).status
+  ).toBe(1);
   for (const args of [
     [],
     ['--target', 'unknown'],

@@ -154,14 +154,16 @@ export async function postgresFixture() {
     const role = await createRole('runtime');
     // Fixed-role subprocess configuration uses nap_app; direct database fixtures
     // retain unique roles so privilege tests remain isolated on CI's cluster.
-    const app = await controlDatabase.one<{ present: boolean }>(
-      "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='nap_app') AS present"
-    );
-    if (!app.present)
-      await controlDatabase.none(
-        'CREATE ROLE nap_app LOGIN NOINHERIT PASSWORD $1',
-        [setup.password]
+    await controlDatabase.tx(async tx => {
+      await tx.any('SELECT pg_advisory_xact_lock(737,1)');
+      const app = await tx.one<{ present: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='nap_app') AS present"
       );
+      if (!app.present)
+        await tx.none('CREATE ROLE nap_app LOGIN NOINHERIT PASSWORD $1', [
+          process.env.CI ? process.env.NAP_APP_PSWD_TEST : setup.password,
+        ]);
+    });
     const runtimeUrl = (ownerUrl: string, username = role) => {
       const parsed = new URL(ownerUrl);
       parsed.username = username;

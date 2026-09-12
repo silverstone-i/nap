@@ -1077,7 +1077,10 @@ imports a current mutable model or calls a table blueprint that can change
 later; schema changes receive new migrations. Fresh-database and upgrade-path
 tests must produce the same final schema, and shipped migration files are
 immutable except for a correction approved through the release process for an
-artifact that has never reached an environment.
+artifact that has never reached an environment. The approved database-provisioning
+baseline replacement is a one-time exception for empty databases: replace the eight
+admin migrations with five frozen migrations and reject existing historical ledgers.
+Never erase a ledger to adopt the new baseline. Future changes use new migrations.
 
 ### Module ownership map
 
@@ -1280,6 +1283,31 @@ contracts.
 Database credentials belong to deployment secret configuration. They must not
 be stored in tenant or cell rows, returned to clients, or written to logs.
 
+### Database provisioning
+
+Database names are `nap_<dev|test|prod>_admin` and
+`nap_<dev|test|prod>_cell_<name>`. Cell names are explicit lowercase alphanumeric/
+underscore suffixes, unique in an environment, with no sequence requirement.
+UUIDs are application identities. Every operator command requires an explicit
+`--env dev|test|prod`; cell migration, seeding, and activation require `--cell-id`.
+Setup, migration, admin bootstrap, cell seeding, and activation are separate steps.
+Setup owns database/role creation; migrations never create missing databases.
+
+Register disabled cells before physical creation. Persist expected targets and
+provisioning progress without secrets. A setup-owned immutable identity record
+binds each physical database to the registered UUID and environment before its
+application migrations. Existing unnamed or mismatched resources are not adopted.
+Retries resume durable intent, preserving resources and passwords. Render production
+uses one independent instance per database and reconciles uncertain create results.
+Activation publishes runtime-only configuration and enables a cell only after the
+running API verifies its identity, migrations, reference seeds, and readiness.
+
+Admin bootstrap creates root identity/tenant/membership without requiring a cell.
+Cell seeding supplies shared countries and currencies; tenant provisioning supplies
+tenant-scoped RBAC seeds. Reference catalogs use their ISO codes as primary keys
+(an explicit exception to generic UUID identity); their maintenance seed ledger is
+infrastructure metadata. Neither is tenant-owned. Test fixtures own test data.
+
 ### Environment configuration
 
 The API environment file has Development (including isolated TEST settings),
@@ -1299,8 +1327,8 @@ Session/throttle secrets, bootstrap inputs, Redis settings, cookies, and proxy
 trust settings are environment-specific. Session durations, hashing parameters,
 logging level, NODE_ENV, and process PORT are common. Configuration is loaded at
 startup; changing it requires restart. UUID selection in a maintenance command
-is not proof of registration or physical database identity; those checks belong
-to the separately delivered setup workflow. See ADR 0012 for rationale and
+is not proof of registration or physical database identity; the provisioning scripts
+perform those checks under the Database provisioning contract. See ADR 0012 for rationale and
 `apps/api/.env.example` for the variable inventory.
 
 ### ARCH-009 — Cell connectivity boundary
@@ -1795,3 +1823,5 @@ Revision: 2026-09-10 — Owner accepted the PRD 0009 shell, vendor-selection and
 Revision, 2026-09-11: Owner accepted one API serving multiple UUID-keyed cell databases, independent cell recovery and removal of forwarding (ADR 0011).
 
 Revision, 2026-09-12: Owner approved component-based environment configuration, shared local and independent production database credentials (ADR 0012).
+
+Revision 2026-09-12: approved explicit-name provisioning, identity verification, separate activation and seeding, and empty-admin baseline replacement.

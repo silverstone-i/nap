@@ -30,6 +30,7 @@ afterEach(() => {
 function mockDatabase() {
   return {
     one: vi.fn().mockResolvedValue({ version: 180000 }),
+    tx: vi.fn().mockResolvedValue(undefined),
     none: vi
       .fn<(query: string, values?: unknown[]) => Promise<null>>()
       .mockResolvedValue(null),
