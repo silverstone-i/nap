@@ -194,7 +194,7 @@ start from the specification and applicable ADRs.
 | RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
 | Authorization cache acceleration              | Accepted | Verified       | RBAC and module entitlement                                                                        |
 | Product shell and navigation                  | Accepted | Verified       | RBAC; tenant provisioning and Core employee identity records                                       |
-| Cell registration and tenant provisioning UI  | Accepted | Implemented    | Product shell and navigation; Cell tenancy and provisioning; RBAC and module entitlement           |
+| Cell registration and tenant provisioning UI  | Accepted | Verified upon PR #23 merge | Product shell and navigation; Cell tenancy and provisioning; RBAC and module entitlement           |
 | Reference data and Core                       | Draft    | Not started    | Cell registration and tenant provisioning UI; RBAC                                                 |
 | Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
 | Projects                                      | Draft    | Not started    | Core                                                                                               |
@@ -796,7 +796,7 @@ records details. Verified remains gated on the final shipping evidence.
 cell through activating a tenant with an initial `tenant_admin`, then signing
 in as that administrator to verify tenant access.
 
-**Design:** Accepted (owner approved, 2026-09-11). **Implementation:** Implemented locally; merge and CI pending.
+**Design:** Accepted (owner approved, 2026-09-11). **Implementation:** Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
 
 [Delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md)
 tracks the accepted UI changes and new verification evidence.
@@ -843,8 +843,8 @@ must exercise prerequisite setup rather than relying on a cell record created be
 Local real UI/API verification completed the gate, including empty-registry setup,
 injected employee-write failure and same-job retry, activation, initial password
 change, employee access and central-access denial. The delivery plan records
-checks and evidence; merge/CI verification remains pending. Historical verification
-remains unchanged.
+checks and evidence; verification becomes effective upon PR #23 merge with required
+checks passing. Historical verification remains unchanged.
 
 ## Reference data and Core
 

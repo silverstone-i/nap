@@ -241,6 +241,6 @@ No wizard, infrastructure controls or generic employee administration is added.
 Revision, 2026-09-11: Owner accepted SHELL-009 with implementation authorization.
 Evidence is tracked in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
 
-UI implementation, 2026-09-11: Cells and provisioning completion are implemented
-locally with real UI/API acceptance evidence in the UI delivery plan. Merge and
-CI remain pending; historical Verified entries retain their original scope.
+UI verification: Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
+The UI delivery plan records browser/API evidence and review fixes; historical
+Verified entries retain their original scope.

@@ -45,8 +45,9 @@ Commit, push and merge are separate delivery actions.
 
 ## Evidence
 
-Locally implemented and manually verified on 2026-09-11; commit, merge and CI
-remain pending. No production schema or API behavior changes were required.
+Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
+Local browser/API verification was completed on 2026-09-11. No production schema
+or API behavior changes were required.
 
 Real UI/API verification used a disposable PostgreSQL cluster and temporary Vite
 server at a separate loopback origin; development databases were not used.
@@ -81,4 +82,17 @@ All passed on Node 24.19.0:
 
 The initial full run found two new Cells test selector errors, corrected before
 the final complete passing run. The temporary browser tab and isolated fixture
-were closed after verification. No commit, push or merge was performed.
+were closed after verification. That initial verification preceded commits and PR creation.
+
+### PR review and merge verification
+
+PR #23 fixes stale load errors and duplicate-code warnings, permits registry-only
+registration without overview access, and preserves overview gates on list/edit
+routes. Regression coverage includes these permission boundaries and recovery.
+All 413 tests, lint, typecheck, build, formatting, licenses and diff checks passed.
+[CI on the final code revision](https://github.com/silverstone-i/nap/actions/runs/34664383321)
+passed; required CI must also pass on the documentation reconciliation before merge.
+Copilot recommended approval on `8c4decaf` with no new comments.
+
+This verification covers the UI on the existing deployment topology. The agreed
+one-API, multiple-cell-database topology correction remains a separate change.

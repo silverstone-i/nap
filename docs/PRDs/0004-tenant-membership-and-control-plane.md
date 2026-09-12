@@ -279,6 +279,6 @@ password change; existing linked identities retain their credentials.
 Revision, 2026-09-11: Owner accepted TEN-010 for the cell registration and tenant
 provisioning UI; prior implementation verification remains historical.
 
-UI implementation, 2026-09-11: Cells and provisioning completion are implemented
-locally with real UI/API acceptance evidence in the UI delivery plan. Merge and
-CI remain pending; historical Verified entries retain their original scope.
+UI verification: Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
+The UI delivery plan records browser/API evidence and review fixes; historical
+Verified entries retain their original scope.
