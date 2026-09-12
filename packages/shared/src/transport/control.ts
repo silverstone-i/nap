@@ -13,6 +13,7 @@ export const platformPermissions = [
   'admin-tenancy::control::entitlement',
   'admin-tenancy::control::overview',
   'admin-tenancy::control::registry',
+  'admin-tenancy::control::cell-readiness',
   'admin-tenancy::control::provision',
   'admin-tenancy::control::members',
   'admin-tenancy::control::grants',

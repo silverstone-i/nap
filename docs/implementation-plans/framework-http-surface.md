@@ -178,3 +178,5 @@ answer. Health responses are byte-identical. The route registry is empty and
 every framework route refuses without a resolved session, so the deployed
 surface is unchanged. Deploy the API artifact as usual; rollback restores the
 previous artifact. No feature gates or ordered release units.
+
+Configuration note, 2026-09-12: ADR 0012 supersedes unsuffixed environment-sensitive settings in this historical delivery record. The current variable inventory is apps/api/.env.example.

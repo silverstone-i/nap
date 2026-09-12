@@ -37,75 +37,42 @@ Use the Node version pinned in `.nvmrc` (`nvm use`), then run `npm ci`.
 
 The API exposes `GET /health/live` and `GET /health/ready`; other paths return
 version-1 JSON errors. Every application response carries `X-Request-ID`.
-Startup verifies both runtime database roles before listening. The web starts
-independently and displays NAP; product screens remain later capabilities.
+Startup requires admin readiness and probes each configured cell independently.
+Unavailable cells are quarantined and retried every 30 seconds while admin and
+healthy cells remain available. The web uses the same public origin as the API.
 
 Copy `apps/api/.env.example` to `apps/api/.env` for local configuration. The API
 and database commands load that file without overriding inherited environment
-values. `PORT`, runtime/migration database URLs, and development/test setup are
-implemented; other sample settings remain proposals. Never commit the local
-environment file.
+values. The example documents implemented configuration names and placeholder
+values. Never commit the local environment file.
 
 ### Database setup and checks
 
-Install PostgreSQL 18 or later, including `psql`, `initdb`, `pg_ctl`, `pg_dump`, and `pg_restore` on PATH.
-On macOS, Homebrew's `postgresql@18` provides these commands. Use an existing
-administrative login with permission to create roles and databases for setup.
-Set the `_DEV` connection settings and runtime role names in the example, then
-run `npm run db:setup:dev`. Use `_TEST` settings with `npm run db:setup:test`.
-Both targets must share the setup server, and migration credentials must match
-the setup owner. URLs must contain a password and no query parameters; database
-and role identifiers use lowercase letters, digits, and underscores, starting
-with a letter or underscore.
+Install PostgreSQL 18 client/server tooling and OpenSSL on PATH. Operator commands
+require an explicit `--env dev|test|prod`. Follow the
+[database provisioning runbook](docs/guides/database-provisioning.md) for credentials,
+Render settings, recovery, and activation.
 
-Setup creates missing databases and runtime roles, validates existing ownership
-and privileges, and verifies credentials. It never resets passwords, drops data,
-or creates application tables. Only `test` and `development` modes are supported.
-After setup, run `npm run db:migrate:admin` and `npm run db:migrate:cell`.
-These are explicit release operations, never API startup hooks. Empty registries
-initialize `admin` and the cell schemas in `cell`, `reference`, `app`, `reporting`
-order with pg-schemata tracking tables. No business tables or blanket runtime
-grants are created. Bootstrap remains a later capability.
-
-`NODE_ENV` selects `_DEV`, `_TEST`, or `_PROD` URLs (development when absent).
-Runtime startup needs only both `*_DATABASE_URL_*` values; a migration command
-needs only its selected `*_MIGRATION_URL_*`. Production roles/databases must be
-provisioned externally. Run migrations before deploying the runtime. Connections
-have a five-second timeout; startup role checks have a five-second query timeout.
-Runtime URLs must identify distinct database endpoints; deployment configuration
-must also avoid aliases that refer to the same database. Runtime and migration
-URLs preserve `sslmode`, `sslcert`, `sslkey`, `sslrootcert`, and `application_name`
-options; other query options are rejected. Setup URLs remain option-free.
-
-Runtime roles must not have elevated role flags, ownership, schema/database
-creation grants, or membership paths to privileged/owning roles. A failed check
-prevents listening. Shutdown and startup/listener failures close both pools.
-Migration transactions are per schema: earlier schemas remain committed on a
-later failure. Correct the cause and rerun without editing applied migrations.
-Application rollback leaves schemas and tracking tables in place.
-
-To erase a database's NAP schemas and start again, stop the API and run the
-appropriate command with an explicit acknowledgement:
-
-```sh
-npm run db:reset:admin -- --confirm
-npm run db:reset:cell -- --confirm
+```bash
+npm run db:setup:admin -- --env dev
+npm run db:migrate:admin -- --env dev
+npm run db:bootstrap -- --env dev
+npm run db:setup:cell -- --env dev --cell-name east
+npm run db:migrate:cell -- --env dev --cell-id <returned-uuid>
+npm run db:seed:cell -- --env dev --cell-id <returned-uuid>
+npm run db:activate:cell -- --env dev --cell-id <returned-uuid>
 ```
 
-Admin reset drops `admin`; cell reset drops `reporting`, `app`, `reference`,
-and `cell` in the configured cell database. Each reset removes all data and
-migration history in those schemas, including dependent objects through
-`CASCADE`, in one transaction. Databases and PostgreSQL roles are retained.
-The commands select migration credentials using `NODE_ENV`, just like migrations;
-check that it selects the environment you intend to erase. They do not discover
-or reset other registered cells. A lock wait longer than five seconds aborts
-the reset and rolls back its changes.
+Setup creates infrastructure; migrations create application tables; admin bootstrap
+creates root records; cell seeding inserts shared reference codes. Activation is
+separate. Tenant assignment and tenant RBAC seeds remain tenant-provisioning work.
+The new admin baseline requires empty databases; existing historical migration
+ledgers are refused. No reset or rename is performed automatically.
 
-After resetting both targets, run `npm run db:migrate:admin`,
-`npm run db:migrate:cell`, then `npm run db:bootstrap` to recreate the root login.
-Cell registration and tenant provisioning must also be repeated. Resetting
-only one target leaves the other target's records intact and may require
-reconciliation before the application can use them again.
+Runtime still selects configuration using NODE_ENV. Maintenance commands use their
+explicit environment and private provisioning state. DEV and TEST use independently
+shared role passwords; PROD uses independent instance passwords. Never commit
+`.env` or provisioning state. The test suite owns disposable databases and test data.
 
 Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`,
 `npm run build`, and `npm run licenses` before pushing. Local toolchain tests
@@ -166,3 +133,31 @@ There are no automatic retries, metrics exporter, or sampling policy yet.
 Deploy the API artifact and update probes together. No database migration or
 credential change is needed. Roll back both the artifact and probe configuration
 if reverting to a build without health endpoints.
+
+### Multi-cell runtime configuration
+
+Start with `CELL_DATABASES_DEV={}` for admin-only API configuration. Register
+cells in Management → Cells and copy each UUID from its detail page. Add each
+UUID and its credential-free endpoint to CELL_DATABASES_DEV. DEV and TEST use
+NAP_APP_PSWD_* and NAP_ADMIN_PSWD_*; PROD entries contain their own passwords.
+Connection-map changes require restart. Recovery of an already configured cell
+still uses independent readiness probes.
+
+Existing setup, migration, and reset commands require an explicit --cell-id;
+setup still prepares admin and the selected cell together. This task changes
+configuration consumption only: setup does not yet enforce registration or
+physical database identity. Do not treat configuration selection as provisioning
+verification. The complete empty-environment setup workflow is separate work.
+
+Access maintenance retains
+`npm run db:access -- seed <tenant-uuid> <cell-uuid>` and
+`npm run db:access -- transition <reviewed-mapping.json> <cell-uuid>`.
+It builds the selected maintenance connection from the same cell entry and
+retains its existing central assignment checks.
+
+Remove the old complete-URL variables, role-name overrides, unsuffixed
+session/bootstrap/Redis/cookie/proxy settings, CELL_ID, CELL_CODE, API_MODE, and
+CELL_API_ORIGINS. Obsolete settings fail with key-only diagnostics.
+Production configuration updates and deployment are separate authorized operations.
+See the [configuration plan](docs/implementation-plans/environment-configuration.md)
+and [multi-cell plan](docs/implementation-plans/multi-cell-api.md).

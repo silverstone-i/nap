@@ -4,11 +4,6 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
-import {
-  loadLocalEnvironment,
-  resolveSetupConfiguration,
-} from '../apps/api/src/util/env.ts';
 
 /** Quote setup SQL values, escaping apostrophes so values remain SQL data. */
 const literal = value => "'" + value.replaceAll("'", "''") + "'";
@@ -133,24 +128,5 @@ export function setupDatabases(configuration) {
       `GRANT CONNECT ON DATABASE ${identifier(target.database)} TO ${identifier(target.user)};`
     );
     query(target, 'SELECT 1;');
-  }
-}
-
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
-  try {
-    if (process.argv.length !== 3)
-      throw new Error('Expected one setup mode: test or development');
-    loadLocalEnvironment();
-    setupDatabases(resolveSetupConfiguration(process.argv[2]));
-    console.log('Development/test databases are ready');
-  } catch (error) {
-    // Only our fixed diagnostics escape; never emit subprocess output or a URL.
-    console.error(
-      error instanceof Error ? error.message : 'Database setup failed'
-    );
-    process.exitCode = 1;
   }
 }

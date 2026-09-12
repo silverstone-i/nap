@@ -1,6 +1,6 @@
 # 0007 — Shared-origin cell routing
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR 0011
 - **Date:** 2026-09-08
 - **Requirements:** `ARCH-005`, `ARCH-007`, `ARCH-009`, `ARCH-010`, `ARCH-022`, `ARCH-028`, `ARCH-050`
 

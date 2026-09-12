@@ -4,11 +4,6 @@
  */
 
 import { expect, it } from 'vitest';
-import {
-  resolveEnvironment,
-  resolveRuntimeConfiguration,
-  resolveMigrationConfiguration,
-} from '../../src/util/env.js';
 import { assertModules } from '../../src/db/modules.js';
 import type { NapModuleDescriptor } from '../../src/db/modules.js';
 import type { AdminDatabase } from '../../src/db/admin/index.js';
@@ -32,45 +27,6 @@ it('keeps admin and cell handle types and module targets distinct', () => {
     return [wrongAdmin, wrongCell, wrongModule];
   };
   expect(typeProof).toBeTypeOf('function');
-});
-it('selects environments and requires only the credentials for the operation', () => {
-  expect(resolveEnvironment({})).toBe('DEV');
-  expect(resolveEnvironment({ NODE_ENV: 'test' })).toBe('TEST');
-  expect(resolveEnvironment({ NODE_ENV: 'production' })).toBe('PROD');
-  expect(() => resolveEnvironment({ NODE_ENV: '' })).toThrow('NODE_ENV');
-  const admin =
-    'postgres://app:secret@localhost/admin?sslmode=require&application_name=nap';
-  const cell = 'postgres://app:secret@localhost/cell';
-  expect(
-    resolveRuntimeConfiguration({
-      ADMIN_DATABASE_URL_DEV: admin,
-      CELL_DATABASE_URL_DEV: cell,
-    })
-  ).toEqual({ admin, cell });
-  expect(
-    resolveMigrationConfiguration('cell', {
-      NODE_ENV: 'production',
-      CELL_MIGRATION_URL_PROD: cell,
-    })
-  ).toBe(cell);
-});
-it('rejects overlapping endpoints, target overrides, missing and malformed credentials without disclosure', () => {
-  expect(() =>
-    resolveRuntimeConfiguration({
-      ADMIN_DATABASE_URL_DEV: 'postgres://a:x@LOCALHOST/admin',
-      CELL_DATABASE_URL_DEV: 'postgresql://b:y@localhost:5432/%61dmin',
-    })
-  ).toThrow('distinct');
-  for (const value of [
-    '',
-    'private-value',
-    'postgres://a:secret@localhost/admin?host=elsewhere',
-    'postgres://a:secret@localhost/admin?options=-crole=owner',
-  ]) {
-    expect(() =>
-      resolveMigrationConfiguration('admin', { ADMIN_MIGRATION_URL_DEV: value })
-    ).toThrow('Invalid database configuration: ADMIN_MIGRATION_URL_DEV');
-  }
 });
 it('rejects descriptor mismatch and duplicate names before any migration work', () => {
   const valid: NapModuleDescriptor = {

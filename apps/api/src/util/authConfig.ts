@@ -4,13 +4,14 @@
  */
 
 import { z } from 'zod';
+import { environmentValue } from './env.js';
 
 /**
  * Does: Checks whether a configured secret is a sample value.
  * Called by: authentication configuration and bootstrap validation.
  */
 export function placeholder(value: string) {
-  return /change[ -]?me|replace[ -]?me|example|your[-_ ]|placeholder/i.test(
+  return /<[^>]*>|change[ -]?me|replace[ -]?me|example|your[-_ ]|placeholder/i.test(
     value
   );
 }
@@ -49,7 +50,6 @@ export function authConfiguration(env: NodeJS.ProcessEnv = process.env) {
     .refine(value => !placeholder(value));
   const parsed = z
     .object({
-      cellCode: z.string().min(1).max(64).default('cell-1'),
       sessionSecret: secret,
       throttleSecret: secret,
       idleMinutes: z.coerce.number().int().min(1).max(1440).default(30),
@@ -61,13 +61,12 @@ export function authConfiguration(env: NodeJS.ProcessEnv = process.env) {
       sameSite: z.enum(['lax', 'strict', 'none']).default('lax'),
     })
     .parse({
-      cellCode: env.CELL_CODE,
-      sessionSecret: env.SESSION_SECRET,
-      throttleSecret: env.AUTH_THROTTLE_SECRET,
+      sessionSecret: environmentValue('SESSION_SECRET', env),
+      throttleSecret: environmentValue('AUTH_THROTTLE_SECRET', env),
       idleMinutes: env.SESSION_IDLE_MINUTES,
       absoluteHours: env.SESSION_ABSOLUTE_HOURS,
-      secure: env.COOKIE_SECURE,
-      sameSite: env.COOKIE_SAMESITE,
+      secure: environmentValue('COOKIE_SECURE', env),
+      sameSite: environmentValue('COOKIE_SAMESITE', env),
     });
   if (parsed.sameSite === 'none' && !parsed.secure)
     throw new Error('SameSite none requires secure cookies');

@@ -6,5 +6,7 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  test: { environment: 'node', include: ['tests/**/*.test.ts'] },
+  // Each integration worker may start its own PostgreSQL cluster. Bound concurrent
+  // clusters to avoid exhausting local startup resources during the full suite.
+  test: { environment: 'node', include: ['tests/**/*.test.ts'], maxWorkers: 4 },
 });

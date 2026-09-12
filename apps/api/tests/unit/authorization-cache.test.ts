@@ -125,23 +125,23 @@ it('validates configuration without printing URLs and isolates test configuratio
   expect(
     resolveCacheConfiguration({
       NODE_ENV: 'test',
-      REDIS_URL: 'redis://production',
+      REDIS_URL_PROD: 'redis://production',
     }).url
   ).toBeUndefined();
   expect(
     resolveCacheConfiguration({
       NODE_ENV: 'production',
-      REDIS_CACHE_ENABLED: 'false',
+      REDIS_CACHE_ENABLED_PROD: 'false',
     }).url
   ).toBeUndefined();
   expect(() => resolveCacheConfiguration({ NODE_ENV: 'production' })).toThrow(
     'required'
   );
   expect(() =>
-    resolveCacheConfiguration({ REDIS_URL: 'https://private:secret@host' })
+    resolveCacheConfiguration({ REDIS_URL_DEV: 'https://private:secret@host' })
   ).toThrow('Invalid Redis URL');
   expect(() =>
-    resolveCacheConfiguration({ REDIS_CACHE_NAMESPACE: 'bad:namespace' })
+    resolveCacheConfiguration({ REDIS_CACHE_NAMESPACE_DEV: 'bad:namespace' })
   ).toThrow('Invalid REDIS_CACHE_NAMESPACE');
 });
 

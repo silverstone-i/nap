@@ -107,8 +107,8 @@ Under full-suite contention, scoped authorization measured 2.69 ms disabled and
 
 ### Operations
 
-Configure `REDIS_URL` (or `REDIS_URL_TEST` in tests) and a deployment-specific
-`REDIS_CACHE_NAMESPACE`. `REDIS_CACHE_ENABLED=false` bypasses acceleration without
+Configure `REDIS_URL_DEV/TEST/PROD` for the selected environment and a deployment-specific
+`REDIS_CACHE_NAMESPACE_DEV/TEST/PROD`. `REDIS_CACHE_ENABLED_PROD=false` bypasses acceleration without
 removing migrations. Production requires a URL unless explicitly disabled;
 development without a URL uses PostgreSQL. Test fixtures isolate their namespaces.
 
@@ -123,6 +123,6 @@ command time. Debug `cache.lookup` events distinguish validated hits, misses,
 invalid payloads, and fallback by domain. Logs omit cache keys, payloads and
 credentials. Redis is excluded from readiness and closes after requests drain.
 
-A rollback sets `REDIS_CACHE_ENABLED=false` and retains the compatible migrations.
-After database restoration, rotate `REDIS_CACHE_NAMESPACE` before enabling cache
+A rollback sets `REDIS_CACHE_ENABLED_PROD=false` and retains the compatible migrations.
+After database restoration, rotate `REDIS_CACHE_NAMESPACE_DEV/TEST/PROD` before enabling cache
 use so restored revision values cannot address pre-restoration entries.

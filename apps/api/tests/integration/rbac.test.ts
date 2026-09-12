@@ -43,7 +43,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
   }
   /** Does: Sends an authorized operator action. Called by: fixture setup and tests. */
   async function command(action: string, body: object) {
-    const r = await request(test.router.origin)
+    const r = await request(test.api.origin)
       .post(control + '/' + action)
       .set('Cookie', root)
       .send(body);
@@ -75,12 +75,12 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
   }
   /** Does: Signs in and changes the temporary password. Called by: acceptance scenarios. */
   async function onboard(email: string) {
-    const login = await request(test.router.origin)
+    const login = await request(test.api.origin)
       .post(auth + '/login')
       .send({ email, password: 'temporary-password-123' });
     expect(login.status).toBe(200);
     const session = cookie(login);
-    const changed = await request(test.router.origin)
+    const changed = await request(test.api.origin)
       .put(auth + '/password')
       .set('Cookie', session)
       .send({
@@ -106,7 +106,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
   }
   /** Does: Sends a tenant access mutation. Called by: scoped role scenarios. */
   async function change(session: string, body: object, expected = 200) {
-    const r = await request(test.router.origin)
+    const r = await request(test.api.origin)
       .post(access + '/change')
       .set('Cookie', session)
       .send(body);
@@ -117,7 +117,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
   }
   /** Does: Creates a company/project through the production route. Called by: acceptance setup. */
   async function create(session: string, path: string, body: object) {
-    const r = await request(test.router.origin)
+    const r = await request(test.api.origin)
       .post(path + '/')
       .set('Cookie', session)
       .send(body);
@@ -130,13 +130,19 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     if (cacheEnabled) redis = await redisFixture();
     test = await multiCell(
       redis
-        ? { REDIS_URL_TEST: redis.url, REDIS_CACHE_NAMESPACE: redis.namespace }
+        ? {
+            REDIS_URL_TEST: redis.url,
+            REDIS_CACHE_NAMESPACE_TEST: redis.namespace,
+          }
         : {}
     );
     root = cookie(
-      await request(test.router.origin)
+      await request(test.api.origin)
         .post(auth + '/login')
-        .send({ email: authEnv.ROOT_EMAIL, password: authEnv.ROOT_PASSWORD })
+        .send({
+          email: authEnv.ROOT_EMAIL_TEST,
+          password: authEnv.ROOT_PASSWORD_TEST,
+        })
     );
     await command('registry', {
       operation: 'cell',
@@ -158,7 +164,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     const other = await tenant(0);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(project + '/')
           .set('Cookie', t.session)
       ).status
@@ -188,7 +194,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     });
     const employee = await member(t.id);
     const c = await onboard(employee.email);
-    const overview = await request(test.router.origin)
+    const overview = await request(test.api.origin)
       .get(access + '/overview')
       .set('Cookie', t.session);
     expect(overview.status, JSON.stringify(overview.body)).toBe(200);
@@ -212,7 +218,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     expect(
       recordsEnvelope.parse(
         (
-          await request(test.router.origin)
+          await request(test.api.origin)
             .get(project + '/')
             .set('Cookie', c)
         ).body
@@ -220,21 +226,21 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ).toHaveLength(2);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(company + '/')
           .set('Cookie', c)
       ).status
     ).toBe(403);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(access + '/overview')
           .set('Cookie', c)
       ).status
     ).toBe(403);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .put(project + '/update')
           .set('Cookie', c)
           .send({ ids: [a1.id], changes: { name: 'Allowed' } })
@@ -242,7 +248,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ).toBe(200);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .put(project + '/update')
           .set('Cookie', c)
           .send({ ids: [b1.id], changes: { name: 'Forbidden' } })
@@ -250,7 +256,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ).toBe(404);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .put(project + '/update')
           .set('Cookie', c)
           .send({ ids: [a1.id, b1.id], changes: { name: 'No partial write' } })
@@ -259,7 +265,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     expect(
       recordEnvelope.parse(
         (
-          await request(test.router.origin)
+          await request(test.api.origin)
             .get(project + '/' + a1.id)
             .set('Cookie', c)
         ).body
@@ -267,7 +273,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ).toBe('Allowed');
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .put(project + '/update')
           .set('Cookie', t.session)
           .send({ ids: [a1.id], changes: { company_id: b.id } })
@@ -281,7 +287,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     expect(
       recordsEnvelope.parse(
         (
-          await request(test.router.origin)
+          await request(test.api.origin)
             .get(project + '/')
             .set('Cookie', c)
         ).body
@@ -291,7 +297,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     expect(
       recordsEnvelope.parse(
         (
-          await request(test.router.origin)
+          await request(test.api.origin)
             .get(project + '/')
             .set('Cookie', c)
         ).body
@@ -299,7 +305,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ).toHaveLength(1);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(project + '/' + b1.id)
           .set('Cookie', c)
       ).status
@@ -307,25 +313,19 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     await change(t.session, { operation: 'revoke', id: edit.id });
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(project + '/')
           .set('Cookie', c)
       ).status
     ).toBe(403);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(company + '/' + a.id)
           .set('Cookie', other.session)
       ).status
     ).toBe(404);
-    expect(
-      (
-        await request(test.one.origin)
-          .get(company + '/')
-          .set('Cookie', t.session)
-      ).status
-    ).toBe(403);
+
     await change(t.session, {
       operation: 'assign',
       bindingId: employee.binding.id,
@@ -333,12 +333,12 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
       scope: 'company_projects',
       targets: [a.id],
     });
-    const list = await request(test.router.origin)
+    const list = await request(test.api.origin)
       .get(project + '/')
       .set('Cookie', c);
     expect(recordsEnvelope.parse(list.body).data).toHaveLength(2);
     expect(recordsEnvelope.parse(list.body).page.total).toBe(2);
-    const options = await request(test.router.origin)
+    const options = await request(test.api.origin)
       .get(project + '/company-options')
       .set('Cookie', c);
     expect(options.status).toBe(200);
@@ -355,7 +355,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     });
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .post(project + '/')
           .set('Cookie', c)
           .send({ code: 'NO', name: 'Other company', company_id: b.id })
@@ -374,13 +374,13 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     );
     const foreign = recordsEnvelope.parse(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(company + '/')
           .set('Cookie', other.session)
       ).body
     ).data;
     expect(foreign).toEqual([]);
-    const explanation = await request(test.router.origin)
+    const explanation = await request(test.api.origin)
       .get(access + '/effective?binding=' + employee.binding.id)
       .set('Cookie', t.session);
     expect(explanation.status).toBe(200);
@@ -397,7 +397,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     });
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(project + '/')
           .set('Cookie', t.session)
       ).status
@@ -410,7 +410,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     });
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(project + '/')
           .set('Cookie', t.session)
       ).status
@@ -434,14 +434,14 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     });
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(project + '/')
           .set('Cookie', t.session)
       ).status
     ).toBe(403);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .post(control + '/entitlement')
           .set('Cookie', t.session)
           .send({ tenant: t.id, module: 'projects', enabled: true })
@@ -452,7 +452,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     const t = await tenant();
     const overview = accessOverviewSchema.parse(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(access + '/overview')
           .set('Cookie', t.session)
       ).body
@@ -463,7 +463,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     await change(t.session, { operation: 'revoke', id: assignment.id }, 409);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .post(control + '/members')
           .set('Cookie', root)
           .send({
@@ -504,14 +504,14 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     await expect(
       transitionAccess(test.admin, test.cell, {
         operator: test.root.actorId,
-        cell: 'cell-1',
+        cell: test.cellId,
         platform: [],
         tenants: [],
       })
     ).rejects.toThrow('Unmapped legacy operator');
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(control + '/overview')
           .set('Cookie', t.session)
       ).status
@@ -524,14 +524,14 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     });
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(control + '/overview')
           .set('Cookie', t.session)
       ).status
     ).toBe(200);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .post(control + '/role-policy')
           .set('Cookie', t.session)
           .send({ operation: 'support-policy', permissions: [] })
@@ -539,7 +539,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ).toBe(403);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .post(auth + '/access')
           .set('Cookie', t.session)
           .send({ target: test.root.tenantId, reason: 'Support test' })
@@ -583,7 +583,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     try {
       expect(
         (
-          await request(test.router.origin)
+          await request(test.api.origin)
             .get(company + '/')
             .set('Cookie', t.session)
         ).status
@@ -596,7 +596,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     }
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(company + '/')
           .set('Cookie', t.session)
       ).status
@@ -622,7 +622,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     );
     const mapping = {
       operator: test.root.actorId,
-      cell: 'cell-1',
+      cell: test.cellId,
       tenants,
       platform: users.map(user => ({ user, role: 'support' as const })),
     };
@@ -636,7 +636,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ).toBe(false);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .post(control + '/provision')
           .set('Cookie', root)
           .send({ operation: 'activate', target: blocked.tenant })
@@ -672,7 +672,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     const session = await onboard(employee.email);
     const overview = accessOverviewSchema.parse(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(access + '/overview')
           .set('Cookie', t.session)
       ).body
@@ -700,14 +700,14 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     ]) {
       expect(
         (
-          await request(test.router.origin)
+          await request(test.api.origin)
             .get(path + '/' + id)
             .set('Cookie', session)
         ).status
       ).toBe(200);
       expect(
         (
-          await request(test.router.origin)
+          await request(test.api.origin)
             .put(path + '/update')
             .set('Cookie', session)
             .send({ ids: [id], changes: { name: 'Denied' } })
@@ -716,12 +716,12 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     }
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .get(access + '/overview')
           .set('Cookie', session)
       ).status
     ).toBe(403);
-    const entered = await request(test.router.origin)
+    const entered = await request(test.api.origin)
       .post(auth + '/access')
       .set('Cookie', root)
       .send({ target: t.id, reason: 'RBAC controlled resource verification' });
@@ -729,7 +729,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     const controlled = cookie(entered);
     expect(
       (
-        await request(test.router.origin)
+        await request(test.api.origin)
           .put(project + '/update')
           .set('Cookie', controlled)
           .send({ ids: [child.id], changes: { name: 'Controlled update' } })
@@ -740,7 +740,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
         test.root.actorId
       );
     });
-    const exited = await request(test.router.origin)
+    const exited = await request(test.api.origin)
       .post(auth + '/end-access')
       .set('Cookie', controlled);
     expect(exited.status).toBe(200);
@@ -767,7 +767,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
       for (const t of [a, b])
         expect(
           (
-            await request(test.router.origin)
+            await request(test.api.origin)
               .get(control + '/overview')
               .set('Cookie', t.session)
           ).status
@@ -779,7 +779,7 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
       for (const t of [a, b])
         expect(
           (
-            await request(test.router.origin)
+            await request(test.api.origin)
               .get(control + '/overview')
               .set('Cookie', t.session)
           ).status

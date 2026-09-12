@@ -2,93 +2,81 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import {
   resolvePort,
   resolveSetupConfiguration,
   resolveTrustProxyHops,
+  environmentValue,
 } from '../../src/util/env.js';
-
+const id = '00000000-0000-4000-8000-000000000001';
 const env = {
-  SETUP_ADMIN_URL_TEST: 'postgres://nap_admin:secret@localhost:5432/postgres',
-  ADMIN_DATABASE_URL_TEST:
-    'postgres://nap_app:secret@localhost:5432/nap_admin_test',
-  ADMIN_MIGRATION_URL_TEST:
-    'postgres://nap_admin:secret@localhost:5432/nap_admin_test',
-  CELL_DATABASE_URL_TEST:
-    'postgres://nap_app:secret@localhost:5432/nap_cell_test',
-  CELL_MIGRATION_URL_TEST:
-    'postgres://nap_admin:secret@localhost:5432/nap_cell_test',
-  ADMIN_RUNTIME_ROLE: 'nap_app',
-  CELL_RUNTIME_ROLE: 'nap_app',
+  NODE_ENV: 'test',
+  SETUP_DATABASE_TEST: 'localhost:5432/postgres',
+  ADMIN_DATABASE_TEST: 'localhost:5432/nap_admin_test',
+  CELL_DATABASES_TEST: JSON.stringify({ [id]: 'localhost:5432/nap_cell_test' }),
+  NAP_APP_PSWD_TEST: 'app-secret',
+  NAP_ADMIN_PSWD_TEST: 'owner-secret',
 };
-
-describe('startup configuration', () => {
-  it('defaults to 3000 and accepts a valid override', () => {
-    expect(resolvePort({})).toBe(3000);
-    expect(resolvePort({ PORT: '4321' })).toBe(4321);
-  });
-  it.each(['0', '65536', 'abc', '3000.1', '', '-1'])(
-    'rejects invalid port %s',
-    PORT => {
-      expect(() => resolvePort({ PORT })).toThrow('PORT');
-    }
-  );
-  it('trusts no proxy hop by default and accepts a small whole number', () => {
-    expect(resolveTrustProxyHops({})).toBe(0);
-    expect(resolveTrustProxyHops({ TRUST_PROXY_HOPS: '2' })).toBe(2);
-    for (const TRUST_PROXY_HOPS of ['-1', '17', 'one', '1.5', ''])
-      expect(() => resolveTrustProxyHops({ TRUST_PROXY_HOPS })).toThrow(
-        'TRUST_PROXY_HOPS'
-      );
-  });
+it('defaults the process port and checks explicit overrides', () => {
+  expect(resolvePort({})).toBe(3000);
+  expect(resolvePort({ PORT: '4321' })).toBe(4321);
+  for (const PORT of ['0', '65536', 'abc', '3000.1', '', '-1'])
+    expect(() => resolvePort({ PORT })).toThrow('PORT');
 });
-
-describe('setup configuration', () => {
-  it('resolves distinct targets with one consistent runtime role', () => {
-    expect(
-      resolveSetupConfiguration('test', env).targets.map(t => t.database)
-    ).toEqual(['nap_admin_test', 'nap_cell_test']);
-  });
-  it('refuses production setup', () => {
-    expect(() => resolveSetupConfiguration('production', env)).toThrow('mode');
-  });
-  it.each([
-    {
-      CELL_DATABASE_URL_TEST: env.ADMIN_DATABASE_URL_TEST,
-      CELL_MIGRATION_URL_TEST: env.ADMIN_MIGRATION_URL_TEST,
-    },
-    {
-      CELL_DATABASE_URL_TEST:
-        'postgres://nap_app:different@localhost:5432/nap_cell_test',
-    },
-    { ADMIN_RUNTIME_ROLE: 'nap_admin' },
-    {
-      CELL_MIGRATION_URL_TEST:
-        'postgres://nap_admin:secret@elsewhere:5432/nap_cell_test',
-    },
-  ])('rejects inconsistent or overlapping configuration', overrides => {
-    expect(() =>
-      resolveSetupConfiguration('test', { ...env, ...overrides })
-    ).toThrow();
-  });
-  it('does not include secrets in malformed configuration errors', () => {
-    expect(() =>
-      resolveSetupConfiguration('test', {
-        ...env,
-        SETUP_ADMIN_URL_TEST: 'secret-value',
-      })
-    ).toThrow('Invalid database configuration: SETUP_ADMIN_URL_TEST');
-  });
-});
-
-it('rejects a password with a null byte without echoing credentials', () => {
-  expect(() =>
-    resolveSetupConfiguration('test', {
-      ...env,
-      SETUP_ADMIN_URL_TEST:
-        'postgres://nap_admin:secret%00value@localhost/postgres',
+it('selects proxy trust by environment and rejects invalid counts', () => {
+  expect(resolveTrustProxyHops({})).toBe(0);
+  expect(
+    resolveTrustProxyHops({
+      NODE_ENV: 'production',
+      TRUST_PROXY_HOPS_PROD: '2',
+      TRUST_PROXY_HOPS_DEV: '0',
     })
-  ).toThrow('Invalid database configuration: SETUP_ADMIN_URL_TEST');
+  ).toBe(2);
+  for (const value of ['-1', '17', 'one', '1.5', ''])
+    expect(() =>
+      resolveTrustProxyHops({ TRUST_PROXY_HOPS_DEV: value })
+    ).toThrow('TRUST_PROXY_HOPS');
+});
+it('reads only the selected environment setting', () => {
+  expect(
+    environmentValue('ROOT_EMAIL', {
+      NODE_ENV: 'test',
+      ROOT_EMAIL_TEST: 'test@nap.test',
+      ROOT_EMAIL_DEV: 'dev@nap.test',
+    })
+  ).toBe('test@nap.test');
+});
+it('builds existing setup inputs with fixed roles and an explicit cell', () => {
+  const result = resolveSetupConfiguration('test', env, id);
+  expect(result.targets.map(t => t.database)).toEqual([
+    'nap_admin_test',
+    'nap_cell_test',
+  ]);
+  expect(
+    result.targets.every(
+      t =>
+        t.user === 'nap_app' &&
+        t.password === 'app-secret' &&
+        t.owner === 'nap_admin'
+    )
+  ).toBe(true);
+  expect(result.setup.password).toBe('owner-secret');
+  expect(() => resolveSetupConfiguration('production', env, id)).toThrow(
+    'mode'
+  );
+  expect(() => resolveSetupConfiguration('test', env)).toThrow('--cell-id');
+});
+it.each([
+  'elsewhere/cell',
+  'localhost/postgres',
+  'localhost/admin?sslmode=require',
+])('rejects incompatible local setup endpoints', value => {
+  expect(() =>
+    resolveSetupConfiguration(
+      'test',
+      { ...env, CELL_DATABASES_TEST: JSON.stringify({ [id]: value }) },
+      id
+    )
+  ).toThrow();
 });

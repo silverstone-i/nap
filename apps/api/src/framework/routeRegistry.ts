@@ -6,6 +6,10 @@ import {
   accessCatalog,
   businessPermissions,
 } from '../services/accessCatalog.js';
+import { databaseUnavailable } from '../util/databaseUnavailable.js';
+import { authorizeCell } from '../middleware/cellAuthorization.js';
+import { HttpError } from '../util/httpError.js';
+import type { CellRegistry } from '../services/cellRegistry.js';
 import { routerAuthorization } from './createRouter.js';
 import { cellModules } from '../db/cell/modules.js';
 import projectsRouter from '../modules/projects/apiRoutes/v1/projects.js';
@@ -40,7 +44,7 @@ export type RouteRegistration = {
       readonly factory: (
         db: AdminHandle,
         config: AuthConfiguration,
-        cell: CellHandle | undefined
+        cells: CellRegistry
       ) => Router;
     }
 );
@@ -116,7 +120,7 @@ export function mountPath(registration: RouteRegistration) {
  */
 export function mountRoutes(
   app: Express,
-  handles: { admin: AdminHandle; cell?: CellHandle },
+  handles: { admin: AdminHandle; cells: CellRegistry },
   config: AuthConfiguration = authConfiguration()
 ) {
   const paths = new Set<string>();
@@ -126,37 +130,58 @@ export function mountRoutes(
       if (!descriptor || descriptor.entitlement === 'infrastructure')
         throw new Error('Business router lacks module entitlement policy');
     }
-    if (registration.target === 'cell' && !handles.cell) continue;
     const path = mountPath(registration);
     if (paths.has(path)) throw new Error(`Duplicate route mount: ${path}`);
     paths.add(path);
-    const router =
-      registration.target === 'admin'
-        ? registration.factory(handles.admin, config, handles.cell)
-        : handles.cell
-          ? registration.factory(handles.cell)
-          : undefined;
-    if (router && registration.target === 'cell') {
-      const policy = routerAuthorization(router);
-      const resource = accessCatalog.find(r => r.resource === policy?.resource);
-      const special = ['core::identity', 'core::access'].includes(
-        policy?.resource ?? ''
-      );
-      if (
-        !policy ||
-        policy.module !== registration.module ||
-        policy.resource !== `${registration.module}::${registration.router}` ||
-        policy.capabilities.some(c => !businessPermissions.includes(c)) ||
-        (!special && (!resource || !policy.scoped)) ||
-        (resource &&
-          resource.fields
-            .flatMap(f => f.columns)
-            .some(c => !policy.protectedFields.includes(c)))
-      )
-        throw new Error(
-          'Business router lacks a registered authorization contract'
-        );
+    if (registration.target === 'admin') {
+      app.use(path, registration.factory(handles.admin, config, handles.cells));
+      continue;
     }
-    if (router) app.use(path, router);
+    const routers = new Map<string, Router>();
+    for (const [id, cell] of handles.cells.handles) {
+      const router = registration.factory(cell);
+      {
+        const policy = routerAuthorization(router);
+        const resource = accessCatalog.find(
+          r => r.resource === policy?.resource
+        );
+        const special = ['core::identity', 'core::access'].includes(
+          policy?.resource ?? ''
+        );
+        if (
+          !policy ||
+          policy.module !== registration.module ||
+          policy.resource !==
+            `${registration.module}::${registration.router}` ||
+          policy.capabilities.some(c => !businessPermissions.includes(c)) ||
+          (!special && (!resource || !policy.scoped)) ||
+          (resource &&
+            resource.fields
+              .flatMap(f => f.columns)
+              .some(c => !policy.protectedFields.includes(c)))
+        )
+          throw new Error(
+            'Business router lacks a registered authorization contract'
+          );
+      }
+      routers.set(id, router);
+    }
+    app.use(path, async (request, response, next) => {
+      const session = response.locals.session;
+      if (!session) throw new HttpError('UNAUTHENTICATED');
+      if (!session.tenantId || !session.cellId)
+        throw new HttpError('FORBIDDEN');
+      const cell = handles.cells.get(session.cellId);
+      const router = routers.get(session.cellId);
+      if (!router) throw new HttpError('SERVICE_UNAVAILABLE');
+      try {
+        response.locals.session = await authorizeCell(cell, session);
+      } catch (error) {
+        if (databaseUnavailable(error))
+          throw new HttpError('SERVICE_UNAVAILABLE');
+        throw error;
+      }
+      router(request, response, next);
+    });
   }
 }

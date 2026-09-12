@@ -61,7 +61,10 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
   });
 
   /** Does: Submits a root login through the real middleware and router. */
-  function login(password = authEnv.ROOT_PASSWORD, email = authEnv.ROOT_EMAIL) {
+  function login(
+    password = authEnv.ROOT_PASSWORD_TEST,
+    email = authEnv.ROOT_EMAIL_TEST
+  ) {
     return request(test.server)
       .post(base + '/login')
       .send({ email, password });
@@ -81,7 +84,7 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
       await bootstrapRoot(
         test.admin,
         bootstrapConfiguration(
-          { ...authEnv, ROOT_PASSWORD: 'another-long-password' },
+          { ...authEnv, ROOT_PASSWORD_TEST: 'another-long-password' },
           []
         )
       )
@@ -99,7 +102,7 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
     expect(sessionResponseSchema.parse(logged.body).data).toMatchObject({
       actorId: test.root.actorId,
       tenantId: test.root.tenantId,
-      email: authEnv.ROOT_EMAIL,
+      email: authEnv.ROOT_EMAIL_TEST,
       tenantCode: 'NAP',
     });
     expect(logged.headers['set-cookie'][0]).toMatch(/HttpOnly/);
@@ -358,7 +361,7 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
           .put(base + '/password')
           .set('Cookie', first)
           .send({
-            currentPassword: authEnv.ROOT_PASSWORD,
+            currentPassword: authEnv.ROOT_PASSWORD_TEST,
             newPassword: 'replacement-password',
           })
       ).status
@@ -413,7 +416,10 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
       [
         'post',
         '/login',
-        { email: authEnv.ROOT_EMAIL, password: authEnv.ROOT_PASSWORD },
+        {
+          email: authEnv.ROOT_EMAIL_TEST,
+          password: authEnv.ROOT_PASSWORD_TEST,
+        },
       ],
       ['post', '/logout', undefined],
       ['get', '/session', undefined],
@@ -421,7 +427,7 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
         'put',
         '/password',
         {
-          currentPassword: authEnv.ROOT_PASSWORD,
+          currentPassword: authEnv.ROOT_PASSWORD_TEST,
           newPassword: 'replacement-password',
         },
       ],
@@ -446,8 +452,8 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
         await request(test.server)
           .post(base + '/login')
           .send({
-            email: authEnv.ROOT_EMAIL,
-            password: authEnv.ROOT_PASSWORD,
+            email: authEnv.ROOT_EMAIL_TEST,
+            password: authEnv.ROOT_PASSWORD_TEST,
             tenant_id: test.root.tenantId,
           })
       ).status
@@ -546,7 +552,7 @@ describe.each([false, true])('authentication with cache=%s', cacheEnabled => {
     ).toBe(429);
     const proxyApp = createApp(
       undefined,
-      { admin: test.admin, cell: test.cell },
+      { admin: test.admin, cells: test.cells },
       { auth: test.config, trustProxyHops: 1 }
     );
     expect(

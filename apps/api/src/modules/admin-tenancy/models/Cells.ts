@@ -90,6 +90,14 @@ export class Cells extends TableModel<CellsRow> {
       [ids]
     );
   }
+  /** Does: Reports whether a setup-managed cell completed activation. Called by: registry edits before enabling a cell. */
+  async setupAllowsEnable(id: string) {
+    const row = await this.db.oneOrNone<{ stage: string }>(
+      'SELECT stage FROM admin.cell_provisioning WHERE cell_id=$1',
+      [id]
+    );
+    return !row || row.stage === 'enabled';
+  }
   /** Does: Loads tenant assignment and cell availability. Called by: request-time authorization. */
   async assignment(id: string) {
     return this.db.oneOrNone<{

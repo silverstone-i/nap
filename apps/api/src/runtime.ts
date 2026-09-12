@@ -4,7 +4,6 @@
  */
 
 import type { AuthorizationCache } from './db/authorizationCache.js';
-import type { RoutingConfiguration } from './util/routingConfig.js';
 import type { AuthConfiguration } from './util/authConfig.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
@@ -14,7 +13,7 @@ import type { AppHandles } from './app.js';
 
 /**
  * Does: Represents the database connections used by this API process:
- * admin and one local cell database, or admin alone in routing mode.
+ * one admin database and a UUID-keyed registry of cell databases.
  * Used by: createRuntime and the server entry point.
  */
 export type RuntimeHandles = AppHandles;
@@ -24,13 +23,11 @@ export type RuntimeHandles = AppHandles;
  * for it, given the database connections it depends on.
  * Called by: the server entry point at startup, and by runtime tests with
  * short deadlines and real sockets.
- * Why: start refuses to listen until every database passes a readiness
- * check. Shutdown drains HTTP connections before closing database pools so
+ * Why: start requires admin readiness and quarantines individual failed cells. Shutdown drains HTTP connections before closing database pools so
  * in-flight requests finish against open connections. This function installs
  * no signal handlers and never exits the process; the entry point owns both.
  * All database handles are supplied here; none can be added after start,
- * and module routers are mounted against whichever of the two their
- * registration names. The trusted proxy hop count is passed to the app.
+ * and each cell router is bound to its own pool. The trusted proxy hop count is passed to the app.
  */
 export function createRuntime(
   handles: RuntimeHandles,
@@ -40,7 +37,6 @@ export function createRuntime(
     poolCloseMs = 5000,
     trustProxyHops = 0,
     auth,
-    routing,
     cache,
   }: {
     readinessMs?: number;
@@ -48,14 +44,11 @@ export function createRuntime(
     poolCloseMs?: number;
     trustProxyHops?: number;
     auth?: AuthConfiguration;
-    routing?: RoutingConfiguration;
     cache?: AuthorizationCache;
   } = {}
 ) {
-  if (Boolean(routing) === Boolean(handles.cell))
-    throw new Error('Runtime requires either routing or one cell database');
-  const pools = handles.cell ? [handles.admin, handles.cell] : [handles.admin];
-  const readiness = createReadiness(pools, readinessMs, routing ? 1 : 2);
+  const pools = [handles.admin, ...handles.cells.handles.values()];
+  const readiness = createReadiness([handles.admin], readinessMs, 1);
   let stopping: Promise<number> | undefined;
   let stopped = false;
   let listening = false;
@@ -66,7 +59,7 @@ export function createRuntime(
         return readiness.check();
       },
       handles,
-      { trustProxyHops, auth, routing }
+      { trustProxyHops, auth }
     )
   );
 
@@ -79,11 +72,11 @@ export function createRuntime(
   });
 
   /**
-   * Does: Checks that both databases are reachable and running as a safe
-   * role, then opens the HTTP listener on the given port.
+   * Does: Requires a safe, reachable admin database, checks configured cell
+   * identities, and probes each cell before opening the listener.
    * Called by: the server entry point once at startup, and runtime tests.
-   * Why: refusing to listen until readiness passes means a misconfigured or
-   * over-privileged database fails startup instead of serving requests. If
+   * Why: admin failure stops startup; unavailable or unsafe cells are quarantined
+   * while admin and healthy cells continue serving. If
    * shutdown has already begun, this returns without doing anything.
    * @throws If readiness fails or the port cannot be bound.
    */
@@ -93,6 +86,8 @@ export function createRuntime(
       if (stopped) return;
       throw new Error('Runtime readiness failed');
     }
+    if (stopped) return;
+    await handles.cells.start(handles.admin);
     if (stopped) return;
     await new Promise<void>((resolve, reject) => {
       /** Does: Rejects the listen promise when the server fails to listen. */
@@ -129,6 +124,7 @@ export function createRuntime(
     stopped = true;
     listening = false;
     readiness.stop();
+    handles.cells.stop();
     stopping = (async () => {
       logger.info({ event: 'api.stopping' });
       let failed = code !== 0;

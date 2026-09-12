@@ -29,11 +29,10 @@ it('starts the compiled API, returns a correlated error envelope, and releases i
     env: {
       ...process.env,
       ...fixture.env,
-      SESSION_SECRET: 'a'.repeat(64),
-      AUTH_THROTTLE_SECRET: 'b'.repeat(64),
+      SESSION_SECRET_TEST: 'a'.repeat(64),
+      AUTH_THROTTLE_SECRET_TEST: 'b'.repeat(64),
       PORT: String(port),
-      ADMIN_MIGRATION_URL_TEST: '',
-      CELL_MIGRATION_URL_TEST: '',
+      NAP_ADMIN_PSWD_TEST: '',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -97,8 +96,8 @@ async function failedStartup(overrides) {
     env: {
       ...process.env,
       ...fixture.env,
-      SESSION_SECRET: 'a'.repeat(64),
-      AUTH_THROTTLE_SECRET: 'b'.repeat(64),
+      SESSION_SECRET_TEST: 'a'.repeat(64),
+      AUTH_THROTTLE_SECRET_TEST: 'b'.repeat(64),
       ...overrides,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -122,25 +121,23 @@ async function failedStartup(overrides) {
   }
 }
 
-it('refuses an owner connection before listening and releases the other pool', async () => {
-  await failedStartup({ CELL_DATABASE_URL_TEST: fixture.cellUrl });
+it('refuses credential-bearing endpoints before listening', async () => {
+  await failedStartup({ ADMIN_DATABASE_TEST: fixture.adminUrl });
   const { count } = await fixture.control.one(
-    'SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1',
-    [fixture.role]
+    'SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1 AND datname = $2',
+    ['nap_app', new URL(fixture.adminUrl).pathname.slice(1)]
   );
   expect(count).toBe(0);
 });
-it('closes the admin pool when cell connectivity fails without printing driver diagnostics', async () => {
-  const unavailable = new URL(fixture.env.CELL_DATABASE_URL_TEST);
-  unavailable.password = 'private-wrong-password';
+it('closes the admin pool when admin connectivity fails without printing driver diagnostics', async () => {
   const output = await failedStartup({
-    CELL_DATABASE_URL_TEST: unavailable.toString(),
+    NAP_APP_PSWD_TEST: 'private-wrong-password',
   });
   expect(output).not.toContain('private-wrong-password');
   expect(
     await fixture.control.one(
-      'SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1',
-      [fixture.role]
+      'SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1 AND datname = $2',
+      ['nap_app', new URL(fixture.adminUrl).pathname.slice(1)]
     )
   ).toEqual({ count: 0 });
 });
@@ -154,8 +151,8 @@ it('releases both pools when the HTTP listener cannot bind', async () => {
     ).toContain('API failed to listen');
     expect(
       await fixture.control.one(
-        'SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1',
-        [fixture.role]
+        'SELECT count(*)::int AS count FROM pg_stat_activity WHERE usename = $1 AND datname = $2',
+        ['nap_app', new URL(fixture.adminUrl).pathname.slice(1)]
       )
     ).toEqual({ count: 0 });
   } finally {

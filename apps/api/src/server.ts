@@ -4,7 +4,7 @@
  */
 
 import { createAuthorizationCache } from './db/redis.js';
-import { routingConfiguration } from './util/routingConfig.js';
+import { createCellRegistry } from './services/cellRegistry.js';
 import { authConfiguration } from './util/authConfig.js';
 import { createRuntime } from './runtime.js';
 import { createAdminDatabase } from './db/admin/index.js';
@@ -16,7 +16,6 @@ import {
   loadLocalEnvironment,
   resolveCacheConfiguration,
   resolvePort,
-  resolveRouterDatabase,
   resolveRuntimeConfiguration,
   resolveTrustProxyHops,
 } from './util/env.js';
@@ -47,10 +46,7 @@ try {
   loadLocalEnvironment();
   const auth = authConfiguration();
   const port = resolvePort();
-  const routing = routingConfiguration();
-  const configuration = routing
-    ? { admin: resolveRouterDatabase(), cell: undefined }
-    : resolveRuntimeConfiguration();
+  const configuration = resolveRuntimeConfiguration();
   const trustProxyHops = resolveTrustProxyHops();
   const cacheConfiguration = resolveCacheConfiguration();
   const cache = cacheConfiguration.url
@@ -65,18 +61,20 @@ try {
         repositories: adminRepositories,
         authorizationCache: cache ? { cache, database: 'admin' } : undefined,
       }),
-      ...(configuration.cell
-        ? {
-            cell: createCellDatabase(configuration.cell, {
+      cells: createCellRegistry(
+        new Map(
+          [...configuration.cells].map(([id, url]) => [
+            id,
+            createCellDatabase(url, {
+              pool: { max: 10 },
               repositories: cellRepositories,
-              authorizationCache: cache
-                ? { cache, database: auth.cellCode }
-                : undefined,
+              authorizationCache: cache ? { cache, database: id } : undefined,
             }),
-          }
-        : {}),
+          ])
+        )
+      ),
     },
-    { trustProxyHops, auth, routing, cache }
+    { trustProxyHops, auth, cache }
   );
   runtime.server.on('error', () => {
     listenerFailed = true;
@@ -84,11 +82,17 @@ try {
     stop(1);
   });
   await runtime.start(port);
-} catch {
+} catch (error) {
   // Listener errors already started shutdown at their boundary.
   if (!listenerFailed) {
     logger.error(
-      { event: 'api.startup_failed' },
+      {
+        event: 'api.startup_failed',
+        ...(error instanceof Error &&
+        /^Obsolete configuration: [A-Z_]+$/.test(error.message)
+          ? { configuration: error.message }
+          : {}),
+      },
       'Invalid API startup configuration or unsafe/unavailable database'
     );
   }

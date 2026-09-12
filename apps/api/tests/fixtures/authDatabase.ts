@@ -18,6 +18,7 @@ import {
   bootstrapConfiguration,
   bootstrapRoot,
 } from '../../src/services/bootstrap.js';
+import { createCellRegistry } from '../../src/services/cellRegistry.js';
 import { createApp } from '../../src/app.js';
 
 /**
@@ -25,13 +26,14 @@ import { createApp } from '../../src/app.js';
  * Used by: disposable authentication fixtures and configuration tests.
  */
 export const authEnv = {
-  SESSION_SECRET: 'a'.repeat(64),
-  AUTH_THROTTLE_SECRET: 'b'.repeat(64),
-  COOKIE_SECURE: 'false',
-  ROOT_TENANT_CODE: 'NAP',
-  ROOT_COMPANY: 'Operator',
-  ROOT_EMAIL: 'root@nap.test',
-  ROOT_PASSWORD: 'a-long-test-password',
+  NODE_ENV: 'test',
+  SESSION_SECRET_TEST: 'a'.repeat(64),
+  AUTH_THROTTLE_SECRET_TEST: 'b'.repeat(64),
+  COOKIE_SECURE_TEST: 'false',
+  ROOT_TENANT_CODE_TEST: 'NAP',
+  ROOT_COMPANY_TEST: 'Operator',
+  ROOT_EMAIL_TEST: 'root@nap.test',
+  ROOT_PASSWORD_TEST: 'a-long-test-password',
 };
 
 /**
@@ -78,7 +80,9 @@ export async function authDatabase() {
       'UPDATE admin.tenants SET cell_id=$1,provisioned=true,rbac_ready=true WHERE id=$2',
       [registered.id, root.tenantId]
     );
-    const app = createApp(undefined, { admin, cell }, { auth: config });
+    const cells = createCellRegistry(new Map([[registered.id, cell]]));
+    await cells.check();
+    const app = createApp(undefined, { admin, cells }, { auth: config });
     const server = createServer(app);
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
@@ -88,14 +92,18 @@ export async function authDatabase() {
       owner,
       admin,
       cell,
+      cells,
+      cellId: registered.id,
       config,
       root,
       app,
       /** Does: Closes the application pools before disposing of the private database cluster. */
       async cleanup() {
-        await new Promise<void>((resolve, reject) =>
-          server.close(error => (error ? reject(error) : resolve()))
-        );
+        cells.stop();
+        if (server.listening)
+          await new Promise<void>((resolve, reject) =>
+            server.close(error => (error ? reject(error) : resolve()))
+          );
         await Promise.all([admin.close(), cell.close()]);
         await fixture.cleanup();
       },

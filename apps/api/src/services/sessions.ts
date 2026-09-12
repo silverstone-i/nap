@@ -185,7 +185,7 @@ export async function resolveSession(
       selected?.provisioned &&
       selected.rbac_ready &&
       selected.enabled &&
-      selected.code === config.cellCode;
+      !!selected.cell_id;
     const view = sessionView(
       touched,
       effective.id,
@@ -229,6 +229,7 @@ export async function resolveSession(
           : [],
         operatorId: identity.id,
         tenantId: usable ? selected?.id : undefined,
+        cellId: usable ? (selected?.cell_id ?? undefined) : undefined,
         entityId: linked,
         userType: kind,
         platformPermissions: new Set(view.platformPermissions),
