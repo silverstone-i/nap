@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Add cell registration and editing, enabled-cell selection, and tenant
+  provisioning guidance with saved-job recovery and initial administrator activation.
+
 ### Changed
 
 - Require incremental UI delivery and manual workflow verification in the roadmap,

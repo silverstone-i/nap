@@ -21,7 +21,11 @@ export function overview() {
     controlResponseSchema
   );
 }
-/** Does: Submits a validated control command to its permission-specific route. Called by: operator forms. */
+/**
+ * Does: Sends an operator command and retains its saved job ID through the first synchronization attempt.
+ * Called by: operator forms when submitted.
+ * Why: a failed follow-up must be retried with the same job rather than creating another membership (TEN-010).
+ */
 export async function command(body: z.infer<typeof controlBodySchema>) {
   const action =
     body.operation === 'grant'
@@ -41,7 +45,7 @@ export async function command(body: z.infer<typeof controlBodySchema>) {
     }
   );
   if (result.ok && result.body.data.jobId && body.operation === 'member') {
-    return requestContract(
+    const synchronization = await requestContract(
       '/api/admin-tenancy/v1/control/provision',
       controlCommandResponseSchema,
       {
@@ -54,8 +58,16 @@ export async function command(body: z.infer<typeof controlBodySchema>) {
         }),
       }
     );
+    return { ...synchronization, jobId: result.body.data.jobId };
   }
-  return result;
+  return {
+    ...result,
+    jobId: result.ok
+      ? result.body.data.jobId
+      : body.operation === 'retry'
+        ? body.job
+        : null,
+  };
 }
 /** Does: Reads customer-visible memberships. Called by: tenant picker. */
 export function getMemberships() {

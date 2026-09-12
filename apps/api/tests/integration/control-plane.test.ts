@@ -514,7 +514,7 @@ it('requires audit persistence before privileged changes and protects audit hist
     test.owner.none("UPDATE admin.managed_events SET reason='rewrite'")
   ).rejects.toThrow();
 });
-it('keeps failed provisioning inaccessible and permits idempotent replay', async () => {
+it('recovers failed provisioning and seeds the missing initial administrator on activation', async () => {
   const t = await tenant();
   const cellOwner = test.fixture.owner(test.fixture.cellUrl);
   await cellOwner.none('REVOKE INSERT ON app.employees FROM $1:name', [
@@ -548,12 +548,22 @@ it('keeps failed provisioning inaccessible and permits idempotent replay', async
     name: 'Retry person',
   });
   await command('provision', { operation: 'retry', job: job.id });
+  await withTenantTransaction(test.cell, t.id, async tx => {
+    expect(await tx.roles.findOneBy({ code: 'tenant_admin' })).toBeNull();
+  });
   await command('provision', { operation: 'activate', target: t.id });
   expect((await test.admin.db.portal_user_tenants.findById(m.id))?.ready).toBe(
     true
   );
   await withTenantTransaction(test.cell, t.id, async tx => {
     expect(await tx.employees.countAll()).toBe(1);
+    const role = await tx.roles.findOneBy({ code: 'tenant_admin' });
+    expect(
+      await tx.role_assignments.findWhere({
+        role_id: role!.id,
+        binding_id: m.id,
+      })
+    ).toHaveLength(1);
   });
 });
 it('refuses premature activation and root impersonation or membership changes', async () => {

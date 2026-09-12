@@ -178,41 +178,41 @@ Workspace and toolchain implements specification-owned architecture; its local
 checks and passing CI are recorded in [PR #1](https://github.com/silverstone-i/nap/pull/1). Component capabilities still
 start from the specification and applicable ADRs.
 
-| Capability                                    | Design   | Implementation | Depends on                                                                                         |
-| --------------------------------------------- | -------- | -------------- | -------------------------------------------------------------------------------------------------- |
-| Workspace and toolchain                       | Accepted | Verified       | —                                                                                                  |
-| Database and migration foundation             | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Tenant isolation foundation                   | Accepted | Verified       | Database foundation                                                                                |
-| Operational baseline                          | Accepted | Verified       | Tenant isolation foundation                                                                        |
-| Shared transport package                      | Accepted | Verified       | Operational baseline                                                                               |
-| Framework HTTP surface                        | Accepted | Verified       | Shared transport package                                                                           |
-| Brand, theme, and web entry surface           | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Release, versioning, and licensing operations | Accepted | Verified       | Workspace and toolchain                                                                            |
-| Authentication and sessions                   | Accepted | Verified       | Framework HTTP surface; web entry                                                                  |
-| Tenant membership and control plane           | Accepted | Verified       | Authentication                                                                                     |
-| Cell tenancy and provisioning                 | Accepted | Verified       | Tenant control plane                                                                               |
-| RBAC and module entitlement                   | Accepted | Verified       | Cell provisioning                                                                                  |
-| Authorization cache acceleration              | Accepted | Verified       | RBAC and module entitlement                                                                        |
-| Product shell and navigation                  | Accepted | Verified       | RBAC; tenant provisioning and Core employee identity records                                       |
-| Cell registration and tenant provisioning UI  | Draft    | Not started    | Product shell and navigation; Cell tenancy and provisioning; RBAC and module entitlement           |
-| Reference data and Core                       | Draft    | Not started    | Cell registration and tenant provisioning UI; RBAC                                                 |
-| Document storage                              | Draft    | Not started    | Core; first module storing a document                                                              |
-| Projects                                      | Draft    | Not started    | Core                                                                                               |
-| Cost Codes                                    | Draft    | Not started    | Core                                                                                               |
-| Catalog                                       | Draft    | Not started    | Core                                                                                               |
-| Estimating                                    | Draft    | Not started    | Projects, Catalog, Cost Codes; release needs Project Costs baseline contract                       |
-| Scheduling                                    | Draft    | Not started    | Projects, Cost Codes; financial flows need applicable Contracts, A/P, or A/R                       |
-| Project Costs                                 | Draft    | Not started    | Projects, Cost Codes, Estimating release contract; commitments and actuals need A/P and accounting |
-| Sales                                         | Draft    | Not started    | Core; integration sources                                                                          |
-| Contracts                                     | Draft    | Not started    | Core; agreement sources                                                                            |
-| Accounting foundation                         | Draft    | Not started    | Core and Projects                                                                                  |
-| Accounts payable                              | Draft    | Not started    | Accounting, Core, Contracts                                                                        |
-| Accounts receivable                           | Draft    | Not started    | Accounting, Core, Projects, Contracts                                                              |
-| Accounting completion                         | Draft    | Not started    | A/P and A/R                                                                                        |
-| Reporting                                     | Draft    | Not started    | Each report's source module                                                                        |
-| Notifications                                 | Draft    | Not started    | First accepted source need                                                                         |
-| Operational scale units                       | Draft    | Not started    | Measured operational need                                                                          |
-| Dashboard                                     | Draft    | Not started    | Final planned capability; shell and implemented source modules                                     |
+| Capability                                    | Design   | Implementation             | Depends on                                                                                         |
+| --------------------------------------------- | -------- | -------------------------- | -------------------------------------------------------------------------------------------------- |
+| Workspace and toolchain                       | Accepted | Verified                   | —                                                                                                  |
+| Database and migration foundation             | Accepted | Verified                   | Workspace and toolchain                                                                            |
+| Tenant isolation foundation                   | Accepted | Verified                   | Database foundation                                                                                |
+| Operational baseline                          | Accepted | Verified                   | Tenant isolation foundation                                                                        |
+| Shared transport package                      | Accepted | Verified                   | Operational baseline                                                                               |
+| Framework HTTP surface                        | Accepted | Verified                   | Shared transport package                                                                           |
+| Brand, theme, and web entry surface           | Accepted | Verified                   | Workspace and toolchain                                                                            |
+| Release, versioning, and licensing operations | Accepted | Verified                   | Workspace and toolchain                                                                            |
+| Authentication and sessions                   | Accepted | Verified                   | Framework HTTP surface; web entry                                                                  |
+| Tenant membership and control plane           | Accepted | Verified                   | Authentication                                                                                     |
+| Cell tenancy and provisioning                 | Accepted | Verified                   | Tenant control plane                                                                               |
+| RBAC and module entitlement                   | Accepted | Verified                   | Cell provisioning                                                                                  |
+| Authorization cache acceleration              | Accepted | Verified                   | RBAC and module entitlement                                                                        |
+| Product shell and navigation                  | Accepted | Verified                   | RBAC; tenant provisioning and Core employee identity records                                       |
+| Cell registration and tenant provisioning UI  | Accepted | Verified upon PR #23 merge | Product shell and navigation; Cell tenancy and provisioning; RBAC and module entitlement           |
+| Reference data and Core                       | Draft    | Not started                | Cell registration and tenant provisioning UI; RBAC                                                 |
+| Document storage                              | Draft    | Not started                | Core; first module storing a document                                                              |
+| Projects                                      | Draft    | Not started                | Core                                                                                               |
+| Cost Codes                                    | Draft    | Not started                | Core                                                                                               |
+| Catalog                                       | Draft    | Not started                | Core                                                                                               |
+| Estimating                                    | Draft    | Not started                | Projects, Catalog, Cost Codes; release needs Project Costs baseline contract                       |
+| Scheduling                                    | Draft    | Not started                | Projects, Cost Codes; financial flows need applicable Contracts, A/P, or A/R                       |
+| Project Costs                                 | Draft    | Not started                | Projects, Cost Codes, Estimating release contract; commitments and actuals need A/P and accounting |
+| Sales                                         | Draft    | Not started                | Core; integration sources                                                                          |
+| Contracts                                     | Draft    | Not started                | Core; agreement sources                                                                            |
+| Accounting foundation                         | Draft    | Not started                | Core and Projects                                                                                  |
+| Accounts payable                              | Draft    | Not started                | Accounting, Core, Contracts                                                                        |
+| Accounts receivable                           | Draft    | Not started                | Accounting, Core, Projects, Contracts                                                              |
+| Accounting completion                         | Draft    | Not started                | A/P and A/R                                                                                        |
+| Reporting                                     | Draft    | Not started                | Each report's source module                                                                        |
+| Notifications                                 | Draft    | Not started                | First accepted source need                                                                         |
+| Operational scale units                       | Draft    | Not started                | Measured operational need                                                                          |
+| Dashboard                                     | Draft    | Not started                | Final planned capability; shell and implemented source modules                                     |
 
 ## Platform foundation
 
@@ -796,24 +796,27 @@ records details. Verified remains gated on the final shipping evidence.
 cell through activating a tenant with an initial `tenant_admin`, then signing
 in as that administrator to verify tenant access.
 
-**Design:** Draft. **Implementation:** Not started.
+**Design:** Accepted (owner approved, 2026-09-11). **Implementation:** Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
+
+[Delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md)
+tracks the accepted UI changes and new verification evidence.
 
 **Depends on:** Product shell and navigation; Cell tenancy and provisioning;
 RBAC and module entitlement. This is the next delivery step before Reference
 data and Core.
 
-**Known gap:** Historical Verified statuses and evidence for the control plane,
+**Delivery context:** Historical Verified statuses and evidence for the control plane,
 cell provisioning, RBAC, and product shell remain intact. They do not establish
-that all prerequisites are available through the UI: the missing cell
-registration UI prevents the complete operator workflow when the cell registry
-is empty.
+that all prerequisites are available through the UI: the previously missing cell
+registration UI prevented the complete operator workflow when the cell registry
+was empty. This change supplies the Cells destination and closes that local UI gap.
 
-**Required design:** Use the existing owners:
+**Accepted design:** Use the existing owners:
 [Tenant membership and control plane, PRD 0004](../PRDs/0004-tenant-membership-and-control-plane.md),
 [Core identity records, PRD 0005](../PRDs/0005-core-identity-records.md),
 [RBAC, PRD 0006](../PRDs/0006-role-based-access-control.md), and
 [Product shell and navigation, PRD 0009](../PRDs/0009-product-shell-and-navigation.md).
-Accept any missing UI behavior in those documents before feature implementation.
+TEN-010 and SHELL-009 record the owner-approved UI behavior.
 The roadmap records the delivery gap and acceptance gate, not new API or data
 contracts.
 
@@ -837,8 +840,11 @@ registration, successful tenant provisioning and activation, a recoverable
 provisioning failure and retry, unauthorized access denial, and initial
 administrator login including required temporary-password change. UI evidence
 must exercise prerequisite setup rather than relying on a cell record created beforehand.
-This entry records planned work and does not claim UI implementation or
-verification.
+Local real UI/API verification completed the gate, including empty-registry setup,
+injected employee-write failure and same-job retry, activation, initial password
+change, employee access and central-access denial. The delivery plan records
+checks and evidence; verification becomes effective upon PR #23 merge with required
+checks passing. Historical verification remains unchanged.
 
 ## Reference data and Core
 

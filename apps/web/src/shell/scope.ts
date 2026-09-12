@@ -38,6 +38,7 @@ export function readScope(pathname: string, search: string) {
     sort: query.get('sort') ?? '',
     descending: query.get('direction') === 'desc',
     create: parts[3] === 'new',
+    cells: parts[2] === 'cells',
     portalUsers: parts[2] === 'portal-users',
   };
 }

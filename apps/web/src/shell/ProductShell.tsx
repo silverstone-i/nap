@@ -37,6 +37,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import FolderIcon from '@mui/icons-material/Folder';
 import BusinessIcon from '@mui/icons-material/Business';
 import PeopleIcon from '@mui/icons-material/People';
+import StorageIcon from '@mui/icons-material/Storage';
 import { useSession, sessionDestination } from '../auth/session.js';
 import { SessionStatus } from '../auth/SessionStatus.js';
 import { logout } from '../api/auth.js';
@@ -176,21 +177,26 @@ export function ProductShell() {
   const canManage =
     !session.controlledAccess &&
     session.platformPermissions.includes('admin-tenancy::control::overview');
+  const canRegisterCell =
+    !session.controlledAccess &&
+    session.platformPermissions.includes('admin-tenancy::control::registry');
   const employees =
     navigation?.tenant === session.tenantId && navigation.employees && !refusal;
   const home = session.tenantId ? `/app/${session.tenantId}/dashboard` : '/';
   const directory = `/app/${session.tenantId}/accounting/directories?tab=employees`;
   const heading = scope.central
-    ? scope.portalUsers
-      ? 'Portal users'
-      : 'Tenants'
+    ? scope.cells
+      ? 'Cells'
+      : scope.portalUsers
+        ? 'Portal users'
+        : 'Tenants'
     : scope.directory
       ? 'Employees'
       : 'Dashboard';
   const denied =
     refusal ||
     (scope.central
-      ? !canManage
+      ? !(canManage || (scope.cells && scope.create && canRegisterCell))
       : scope.directory && navigation !== null && !employees);
   const links = (
     <Box
@@ -214,6 +220,22 @@ export function ProductShell() {
           >
             <DashboardIcon />
             {!(desktop && collapsed) && <ListItemText primary="Dashboard" />}
+          </ListItemButton>
+        )}
+        {!canManage && canRegisterCell && (
+          <ListItemButton
+            component={Link}
+            to="/management/cells/new"
+            selected={scope.cells && scope.create}
+            onClick={closeMenu}
+            sx={activeNavigationStyles}
+            aria-label="Register cell"
+            aria-current={scope.cells && scope.create ? 'page' : undefined}
+          >
+            <StorageIcon />
+            {!(desktop && collapsed) && (
+              <ListItemText primary="Register cell" />
+            )}
           </ListItemButton>
         )}
         {canManage && (
@@ -259,18 +281,34 @@ export function ProductShell() {
                 <ListItemButton
                   component={Link}
                   to="/management/tenants"
-                  selected={scope.central && !scope.portalUsers}
+                  selected={scope.central && !scope.cells && !scope.portalUsers}
                   onClick={closeMenu}
                   sx={activeNavigationStyles}
                   aria-label="Tenants"
                   aria-current={
-                    scope.central && !scope.portalUsers ? 'page' : undefined
+                    scope.central && !scope.cells && !scope.portalUsers
+                      ? 'page'
+                      : undefined
                   }
                 >
                   <BusinessIcon />
                   {!(desktop && collapsed) && (
                     <ListItemText primary="Tenants" />
                   )}
+                </ListItemButton>
+                <ListItemButton
+                  component={Link}
+                  to="/management/cells"
+                  selected={scope.central && scope.cells}
+                  onClick={closeMenu}
+                  sx={activeNavigationStyles}
+                  aria-label="Cells"
+                  aria-current={
+                    scope.central && scope.cells ? 'page' : undefined
+                  }
+                >
+                  <StorageIcon />
+                  {!(desktop && collapsed) && <ListItemText primary="Cells" />}
                 </ListItemButton>
                 <ListItemButton
                   component={Link}
@@ -301,10 +339,18 @@ export function ProductShell() {
               <MenuItem
                 component={Link}
                 to="/management/tenants"
-                selected={scope.central && !scope.portalUsers}
+                selected={scope.central && !scope.cells && !scope.portalUsers}
                 onClick={closeMenu}
               >
                 Tenants
+              </MenuItem>
+              <MenuItem
+                component={Link}
+                to="/management/cells"
+                selected={scope.central && scope.cells}
+                onClick={closeMenu}
+              >
+                Cells
               </MenuItem>
               <MenuItem
                 component={Link}
