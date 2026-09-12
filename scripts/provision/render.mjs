@@ -1,8 +1,8 @@
-import { ProvisioningError } from './config.mjs';
 /*
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { ProvisioningError } from './config.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 
 /** Does: Reads explicit infrastructure choices with no paid defaults. Called by: production setup before creation. */

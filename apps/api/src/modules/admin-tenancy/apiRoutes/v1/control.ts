@@ -72,7 +72,7 @@ export default function controlRouter(
           }),
         }),
         operation: async (tx, input) => {
-          await requirePlatform(tx, input.session.actorId, 'registry');
+          await requirePlatform(tx, input.session.actorId, 'cell-readiness');
           const selected = cells.get(input.query.cell.toLowerCase());
           const identity = await physicalIdentity(selected);
           const ready = await referenceReady(selected);

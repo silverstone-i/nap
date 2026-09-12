@@ -45,6 +45,34 @@ it('requires an authenticated operator and verifies the running pool physical id
       ready: true,
     },
   });
+  const support = await test.owner.one<{ id: string }>(
+    `INSERT INTO admin.portal_users(email,password_hash,status)
+     SELECT 'readiness-support@nap.test',password_hash,'active'
+     FROM admin.portal_users WHERE is_root RETURNING id`
+  );
+  await test.owner.none(
+    "INSERT INTO admin.platform_roles(portal_user_id,role) VALUES($1,'support')",
+    [support.id]
+  );
+  const operator = request.agent(test.app);
+  expect(
+    (
+      await operator.post('/api/admin-tenancy/v1/auth/login').send({
+        email: 'readiness-support@nap.test',
+        password: authEnv.ROOT_PASSWORD_TEST,
+      })
+    ).status
+  ).toBe(200);
+  await test.owner.none(
+    "UPDATE admin.support_policy SET permissions=$1::jsonb WHERE code='support'",
+    [JSON.stringify(['admin-tenancy::control::cell-readiness'])]
+  );
+  expect((await operator.get(path)).status).toBe(200);
+  await test.owner.none(
+    "UPDATE admin.support_policy SET permissions=$1::jsonb WHERE code='support'",
+    [JSON.stringify(['admin-tenancy::control::registry'])]
+  );
+  expect((await operator.get(path)).status).toBe(403);
   await owner.none("UPDATE cell.physical_identity SET environment='prod'");
   expect((await agent.get(path)).status).toBe(503);
 });
