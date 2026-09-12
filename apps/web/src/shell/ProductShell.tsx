@@ -177,6 +177,9 @@ export function ProductShell() {
   const canManage =
     !session.controlledAccess &&
     session.platformPermissions.includes('admin-tenancy::control::overview');
+  const canRegisterCell =
+    !session.controlledAccess &&
+    session.platformPermissions.includes('admin-tenancy::control::registry');
   const employees =
     navigation?.tenant === session.tenantId && navigation.employees && !refusal;
   const home = session.tenantId ? `/app/${session.tenantId}/dashboard` : '/';
@@ -193,7 +196,7 @@ export function ProductShell() {
   const denied =
     refusal ||
     (scope.central
-      ? !canManage
+      ? !(canManage || (scope.cells && scope.create && canRegisterCell))
       : scope.directory && navigation !== null && !employees);
   const links = (
     <Box
@@ -217,6 +220,22 @@ export function ProductShell() {
           >
             <DashboardIcon />
             {!(desktop && collapsed) && <ListItemText primary="Dashboard" />}
+          </ListItemButton>
+        )}
+        {!canManage && canRegisterCell && (
+          <ListItemButton
+            component={Link}
+            to="/management/cells/new"
+            selected={scope.cells && scope.create}
+            onClick={closeMenu}
+            sx={activeNavigationStyles}
+            aria-label="Register cell"
+            aria-current={scope.cells && scope.create ? 'page' : undefined}
+          >
+            <StorageIcon />
+            {!(desktop && collapsed) && (
+              <ListItemText primary="Register cell" />
+            )}
           </ListItemButton>
         )}
         {canManage && (

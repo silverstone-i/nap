@@ -63,11 +63,15 @@ export function CellsPage() {
     id: string;
   } | null>(null);
   const session = state.status === 'ready' ? state.session : null;
+  const canView =
+    session?.platformPermissions.includes('admin-tenancy::control::overview') ??
+    false;
   const canMutate =
     session?.platformPermissions.includes('admin-tenancy::control::registry') ??
     false;
 
   useEffect(() => {
+    if (!canView) return;
     let active = true;
     void overview().then(result => {
       if (!active) return;
@@ -82,7 +86,7 @@ export function CellsPage() {
     return () => {
       active = false;
     };
-  }, [revision]);
+  }, [revision, canView]);
 
   /** Does: Updates cell-list URL state while retaining unrelated parameters. */
   function changeView(values: Record<string, string>, replace = false) {
@@ -150,7 +154,9 @@ export function CellsPage() {
 
   if (scope.create && !canMutate)
     return <Alert severity="warning">This action is unavailable.</Alert>;
-  if (!cells)
+  if (!canView && !scope.create)
+    return <Alert severity="warning">This action is unavailable.</Alert>;
+  if (canView && !cells)
     return loadError ? (
       <Alert severity="error">
         {loadError}{' '}
@@ -159,14 +165,16 @@ export function CellsPage() {
     ) : (
       <Typography role="status">Loading cells…</Typography>
     );
-  const selected = cells.find(cell => cell.id === scope.target);
+  const visibleCells = canView ? (cells ?? []) : [];
+  const selected = visibleCells.find(cell => cell.id === scope.target);
   if (scope.target && !selected)
     return <Alert severity="warning">Cell unavailable.</Alert>;
   if (scope.create || selected)
     return (
       <CellForm
         cell={selected}
-        cells={cells}
+        cells={visibleCells}
+        canView={canView}
         canMutate={canMutate}
         busy={busy}
         message={message}
@@ -181,7 +189,7 @@ export function CellsPage() {
     );
 
   const size = defaultRowsPerPage();
-  const filtered = cells.filter(
+  const filtered = visibleCells.filter(
     cell =>
       (!scope.status ||
         (scope.status === 'enabled' && cell.enabled) ||
@@ -278,7 +286,7 @@ export function CellsPage() {
               })
             }
             localeText={{
-              noRowsLabel: cells.length
+              noRowsLabel: visibleCells.length
                 ? 'No matching cells.'
                 : 'No cells registered.',
             }}
@@ -306,6 +314,7 @@ export function CellsPage() {
 function CellForm({
   cell,
   cells,
+  canView,
   canMutate,
   busy,
   message,
@@ -316,6 +325,7 @@ function CellForm({
 }: {
   cell: Cell | undefined;
   cells: Cell[];
+  canView: boolean;
   canMutate: boolean;
   busy: boolean;
   message: string;
@@ -367,7 +377,12 @@ function CellForm({
     if (result.ok) {
       onMessage('Cell saved.', 'success');
       onSaved();
-      if (!cell) await navigate('/management/cells');
+      if (!cell && canView) await navigate('/management/cells');
+      if (!canView) {
+        setCode('');
+        setName('');
+        setEnabled(true);
+      }
     } else onMessage(result.error.message, 'error');
   }
 
@@ -391,8 +406,11 @@ function CellForm({
           {cell ? cell.name : 'Register cell'}
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
-        <Button component={Link} to="/management/cells">
-          All cells
+        <Button
+          component={Link}
+          to={canView ? '/management/cells' : '/control'}
+        >
+          {canView ? 'All cells' : 'Control panel'}
         </Button>
       </Toolbar>
       <Box sx={managementContentStyles}>
@@ -458,7 +476,11 @@ function CellForm({
               <Button type="submit" variant="contained" disabled={busy}>
                 Save
               </Button>
-              <Button component={Link} to="/management/cells" disabled={busy}>
+              <Button
+                component={Link}
+                to={canView ? '/management/cells' : '/control'}
+                disabled={busy}
+              >
                 Cancel
               </Button>
             </Stack>

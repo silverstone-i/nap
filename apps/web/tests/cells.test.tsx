@@ -49,8 +49,11 @@ function mount(path: string) {
   return router;
 }
 
-/** Does: Installs the session and bounded overview used by Cells tests. */
-function fixture(registry = true) {
+/**
+ * Does: Supplies session permissions and cell records for browser tests.
+ * Called by: Cells tests before rendering a route.
+ */
+function fixture(registry = true, overview = true) {
   fetchMock.mockImplementation(url => {
     const path = requestPath(url);
     if (path.endsWith('/overview'))
@@ -81,7 +84,7 @@ function fixture(registry = true) {
       canChangeTenant: false,
       state: 'tenant-selected',
       platformPermissions: [
-        'admin-tenancy::control::overview',
+        ...(overview ? ['admin-tenancy::control::overview'] : []),
         ...(registry ? ['admin-tenancy::control::registry'] : []),
       ],
       controlledAccess: null,
@@ -156,6 +159,63 @@ it('includes Cells in mobile Tenant Management navigation', async () => {
   ).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
   expect(await screen.findByRole('link', { name: 'Cells' })).toBeDefined();
+});
+
+it('registers with registry permission alone without fetching or navigating to overview', async () => {
+  fixture(true, false);
+  const router = mount('/management/cells/new');
+  const code = await screen.findByLabelText('Cell code', { exact: false });
+  expect(screen.getByRole('link', { name: 'Register cell' })).toBeDefined();
+  expect(screen.queryByRole('link', { name: 'All cells' })).toBeNull();
+  fireEvent.change(code, { target: { value: 'CELL-3' } });
+  fireEvent.change(screen.getByLabelText('Cell name', { exact: false }), {
+    target: { value: 'Third cell' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByText('Cell saved.');
+  expect(router.state.location.pathname).toBe('/management/cells/new');
+  expect(
+    screen.getByLabelText('Cell code', { exact: false }).getAttribute('value')
+  ).toBe('');
+  expect(
+    fetchMock.mock.calls.some(([url]) => requestPath(url).endsWith('/overview'))
+  ).toBe(false);
+  const saved = fetchMock.mock.calls.find(([url]) =>
+    requestPath(url).endsWith('/registry')
+  );
+  expect(
+    JSON.parse(typeof saved?.[1]?.body === 'string' ? saved[1].body : '')
+  ).toEqual({
+    operation: 'cell',
+    code: 'CELL-3',
+    name: 'Third cell',
+    enabled: true,
+  });
+});
+
+it.each(['/management/cells', `/management/cells/${firstCell}`])(
+  'denies registry-only access to existing records at %s',
+  async path => {
+    fixture(true, false);
+    mount(path);
+    await screen.findByText('Access is unavailable.');
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        requestPath(url).endsWith('/overview')
+      )
+    ).toBe(false);
+  }
+);
+
+it('denies registration without registry permission', async () => {
+  fixture(false);
+  mount('/management/cells/new');
+  await screen.findByText('This action is unavailable.');
+  expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  expect(
+    fetchMock.mock.calls.some(([url]) => requestPath(url).endsWith('/registry'))
+  ).toBe(false);
 });
 
 it('retains a duplicate listed code and offers its edit route without submitting', async () => {
