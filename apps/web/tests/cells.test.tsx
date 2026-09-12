@@ -111,7 +111,8 @@ afterEach(() => {
 it('lists cells with URL filters and gates registry mutations', async () => {
   fixture(false);
   const router = mount('/management/cells');
-  await screen.findByRole('grid', { name: 'Cells' });
+  // Initial lazy route imports can exceed the default one-second wait on CI.
+  await screen.findByRole('grid', { name: 'Cells' }, { timeout: 5000 });
   expect(
     screen.getByRole('link', { name: 'Cells' }).getAttribute('aria-current')
   ).toBe('page');
@@ -179,6 +180,63 @@ it('retains a duplicate listed code and offers its edit route without submitting
   expect(
     fetchMock.mock.calls.some(([url]) => requestPath(url).endsWith('/registry'))
   ).toBe(false);
+});
+
+it('clears an overview error after retry while preserving save feedback', async () => {
+  fixture();
+  const respond = fetchMock.getMockImplementation();
+  if (!respond) throw new Error('Missing fetch fixture');
+  let failOverview = true;
+  fetchMock.mockImplementation((url, init) => {
+    if (requestPath(url).endsWith('/overview') && failOverview) {
+      failOverview = false;
+      return Promise.reject(new Error('offline'));
+    }
+    return respond(url, init);
+  });
+  mount(`/management/cells/${firstCell}`);
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+  await screen.findByRole('button', { name: 'Save' });
+  expect(screen.queryByRole('alert')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByText('Cell saved.');
+  await waitFor(() =>
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        requestPath(url).endsWith('/overview')
+      )
+    ).toHaveLength(3)
+  );
+  expect(screen.getByText('Cell saved.')).toBeDefined();
+});
+
+it('clears a duplicate warning when the code is corrected and saves the new code', async () => {
+  fixture();
+  mount('/management/cells/new');
+  const code = await screen.findByLabelText('Cell code', { exact: false });
+  fireEvent.change(code, { target: { value: 'CELL-1' } });
+  fireEvent.change(screen.getByLabelText('Cell name', { exact: false }), {
+    target: { value: 'New cell' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByText('Cell code CELL-1 is already registered.');
+  fireEvent.change(code, { target: { value: 'CELL-3' } });
+  expect(
+    screen.queryByText('Cell code CELL-1 is already registered.')
+  ).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByRole('grid', { name: 'Cells' });
+  const saved = fetchMock.mock.calls.find(([url]) =>
+    requestPath(url).endsWith('/registry')
+  );
+  expect(
+    JSON.parse(typeof saved?.[1]?.body === 'string' ? saved[1].body : '')
+  ).toEqual({
+    operation: 'cell',
+    code: 'CELL-3',
+    name: 'New cell',
+    enabled: true,
+  });
 });
 
 it('confirms assigned tenant access loss before disabling a cell', async () => {

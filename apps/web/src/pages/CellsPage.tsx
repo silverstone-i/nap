@@ -54,6 +54,7 @@ export function CellsPage() {
   const navigate = useNavigate();
   const [cells, setCells] = useState<Cell[] | null>(null);
   const [message, setMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [severity, setSeverity] = useState<'error' | 'success'>('error');
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -72,10 +73,10 @@ export function CellsPage() {
       if (!active) return;
       if (result.ok) {
         setCells(result.body.data.cells);
+        setLoadError('');
       } else {
         setCells(null);
-        setSeverity('error');
-        setMessage(result.error.message);
+        setLoadError(result.error.message);
       }
     });
     return () => {
@@ -150,9 +151,9 @@ export function CellsPage() {
   if (scope.create && !canMutate)
     return <Alert severity="warning">This action is unavailable.</Alert>;
   if (!cells)
-    return message ? (
+    return loadError ? (
       <Alert severity="error">
-        {message}{' '}
+        {loadError}{' '}
         <Button onClick={() => setRevision(value => value + 1)}>Retry</Button>
       </Alert>
     ) : (
@@ -422,7 +423,10 @@ function CellForm({
             <TextField
               label="Cell code"
               value={code}
-              onChange={event => setCode(event.target.value)}
+              onChange={event => {
+                setCode(event.target.value);
+                setDuplicate(null);
+              }}
               slotProps={{ htmlInput: { maxLength: 64 } }}
               helperText="Use the code configured for the deployed cell."
               required

@@ -139,7 +139,12 @@ it('blocks tenant creation from an empty or disabled registry and links to cell 
   const data = fixture();
   data.cells[0].enabled = false;
   mount('/management/tenants/new');
-  await screen.findByText(/No enabled cells are available/);
+  // Initial lazy route imports can exceed the default one-second wait on CI.
+  await screen.findByText(
+    /No enabled cells are available/,
+    {},
+    { timeout: 5000 }
+  );
   expect(
     screen.getByRole('link', { name: 'Go to Cells' }).getAttribute('href')
   ).toBe('/management/cells');
