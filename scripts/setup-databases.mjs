@@ -141,10 +141,12 @@ if (
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   try {
-    if (process.argv.length !== 3)
-      throw new Error('Expected one setup mode: test or development');
+    if (process.argv.length !== 5 || process.argv[3] !== '--cell-id')
+      throw new Error('Expected setup mode and --cell-id UUID');
     loadLocalEnvironment();
-    setupDatabases(resolveSetupConfiguration(process.argv[2]));
+    setupDatabases(
+      resolveSetupConfiguration(process.argv[2], process.env, process.argv[4])
+    );
     console.log('Development/test databases are ready');
   } catch (error) {
     // Only our fixed diagnostics escape; never emit subprocess output or a URL.

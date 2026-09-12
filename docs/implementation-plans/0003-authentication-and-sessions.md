@@ -70,3 +70,5 @@ Business RBAC, Redis and forgotten-password email retain their later gates.
 Authentication verification refreshed 2026-09-08: 263 tests and all repository checks passed.
 [PR #14](https://github.com/silverstone-i/nap/pull/14) merged; [CI](https://github.com/silverstone-i/nap/actions/runs/34180826031) passed.
 PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and onboarding.
+
+Configuration note, 2026-09-12: ADR 0012 supersedes unsuffixed environment-sensitive settings in this historical delivery record. The current variable inventory is apps/api/.env.example.

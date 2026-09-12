@@ -8,29 +8,28 @@ import {
   loadLocalEnvironment,
   resolveEnvironment,
   resolveMigrationConfiguration,
+  resolveDatabaseArguments,
 } from '../util/env.js';
 
 // Explicit operator command; never imported by the API runtime. Require an
 // acknowledgement before opening a connection and never print driver errors.
 try {
-  const args = process.argv.slice(2);
-  if (
-    args.length !== 3 ||
-    args[0] !== '--target' ||
-    (args[1] !== 'admin' && args[1] !== 'cell') ||
-    args[2] !== '--confirm'
-  )
-    throw new Error();
-  const target = args[1];
+  const { target, cellId } = resolveDatabaseArguments(
+    process.argv.slice(2),
+    true
+  );
   loadLocalEnvironment();
   const environment = resolveEnvironment();
-  await resetDatabase(target, resolveMigrationConfiguration(target));
+  await resetDatabase(
+    target,
+    resolveMigrationConfiguration(target, process.env, cellId)
+  );
   console.log(
     `${target} ${environment} reset complete; run migrations to rebuild`
   );
 } catch {
   console.error(
-    'Database reset failed; requires --target admin|cell --confirm. Check NODE_ENV, migration credentials, and active database connections.'
+    'Database reset failed; requires --target admin|cell [--cell-id UUID] --confirm. Check NODE_ENV, migration credentials, and active database connections.'
   );
   process.exitCode = 1;
 }

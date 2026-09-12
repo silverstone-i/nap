@@ -35,7 +35,10 @@ beforeAll(async () => {
   rootCookie = cookie(
     await request(test.server)
       .post(auth + '/login')
-      .send({ email: authEnv.ROOT_EMAIL, password: authEnv.ROOT_PASSWORD })
+      .send({
+        email: authEnv.ROOT_EMAIL_TEST,
+        password: authEnv.ROOT_PASSWORD_TEST,
+      })
   );
   await test.owner.none(
     'UPDATE admin.tenants SET cell_id=NULL,provisioned=false,rbac_ready=false WHERE id=$1',

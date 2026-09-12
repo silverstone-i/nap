@@ -34,14 +34,14 @@ import {
 import { requirePlatform } from '../../../../services/platform.js';
 import { HttpError } from '../../../../util/httpError.js';
 import type { AdminHandle } from '../../../../db/admin/repositories.js';
-import type { CellHandle } from '../../../../db/cell/repositories.js';
+import type { CellRegistry } from '../../../../services/cellRegistry.js';
 import type { AuthConfiguration } from '../../../../util/authConfig.js';
 
 /** Does: Registers explicit operator commands through the shared factory. Called by: route composition. */
 export default function controlRouter(
   db: AdminHandle,
   config: AuthConfiguration,
-  cell: CellHandle | undefined
+  cells: CellRegistry
 ) {
   const empty = z.strictObject({});
   const controller = new ReadController(db, 'tenants');
@@ -95,10 +95,9 @@ export default function controlRouter(
           version: transportVersion,
           data: await changeEntitlement(
             tx,
-            cell,
+            cells,
             input.session.actorId,
-            input.body,
-            config.cellCode
+            input.body
           ),
         }),
       });
@@ -124,7 +123,7 @@ export default function controlRouter(
               throw new HttpError('FORBIDDEN');
             const jobId = await controlCommand(
               tx,
-              cell,
+              cells,
               input.session.operatorId ?? input.session.actorId,
               input.body,
               config

@@ -13,6 +13,7 @@ import { HttpError } from '../util/httpError.js';
 import { audit, requirePlatform } from './platform.js';
 import type { AdminRepositories } from '../db/admin/repositories.js';
 import type { AdminTransaction } from '../db/withAdminTransaction.js';
+import type { CellRegistry } from './cellRegistry.js';
 import type { CellHandle } from '../db/cell/repositories.js';
 import type { AuthConfiguration } from '../util/authConfig.js';
 
@@ -99,14 +100,10 @@ export async function controlOverview(tx: AdminTransaction<AdminRepositories>) {
       })),
   };
 }
-/** Does: Confirms that a requested operation targets this deployment's registered cell. Called by: provisioning and activation. */
-async function assigned(
-  tx: AdminTransaction<AdminRepositories>,
-  id: string,
-  config: AuthConfiguration
-) {
+/** Does: Reads the target tenant and checks its registered cell is enabled. Called by: provisioning and activation. */
+async function assigned(tx: AdminTransaction<AdminRepositories>, id: string) {
   const tenant = await tx.cells.assignment(id);
-  if (!tenant || tenant.code !== config.cellCode || !tenant.enabled)
+  if (!tenant || !tenant.cell_id || !tenant.enabled)
     throw new HttpError('FORBIDDEN');
   return tenant;
 }
@@ -139,14 +136,13 @@ async function projectTenant(
 /** Does: Replays one durable membership job and records a safe failure stage. Called by: provisioning and operator retry. */
 async function runJob(
   tx: AdminTransaction<AdminRepositories>,
-  cell: CellHandle,
+  cells: CellRegistry,
   jobId: string,
-  config: AuthConfiguration,
   name?: string
 ) {
   const job = await tx.provisioning_jobs.findById(jobId);
   if (!job) throw new HttpError('NOT_FOUND');
-  await assigned(tx, job.tenant_id, config);
+  const tenant = await assigned(tx, job.tenant_id);
   const member = await tx.portal_user_tenants.findById(job.membership_id);
   if (!member) throw new HttpError('NOT_FOUND');
   const user = await tx.portal_users.lockIdentity(member.portal_user_id);
@@ -165,6 +161,7 @@ async function runJob(
   )
     throw new HttpError('CONFLICT');
   try {
+    const cell = cells.get(tenant.cell_id);
     await projectTenant(tx, cell, job.tenant_id);
     await withTenantTransaction(cell, job.tenant_id, async local => {
       const repository =
@@ -237,7 +234,7 @@ async function runJob(
 /** Does: Executes a permission-checked central command and its audit. Called by: the factory's admin transaction. */
 export async function controlCommand(
   tx: AdminTransaction<AdminRepositories>,
-  cell: CellHandle | undefined,
+  cells: CellRegistry,
   actor: string,
   body: z.infer<typeof controlBodySchema>,
   config: AuthConfiguration
@@ -311,7 +308,7 @@ export async function controlCommand(
       throw new HttpError('CONFLICT');
     }
     case 'member': {
-      await assigned(tx, body.target, config);
+      await assigned(tx, body.target);
       let user = await tx.portal_users.byEmail(body.email);
       if (!user) {
         if (!body.password) throw new HttpError('INVALID_INPUT');
@@ -363,8 +360,8 @@ export async function controlCommand(
       if (!member) throw new HttpError('NOT_FOUND');
       const user = await tx.portal_users.lockIdentity(member.portal_user_id);
       if (!user || user.is_root) throw new HttpError('FORBIDDEN');
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
-      await assigned(tx, member.tenant_id, config);
+      const assignedTenant = await assigned(tx, member.tenant_id);
+      const cell = cells.get(assignedTenant.cell_id);
       await withTenantTransaction(cell, member.tenant_id, async local => {
         await local.roles.lockTenant(member.tenant_id);
         await protectTenantAdmin(local, member.id);
@@ -391,11 +388,9 @@ export async function controlCommand(
       break;
     }
     case 'retry':
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
-      await runJob(tx, cell, body.job, config, body.name);
+      await runJob(tx, cells, body.job, body.name);
       break;
     case 'reconcile': {
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
       const root = await tx.portal_users.lockIdentity(actor);
       if (!root?.is_root) throw new HttpError('FORBIDDEN');
       const memberships = await tx.portal_user_tenants.findWhere({
@@ -403,15 +398,11 @@ export async function controlCommand(
       });
       const membership = memberships[0];
       const selected = await tx.cells.findById(body.cell);
-      if (
-        !membership ||
-        !selected?.enabled ||
-        selected.code !== config.cellCode
-      )
-        throw new HttpError('FORBIDDEN');
+      if (!membership || !selected?.enabled) throw new HttpError('FORBIDDEN');
       const tenant = await tx.tenants.findById(membership.tenant_id);
       if (!tenant || (tenant.cell_id && tenant.cell_id !== body.cell))
         throw new HttpError('CONFLICT');
+      const cell = cells.get(body.cell);
       await tx.tenants.update(tenant.id, { cell_id: body.cell });
       await projectTenant(tx, cell, tenant.id);
       await withTenantTransaction(cell, tenant.id, async local => {
@@ -436,8 +427,8 @@ export async function controlCommand(
       break;
     }
     case 'activate': {
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
-      const tenant = await assigned(tx, body.target, config);
+      const tenant = await assigned(tx, body.target);
+      const cell = cells.get(tenant.cell_id);
       if (tenant.provisioned && !tenant.rbac_ready)
         throw new HttpError('CONFLICT');
       if (

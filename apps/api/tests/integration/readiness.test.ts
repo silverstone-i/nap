@@ -23,8 +23,8 @@ afterEach(() => vi.restoreAllMocks());
 /** Independent real runtime pools for each probe scenario. */
 function handles() {
   return [
-    createAdminDatabase(fixture.env.ADMIN_DATABASE_URL_TEST),
-    createCellDatabase(fixture.env.CELL_DATABASE_URL_TEST),
+    createAdminDatabase(fixture.runtimeUrl(fixture.adminUrl)),
+    createCellDatabase(fixture.runtimeUrl(fixture.cellUrl)),
   ];
 }
 it('checks privileges freshly, coalesces callers, and recovers after role repair', async () => {

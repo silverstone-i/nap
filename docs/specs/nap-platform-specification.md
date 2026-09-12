@@ -105,50 +105,41 @@ flowchart LR
 ```mermaid
 flowchart TB
   browser[Browser] --> origin[Shared web and /api origin]
-  origin --> routing[Platform routing]
-  routing --> api1[Cell 1 API deployment]
-  routing --> api2[Cell 2 API deployment]
-  api1 --> admin[(Central admin database)]
-  api2 --> admin
-  api1 --> cell1[(Cell 1 database)]
-  api2 --> cell2[(Cell 2 database)]
-  api1 -. no credential .-> cell2
-  api2 -. no credential .-> cell1
+  origin --> api[One API application]
+  api --> admin[(Central admin database)]
+  api --> cell1[(Cell 1 database environment)]
+  api --> cell2[(Cell 2 database environment)]
 ```
-
-The dotted paths are prohibited. A dedicated managed tenant may be the only
-tenant in a cell. A self-hosted installation runs the same topology with its
-own admin database and one or more local cells.
 
 ### Shared-origin routing contract
 
-`server.ts` runs the same API artifact as either `API_MODE=cell` (default) or
-`API_MODE=router`. Router mode has only an admin database handle, mounts central
-factory-generated routes, and forwards tenant operations through Node HTTP(S)
-to origins in deployment-only `CELL_API_ORIGINS` (a JSON code-to-origin map).
-It never constructs a cell database handle. `services/cellRouting.ts` owns
-central destination lookup; `middleware/routeToCell.ts` owns bounded forwarding.
-No additional dependency or business module is introduced (ADR 0007).
+The API runs admin and module routes in the same process. It resolves sessions
+and tenant assignments in admin, then dispatches module requests in-process to
+fixed controller instances bound to the assigned cell database (ADR 0011).
+Customer URLs and session contracts carry no cell identifiers or addresses.
 
-Login, password changes, membership selection, controlled-access transitions,
-and central registry operations execute against admin independently of cell
-availability. Selection validates global membership and active assignment;
-actual tenant data access additionally requires the destination's local cell
-code. Router mode never executes tenant-data handlers. Provisioning member,
-retry, activate and root reconcile commands go to their centrally resolved
-cell, even when the operator selected another tenant. Backends independently
-repeat authorization and assignment checks; forwarding is not a grant.
+Deployment secrets supply CELL_DATABASES_DEV/TEST/PROD, maps from registered
+cell UUID to endpoint configuration, alongside ADMIN_DATABASE_DEV/TEST/PROD.
+The Environment configuration contract below defines role-password selection.
+No process-wide CELL_CODE, API_MODE, singular CELL_DATABASE_URL_* or
+CELL_API_ORIGINS is supported. Empty maps permit initial admin registration;
+configured IDs must exist in admin. Invalid UUIDs, duplicate database targets
+and targets matching admin fail configuration validation without exposing secrets.
 
-Cell origins are private deployment addresses, inaccessible from customer
-networks. HTTPS is required except for loopback development origins. The router
-forwards the original cookie and a sanitized client address, strips untrusted
-forwarding/identity headers, preserves correlation, never follows redirects or
-retries mutations, and bounds upstream requests to 30 seconds. JSON retains its
-100 KiB limit; workbook forwarding retains the framework's 5 MiB limit.
-Cells trust exactly the private router hop when deployed behind it. All modes
-share session signing, throttle and cookie policy. Missing, disabled or failed
-cell destinations fail closed without another cell fallback. Central readiness
-checks admin only; a cell's readiness checks admin and its own database.
+Central session resolution never reads a cell. Login, password changes,
+membership selection, controlled-access transitions and registry operations
+remain available during an individual cell outage. Module requests resolve the
+assigned cell, require its readiness, load its authorization projections, and
+run the existing tenant transaction. Cell-writing commands select their target
+from authorized tenant, membership or job records, not the operator's assignment.
+No HTTP forwarding or fallback database exists. Controller handles never change.
+
+Admin readiness gates the listener and /health/ready. Every cell has bounded,
+non-overlapping readiness probes at startup and every 30 seconds, checking
+connectivity, safe runtime roles and required relations. An unavailable or unsafe
+cell is quarantined; healthy cells and admin continue. Recovery needs no restart.
+Changes to the connection map require restart. Shutdown drains HTTP before closing
+all pools. Runtime registers repositories; release migrations create tables.
 
 ## Authenticated request flow
 
@@ -334,8 +325,8 @@ completes is a service, never a module.
 ### Database composition roots
 
 `db/admin/` constructs the central database handle and assembles admin-targeted
-module repositories and migrations. `db/cell/` constructs the one cell handle
-available to a cell deployment and assembles cell-targeted repositories and
+module repositories and migrations. `db/cell/` constructs each UUID-keyed cell handle
+available to the API and assembles cell-targeted repositories and
 migrations. `db/assertRuntimeRole.ts` is shared by both: readiness runs it
 against each handle so a connection that could bypass or disable row-level
 security fails startup rather than serving traffic.
@@ -1289,18 +1280,44 @@ contracts.
 Database credentials belong to deployment secret configuration. They must not
 be stored in tenant or cell rows, returned to clients, or written to logs.
 
+### Environment configuration
+
+The API environment file has Development (including isolated TEST settings),
+Production, and Common sections. NODE_ENV selects DEV, TEST, or PROD; inherited
+process variables take precedence over the local file. Only the selected
+operation's credentials are required.
+
+Development and test each use shared passwords for fixed PostgreSQL roles
+`nap_app` (runtime) and `nap_admin` (maintenance), with separate test targets.
+Production uses independent passwords per independently hosted database.
+Database endpoints exclude credentials; code combines endpoints with the selected
+role and password. Cells remain keyed by registered UUID. Runtime deployment
+configuration omits maintenance passwords. New role passwords are independently
+generated with `openssl rand -hex 32`; configuration conversion does not rotate them.
+
+Session/throttle secrets, bootstrap inputs, Redis settings, cookies, and proxy
+trust settings are environment-specific. Session durations, hashing parameters,
+logging level, NODE_ENV, and process PORT are common. Configuration is loaded at
+startup; changing it requires restart. UUID selection in a maintenance command
+is not proof of registration or physical database identity; those checks belong
+to the separately delivered setup workflow. See ADR 0012 for rationale and
+`apps/api/.env.example` for the variable inventory.
+
 ### ARCH-009 — Cell connectivity boundary
 
-A cell API deployment may connect to the central administration database and
-its own cell database. It must not receive credentials for or connect to an
-unrelated cell database.
+One API application connects to admin and every configured cell database using
+separate UUID-keyed pools and fixed controller bindings. It holds all configured
+cell credentials; API-process credentials no longer isolate cells from one another.
+Server-resolved assignments, independent database roles, tenant transactions and
+RLS enforce request isolation. Request input cannot choose a database.
 
 ### ARCH-010 — Repeatable and recoverable cells
 
-A cell is a repeatable deployment unit containing the API modular monolith, one
-cell database, shared RLS-protected tables, enforcement projections, and
-tenant-safe reporting. A cell is independently deployable and recoverable;
-failure or maintenance in one cell must not make unrelated cells unavailable.
+A cell is an independently hosted database environment containing shared
+RLS-protected tables, enforcement projections and tenant-safe reporting. API
+availability is shared. Failure or maintenance of one cell database must not
+make admin or unrelated cells unavailable. Migrations are explicit release
+operations; startup initializes pools and repositories without creating tables.
 
 ### ARCH-011 — Evidence-based cell placement
 
@@ -1774,3 +1791,7 @@ from middleware. Root/controlled-access isolation and audit remain mandatory.
 Revision: 2026-09-09 — Owner authorized PRDs 0006–0008 and ADR 0008 implementation.
 
 Revision: 2026-09-10 — Owner accepted the PRD 0009 shell, vendor-selection and settings-placement amendments with their implementation.
+
+Revision, 2026-09-11: Owner accepted one API serving multiple UUID-keyed cell databases, independent cell recovery and removal of forwarding (ADR 0011).
+
+Revision, 2026-09-12: Owner approved component-based environment configuration, shared local and independent production database credentials (ADR 0012).

@@ -83,3 +83,26 @@ it.each(['src/util/env.ts', 'dist/util/env.js'])(
     }
   }
 );
+
+it.each([
+  ['migrate', ['--target', 'cell']],
+  ['migrate', ['--target', 'cell', '--cell-id', 'not-a-uuid']],
+  ['reset', ['--target', 'cell', '--confirm']],
+  ['reset', ['--target', 'cell', '--cell-id', 'not-a-uuid', '--confirm']],
+])(
+  'refuses invalid %s cell arguments before loading environment or connecting',
+  (script, args) => {
+    const result = spawnSync(
+      process.execPath,
+      [`apps/api/dist/scripts/${script}.js`, ...args],
+      {
+        env: { NODE_ENV: 'test' },
+        encoding: 'utf8',
+        timeout: 5000,
+      }
+    );
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('failed');
+    expect(result.stderr).not.toContain('not-a-uuid');
+  }
+);

@@ -32,7 +32,7 @@ behavior; forgotten-password delivery remains a later capability.
   sessions and platform administration without an ordinary membership. Temporary
   credentials require password change before selection or tenant work.
 - **AUTH-002 Session cookie.** The cookie is `HttpOnly`, `Secure` unless
-  `COOKIE_SECURE=false`, `SameSite` from `COOKIE_SAMESITE` (default `lax`),
+  `COOKIE_SECURE_DEV=false`, `SameSite` from `COOKIE_SAMESITE_{DEV,TEST,PROD}` (default `lax`),
   path `/`, and holds a `jose`-signed compact token carrying the session
   identifier and a random secret. The database row stores only the SHA-256
   digest of the secret. The cookie is a reference: it carries no actor,
@@ -54,11 +54,11 @@ behavior; forgotten-password delivery remains a later capability.
   request; no decision is cached.
 - **AUTH-005 Login throttling.** Failed logins are counted per normalized
   email and per client address, each keyed by an HMAC under
-  `AUTH_THROTTLE_SECRET` so the table holds no raw email or address. Ten
+  `AUTH_THROTTLE_SECRET_{DEV,TEST,PROD}` so the table holds no raw email or address. Ten
   failures within fifteen minutes lock that key for fifteen minutes, and a
   throttled attempt answers `THROTTLED` (HTTP 429) before the password is
   evaluated. A successful login clears the email key. The client address is
-  the socket address unless `TRUST_PROXY_HOPS` names how many trailing
+  the socket address unless `TRUST_PROXY_HOPS_{DEV,TEST,PROD}` names how many trailing
   `X-Forwarded-For` hops to trust (default 0). Throttle writes follow
   AUTH-008's actor policy, including its specification-backed exception for
   writes before an identity is authenticated.
@@ -69,12 +69,12 @@ behavior; forgotten-password delivery remains a later capability.
   password-change restriction after success; impersonated sessions cannot change credentials. The root identity changes its
   password only this way or through the seed's reset flag.
 - **AUTH-007 Seeded root identity.** `npm run db:bootstrap` reads
-  `ROOT_TENANT_CODE`, `ROOT_COMPANY`, `ROOT_EMAIL`, and `ROOT_PASSWORD`,
+  `ROOT_TENANT_CODE_{DEV,TEST,PROD}`, `ROOT_COMPANY_{DEV,TEST,PROD}`, `ROOT_EMAIL_{DEV,TEST,PROD}`, and `ROOT_PASSWORD_{DEV,TEST,PROD}`,
   refuses a placeholder or short password, and inserts the operator tenant
   (status `active`), the root identity (`is_root`), and the membership
   between them when each is absent. It writes the password only when it
   creates the identity. `--reset-root-password` rehashes the root password
-  from `ROOT_PASSWORD` and revokes root's sessions; it is the operator's
+  from `ROOT_PASSWORD_{DEV,TEST,PROD}` and revokes root's sessions; it is the operator's
   recovery path. Seeded rows carry null actors. The root identity's email is
   immutable, and no route may lock, deactivate, or demote it. The script logs
   no configured value.
@@ -140,16 +140,15 @@ controlled-access display context. `expiresAt` remains the sooner deadline.
 
 ## Configuration
 
-The API reads `SESSION_SECRET` (replacing the proposed `ACCESS_TOKEN_SECRET`),
-`AUTH_THROTTLE_SECRET`, `SESSION_IDLE_MINUTES`, `SESSION_ABSOLUTE_HOURS`,
-`COOKIE_SECURE`, `COOKIE_SAMESITE`, `TRUST_PROXY_HOPS`, `ARGON2_MEMORY_KIB`,
-`ARGON2_TIME_COST`, and `ARGON2_PARALLELISM`; the seed reads the four `ROOT_*`
-values. Startup refuses a missing or placeholder `SESSION_SECRET` or
-`AUTH_THROTTLE_SECRET`. Argon2id defaults are 19456 KiB, time cost 2, and parallelism 1. Accepted
+The API reads `SESSION_SECRET_{DEV,TEST,PROD}` (replacing the proposed `ACCESS_TOKEN_SECRET`),
+`AUTH_THROTTLE_SECRET_{DEV,TEST,PROD}`, `SESSION_IDLE_MINUTES`, `SESSION_ABSOLUTE_HOURS`,
+`COOKIE_SECURE_{DEV,TEST,PROD}`, `COOKIE_SAMESITE_{DEV,TEST,PROD}`, `TRUST_PROXY_HOPS_{DEV,TEST,PROD}`, `ARGON2_MEMORY_KIB`,
+`ARGON2_TIME_COST`, and `ARGON2_PARALLELISM`; the seed reads the four `ROOT_*` values for the selected environment. Startup refuses a missing or placeholder `SESSION_SECRET_{DEV,TEST,PROD}` or
+`AUTH_THROTTLE_SECRET_{DEV,TEST,PROD}`. Argon2id defaults are 19456 KiB, time cost 2, and parallelism 1. Accepted
 configuration bounds are 19456–1048576 KiB, time cost 2–20, parallelism 1–16,
 idle minutes 1–1440, and absolute hours 1–8760. Secrets require at least 32
 characters. SameSite `none` requires secure cookies. The admin migration script
-grants `ADMIN_RUNTIME_ROLE` (default `nap_app`) schema usage and select/insert/update
+grants the fixed `nap_app` role schema usage and select/insert/update
 on these five tables, with delete access only on `login_throttles`.
 
 The implementation promotes these names in
@@ -203,8 +202,8 @@ PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and on
 
 Login evaluates all centrally eligible memberships. Session and password actions
 are central and selection validates the assigned active cell without requiring
-it to be the receiving deployment. A cell-data request still requires a local
-assignment. See PRD 0004 TEN-008 and ADR 0007; cookie rotation and expiry are unchanged.
+database connectivity for central actions. A cell-data request requires its assigned
+configured database. See PRD 0004 TEN-008 and ADR 0011; cookie rotation and expiry are unchanged.
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
@@ -265,3 +264,7 @@ membership type and vendor-switch availability for SHELL-003. These are computed
 from current server state; customer contracts do not disclose deployment details.
 
 | 2026-09-10 | Dedicated password page replaces the combined account screen, with confirmation, visibility control, and voluntary/required navigation. |
+
+Revision, 2026-09-11: ADR 0011 supersedes ADR 0007 topology. Sessions resolve centrally without cell reads; module requests and provisioning select UUID-keyed database handles inside one API process. Individual cell outages do not block central operations.
+
+Revision, 2026-09-12: ADR 0012 separates secrets, bootstrap inputs, cookies and proxy trust by environment; common tuning and authentication behavior remain unchanged.

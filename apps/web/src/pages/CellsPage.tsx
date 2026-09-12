@@ -414,6 +414,9 @@ function CellForm({
         </Button>
       </Toolbar>
       <Box sx={managementContentStyles}>
+        {cell && canView && (
+          <Typography sx={{ userSelect: 'all' }}>Cell ID: {cell.id}</Typography>
+        )}
         {message && <Alert severity={severity}>{message}</Alert>}
         {duplicate && (
           <Alert
@@ -446,7 +449,7 @@ function CellForm({
                 setDuplicate(null);
               }}
               slotProps={{ htmlInput: { maxLength: 64 } }}
-              helperText="Use the code configured for the deployed cell."
+              helperText="Use a stable, readable identifier for the cell."
               required
               disabled={!!cell}
             />

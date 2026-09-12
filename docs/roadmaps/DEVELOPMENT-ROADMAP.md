@@ -703,8 +703,8 @@ read, cross-tenant denial, recoverable partial provisioning, and stable client
 addressing pass with the same build in two cells.
 
 **Delivery:** [Plan](../implementation-plans/0004-cell-tenancy-and-provisioning.md),
-PRD 0004 TEN-008/TEN-009 and ADR 0007. The same artifact runs an admin-only
-router and two independently credentialed cell APIs. Required local checks and
+PRD 0004 TEN-008/TEN-009. PR #17 delivered the historical ADR 0007 topology;
+ADR 0011 supersedes it with the one-API capability below. Required local checks and
 multi-cell/browser evidence are recorded in the plan. [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.
 
 ## Access control
@@ -1205,3 +1205,19 @@ A capability becomes `Verified` only when:
 Capabilities describe dependencies, not fixed releases. A release may contain an
 independently deployable vertical slice whose incomplete remainder stays
 inaccessible and whose status remains below `Verified`.
+
+## One API with multiple cell databases
+
+**Design:** Accepted. **Implementation:** Implemented locally; uncommitted and not verified by CI.
+
+[Delivery plan](../implementation-plans/multi-cell-api.md) coordinates the single-PR
+replacement of ADR 0007 topology by ADR 0011 before subsequent Core delivery.
+Historical cell-routing verification describes the superseded implementation.
+
+## Environment configuration — 2026-09-12
+
+Design accepted; implemented locally, not shipped. [ADR 0012](../ADRs/0012-environment-configuration.md)
+and the [configuration plan](../implementation-plans/environment-configuration.md)
+cover component-based DEV/TEST/PROD configuration and existing command inputs.
+Database setup/provisioning correction and physical identity validation remain
+separate work; no migrations or deployment are included here.

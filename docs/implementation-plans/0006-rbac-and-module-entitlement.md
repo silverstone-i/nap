@@ -69,7 +69,7 @@ Node 24.19.0. Record observed evidence, never infer completion from compilation.
 
 Use expand-and-contract migrations. In a maintenance window migrate admin and
 cells, seed definitions, apply reviewed mappings, synchronize projections, and
-deploy matching router/cell/web builds. Reject incomplete transitions before
+deploy matching API/web builds. Reject incomplete transitions before
 activation. Never fall back to legacy hard-coded privileges. Preserve legacy
 rows through verification. After activation recover through compatible forward
 fixes or a coordinated backup restore in maintenance. Redis, billing, tier
@@ -115,13 +115,14 @@ migration targets during maintenance. The new admin migration initializes
 command to bypass reviewed transition. New provisioning and root reconciliation
 set readiness only after their cell roles are present.
 
-Use `npm run db:access -- seed <tenant-uuid>` to create missing role definitions
+Use `npm run db:access -- seed <tenant-uuid> <cell-uuid>` to create missing role definitions
 without changing existing definitions or tombstones. Use
-`npm run db:access -- transition <reviewed-mapping.json>` once per configured
-cell; `CELL_CODE` must equal the mapping's `cell`. Mapping fields are:
+`npm run db:access -- transition <reviewed-mapping.json> <cell-uuid>` once per configured
+cell; the selected UUID must equal the mapping's `cell` and the migration
+target must match its runtime connection-map entry. Mapping fields are:
 
 - `operator`: protected root portal-user UUID.
-- `cell`: the selected cell code.
+- `cell`: the selected cell UUID.
 - `platform`: entries `{ "user": "<portal-user-uuid>", "role": "support" }`;
   role may be `platform_admin` or null for deliberate removal. Every legacy
   privileged identity other than root must appear explicitly.
@@ -135,7 +136,7 @@ cross-database failure, but central readiness and transition audit commit only
 when the selected cell's mapping completes. Replay corrects partial work.
 Before first activation, partial role population therefore grants no business
 access. Keep traffic closed until every cell transition, entitlement projection,
-and matching router/cell/web build is verified. Retain the coordinated backup
+and matching API/web build is verified. Retain the coordinated backup
 and legacy grants through rollout verification.
 
 ## Deliberate boundaries

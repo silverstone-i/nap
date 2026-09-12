@@ -6,6 +6,7 @@ import { beforeAll, afterAll, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import { logger } from '../../src/util/logger.js';
 import { readReference } from '../../src/util/sessionCookie.js';
+import { createCellRegistry } from '../../src/services/cellRegistry.js';
 import { createApp } from '../../src/app.js';
 import { migrateDatabase } from '../../src/db/migrate.js';
 import { adminModules } from '../../src/db/admin/modules.js';
@@ -37,7 +38,10 @@ function cookie(r: { headers: Record<string, unknown> }) {
   return v[0].split(';')[0];
 }
 /** Does: Sends a real credential request. Called by: authentication acceptance scenarios. */
-function login(email = authEnv.ROOT_EMAIL, password = authEnv.ROOT_PASSWORD) {
+function login(
+  email = authEnv.ROOT_EMAIL_TEST,
+  password = authEnv.ROOT_PASSWORD_TEST
+) {
   return request(test.server)
     .post(auth + '/login')
     .send({ email, password });
@@ -637,8 +641,8 @@ it('retains absolute expiry across switching and rejects another deployment cell
     .send({ membership: m.binding.id });
   const wrong = createApp(
     undefined,
-    { admin: test.admin, cell: test.cell },
-    { auth: { ...test.config, cellCode: 'another-cell' } }
+    { admin: test.admin, cells: createCellRegistry(new Map()) },
+    { auth: test.config }
   );
   expect(
     (
@@ -646,7 +650,7 @@ it('retains absolute expiry across switching and rejects another deployment cell
         .get('/api/core/v1/identity/profile')
         .set('Cookie', cookie(switchReply))
     ).status
-  ).toBe(403);
+  ).toBe(503);
 });
 it('enforces RLS and immutable tenant keys on every new Core and projection table', async () => {
   const a = await activeTenant();

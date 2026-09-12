@@ -30,6 +30,7 @@ export type ResolvedSession = {
   readonly sessionId?: string;
   readonly view?: SessionView;
   readonly tenantId?: string;
+  readonly cellId?: string;
   readonly entitlements: ReadonlySet<string>;
   readonly permissions: ReadonlySet<string>;
 };

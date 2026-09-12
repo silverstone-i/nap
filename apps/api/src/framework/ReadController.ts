@@ -18,8 +18,7 @@ export type RbacConfig = { readonly module: string; readonly router: string };
 
 /**
  * Does: Holds the database pool a controller works on together with which
- * of the two databases it is: the central admin database or this
- * deployment's cell database.
+ * target type: the central admin database or one assigned cell database.
  * Used by: the controller base classes, describeModel, and runOperation.
  * Why: the framework opens a tenant-scoped transaction for a cell pool and
  * a plain transaction for an admin pool (framework HTTP contract), so every

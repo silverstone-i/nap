@@ -17,30 +17,48 @@ import {
 import {
   loadLocalEnvironment,
   resolveMigrationConfiguration,
+  resolveCellMaintenanceConfiguration,
 } from '../util/env.js';
 // Maintenance entry point; mapping files contain identifiers, never credentials.
 try {
-  const [command, arg, ...extra] = process.argv.slice(2);
-  if (extra.length || !arg || !['seed', 'transition'].includes(command ?? ''))
+  const [command, arg, cellId, ...extra] = process.argv.slice(2);
+  if (
+    extra.length ||
+    !cellId ||
+    !z.uuid().safeParse(cellId).success ||
+    !arg ||
+    !['seed', 'transition'].includes(command ?? '')
+  )
     throw new Error('Invalid arguments');
   loadLocalEnvironment();
-  const cell = createCellDatabase(resolveMigrationConfiguration('cell'), {
+  const cell = createCellDatabase(resolveCellMaintenanceConfiguration(cellId), {
     repositories: cellRepositories,
   });
   try {
-    if (command === 'seed')
-      await withTenantTransaction(cell, z.uuid().parse(arg), async tx => {
-        await tx.roles.lockTenant(arg);
-        if (!(await tx.cell_tenants.findById(arg)))
-          throw new Error('Unknown tenant');
-        await seedTenantRoles(tx, arg);
-      });
-    else {
+    if (command === 'seed') {
+      const admin = createAdminDatabase(
+        resolveMigrationConfiguration('admin'),
+        { repositories: adminRepositories }
+      );
+      try {
+        const assignment = await admin.db.cells.assignment(z.uuid().parse(arg));
+        if (!assignment?.enabled || assignment.cell_id !== cellId)
+          throw new Error('Maintenance tenant mismatch');
+        await withTenantTransaction(cell, arg, async tx => {
+          await tx.roles.lockTenant(arg);
+          if (!(await tx.cell_tenants.findById(arg)))
+            throw new Error('Unknown tenant');
+          await seedTenantRoles(tx, arg);
+        });
+      } finally {
+        await admin.close();
+      }
+    } else {
       const mapping = transitionSchema.parse(
         JSON.parse(await readFile(arg, 'utf8'))
       );
-      if (mapping.cell !== process.env.CELL_CODE)
-        throw new Error('Cell mapping mismatch');
+
+      if (mapping.cell !== cellId) throw new Error('Cell mapping mismatch');
       const admin = createAdminDatabase(
         resolveMigrationConfiguration('admin'),
         { repositories: adminRepositories }

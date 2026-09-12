@@ -221,7 +221,10 @@ it('keeps session rotation, expiry, logout and principal revocation live after w
   const base = '/api/admin-tenancy/v1/auth';
   const logged = await request(test.server)
     .post(base + '/login')
-    .send({ email: authEnv.ROOT_EMAIL, password: authEnv.ROOT_PASSWORD });
+    .send({
+      email: authEnv.ROOT_EMAIL_TEST,
+      password: authEnv.ROOT_PASSWORD_TEST,
+    });
   expect(logged.status).toBe(200);
   const cookie = String(logged.headers['set-cookie'][0]).split(';')[0];
   for (let i = 0; i < 2; i++)

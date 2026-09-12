@@ -14,22 +14,8 @@ vi.mock('pg-schemata', () => ({ createDb: vi.fn() }));
 // without leaving real databases or connections behind.
 beforeEach(() => {
   vi.stubEnv('CI', 'true');
-  vi.stubEnv(
-    'SETUP_ADMIN_URL_TEST',
-    'postgres://owner:fixture@localhost/postgres'
-  );
-  for (const target of ['ADMIN', 'CELL']) {
-    const database = `nap_${target.toLowerCase()}_test`;
-    vi.stubEnv(
-      `${target}_MIGRATION_URL_TEST`,
-      `postgres://owner:fixture@localhost/${database}`
-    );
-    vi.stubEnv(
-      `${target}_DATABASE_URL_TEST`,
-      `postgres://app:fixture@localhost/${database}`
-    );
-    vi.stubEnv(`${target}_RUNTIME_ROLE`, 'app');
-  }
+  vi.stubEnv('SETUP_DATABASE_TEST', 'localhost/postgres');
+  vi.stubEnv('NAP_ADMIN_PSWD_TEST', 'fixture');
 });
 afterEach(() => {
   vi.resetAllMocks();

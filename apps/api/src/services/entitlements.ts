@@ -7,18 +7,17 @@ import { HttpError } from '../util/httpError.js';
 import { audit, requirePlatform } from './platform.js';
 import type { AdminRepositories } from '../db/admin/repositories.js';
 import type { AdminTransaction } from '../db/withAdminTransaction.js';
-import type { CellHandle } from '../db/cell/repositories.js';
+import type { CellRegistry } from './cellRegistry.js';
 /** Does: Writes and projects an explicit optional-module grant. Called by: operator commands in the assigned cell. */
 export async function changeEntitlement(
   tx: AdminTransaction<AdminRepositories>,
-  cell: CellHandle | undefined,
+  cells: CellRegistry,
   operator: string,
-  input: { tenant: string; module: 'projects'; enabled: boolean },
-  cellCode: string
+  input: { tenant: string; module: 'projects'; enabled: boolean }
 ) {
   await requirePlatform(tx, operator, 'entitlement');
   const tenant = await tx.cells.assignment(input.tenant);
-  if (!tenant || tenant.code !== cellCode || !tenant.enabled || !cell)
+  if (!tenant || !tenant.cell_id || !tenant.enabled)
     throw new HttpError('FORBIDDEN');
   await tx.tenants.lockBootstrap();
   let row = await tx.module_entitlements.findOneBy({
@@ -54,6 +53,7 @@ export async function changeEntitlement(
   // A failed cross-database projection must not undo a central revocation.
   let projected = false;
   try {
+    const cell = cells.get(tenant.cell_id);
     await withTenantTransaction(cell, input.tenant, async local => {
       const existing = await local.entitlement_projections.findOneBy({
         module: input.module,
