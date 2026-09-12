@@ -12,7 +12,7 @@ import type { CellHandle } from '../db/cell/repositories.js';
 /** Does: Defines the operator-reviewed migration mapping. Used by: transition command and tests. */
 export const transitionSchema = z.strictObject({
   operator: z.uuid(),
-  cell: z.uuid(),
+  cell: z.uuid().toLowerCase(),
   platform: z.array(
     z.strictObject({
       user: z.uuid(),

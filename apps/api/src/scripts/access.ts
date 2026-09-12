@@ -21,15 +21,16 @@ import {
 } from '../util/env.js';
 // Maintenance entry point; mapping files contain identifiers, never credentials.
 try {
-  const [command, arg, cellId, ...extra] = process.argv.slice(2);
+  const [command, arg, rawCellId, ...extra] = process.argv.slice(2);
   if (
     extra.length ||
-    !cellId ||
-    !z.uuid().safeParse(cellId).success ||
+    !rawCellId ||
+    !z.uuid().safeParse(rawCellId).success ||
     !arg ||
     !['seed', 'transition'].includes(command ?? '')
   )
     throw new Error('Invalid arguments');
+  const cellId = rawCellId.toLowerCase();
   loadLocalEnvironment();
   const cell = createCellDatabase(resolveCellMaintenanceConfiguration(cellId), {
     repositories: cellRepositories,
