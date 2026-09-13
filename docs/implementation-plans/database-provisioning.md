@@ -1,6 +1,6 @@
 # Register cell provisioning
 
-Design: Accepted 2026-09-13. Implementation: Implemented locally and validated; uncommitted, not shipped.
+Design: Accepted 2026-09-13. Implementation: Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing.
 
 ## Delivery checklist
 
@@ -49,3 +49,15 @@ owned its database and configuration; the developer's databases were untouched.
 The forward admin migration has not been applied to the developer's database.
 The provisioning guide documents the upgrade command and metadata prerequisites.
 Live Render provisioning remains unexercised; automated validation uses mocks.
+
+## Final PR verification — 2026-09-13
+
+Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing.
+
+The final implementation passed 476 tests (57 toolchain, 331 API, 74 web,
+14 shared), lint, typecheck, build, formatting, licenses (227 records), and
+`git diff --check`. [Repository CI](https://github.com/silverstone-i/nap/actions/runs/34780383825)
+passed before this documentation reconciliation; required checks must also pass on
+the reconciled head. Browser evidence above covers Register cell; the later
+management lifecycle actions have automated API/UI regression evidence, with no
+additional browser pass claimed. Live Render execution remains outside this verification.

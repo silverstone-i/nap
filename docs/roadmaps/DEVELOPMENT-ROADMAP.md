@@ -1208,7 +1208,7 @@ inaccessible and whose status remains below `Verified`.
 
 ## One API with multiple cell databases
 
-**Design:** Accepted. **Implementation:** Implemented on [PR #24](https://github.com/silverstone-i/nap/pull/24); repository CI passed; pending merge and capability verification.
+**Design:** Accepted. **Implementation:** Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing.
 
 [Delivery plan](../implementation-plans/multi-cell-api.md) coordinates the single-PR
 replacement of ADR 0007 topology by ADR 0011 before subsequent Core delivery.
@@ -1216,25 +1216,25 @@ Historical cell-routing verification describes the superseded implementation.
 
 ## Environment configuration — 2026-09-12
 
-Design accepted; implemented locally, not shipped. [ADR 0012](../ADRs/0012-environment-configuration.md)
+Design accepted; Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing. [ADR 0012](../ADRs/0012-environment-configuration.md)
 and the [configuration plan](../implementation-plans/environment-configuration.md)
 cover component-based DEV/TEST/PROD configuration and existing command inputs.
-Database setup/provisioning correction and physical identity validation remain
-separate work; no migrations or deployment are included here.
+ADR 0014 and the Register cell workflow below provide the subsequent provisioning
+and physical identity implementation. Production deployment remains separate.
 
 ## Admin and cell database provisioning
 
-Design: Accepted. Implementation: Implemented locally; not shipped.
+Design: Accepted. Implementation: Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing.
 
 ADR 0013 and the [implementation plan](../implementation-plans/database-provisioning.md)
-cover separate setup/migration/bootstrap/seeding/activation, descriptive database
-names, Render provisioning, physical identity, and the five-file admin baseline.
+cover admin setup/migration/bootstrap and the ADR 0014 Register cell workflow,
+descriptive database names, Render provisioning, physical identity, and the admin baseline.
 PRD 0008 covers the countries/currencies seed subset; broader Reference data and Core
 workflows remain separate. Verification status follows recorded test evidence.
 
 ## Register cell workflow — 2026-09-13
 
-Design: Accepted. Implementation: Implemented and validated locally; not shipped. ADR 0014 and
+Design: Accepted. Implementation: Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing. ADR 0014 and
 the database-provisioning plan replace cell CLI commands with management-page
 provisioning, live loading, UUID/database-name records and isolated TEST fixtures.
 Verification evidence is recorded in the implementation plan.

@@ -7,6 +7,13 @@ Design accepted by owner, 2026-09-11. Implemented locally; not merged or shipped
 The owner authorized PR preparation with release:minor on 2026-09-12, superseding
 the earlier no-PR instruction. Required CI remains pending.
 
+## Final delivery status
+
+Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing.
+The [final provisioning record](database-provisioning.md#final-pr-verification--2026-09-13)
+records current scope and checks. Earlier dated scope exclusions and CI-pending
+notes below describe intermediate work and are superseded by this final record.
+
 ## Feature checklist
 
 - [x] Amend topology and supersede ADR 0007 with ADR 0011.

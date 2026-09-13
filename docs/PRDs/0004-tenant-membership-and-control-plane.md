@@ -1,7 +1,7 @@
 # 0004 — Tenant membership and control plane
 
 **Design:** Accepted (owner approved, 2026-09-08).
-**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing, including TEN-008/TEN-009. The one-cell baseline was verified by PR #15. TEN-010 Register cell changes are implemented and validated locally, not shipped; see the [delivery evidence](../implementation-plans/database-provisioning.md).
+**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing, including TEN-008/TEN-009. The one-cell baseline was verified by PR #15. TEN-010 Register cell changes are Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing; see the [delivery evidence](../implementation-plans/database-provisioning.md).
 
 ## Authority
 
@@ -305,3 +305,6 @@ through registry edits before activation has verified the running API.
 Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.
 
 Revision 2026-09-13: owner approved full Register cell workflow and UUID/database-name interface. Implementation in progress.
+
+Revision 2026-09-13: reconciled PR #24 implementation and verification evidence;
+Register cell verification becomes effective on merge with required checks passing.

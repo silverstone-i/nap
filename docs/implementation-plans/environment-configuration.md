@@ -5,6 +5,13 @@
 
 Design accepted 2026-09-12. Implemented locally; PR preparation authorized. Not merged or shipped.
 
+## Final delivery status
+
+Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing.
+The [final provisioning record](database-provisioning.md#final-pr-verification--2026-09-13)
+records current scope and checks. Earlier dated scope exclusions and CI-pending
+notes below describe intermediate work and are superseded by this final record.
+
 ## Features
 
 - DEV, PROD, Common sections; TEST under DEV.
