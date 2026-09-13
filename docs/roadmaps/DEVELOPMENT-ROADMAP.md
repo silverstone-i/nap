@@ -1208,7 +1208,7 @@ inaccessible and whose status remains below `Verified`.
 
 ## One API with multiple cell databases
 
-**Design:** Accepted. **Implementation:** Implemented locally; uncommitted and not verified by CI.
+**Design:** Accepted. **Implementation:** Implemented on [PR #24](https://github.com/silverstone-i/nap/pull/24); repository CI passed; pending merge and capability verification.
 
 [Delivery plan](../implementation-plans/multi-cell-api.md) coordinates the single-PR
 replacement of ADR 0007 topology by ADR 0011 before subsequent Core delivery.
