@@ -30,7 +30,18 @@ export async function command(body: z.infer<typeof controlBodySchema>) {
   const action =
     body.operation === 'grant'
       ? 'grants'
-      : ['member', 'revoke'].includes(body.operation)
+      : [
+            'member',
+            'revoke',
+            'member-reset',
+            'portal-user-reset',
+            'portal-user-status',
+            'portal-user-archive',
+            'portal-user-unarchive',
+            'member-enable',
+            'member-archive',
+            'member-unarchive',
+          ].includes(body.operation)
         ? 'members'
         : ['retry', 'activate', 'reconcile'].includes(body.operation)
           ? 'provision'

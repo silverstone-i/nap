@@ -3,9 +3,15 @@
   "compilerOptions": {
     "noEmit": true,
     "lib": ["es2023", "es2024.promise"],
-    "types": ["node"]
+    "types": ["node"],
+    "allowJs": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "src/**/*.mjs"
+  ],
   "references": [
     {
       "path": "../../packages/shared/tsconfig.build.json"

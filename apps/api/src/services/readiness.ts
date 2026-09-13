@@ -22,8 +22,14 @@ import type { Database } from 'pg-schemata';
 export function createReadiness(
   handles: readonly Database[],
   timeoutMs = 5000,
-  expectedHandles = 2
-) {
+  expectedHandles = 2,
+  relations: readonly string[] = []
+): {
+  check: () => Promise<boolean>;
+  stop: () => void;
+  failureCategory?: () => string | undefined;
+} {
+  let failure: string | undefined;
   let inFlight: Promise<boolean> | undefined;
   let stopped = false;
   let cancel: (() => void) | undefined;
@@ -37,6 +43,7 @@ export function createReadiness(
     if (stopped || handles.length !== expectedHandles)
       return Promise.resolve(false);
     if (inFlight) return inFlight;
+    failure = undefined;
     const controller = new AbortController();
     const deadline = performance.now() + timeoutMs;
     let finish: (ready: boolean) => void = () => {};
@@ -45,12 +52,16 @@ export function createReadiness(
     });
     inFlight = result;
     cancel = () => {
+      failure = stopped ? 'stopped' : 'timeout';
       controller.abort();
       finish(false);
     };
     const timer = setTimeout(cancel, timeoutMs);
     const work = handles.map(async handle => {
-      const connection = await handle.db.connect();
+      const connection = await handle.db.connect().catch(() => {
+        failure ??= 'connection';
+        throw new Error('Readiness connection failed');
+      });
       let released = false;
       /** Does: Releases the probe connection once; kill destroys it instead. */
       function release(kill = false) {
@@ -82,12 +93,27 @@ export function createReadiness(
                   "SELECT set_config('statement_timeout', $1, true), set_config('transaction_timeout', $1, true)",
                   [remaining]
                 );
+                if (relations.length) {
+                  const result = await tx.one<{ ready: boolean }>(
+                    `SELECT bool_and(to_regclass(name) IS NOT NULL AND
+                      COALESCE(has_table_privilege(to_regclass(name), 'SELECT'), false)) AS ready
+                     FROM unnest($1::text[]) AS name`,
+                    [relations]
+                  );
+                  if (!result.ready) {
+                    failure = 'required_relations';
+                    throw new Error('Required relations unavailable');
+                  }
+                }
                 return work(tx);
               }),
           },
           deadline - performance.now()
         );
         return !controller.signal.aborted;
+      } catch {
+        failure ??= 'runtime_role';
+        return false;
       } finally {
         controller.signal.removeEventListener('abort', abort);
         release(controller.signal.aborted);
@@ -115,5 +141,9 @@ export function createReadiness(
     stopped = true;
     cancel?.();
   }
-  return { check, stop };
+  /** Does: Returns a fixed diagnostic category without driver details or credentials. Called by: cell readiness transition logging. */
+  function failureCategory() {
+    return failure;
+  }
+  return { check, stop, failureCategory };
 }

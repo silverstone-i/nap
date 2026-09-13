@@ -27,7 +27,7 @@ Require vendor tenant selection after every login regardless of eligible
 membership count. This changes TEN-003's selection policy, not the membership,
 session, server-routing, or controlled-access boundaries in
 [ADR 0006](0006-central-platform-control.md),
-[ADR 0007](0007-shared-origin-cell-routing.md), and
+[ADR 0011](0011-one-api-multiple-cell-databases.md), and
 [ADR 0008](0008-scoped-rbac-and-module-entitlements.md).
 Required password change still precedes selection.
 

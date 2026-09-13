@@ -58,12 +58,24 @@ function fixture(registry = true, overview = true) {
     const path = requestPath(url);
     if (path.endsWith('/overview'))
       return reply({
+        cellEnvironment: 'DEV',
         cells: [
-          { id: firstCell, code: 'CELL-1', name: 'First cell', enabled: true },
+          {
+            id: firstCell,
+            database_name: 'nap_dev_cell_east',
+            available: true,
+            enabled: true,
+            stage: 'enabled',
+            status: 'completed',
+            failure_code: null,
+          },
           {
             id: secondCell,
-            code: 'CELL-2',
-            name: 'Second cell',
+            database_name: 'nap_dev_cell_west',
+            available: true,
+            stage: 'seeded',
+            status: 'failed',
+            failure_code: 'Readiness failed',
             enabled: false,
           },
         ],
@@ -111,221 +123,85 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('lists cells with URL filters and gates registry mutations', async () => {
-  fixture(false);
-  const router = mount('/management/cells');
-  // Initial lazy route imports can exceed the default one-second wait on CI.
-  await screen.findByRole('grid', { name: 'Cells' }, { timeout: 5000 });
-  expect(
-    screen.getByRole('link', { name: 'Cells' }).getAttribute('aria-current')
-  ).toBe('page');
-  expect(screen.queryByRole('link', { name: 'Register cell' })).toBeNull();
-  fireEvent.change(screen.getByRole('textbox', { name: 'Search cells' }), {
-    target: { value: 'Second' },
+it('displays UUID/database names and copies UUID without navigation', async () => {
+  fixture();
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText },
+    configurable: true,
   });
-  expect(router.state.location.search).toContain('q=Second');
-  await waitFor(() =>
-    expect(
-      screen.queryByRole('button', { name: 'Actions for First cell' })
-    ).toBeNull()
-  );
-  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Status' }));
-  fireEvent.click(await screen.findByRole('option', { name: 'Disabled' }));
-  expect(router.state.location.search).toContain('status=disabled');
+  mount('/management/cells');
+  // The first render also loads the lazy route; CI exceeded the default one-second wait.
+  expect(
+    await screen.findByText('nap_dev_cell_east', {}, { timeout: 5000 })
+  ).not.toBeNull();
   fireEvent.click(
-    screen.getByRole('button', { name: 'Actions for Second cell' })
+    screen.getByRole('button', { name: `Copy cell UUID ${firstCell}` })
   );
-  expect(screen.getByRole('menuitem', { name: 'View cell' })).toBeDefined();
-  fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
-  fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Tenant Management' }));
-  expect(await screen.findByRole('menuitem', { name: 'Cells' })).toBeDefined();
+  await waitFor(() => expect(writeText).toHaveBeenCalledWith(firstCell));
+  expect(await screen.findByText('Copied')).not.toBeNull();
+  expect(screen.queryByText('Cell code')).toBeNull();
 });
-
-it('includes Cells in mobile Tenant Management navigation', async () => {
-  vi.stubGlobal(
-    'matchMedia',
-    vi.fn(() => ({
-      matches: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }))
-  );
+it('registers only the suffix and previews the server environment database name', async () => {
   fixture();
   mount('/management/cells');
-  await screen.findByRole('grid', { name: 'Cells' });
-  expect(
-    screen.queryByRole('navigation', { name: 'Main navigation' })
-  ).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
-  expect(await screen.findByRole('link', { name: 'Cells' })).toBeDefined();
-});
-
-it('registers with registry permission alone without fetching or navigating to overview', async () => {
-  fixture(true, false);
-  const router = mount('/management/cells/new');
-  const code = await screen.findByLabelText('Cell code', { exact: false });
-  expect(screen.getByRole('link', { name: 'Register cell' })).toBeDefined();
-  expect(screen.queryByRole('link', { name: 'All cells' })).toBeNull();
-  fireEvent.change(code, { target: { value: 'CELL-3' } });
-  fireEvent.change(screen.getByLabelText('Cell name', { exact: false }), {
-    target: { value: 'Third cell' },
+  fireEvent.click(await screen.findByRole('button', { name: 'Register cell' }));
+  fireEvent.change(screen.getByLabelText('Cell name suffix'), {
+    target: { value: '1' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await screen.findByText('Cell saved.');
-  expect(router.state.location.pathname).toBe('/management/cells/new');
-  expect(
-    screen.getByLabelText('Cell code', { exact: false }).getAttribute('value')
-  ).toBe('');
-  expect(
-    fetchMock.mock.calls.some(([url]) => requestPath(url).endsWith('/overview'))
-  ).toBe(false);
-  const saved = fetchMock.mock.calls.find(([url]) =>
-    requestPath(url).endsWith('/registry')
+  expect(screen.getByText('nap_dev_cell_1')).not.toBeNull();
+  fireEvent.click(
+    screen.getAllByRole('button', { name: 'Register cell' }).at(-1)!
   );
-  expect(
-    JSON.parse(typeof saved?.[1]?.body === 'string' ? saved[1].body : '')
-  ).toEqual({
-    operation: 'cell',
-    code: 'CELL-3',
-    name: 'Third cell',
-    enabled: true,
-  });
-});
-
-it.each(['/management/cells', `/management/cells/${firstCell}`])(
-  'denies registry-only access to existing records at %s',
-  async path => {
-    fixture(true, false);
-    mount(path);
-    await screen.findByText('Access is unavailable.');
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(
-      fetchMock.mock.calls.some(([url]) =>
-        requestPath(url).endsWith('/overview')
-      )
-    ).toBe(false);
-  }
-);
-
-it('denies registration without registry permission', async () => {
-  fixture(false);
-  mount('/management/cells/new');
-  await screen.findByText('This action is unavailable.');
-  expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-  expect(
-    fetchMock.mock.calls.some(([url]) => requestPath(url).endsWith('/registry'))
-  ).toBe(false);
-});
-
-it('retains a duplicate listed code and offers its edit route without submitting', async () => {
-  fixture();
-  const router = mount('/management/cells/new');
-  fireEvent.change(
-    await screen.findByLabelText('Cell code', { exact: false }),
-    {
-      target: { value: 'CELL-1' },
-    }
-  );
-  fireEvent.change(screen.getByLabelText('Cell name', { exact: false }), {
-    target: { value: 'Duplicate cell' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await screen.findByText('Cell code CELL-1 is already registered.');
-  expect(router.state.location.pathname).toBe('/management/cells/new');
-  expect(screen.getByDisplayValue('Duplicate cell')).toBeDefined();
-  expect(
-    screen.getByRole('link', { name: 'Edit cell' }).getAttribute('href')
-  ).toBe(`/management/cells/${firstCell}`);
-  expect(
-    fetchMock.mock.calls.some(([url]) => requestPath(url).endsWith('/registry'))
-  ).toBe(false);
-});
-
-it('clears an overview error after retry while preserving save feedback', async () => {
-  fixture();
-  const respond = fetchMock.getMockImplementation();
-  if (!respond) throw new Error('Missing fetch fixture');
-  let failOverview = true;
-  fetchMock.mockImplementation((url, init) => {
-    if (requestPath(url).endsWith('/overview') && failOverview) {
-      failOverview = false;
-      return Promise.reject(new Error('offline'));
-    }
-    return respond(url, init);
-  });
-  mount(`/management/cells/${firstCell}`);
-  fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-  await screen.findByRole('button', { name: 'Save' });
-  expect(screen.queryByRole('alert')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await screen.findByText('Cell saved.');
   await waitFor(() =>
     expect(
-      fetchMock.mock.calls.filter(([url]) =>
-        requestPath(url).endsWith('/overview')
+      fetchMock.mock.calls.some(
+        ([url, options]) =>
+          requestPath(url).endsWith('/registry') &&
+          options?.body === JSON.stringify({ operation: 'cell', suffix: '1' })
       )
-    ).toHaveLength(3)
+    ).toBe(true)
   );
-  expect(screen.getByText('Cell saved.')).toBeDefined();
 });
-
-it('clears a duplicate warning when the code is corrected and saves the new code', async () => {
+it('gates mutations by registry permission', async () => {
+  fixture(false);
+  mount('/management/cells');
+  await screen.findByText('nap_dev_cell_east');
+  expect(screen.queryByRole('button', { name: 'Register cell' })).toBeNull();
+});
+it('offers retry for a failed cell and confirms disabling an enabled cell', async () => {
   fixture();
-  mount('/management/cells/new');
-  const code = await screen.findByLabelText('Cell code', { exact: false });
-  fireEvent.change(code, { target: { value: 'CELL-1' } });
-  fireEvent.change(screen.getByLabelText('Cell name', { exact: false }), {
-    target: { value: 'New cell' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await screen.findByText('Cell code CELL-1 is already registered.');
-  fireEvent.change(code, { target: { value: 'CELL-3' } });
-  expect(
-    screen.queryByText('Cell code CELL-1 is already registered.')
-  ).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await screen.findByRole('grid', { name: 'Cells' });
-  const saved = fetchMock.mock.calls.find(([url]) =>
-    requestPath(url).endsWith('/registry')
+  mount('/management/cells');
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Actions for nap_dev_cell_west' })
   );
-  expect(
-    JSON.parse(typeof saved?.[1]?.body === 'string' ? saved[1].body : '')
-  ).toEqual({
-    operation: 'cell',
-    code: 'CELL-3',
-    name: 'New cell',
-    enabled: true,
-  });
-});
-
-it('confirms assigned tenant access loss before disabling a cell', async () => {
-  fixture();
-  mount(`/management/cells/${firstCell}`);
-  const enabled = await screen.findByRole('switch', { name: 'Enabled' });
-  fireEvent.click(enabled);
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Retry' }));
+  await waitFor(() =>
+    expect(
+      fetchMock.mock.calls.some(
+        ([, o]) =>
+          o?.body ===
+          JSON.stringify({ operation: 'cell-retry', cell: secondCell })
+      )
+    ).toBe(true)
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Actions for nap_dev_cell_east' })
+  );
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Disable' }));
   expect(
     screen.getByText(
       'Assigned tenants will lose access while this cell is disabled.'
     )
-  ).toBeDefined();
-  expect(
-    fetchMock.mock.calls.some(([url]) => requestPath(url).endsWith('/registry'))
-  ).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: 'Disable cell' }));
-  await screen.findByText('Cell saved.');
-  const registryCall = fetchMock.mock.calls.find(([url]) =>
-    requestPath(url).endsWith('/registry')
+  ).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Disable' }));
+  await waitFor(() =>
+    expect(
+      fetchMock.mock.calls.some(
+        ([, o]) =>
+          o?.body ===
+          JSON.stringify({ operation: 'cell-disable', cell: firstCell })
+      )
+    ).toBe(true)
   );
-  expect(
-    JSON.parse(
-      typeof registryCall?.[1]?.body === 'string' ? registryCall[1].body : ''
-    )
-  ).toEqual({
-    operation: 'cell',
-    code: 'CELL-1',
-    name: 'First cell',
-    enabled: false,
-  });
 });

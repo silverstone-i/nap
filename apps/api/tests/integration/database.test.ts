@@ -68,8 +68,8 @@ const module = (
       };
 
 it('connects and closes handles independently, with safe runtime roles', async () => {
-  const admin = createAdminDatabase(fixture.env.ADMIN_DATABASE_URL_TEST);
-  const cell = createCellDatabase(fixture.env.CELL_DATABASE_URL_TEST);
+  const admin = createAdminDatabase(fixture.runtimeUrl(fixture.adminUrl));
+  const cell = createCellDatabase(fixture.runtimeUrl(fixture.cellUrl));
   try {
     await Promise.all([admin.connect(), cell.connect()]);
     await assertRuntimeRole(admin);
@@ -85,7 +85,7 @@ it.each(['SUPERUSER', 'BYPASSRLS', 'CREATEROLE', 'CREATEDB', 'REPLICATION'])(
   'rejects %s on the runtime role',
   async flag => {
     await fixture.control.none(`ALTER ROLE $1:name ${flag}`, [fixture.role]);
-    const db = createCellDatabase(fixture.env.CELL_DATABASE_URL_TEST);
+    const db = createCellDatabase(fixture.runtimeUrl(fixture.cellUrl));
     try {
       await expect(assertRuntimeRole(db)).rejects.toThrow(
         'verification failed'
@@ -100,7 +100,7 @@ it.each(['SUPERUSER', 'BYPASSRLS', 'CREATEROLE', 'CREATEDB', 'REPLICATION'])(
 );
 it('rejects table ownership and schema-creation grants', async () => {
   const owner = fixture.owner(fixture.cellUrl);
-  const db = createCellDatabase(fixture.env.CELL_DATABASE_URL_TEST);
+  const db = createCellDatabase(fixture.runtimeUrl(fixture.cellUrl));
   try {
     await owner.none(
       'CREATE TABLE public.ownership_probe (id integer); ALTER TABLE public.ownership_probe OWNER TO $1:name',
@@ -127,7 +127,7 @@ it('rejects table ownership and schema-creation grants', async () => {
 it('rejects direct and transitive NOINHERIT membership in privileged and owning roles', async () => {
   const group = await fixture.createRole('group');
   const middle = await fixture.createRole('middle');
-  const db = createCellDatabase(fixture.env.CELL_DATABASE_URL_TEST);
+  const db = createCellDatabase(fixture.runtimeUrl(fixture.cellUrl));
   const owner = fixture.owner(fixture.cellUrl);
   try {
     await fixture.control.none(
@@ -288,24 +288,25 @@ it('runs compiled CLI targets with only their selected credentials and safe fail
     spawnSync(process.execPath, [script, ...args], {
       env: {
         PATH: process.env.PATH,
-        NODE_ENV: 'test',
-        ADMIN_RUNTIME_ROLE: fixture.role,
-        CELL_RUNTIME_ROLE: fixture.role,
-        ADMIN_MIGRATION_URL_TEST: '',
-        CELL_MIGRATION_URL_TEST: '',
+        ...fixture.env,
+        NAP_APP_PSWD_TEST: '',
+        NAP_ADMIN_PSWD_TEST: '',
         ...extra,
       },
       encoding: 'utf8',
       timeout: 10000,
     });
+  // The public provisioning CLI is covered by scripts/tests/provisioning.test.mjs.
+  // Legacy selectors must no longer bypass explicit environment and identity checks.
+  expect(run(['--target', 'admin']).status).toBe(1);
   expect(
-    run(['--target', 'admin'], { ADMIN_MIGRATION_URL_TEST: fixture.adminUrl })
-      .status
-  ).toBe(0);
-  expect(
-    run(['--target', 'cell'], { CELL_MIGRATION_URL_TEST: fixture.cellUrl })
-      .status
-  ).toBe(0);
+    run([
+      '--target',
+      'cell',
+      '--cell-id',
+      '00000000-0000-4000-8000-000000000001',
+    ]).status
+  ).toBe(1);
   for (const args of [
     [],
     ['--target', 'unknown'],
@@ -313,7 +314,7 @@ it('runs compiled CLI targets with only their selected credentials and safe fail
   ])
     expect(run(args).status).toBe(1);
   const invalid = run(['--target', 'admin'], {
-    ADMIN_MIGRATION_URL_TEST: 'private-invalid-value',
+    ADMIN_DATABASE_TEST: 'private-invalid-value',
   });
   expect(invalid.status).toBe(1);
   expect(invalid.stderr).not.toContain('private-invalid-value');

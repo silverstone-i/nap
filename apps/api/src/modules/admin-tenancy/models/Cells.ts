@@ -10,8 +10,7 @@ import type { DbConnection, Database, TableSchema } from 'pg-schemata';
 /** Does: Describes stored cells values. Used by: its repository and services. */
 export type CellsRow = {
   id: string;
-  code: string;
-  name: string;
+  database_name: string;
   enabled: boolean;
 } & AuditFields &
   SoftDelete;
@@ -34,16 +33,7 @@ export const schema: TableSchema = {
       default: 'gen_random_uuid()',
       immutable: true,
     },
-    {
-      name: 'code',
-      type: 'text',
-      notNull: true,
-    },
-    {
-      name: 'name',
-      type: 'text',
-      notNull: true,
-    },
+    { name: 'database_name', type: 'text', notNull: true },
     {
       name: 'enabled',
       type: 'boolean',
@@ -56,7 +46,7 @@ export const schema: TableSchema = {
     checks: [],
     indexes: [
       {
-        columns: ['code'],
+        columns: ['database_name'],
         unique: true,
         where: 'deactivated_at IS NULL',
       },
@@ -90,6 +80,14 @@ export class Cells extends TableModel<CellsRow> {
       [ids]
     );
   }
+  /** Does: Reports whether a setup-managed cell completed activation. Called by: registry edits before enabling a cell. */
+  async setupAllowsEnable(id: string) {
+    const row = await this.db.oneOrNone<{ stage: string }>(
+      'SELECT stage FROM admin.cell_provisioning WHERE cell_id=$1',
+      [id]
+    );
+    return !row || row.stage === 'enabled';
+  }
   /** Does: Loads tenant assignment and cell availability. Called by: request-time authorization. */
   async assignment(id: string) {
     return this.db.oneOrNone<{
@@ -101,10 +99,10 @@ export class Cells extends TableModel<CellsRow> {
       provisioned: boolean;
       rbac_ready: boolean;
       revision: number;
-      code: string | null;
+      database_name: string | null;
       enabled: boolean | null;
     }>(
-      `SELECT t.*, c.code,c.enabled FROM admin.tenants t LEFT JOIN admin.cells c ON c.id=t.cell_id AND c.deactivated_at IS NULL WHERE t.id=$1 AND t.deactivated_at IS NULL`,
+      `SELECT t.*, c.database_name,c.enabled FROM admin.tenants t LEFT JOIN admin.cells c ON c.id=t.cell_id AND c.deactivated_at IS NULL WHERE t.id=$1 AND t.deactivated_at IS NULL`,
       [id]
     );
   }

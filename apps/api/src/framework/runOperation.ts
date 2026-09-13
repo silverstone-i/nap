@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { databaseUnavailable } from '../util/databaseUnavailable.js';
 import { DatabaseError, SchemaDefinitionError, TableModel } from 'pg-schemata';
 import { withAdminTransaction } from '../db/withAdminTransaction.js';
 import { withTenantTransaction } from '../db/withTenantTransaction.js';
@@ -70,6 +71,7 @@ export function requiredSession(response: Response): ResolvedSession {
  */
 function mapFailure(error: unknown) {
   if (error instanceof HttpError) return error;
+  if (databaseUnavailable(error)) return new HttpError('SERVICE_UNAVAILABLE');
   if (error instanceof SchemaDefinitionError)
     return new HttpError('INVALID_INPUT');
   if (error instanceof DatabaseError && typeof error.code === 'string') {

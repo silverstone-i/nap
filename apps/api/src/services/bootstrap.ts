@@ -4,6 +4,7 @@
  */
 import { seedPlatformPolicy } from './platform.js';
 import { z } from 'zod';
+import { environmentValue } from '../util/env.js';
 import { withAdminTransaction } from '../db/withAdminTransaction.js';
 import { hashPassword } from '../util/password.js';
 import { passwordOptions, placeholder } from '../util/authConfig.js';
@@ -32,10 +33,10 @@ export function bootstrapConfiguration(env: NodeJS.ProcessEnv, args: string[]) {
         .refine(value => !placeholder(value)),
     })
     .parse({
-      tenantCode: env.ROOT_TENANT_CODE,
-      company: env.ROOT_COMPANY,
-      email: env.ROOT_EMAIL,
-      password: env.ROOT_PASSWORD,
+      tenantCode: environmentValue('ROOT_TENANT_CODE', env),
+      company: environmentValue('ROOT_COMPANY', env),
+      email: environmentValue('ROOT_EMAIL', env),
+      password: environmentValue('ROOT_PASSWORD', env),
     });
   return { ...values, reset: args.length === 1, hashing: passwordOptions(env) };
 }

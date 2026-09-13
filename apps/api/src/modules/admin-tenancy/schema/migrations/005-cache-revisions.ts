@@ -8,7 +8,7 @@ import { defineMigration } from 'pg-schemata';
  * Used by: explicit database migration before cache acceleration is enabled.
  */
 export const migration = defineMigration({
-  id: '008-cache-revisions',
+  id: '005-cache-revisions',
   up: async ({ db }) => {
     await db.none(`CREATE TABLE admin.cache_revisions (
   domain text NOT NULL, entity text NOT NULL,

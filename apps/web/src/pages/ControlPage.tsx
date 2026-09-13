@@ -135,39 +135,9 @@ export function ControlPage() {
         {message && <Alert severity="info">{message}</Alert>}
         {can('registry') && (
           <>
-            <Box
-              component="details"
-              open
-              sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}
-            >
-              <Box component="summary" sx={{ cursor: 'pointer' }}>
-                <Typography component="span" variant="h6">
-                  Register or update cell
-                </Typography>
-              </Box>
-              <Stack
-                component="form"
-                spacing={2}
-                onSubmit={e => void submit(e)}
-                sx={{ pt: 2 }}
-              >
-                <input type="hidden" name="operation" value="cell" />
-                <TextField name="code" label="Cell code" required />
-                <TextField name="name" label="Cell name" required />
-                <TextField
-                  select
-                  name="enabled"
-                  label="Availability"
-                  defaultValue="true"
-                >
-                  <MenuItem value="true">Enabled</MenuItem>
-                  <MenuItem value="false">Disabled</MenuItem>
-                </TextField>
-                <Button type="submit" disabled={busy}>
-                  Save cell
-                </Button>
-              </Stack>
-            </Box>
+            <Button component={Link} to="/management/cells">
+              Manage cells
+            </Button>
             <Divider />
             <Box
               component="details"
@@ -210,7 +180,7 @@ export function ControlPage() {
                     .filter(c => c.enabled)
                     .map(c => (
                       <MenuItem key={c.id} value={c.id}>
-                        {c.name}
+                        {c.database_name}
                       </MenuItem>
                     ))}
                 </TextField>
@@ -259,7 +229,7 @@ export function ControlPage() {
                     .filter(c => c.enabled)
                     .map(c => (
                       <MenuItem key={c.id} value={c.id}>
-                        {c.name}
+                        {c.database_name}
                       </MenuItem>
                     ))}
                 </TextField>
@@ -413,7 +383,7 @@ export function ControlPage() {
                 >
                   {(data?.cells ?? []).map(c => (
                     <MenuItem key={c.id} value={c.id}>
-                      {c.name}
+                      {c.database_name}
                     </MenuItem>
                   ))}
                 </TextField>

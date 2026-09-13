@@ -1,0 +1,5 @@
+/*
+ * Copyright (c) 2026–present NapSoft, LLC.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+export * from '../../apps/api/dist/services/provisioning/postgres.mjs';

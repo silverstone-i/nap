@@ -2,6 +2,8 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { resolveEnvironment } from '../util/env.js';
+
 import { seedTenantRoles, seedTenantAdmin } from './roleSeeds.js';
 import { protectTenantAdmin } from './accessAdministration.js';
 import { randomUUID } from 'node:crypto';
@@ -13,61 +15,137 @@ import { HttpError } from '../util/httpError.js';
 import { audit, requirePlatform } from './platform.js';
 import type { AdminRepositories } from '../db/admin/repositories.js';
 import type { AdminTransaction } from '../db/withAdminTransaction.js';
+import type { CellRegistry } from './cellRegistry.js';
 import type { CellHandle } from '../db/cell/repositories.js';
 import type { AuthConfiguration } from '../util/authConfig.js';
 
 /** Does: Chooses the permission for a validated control command. Called by: the control router. */
 export function commandPermission(body: z.infer<typeof controlBodySchema>) {
   if (body.operation === 'grant') return 'grants';
-  if (body.operation === 'member' || body.operation === 'revoke')
+  if (
+    body.operation === 'member' ||
+    body.operation === 'revoke' ||
+    body.operation === 'member-reset' ||
+    body.operation === 'portal-user-reset' ||
+    body.operation === 'portal-user-status' ||
+    body.operation === 'portal-user-archive' ||
+    body.operation === 'portal-user-unarchive' ||
+    body.operation === 'member-enable' ||
+    body.operation === 'member-archive' ||
+    body.operation === 'member-unarchive'
+  )
     return 'members';
   if (['retry', 'activate', 'reconcile'].includes(body.operation))
     return 'provision';
   return 'registry';
 }
 /** Does: Reads a bounded central overview without password material. Called by: authorized operator overview. */
-export async function controlOverview(tx: AdminTransaction<AdminRepositories>) {
+export async function controlOverview(
+  tx: AdminTransaction<AdminRepositories>,
+  registry: CellRegistry
+) {
   return {
-    cells: (await tx.cells.findWhere({}))
-      .slice(0, 200)
-      .map(({ id, code, name, enabled }) => ({ id, code, name, enabled })),
-    tenants: (await tx.tenants.findWhere({}))
-      .slice(0, 200)
-      .map(
-        ({ id, tenant_code, company, tier, status, cell_id, provisioned }) => ({
-          id,
-          tenant_code,
-          company,
-          tier,
-          status,
-          cell_id,
-          provisioned,
-        })
-      ),
-    users: (await tx.portal_users.findWhere({}))
-      .slice(0, 200)
-      .map(({ id, email, status }) => ({ id, email, status })),
-    members: (await tx.portal_user_tenants.findWhere({}))
-      .slice(0, 200)
-      .map(
-        ({
-          id,
-          portal_user_id,
-          tenant_id,
-          status,
-          user_type,
-          ready,
-          entity_id,
-        }) => ({
-          id,
-          portal_user_id,
-          tenant_id,
-          status,
-          user_type,
-          ready,
-          entity_id,
-        })
-      ),
+    cellEnvironment: resolveEnvironment(),
+    cells: (
+      await tx.any<{
+        id: string;
+        database_name: string;
+        enabled: boolean;
+        stage: string | null;
+        status: 'idle' | 'queued' | 'running' | 'failed' | 'completed' | null;
+        failure_code: string | null;
+      }>(
+        `SELECT c.id,c.database_name,c.enabled,p.stage,p.status,p.failure_code FROM admin.cells c LEFT JOIN admin.cell_provisioning p ON p.cell_id=c.id WHERE c.deactivated_at IS NULL ORDER BY c.database_name LIMIT 200`
+      )
+    ).map(cell => ({
+      ...cell,
+      available: cell.enabled && registry.isReady(cell.id),
+    })),
+    tenants: (
+      await tx.any<{
+        id: string;
+        tenant_code: string;
+        company: string;
+        tier: string;
+        status: string;
+        cell_id: string | null;
+        provisioned: boolean;
+        archived: boolean;
+      }>(
+        `SELECT id,tenant_code,company,tier,status,cell_id,provisioned,deactivated_at IS NOT NULL AS archived FROM admin.tenants ORDER BY company LIMIT 200`
+      )
+    ).map(
+      ({
+        id,
+        tenant_code,
+        company,
+        tier,
+        status,
+        cell_id,
+        provisioned,
+        archived,
+      }) => ({
+        id,
+        tenant_code,
+        company,
+        tier,
+        status,
+        cell_id,
+        provisioned,
+        archived,
+      })
+    ),
+    users: (
+      await tx.any<{
+        id: string;
+        email: string;
+        status: string;
+        archived: boolean;
+        must_change_password: boolean;
+      }>(
+        `SELECT id,email,status,must_change_password,deactivated_at IS NOT NULL AS archived FROM admin.portal_users ORDER BY email LIMIT 200`
+      )
+    ).map(({ id, email, status, archived, must_change_password }) => ({
+      id,
+      email,
+      status,
+      archived,
+      must_change_password,
+    })),
+    members: (
+      await tx.any<{
+        id: string;
+        portal_user_id: string;
+        tenant_id: string;
+        status: string;
+        user_type: string | null;
+        ready: boolean;
+        entity_id: string | null;
+        archived: boolean;
+      }>(
+        `SELECT id,portal_user_id,tenant_id,status,user_type,ready,entity_id,deactivated_at IS NOT NULL AS archived FROM admin.portal_user_tenants ORDER BY tenant_id,portal_user_id LIMIT 200`
+      )
+    ).map(
+      ({
+        id,
+        portal_user_id,
+        tenant_id,
+        status,
+        user_type,
+        ready,
+        entity_id,
+        archived,
+      }) => ({
+        id,
+        portal_user_id,
+        tenant_id,
+        status,
+        user_type,
+        ready,
+        entity_id,
+        archived,
+      })
+    ),
     jobs: (await tx.provisioning_jobs.findWhere({}))
       .slice(0, 200)
       .map(
@@ -99,14 +177,10 @@ export async function controlOverview(tx: AdminTransaction<AdminRepositories>) {
       })),
   };
 }
-/** Does: Confirms that a requested operation targets this deployment's registered cell. Called by: provisioning and activation. */
-async function assigned(
-  tx: AdminTransaction<AdminRepositories>,
-  id: string,
-  config: AuthConfiguration
-) {
+/** Does: Reads the target tenant and checks its registered cell is enabled. Called by: provisioning and activation. */
+async function assigned(tx: AdminTransaction<AdminRepositories>, id: string) {
   const tenant = await tx.cells.assignment(id);
-  if (!tenant || tenant.code !== config.cellCode || !tenant.enabled)
+  if (!tenant || !tenant.cell_id || !tenant.enabled)
     throw new HttpError('FORBIDDEN');
   return tenant;
 }
@@ -139,14 +213,13 @@ async function projectTenant(
 /** Does: Replays one durable membership job and records a safe failure stage. Called by: provisioning and operator retry. */
 async function runJob(
   tx: AdminTransaction<AdminRepositories>,
-  cell: CellHandle,
+  cells: CellRegistry,
   jobId: string,
-  config: AuthConfiguration,
   name?: string
 ) {
   const job = await tx.provisioning_jobs.findById(jobId);
   if (!job) throw new HttpError('NOT_FOUND');
-  await assigned(tx, job.tenant_id, config);
+  const tenant = await assigned(tx, job.tenant_id);
   const member = await tx.portal_user_tenants.findById(job.membership_id);
   if (!member) throw new HttpError('NOT_FOUND');
   const user = await tx.portal_users.lockIdentity(member.portal_user_id);
@@ -165,6 +238,7 @@ async function runJob(
   )
     throw new HttpError('CONFLICT');
   try {
+    const cell = cells.get(tenant.cell_id);
     await projectTenant(tx, cell, job.tenant_id);
     await withTenantTransaction(cell, job.tenant_id, async local => {
       const repository =
@@ -234,10 +308,40 @@ async function runJob(
     failure_code: null,
   });
 }
+/** Does: Loads one soft-deleted or active tenant link. Called by: archive restore commands. */
+async function findMembershipIncludingArchived(
+  tx: AdminTransaction<AdminRepositories>,
+  id: string
+) {
+  const rows = await tx.portal_user_tenants.findWhere({ id }, 'AND', {
+    includeDeactivated: true,
+  });
+  return rows[0] ?? null;
+}
+/** Does: Loads one soft-deleted or active identity. Called by: archive restore commands. */
+async function findUserIncludingArchived(
+  tx: AdminTransaction<AdminRepositories>,
+  id: string
+) {
+  const rows = await tx.portal_users.findWhere({ id }, 'AND', {
+    includeDeactivated: true,
+  });
+  return rows[0] ?? null;
+}
+/** Does: Loads one soft-deleted or active tenant. Called by: tenant archive restore commands. */
+async function findTenantIncludingArchived(
+  tx: AdminTransaction<AdminRepositories>,
+  id: string
+) {
+  const rows = await tx.tenants.findWhere({ id }, 'AND', {
+    includeDeactivated: true,
+  });
+  return rows[0] ?? null;
+}
 /** Does: Executes a permission-checked central command and its audit. Called by: the factory's admin transaction. */
 export async function controlCommand(
   tx: AdminTransaction<AdminRepositories>,
-  cell: CellHandle | undefined,
+  cells: CellRegistry,
   actor: string,
   body: z.infer<typeof controlBodySchema>,
   config: AuthConfiguration
@@ -253,20 +357,17 @@ export async function controlCommand(
     'reason' in body ? body.reason : `Operator ${body.operation}`
   );
   switch (body.operation) {
-    case 'cell': {
-      const existing = await tx.cells.findOneBy({ code: body.code });
-      if (existing)
-        await tx.cells.update(existing.id, {
-          name: body.name,
-          enabled: body.enabled,
-        });
-      else
-        await tx.cells.insert({
-          code: body.code,
-          name: body.name,
-          enabled: body.enabled,
-        });
-      break;
+    case 'cell':
+    case 'cell-retry':
+    case 'cell-activate':
+    case 'cell-disable': {
+      if (!cells.provisioning)
+        throw new HttpError(
+          resolveEnvironment() === 'TEST'
+            ? 'INVALID_INPUT'
+            : 'SERVICE_UNAVAILABLE'
+        );
+      return cells.provisioning.command(tx, actor, body);
     }
     case 'tenant': {
       const selected = await tx.cells.findById(body.cell);
@@ -298,6 +399,35 @@ export async function controlCommand(
       });
       break;
     }
+    case 'tenant-rename': {
+      const tenant = await tx.tenants.findById(body.target);
+      if (!tenant) throw new HttpError('NOT_FOUND');
+      await tx.tenants.update(tenant.id, {
+        company: body.name,
+        revision: tenant.revision + 1,
+      });
+      break;
+    }
+    case 'tenant-archive': {
+      const tenant = await tx.tenants.findById(body.target);
+      if (!tenant) throw new HttpError('NOT_FOUND');
+      const root = await tx.portal_users.findOneBy({ is_root: true });
+      const rootMemberships = root
+        ? await tx.portal_user_tenants.findWhere({
+            portal_user_id: root.id,
+            tenant_id: tenant.id,
+          })
+        : [];
+      if (rootMemberships.length) throw new HttpError('FORBIDDEN');
+      await tx.tenants.removeWhere({ id: tenant.id });
+      break;
+    }
+    case 'tenant-unarchive': {
+      const tenant = await findTenantIncludingArchived(tx, body.target);
+      if (!tenant) throw new HttpError('NOT_FOUND');
+      await tx.tenants.restoreWhere({ id: tenant.id });
+      break;
+    }
     case 'status': {
       const tenant = await tx.tenants.findById(body.target);
       if (!tenant || !tenant.provisioned) throw new HttpError('CONFLICT');
@@ -311,7 +441,7 @@ export async function controlCommand(
       throw new HttpError('CONFLICT');
     }
     case 'member': {
-      await assigned(tx, body.target, config);
+      await assigned(tx, body.target);
       let user = await tx.portal_users.byEmail(body.email);
       if (!user) {
         if (!body.password) throw new HttpError('INVALID_INPUT');
@@ -363,8 +493,8 @@ export async function controlCommand(
       if (!member) throw new HttpError('NOT_FOUND');
       const user = await tx.portal_users.lockIdentity(member.portal_user_id);
       if (!user || user.is_root) throw new HttpError('FORBIDDEN');
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
-      await assigned(tx, member.tenant_id, config);
+      const assignedTenant = await assigned(tx, member.tenant_id);
+      const cell = cells.get(assignedTenant.cell_id);
       await withTenantTransaction(cell, member.tenant_id, async local => {
         await local.roles.lockTenant(member.tenant_id);
         await protectTenantAdmin(local, member.id);
@@ -390,12 +520,163 @@ export async function controlCommand(
         });
       break;
     }
+    case 'member-reset': {
+      const member = await tx.portal_user_tenants.findById(body.membership);
+      if (!member) throw new HttpError('NOT_FOUND');
+      const user = await tx.portal_users.lockIdentity(member.portal_user_id);
+      if (!user || user.is_root || user.status !== 'active')
+        throw new HttpError('FORBIDDEN');
+      await tx.portal_users.update(user.id, {
+        password_hash: await hashPassword(body.password, config.password),
+        must_change_password: true,
+      });
+      await tx.sessions.revokeOthers(user.id);
+      break;
+    }
+    case 'portal-user-reset': {
+      const user = await tx.portal_users.lockIdentity(body.user);
+      if (!user || user.is_root || user.status !== 'active')
+        throw new HttpError('FORBIDDEN');
+      await tx.portal_users.update(user.id, {
+        password_hash: await hashPassword(body.password, config.password),
+        must_change_password: true,
+      });
+      await tx.sessions.revokeOthers(user.id);
+      break;
+    }
+    case 'portal-user-status': {
+      const user = await tx.portal_users.lockIdentity(body.user);
+      if (!user || user.is_root) throw new HttpError('FORBIDDEN');
+      await tx.portal_users.update(user.id, { status: body.status });
+      if (body.status === 'locked') await tx.sessions.revokeOthers(user.id);
+      break;
+    }
+    case 'portal-user-archive': {
+      const user = await tx.portal_users.lockIdentity(body.user);
+      if (!user || user.is_root) throw new HttpError('FORBIDDEN');
+      await tx.sessions.revokeOthers(user.id);
+      await tx.portal_users.removeWhere({ id: user.id });
+      break;
+    }
+    case 'portal-user-unarchive': {
+      const user = await findUserIncludingArchived(tx, body.user);
+      if (!user || user.is_root) throw new HttpError('FORBIDDEN');
+      await tx.portal_users.restoreWhere({ id: user.id });
+      break;
+    }
+    case 'member-enable': {
+      const member = await tx.portal_user_tenants.findById(body.membership);
+      if (!member) throw new HttpError('NOT_FOUND');
+      if (member.status === 'active') throw new HttpError('CONFLICT');
+      const user = await tx.portal_users.lockIdentity(member.portal_user_id);
+      if (!user || user.is_root || user.status !== 'active')
+        throw new HttpError('FORBIDDEN');
+      const sameUser = await tx.portal_user_tenants.findWhere({
+        portal_user_id: user.id,
+      });
+      if (
+        sameUser.some(
+          m =>
+            m.id !== member.id &&
+            m.status === 'active' &&
+            (m.user_type !== 'vendor' || member.user_type !== 'vendor')
+        )
+      )
+        throw new HttpError('CONFLICT');
+      if (!member.user_type || !member.entity_id)
+        throw new HttpError('CONFLICT');
+      await tx.portal_user_tenants.update(member.id, {
+        status: 'active',
+        ready: false,
+        revision: member.revision + 1,
+      });
+      const job = await tx.provisioning_jobs.findOneBy({
+        membership_id: member.id,
+      });
+      if (job) {
+        await tx.provisioning_jobs.update(job.id, {
+          stage: 'pending',
+          failure_code: null,
+        });
+      } else {
+        await tx.provisioning_jobs.insert({
+          tenant_id: member.tenant_id,
+          membership_id: member.id,
+          record_id: member.entity_id,
+          vendor_id: null,
+          kind: member.user_type,
+          stage: 'pending',
+          failure_code: null,
+        });
+      }
+      try {
+        const assignedTenant = await assigned(tx, member.tenant_id);
+        const cell = cells.get(assignedTenant.cell_id);
+        await withTenantTransaction(cell, member.tenant_id, async local => {
+          await local.roles.lockTenant(member.tenant_id);
+          await protectTenantAdmin(local, member.id);
+          const binding = await local.tenant_user_bindings.findById(member.id);
+          if (binding)
+            await local.tenant_user_bindings.update(binding.id, {
+              status: 'active',
+              revision: member.revision + 1,
+            });
+          else
+            await local.tenant_user_bindings.insert({
+              id: member.id,
+              tenant_id: member.tenant_id,
+              portal_user_id: user.id,
+              entity_id: member.entity_id,
+              user_type: member.user_type,
+              status: 'active',
+              revision: member.revision + 1,
+            });
+        });
+      } catch (error) {
+        if (!(error instanceof HttpError && error.code === 'FORBIDDEN'))
+          throw error;
+      }
+      break;
+    }
+    case 'member-archive': {
+      const member = await tx.portal_user_tenants.findById(body.membership);
+      if (!member) throw new HttpError('NOT_FOUND');
+      const user = await tx.portal_users.lockIdentity(member.portal_user_id);
+      if (!user || user.is_root) throw new HttpError('FORBIDDEN');
+      const assignedTenant = await assigned(tx, member.tenant_id);
+      const cell = cells.get(assignedTenant.cell_id);
+      await withTenantTransaction(cell, member.tenant_id, async local => {
+        await local.roles.lockTenant(member.tenant_id);
+        await protectTenantAdmin(local, member.id);
+        const binding = await local.tenant_user_bindings.findById(member.id);
+        if (binding)
+          await local.tenant_user_bindings.update(binding.id, {
+            status: 'locked',
+            revision: member.revision + 1,
+          });
+      });
+      await tx.portal_user_tenants.removeWhere({ id: member.id });
+      await tx.sessions.revokeOthers(user.id);
+      break;
+    }
+    case 'member-unarchive': {
+      const member = await findMembershipIncludingArchived(tx, body.membership);
+      if (!member) throw new HttpError('NOT_FOUND');
+      const user = await findUserIncludingArchived(tx, member.portal_user_id);
+      if (!user || user.is_root || user.deactivated_at)
+        throw new HttpError('FORBIDDEN');
+      await tx.portal_user_tenants.restoreWhere({ id: member.id });
+      await tx.portal_user_tenants.update(member.id, {
+        status: 'locked',
+        ready: false,
+        revision: member.revision + 1,
+      });
+      break;
+    }
     case 'retry':
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
-      await runJob(tx, cell, body.job, config, body.name);
+      await runJob(tx, cells, body.job, body.name);
       break;
     case 'reconcile': {
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
       const root = await tx.portal_users.lockIdentity(actor);
       if (!root?.is_root) throw new HttpError('FORBIDDEN');
       const memberships = await tx.portal_user_tenants.findWhere({
@@ -403,15 +684,11 @@ export async function controlCommand(
       });
       const membership = memberships[0];
       const selected = await tx.cells.findById(body.cell);
-      if (
-        !membership ||
-        !selected?.enabled ||
-        selected.code !== config.cellCode
-      )
-        throw new HttpError('FORBIDDEN');
+      if (!membership || !selected?.enabled) throw new HttpError('FORBIDDEN');
       const tenant = await tx.tenants.findById(membership.tenant_id);
       if (!tenant || (tenant.cell_id && tenant.cell_id !== body.cell))
         throw new HttpError('CONFLICT');
+      const cell = cells.get(body.cell);
       await tx.tenants.update(tenant.id, { cell_id: body.cell });
       await projectTenant(tx, cell, tenant.id);
       await withTenantTransaction(cell, tenant.id, async local => {
@@ -436,8 +713,8 @@ export async function controlCommand(
       break;
     }
     case 'activate': {
-      if (!cell) throw new HttpError('SERVICE_UNAVAILABLE');
-      const tenant = await assigned(tx, body.target, config);
+      const tenant = await assigned(tx, body.target);
+      const cell = cells.get(tenant.cell_id);
       if (tenant.provisioned && !tenant.rbac_ready)
         throw new HttpError('CONFLICT');
       if (

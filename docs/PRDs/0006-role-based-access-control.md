@@ -256,3 +256,14 @@ extra grants, and cannot hold grant-management capability.
 
 **Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
 [verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
+
+## Database provisioning integration
+
+The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
+root records without a cell. Disabled cell registration precedes database creation;
+physical identity checks precede migration/seeding/activation. Cell reference seeding
+is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
+through registry edits before activation has verified the running API.
+
+Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.

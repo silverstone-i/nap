@@ -11,7 +11,7 @@ import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 import { createDb } from 'pg-schemata';
 import type { Database } from 'pg-schemata';
-import { resolveSetupConfiguration } from '../../src/util/env.js';
+import { resolveSetupConnection } from '../../src/util/env.js';
 
 /**
  * Run fixture tooling with private diagnostics; subprocess errors may contain secrets.
@@ -45,7 +45,7 @@ export async function postgresFixture() {
   const databases: string[] = [];
   const roles: string[] = [];
   const handles: Database[] = [];
-  let setup: ReturnType<typeof resolveSetupConfiguration>['setup'];
+  let setup: ReturnType<typeof resolveSetupConnection>;
   let control: Database | undefined;
   const cleanup = async () => {
     try {
@@ -78,7 +78,7 @@ export async function postgresFixture() {
   };
   try {
     if (process.env.CI) {
-      setup = resolveSetupConfiguration('test').setup;
+      setup = resolveSetupConnection('test');
     } else {
       directory = mkdtempSync(join(tmpdir(), 'nap-foundation-pg-'));
       const password = randomBytes(20).toString('hex');
@@ -152,6 +152,18 @@ export async function postgresFixture() {
     const adminUrl = await createDatabase('admin');
     const cellUrl = await createDatabase('cell');
     const role = await createRole('runtime');
+    // Fixed-role subprocess configuration uses nap_app; direct database fixtures
+    // retain unique roles so privilege tests remain isolated on CI's cluster.
+    await controlDatabase.tx(async tx => {
+      await tx.any('SELECT pg_advisory_xact_lock(737,1)');
+      const app = await tx.one<{ present: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='nap_app') AS present"
+      );
+      if (!app.present)
+        await tx.none('CREATE ROLE nap_app LOGIN NOINHERIT PASSWORD $1', [
+          process.env.CI ? process.env.NAP_APP_PSWD_TEST : setup.password,
+        ]);
+    });
     const runtimeUrl = (ownerUrl: string, username = role) => {
       const parsed = new URL(ownerUrl);
       parsed.username = username;
@@ -173,8 +185,15 @@ export async function postgresFixture() {
       runtimeUrl,
       env: {
         NODE_ENV: 'test',
-        ADMIN_DATABASE_URL_TEST: runtimeUrl(adminUrl),
-        CELL_DATABASE_URL_TEST: runtimeUrl(cellUrl),
+        CELL_DATABASES_TEST: '{}',
+        ADMIN_DATABASE_TEST:
+          new URL(adminUrl).host + new URL(adminUrl).pathname,
+        SETUP_DATABASE_TEST:
+          setup.host + ':' + setup.port + '/' + setup.database,
+        NAP_APP_PSWD_TEST: process.env.CI
+          ? process.env.NAP_APP_PSWD_TEST
+          : setup.password,
+        NAP_ADMIN_PSWD_TEST: setup.password,
       },
       /** Execute dump/restore with credentials in the child environment only. */
       pgTool(program: string, args: string[], connectionString: string) {

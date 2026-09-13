@@ -50,9 +50,11 @@ it.each(['admin', 'cell'] as const)(
       {
         env: {
           ...process.env,
-          NODE_ENV: 'test',
-          ADMIN_MIGRATION_URL_TEST: fixture.adminUrl,
-          CELL_MIGRATION_URL_TEST: fixture.cellUrl,
+          ...fixture.env,
+          CELL_DATABASES_TEST: JSON.stringify({
+            '00000000-0000-4000-8000-000000000001':
+              new URL(fixture.cellUrl).host + new URL(fixture.cellUrl).pathname,
+          }),
         },
         encoding: 'utf8',
         timeout: 10000,
@@ -69,13 +71,23 @@ it.each(['admin', 'cell'] as const)(
 
     const result = spawnSync(
       process.execPath,
-      ['dist/scripts/reset.js', '--target', target, '--confirm'],
+      [
+        'dist/scripts/reset.js',
+        '--target',
+        target,
+        ...(target === 'cell'
+          ? ['--cell-id', '00000000-0000-4000-8000-000000000001']
+          : []),
+        '--confirm',
+      ],
       {
         env: {
           ...process.env,
-          NODE_ENV: 'test',
-          ADMIN_MIGRATION_URL_TEST: fixture.adminUrl,
-          CELL_MIGRATION_URL_TEST: fixture.cellUrl,
+          ...fixture.env,
+          CELL_DATABASES_TEST: JSON.stringify({
+            '00000000-0000-4000-8000-000000000001':
+              new URL(fixture.cellUrl).host + new URL(fixture.cellUrl).pathname,
+          }),
         },
         encoding: 'utf8',
         timeout: 10000,

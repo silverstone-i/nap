@@ -28,14 +28,12 @@ jobs:
       # ARCH-019: nap_app is the least-privileged runtime role; nap_admin owns
       # the tables and is used only by the migration runners. Both are defined
       # in docs/specs/nap-platform-specification.md.
-      SETUP_ADMIN_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/postgres
-      ADMIN_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_admin_test
-      ADMIN_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_admin_test
-      CELL_DATABASE_URL_TEST: postgres://nap_app:nap_test@localhost:5432/nap_cell_test
-      CELL_MIGRATION_URL_TEST: postgres://nap_admin:nap_test@localhost:5432/nap_cell_test
+      SETUP_DATABASE_TEST: localhost:5432/postgres
+      ADMIN_DATABASE_TEST: localhost:5432/nap_test_admin
+      CELL_DATABASES_TEST: '{"00000000-0000-4000-8000-000000000001":"localhost:5432/nap_test_cell_fixture"}'
+      NAP_APP_PSWD_TEST: nap_test_runtime
+      NAP_ADMIN_PSWD_TEST: nap_test
       REDIS_URL_TEST: redis://127.0.0.1:6379
-      ADMIN_RUNTIME_ROLE: nap_app
-      CELL_RUNTIME_ROLE: nap_app
 
     # Mirrors ci.yml: the pre-bump checks below are the same checks, so they
     # need the same database or a release fails on tests that just passed.
@@ -107,7 +105,7 @@ jobs:
         # pg_dump must match the service's major version for recovery tests.
         # https://www.postgresql.org/download/linux/ubuntu/
         run: |
-          if [ ! -x /usr/lib/postgresql/18/bin/pg_dump ]; then
+          if [ ! -x /usr/lib/postgresql/18/bin/initdb ]; then
             # Runner images include unrelated vendor repositories (for example
             # Chrome). Their index failures must not block PostgreSQL setup.
             apt_backup="$RUNNER_TEMP/nap-disabled-apt-sources"
@@ -123,14 +121,10 @@ jobs:
             sudo apt-get install -y postgresql-common ca-certificates
             sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
             sudo apt-get update
-            sudo apt-get install -y postgresql-client-18
+            sudo apt-get install -y postgresql-18 postgresql-client-18
           fi
           echo /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
           /usr/lib/postgresql/18/bin/pg_dump --version
-
-      - name: Set up databases
-        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
-        run: npm run db:setup:test
 
       - name: Test
         if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)

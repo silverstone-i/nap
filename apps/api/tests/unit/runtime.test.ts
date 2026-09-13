@@ -8,6 +8,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { adminRepositories } from '../../src/db/admin/repositories.js';
+import { createCellRegistry } from '../../src/services/cellRegistry.js';
 import { createRuntime } from '../../src/runtime.js';
 import { createReadiness } from '../../src/services/readiness.js';
 import { createAdminDatabase } from '../../src/db/admin/index.js';
@@ -19,8 +20,8 @@ vi.mock('../../src/services/readiness.js', () => ({
   createReadiness: vi.fn(),
 }));
 beforeEach(() => {
-  vi.stubEnv('SESSION_SECRET', 'a'.repeat(64));
-  vi.stubEnv('AUTH_THROTTLE_SECRET', 'b'.repeat(64));
+  vi.stubEnv('SESSION_SECRET_TEST', 'a'.repeat(64));
+  vi.stubEnv('AUTH_THROTTLE_SECRET_TEST', 'b'.repeat(64));
   vi.mocked(createReadiness).mockReturnValue({
     check: () => Promise.resolve(true),
     stop: vi.fn(),
@@ -35,14 +36,27 @@ afterEach(() => {
 
 /** Does: Creates admin and cell handles for URLs that are never connected. */
 function handles() {
-  return {
+  const result = {
     admin: createAdminDatabase('postgres://unused:unused@localhost/unused', {
       repositories: adminRepositories,
+    }),
+    cell2: createCellDatabase('postgres://unused:unused@localhost/unused2', {
+      repositories: cellRepositories,
     }),
     cell: createCellDatabase('postgres://unused:unused@localhost/unused', {
       repositories: cellRepositories,
     }),
   };
+  const cells = createCellRegistry(
+    new Map([
+      ['00000000-0000-4000-8000-000000000001', result.cell],
+      ['00000000-0000-4000-8000-000000000002', result.cell2],
+    ])
+  );
+  vi.spyOn(result.admin.db.cells, 'findById').mockResolvedValue({
+    id: '00000000-0000-4000-8000-000000000001',
+  } as Awaited<ReturnType<typeof result.admin.db.cells.findById>>);
+  return { ...result, cells };
 }
 /** Read the OS-selected address of a test listener. */
 function url(runtime: ReturnType<typeof createRuntime>) {
@@ -102,6 +116,9 @@ it('reports a listener bind failure and closes its handles', async () => {
 it('drains an active HTTP request before closing pools and shares repeated shutdown', async () => {
   const pools = handles();
   const close = vi.spyOn(pools.admin, 'close');
+  const cellCloses = [pools.cell, pools.cell2].map(cell =>
+    vi.spyOn(cell, 'close')
+  );
   const cache = {
     namespace: 'runtime-test',
     read: vi.fn(() => Promise.reject(new Error('offline'))),
@@ -126,11 +143,17 @@ it('drains an active HTTP request before closing pools and shares repeated shutd
   const stopped = runtime.shutdown();
   expect(runtime.shutdown()).toBe(stopped);
   expect(close).not.toHaveBeenCalled();
+  for (const cellClose of cellCloses) expect(cellClose).not.toHaveBeenCalled();
   expect(cache.close).not.toHaveBeenCalled();
+  expect(pools.cells.get('00000000-0000-4000-8000-000000000001')).toBe(
+    pools.cell
+  );
   complete();
   expect(await (await response).text()).toBe('finished');
   expect(await stopped).toBe(0);
   expect(close).toHaveBeenCalledTimes(1);
+  for (const cellClose of cellCloses)
+    expect(cellClose).toHaveBeenCalledTimes(1);
   expect(cache.close).toHaveBeenCalledTimes(1);
 });
 it('forces stuck requests closed after the drain deadline and returns failure', async () => {
@@ -175,4 +198,16 @@ it('cannot restart after shutdown and tolerates shutdown before start', async ()
   await runtime.start(0);
   await delay(1);
   expect(runtime.server.listening).toBe(false);
+});
+
+it('rejects an unknown configured UUID before listening and closes every pool', async () => {
+  const pools = handles();
+  vi.spyOn(pools.admin.db.cells, 'findById').mockResolvedValue(null);
+  const runtime = createRuntime(pools);
+  await expect(runtime.start(0)).rejects.toThrow('Unknown configured cell ID');
+  expect(runtime.server.listening).toBe(false);
+  await runtime.shutdown(1);
+  expect(
+    [pools.admin, pools.cell, pools.cell2].every(pool => pool.isClosed)
+  ).toBe(true);
 });

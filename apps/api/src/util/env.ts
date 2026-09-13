@@ -43,165 +43,79 @@ export function resolvePort(env: NodeJS.ProcessEnv = process.env): number {
 }
 
 /**
- * Does: Returns how many reverse-proxy hops in front of the API may be
- * trusted when reading the client's address, from TRUST_PROXY_HOPS,
- * defaulting to 0.
- * Called by: the server entry point at startup, and unit tests.
- * Why: with 0 hops the socket address is the client address and any
- * X-Forwarded-For header is ignored, so a caller cannot choose the address
- * login throttling counts against (PRD 0003, AUTH-005). The deployment
- * sets the real hop count.
- * @throws If TRUST_PROXY_HOPS is set and is not a whole number from 0 to 16.
+ * Does: Returns DEV, TEST, or PROD for the selected process environment.
+ * Called by: configuration readers before reading operation-specific settings.
+ */
+export function resolveEnvironment(env: NodeJS.ProcessEnv = process.env) {
+  const mode = env.NODE_ENV ?? 'development';
+  if (!['development', 'test', 'production'].includes(mode))
+    throw new Error('NODE_ENV must be development, test, or production');
+  return mode === 'production' ? 'PROD' : mode === 'test' ? 'TEST' : 'DEV';
+}
+
+/**
+ * Does: Reports obsolete configuration keys without displaying their values.
+ * Called by: environment-specific configuration readers.
+ * Why: the approved configuration conversion has no legacy fallback.
+ */
+function rejectObsolete(env: NodeJS.ProcessEnv) {
+  for (const name of Object.keys(env)) {
+    if (env[name] === undefined) continue;
+    if (
+      /^(API_MODE|CELL_CODE|CELL_ID|CELL_API_ORIGINS|ADMIN_RUNTIME_ROLE|CELL_RUNTIME_ROLE)$/.test(
+        name
+      ) ||
+      /^(ADMIN_DATABASE_URL|ADMIN_MIGRATION_URL|CELL_DATABASE_URLS?|CELL_SETUP_RUNTIME_URL|CELL_MIGRATION_URL|SETUP_ADMIN_URL)_(DEV|TEST|PROD)$/.test(
+        name
+      ) ||
+      /^(SESSION_SECRET|AUTH_THROTTLE_SECRET|ROOT_TENANT_CODE|ROOT_COMPANY|ROOT_EMAIL|ROOT_PASSWORD|COOKIE_SECURE|COOKIE_SAMESITE|TRUST_PROXY_HOPS|REDIS_URL|REDIS_CACHE_ENABLED|REDIS_CACHE_NAMESPACE)$/.test(
+        name
+      )
+    )
+      throw new Error(`Obsolete configuration: ${name}`);
+  }
+}
+
+/**
+ * Does: Reads one setting from the active environment section.
+ * Called by: authentication, bootstrap, Redis, and proxy configuration readers.
+ */
+export function environmentValue(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env
+) {
+  rejectObsolete(env);
+  return env[`${name}_${resolveEnvironment(env)}`];
+}
+
+/**
+ * Does: Returns the trusted proxy count for the selected environment.
+ * Called by: server startup before constructing HTTP middleware.
  */
 export function resolveTrustProxyHops(
   env: NodeJS.ProcessEnv = process.env
 ): number {
-  const value = env.TRUST_PROXY_HOPS ?? '0';
-  if (!/^\d+$/.test(value) || Number(value) > 16) {
+  const value = environmentValue('TRUST_PROXY_HOPS', env) ?? '0';
+  if (!/^\d+$/.test(value) || Number(value) > 16)
     throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 16');
-  }
   return Number(value);
 }
 
 /**
- * Does: Reads one environment variable holding a PostgreSQL URL and splits
- * it into host, port, user, password, and database name.
- * Called by: resolveSetupConfiguration, once per URL it needs.
- * Why: the setup script passes these fields to psql separately and compares
- * them across URLs, so it needs the parts, not the string. Query options and
- * fragments are rejected rather than dropped, because this conversion cannot
- * carry them to psql and silently losing part of a URL is worse than
- * failing. User and database names must be simple lowercase identifiers.
- * The returned password is a secret; never log it.
- * @throws With only the variable name when the URL is missing or invalid,
- * so a password in a bad URL never appears in an error message.
+ * Does: Parses a credential-free database endpoint and its allowed connection options.
+ * Called by: database configuration readers before constructing connection strings.
  */
-function connection(env: NodeJS.ProcessEnv, name: string) {
+function endpoint(value: unknown, name: string) {
   try {
-    const url = new URL(env[name] ?? '');
     if (
-      !['postgres:', 'postgresql:'].includes(url.protocol) ||
-      url.search ||
-      url.hash
+      typeof value !== 'string' ||
+      !value ||
+      value.trim() !== value ||
+      value.includes('://') ||
+      /[\s\u0000-\u001f]/.test(value)
     )
       throw new Error();
-    const host = url.hostname;
-    const port = url.port || '5432';
-    // WHATWG URL credential getters retain percent encoding. Decode exactly once
-    // so a password containing a literal percent sign reaches PostgreSQL intact.
-    const user = decodeURIComponent(url.username);
-    const password = decodeURIComponent(url.password);
-    const database = decodeURIComponent(url.pathname.slice(1));
-    if (
-      !host ||
-      !password ||
-      password.includes('\0') ||
-      !/^[a-z_][a-z0-9_]{0,62}$/.test(user) ||
-      !/^[a-z_][a-z0-9_]{0,62}$/.test(database)
-    )
-      throw new Error();
-    return { host, port, user, password, database };
-  } catch {
-    throw new Error(`Invalid database configuration: ${name}`);
-  }
-}
-
-/**
- * Does: Reads and cross-checks the database URLs the development or test
- * database setup script needs, and returns the setup connection plus the
- * admin and cell targets with their owning role.
- * Called by: the setup script in scripts/, the test PostgreSQL fixture, and
- * unit tests. Not used by API startup.
- * Why: setup creates both databases through one connection, so every URL
- * must point at the setup server and the migration user must be the setup
- * user. The runtime and migration URLs for a target must name the same
- * database but different users, the runtime user must match the configured
- * runtime role, and the three database names must differ. A runtime role
- * shared by both targets must have one password because setup creates the
- * role once. All of this is checked before any database is touched. This
- * function does not load .env or connect to PostgreSQL. See ARCH-019 and
- * the specification's database composition roots.
- * @param mode "test" or "development"; selects the _TEST or _DEV variables.
- * @throws On an unknown mode, a missing or invalid URL, or inconsistent
- * settings. Error text is safe to show; the returned values are not.
- */
-export function resolveSetupConfiguration(
-  mode: string | undefined,
-  env: NodeJS.ProcessEnv = process.env
-) {
-  if (mode !== 'test' && mode !== 'development')
-    throw new Error('Setup mode must be test or development');
-  const suffix = mode === 'test' ? 'TEST' : 'DEV';
-  const setup = connection(env, `SETUP_ADMIN_URL_${suffix}`);
-  const targets = ['ADMIN', 'CELL'].map(target => {
-    const runtime = connection(env, `${target}_DATABASE_URL_${suffix}`);
-    const migration = connection(env, `${target}_MIGRATION_URL_${suffix}`);
-    if (
-      runtime.database !== migration.database ||
-      runtime.user === migration.user ||
-      runtime.user !== env[`${target}_RUNTIME_ROLE`] ||
-      [runtime, migration].some(
-        c => c.host !== setup.host || c.port !== setup.port
-      ) ||
-      migration.user !== setup.user ||
-      migration.password !== setup.password
-    ) {
-      throw new Error('Inconsistent database targets or role configuration');
-    }
-    return { ...runtime, owner: migration.user };
-  });
-  if (
-    targets[0].database === targets[1].database ||
-    targets.some(t => t.database === setup.database)
-  ) {
-    throw new Error('Setup, admin, and cell database targets must be distinct');
-  }
-  const passwords = new Map<string, string>();
-  for (const target of targets) {
-    if (
-      passwords.has(target.user) &&
-      passwords.get(target.user) !== target.password
-    )
-      throw new Error('Inconsistent runtime role credentials');
-    passwords.set(target.user, target.password);
-  }
-  return { setup, targets };
-}
-
-/**
- * Does: Returns DEV, TEST, or PROD from NODE_ENV, defaulting to DEV when
- * NODE_ENV is unset.
- * Called by: the runtime and migration configuration readers, to pick which
- * database URL variables to read.
- * Why: this runs before any credential is read, so a bad NODE_ENV fails with
- * a message that cannot contain a secret.
- * @throws If NODE_ENV is set to anything other than development, test, or
- * production.
- */
-export function resolveEnvironment(env: NodeJS.ProcessEnv = process.env) {
-  const mode = env.NODE_ENV ?? 'development';
-  if (mode !== 'development' && mode !== 'test' && mode !== 'production')
-    throw new Error('NODE_ENV must be development, test, or production');
-  return { development: 'DEV', test: 'TEST', production: 'PROD' }[mode];
-}
-
-/**
- * Does: Reads one environment variable holding a PostgreSQL URL, checks it,
- * and returns the string unchanged plus a normalized host, port, and
- * database key.
- * Called by: resolveRuntimeConfiguration and resolveMigrationConfiguration.
- * Why: the string is returned as-is so TLS and application-name options
- * survive into the driver. Only those options are allowed; anything that
- * could redirect the connection or change the session role is rejected.
- * The key lets callers detect two URLs pointing at the same database.
- * @throws With only the variable name, so neither the URL nor the parser's
- * message can leak a credential.
- */
-function databaseUrl(env: NodeJS.ProcessEnv, name: string) {
-  try {
-    const value = env[name];
-    if (!value) throw new Error();
-    const parsed = new URL(value);
+    const url = new URL(`postgres://${value}`);
     const allowed = new Set([
       'sslmode',
       'sslcert',
@@ -209,24 +123,28 @@ function databaseUrl(env: NodeJS.ProcessEnv, name: string) {
       'sslrootcert',
       'application_name',
     ]);
+    const database = decodeURIComponent(url.pathname.slice(1));
     if (
-      !['postgres:', 'postgresql:'].includes(parsed.protocol) ||
-      !parsed.hostname ||
-      !parsed.username ||
-      parsed.hash ||
-      !decodeURIComponent(parsed.pathname.slice(1)) ||
-      [...parsed.searchParams.keys()].some(key => !allowed.has(key))
+      !url.hostname ||
+      url.username ||
+      url.password ||
+      value.split('/')[0].includes('@') ||
+      url.hash ||
+      !database ||
+      database.includes('/') ||
+      database.includes('\0') ||
+      (url.port && (Number(url.port) < 1 || Number(url.port) > 65535)) ||
+      [...url.searchParams].some(
+        ([key, val]) => !allowed.has(key) || val.includes('\0')
+      )
     )
       throw new Error();
-    for (const field of [parsed.username, parsed.password, parsed.pathname]) {
-      if (decodeURIComponent(field).includes('\0')) throw new Error();
-    }
     return {
-      connectionString: value,
+      url,
       target: JSON.stringify([
-        parsed.hostname.toLowerCase(),
-        parsed.port || '5432',
-        decodeURIComponent(parsed.pathname.slice(1)),
+        url.hostname.toLowerCase(),
+        url.port || '5432',
+        database,
       ]),
     };
   } catch {
@@ -235,75 +153,319 @@ function databaseUrl(env: NodeJS.ProcessEnv, name: string) {
 }
 
 /**
- * Does: Returns the admin and cell database URLs for the current NODE_ENV.
- * Called by: the server entry point at startup.
- * Why: only the runtime URLs are read here, never the migration ones. The
- * two URLs must not resolve to the same host, port, and database, or startup
- * fails; two hostnames that are aliases of one server are not detected and
- * remain the deployment's responsibility. The returned strings contain
- * passwords; never log them.
- * @throws If NODE_ENV or either URL is invalid, or both URLs match.
+ * Does: Reads a production database entry or wraps a local endpoint.
+ * Called by: the admin and cell configuration readers.
+ */
+function databaseEntry(value: unknown, production: boolean, name: string) {
+  if (!production)
+    return {
+      endpoint: value,
+      appPassword: undefined,
+      adminPassword: undefined,
+    };
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error(`Invalid database configuration: ${name}`);
+  if (
+    Object.keys(value).some(
+      key => !['endpoint', 'appPassword', 'adminPassword'].includes(key)
+    )
+  )
+    throw new Error(`Invalid database configuration: ${name}`);
+  return {
+    endpoint: 'endpoint' in value ? value.endpoint : undefined,
+    appPassword: 'appPassword' in value ? value.appPassword : undefined,
+    adminPassword: 'adminPassword' in value ? value.adminPassword : undefined,
+  };
+}
+
+/**
+ * Does: Parses JSON configuration without exposing parser input on failure.
+ * Called by: database map and production admin readers.
+ */
+function json(value: string | undefined, name: string): unknown {
+  try {
+    return JSON.parse(value ?? '');
+  } catch {
+    throw new Error(`Invalid database configuration: ${name}`);
+  }
+}
+
+/**
+ * Does: Reads the admin database endpoint and optional production credentials.
+ * Called by: runtime and maintenance connection readers.
+ */
+function adminEntry(env: NodeJS.ProcessEnv) {
+  const suffix = resolveEnvironment(env);
+  const name = `ADMIN_DATABASE_${suffix}`;
+  const entry = databaseEntry(
+    suffix === 'PROD' ? json(env[name], name) : env[name],
+    suffix === 'PROD',
+    name
+  );
+  return { ...entry, ...endpoint(entry.endpoint, name), name };
+}
+
+/**
+ * Does: Normalizes a cell UUID supplied in configuration or a command.
+ * Called by: cell map readers and maintenance argument parsing.
+ */
+function cellUuid(value: string) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  )
+    throw new Error('Invalid cell UUID');
+  return value.toLowerCase();
+}
+
+/**
+ * Does: Reads cell entries and rejects duplicate UUIDs or database targets.
+ * Called by: runtime and selected-cell maintenance readers.
+ * Why: configuration selection does not establish registration or physical identity.
+ */
+function cellEntries(env: NodeJS.ProcessEnv) {
+  const suffix = resolveEnvironment(env);
+  const name = `CELL_DATABASES_${suffix}`;
+  try {
+    const source = env[name] ?? '{}';
+    const values = json(source, name);
+    const tokens = source.match(/"(?:\\.|[^"\\])*"|[{}\[\]:,]/g) ?? [];
+    let depth = 0;
+    const keys = new Set<string>();
+    for (let index = 0; index < tokens.length; index++) {
+      const token = tokens[index];
+      if (token === '{' || token === '[') depth++;
+      else if (token === '}' || token === ']') depth--;
+      else if (
+        depth === 1 &&
+        token?.startsWith('"') &&
+        tokens[index + 1] === ':'
+      ) {
+        const key: unknown = JSON.parse(token);
+        if (typeof key !== 'string') throw new Error();
+        if (keys.has(key)) throw new Error();
+        keys.add(key);
+      }
+    }
+    if (!values || typeof values !== 'object' || Array.isArray(values))
+      throw new Error();
+    const targets = new Set<string>();
+    if (env[`ADMIN_DATABASE_${suffix}`]) targets.add(adminEntry(env).target);
+    const cells = new Map<string, ReturnType<typeof adminEntry>>();
+    for (const [id, value] of Object.entries(values)) {
+      const uuid = cellUuid(id);
+      const entry = databaseEntry(value, suffix === 'PROD', name);
+      const parsed = endpoint(entry.endpoint, name);
+      if (cells.has(uuid) || targets.has(parsed.target)) throw new Error();
+      targets.add(parsed.target);
+      cells.set(uuid, { ...entry, ...parsed, name });
+    }
+    return cells;
+  } catch {
+    throw new Error(`Invalid database configuration: ${name}`);
+  }
+}
+
+/**
+ * Does: Builds a URL for one fixed PostgreSQL role from its endpoint and password.
+ * Called by: runtime, setup, and maintenance configuration readers.
+ */
+function roleUrl(
+  entry: ReturnType<typeof adminEntry>,
+  role: 'nap_app' | 'nap_admin',
+  env: NodeJS.ProcessEnv
+) {
+  const suffix = resolveEnvironment(env);
+  const name = role === 'nap_app' ? 'NAP_APP_PSWD' : 'NAP_ADMIN_PSWD';
+  const password =
+    suffix === 'PROD'
+      ? role === 'nap_app'
+        ? entry.appPassword
+        : entry.adminPassword
+      : env[`${name}_${suffix}`];
+  if (
+    typeof password !== 'string' ||
+    !password ||
+    password.includes('\0') ||
+    /<[^>]*>|change[ -]?me|replace[ -]?me|placeholder/i.test(password)
+  )
+    throw new Error(
+      `Invalid database configuration: ${suffix === 'PROD' ? entry.name : `${name}_${suffix}`}`
+    );
+  const url = new URL(entry.url);
+  url.username = role;
+  url.password = encodeURIComponent(password);
+  return url.toString();
+}
+
+/**
+ * Does: Builds admin and UUID-keyed cell runtime connection strings.
+ * Called by: server startup before constructing pools.
  */
 export function resolveRuntimeConfiguration(
   env: NodeJS.ProcessEnv = process.env
 ) {
-  const suffix = resolveEnvironment(env);
-  const admin = databaseUrl(env, `ADMIN_DATABASE_URL_${suffix}`);
-  const cell = databaseUrl(env, `CELL_DATABASE_URL_${suffix}`);
-  if (admin.target === cell.target)
-    throw new Error('Admin and cell database targets must be distinct');
-  return { admin: admin.connectionString, cell: cell.connectionString };
+  rejectObsolete(env);
+  return {
+    admin: roleUrl(adminEntry(env), 'nap_app', env),
+    cells: new Map(
+      [...cellEntries(env)].map(([id, entry]) => [
+        id,
+        roleUrl(entry, 'nap_app', env),
+      ])
+    ),
+  };
 }
 
 /**
- * Does: Returns the migration database URL for one target, admin or cell,
- * for the current NODE_ENV.
- * Called by: the migrate script.
- * Why: only the requested target's URL is read, so a release for one
- * database never needs, or validates, the other's credential. The returned
- * string contains a password; never log it.
- * @throws If the target is not admin or cell, or NODE_ENV or the URL is
- * invalid.
+ * Does: Builds the selected admin or cell maintenance connection string.
+ * Called by: explicit migration, bootstrap, reset, and access commands.
  */
 export function resolveMigrationConfiguration(
   target: 'admin' | 'cell',
+  env: NodeJS.ProcessEnv = process.env,
+  cellId?: string
+) {
+  rejectObsolete(env);
+  if (target === 'admin') {
+    if (cellId !== undefined)
+      throw new Error('Admin target does not accept a cell UUID');
+    return roleUrl(adminEntry(env), 'nap_admin', env);
+  }
+  if (target !== 'cell' || !cellId)
+    throw new Error('Cell target requires --cell-id');
+  const entry = cellEntries(env).get(cellUuid(cellId));
+  if (!entry) throw new Error('Unconfigured maintenance cell');
+  return roleUrl(entry, 'nap_admin', env);
+}
+
+/**
+ * Does: Builds the maintenance connection for the explicitly selected cell.
+ * Called by: access maintenance before checking the tenant assignment.
+ */
+export function resolveCellMaintenanceConfiguration(
+  id: string,
   env: NodeJS.ProcessEnv = process.env
 ) {
-  if (target !== 'admin' && target !== 'cell')
-    throw new Error('Migration target must be admin or cell');
-  const suffix = resolveEnvironment(env);
-  return databaseUrl(env, `${target.toUpperCase()}_MIGRATION_URL_${suffix}`)
-    .connectionString;
+  return resolveMigrationConfiguration('cell', env, id);
 }
 
 /**
- * Does: Reads the central database URL without reading any cell credentials.
- * Called by: the server when starting in router mode.
+ * Does: Splits a constructed URL into the fields accepted by local psql setup.
+ * Called by: local setup configuration before any database connection.
  */
-export function resolveRouterDatabase(env: NodeJS.ProcessEnv = process.env) {
-  return databaseUrl(env, `ADMIN_DATABASE_URL_${resolveEnvironment(env)}`)
-    .connectionString;
+function setupConnection(value: string) {
+  const url = new URL(value);
+  const database = decodeURIComponent(url.pathname.slice(1));
+  if (url.search || !/^[a-z_][a-z0-9_]{0,62}$/.test(database))
+    throw new Error('Invalid local setup endpoint');
+  return {
+    host: url.hostname,
+    port: url.port || '5432',
+    database,
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+  };
 }
 
 /**
- * Does: Reads Redis connection and namespace settings without exposing credentials.
- * Called by: server startup after local environment loading.
- * Why: managed production requires Redis configuration unless explicitly disabled.
+ * Does: Reads the local PostgreSQL administration connection used by setup tooling.
+ * Called by: setup configuration and isolated CI fixtures.
+ */
+export function resolveSetupConnection(
+  mode: string | undefined,
+  env: NodeJS.ProcessEnv = process.env
+) {
+  if (mode !== 'test' && mode !== 'development')
+    throw new Error('Setup mode must be test or development');
+  const selected: NodeJS.ProcessEnv = { ...env, NODE_ENV: mode };
+  rejectObsolete(selected);
+  const name = `SETUP_DATABASE_${resolveEnvironment(selected)}`;
+  const entry = {
+    ...endpoint(selected[name], name),
+    endpoint: selected[name],
+    appPassword: undefined,
+    adminPassword: undefined,
+    name,
+  };
+  return setupConnection(roleUrl(entry, 'nap_admin', selected));
+}
+
+/**
+ * Does: Builds local setup targets for admin and one explicitly selected cell.
+ * Called by: the existing setup command before its catalog checks.
+ * Why: the approved task changes configuration inputs, not physical provisioning behavior.
+ */
+export function resolveSetupConfiguration(
+  mode: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+  cellId?: string
+) {
+  const setup = resolveSetupConnection(mode, env);
+  const selected: NodeJS.ProcessEnv = { ...env, NODE_ENV: mode };
+  if (!cellId) throw new Error('Cell setup requires --cell-id');
+  const entry = cellEntries(selected).get(cellUuid(cellId));
+  if (!entry) throw new Error('Unconfigured setup cell');
+  const targets = [adminEntry(selected), entry].map(item => ({
+    ...setupConnection(roleUrl(item, 'nap_app', selected)),
+    owner: 'nap_admin',
+  }));
+  if (
+    targets.some(
+      t =>
+        t.host !== setup.host ||
+        t.port !== setup.port ||
+        t.database === setup.database
+    )
+  )
+    throw new Error('Inconsistent local setup targets');
+  return { setup, targets };
+}
+
+/**
+ * Does: Parses the target, selected cell UUID, and optional reset acknowledgement.
+ * Called by: existing migration and reset entry points before database access.
+ */
+export function resolveDatabaseArguments(
+  args: string[],
+  reset = false
+): { target: 'admin' | 'cell'; cellId: string | undefined } {
+  const values = [...args];
+  if (reset && values.pop() !== '--confirm')
+    throw new Error('Reset requires --confirm');
+  const [flag, target, cellFlag, id] = values;
+  if (flag !== '--target' || (target !== 'admin' && target !== 'cell'))
+    throw new Error('Expected --target admin|cell');
+  if (target === 'admin' && values.length === 2)
+    return { target, cellId: undefined };
+  if (
+    target === 'cell' &&
+    values.length === 4 &&
+    cellFlag === '--cell-id' &&
+    id
+  )
+    return { target, cellId: cellUuid(id) };
+  throw new Error('Cell target requires --cell-id; admin accepts no cell UUID');
+}
+
+/**
+ * Does: Reads the selected Redis connection and cache settings.
+ * Called by: server startup and cache-enabled test fixtures.
  */
 export function resolveCacheConfiguration(
   env: NodeJS.ProcessEnv = process.env
 ) {
   const environment = resolveEnvironment(env);
-  const enabled = env.REDIS_CACHE_ENABLED?.trim();
+  const enabled = environmentValue('REDIS_CACHE_ENABLED', env)?.trim();
   if (enabled && !['true', 'false'].includes(enabled))
     throw new Error('Invalid REDIS_CACHE_ENABLED');
-  const namespace = env.REDIS_CACHE_NAMESPACE?.trim() || 'nap';
+  const namespace =
+    environmentValue('REDIS_CACHE_NAMESPACE', env)?.trim() || 'nap';
   if (!/^[a-zA-Z0-9_-]{1,80}$/.test(namespace))
     throw new Error('Invalid REDIS_CACHE_NAMESPACE');
   if (enabled === 'false') return { namespace, url: undefined };
-  const url = (
-    environment === 'TEST' ? env.REDIS_URL_TEST : env.REDIS_URL
-  )?.trim();
+  const url = environmentValue('REDIS_URL', env)?.trim();
   if (!url) {
     if (enabled === 'true' || environment === 'PROD')
       throw new Error('Redis URL is required when caching is enabled');

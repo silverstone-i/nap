@@ -9,8 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { resolveSetupConfiguration } from '../../apps/api/src/util/env.ts';
-import { setupDatabases } from '../setup-databases.mjs';
+import { resolveSetupConnection } from '../../apps/api/src/util/env.ts';
+import { setupDatabases } from './fixtures/setup-databases.mjs';
 
 let directory;
 let configuration;
@@ -60,7 +60,7 @@ beforeAll(() => {
   // CI supplies a disposable PostgreSQL service. Local runs create a private
   // socket-only cluster instead of using the developer's application databases.
   if (process.env.CI) {
-    setup = resolveSetupConfiguration('test').setup;
+    setup = resolveSetupConnection('test');
   } else {
     directory = mkdtempSync(join(tmpdir(), 'nap-toolchain-pg-'));
     const password = randomBytes(16).toString('hex');

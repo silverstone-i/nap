@@ -19,7 +19,7 @@ const assignmentSchema = z
     provisioned: z.boolean(),
     rbac_ready: z.boolean(),
     revision: z.number().int(),
-    code: z.string().nullable(),
+    database_name: z.string().nullable(),
     enabled: z.boolean().nullable(),
   })
   .nullable();

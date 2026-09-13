@@ -6,8 +6,19 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import ts from 'typescript';
-import { expect, it } from 'vitest';
-import { mountPath, routeRegistry } from '../../src/framework/routeRegistry.js';
+import { expect, it, vi } from 'vitest';
+import express from 'express';
+import { createAdminDatabase } from '../../src/db/admin/index.js';
+import { adminRepositories } from '../../src/db/admin/repositories.js';
+import { createCellDatabase } from '../../src/db/cell/index.js';
+import { cellRepositories } from '../../src/db/cell/repositories.js';
+import { createCellRegistry } from '../../src/services/cellRegistry.js';
+import { authConfiguration } from '../../src/util/authConfig.js';
+import {
+  mountPath,
+  mountRoutes,
+  routeRegistry,
+} from '../../src/framework/routeRegistry.js';
 
 const handleNames = new Set(['cellDb', 'adminDb', 'handle']);
 const authRouterFile = 'modules/admin-tenancy/apiRoutes/v1/auth.ts';
@@ -228,4 +239,48 @@ it('registers business and control modules at their versioned paths', () => {
       },
     })
   ).toBe('/api/core/v1/clients');
+});
+
+it('constructs every cell router separately and validates the second instance too', async () => {
+  const admin = createAdminDatabase(
+    'postgres://test:test@localhost/unused_admin',
+    { repositories: adminRepositories }
+  );
+  const cells = [1, 2].map(id =>
+    createCellDatabase(`postgres://test:test@localhost/unused_${id}`, {
+      repositories: cellRepositories,
+    })
+  );
+  const handles = {
+    admin,
+    cells: createCellRegistry(
+      new Map(cells.map((cell, i) => [String(i), cell]))
+    ),
+  };
+  const config = authConfiguration({
+    NODE_ENV: 'test',
+    SESSION_SECRET_TEST: 'a'.repeat(64),
+    AUTH_THROTTLE_SECRET_TEST: 'b'.repeat(64),
+  });
+  const registrations = routeRegistry.filter(r => r.target === 'cell');
+  const originalFactory = registrations[0].factory;
+  const spies = registrations.map(r => vi.spyOn(r, 'factory'));
+  try {
+    mountRoutes(express(), handles, config);
+    for (const spy of spies) {
+      expect(spy).toHaveBeenNthCalledWith(1, cells[0]);
+      expect(spy).toHaveBeenNthCalledWith(2, cells[1]);
+      expect(spy.mock.results[0].value).not.toBe(spy.mock.results[1].value);
+    }
+    spies[0].mockImplementation(cell =>
+      cell === cells[1] ? express.Router() : originalFactory(cell)
+    );
+    expect(() => mountRoutes(express(), handles, config)).toThrow(
+      'authorization contract'
+    );
+  } finally {
+    for (const spy of spies) spy.mockRestore();
+    handles.cells.stop();
+    await Promise.all([admin, ...cells].map(db => db.close()));
+  }
 });

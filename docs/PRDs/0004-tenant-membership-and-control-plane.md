@@ -1,7 +1,7 @@
 # 0004 — Tenant membership and control plane
 
 **Design:** Accepted (owner approved, 2026-09-08).
-**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing, including TEN-008/TEN-009. The one-cell baseline was verified by PR #15.
+**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing, including TEN-008/TEN-009. The one-cell baseline was verified by PR #15. TEN-010 Register cell changes are Verified upon merge of [PR #24](https://github.com/silverstone-i/nap/pull/24) with required checks passing; see the [delivery evidence](../implementation-plans/database-provisioning.md).
 
 ## Authority
 
@@ -14,7 +14,7 @@ ADR 0006 records central platform authority. PRD 0005 owns linked Core records.
 - **TEN-001 Registry.** Tenants retain pending/active/suspended status and gain
   starter/growth/enterprise tier (existing default starter) and a cell assignment.
   Activation requires its registered assigned cell. Active tenant assignment
-  changes are refused. Cell rows contain a code, display name, and active flag,
+  changes are refused. Cell rows contain a UUID, database name, and enabled flag,
   never credentials. Operator-only contracts may identify these records.
 - **TEN-002 Membership.** Bindings carry employee/client/vendor type and a Core
   record id; root alone has neither. Serialize each identity's membership changes.
@@ -25,7 +25,7 @@ ADR 0006 records central platform authority. PRD 0005 owns linked Core records.
   grants. Required password change precedes selection. Selection validates a
   membership id against current state, rotates the current reference, and retains
   absolute expiry. Customer views disclose no cell identifiers. Every data request
-  requires one active tenant assigned to the receiving cell for tenant data. Restricted sessions
+  requires one active tenant assigned to a configured cell for tenant data. Restricted sessions
   cannot run tenant-data operations. PostgreSQL is checked on every request.
 - **TEN-004 Platform grants.** Fixed route-action permissions govern registry,
   provisioning, memberships, grants, audit review, access, and impersonation.
@@ -79,7 +79,7 @@ SELECT/INSERT only. Frozen migrations own constraint names and executable DDL.
 | `portal_users`        | `must_change_password boolean` (false)                                                                                                                            |
 | `portal_user_tenants` | nullable `user_type text` and `entity_id uuid` (root exception), `ready boolean` (false), `revision integer` (1); unique live tenant/record binding               |
 | `sessions`            | nullable selected `tenant_id`; nullable `access_mode`, `effective_user_id` FK portal_users, and `access_reason`; original reference and expiry contract retained  |
-| `cells`               | `code text`, `name text`, `enabled boolean`; unique live code                                                                                                     |
+| `cells`               | `database_name text`, `enabled boolean`; unique live database name                                                                                                |
 | `platform_grants`     | `portal_user_id` FK portal_users, `role` package_admin/support, route `permission`; unique live identity/permission                                               |
 | `provisioning_jobs`   | tenant and membership FKs, preallocated record and optional vendor IDs, kind employee/client/vendor, stage pending/complete/failed and nullable safe failure code |
 | `managed_events`      | operator ID, optional effective-user/target/session IDs, event and reason; immutable creation record                                                              |
@@ -122,10 +122,11 @@ business permissions and module licensing are not part of these routes.
 
 ## Recovery and operational defaults
 
-`CELL_CODE` defaults to `cell-1` and must match the deployment's registered cell.
-The cell migration command grants `CELL_RUNTIME_ROLE` (default `nap_app`);
-admin migrations retain `ADMIN_RUNTIME_ROLE`. Neither connection credentials nor
-cell IDs enter customer session contracts.
+Runtime connections are built from registered UUID-keyed `CELL_DATABASES_*`
+entries under the specification's Environment configuration contract (ADR 0012).
+Explicit cell maintenance commands require a cell UUID and use nap_admin;
+admin and cell migrations grant the fixed nap_app runtime role. Neither
+connection credentials nor cell IDs enter customer session contracts.
 
 A new member operation commits a pending job and returns its ID before any cell
 write. The web form follows that reply with an explicit retry command carrying
@@ -171,8 +172,8 @@ Verification evidence: 287 repository tests and all required local checks pass;
 **Design:** Accepted by implementation authorization. **Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing; see the [multi-cell plan](../implementation-plans/0004-cell-tenancy-and-provisioning.md#local-evidence--2026-09-08).
 
 - **TEN-008 Routing.** Implement the specification's shared-origin routing contract
-  and ADR 0007. TEN-003 selection and TEN-005 controlled transitions validate
-  central assignments globally; destination tenant-data gates remain local.
+  and ADR 0011. TEN-003 selection and TEN-005 controlled transitions validate
+  central assignments; in-process dispatch selects the UUID-keyed database.
   Central operations remain available when an individual cell is down.
 - **TEN-009 Activation proof.** Confirm current tenant and every active binding
   projection, linked Core records and initial employee inside the assigned cell.
@@ -258,12 +259,17 @@ no credentials or cell addresses are added to customer contracts.
 **Design:** Accepted by owner, 2026-09-11. New implementation evidence is tracked
 in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
 
-Authorized operators can register configured cells and edit their display name
-and enabled state. Codes identify existing records and are read-only on edit.
-Creation detects codes already in the overview and directs the operator to edit.
-Disabling requires confirmation explaining loss of assigned tenant access.
-Overview permission controls viewing; registry permission controls mutations.
-Registration does not deploy infrastructure or establish operational readiness.
+Authorized operators register a suffix and see its full environment-specific database
+name. Register commits a disabled cell and durable operation, then provisions,
+migrates, seeds, persists configuration, loads the pool and routers, and activates.
+The Cells page displays copyable UUID, database name, status, and state-dependent
+Retry/Activate/Disable actions. No code or editable label remains. Registry permission
+controls mutations; overview permission controls viewing. The server selects DEV/PROD;
+TEST is available only through the shared service for fixtures. Browser closure does
+not cancel work; retry resumes the same UUID and saved stages. Disable requires a
+confirmation explaining assigned tenant access loss. Progress and safe errors are
+visible through overview. The specification's provisioning contract owns credentials,
+physical identity, recovery, and live pool lifecycle (ADR 0014).
 
 Tenant creation offers enabled cells only and links to cell setup when none exist.
 Existing employee provisioning and activation use TEN-006/TEN-009 and PRD 0006:
@@ -282,3 +288,23 @@ provisioning UI; prior implementation verification remains historical.
 UI verification: Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
 The UI delivery plan records browser/API evidence and review fixes; historical
 Verified entries retain their original scope.
+
+Revision, 2026-09-11: ADR 0011 supersedes ADR 0007 topology. Sessions resolve centrally without cell reads; module requests and provisioning select UUID-keyed database handles inside one API process. Individual cell outages do not block central operations.
+
+Revision, 2026-09-12: Adopted ADR 0012 configuration components and explicit cell command selection; provisioning behavior unchanged.
+
+## Database provisioning integration
+
+The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
+root records without a cell. Disabled cell registration precedes database creation;
+physical identity checks precede migration/seeding/activation. Cell reference seeding
+is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
+through registry edits before activation has verified the running API.
+
+Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.
+
+Revision 2026-09-13: owner approved full Register cell workflow and UUID/database-name interface. Implementation in progress.
+
+Revision 2026-09-13: reconciled PR #24 implementation and verification evidence;
+Register cell verification becomes effective on merge with required checks passing.

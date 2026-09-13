@@ -10,7 +10,11 @@ import Menu from '@mui/material/Menu';
 import IconButton from '@mui/material/IconButton';
 import Toolbar from '@mui/material/Toolbar';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  type GridColDef,
+  type GridRowSelectionModel,
+} from '@mui/x-data-grid';
 import {
   managementHeaderStyles,
   managementContentStyles,
@@ -41,7 +45,7 @@ import { defaultRowsPerPage } from '../lib/settings.js';
 type ManagementRow = Pick<
   z.infer<typeof controlResponseSchema>['data']['tenants'][number],
   'id' | 'status'
-> & { label: string; summary: string; code?: string };
+> & { label: string; summary: string; code?: string; archived: boolean };
 
 /**
  * Does: Presents the existing tenant and identity provisioning workflow with record choices.
@@ -73,6 +77,10 @@ export function ManagementPage() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [selection, setSelection] = useState<GridRowSelectionModel>({
+    type: 'include',
+    ids: new Set(),
+  });
 
   const session = state.status === 'ready' ? state.session : null;
   /**
@@ -188,6 +196,38 @@ export function ManagementPage() {
       );
     }
   }
+  /** Does: Runs one or more control commands and refreshes the management view. */
+  async function runControls(
+    bodies: z.infer<typeof controlBodySchema>[],
+    success = 'Saved.'
+  ) {
+    if (!bodies.length) return;
+    setBusy(true);
+    setSeverity('error');
+    setMessage('');
+    const generation = requestGeneration();
+    for (const body of bodies) {
+      const result = await command(body);
+      if (!mounted.current || generation !== requestGeneration()) return;
+      if (!result.ok) {
+        setBusy(false);
+        setMessage(result.error.message);
+        return;
+      }
+    }
+    const refreshed = await overview();
+    if (!mounted.current || generation !== requestGeneration()) return;
+    setBusy(false);
+    if (refreshed.ok) {
+      setData(refreshed.body.data);
+      setSeverity('success');
+      setMessage(success);
+      setSelection({ type: 'include', ids: new Set() });
+    } else {
+      setData(null);
+      setMessage(refreshed.error.message);
+    }
+  }
   /**
    * Does: Starts audited employee access only after an explicit reason is submitted.
    * Called by: the selected tenant's employee inspection form.
@@ -263,18 +303,23 @@ export function ManagementPage() {
         headerName: 'Status',
         width: 135,
         renderCell: params => (
-          <Chip
-            size="small"
-            variant="outlined"
-            label={params.row.status}
-            color={
-              params.row.status === 'active'
-                ? 'success'
-                : params.row.status === 'pending'
-                  ? 'warning'
-                  : 'default'
-            }
-          />
+          <Stack direction="row" spacing={0.5}>
+            <Chip
+              size="small"
+              variant="outlined"
+              label={params.row.status}
+              color={
+                params.row.status === 'active'
+                  ? 'success'
+                  : params.row.status === 'pending'
+                    ? 'warning'
+                    : 'default'
+              }
+            />
+            {params.row.archived && (
+              <Chip size="small" variant="outlined" label="archived" />
+            )}
+          </Stack>
         ),
       },
       {
@@ -318,14 +363,22 @@ export function ManagementPage() {
       <Typography role="status">Loading provisioning records…</Typography>
     );
   const tenant = data.tenants.find(t => t.id === scope.target);
-  const members = data.members.filter(m => m.tenant_id === tenant?.id);
-  const employees = members.filter(
+  const tenantMembers = data.members.filter(m => m.tenant_id === tenant?.id);
+  const members = tenantMembers.filter(
+    m =>
+      scope.archived === 'include' ||
+      (scope.archived === 'only' ? m.archived : !m.archived)
+  );
+  const activeTenantMembers = tenantMembers.filter(m => !m.archived);
+  const employees = activeTenantMembers.filter(
     m => m.user_type === 'employee' && m.ready && m.status === 'active'
   );
   const jobs = data.jobs.filter(j => j.tenant_id === tenant?.id);
   const enabledCells = data.cells.filter(c => c.enabled);
   const assignedCell = data.cells.find(c => c.id === tenant?.cell_id);
-  const pendingMembers = members.some(m => m.status === 'active' && !m.ready);
+  const pendingMembers = activeTenantMembers.some(
+    m => m.status === 'active' && !m.ready
+  );
   const activationBlocked =
     !assignedCell?.enabled || !employees.length || pendingMembers;
   const requestedJob = new URLSearchParams(location.search).get('job');
@@ -350,11 +403,11 @@ export function ManagementPage() {
         summary:
           data.members
             .filter(m => m.portal_user_id === u.id)
-            .map(
-              m =>
-                data.tenants.find(t => t.id === m.tenant_id)?.company ??
-                'Tenant unavailable'
-            )
+            .map(m => {
+              const tenant = data.tenants.find(t => t.id === m.tenant_id);
+              if (!tenant) return 'Tenant unavailable';
+              return `${tenant.company} (${m.status} / ${m.ready ? 'ready' : 'pending'})`;
+            })
             .join(', ') || 'No memberships',
       }))
     : data.tenants.map(t => ({
@@ -365,11 +418,19 @@ export function ManagementPage() {
       }));
   const filtered = rows.filter(
     row =>
+      (scope.archived === 'include' ||
+        (scope.archived === 'only' ? row.archived : !row.archived)) &&
       (!scope.status || row.status === scope.status) &&
       `${row.label} ${'code' in row ? row.code : ''} ${row.summary}`
         .toLowerCase()
         .includes(scope.search.toLowerCase())
   );
+  const selectedRows = filtered.filter(row =>
+    selection.type === 'include'
+      ? selection.ids.has(row.id)
+      : !selection.ids.has(row.id)
+  );
+  const selectedIds = selectedRows.map(row => row.id);
   const page = Math.min(
     scope.page,
     Math.max(0, Math.ceil(filtered.length / size) - 1)
@@ -381,12 +442,25 @@ export function ManagementPage() {
     : (user?.email ??
       tenant?.company ??
       (scope.portalUsers ? 'Portal users' : 'Tenants'));
+  const menuRow = rows.find(row => row.id === rowMenu?.id);
   /**
    * Does: Finds a display label from the authorized overview.
    * Called by: membership and job choices.
    */
   function userName(id: string) {
     return data?.users.find(u => u.id === id)?.email ?? id;
+  }
+  function memberType(type: string | null) {
+    return type === 'employee'
+      ? 'Employee'
+      : type === 'client'
+        ? 'Client contact'
+        : type === 'vendor'
+          ? 'Vendor contact'
+          : 'Other';
+  }
+  function membershipStatus(status: string, ready: boolean) {
+    return `${status === 'active' ? 'Active' : 'Locked'} — ${ready ? 'ready' : 'pending sync'}`;
   }
   if (scope.portalUsers && scope.record && !user)
     return <Alert severity="warning">Portal user unavailable.</Alert>;
@@ -444,6 +518,20 @@ export function ManagementPage() {
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              select
+              size="small"
+              label="Records"
+              value={scope.archived}
+              sx={{ minWidth: 145 }}
+              onChange={event =>
+                changeView({ archived: event.target.value, page: '' })
+              }
+            >
+              <MenuItem value="exclude">Active only</MenuItem>
+              <MenuItem value="include">Active and archived</MenuItem>
+              <MenuItem value="only">Archived only</MenuItem>
+            </TextField>
           </>
         )}
         <Box sx={{ flexGrow: 1 }} />
@@ -462,6 +550,22 @@ export function ManagementPage() {
                 ? 'All portal users'
                 : 'All tenants'}
           </Button>
+        )}
+        {!scope.create && (tenant || user) && (
+          <TextField
+            select
+            size="small"
+            label="Records"
+            value={scope.archived}
+            sx={{ minWidth: 145 }}
+            onChange={event =>
+              changeView({ archived: event.target.value, page: '' })
+            }
+          >
+            <MenuItem value="exclude">Active only</MenuItem>
+            <MenuItem value="include">Active and archived</MenuItem>
+            <MenuItem value="only">Archived only</MenuItem>
+          </TextField>
         )}
         {!scope.create &&
           !user &&
@@ -616,7 +720,7 @@ export function ManagementPage() {
                     .filter(c => c.enabled)
                     .map(c => (
                       <MenuItem key={c.id} value={c.id}>
-                        {c.name}
+                        {c.database_name}
                       </MenuItem>
                     ))}
                 </TextField>
@@ -631,6 +735,7 @@ export function ManagementPage() {
             <Stack direction="row" spacing={1}>
               <Chip label={tenant.status} variant="outlined" />
               <Chip label={tenant.tier} variant="outlined" />
+              {tenant.archived && <Chip label="archived" variant="outlined" />}
             </Stack>
             <Stack
               direction="row"
@@ -665,11 +770,87 @@ export function ManagementPage() {
                     Inspect employee
                   </Button>
                 )}
+              {can('registry') && (
+                <>
+                  <Button
+                    onClick={() =>
+                      setAction(action === 'rename' ? '' : 'rename')
+                    }
+                  >
+                    Edit tenant name
+                  </Button>
+                  {!tenant.archived && tenant.status === 'active' && (
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        void runControls(
+                          [
+                            {
+                              operation: 'status',
+                              target: tenant.id,
+                              status: 'suspended',
+                              reason: 'Suspended by operator',
+                            },
+                          ],
+                          'Tenant suspended.'
+                        )
+                      }
+                    >
+                      Suspend
+                    </Button>
+                  )}
+                  {!tenant.archived && tenant.status === 'suspended' && (
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        void runControls(
+                          [
+                            {
+                              operation: 'status',
+                              target: tenant.id,
+                              status: 'active',
+                              reason: 'Resumed by operator',
+                            },
+                          ],
+                          'Tenant resumed.'
+                        )
+                      }
+                    >
+                      Resume
+                    </Button>
+                  )}
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      void runControls(
+                        [
+                          tenant.archived
+                            ? {
+                                operation: 'tenant-unarchive',
+                                target: tenant.id,
+                                reason: 'Unarchived by operator',
+                              }
+                            : {
+                                operation: 'tenant-archive',
+                                target: tenant.id,
+                                reason: 'Archived by operator',
+                              },
+                        ],
+                        tenant.archived
+                          ? 'Tenant unarchived.'
+                          : 'Tenant archived.'
+                      )
+                    }
+                  >
+                    {tenant.archived ? 'Unarchive' : 'Archive'}
+                  </Button>
+                </>
+              )}
             </Stack>
             <Typography>
               Assigned cell:{' '}
               {assignedCell
-                ? `${assignedCell.name} (${assignedCell.enabled ? 'enabled' : 'disabled'})`
+                ? `${assignedCell.database_name} (${assignedCell.enabled ? 'enabled' : 'disabled'})`
                 : 'Unavailable'}
             </Typography>
             {tenant.status === 'pending' && (
@@ -696,6 +877,34 @@ export function ManagementPage() {
             <Typography>
               Projection: {tenant.provisioned ? 'Confirmed' : 'Pending'}
             </Typography>
+            {action === 'rename' && can('registry') && (
+              <Stack
+                component="form"
+                sx={managementFormStyles}
+                spacing={2}
+                onSubmit={e => void submit(e)}
+              >
+                <Typography component="h3" variant="h6">
+                  Edit tenant name
+                </Typography>
+                <input type="hidden" name="operation" value="tenant-rename" />
+                <input type="hidden" name="target" value={tenant.id} />
+                <input
+                  type="hidden"
+                  name="reason"
+                  value="Tenant name edited by operator"
+                />
+                <TextField
+                  name="name"
+                  label="Tenant name"
+                  defaultValue={tenant.company}
+                  required
+                />
+                <Button type="submit" disabled={busy}>
+                  Save tenant name
+                </Button>
+              </Stack>
+            )}
             <Typography component="h3" variant="h6">
               Portal users and employee provisioning
             </Typography>
@@ -706,10 +915,160 @@ export function ManagementPage() {
               </Typography>
             )}
             {members.map(m => (
-              <Typography key={m.id}>
-                {userName(m.portal_user_id)} — {m.user_type} — {m.status} —{' '}
-                {m.ready ? 'Record confirmed' : 'Record pending'}
-              </Typography>
+              <Stack
+                key={m.id}
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1}
+                sx={{
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Stack spacing={0.5}>
+                  <Typography>{userName(m.portal_user_id)}</Typography>
+                  <Typography variant="body2">
+                    {memberType(m.user_type)} ·{' '}
+                    {membershipStatus(m.status, m.ready)}
+                    {m.archived ? ' · Archived' : ''}
+                  </Typography>
+                </Stack>
+                {can('members') && (
+                  <Stack direction="row" spacing={1}>
+                    {m.archived ? (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        disabled={busy}
+                        onClick={() =>
+                          void runControls(
+                            [
+                              {
+                                operation: 'member-unarchive',
+                                membership: m.id,
+                                reason: 'Tenant link unarchived by operator',
+                              },
+                            ],
+                            'Tenant link unarchived.'
+                          )
+                        }
+                      >
+                        Unarchive link
+                      </Button>
+                    ) : m.status === 'active' ? (
+                      <>
+                        <Stack
+                          component="form"
+                          direction="row"
+                          spacing={1}
+                          onSubmit={e => void submit(e)}
+                          style={{ margin: 0 }}
+                        >
+                          <input
+                            type="hidden"
+                            name="operation"
+                            value="member-reset"
+                          />
+                          <input type="hidden" name="membership" value={m.id} />
+                          <TextField
+                            name="password"
+                            label="Temporary password"
+                            type="password"
+                            size="small"
+                            required
+                          />
+                          <input
+                            type="hidden"
+                            name="reason"
+                            value="Password reset by operator"
+                          />
+                          <Button type="submit" variant="outlined" size="small">
+                            Reset password
+                          </Button>
+                        </Stack>
+                        <form
+                          onSubmit={e => void submit(e)}
+                          style={{ margin: 0 }}
+                        >
+                          <input
+                            type="hidden"
+                            name="operation"
+                            value="revoke"
+                          />
+                          <input type="hidden" name="membership" value={m.id} />
+                          <input
+                            type="hidden"
+                            name="reason"
+                            value="Access revoked by operator"
+                          />
+                          <Button type="submit" variant="outlined" size="small">
+                            Disable
+                          </Button>
+                        </form>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          disabled={busy}
+                          onClick={() =>
+                            void runControls(
+                              [
+                                {
+                                  operation: 'member-archive',
+                                  membership: m.id,
+                                  reason: 'Tenant link archived by operator',
+                                },
+                              ],
+                              'Tenant link archived.'
+                            )
+                          }
+                        >
+                          Archive link
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <form
+                          onSubmit={e => void submit(e)}
+                          style={{ margin: 0 }}
+                        >
+                          <input
+                            type="hidden"
+                            name="operation"
+                            value="member-enable"
+                          />
+                          <input type="hidden" name="membership" value={m.id} />
+                          <input
+                            type="hidden"
+                            name="reason"
+                            value="Access restored by operator"
+                          />
+                          <Button type="submit" variant="outlined" size="small">
+                            Enable
+                          </Button>
+                        </form>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          disabled={busy}
+                          onClick={() =>
+                            void runControls(
+                              [
+                                {
+                                  operation: 'member-archive',
+                                  membership: m.id,
+                                  reason: 'Tenant link archived by operator',
+                                },
+                              ],
+                              'Tenant link archived.'
+                            )
+                          }
+                        >
+                          Archive link
+                        </Button>
+                      </>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
             ))}
             <Typography component="h3" variant="h6">
               Provisioning jobs
@@ -837,32 +1196,287 @@ export function ManagementPage() {
           </>
         ) : user ? (
           <Stack spacing={2}>
-            <Chip
-              label={user.status}
-              variant="outlined"
-              sx={{ alignSelf: 'flex-start' }}
-            />
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              sx={{ flexWrap: 'wrap' }}
+            >
+              <Chip label={`Identity: ${user.status}`} variant="outlined" />
+              <Chip
+                label={
+                  user.must_change_password
+                    ? 'Password change required'
+                    : 'Password current'
+                }
+                variant="outlined"
+              />
+              {user.archived && <Chip label="archived" variant="outlined" />}
+            </Stack>
+            {can('members') && (
+              <Stack
+                direction="row"
+                spacing={1}
+                useFlexGap
+                sx={{ flexWrap: 'wrap' }}
+              >
+                <Stack
+                  component="form"
+                  direction="row"
+                  spacing={1}
+                  onSubmit={e => void submit(e)}
+                  style={{ margin: 0 }}
+                >
+                  <input
+                    type="hidden"
+                    name="operation"
+                    value="portal-user-reset"
+                  />
+                  <input type="hidden" name="user" value={user.id} />
+                  <input
+                    type="hidden"
+                    name="reason"
+                    value="Password reset by operator"
+                  />
+                  <TextField
+                    name="password"
+                    label="Temporary password"
+                    type="password"
+                    size="small"
+                    required
+                  />
+                  <Button type="submit" size="small" disabled={busy}>
+                    Change password
+                  </Button>
+                </Stack>
+                <Button
+                  size="small"
+                  disabled={busy || user.archived}
+                  onClick={() =>
+                    void runControls(
+                      [
+                        {
+                          operation: 'portal-user-status',
+                          user: user.id,
+                          status:
+                            user.status === 'active' ? 'locked' : 'active',
+                          reason:
+                            user.status === 'active'
+                              ? 'Suspended by operator'
+                              : 'Unsuspended by operator',
+                        },
+                      ],
+                      user.status === 'active'
+                        ? 'Portal user suspended.'
+                        : 'Portal user unsuspended.'
+                    )
+                  }
+                >
+                  {user.status === 'active' ? 'Suspend user' : 'Unsuspend user'}
+                </Button>
+                <Button
+                  size="small"
+                  disabled={busy}
+                  onClick={() =>
+                    void runControls(
+                      [
+                        user.archived
+                          ? {
+                              operation: 'portal-user-unarchive',
+                              user: user.id,
+                              reason: 'Unarchived by operator',
+                            }
+                          : {
+                              operation: 'portal-user-archive',
+                              user: user.id,
+                              reason: 'Archived by operator',
+                            },
+                      ],
+                      user.archived
+                        ? 'Portal user unarchived.'
+                        : 'Portal user archived.'
+                    )
+                  }
+                >
+                  {user.archived ? 'Unarchive user' : 'Archive user'}
+                </Button>
+              </Stack>
+            )}
             <Typography component="h2" variant="h6">
               Tenant memberships
             </Typography>
             {data.members
-              .filter(m => m.portal_user_id === user.id)
+              .filter(
+                m =>
+                  m.portal_user_id === user.id &&
+                  (scope.archived === 'include' ||
+                    (scope.archived === 'only' ? m.archived : !m.archived))
+              )
               .map(m => (
                 <Stack
                   key={m.id}
                   direction={{ xs: 'column', sm: 'row' }}
                   spacing={1}
+                  sx={{
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                  }}
                 >
                   <Button
                     component={Link}
                     to={`/management/tenants/${m.tenant_id}`}
                   >
                     {data.tenants.find(t => t.id === m.tenant_id)?.company ??
-                      'Tenant unavailable'}
+                      'Tenant unavailable'}{' '}
+                    · {memberType(m.user_type)} ·{' '}
+                    {membershipStatus(m.status, m.ready)}
+                    {m.archived ? ' · Archived' : ''}
                   </Button>
-                  <Typography>
-                    {m.user_type} · {m.status} · {m.ready ? 'Ready' : 'Pending'}
-                  </Typography>
+                  {can('members') && (
+                    <Stack direction="row" spacing={1}>
+                      {m.archived ? (
+                        <Button
+                          size="small"
+                          disabled={busy}
+                          onClick={() =>
+                            void runControls(
+                              [
+                                {
+                                  operation: 'member-unarchive',
+                                  membership: m.id,
+                                  reason: 'Tenant link unarchived by operator',
+                                },
+                              ],
+                              'Tenant link unarchived.'
+                            )
+                          }
+                        >
+                          Unarchive link
+                        </Button>
+                      ) : m.status === 'active' ? (
+                        <>
+                          <Stack
+                            component="form"
+                            direction="row"
+                            spacing={1}
+                            onSubmit={e => void submit(e)}
+                            style={{ margin: 0 }}
+                          >
+                            <input
+                              type="hidden"
+                              name="operation"
+                              value="member-reset"
+                            />
+                            <input
+                              type="hidden"
+                              name="membership"
+                              value={m.id}
+                            />
+                            <TextField
+                              name="password"
+                              label="Temporary password"
+                              type="password"
+                              size="small"
+                              required
+                            />
+                            <input
+                              type="hidden"
+                              name="reason"
+                              value="Password reset by operator"
+                            />
+                            <Button type="submit" size="small">
+                              Reset password
+                            </Button>
+                          </Stack>
+                          <form
+                            onSubmit={e => void submit(e)}
+                            style={{ margin: 0 }}
+                          >
+                            <input
+                              type="hidden"
+                              name="operation"
+                              value="revoke"
+                            />
+                            <input
+                              type="hidden"
+                              name="membership"
+                              value={m.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="reason"
+                              value="Access revoked by operator"
+                            />
+                            <Button type="submit" size="small">
+                              Disable
+                            </Button>
+                          </form>
+                          <Button
+                            size="small"
+                            disabled={busy}
+                            onClick={() =>
+                              void runControls(
+                                [
+                                  {
+                                    operation: 'member-archive',
+                                    membership: m.id,
+                                    reason: 'Tenant link archived by operator',
+                                  },
+                                ],
+                                'Tenant link archived.'
+                              )
+                            }
+                          >
+                            Archive link
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <form
+                            onSubmit={e => void submit(e)}
+                            style={{ margin: 0 }}
+                          >
+                            <input
+                              type="hidden"
+                              name="operation"
+                              value="member-enable"
+                            />
+                            <input
+                              type="hidden"
+                              name="membership"
+                              value={m.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="reason"
+                              value="Access restored by operator"
+                            />
+                            <Button type="submit" size="small">
+                              Enable
+                            </Button>
+                          </form>
+                          <Button
+                            size="small"
+                            disabled={busy}
+                            onClick={() =>
+                              void runControls(
+                                [
+                                  {
+                                    operation: 'member-archive',
+                                    membership: m.id,
+                                    reason: 'Tenant link archived by operator',
+                                  },
+                                ],
+                                'Tenant link archived.'
+                              )
+                            }
+                          >
+                            Archive link
+                          </Button>
+                        </>
+                      )}
+                    </Stack>
+                  )}
                 </Stack>
               ))}
             {!data.members.some(m => m.portal_user_id === user.id) && (
@@ -871,10 +1485,184 @@ export function ManagementPage() {
           </Stack>
         ) : (
           <Box sx={managementGridStyles}>
+            {selectedIds.length > 0 && (
+              <Stack
+                direction="row"
+                spacing={1}
+                useFlexGap
+                sx={{ flexWrap: 'wrap', mb: 1 }}
+              >
+                <Typography variant="body2">
+                  {selectedIds.length} selected
+                </Typography>
+                {scope.portalUsers ? (
+                  <>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('members')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(row => !row.archived)
+                            .map(row => ({
+                              operation: 'portal-user-status',
+                              user: row.id,
+                              status: 'locked',
+                              reason: 'Suspended by operator',
+                            })),
+                          'Portal users suspended.'
+                        )
+                      }
+                    >
+                      Suspend
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('members')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(row => !row.archived)
+                            .map(row => ({
+                              operation: 'portal-user-status',
+                              user: row.id,
+                              status: 'active',
+                              reason: 'Unsuspended by operator',
+                            })),
+                          'Portal users unsuspended.'
+                        )
+                      }
+                    >
+                      Unsuspend
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('members')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(row => !row.archived)
+                            .map(row => ({
+                              operation: 'portal-user-archive',
+                              user: row.id,
+                              reason: 'Archived by operator',
+                            })),
+                          'Portal users archived.'
+                        )
+                      }
+                    >
+                      Archive
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('members')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(row => row.archived)
+                            .map(row => ({
+                              operation: 'portal-user-unarchive',
+                              user: row.id,
+                              reason: 'Unarchived by operator',
+                            })),
+                          'Portal users unarchived.'
+                        )
+                      }
+                    >
+                      Unarchive
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('registry')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(
+                              row => !row.archived && row.status === 'active'
+                            )
+                            .map(row => ({
+                              operation: 'status',
+                              target: row.id,
+                              status: 'suspended',
+                              reason: 'Suspended by operator',
+                            })),
+                          'Tenants suspended.'
+                        )
+                      }
+                    >
+                      Suspend
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('registry')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(
+                              row => !row.archived && row.status === 'suspended'
+                            )
+                            .map(row => ({
+                              operation: 'status',
+                              target: row.id,
+                              status: 'active',
+                              reason: 'Resumed by operator',
+                            })),
+                          'Tenants resumed.'
+                        )
+                      }
+                    >
+                      Resume
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('registry')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(row => !row.archived)
+                            .map(row => ({
+                              operation: 'tenant-archive',
+                              target: row.id,
+                              reason: 'Archived by operator',
+                            })),
+                          'Tenants archived.'
+                        )
+                      }
+                    >
+                      Archive
+                    </Button>
+                    <Button
+                      size="small"
+                      disabled={busy || !can('registry')}
+                      onClick={() =>
+                        void runControls(
+                          selectedRows
+                            .filter(row => row.archived)
+                            .map(row => ({
+                              operation: 'tenant-unarchive',
+                              target: row.id,
+                              reason: 'Unarchived by operator',
+                            })),
+                          'Tenants unarchived.'
+                        )
+                      }
+                    >
+                      Unarchive
+                    </Button>
+                  </>
+                )}
+              </Stack>
+            )}
             <DataGrid
               aria-label={scope.portalUsers ? 'Portal users' : 'Tenants'}
               rows={filtered}
               columns={columns}
+              checkboxSelection
+              rowSelectionModel={selection}
+              onRowSelectionModelChange={model => setSelection(model)}
               disableRowSelectionOnClick
               disableColumnFilter
               paginationModel={{ page, pageSize: size }}
@@ -933,6 +1721,121 @@ export function ManagementPage() {
                   {scope.portalUsers
                     ? 'Link to tenant'
                     : 'Create or link portal user'}
+                </MenuItem>
+              )}
+              {menuRow &&
+                scope.portalUsers &&
+                can('members') &&
+                !menuRow.archived && (
+                  <MenuItem
+                    onClick={() => {
+                      setRowMenu(null);
+                      void runControls(
+                        [
+                          {
+                            operation: 'portal-user-status',
+                            user: menuRow.id,
+                            status:
+                              menuRow.status === 'active' ? 'locked' : 'active',
+                            reason:
+                              menuRow.status === 'active'
+                                ? 'Suspended by operator'
+                                : 'Unsuspended by operator',
+                          },
+                        ],
+                        menuRow.status === 'active'
+                          ? 'Portal user suspended.'
+                          : 'Portal user unsuspended.'
+                      );
+                    }}
+                  >
+                    {menuRow.status === 'active' ? 'Suspend' : 'Unsuspend'}
+                  </MenuItem>
+                )}
+              {menuRow && scope.portalUsers && can('members') && (
+                <MenuItem
+                  onClick={() => {
+                    setRowMenu(null);
+                    void runControls(
+                      [
+                        menuRow.archived
+                          ? {
+                              operation: 'portal-user-unarchive',
+                              user: menuRow.id,
+                              reason: 'Unarchived by operator',
+                            }
+                          : {
+                              operation: 'portal-user-archive',
+                              user: menuRow.id,
+                              reason: 'Archived by operator',
+                            },
+                      ],
+                      menuRow.archived
+                        ? 'Portal user unarchived.'
+                        : 'Portal user archived.'
+                    );
+                  }}
+                >
+                  {menuRow.archived ? 'Unarchive' : 'Archive'}
+                </MenuItem>
+              )}
+              {menuRow &&
+                !scope.portalUsers &&
+                can('registry') &&
+                !menuRow.archived &&
+                ['active', 'suspended'].includes(menuRow.status) && (
+                  <MenuItem
+                    onClick={() => {
+                      setRowMenu(null);
+                      void runControls(
+                        [
+                          {
+                            operation: 'status',
+                            target: menuRow.id,
+                            status:
+                              menuRow.status === 'active'
+                                ? 'suspended'
+                                : 'active',
+                            reason:
+                              menuRow.status === 'active'
+                                ? 'Suspended by operator'
+                                : 'Resumed by operator',
+                          },
+                        ],
+                        menuRow.status === 'active'
+                          ? 'Tenant suspended.'
+                          : 'Tenant resumed.'
+                      );
+                    }}
+                  >
+                    {menuRow.status === 'active' ? 'Suspend' : 'Resume'}
+                  </MenuItem>
+                )}
+              {menuRow && !scope.portalUsers && can('registry') && (
+                <MenuItem
+                  onClick={() => {
+                    setRowMenu(null);
+                    void runControls(
+                      [
+                        menuRow.archived
+                          ? {
+                              operation: 'tenant-unarchive',
+                              target: menuRow.id,
+                              reason: 'Unarchived by operator',
+                            }
+                          : {
+                              operation: 'tenant-archive',
+                              target: menuRow.id,
+                              reason: 'Archived by operator',
+                            },
+                      ],
+                      menuRow.archived
+                        ? 'Tenant unarchived.'
+                        : 'Tenant archived.'
+                    );
+                  }}
+                >
+                  {menuRow.archived ? 'Unarchive' : 'Archive'}
                 </MenuItem>
               )}
             </Menu>
