@@ -295,6 +295,7 @@ it('enters explicit controlled employee access from the provisioning record', as
       });
     if (path.endsWith('/overview'))
       return reply({
+        cellEnvironment: 'DEV',
         cells: [],
         tenants: [
           {
@@ -487,7 +488,18 @@ function managementFixture(
       typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
     if (path.endsWith('/overview'))
       return reply({
-        cells: [{ id: other, code: 'CELL', name: 'Test cell', enabled: true }],
+        cellEnvironment: 'DEV',
+        cells: [
+          {
+            id: other,
+            database_name: 'Test cell',
+            available: true,
+            enabled: true,
+            stage: 'enabled',
+            status: 'completed',
+            failure_code: null,
+          },
+        ],
         tenants: [
           {
             id: tenant,

@@ -1231,3 +1231,10 @@ cover separate setup/migration/bootstrap/seeding/activation, descriptive databas
 names, Render provisioning, physical identity, and the five-file admin baseline.
 PRD 0008 covers the countries/currencies seed subset; broader Reference data and Core
 workflows remain separate. Verification status follows recorded test evidence.
+
+## Register cell workflow — 2026-09-13
+
+Design: Accepted. Implementation: Implemented and validated locally; not shipped. ADR 0014 and
+the database-provisioning plan replace cell CLI commands with management-page
+provisioning, live loading, UUID/database-name records and isolated TEST fixtures.
+Verification evidence is recorded in the implementation plan.

@@ -24,16 +24,12 @@
     "prepare": "husky",
     "licenses": "node scripts/check-licenses.mjs",
     "db:migrate:admin": "npm run build --workspace @nap/api && node scripts/database.mjs migrate admin",
-    "db:migrate:cell": "npm run build --workspace @nap/api && node scripts/database.mjs migrate cell",
     "db:reset:admin": "npm run db:reset:admin --workspace @nap/api --",
     "db:reset:cell": "npm run db:reset:cell --workspace @nap/api --",
     "db:bootstrap": "npm run build --workspace @nap/api && node scripts/database.mjs bootstrap admin",
     "test:toolchain": "npm run build --workspace @nap/api && vitest run --config vitest.config.mjs",
     "db:access": "npm run db:access --workspace @nap/api --",
-    "db:setup:admin": "npm run build --workspace @nap/api && node scripts/database.mjs setup admin",
-    "db:setup:cell": "npm run build --workspace @nap/api && node scripts/database.mjs setup cell",
-    "db:seed:cell": "npm run build --workspace @nap/api && node scripts/database.mjs seed cell",
-    "db:activate:cell": "npm run build --workspace @nap/api && node scripts/database.mjs activate cell"
+    "db:setup:admin": "npm run build --workspace @nap/api && node scripts/database.mjs setup admin"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

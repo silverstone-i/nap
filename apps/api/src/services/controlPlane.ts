@@ -2,6 +2,8 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { resolveEnvironment } from '../util/env.js';
+
 import { seedTenantRoles, seedTenantAdmin } from './roleSeeds.js';
 import { protectTenantAdmin } from './accessAdministration.js';
 import { randomUUID } from 'node:crypto';
@@ -27,11 +29,27 @@ export function commandPermission(body: z.infer<typeof controlBodySchema>) {
   return 'registry';
 }
 /** Does: Reads a bounded central overview without password material. Called by: authorized operator overview. */
-export async function controlOverview(tx: AdminTransaction<AdminRepositories>) {
+export async function controlOverview(
+  tx: AdminTransaction<AdminRepositories>,
+  registry: CellRegistry
+) {
   return {
-    cells: (await tx.cells.findWhere({}))
-      .slice(0, 200)
-      .map(({ id, code, name, enabled }) => ({ id, code, name, enabled })),
+    cellEnvironment: resolveEnvironment(),
+    cells: (
+      await tx.any<{
+        id: string;
+        database_name: string;
+        enabled: boolean;
+        stage: string | null;
+        status: 'idle' | 'queued' | 'running' | 'failed' | 'completed' | null;
+        failure_code: string | null;
+      }>(
+        `SELECT c.id,c.database_name,c.enabled,p.stage,p.status,p.failure_code FROM admin.cells c LEFT JOIN admin.cell_provisioning p ON p.cell_id=c.id WHERE c.deactivated_at IS NULL ORDER BY c.database_name LIMIT 200`
+      )
+    ).map(cell => ({
+      ...cell,
+      available: cell.enabled && registry.isReady(cell.id),
+    })),
     tenants: (await tx.tenants.findWhere({}))
       .slice(0, 200)
       .map(
@@ -250,26 +268,17 @@ export async function controlCommand(
     'reason' in body ? body.reason : `Operator ${body.operation}`
   );
   switch (body.operation) {
-    case 'cell': {
-      const existing = await tx.cells.findOneBy({ code: body.code });
-      if (
-        existing &&
-        body.enabled &&
-        !(await tx.cells.setupAllowsEnable(existing.id))
-      )
-        throw new HttpError('INVALID_INPUT');
-      if (existing)
-        await tx.cells.update(existing.id, {
-          name: body.name,
-          enabled: body.enabled,
-        });
-      else
-        await tx.cells.insert({
-          code: body.code,
-          name: body.name,
-          enabled: body.enabled,
-        });
-      break;
+    case 'cell':
+    case 'cell-retry':
+    case 'cell-activate':
+    case 'cell-disable': {
+      if (!cells.provisioning)
+        throw new HttpError(
+          resolveEnvironment() === 'TEST'
+            ? 'INVALID_INPUT'
+            : 'SERVICE_UNAVAILABLE'
+        );
+      return cells.provisioning.command(tx, actor, body);
     }
     case 'tenant': {
       const selected = await tx.cells.findById(body.cell);

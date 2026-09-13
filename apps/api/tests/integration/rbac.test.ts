@@ -144,14 +144,14 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
           password: authEnv.ROOT_PASSWORD_TEST,
         })
     );
-    await command('registry', {
-      operation: 'cell',
-      code: 'cell-2',
-      name: 'Second cell',
-    });
+    if (!(await test.admin.db.cells.findOneBy({ database_name: 'cell-2' })))
+      await test.admin.db.cells.insert({
+        database_name: 'cell-2',
+        enabled: true,
+      });
     cells = [
-      (await test.admin.db.cells.findOneBy({ code: 'cell-1' }))!.id,
-      (await test.admin.db.cells.findOneBy({ code: 'cell-2' }))!.id,
+      (await test.admin.db.cells.findOneBy({ database_name: 'cell-1' }))!.id,
+      (await test.admin.db.cells.findOneBy({ database_name: 'cell-2' }))!.id,
     ];
     await command('provision', { operation: 'reconcile', cell: cells[0] });
   }, 30000);
@@ -607,7 +607,9 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
     for (const t of await test.admin.db.tenants.findWhere({
       provisioned: true,
     })) {
-      if ((await test.admin.db.cells.assignment(t.id))?.code !== 'cell-1')
+      if (
+        (await test.admin.db.cells.assignment(t.id))?.database_name !== 'cell-1'
+      )
         continue;
       const members = await test.admin.db.portal_user_tenants.findWhere({
         tenant_id: t.id,

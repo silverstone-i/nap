@@ -26,7 +26,7 @@ export type RuntimeHandles = AppHandles;
  * Why: start requires admin readiness and quarantines individual failed cells. Shutdown drains HTTP connections before closing database pools so
  * in-flight requests finish against open connections. This function installs
  * no signal handlers and never exits the process; the entry point owns both.
- * All database handles are supplied here; none can be added after start,
+ * Verified cell handles and their bound routers can be added after start,
  * and each cell router is bound to its own pool. The trusted proxy hop count is passed to the app.
  */
 export function createRuntime(
@@ -47,7 +47,6 @@ export function createRuntime(
     cache?: AuthorizationCache;
   } = {}
 ) {
-  const pools = [handles.admin, ...handles.cells.handles.values()];
   const readiness = createReadiness([handles.admin], readinessMs, 1);
   let stopping: Promise<number> | undefined;
   let stopped = false;
@@ -88,6 +87,7 @@ export function createRuntime(
     }
     if (stopped) return;
     await handles.cells.start(handles.admin);
+    await handles.cells.provisioning?.start();
     if (stopped) return;
     await new Promise<void>((resolve, reject) => {
       /** Does: Rejects the listen promise when the server fails to listen. */
@@ -128,6 +128,11 @@ export function createRuntime(
     stopping = (async () => {
       logger.info({ event: 'api.stopping' });
       let failed = code !== 0;
+      try {
+        await handles.cells.provisioning?.stop();
+      } catch {
+        failed = true;
+      }
       if (server.listening) {
         await new Promise<void>(resolve => {
           const timer = setTimeout(() => {
@@ -148,7 +153,9 @@ export function createRuntime(
           resolve();
         }, poolCloseMs);
         void Promise.allSettled(
-          pools.map(handle => Promise.resolve().then(() => handle.close()))
+          [handles.admin, ...handles.cells.handles.values()].map(handle =>
+            Promise.resolve().then(() => handle.close())
+          )
         ).then(results => {
           clearTimeout(timer);
           if (results.some(result => result.status === 'rejected'))

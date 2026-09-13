@@ -137,9 +137,11 @@ export function mountRoutes(
       app.use(path, registration.factory(handles.admin, config, handles.cells));
       continue;
     }
+    const factory = registration.factory;
     const routers = new Map<string, Router>();
-    for (const [id, cell] of handles.cells.handles) {
-      const router = registration.factory(cell);
+    /** Does: Binds and checks one cell router. Called by: initial mounting and live registry additions. */
+    function attach(id: string, cell: CellHandle) {
+      const router = factory(cell);
       {
         const policy = routerAuthorization(router);
         const resource = accessCatalog.find(
@@ -166,6 +168,8 @@ export function mountRoutes(
       }
       routers.set(id, router);
     }
+    for (const [id, cell] of handles.cells.handles) attach(id, cell);
+    handles.cells.onAdd(attach);
     app.use(path, async (request, response, next) => {
       const session = response.locals.session;
       if (!session) throw new HttpError('UNAUTHENTICATED');

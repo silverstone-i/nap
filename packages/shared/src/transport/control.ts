@@ -27,10 +27,14 @@ export const platformPermissionSchema = z.enum(platformPermissions);
 export const controlBodySchema = z.discriminatedUnion('operation', [
   z.strictObject({
     operation: z.literal('cell'),
-    code: z.string().trim().min(1).max(64),
-    name: z.string().trim().min(1).max(128),
-    enabled: z.boolean().default(true),
+    suffix: z
+      .string()
+      .regex(/^[a-z0-9_]+$/)
+      .max(50),
   }),
+  z.strictObject({ operation: z.literal('cell-retry'), cell: z.uuid() }),
+  z.strictObject({ operation: z.literal('cell-activate'), cell: z.uuid() }),
+  z.strictObject({ operation: z.literal('cell-disable'), cell: z.uuid() }),
   z.strictObject({
     operation: z.literal('tenant'),
     code: z.string().trim().min(1).max(16),
@@ -108,11 +112,17 @@ export const membershipsResponseSchema = successResponseSchema(
 /** Does: Validates bounded operator registry views. Used by: control overview API and UI. */
 export const controlResponseSchema = successResponseSchema(
   z.strictObject({
+    cellEnvironment: z.enum(['DEV', 'TEST', 'PROD']),
     cells: z.array(
       z.strictObject({
         id: z.uuid(),
-        code: z.string(),
-        name: z.string(),
+        database_name: z.string(),
+        available: z.boolean(),
+        stage: z.string().nullable(),
+        status: z
+          .enum(['idle', 'queued', 'running', 'failed', 'completed'])
+          .nullable(),
+        failure_code: z.string().nullable(),
         enabled: z.boolean(),
       })
     ),
@@ -190,7 +200,12 @@ export const identityResponseSchema = successResponseSchema(
 
 /** Does: Returns the durable job created by a control command. Used by: operator provisioning follow-up. */
 export const controlCommandResponseSchema = successResponseSchema(
-  z.strictObject({ jobId: z.uuid().nullable() })
+  z.strictObject({
+    jobId: z.uuid().nullable(),
+    cell: z
+      .strictObject({ id: z.uuid(), stage: z.string(), status: z.string() })
+      .optional(),
+  })
 );
 
 /**

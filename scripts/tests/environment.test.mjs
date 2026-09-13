@@ -6,6 +6,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync,
+  readFileSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -15,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, it } from 'vitest';
+import { publishLocal } from '../provision/config.mjs';
 
 // Run copies in isolated processes so tests never read the developer's .env or
 // change the test runner's environment. Exercise both source and built layouts.
@@ -106,3 +108,72 @@ it.each([
     expect(result.stderr).not.toContain('not-a-uuid');
   }
 );
+
+it('publishes setup and cell values without moving variables or comments', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'nap-env-publish-'));
+  const envFile = join(directory, '.env');
+  try {
+    const original =
+      '# Admin endpoint\nADMIN_DATABASE_DEV=localhost/old\n\n# Cells\nCELL_DATABASES_DEV={}\n# End\n';
+    writeFileSync(envFile, original);
+    await publishLocal(
+      { envFile },
+      {
+        ADMIN_DATABASE_DEV: 'localhost/nap_dev_admin',
+        CELL_DATABASES_DEV: JSON.stringify({
+          east: 'localhost/nap_dev_cell_east',
+        }),
+      }
+    );
+    const updated = readFileSync(envFile, 'utf8');
+    expect(updated).toBe(
+      original
+        .replace(
+          'ADMIN_DATABASE_DEV=localhost/old',
+          "ADMIN_DATABASE_DEV='localhost/nap_dev_admin'"
+        )
+        .replace(
+          'CELL_DATABASES_DEV={}',
+          `CELL_DATABASES_DEV='{"east":"localhost/nap_dev_cell_east"}'`
+        )
+    );
+    await publishLocal(
+      { envFile },
+      { ADMIN_DATABASE_DEV: 'localhost/nap_dev_admin' }
+    );
+    expect(readFileSync(envFile, 'utf8')).toBe(updated);
+    await publishLocal({ envFile }, { NAP_TEST_ADDED: 'new' });
+    expect(readFileSync(envFile, 'utf8')).toBe(
+      updated + "NAP_TEST_ADDED='new'\n"
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+it('publishes a live cell map despite the API retaining its startup environment', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'nap-live-env-'));
+  const envFile = join(directory, '.env');
+  const previous = process.env.CELL_DATABASES_DEV;
+  try {
+    const first = JSON.stringify({ east: 'localhost/nap_dev_cell_east' });
+    process.env.CELL_DATABASES_DEV = first;
+    writeFileSync(envFile, `# Cells\nCELL_DATABASES_DEV='${first}'\n`);
+    await publishLocal(
+      { envFile, api: true },
+      {
+        CELL_DATABASES_DEV: JSON.stringify({
+          west: 'localhost/nap_dev_cell_west',
+        }),
+      }
+    );
+    expect(readFileSync(envFile, 'utf8')).toBe(
+      `# Cells\nCELL_DATABASES_DEV='${JSON.stringify({ east: 'localhost/nap_dev_cell_east', west: 'localhost/nap_dev_cell_west' })}'\n`
+    );
+    expect(process.env.CELL_DATABASES_DEV).toBe(first);
+  } finally {
+    if (previous === undefined) delete process.env.CELL_DATABASES_DEV;
+    else process.env.CELL_DATABASES_DEV = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

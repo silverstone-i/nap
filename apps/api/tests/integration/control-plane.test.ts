@@ -151,12 +151,13 @@ beforeAll(async () => {
   test = await authDatabase();
   vi.spyOn(logger, 'info').mockImplementation(() => {});
   rootCookie = cookie(await login());
-  await command('registry', {
-    operation: 'cell',
-    code: 'cell-1',
-    name: 'Test cell',
-  });
-  cellId = (await test.admin.db.cells.findOneBy({ code: 'cell-1' }))!.id;
+  if (!(await test.admin.db.cells.findOneBy({ database_name: 'cell-1' })))
+    await test.admin.db.cells.insert({
+      database_name: 'cell-1',
+      enabled: true,
+    });
+  cellId = (await test.admin.db.cells.findOneBy({ database_name: 'cell-1' }))!
+    .id;
   await command('provision', { operation: 'reconcile', cell: cellId });
 }, 30000);
 afterAll(async () => {
@@ -380,12 +381,10 @@ it('refuses suspended tenants, missing assignments and disabled cells on the nex
     t.id,
     cellId,
   ]);
-  await command('registry', {
-    operation: 'cell',
-    code: 'cell-1',
-    name: 'Test cell',
-    enabled: false,
-  });
+  await test.admin.db.cells.update(
+    (await test.admin.db.cells.findOneBy({ database_name: 'cell-1' }))!.id,
+    { enabled: false }
+  );
   expect(
     (
       await request(test.server)
@@ -393,12 +392,10 @@ it('refuses suspended tenants, missing assignments and disabled cells on the nex
         .set('Cookie', c)
     ).status
   ).toBe(401);
-  await command('registry', {
-    operation: 'cell',
-    code: 'cell-1',
-    name: 'Test cell',
-    enabled: true,
-  });
+  await test.admin.db.cells.update(
+    (await test.admin.db.cells.findOneBy({ database_name: 'cell-1' }))!.id,
+    { enabled: true }
+  );
 });
 it('requires explicit support grants and audits impersonation without inheriting platform access', async () => {
   const target = await activeTenant();
@@ -781,12 +778,14 @@ it('audits controlled access as the operator, denies active assignment changes a
     (await test.admin.db.managed_events.findWhere({ event: 'access.end' }))
       .length
   ).toBeGreaterThan(0);
-  await command('registry', {
-    operation: 'cell',
-    code: 'cell-2',
-    name: 'Other cell',
-  });
-  const other = (await test.admin.db.cells.findOneBy({ code: 'cell-2' }))!;
+  if (!(await test.admin.db.cells.findOneBy({ database_name: 'cell-2' })))
+    await test.admin.db.cells.insert({
+      database_name: 'cell-2',
+      enabled: true,
+    });
+  const other = (await test.admin.db.cells.findOneBy({
+    database_name: 'cell-2',
+  }))!;
   expect(
     (
       await request(test.server)

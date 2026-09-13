@@ -2,6 +2,8 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { refreshRenderConnections } from './services/provisioning/render.mjs';
+import { createCellProvisioning } from './services/cellProvisioning.js';
 
 import { createAuthorizationCache } from './db/redis.js';
 import { createCellRegistry } from './services/cellRegistry.js';
@@ -16,6 +18,7 @@ import {
   loadLocalEnvironment,
   resolveCacheConfiguration,
   resolvePort,
+  resolveEnvironment,
   resolveRuntimeConfiguration,
   resolveTrustProxyHops,
 } from './util/env.js';
@@ -44,6 +47,7 @@ process.on('SIGTERM', () => stop(0));
 let listenerFailed = false;
 try {
   loadLocalEnvironment();
+  await refreshRenderConnections(process.env);
   const auth = authConfiguration();
   const port = resolvePort();
   const configuration = resolveRuntimeConfiguration();
@@ -55,27 +59,29 @@ try {
         url: cacheConfiguration.url,
       })
     : undefined;
-  runtime = createRuntime(
-    {
-      admin: createAdminDatabase(configuration.admin, {
-        repositories: adminRepositories,
-        authorizationCache: cache ? { cache, database: 'admin' } : undefined,
-      }),
-      cells: createCellRegistry(
-        new Map(
-          [...configuration.cells].map(([id, url]) => [
-            id,
-            createCellDatabase(url, {
-              pool: { max: 10 },
-              repositories: cellRepositories,
-              authorizationCache: cache ? { cache, database: id } : undefined,
-            }),
-          ])
-        )
-      ),
-    },
-    { trustProxyHops, auth, cache }
-  );
+  const handles = {
+    admin: createAdminDatabase(configuration.admin, {
+      repositories: adminRepositories,
+      authorizationCache: cache ? { cache, database: 'admin' } : undefined,
+    }),
+    cells: createCellRegistry(
+      new Map(
+        [...configuration.cells].map(([id, url]) => [
+          id,
+          createCellDatabase(url, {
+            pool: { max: 10 },
+            repositories: cellRepositories,
+            authorizationCache: cache ? { cache, database: id } : undefined,
+          }),
+        ])
+      )
+    ),
+  };
+  if (resolveEnvironment() !== 'TEST')
+    handles.cells.setProvisioning(
+      createCellProvisioning(handles.admin, handles.cells, { cache })
+    );
+  runtime = createRuntime(handles, { trustProxyHops, auth, cache });
   runtime.server.on('error', () => {
     listenerFailed = true;
     logger.error({ event: 'api.listen_failed' }, 'API failed to listen');

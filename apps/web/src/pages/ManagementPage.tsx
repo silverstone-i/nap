@@ -616,7 +616,7 @@ export function ManagementPage() {
                     .filter(c => c.enabled)
                     .map(c => (
                       <MenuItem key={c.id} value={c.id}>
-                        {c.name}
+                        {c.database_name}
                       </MenuItem>
                     ))}
                 </TextField>
@@ -669,7 +669,7 @@ export function ManagementPage() {
             <Typography>
               Assigned cell:{' '}
               {assignedCell
-                ? `${assignedCell.name} (${assignedCell.enabled ? 'enabled' : 'disabled'})`
+                ? `${assignedCell.database_name} (${assignedCell.enabled ? 'enabled' : 'disabled'})`
                 : 'Unavailable'}
             </Typography>
             {tenant.status === 'pending' && (

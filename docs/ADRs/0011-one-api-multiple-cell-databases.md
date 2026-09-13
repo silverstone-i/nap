@@ -20,3 +20,5 @@ The shared API possesses all configured cell credentials and is a shared failure
 domain. Assignment checks, per-cell roles, transaction-local tenant context and
 RLS protect data. No inter-API HTTP forwarding, live configuration refresh, tenant
 movement, new dependencies or business-controller rewrite is introduced.
+
+Cell provisioning and live-loading amendments: see [ADR 0014](0014-register-cell-provisioning.md).

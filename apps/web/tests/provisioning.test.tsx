@@ -43,7 +43,18 @@ function reply(data: unknown) {
  */
 function fixture(stage = 'pending', ready = false) {
   const data = {
-    cells: [{ id: cell, code: 'cell-1', name: 'First cell', enabled: true }],
+    cellEnvironment: 'DEV',
+    cells: [
+      {
+        id: cell,
+        database_name: 'First cell',
+        available: true,
+        enabled: true,
+        stage: 'enabled',
+        status: 'completed',
+        failure_code: null,
+      },
+    ],
     tenants: [
       {
         id: tenant,

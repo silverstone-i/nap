@@ -68,13 +68,17 @@ export async function authDatabase() {
     } finally {
       await grantDb.close();
     }
+    await owner.none(
+      'GRANT SELECT,INSERT,UPDATE ON admin.cell_provisioning TO $1:name',
+      [fixture.role]
+    );
     const config = authConfiguration(authEnv);
     const root = await bootstrapRoot(
       admin,
       bootstrapConfiguration(authEnv, [])
     );
     const registered = await owner.one<{ id: string }>(
-      "INSERT INTO admin.cells(code,name,enabled) VALUES('cell-1','Fixture cell',true) RETURNING id"
+      "INSERT INTO admin.cells(database_name,enabled) VALUES('cell-1',true) RETURNING id"
     );
     await owner.none(
       'UPDATE admin.tenants SET cell_id=$1,provisioned=true,rbac_ready=true WHERE id=$2',

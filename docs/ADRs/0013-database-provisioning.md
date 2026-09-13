@@ -22,3 +22,5 @@ This supersedes ADR 0012's deferral of complete setup and physical identity chec
 and ADR 0011's deferral of that maintenance workflow. Runtime topology is unchanged.
 Historical ledgers require an explicitly separate transition; this delivery refuses
 them. Production execution is separate from implementing and testing the scripts.
+
+Cell provisioning and live-loading amendments: see [ADR 0014](0014-register-cell-provisioning.md).

@@ -120,13 +120,15 @@ beforeAll(async () => {
     });
   expect(login.status).toBe(200);
   root = cookie(login);
-  cell1 = (await test.admin.db.cells.findOneBy({ code: 'cell-1' }))!.id;
-  await command('registry', {
-    operation: 'cell',
-    code: 'cell-2',
-    name: 'Second cell',
-  });
-  cell2 = (await test.admin.db.cells.findOneBy({ code: 'cell-2' }))!.id;
+  cell1 = (await test.admin.db.cells.findOneBy({ database_name: 'cell-1' }))!
+    .id;
+  if (!(await test.admin.db.cells.findOneBy({ database_name: 'cell-2' })))
+    await test.admin.db.cells.insert({
+      database_name: 'cell-2',
+      enabled: true,
+    });
+  cell2 = (await test.admin.db.cells.findOneBy({ database_name: 'cell-2' }))!
+    .id;
   await command('provision', { operation: 'reconcile', cell: cell1 });
 }, 30000);
 afterAll(async () => {

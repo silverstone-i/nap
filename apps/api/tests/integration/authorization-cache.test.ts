@@ -115,7 +115,9 @@ it('invalidates on tenant and cell changes without deleting old Redis entries', 
       )
     )?.company
   ).toBe('Updated operator');
-  const cell = (await test.admin.db.cells.findOneBy({ code: 'cell-1' }))!;
+  const cell = (await test.admin.db.cells.findOneBy({
+    database_name: 'cell-1',
+  }))!;
   await test.admin.db.cells.update(cell.id, { enabled: false });
   expect(
     (

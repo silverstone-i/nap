@@ -2,9 +2,8 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -12,56 +11,36 @@ import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
-import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import { controlBodySchema } from '@nap/shared';
-import type { controlResponseSchema } from '@nap/shared';
+import type { controlResponseSchema, controlBodySchema } from '@nap/shared';
 import type { z } from 'zod';
-import { command, overview } from '../api/control.js';
 import { requestGeneration } from '../api/lifecycle.js';
+import { command, overview } from '../api/control.js';
 import { useSession } from '../auth/session.js';
 import { defaultRowsPerPage } from '../lib/settings.js';
-import { useShell } from '../shell/scope.js';
 import {
   managementContentStyles,
-  managementFormStyles,
   managementGridStyles,
   managementHeaderStyles,
 } from '../theme/styles.js';
 
-/** Does: Names one validated overview cell. Used by: the Cells list and form. */
+/** Does: Names validated cell rows. Used by: the management list. */
 type Cell = z.infer<typeof controlResponseSchema>['data']['cells'][number];
-
 /**
- * Does: Presents authorized cell registry listing, registration and editing.
- * Called by: the Cells routes under Tenant Management.
+ * Does: Registers cells and shows durable provisioning progress and availability actions.
+ * Called by: the Cells management routes.
  */
 export function CellsPage() {
-  const scope = useShell();
   const { state } = useSession();
-  const location = useLocation();
   const navigate = useNavigate();
-  const [cells, setCells] = useState<Cell[] | null>(null);
-  const [message, setMessage] = useState('');
-  const [loadError, setLoadError] = useState('');
-  const [severity, setSeverity] = useState<'error' | 'success'>('error');
-  const [revision, setRevision] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [rowMenu, setRowMenu] = useState<{
-    anchor: HTMLElement;
-    id: string;
-  } | null>(null);
   const session = state.status === 'ready' ? state.session : null;
   const canView =
     session?.platformPermissions.includes('admin-tenancy::control::overview') ??
@@ -69,459 +48,308 @@ export function CellsPage() {
   const canMutate =
     session?.platformPermissions.includes('admin-tenancy::control::registry') ??
     false;
-
+  const [cells, setCells] = useState<Cell[]>([]);
+  const [environment, setEnvironment] = useState<'DEV' | 'TEST' | 'PROD'>(
+    'TEST'
+  );
+  const [revision, setRevision] = useState(0);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [register, setRegister] = useState(false);
+  const [suffix, setSuffix] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [menu, setMenu] = useState<{ anchor: HTMLElement; cell: Cell } | null>(
+    null
+  );
+  const [disable, setDisable] = useState<Cell | null>(null);
+  const polling = cells.some(cell =>
+    ['queued', 'running'].includes(cell.status ?? '')
+  );
   useEffect(() => {
     if (!canView) return;
     let active = true;
-    void overview().then(result => {
-      if (!active) return;
+    const generation = requestGeneration();
+    /** Does: Refreshes saved progress for the current session. */
+    const load = async () => {
+      const result = await overview();
+      if (!active || generation !== requestGeneration()) return;
       if (result.ok) {
         setCells(result.body.data.cells);
-        setLoadError('');
-      } else {
-        setCells(null);
-        setLoadError(result.error.message);
-      }
-    });
+        setEnvironment(result.body.data.cellEnvironment);
+        setError('');
+      } else setError(result.error.message);
+    };
+    void load();
+    const timer = polling
+      ? setInterval(() => {
+          void load();
+        }, 2000)
+      : undefined;
     return () => {
       active = false;
+      if (timer) clearInterval(timer);
     };
-  }, [revision, canView]);
-
-  /** Does: Updates cell-list URL state while retaining unrelated parameters. */
-  function changeView(values: Record<string, string>, replace = false) {
-    const query = new URLSearchParams(location.search);
-    for (const [key, value] of Object.entries(values)) {
-      if (value) query.set(key, value);
-      else query.delete(key);
+  }, [canView, revision, polling, session?.actorId]);
+  /** Does: Submits one authenticated operation and refreshes saved progress. Called by: registration and row actions. */
+  async function submit(body: z.infer<typeof controlBodySchema>) {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    const generation = requestGeneration();
+    const result = await command(body);
+    if (generation !== requestGeneration()) return;
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error.message);
+      return;
     }
-    void navigate(`${location.pathname}?${query}`, { replace });
+    setRegister(false);
+    setDisable(null);
+    setMenu(null);
+    setSuffix('');
+    setMessage(
+      body.operation === 'cell'
+        ? 'Cell registered. Follow progress below.'
+        : 'Cell action saved.'
+    );
+    setRevision(v => v + 1);
+    void navigate('/management/cells');
   }
-  const columns: GridColDef<Cell>[] = useMemo(
-    () => [
-      { field: 'code', headerName: 'Code', minWidth: 150, flex: 1 },
-      {
-        field: 'name',
-        headerName: 'Name',
-        minWidth: 220,
-        flex: 2,
-        renderCell: params => (
-          <Button
-            component={Link}
-            tabIndex={params.hasFocus ? 0 : -1}
-            to={`/management/cells/${params.row.id}`}
-          >
-            {params.row.name}
-          </Button>
-        ),
-      },
-      {
-        field: 'enabled',
-        headerName: 'Enabled',
-        width: 130,
-        renderCell: params => (
-          <Chip
-            size="small"
-            variant="outlined"
-            color={params.value ? 'success' : 'default'}
-            label={params.value ? 'Enabled' : 'Disabled'}
-          />
-        ),
-      },
-      {
-        field: 'actions',
-        headerName: 'Actions',
-        width: 85,
-        sortable: false,
-        filterable: false,
-        renderCell: params => (
-          <IconButton
-            size="small"
-            tabIndex={params.hasFocus ? 0 : -1}
-            aria-label={`Actions for ${params.row.name}`}
-            aria-haspopup="menu"
-            onClick={event =>
-              setRowMenu({ anchor: event.currentTarget, id: params.row.id })
-            }
-          >
-            <MoreVertIcon />
-          </IconButton>
-        ),
-      },
-    ],
-    []
-  );
-
-  if (scope.create && !canMutate)
-    return <Alert severity="warning">This action is unavailable.</Alert>;
-  if (!canView && !scope.create)
-    return <Alert severity="warning">This action is unavailable.</Alert>;
-  if (canView && !cells)
-    return loadError ? (
-      <Alert severity="error">
-        {loadError}{' '}
-        <Button onClick={() => setRevision(value => value + 1)}>Retry</Button>
-      </Alert>
-    ) : (
-      <Typography role="status">Loading cells…</Typography>
-    );
-  const visibleCells = canView ? (cells ?? []) : [];
-  const selected = visibleCells.find(cell => cell.id === scope.target);
-  if (scope.target && !selected)
-    return <Alert severity="warning">Cell unavailable.</Alert>;
-  if (scope.create || selected)
-    return (
-      <CellForm
-        cell={selected}
-        cells={visibleCells}
-        canView={canView}
-        canMutate={canMutate}
-        busy={busy}
-        message={message}
-        severity={severity}
-        onBusy={setBusy}
-        onMessage={(value, nextSeverity) => {
-          setMessage(value);
-          setSeverity(nextSeverity);
-        }}
-        onSaved={() => setRevision(value => value + 1)}
-      />
-    );
-
-  const size = defaultRowsPerPage();
-  const filtered = visibleCells.filter(
-    cell =>
-      (!scope.status ||
-        (scope.status === 'enabled' && cell.enabled) ||
-        (scope.status === 'disabled' && !cell.enabled)) &&
-      `${cell.code} ${cell.name}`
-        .toLowerCase()
-        .includes(scope.search.toLowerCase())
-  );
-  const page = Math.min(
-    scope.page,
-    Math.max(0, Math.ceil(filtered.length / size) - 1)
-  );
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
-        height: '100%',
-      }}
-    >
-      <Toolbar aria-label="Feature controls" sx={managementHeaderStyles}>
-        <Typography component="h1" variant="h6">
-          Cells
-        </Typography>
-        <TextField
+  /** Does: Copies the exact registered UUID. Called by: the UUID button. */
+  async function copy(id: string) {
+    try {
+      await navigator.clipboard.writeText(id);
+      setMessage('Copied');
+    } catch {
+      setError('Could not copy UUID. Select and copy the displayed text.');
+    }
+  }
+  const columns: GridColDef<Cell>[] = [
+    {
+      field: 'id',
+      headerName: 'Cell UUID',
+      minWidth: 340,
+      flex: 1,
+      renderCell: ({ row }) => (
+        <Button
           size="small"
-          label="Search cells"
-          value={scope.search}
-          onChange={event =>
-            changeView({ q: event.target.value, page: '' }, true)
+          onClick={() => {
+            void copy(row.id);
+          }}
+          sx={{ textTransform: 'none', userSelect: 'text' }}
+          aria-label={`Copy cell UUID ${row.id}`}
+        >
+          {row.id}
+        </Button>
+      ),
+    },
+    {
+      field: 'database_name',
+      headerName: 'Database name',
+      minWidth: 230,
+      flex: 1,
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      minWidth: 220,
+      flex: 1,
+      renderCell: ({ row }) => (
+        <Chip
+          size="small"
+          label={
+            row.status === 'failed'
+              ? `Failed: ${row.stage}`
+              : row.status === 'queued'
+                ? 'Queued'
+                : row.status === 'running'
+                  ? `Provisioning: ${row.stage}`
+                  : row.enabled
+                    ? row.available
+                      ? 'Enabled'
+                      : 'Unavailable'
+                    : 'Disabled'
+          }
+          color={
+            row.status === 'failed'
+              ? 'error'
+              : row.enabled
+                ? 'success'
+                : 'default'
           }
         />
-        <TextField
-          select
-          size="small"
-          label="Status"
-          value={scope.status}
-          sx={{ minWidth: 135 }}
-          onChange={event =>
-            changeView({ status: event.target.value, page: '' })
-          }
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 90,
+      sortable: false,
+      renderCell: ({ row }) => (
+        <IconButton
+          aria-label={`Actions for ${row.database_name}`}
+          onClick={event => setMenu({ anchor: event.currentTarget, cell: row })}
         >
-          <MenuItem value="">All statuses</MenuItem>
-          <MenuItem value="enabled">Enabled</MenuItem>
-          <MenuItem value="disabled">Disabled</MenuItem>
-        </TextField>
-        <Box sx={{ flexGrow: 1 }} />
-        <Button onClick={() => setRevision(value => value + 1)}>
-          Refresh list
-        </Button>
-        {canMutate && (
+          <MoreVertIcon />
+        </IconButton>
+      ),
+    },
+  ];
+  const name = `nap_${environment.toLowerCase()}_cell_${suffix}`;
+  const valid =
+    /^[a-z0-9_]+$/.test(suffix) && name.length <= 63 && environment !== 'TEST';
+  const selected = menu?.cell;
+  const working =
+    selected && ['queued', 'running'].includes(selected.status ?? '');
+  if (!canView)
+    return (
+      <Alert severity="error">You do not have permission to view cells.</Alert>
+    );
+  return (
+    <Box sx={managementContentStyles}>
+      <Box sx={managementHeaderStyles}>
+        <Stack
+          direction="row"
+          spacing={2}
+          sx={{ width: '100%', alignItems: 'center' }}
+        >
+          <Typography variant="h5">Cells</Typography>
+          <TextField
+            size="small"
+            label="Search cells"
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+          />
+          <Box sx={{ flexGrow: 1 }} />
+          <Button onClick={() => setRevision(v => v + 1)}>Refresh list</Button>
+          {canMutate && environment !== 'TEST' && (
+            <Button variant="contained" onClick={() => setRegister(true)}>
+              Register cell
+            </Button>
+          )}
+        </Stack>
+      </Box>
+      {error && <Alert severity="error">{error}</Alert>}
+      {message && (
+        <Alert severity="success" onClose={() => setMessage('')}>
+          {message}
+        </Alert>
+      )}
+      <Box sx={{ ...managementGridStyles, flex: 1, minHeight: 300 }}>
+        <DataGrid
+          rows={cells.filter(c =>
+            `${c.id} ${c.database_name}`.includes(search)
+          )}
+          columns={columns}
+          disableRowSelectionOnClick
+          initialState={{
+            pagination: { paginationModel: { pageSize: defaultRowsPerPage() } },
+          }}
+          pageSizeOptions={[10, 25, 50]}
+        />
+      </Box>
+      <Menu anchorEl={menu?.anchor} open={!!menu} onClose={() => setMenu(null)}>
+        <MenuItem
+          onClick={() => {
+            if (selected?.failure_code) setError(selected.failure_code);
+            else setMessage(`Stage: ${selected?.stage ?? 'registered'}`);
+            setMenu(null);
+          }}
+        >
+          View progress
+        </MenuItem>
+        {canMutate &&
+          selected &&
+          !working &&
+          !selected.enabled &&
+          selected.status !== 'completed' && (
+            <MenuItem
+              onClick={() => {
+                void submit({ operation: 'cell-retry', cell: selected.id });
+              }}
+            >
+              Retry
+            </MenuItem>
+          )}
+        {canMutate &&
+          selected &&
+          !working &&
+          !selected.enabled &&
+          ['seeded', 'enabled'].includes(selected.stage ?? '') && (
+            <MenuItem
+              onClick={() => {
+                void submit({ operation: 'cell-activate', cell: selected.id });
+              }}
+            >
+              Activate
+            </MenuItem>
+          )}
+        {canMutate && selected && !working && selected.enabled && (
+          <MenuItem
+            onClick={() => {
+              setDisable(selected);
+              setMenu(null);
+            }}
+          >
+            Disable
+          </MenuItem>
+        )}
+      </Menu>
+      <Dialog
+        open={register}
+        onClose={() => {
+          if (!busy) setRegister(false);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Register cell</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="normal"
+            label="Cell name suffix"
+            value={suffix}
+            onChange={event => setSuffix(event.target.value)}
+            helperText="Lowercase letters, numbers and underscores."
+          />
+          <Typography>{name}</Typography>
+          <Typography variant="body2">
+            Creation, migrations, reference seeding and activation continue
+            after you close this page.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={busy} onClick={() => setRegister(false)}>
+            Cancel
+          </Button>
           <Button
-            component={Link}
-            to="/management/cells/new"
-            variant="contained"
+            disabled={busy || !valid}
+            onClick={() => {
+              void submit({ operation: 'cell', suffix });
+            }}
           >
             Register cell
           </Button>
-        )}
-      </Toolbar>
-      <Box sx={managementContentStyles}>
-        <Box sx={managementGridStyles}>
-          <DataGrid
-            aria-label="Cells"
-            rows={filtered}
-            columns={columns}
-            disableRowSelectionOnClick
-            disableColumnFilter
-            paginationModel={{ page, pageSize: size }}
-            pageSizeOptions={[size]}
-            onPaginationModelChange={model => {
-              if (model.page !== page)
-                changeView({ page: model.page ? String(model.page) : '' });
-            }}
-            sortModel={
-              columns.some(
-                column =>
-                  column.field === scope.sort && column.sortable !== false
-              )
-                ? [
-                    {
-                      field: scope.sort,
-                      sort: scope.descending ? 'desc' : 'asc',
-                    },
-                  ]
-                : []
-            }
-            onSortModelChange={model =>
-              changeView({
-                sort: model[0]?.field ?? '',
-                direction: model[0]?.sort ?? '',
-                page: '',
-              })
-            }
-            localeText={{
-              noRowsLabel: visibleCells.length
-                ? 'No matching cells.'
-                : 'No cells registered.',
-            }}
-          />
-          <Menu
-            anchorEl={rowMenu?.anchor}
-            open={!!rowMenu}
-            onClose={() => setRowMenu(null)}
-          >
-            <MenuItem
-              component={Link}
-              to={`/management/cells/${rowMenu?.id ?? ''}`}
-              onClick={() => setRowMenu(null)}
-            >
-              {canMutate ? 'Edit cell' : 'View cell'}
-            </MenuItem>
-          </Menu>
-        </Box>
-      </Box>
-    </Box>
-  );
-}
-
-/** Does: Renders and submits one explicit cell create or edit form. Called by: CellsPage record routes. */
-function CellForm({
-  cell,
-  cells,
-  canView,
-  canMutate,
-  busy,
-  message,
-  severity,
-  onBusy,
-  onMessage,
-  onSaved,
-}: {
-  cell: Cell | undefined;
-  cells: Cell[];
-  canView: boolean;
-  canMutate: boolean;
-  busy: boolean;
-  message: string;
-  severity: 'error' | 'success';
-  onBusy: (busy: boolean) => void;
-  onMessage: (message: string, severity: 'error' | 'success') => void;
-  onSaved: () => void;
-}) {
-  const navigate = useNavigate();
-  const mounted = useRef(true);
-  const [code, setCode] = useState(cell?.code ?? '');
-  const [name, setName] = useState(cell?.name ?? '');
-  const [enabled, setEnabled] = useState(cell?.enabled ?? true);
-  const [confirmDisable, setConfirmDisable] = useState(false);
-  const [duplicate, setDuplicate] = useState<Cell | null>(null);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-
-  /** Does: Validates and saves the current cell values after any required confirmation. */
-  async function save() {
-    const parsed = controlBodySchema.safeParse({
-      operation: 'cell',
-      code,
-      name,
-      enabled,
-    });
-    if (!parsed.success || parsed.data.operation !== 'cell') {
-      onMessage('Check the fields and try again.', 'error');
-      return;
-    }
-    const body = parsed.data;
-    if (!cell) {
-      const listed = cells.find(item => item.code === body.code);
-      if (listed) {
-        setDuplicate(listed);
-        return;
-      }
-    }
-    onBusy(true);
-    onMessage('', 'error');
-    const generation = requestGeneration();
-    const result = await command(body);
-    if (!mounted.current || generation !== requestGeneration()) return;
-    onBusy(false);
-    if (result.ok) {
-      onMessage('Cell saved.', 'success');
-      onSaved();
-      if (!cell && canView) await navigate('/management/cells');
-      if (!canView) {
-        setCode('');
-        setName('');
-        setEnabled(true);
-      }
-    } else onMessage(result.error.message, 'error');
-  }
-
-  /** Does: Intercepts form submission to confirm loss of assigned tenant access. */
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (cell?.enabled && !enabled) setConfirmDisable(true);
-    else void save();
-  }
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
-        height: '100%',
-      }}
-    >
-      <Toolbar aria-label="Feature controls" sx={managementHeaderStyles}>
-        <Typography component="h1" variant="h6">
-          {cell ? cell.name : 'Register cell'}
-        </Typography>
-        <Box sx={{ flexGrow: 1 }} />
-        <Button
-          component={Link}
-          to={canView ? '/management/cells' : '/control'}
-        >
-          {canView ? 'All cells' : 'Control panel'}
-        </Button>
-      </Toolbar>
-      <Box sx={managementContentStyles}>
-        {cell && canView && (
-          <Typography sx={{ userSelect: 'all' }}>Cell ID: {cell.id}</Typography>
-        )}
-        {message && <Alert severity={severity}>{message}</Alert>}
-        {duplicate && (
-          <Alert
-            severity="warning"
-            action={
-              <Button
-                component={Link}
-                to={`/management/cells/${duplicate.id}`}
-                color="inherit"
-              >
-                Edit cell
-              </Button>
-            }
-          >
-            Cell code {duplicate.code} is already registered.
-          </Alert>
-        )}
-        {canMutate ? (
-          <Stack
-            component="form"
-            spacing={2}
-            sx={managementFormStyles}
-            onSubmit={submit}
-          >
-            <TextField
-              label="Cell code"
-              value={code}
-              onChange={event => {
-                setCode(event.target.value);
-                setDuplicate(null);
-              }}
-              slotProps={{ htmlInput: { maxLength: 64 } }}
-              helperText="Use a stable, readable identifier for the cell."
-              required
-              disabled={!!cell}
-            />
-            <TextField
-              label="Cell name"
-              value={name}
-              onChange={event => setName(event.target.value)}
-              slotProps={{ htmlInput: { maxLength: 128 } }}
-              required
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={enabled}
-                  onChange={event => setEnabled(event.target.checked)}
-                />
-              }
-              label="Enabled"
-            />
-            {!cell && (
-              <Typography variant="body2" color="text.secondary">
-                Registering a cell records configured infrastructure; it does
-                not start or deploy the cell.
-              </Typography>
-            )}
-            <Stack direction="row" spacing={1}>
-              <Button type="submit" variant="contained" disabled={busy}>
-                Save
-              </Button>
-              <Button
-                component={Link}
-                to={canView ? '/management/cells' : '/control'}
-                disabled={busy}
-              >
-                Cancel
-              </Button>
-            </Stack>
-          </Stack>
-        ) : (
-          <Stack spacing={2} sx={managementFormStyles}>
-            <Typography>
-              <strong>Code:</strong> {cell?.code}
-            </Typography>
-            <Typography>
-              <strong>Name:</strong> {cell?.name}
-            </Typography>
-            <Chip
-              sx={{ alignSelf: 'flex-start' }}
-              label={cell?.enabled ? 'Enabled' : 'Disabled'}
-              color={cell?.enabled ? 'success' : 'default'}
-              variant="outlined"
-            />
-          </Stack>
-        )}
-      </Box>
-      <Dialog open={confirmDisable} onClose={() => setConfirmDisable(false)}>
-        <DialogTitle>Disable {cell?.name}?</DialogTitle>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={!!disable} onClose={() => setDisable(null)}>
+        <DialogTitle>Disable {disable?.database_name}?</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Assigned tenants will lose access while this cell is disabled.
-          </DialogContentText>
+          Assigned tenants will lose access while this cell is disabled.
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDisable(false)}>Cancel</Button>
+          <Button onClick={() => setDisable(null)}>Cancel</Button>
           <Button
-            color="error"
+            disabled={busy}
             onClick={() => {
-              setConfirmDisable(false);
-              void save();
+              if (disable)
+                void submit({ operation: 'cell-disable', cell: disable.id });
             }}
           >
-            Disable cell
+            Disable
           </Button>
         </DialogActions>
       </Dialog>

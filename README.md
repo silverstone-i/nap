@@ -57,10 +57,6 @@ Render settings, recovery, and activation.
 npm run db:setup:admin -- --env dev
 npm run db:migrate:admin -- --env dev
 npm run db:bootstrap -- --env dev
-npm run db:setup:cell -- --env dev --cell-name east
-npm run db:migrate:cell -- --env dev --cell-id <returned-uuid>
-npm run db:seed:cell -- --env dev --cell-id <returned-uuid>
-npm run db:activate:cell -- --env dev --cell-id <returned-uuid>
 ```
 
 Setup creates infrastructure; migrations create application tables; admin bootstrap
@@ -140,7 +136,7 @@ Start with `CELL_DATABASES_DEV={}` for admin-only API configuration. Register
 cells in Management → Cells and copy each UUID from its detail page. Add each
 UUID and its credential-free endpoint to CELL_DATABASES_DEV. DEV and TEST use
 NAP_APP_PSWD_* and NAP_ADMIN_PSWD_*; PROD entries contain their own passwords.
-Connection-map changes require restart. Recovery of an already configured cell
+Register cell persists and loads new connections without restarting. Recovery of an already configured cell
 still uses independent readiness probes.
 
 Existing setup, migration, and reset commands require an explicit --cell-id;
@@ -161,3 +157,5 @@ CELL_API_ORIGINS. Obsolete settings fail with key-only diagnostics.
 Production configuration updates and deployment are separate authorized operations.
 See the [configuration plan](docs/implementation-plans/environment-configuration.md)
 and [multi-cell plan](docs/implementation-plans/multi-cell-api.md).
+
+Create cells through **Management → Cells → Register cell**. The server provisions, migrates, seeds and activates without restarting. TEST fixtures use the shared service directly. See [database provisioning](docs/guides/database-provisioning.md).

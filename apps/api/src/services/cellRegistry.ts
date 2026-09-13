@@ -2,6 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import type { CellProvisioning } from './cellProvisioning.js';
 import { cellRepositories } from '../db/cell/repositories.js';
 import type { CellHandle } from '../db/cell/repositories.js';
 import type { AdminHandle } from '../db/admin/repositories.js';
@@ -28,6 +29,9 @@ export function createCellRegistry(
       return [id, entry] as const;
     })
   );
+  const liveHandles = new Map(handles);
+  const listeners: Array<(id: string, handle: CellHandle) => void> = [];
+  let provisioning: CellProvisioning | undefined;
   let stopped = false;
   let inFlight: Promise<void> | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -84,8 +88,72 @@ export function createCellRegistry(
     if (timer) clearInterval(timer);
     for (const entry of entries.values()) entry.probe.stop();
   }
+  /** Does: Installs a verified pool and its routers after startup. Called by: provisioning. */
+  async function add(id: string, handle: CellHandle, admin: AdminHandle) {
+    if (stopped) {
+      await handle.close();
+      throw new Error('Registry is stopping');
+    }
+    if (entries.has(id)) {
+      await handle.close();
+      return get(id);
+    }
+    let probe: ReturnType<typeof createReadiness> | undefined;
+    try {
+      const row = await admin.db.cells.findById(id);
+      if (!row) throw new Error('Unknown registered cell');
+      const identity = await handle.one<{
+        id: string;
+        database_name: string;
+        actual: string;
+      }>(
+        'SELECT id,database_name,current_database() AS actual FROM cell.physical_identity'
+      );
+      if (
+        identity.id !== id ||
+        identity.actual !== row.database_name ||
+        identity.database_name !== row.database_name
+      )
+        throw new Error('Cell identity differs');
+      const relations = Object.keys(cellRepositories).map(key => {
+        const model = handle.db[key as keyof typeof cellRepositories];
+        return `"${model.schema.dbSchema}"."${model.schema.table}"`;
+      });
+      probe = createReadiness([handle], timeoutMs, 1, relations);
+      if (!(await probe.check())) {
+        probe.stop();
+        throw new Error('Cell runtime readiness failed');
+      }
+      if (stopped) throw new Error('Registry is stopping');
+      for (const listener of listeners) listener(id, handle);
+      entries.set(id, { handle, probe, ready: true, checked: true });
+      liveHandles.set(id, handle);
+      return handle;
+    } catch (error) {
+      probe?.stop();
+      await handle.close();
+      throw error;
+    }
+  }
+  /** Does: Registers router construction for newly loaded pools. Called by: route composition. */
+  function onAdd(listener: (id: string, handle: CellHandle) => void) {
+    listeners.push(listener);
+  }
   return {
-    handles: new Map(handles) as ReadonlyMap<string, CellHandle>,
+    handles: liveHandles as ReadonlyMap<string, CellHandle>,
+    add,
+    onAdd,
+    get provisioning() {
+      return provisioning;
+    },
+    /** Does: Attaches the API-owned runner. Called by: server composition and fixtures. */
+    setProvisioning(value: CellProvisioning) {
+      provisioning = value;
+    },
+    /** Does: Reports whether the registered pool passed its latest probe. Called by: management overview. */
+    isReady(id: string) {
+      return entries.get(id)?.ready ?? false;
+    },
     get,
     check,
     start,

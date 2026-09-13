@@ -13,6 +13,10 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Changed
 
+- Register cells through management with resumable provisioning, progress and retry
+  actions, and live activation without an API restart. Replace cell maintenance
+  commands with this workflow and identify cells by UUID and database name.
+
 - Separate database setup, migrations, root bootstrap, cell reference seeding, and
   activation with explicit environments, descriptive cell names, resumable Render
   provisioning, physical identity checks, and a consolidated empty-admin baseline.

@@ -1,10 +1,11 @@
-import { resolveEnvironment } from '../../../../util/env.js';
-import { physicalIdentity } from '../../../cell-tenancy/verifyProvisioning.js';
-import { referenceReady } from '../../../reference-data/seed.js';
 /*
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { resolveEnvironment } from '../../../../util/env.js';
+import { physicalIdentity } from '../../../cell-tenancy/verifyProvisioning.js';
+import { referenceReady } from '../../../reference-data/seed.js';
+
 import {
   platformRoleChangeSchema,
   platformAccessSchema,
@@ -174,7 +175,26 @@ export default function controlRouter(
             );
             return {
               version: transportVersion,
-              data: { jobId: jobId ?? null },
+              data: {
+                jobId: jobId ?? null,
+                ...([
+                  'cell',
+                  'cell-retry',
+                  'cell-activate',
+                  'cell-disable',
+                ].includes(input.body.operation) && jobId
+                  ? {
+                      cell: await tx.one<{
+                        id: string;
+                        stage: string;
+                        status: string;
+                      }>(
+                        'SELECT cell_id AS id,stage,status FROM admin.cell_provisioning WHERE cell_id=$1',
+                        [jobId]
+                      ),
+                    }
+                  : {}),
+              },
             };
           },
         });
@@ -235,7 +255,14 @@ export default function controlRouter(
             input.session.operatorId ?? input.session.actorId,
             'overview'
           );
-          return { version: transportVersion, data: await controlOverview(tx) };
+          return {
+            version: transportVersion,
+            data: {
+              ...(await controlOverview(tx, cells)),
+              cellEnvironment:
+                cells.provisioning?.environment ?? resolveEnvironment(),
+            },
+          };
         },
       });
     },

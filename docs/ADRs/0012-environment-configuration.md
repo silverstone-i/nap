@@ -24,3 +24,5 @@ registry and physical identity verification remain separate delivery work.
 
 This supersedes complete-URL configuration described with ADR 0011 without
 changing its API topology, pool lifecycle, or tenant dispatch decision.
+
+Cell provisioning and live-loading amendments: see [ADR 0014](0014-register-cell-provisioning.md).

@@ -189,31 +189,24 @@ it('limits support forms to explicit permissions', async () => {
   expect(screen.queryByText('Platform permissions')).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
-it('submits cell registration and refreshes provisioning status', async () => {
+it('directs cell registration to the Cells page', async () => {
   fetchMock.mockImplementation(url =>
     String(url).endsWith('/session')
       ? respond({ ...base, platformPermissions: [...platformPermissions] })
       : String(url).endsWith('/overview')
-        ? respond({ cells: [], tenants: [], members: [], jobs: [], grants: [] })
+        ? respond({
+            cellEnvironment: 'DEV',
+            cells: [],
+            tenants: [],
+            users: [],
+            members: [],
+            jobs: [],
+            grants: [],
+          })
         : respond({ jobId: null })
   );
   mount('/control');
-  fireEvent.change(
-    await screen.findByLabelText('Cell code', { exact: false }),
-    { target: { value: 'cell-1' } }
-  );
-  fireEvent.change(screen.getByLabelText('Cell name', { exact: false }), {
-    target: { value: 'First cell' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Save cell' }));
-  await screen.findByText(
-    'Saved. Check provisioning status before activation.'
-  );
-  expect(
-    fetchMock.mock.calls.some(
-      ([url, init]) =>
-        String(url).endsWith('/registry') &&
-        String(init?.body).includes('First cell')
-    )
-  ).toBe(true);
+  const link = await screen.findByRole('link', { name: 'Manage cells' });
+  expect(link.getAttribute('href')).toBe('/management/cells');
+  expect(screen.queryByLabelText('Cell code')).toBeNull();
 });

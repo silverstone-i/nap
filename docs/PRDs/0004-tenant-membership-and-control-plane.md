@@ -1,7 +1,7 @@
 # 0004 — Tenant membership and control plane
 
 **Design:** Accepted (owner approved, 2026-09-08).
-**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing, including TEN-008/TEN-009. The one-cell baseline was verified by PR #15.
+**Implementation:** Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing, including TEN-008/TEN-009. The one-cell baseline was verified by PR #15. TEN-010 Register cell changes are implemented and validated locally, not shipped; see the [delivery evidence](../implementation-plans/database-provisioning.md).
 
 ## Authority
 
@@ -14,7 +14,7 @@ ADR 0006 records central platform authority. PRD 0005 owns linked Core records.
 - **TEN-001 Registry.** Tenants retain pending/active/suspended status and gain
   starter/growth/enterprise tier (existing default starter) and a cell assignment.
   Activation requires its registered assigned cell. Active tenant assignment
-  changes are refused. Cell rows contain a code, display name, and active flag,
+  changes are refused. Cell rows contain a UUID, database name, and enabled flag,
   never credentials. Operator-only contracts may identify these records.
 - **TEN-002 Membership.** Bindings carry employee/client/vendor type and a Core
   record id; root alone has neither. Serialize each identity's membership changes.
@@ -79,7 +79,7 @@ SELECT/INSERT only. Frozen migrations own constraint names and executable DDL.
 | `portal_users`        | `must_change_password boolean` (false)                                                                                                                            |
 | `portal_user_tenants` | nullable `user_type text` and `entity_id uuid` (root exception), `ready boolean` (false), `revision integer` (1); unique live tenant/record binding               |
 | `sessions`            | nullable selected `tenant_id`; nullable `access_mode`, `effective_user_id` FK portal_users, and `access_reason`; original reference and expiry contract retained  |
-| `cells`               | `code text`, `name text`, `enabled boolean`; unique live code                                                                                                     |
+| `cells`               | `database_name text`, `enabled boolean`; unique live database name                                                                                                |
 | `platform_grants`     | `portal_user_id` FK portal_users, `role` package_admin/support, route `permission`; unique live identity/permission                                               |
 | `provisioning_jobs`   | tenant and membership FKs, preallocated record and optional vendor IDs, kind employee/client/vendor, stage pending/complete/failed and nullable safe failure code |
 | `managed_events`      | operator ID, optional effective-user/target/session IDs, event and reason; immutable creation record                                                              |
@@ -259,12 +259,17 @@ no credentials or cell addresses are added to customer contracts.
 **Design:** Accepted by owner, 2026-09-11. New implementation evidence is tracked
 in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
 
-Authorized operators can register configured cells and edit their display name
-and enabled state. Codes identify existing records and are read-only on edit.
-Creation detects codes already in the overview and directs the operator to edit.
-Disabling requires confirmation explaining loss of assigned tenant access.
-Overview permission controls viewing; registry permission controls mutations.
-Registration does not deploy infrastructure or establish operational readiness.
+Authorized operators register a suffix and see its full environment-specific database
+name. Register commits a disabled cell and durable operation, then provisions,
+migrates, seeds, persists configuration, loads the pool and routers, and activates.
+The Cells page displays copyable UUID, database name, status, and state-dependent
+Retry/Activate/Disable actions. No code or editable label remains. Registry permission
+controls mutations; overview permission controls viewing. The server selects DEV/PROD;
+TEST is available only through the shared service for fixtures. Browser closure does
+not cancel work; retry resumes the same UUID and saved stages. Disable requires a
+confirmation explaining assigned tenant access loss. Progress and safe errors are
+visible through overview. The specification's provisioning contract owns credentials,
+physical identity, recovery, and live pool lifecycle (ADR 0014).
 
 Tenant creation offers enabled cells only and links to cell setup when none exist.
 Existing employee provisioning and activation use TEN-006/TEN-009 and PRD 0006:
@@ -298,3 +303,5 @@ is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabl
 through registry edits before activation has verified the running API.
 
 Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.
+
+Revision 2026-09-13: owner approved full Register cell workflow and UUID/database-name interface. Implementation in progress.

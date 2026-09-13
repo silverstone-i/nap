@@ -138,7 +138,7 @@ Admin readiness gates the listener and /health/ready. Every cell has bounded,
 non-overlapping readiness probes at startup and every 30 seconds, checking
 connectivity, safe runtime roles and required relations. An unavailable or unsafe
 cell is quarantined; healthy cells and admin continue. Recovery needs no restart.
-Changes to the connection map require restart. Shutdown drains HTTP before closing
+Verified provisioning adds pools and bound routers without restart (ADR 0014). Shutdown drains HTTP before closing
 all pools. Runtime registers repositories; release migrations create tables.
 
 ## Authenticated request flow
@@ -1285,51 +1285,49 @@ be stored in tenant or cell rows, returned to clients, or written to logs.
 
 ### Database provisioning
 
-Database names are `nap_<dev|test|prod>_admin` and
-`nap_<dev|test|prod>_cell_<name>`. Cell names are explicit lowercase alphanumeric/
-underscore suffixes, unique in an environment, with no sequence requirement.
-UUIDs are application identities. Every operator command requires an explicit
-`--env dev|test|prod`; cell migration, seeding, and activation require `--cell-id`.
-Setup, migration, admin bootstrap, cell seeding, and activation are separate steps.
-Setup owns database/role creation; migrations never create missing databases.
+Register cell in management owns creation, migrations, reference seeding, connection
+publication, live loading, verification and activation in one resumable operation.
+One API serves multiple UUID-keyed cell databases. The server selects DEV or PROD;
+the management endpoint rejects TEST. The shared service supports TEST for isolated
+fixtures, using the same local PostgreSQL adapter with TEST credentials and names.
+Database names are `nap_<dev|test|prod>_cell_<suffix>`; suffixes contain lowercase
+letters, digits or underscores and the full name is at most 63 characters.
+Cells contain UUID, database name and enabled state; separate code/display names
+are removed. Tenant assignments and routing use UUIDs.
 
-Register disabled cells before physical creation. Persist expected targets and
-provisioning progress without secrets. A setup-owned immutable identity record
-binds each physical database to the registered UUID and environment before its
-application migrations. Existing unnamed or mismatched resources are not adopted.
-Retries resume durable intent, preserving resources and passwords. Render production
-uses one independent instance per database and reconciles uncertain create results.
-Activation publishes runtime-only configuration and enables a cell only after the
-running API verifies its identity, migrations, reference seeds, and readiness.
+Persist disabled registration and operation identity before resource creation.
+The API runs one durable operation at a time; browser closure does not cancel it.
+Retries and startup recovery retain UUIDs, credentials, resources and completed
+stages. Reconcile uncertain creates before retrying. Physical identity binds UUID,
+environment, database name and operation ID before migrations. Enable only after
+runtime permissions, identity, migrations and reference seeds pass verification.
+Failures remain disabled with safe stage-specific diagnostics. No implicit drops,
+password rotation, or adoption of unrelated databases is permitted.
 
-Admin bootstrap creates root identity/tenant/membership without requiring a cell.
-Cell seeding supplies shared countries and currencies; tenant provisioning supplies
-tenant-scoped RBAC seeds. Reference catalogs use their ISO codes as primary keys
-(an explicit exception to generic UUID identity); their maintenance seed ledger is
-infrastructure metadata. Neither is tenant-owned. Test fixtures own test data.
+Admin setup, migration and bootstrap remain CLI operations. Cell CLI operations
+are replaced by the management workflow and directly callable test service.
+Admin bootstrap does not require a cell. Cell seeding supplies countries and
+currencies; tenant provisioning supplies tenant-scoped RBAC seeds.
 
 ### Environment configuration
 
-The API environment file has Development (including isolated TEST settings),
-Production, and Common sections. NODE_ENV selects DEV, TEST, or PROD; inherited
-process variables take precedence over the local file. Only the selected
-operation's credentials are required.
+Configuration retains Development, isolated TEST, Production and Common sections.
+NODE_ENV selects the environment; inherited values take precedence. DEV/TEST
+connections combine credential-free SETUP_DATABASE endpoints with fixed nap_admin
+usernames and their environment-specific passwords. nap_admin has LOGIN, CREATEDB
+and CREATEROLE and performs setup and maintenance. nap_app has minimal runtime
+grants without creation privileges, elevated flags, memberships or ownership.
+Production credentials are independently managed per database in Render secrets.
+The API's provisioning service may read maintenance and Render credentials on the
+server; they must never enter browser responses, logs or database metadata.
 
-Development and test each use shared passwords for fixed PostgreSQL roles
-`nap_app` (runtime) and `nap_admin` (maintenance), with separate test targets.
-Production uses independent passwords per independently hosted database.
-Database endpoints exclude credentials; code combines endpoints with the selected
-role and password. Cells remain keyed by registered UUID. Runtime deployment
-configuration omits maintenance passwords. New role passwords are independently
-generated with `openssl rand -hex 32`; configuration conversion does not rotate them.
-
-Session/throttle secrets, bootstrap inputs, Redis settings, cookies, and proxy
-trust settings are environment-specific. Session durations, hashing parameters,
-logging level, NODE_ENV, and process PORT are common. Configuration is loaded at
-startup; changing it requires restart. UUID selection in a maintenance command
-is not proof of registration or physical database identity; the provisioning scripts
-perform those checks under the Database provisioning contract. See ADR 0012 for rationale and
-`apps/api/.env.example` for the variable inventory.
+Persist DEV connection changes in .env and PROD changes in Render service variables
+without deploying. Pass newly prepared values directly to the live registry; future
+restarts load the persisted values. TEST uses only fixture-owned configuration and
+disposable PostgreSQL. Preserve dotenv variable order, comments and spacing so
+.env and .env.example differ only in values. No operator-cookie forwarding is used.
+Runtime pools and their bound routers may be added by verified provisioning after
+startup. Recovery and shutdown cover every pool, including dynamically added ones.
 
 ### ARCH-009 — Cell connectivity boundary
 
@@ -1825,3 +1823,9 @@ Revision, 2026-09-11: Owner accepted one API serving multiple UUID-keyed cell da
 Revision, 2026-09-12: Owner approved component-based environment configuration, shared local and independent production database credentials (ADR 0012).
 
 Revision 2026-09-12: approved explicit-name provisioning, identity verification, separate activation and seeding, and empty-admin baseline replacement.
+
+Revision 2026-09-12: clarified the owner-approved two-role setup contract, component-based local setup connection, and dotenv inventory parity.
+
+Revision 2026-09-12: clarified full database names for setup-created cell codes and initial display names.
+
+Revision 2026-09-13: approved Register cell provisioning, live loading, UUID/database-name records and isolated TEST service support (ADR 0014).

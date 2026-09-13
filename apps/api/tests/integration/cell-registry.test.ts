@@ -6,6 +6,7 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import request from 'supertest';
 import { controlResponseSchema } from '@nap/shared';
 import { authDatabase, authEnv } from '../fixtures/authDatabase.js';
+import { createCellProvisioning } from '../../src/services/cellProvisioning.js';
 import { hashPassword } from '../../src/util/password.js';
 
 let test: Awaited<ReturnType<typeof authDatabase>>;
@@ -32,6 +33,12 @@ async function overview() {
 
 beforeAll(async () => {
   test = await authDatabase();
+  test.cells.setProvisioning(
+    createCellProvisioning(test.admin, test.cells, {
+      environment: 'DEV',
+      env: {},
+    })
+  );
   rootCookie = cookie(
     await request(test.server)
       .post(auth + '/login')
@@ -51,16 +58,16 @@ afterAll(async () => {
   await test?.cleanup();
 }, 30000);
 
-it('registers and edits cells from an empty registry within the registry permission boundary', async () => {
+it('registers and deduplicates cell jobs within the registry permission boundary', async () => {
   expect((await overview()).cells).toEqual([]);
 
   const register = await request(test.server)
     .post(control + '/registry')
     .set('Cookie', rootCookie)
-    .send({ operation: 'cell', code: 'cell-1', name: 'Initial cell' });
+    .send({ operation: 'cell', suffix: 'east' });
   expect(register.status, JSON.stringify(register.body)).toBe(200);
   expect((await overview()).cells).toMatchObject([
-    { code: 'cell-1', name: 'Initial cell', enabled: true },
+    { database_name: 'nap_dev_cell_east', enabled: false, status: 'queued' },
   ]);
 
   await request(test.server)
@@ -68,13 +75,11 @@ it('registers and edits cells from an empty registry within the registry permiss
     .set('Cookie', rootCookie)
     .send({
       operation: 'cell',
-      code: 'cell-1',
-      name: 'Disabled cell',
-      enabled: false,
+      suffix: 'east',
     })
     .expect(200);
   expect((await overview()).cells).toMatchObject([
-    { code: 'cell-1', name: 'Disabled cell', enabled: false },
+    { database_name: 'nap_dev_cell_east', enabled: false, status: 'queued' },
   ]);
 
   const email = 'registry-operator@nap.test';
@@ -106,9 +111,7 @@ it('registers and edits cells from an empty registry within the registry permiss
     .set('Cookie', operatorCookie)
     .send({
       operation: 'cell',
-      code: 'cell-1',
-      name: 'Enabled cell',
-      enabled: true,
+      suffix: 'east',
     })
     .expect(200);
   await request(test.server)
@@ -116,7 +119,7 @@ it('registers and edits cells from an empty registry within the registry permiss
     .set('Cookie', operatorCookie)
     .expect(403);
   expect((await overview()).cells).toMatchObject([
-    { code: 'cell-1', name: 'Enabled cell', enabled: true },
+    { database_name: 'nap_dev_cell_east', enabled: false, status: 'queued' },
   ]);
 
   await test.admin.db.support_policy.update(policy.id, {
@@ -127,12 +130,30 @@ it('registers and edits cells from an empty registry within the registry permiss
     .set('Cookie', operatorCookie)
     .send({
       operation: 'cell',
-      code: 'cell-1',
-      name: 'Forbidden edit',
-      enabled: false,
+      suffix: 'forbidden',
     })
     .expect(403);
   expect((await overview()).cells).toMatchObject([
-    { code: 'cell-1', name: 'Enabled cell', enabled: true },
+    { database_name: 'nap_dev_cell_east', enabled: false, status: 'queued' },
   ]);
+});
+
+it('rejects client-selected environment and TEST management execution', async () => {
+  await request(test.server)
+    .post(control + '/registry')
+    .set('Cookie', rootCookie)
+    .send({ operation: 'cell', suffix: 'east', environment: 'PROD' })
+    .expect(400);
+  test.cells.setProvisioning(
+    createCellProvisioning(test.admin, test.cells, {
+      environment: 'TEST',
+      env: {},
+    })
+  );
+  await request(test.server)
+    .post(control + '/registry')
+    .set('Cookie', rootCookie)
+    .send({ operation: 'cell', suffix: 'test' })
+    .expect(400);
+  expect((await overview()).cells).toHaveLength(1);
 });

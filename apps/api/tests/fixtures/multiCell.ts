@@ -55,8 +55,7 @@ export async function multiCell(
       await owner2.close();
     }
     const second = await base.admin.db.cells.insert({
-      code: 'cell-2',
-      name: 'Second cell',
+      database_name: 'cell-2',
       enabled: true,
     });
     for (const [url, role] of [
