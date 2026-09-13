@@ -306,9 +306,18 @@ it('enters explicit controlled employee access from the provisioning record', as
             status: 'active',
             cell_id: null,
             provisioned: true,
+            archived: false,
           },
         ],
-        users: [{ id: actor, email: view.email, status: 'active' }],
+        users: [
+          {
+            id: actor,
+            email: view.email,
+            status: 'active',
+            archived: false,
+            must_change_password: false,
+          },
+        ],
         members: [
           {
             id: other,
@@ -316,6 +325,7 @@ it('enters explicit controlled employee access from the provisioning record', as
             tenant_id: tenant,
             status: 'active',
             user_type: 'employee',
+            archived: false,
             ready: true,
             entity_id: actor,
           },
@@ -509,6 +519,7 @@ function managementFixture(
             status: 'active',
             cell_id: other,
             provisioned: true,
+            archived: false,
           },
           {
             id: other,
@@ -518,9 +529,18 @@ function managementFixture(
             status: 'pending',
             cell_id: other,
             provisioned: false,
+            archived: false,
           },
         ],
-        users: [{ id: actor, email: view.email, status: 'active' }],
+        users: [
+          {
+            id: actor,
+            email: view.email,
+            status: 'active',
+            archived: false,
+            must_change_password: false,
+          },
+        ],
         members: [
           {
             id: other,
@@ -528,6 +548,7 @@ function managementFixture(
             tenant_id: tenant,
             status: 'active',
             user_type: 'employee',
+            archived: false,
             ready: true,
             entity_id: actor,
           },
@@ -554,7 +575,9 @@ it('filters management grids through URL state and keeps actions focused on the 
   await screen.findByRole('grid', { name: 'Tenants' });
   expect(screen.queryByRole('navigation', { name: 'Breadcrumbs' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Operator utilities' })).toBeNull();
-  expect(screen.queryByRole('checkbox')).toBeNull();
+  expect(
+    screen.getByRole('checkbox', { name: 'Select all rows' })
+  ).toBeDefined();
   const search = screen.getByRole('textbox', { name: 'Search tenants' });
   fireEvent.change(search, { target: { value: 'Other' } });
   expect(router.state.location.search).toContain('q=Other');

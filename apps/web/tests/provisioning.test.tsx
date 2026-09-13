@@ -64,9 +64,18 @@ function fixture(stage = 'pending', ready = false) {
         status: 'pending',
         cell_id: cell,
         provisioned: false,
+        archived: false,
       },
     ],
-    users: [{ id: actor, email: 'employee@nap.test', status: 'active' }],
+    users: [
+      {
+        id: actor,
+        email: 'employee@nap.test',
+        status: 'active',
+        archived: false,
+        must_change_password: false,
+      },
+    ],
     members: [
       {
         id: member,
@@ -74,6 +83,7 @@ function fixture(stage = 'pending', ready = false) {
         tenant_id: tenant,
         status: 'active',
         user_type: 'employee',
+        archived: false,
         ready,
         entity_id: actor,
       },

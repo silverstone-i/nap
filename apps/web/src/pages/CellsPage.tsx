@@ -12,6 +12,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -59,6 +60,10 @@ export function CellsPage() {
   const [register, setRegister] = useState(false);
   const [suffix, setSuffix] = useState('');
   const [busy, setBusy] = useState(false);
+  const [copyNotice, setCopyNotice] = useState<{
+    id: string;
+  } | null>(null);
+  const [progressCell, setProgressCell] = useState<Cell | null>(null);
   const [menu, setMenu] = useState<{ anchor: HTMLElement; cell: Cell } | null>(
     null
   );
@@ -120,10 +125,26 @@ export function CellsPage() {
   async function copy(id: string) {
     try {
       await navigator.clipboard.writeText(id);
-      setMessage('Copied');
+      setCopyNotice({ id });
+      setTimeout(() => {
+        setCopyNotice(current => (current?.id === id ? null : current));
+      }, 1500);
     } catch {
       setError('Could not copy UUID. Select and copy the displayed text.');
     }
+  }
+  function nextActionHint(cell?: Cell | null) {
+    if (!cell) return 'Select a cell to view updated progress guidance.';
+    if (cell.status === 'failed')
+      return cell.failure_code
+        ? `Resolve ${cell.failure_code} and retry the provisioning job.`
+        : 'Resolve the provisioning issue and retry.';
+    if (cell.status === 'queued' || cell.status === 'running')
+      return 'Provisioning is active; retry is unavailable.';
+    if (!cell.enabled)
+      return 'Enable the cell and run registration/activation steps.';
+    if (!cell.available) return 'Cell is registered but unavailable.';
+    return 'Cell is enabled and available.';
   }
   const columns: GridColDef<Cell>[] = [
     {
@@ -132,16 +153,23 @@ export function CellsPage() {
       minWidth: 340,
       flex: 1,
       renderCell: ({ row }) => (
-        <Button
-          size="small"
-          onClick={() => {
-            void copy(row.id);
-          }}
-          sx={{ textTransform: 'none', userSelect: 'text' }}
-          aria-label={`Copy cell UUID ${row.id}`}
-        >
-          {row.id}
-        </Button>
+        <Stack spacing={0.5}>
+          <Button
+            size="small"
+            onClick={() => {
+              void copy(row.id);
+            }}
+            sx={{ textTransform: 'none', userSelect: 'text' }}
+            aria-label={`Copy cell UUID ${row.id}`}
+          >
+            {row.id}
+          </Button>
+          {copyNotice?.id === row.id && (
+            <Typography variant="caption" color="success.main">
+              Copied
+            </Typography>
+          )}
+        </Stack>
       ),
     },
     {
@@ -252,12 +280,11 @@ export function CellsPage() {
       <Menu anchorEl={menu?.anchor} open={!!menu} onClose={() => setMenu(null)}>
         <MenuItem
           onClick={() => {
-            if (selected?.failure_code) setError(selected.failure_code);
-            else setMessage(`Stage: ${selected?.stage ?? 'registered'}`);
+            setProgressCell(selected ?? null);
             setMenu(null);
           }}
         >
-          View progress
+          View progress details
         </MenuItem>
         {canMutate &&
           selected &&
@@ -351,6 +378,39 @@ export function CellsPage() {
           >
             Disable
           </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={!!progressCell}
+        onClose={() => setProgressCell(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Cell progress</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1}>
+            <Typography>
+              <strong>UUID:</strong> {progressCell?.id}
+            </Typography>
+            <Typography>
+              <strong>Status:</strong>{' '}
+              {progressCell?.status
+                ? progressCell.status.toUpperCase()
+                : 'Not started'}
+            </Typography>
+            <Typography>
+              <strong>Stage:</strong> {progressCell?.stage ?? 'registered'}
+            </Typography>
+            <Typography>
+              <strong>Failure code:</strong>{' '}
+              {progressCell?.failure_code ?? 'None'}
+            </Typography>
+            <Divider />
+            <Typography>{nextActionHint(progressCell)}</Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProgressCell(null)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

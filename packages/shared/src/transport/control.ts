@@ -49,6 +49,22 @@ export const controlBodySchema = z.discriminatedUnion('operation', [
     cell: z.uuid(),
   }),
   z.strictObject({
+    operation: z.literal('tenant-rename'),
+    target: z.uuid(),
+    name: z.string().trim().min(1).max(128),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('tenant-archive'),
+    target: z.uuid(),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('tenant-unarchive'),
+    target: z.uuid(),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
     operation: z.literal('status'),
     target: z.uuid(),
     status: z.enum(['active', 'suspended']),
@@ -74,6 +90,49 @@ export const controlBodySchema = z.discriminatedUnion('operation', [
   }),
   z.strictObject({
     operation: z.literal('revoke'),
+    membership: z.uuid(),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('member-reset'),
+    membership: z.uuid(),
+    password: z.string().min(12).max(128),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('portal-user-reset'),
+    user: z.uuid(),
+    password: z.string().min(12).max(128),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('portal-user-status'),
+    user: z.uuid(),
+    status: z.enum(['active', 'locked']),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('portal-user-archive'),
+    user: z.uuid(),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('portal-user-unarchive'),
+    user: z.uuid(),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('member-enable'),
+    membership: z.uuid(),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('member-archive'),
+    membership: z.uuid(),
+    reason: z.string().trim().min(1).max(512),
+  }),
+  z.strictObject({
+    operation: z.literal('member-unarchive'),
     membership: z.uuid(),
     reason: z.string().trim().min(1).max(512),
   }),
@@ -135,11 +194,18 @@ export const controlResponseSchema = successResponseSchema(
         status: z.string(),
         cell_id: z.uuid().nullable(),
         provisioned: z.boolean(),
+        archived: z.boolean(),
       })
     ),
     users: z
       .array(
-        z.strictObject({ id: z.uuid(), email: z.email(), status: z.string() })
+        z.strictObject({
+          id: z.uuid(),
+          email: z.email(),
+          status: z.string(),
+          archived: z.boolean(),
+          must_change_password: z.boolean(),
+        })
       )
       .default([]),
     members: z.array(
@@ -151,6 +217,7 @@ export const controlResponseSchema = successResponseSchema(
         user_type: z.string().nullable(),
         ready: z.boolean(),
         entity_id: z.uuid().nullable().default(null),
+        archived: z.boolean(),
       })
     ),
     jobs: z.array(

@@ -35,6 +35,10 @@ export function readScope(pathname: string, search: string) {
       : 0,
     search: query.get('q') ?? '',
     status: query.get('status') ?? '',
+    archived: z
+      .enum(['exclude', 'include', 'only'])
+      .catch('exclude')
+      .parse(query.get('archived') ?? 'exclude'),
     sort: query.get('sort') ?? '',
     descending: query.get('direction') === 'desc',
     create: parts[3] === 'new',

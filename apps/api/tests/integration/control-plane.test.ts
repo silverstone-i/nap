@@ -345,6 +345,172 @@ it('revokes centrally before synchronization and refuses stale cookies', async (
     );
   });
 });
+it('can force password reset and revoke other sessions', async () => {
+  const { m } = await activeTenant();
+  await onboard(m.email);
+  const session = await login(m.email, replacement);
+  const secondCookie = cookie(session);
+  const resetPassword = 'manager-reset-password-123';
+  expect(
+    (
+      await request(test.server)
+        .get(auth + '/session')
+        .set('Cookie', secondCookie)
+    ).status
+  ).toBe(200);
+  await command('members', {
+    operation: 'member-reset',
+    membership: m.binding.id,
+    password: resetPassword,
+    reason: 'Security event',
+  });
+  const refreshed = (await test.admin.db.portal_users.findById(m.user.id))!;
+  expect(refreshed.must_change_password).toBe(true);
+  expect(
+    (
+      await request(test.server)
+        .get(auth + '/session')
+        .set('Cookie', secondCookie)
+    ).status
+  ).toBe(401);
+  expect((await login(m.email, replacement)).status).toBe(401);
+  const c = await login(m.email, resetPassword);
+  expect(sessionResponseSchema.parse(c.body).data.state).toBe(
+    'password-change-required'
+  );
+});
+it('restores portal-user access from locked to active and refreshes through provisioning', async () => {
+  const { t } = await activeTenant();
+  const m = await member(t.id);
+  await command('members', {
+    operation: 'revoke',
+    membership: m.binding.id,
+    reason: 'Temporary block',
+  });
+  expect(
+    (await test.admin.db.portal_user_tenants.findById(m.binding.id))?.status
+  ).toBe('locked');
+  await command('members', {
+    operation: 'member-enable',
+    membership: m.binding.id,
+    reason: 'Restore access',
+  });
+  const enabled = (await test.admin.db.portal_user_tenants.findById(
+    m.binding.id
+  ))!;
+  expect(enabled.status).toBe('active');
+  expect(enabled.ready).toBe(false);
+  const job = (await test.admin.db.provisioning_jobs.findOneBy({
+    membership_id: m.binding.id,
+  }))!;
+  expect(job.stage).toBe('pending');
+  await command('provision', { operation: 'retry', job: job.id });
+  expect(
+    (await test.admin.db.portal_user_tenants.findById(m.binding.id))?.ready
+  ).toBe(true);
+});
+it('rejects member re-enable when another active assignment conflicts', async () => {
+  const primaryTenant = await tenant();
+  const { t: otherTenant } = await activeTenant();
+  const email = randomUUID() + '@nap.test';
+  const active = await member(primaryTenant.id, 'employee', email);
+  await test.admin.db.portal_user_tenants.insert({
+    portal_user_id: active.user.id,
+    tenant_id: otherTenant.id,
+    status: 'locked',
+    user_type: 'client',
+    entity_id: active.binding.entity_id,
+    ready: false,
+  });
+  const locked = await test.admin.db.portal_user_tenants.findOneBy({
+    portal_user_id: active.user.id,
+    tenant_id: otherTenant.id,
+  });
+  if (!locked) throw new Error('Missing locked membership');
+  const response = await request(test.server)
+    .post(control + '/members')
+    .set('Cookie', rootCookie)
+    .send({
+      operation: 'member-enable',
+      membership: locked.id,
+      reason: 'Restore access',
+    });
+  expect(response.status).toBe(409);
+});
+it('suspends, archives and restores portal users and tenant links', async () => {
+  const { t } = await activeTenant();
+  const m = await member(t.id);
+  await onboard(m.email);
+  await command('members', {
+    operation: 'portal-user-status',
+    user: m.user.id,
+    status: 'locked',
+    reason: 'Suspended by operator',
+  });
+  expect((await test.admin.db.portal_users.findById(m.user.id))?.status).toBe(
+    'locked'
+  );
+  expect((await login(m.email, replacement)).status).toBe(401);
+  await command('members', {
+    operation: 'portal-user-status',
+    user: m.user.id,
+    status: 'active',
+    reason: 'Unsuspended by operator',
+  });
+  expect((await test.admin.db.portal_users.findById(m.user.id))?.status).toBe(
+    'active'
+  );
+  await command('members', {
+    operation: 'member-archive',
+    membership: m.binding.id,
+    reason: 'Archive tenant link',
+  });
+  expect(
+    await test.admin.db.portal_user_tenants.findById(m.binding.id)
+  ).toBeNull();
+  let view = controlResponseSchema.parse(
+    (
+      await request(test.server)
+        .get(control + '/overview')
+        .set('Cookie', rootCookie)
+    ).body
+  ).data;
+  expect(view.members.find(row => row.id === m.binding.id)?.archived).toBe(
+    true
+  );
+  await command('members', {
+    operation: 'member-unarchive',
+    membership: m.binding.id,
+    reason: 'Restore tenant link',
+  });
+  const restored = (await test.admin.db.portal_user_tenants.findById(
+    m.binding.id
+  ))!;
+  expect(restored.status).toBe('locked');
+  expect(restored.ready).toBe(false);
+  await command('members', {
+    operation: 'portal-user-archive',
+    user: m.user.id,
+    reason: 'Archive identity',
+  });
+  expect(await test.admin.db.portal_users.findById(m.user.id)).toBeNull();
+  view = controlResponseSchema.parse(
+    (
+      await request(test.server)
+        .get(control + '/overview')
+        .set('Cookie', rootCookie)
+    ).body
+  ).data;
+  expect(view.users.find(row => row.id === m.user.id)?.archived).toBe(true);
+  await command('members', {
+    operation: 'portal-user-unarchive',
+    user: m.user.id,
+    reason: 'Restore identity',
+  });
+  expect((await test.admin.db.portal_users.findById(m.user.id))?.status).toBe(
+    'active'
+  );
+});
 it('refuses suspended tenants, missing assignments and disabled cells on the next request', async () => {
   const { t, m } = await activeTenant();
   const c = await onboard(m.email);
@@ -609,6 +775,43 @@ it('refuses premature activation and root impersonation or membership changes', 
     .set('Cookie', rootCookie);
   expect(result.status).toBe(200);
   controlResponseSchema.parse(result.body);
+});
+
+it('renames tenants without changing tenant code and archives or unarchives records', async () => {
+  const t = await tenant();
+  await command('registry', {
+    operation: 'tenant-rename',
+    target: t.id,
+    name: 'Changed tenant',
+    reason: 'Name correction',
+  });
+  const renamed = (await test.admin.db.tenants.findById(t.id))!;
+  expect(renamed.tenant_code).toBe(t.tenant_code);
+  expect(renamed.company).toBe('Changed tenant');
+  await command('registry', {
+    operation: 'tenant-archive',
+    target: t.id,
+    reason: 'Archived by operator',
+  });
+  expect(await test.admin.db.tenants.findById(t.id)).toBeNull();
+  const archivedOverview = controlResponseSchema.parse(
+    (
+      await request(test.server)
+        .get(control + '/overview')
+        .set('Cookie', rootCookie)
+    ).body
+  ).data;
+  expect(archivedOverview.tenants.find(row => row.id === t.id)?.archived).toBe(
+    true
+  );
+  await command('registry', {
+    operation: 'tenant-unarchive',
+    target: t.id,
+    reason: 'Unarchived by operator',
+  });
+  expect((await test.admin.db.tenants.findById(t.id))?.company).toBe(
+    'Changed tenant'
+  );
 });
 
 it('retains absolute expiry across switching and rejects another deployment cell', async () => {
@@ -969,6 +1172,8 @@ it('exposes safe provisioning relationships and bounded employee navigation with
     id: m.user.id,
     email: m.email,
     status: 'active',
+    archived: false,
+    must_change_password: false,
   });
   expect(data.members.find(b => b.id === m.binding.id)?.entity_id).toBe(
     m.binding.entity_id
@@ -977,7 +1182,7 @@ it('exposes safe provisioning relationships and bounded employee navigation with
     m.binding.entity_id
   );
   expect(JSON.stringify(result.body)).not.toMatch(
-    /password_hash|must_change_password|temporary-password/
+    /password_hash|temporary-password/
   );
   expect(
     (

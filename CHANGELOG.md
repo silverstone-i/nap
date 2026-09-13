@@ -18,6 +18,9 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Changed
 
+- Add tenant and portal-user management actions, password resets, membership
+  recovery, archive filtering, and selection controls for management lists.
+
 - Register cells through management with resumable provisioning, progress and retry
   actions, and live activation without an API restart. Replace cell maintenance
   commands with this workflow and identify cells by UUID and database name.
