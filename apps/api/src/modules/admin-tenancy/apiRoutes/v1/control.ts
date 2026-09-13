@@ -166,23 +166,24 @@ export default function controlRouter(
           operation: async (tx, input) => {
             if (commandPermission(input.body) !== action)
               throw new HttpError('FORBIDDEN');
-            const jobId = await controlCommand(
+            const commandId = await controlCommand(
               tx,
               cells,
               input.session.operatorId ?? input.session.actorId,
               input.body,
               config
             );
+            const isCellCommand = [
+              'cell',
+              'cell-retry',
+              'cell-activate',
+              'cell-disable',
+            ].includes(input.body.operation);
             return {
               version: transportVersion,
               data: {
-                jobId: jobId ?? null,
-                ...([
-                  'cell',
-                  'cell-retry',
-                  'cell-activate',
-                  'cell-disable',
-                ].includes(input.body.operation) && jobId
+                jobId: isCellCommand ? null : (commandId ?? null),
+                ...(isCellCommand && commandId
                   ? {
                       cell: await tx.one<{
                         id: string;
@@ -190,7 +191,7 @@ export default function controlRouter(
                         status: string;
                       }>(
                         'SELECT cell_id AS id,stage,status FROM admin.cell_provisioning WHERE cell_id=$1',
-                        [jobId]
+                        [commandId]
                       ),
                     }
                   : {}),

@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Fixed
+
+- Return cell registration identifiers separately from provisioning job identifiers
+  in management command responses.
+
 ### Changed
 
 - Register cells through management with resumable provisioning, progress and retry

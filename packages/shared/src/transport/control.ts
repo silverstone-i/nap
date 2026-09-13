@@ -198,7 +198,11 @@ export const identityResponseSchema = successResponseSchema(
   })
 );
 
-/** Does: Returns the durable job created by a control command. Used by: operator provisioning follow-up. */
+/**
+ * Does: Returns a saved provisioning job ID or a database registration's ID and progress.
+ * Used by: operator command responses and their browser clients.
+ * Why: database registration commands report cell.id and leave jobId null.
+ */
 export const controlCommandResponseSchema = successResponseSchema(
   z.strictObject({
     jobId: z.uuid().nullable(),

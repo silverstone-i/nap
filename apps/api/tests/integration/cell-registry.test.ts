@@ -4,7 +4,10 @@
  */
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import request from 'supertest';
-import { controlResponseSchema } from '@nap/shared';
+import {
+  controlCommandResponseSchema,
+  controlResponseSchema,
+} from '@nap/shared';
 import { authDatabase, authEnv } from '../fixtures/authDatabase.js';
 import { createCellProvisioning } from '../../src/services/cellProvisioning.js';
 import { hashPassword } from '../../src/util/password.js';
@@ -66,6 +69,13 @@ it('registers and deduplicates cell jobs within the registry permission boundary
     .set('Cookie', rootCookie)
     .send({ operation: 'cell', suffix: 'east' });
   expect(register.status, JSON.stringify(register.body)).toBe(200);
+  const registeredCell = await test.admin.db.cells.findOneBy({
+    database_name: 'nap_dev_cell_east',
+  });
+  expect(controlCommandResponseSchema.parse(register.body).data).toEqual({
+    jobId: null,
+    cell: { id: registeredCell?.id, stage: 'registered', status: 'queued' },
+  });
   expect((await overview()).cells).toMatchObject([
     { database_name: 'nap_dev_cell_east', enabled: false, status: 'queued' },
   ]);

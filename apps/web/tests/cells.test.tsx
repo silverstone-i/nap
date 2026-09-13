@@ -131,7 +131,10 @@ it('displays UUID/database names and copies UUID without navigation', async () =
     configurable: true,
   });
   mount('/management/cells');
-  expect(await screen.findByText('nap_dev_cell_east')).not.toBeNull();
+  // The first render also loads the lazy route; CI exceeded the default one-second wait.
+  expect(
+    await screen.findByText('nap_dev_cell_east', {}, { timeout: 5000 })
+  ).not.toBeNull();
   fireEvent.click(
     screen.getByRole('button', { name: `Copy cell UUID ${firstCell}` })
   );
