@@ -89,7 +89,8 @@ flowchart TD
   provisioning --> provisioningUI
   rbac --> provisioningUI
   provisioningUI --> operatorBootstrap[Operator bootstrap and Tenant Management]
-  operatorBootstrap --> core
+  operatorBootstrap --> renderVerification[Render verification]
+  renderVerification --> core
   core --> projects[Projects]
   core --> costCodes[Cost Codes]
   core --> catalog[Catalog]
@@ -1245,3 +1246,14 @@ Design: Accepted. Implementation: Verified upon merge of [PR #24](https://github
 the database-provisioning plan replace cell CLI commands with management-page
 provisioning, live loading, UUID/database-name records and isolated TEST fixtures.
 Verification evidence is recorded in the implementation plan.
+
+## Render verification — 2026-09-13
+
+Design: existing platform deployment and provisioning contracts. Implementation:
+preparation in progress locally; live verification pending. The
+[Render verification plan](../implementation-plans/render-verification.md) and
+[runbook](../guides/render-verification.md) cover one same-origin API/web service
+with isolated Virginia admin and first-cell databases. The gate before Reference
+data and Core is a live Render deployment showing health, root login, first-cell
+bootstrap and RBAC readiness, restart recovery, and ordinary tenant provisioning.
+Local tests and mocked Render calls do not establish this gate.

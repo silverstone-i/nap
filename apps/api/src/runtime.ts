@@ -27,7 +27,8 @@ export type RuntimeHandles = AppHandles;
  * in-flight requests finish against open connections. This function installs
  * no signal handlers and never exits the process; the entry point owns both.
  * Verified cell handles and their bound routers can be added after start,
- * and each cell router is bound to its own pool. The trusted proxy hop count is passed to the app.
+ * and each cell router is bound to its own pool. Proxy and optional built-web
+ * configuration are passed to the app.
  */
 export function createRuntime(
   handles: RuntimeHandles,
@@ -38,6 +39,7 @@ export function createRuntime(
     trustProxyHops = 0,
     auth,
     cache,
+    webRoot,
   }: {
     readinessMs?: number;
     drainMs?: number;
@@ -45,6 +47,7 @@ export function createRuntime(
     trustProxyHops?: number;
     auth?: AuthConfiguration;
     cache?: AuthorizationCache;
+    webRoot?: string;
   } = {}
 ) {
   const readiness = createReadiness([handles.admin], readinessMs, 1);
@@ -58,7 +61,7 @@ export function createRuntime(
         return readiness.check();
       },
       handles,
-      { trustProxyHops, auth }
+      { trustProxyHops, auth, webRoot }
     )
   );
 

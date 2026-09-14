@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Serve the production web client and API from one origin, with a Render
+  verification service definition and guided setup for an isolated installation.
+
 ## [v0.18.0] - 2026-09-14
 
 ### Added

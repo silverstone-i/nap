@@ -6,6 +6,9 @@
 import express from 'express';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -192,4 +195,51 @@ it('trusts no proxy hop unless told how many', () => {
   expect(
     createApp(undefined, undefined, { trustProxyHops: 2 }).get('trust proxy')
   ).toBe(2);
+});
+
+it('serves a built web client on the API origin without replacing API errors', async () => {
+  const webRoot = await mkdtemp(join(tmpdir(), 'nap-web-'));
+  try {
+    await writeFile(
+      join(webRoot, 'index.html'),
+      '<!doctype html><title>NAP</title>'
+    );
+    await writeFile(join(webRoot, 'favicon.svg'), '<svg></svg>');
+    await mkdir(join(webRoot, 'api'));
+    await writeFile(join(webRoot, 'api', 'missing'), 'shadowed API');
+    const app = createApp(undefined, undefined, { webRoot });
+    for (const path of [
+      '/',
+      '/login',
+      '/management/tenants',
+      '/missing-page',
+    ]) {
+      const response = await request(app).get(path).set('Accept', 'text/html');
+      expect(response.status).toBe(200);
+      expect(response.text).toContain('<title>NAP</title>');
+    }
+    const asset = await request(app).get('/favicon.svg');
+    expect(asset.status).toBe(200);
+    expect(asset.headers['content-type']).toContain('image/svg+xml');
+    for (const path of ['/api/missing', '/missing.js']) {
+      const response = await request(app).get(path);
+      expect(response.status).toBe(404);
+      expect(apiErrorSchema.parse(response.body).code).toBe('NOT_FOUND');
+    }
+    expect((await request(app).post('/login')).status).toBe(404);
+    expect((await request(app).get('/health/live')).status).toBe(200);
+  } finally {
+    await rm(webRoot, { recursive: true, force: true });
+  }
+});
+
+it('refuses web hosting when its built entry file is absent', async () => {
+  const webRoot = await mkdtemp(join(tmpdir(), 'nap-web-'));
+  try {
+    expect(() => createApp(undefined, undefined, { webRoot })).toThrow(
+      'Built web client is unavailable'
+    );
+  } finally {
+    await rm(webRoot, { recursive: true, force: true });
+  }
 });
