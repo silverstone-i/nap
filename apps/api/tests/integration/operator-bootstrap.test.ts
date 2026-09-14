@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { beforeEach, afterEach, it, expect } from 'vitest';
+import { beforeEach, afterEach, it, expect, vi } from 'vitest';
 import { authDatabase, authEnv } from '../fixtures/authDatabase.js';
 import {
   bootstrapRoot,
@@ -155,6 +155,39 @@ it('resumes interrupted saved work without choosing another cell', async () => {
   await claim();
   await test.owner.none("UPDATE admin.operator_bootstrap SET status='running'");
   await completeOperatorBootstrap(test.admin, test.cells);
+  expect(await progress()).toMatchObject({
+    status: 'completed',
+    cell_id: test.cellId,
+  });
+});
+
+it('publishes running progress before cell writes and excludes concurrent execution', async () => {
+  await claim();
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const transaction = test.cell.transaction.bind(test.cell);
+  const spy = vi
+    .spyOn(test.cell, 'transaction')
+    .mockImplementationOnce(async work => {
+      entered.resolve();
+      await release.promise;
+      return transaction(work);
+    });
+  const completion = completeOperatorBootstrap(test.admin, test.cells);
+  try {
+    await entered.promise;
+    expect(await progress()).toMatchObject({
+      status: 'running',
+      cell_id: test.cellId,
+    });
+    await completeOperatorBootstrap(test.admin, test.cells);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(await progress()).toMatchObject({ status: 'running' });
+  } finally {
+    release.resolve();
+    await completion;
+    spy.mockRestore();
+  }
   expect(await progress()).toMatchObject({
     status: 'completed',
     cell_id: test.cellId,

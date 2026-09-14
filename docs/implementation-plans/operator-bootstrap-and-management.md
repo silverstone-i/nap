@@ -14,7 +14,7 @@ Validation covers normal rerun no-op, no upgrade enrollment, first successful ce
 
 Implemented and locally verified on Node 24.19.0; merge and CI verification pending. No deployment performed.
 
-All 488 tests passed: 58 toolchain/provisioning, 337 API, 79 web and 14 shared.
+All 489 tests passed: 58 toolchain/provisioning, 338 API, 79 web and 14 shared.
 Lint, typecheck, build, formatting, production licenses and git diff checks pass.
 The added operator-bootstrap tests cover no-op reruns, no upgrade enrollment,
 first-cell selection, duplicate/concurrent execution, post-write failure/retry,
@@ -49,3 +49,10 @@ confirmation, refusal of other environment arguments, ownership checks before
 any drops, DEV-only deletion, preserved TEST/PROD databases and credentials,
 environment comments, state removal and repeat cleanup. The README includes
 cleanup, setup, migration, bootstrap and API/web startup instructions.
+
+PR #25 review fixes publish running bootstrap progress in a committed transaction
+before cell writes, with a paused-write test proving overview visibility and
+concurrent-worker exclusion. The controlled employee access test waits explicitly
+for lazy-route initialization. The complete local suite and all 79 web tests in
+CI mode pass. Running database fixtures with CI mode locally requires GitHub's
+service configuration, so database validation used the disposable local fixtures.

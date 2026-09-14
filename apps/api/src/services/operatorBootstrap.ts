@@ -87,9 +87,16 @@ export async function completeOperatorBootstrap(
   admin: AdminHandle,
   cells: CellRegistry
 ) {
+  // Commit progress before cell writes so overview readers can observe execution.
+  // The execution transaction below still serializes running work and recovery.
+  await withAdminTransaction(admin, tx =>
+    tx.none(
+      "UPDATE admin.operator_bootstrap SET status='running',updated_at=now() WHERE id=(SELECT id FROM admin.operator_bootstrap WHERE status='queued' FOR UPDATE SKIP LOCKED)"
+    )
+  );
   await withAdminTransaction(admin, async tx => {
     const row = await tx.oneOrNone<Bootstrap>(
-      "SELECT * FROM admin.operator_bootstrap WHERE status IN ('queued','running') FOR UPDATE SKIP LOCKED"
+      "SELECT * FROM admin.operator_bootstrap WHERE status='running' FOR UPDATE SKIP LOCKED"
     );
     if (!row) return;
     try {

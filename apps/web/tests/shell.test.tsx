@@ -345,6 +345,10 @@ it('enters explicit controlled employee access from the provisioning record', as
     });
   });
   const router = mount(`/management/tenants/${tenant}`);
+  // Lazy route imports can exceed the default one-second query wait on CI.
+  await waitFor(() => expect(router.state.initialized).toBe(true), {
+    timeout: 5000,
+  });
   fireEvent.click(
     await screen.findByRole('button', { name: 'Inspect employee' })
   );
