@@ -246,6 +246,8 @@ Verified entries retain their original scope.
 
 ## SHELL-010 — Consolidated Tenant Management
 
-Design: Accepted, 2026-09-13. Implementation: Implemented (local validation complete; merge/CI pending).
+Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
 
 Tenants owns lifecycle, tier/allowed assignment, provisioning and bootstrap status/retry. Portal users owns identities and memberships. Cells retains its workflow. Add Platform access, Access and Audit destinations at /management/platform-access, /management/access and /management/audit. Preserve each server permission independently, including identifier entry for access-only operators. Legacy /control redirects to a permission-aware /management landing; /platform-access redirects to its management destination. Display lifecycle, provisioning, RBAC and availability distinctly; protected root actions are hidden. Session changes clear prior administrative data.
+
+Revision 2026-09-14: reconciled PR #25 verification; status becomes effective on merge with required checks passing.

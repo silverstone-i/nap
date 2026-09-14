@@ -309,6 +309,8 @@ Register cell verification becomes effective on merge with required checks passi
 
 ## TEN-011 — Operator bootstrap completion
 
-Design: Accepted, 2026-09-13. Implementation: Implemented (local validation complete; merge/CI pending).
+Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
 
 The specification and ADR 0015 own the greenfield lifecycle. Overview exposes safe bootstrap status, RBAC readiness and protected-root metadata to authorized operators. Replace the manual reconcile command with bootstrap-retry naming the saved operation. Cell success is independent of bootstrap failure. Completion verifies projections, root role assignment and isolation before marking readiness.
+
+Revision 2026-09-14: reconciled PR #25 verification; status becomes effective on merge with required checks passing.

@@ -12,7 +12,7 @@ Validation covers normal rerun no-op, no upgrade enrollment, first successful ce
 
 ## Evidence
 
-Implemented and locally verified on Node 24.19.0; merge and CI verification pending. No deployment performed.
+Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing. Validated on Node 24.19.0. No deployment performed.
 
 All 489 tests passed: 58 toolchain/provisioning, 338 API, 79 web and 14 shared.
 Lint, typecheck, build, formatting, production licenses and git diff checks pass.
@@ -56,3 +56,10 @@ concurrent-worker exclusion. The controlled employee access test waits explicitl
 for lazy-route initialization. The complete local suite and all 79 web tests in
 CI mode pass. Running database fixtures with CI mode locally requires GitHub's
 service configuration, so database validation used the disposable local fixtures.
+
+## Final verification
+
+[Repository CI](https://github.com/silverstone-i/nap/actions/runs/34795459114) passed
+all required checks on the implementation head. The final documentation head must
+also pass required checks before merge. The evidence above covers the completed
+capability; no existing installation cleanup or production deployment was performed.
