@@ -4,6 +4,15 @@
  */
 import { ProvisioningError } from './config.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
+import { using } from './postgres.mjs';
+
+/**
+ * Does: Checks that PostgreSQL accepts a read-only query before setup changes roles.
+ * Called by: server-side Render provisioning after the provider reports availability.
+ */
+async function probeDatabase(connection) {
+  await using(connection, db => db.one('SELECT 1 AS connected'));
+}
 
 /** Does: Reads explicit infrastructure choices with no paid defaults. Called by: production setup before creation. */
 export function renderSettings(env) {
@@ -65,7 +74,13 @@ export function renderClient(settings, request = fetch, signal) {
   };
 }
 /** Does: Creates or reconciles one independently hosted database from saved intent. Called by: production setup. */
-export async function provisionRender(context, entry, call, wait = delay) {
+export async function provisionRender(
+  context,
+  entry,
+  call,
+  wait = delay,
+  probe = probeDatabase
+) {
   const settings = renderSettings(context.env);
   const service = await call(
     `/services/${encodeURIComponent(settings.RENDER_API_SERVICE_ID)}`
@@ -158,6 +173,42 @@ export async function provisionRender(context, entry, call, wait = delay) {
       entry.runtimeEndpoint =
         internal.host + internal.pathname + internal.search;
       await context.save();
+      if (context.api) {
+        for (let retry = 0; retry < 10; retry++) {
+          if (context.signal?.aborted)
+            throw new ProvisioningError(
+              'Render database readiness interrupted; retry the same cell'
+            );
+          try {
+            await probe(maintenance.href);
+            break;
+          } catch (error) {
+            const transient =
+              [
+                'ECONNREFUSED',
+                'ECONNRESET',
+                'ETIMEDOUT',
+                'ENOTFOUND',
+                'EAI_AGAIN',
+                '57P03',
+              ].includes(error.code) ||
+              [
+                'Connection terminated unexpectedly',
+                'Connection terminated due to connection timeout',
+                'timeout exceeded when trying to connect',
+              ].includes(error.message);
+            if (!transient)
+              throw new ProvisioningError(
+                'Render database readiness check failed; verify provider credentials and database permissions'
+              );
+            if (retry === 9)
+              throw new ProvisioningError(
+                'Render database is available but not accepting connections yet; retry the same cell'
+              );
+            await wait(2000, undefined, { signal: context.signal });
+          }
+        }
+      }
       return maintenance.href;
     }
     await wait(5000, undefined, { signal: context.signal });

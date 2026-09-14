@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Fixed
+
+- Wait for new Render cell databases to accept connections before configuring
+  roles, so provider readiness delays do not require a manual provisioning retry.
+
 ## [v0.19.1] - 2026-09-14
 
 ### Fixed
