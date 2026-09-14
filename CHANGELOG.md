@@ -13,8 +13,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Fixed
 
-- Install development dependencies during Render builds so TypeScript, Vite,
-  and the Husky prepare script remain available with production configuration.
+- Install development dependencies during Render builds so TypeScript and Vite
+  remain available with production configuration, and skip Git hook installation.
 
 ## [v0.19.0] - 2026-09-14
 
