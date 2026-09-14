@@ -66,8 +66,9 @@ export function createApp(
   setAuditActorResolver(() => requestContext.getStore()?.actorId ?? null);
   app.use(correlation, requestLogging);
   if (webRoot) {
-    if (!existsSync(resolve(webRoot, 'index.html')))
-      throw new Error('Built web client is unavailable');
+    const webEntry = resolve(webRoot, 'index.html');
+    if (!existsSync(webEntry))
+      throw new Error(`Built web client is unavailable: ${webEntry}`);
     const staticFiles = express.static(webRoot, { index: false });
     /** Does: Sends built assets while leaving API and health URLs to their routers. */
     app.use((request, response, next) => {

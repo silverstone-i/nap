@@ -237,7 +237,7 @@ it('refuses web hosting when its built entry file is absent', async () => {
   const webRoot = await mkdtemp(join(tmpdir(), 'nap-web-'));
   try {
     expect(() => createApp(undefined, undefined, { webRoot })).toThrow(
-      'Built web client is unavailable'
+      `Built web client is unavailable: ${join(webRoot, 'index.html')}`
     );
   } finally {
     await rm(webRoot, { recursive: true, force: true });
