@@ -377,3 +377,63 @@ it('shows actionable server validation when a retry needs its original name', as
     screen.getByLabelText('Employee or contact name', { exact: false })
   ).toBeDefined();
 });
+
+it('shows incomplete root bootstrap without success or prohibited membership actions', async () => {
+  const data = fixture('pending', true);
+  Object.assign(data.tenants[0], {
+    status: 'active',
+    cell_id: null,
+    rbac_ready: false,
+  });
+  Object.assign(data.users[0], { is_root: true });
+  Object.assign(data.members[0], { user_type: null, entity_id: null });
+  data.jobs = [];
+  Object.assign(data, {
+    bootstrap: {
+      id: jobId,
+      tenant_id: tenant,
+      root_id: actor,
+      cell_id: null,
+      status: 'waiting',
+      failure_code: null,
+    },
+  });
+  mount(`/management/tenants/${tenant}`);
+  await screen.findByText(
+    /Waiting for the first successfully provisioned cell/
+  );
+  expect(screen.queryByText(/Tenant activated/)).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Reset password' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Archive link' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
+  expect(screen.getByText(/Assigned cell: Not assigned/)).toBeTruthy();
+});
+it('retries bootstrap using only its saved operation identifier', async () => {
+  const data = fixture('pending', true);
+  Object.assign(data.tenants[0], { status: 'active', rbac_ready: false });
+  Object.assign(data.users[0], { is_root: true });
+  Object.assign(data.members[0], { user_type: null, entity_id: null });
+  Object.assign(data, {
+    bootstrap: {
+      id: jobId,
+      tenant_id: tenant,
+      root_id: actor,
+      cell_id: cell,
+      status: 'failed',
+      failure_code: 'OPERATOR_BOOTSTRAP_FAILED',
+    },
+  });
+  mount(`/management/tenants/${tenant}`);
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Retry bootstrap' })
+  );
+  await waitFor(() =>
+    expect(
+      fetchMock.mock.calls.some(
+        ([, init]) =>
+          init?.body ===
+          JSON.stringify({ operation: 'bootstrap-retry', bootstrap: jobId })
+      )
+    ).toBe(true)
+  );
+});

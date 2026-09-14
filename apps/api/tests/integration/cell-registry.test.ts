@@ -35,7 +35,7 @@ async function overview() {
 }
 
 beforeAll(async () => {
-  test = await authDatabase();
+  test = await authDatabase(false);
   test.cells.setProvisioning(
     createCellProvisioning(test.admin, test.cells, {
       environment: 'DEV',

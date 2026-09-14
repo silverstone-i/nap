@@ -52,10 +52,10 @@ export async function bootstrapRoot(
   return requestContext.run({ requestId: 'bootstrap' }, () =>
     withAdminTransaction(db, async tx => {
       await tx.tenants.lockBootstrap();
-      await seedPlatformPolicy(tx);
       let tenant = await tx.tenants.findOneBy({
         tenant_code: config.tenantCode,
       });
+      const newTenant = !tenant;
       if (!tenant)
         tenant = await tx.tenants.insert({
           tenant_code: config.tenantCode,
@@ -67,7 +67,9 @@ export async function bootstrapRoot(
       let identity = await tx.portal_users.findOneBy({ is_root: true });
       if (identity && identity.email !== config.email)
         throw new Error('Root configuration differs from existing identity');
+      const newIdentity = !identity;
       if (!identity) {
+        await seedPlatformPolicy(tx);
         identity = await tx.portal_users.insert({
           email: config.email,
           password_hash: await hashPassword(config.password, config.hashing),
@@ -100,6 +102,11 @@ export async function bootstrapRoot(
           tenant_id: tenant.id,
           status: 'active',
         });
+      if (newTenant && newIdentity)
+        await tx.none(
+          'INSERT INTO admin.operator_bootstrap(tenant_id,root_id) VALUES($1,$2)',
+          [tenant.id, identity.id]
+        );
       return { actorId: identity.id, tenantId: tenant.id };
     })
   );

@@ -31,6 +31,7 @@ import { controlBodySchema, accessBodySchema } from '@nap/shared';
 import type { controlResponseSchema } from '@nap/shared';
 import type { z } from 'zod';
 import type { FormEvent } from 'react';
+import { ManagementCommandsPage } from './ManagementCommandsPage.js';
 import { overview, command, access } from '../api/control.js';
 import { getSession } from '../api/auth.js';
 import { requestGeneration } from '../api/lifecycle.js';
@@ -52,6 +53,16 @@ type ManagementRow = Pick<
  * Called by: both Tenant Management destinations.
  */
 export function ManagementPage() {
+  const { state } = useSession();
+  const canOverview =
+    state.status === 'ready' &&
+    state.session?.platformPermissions.includes(
+      'admin-tenancy::control::overview'
+    );
+  return canOverview ? <ManagementRecordsPage /> : <ManagementCommandsPage />;
+}
+/** Does: Presents authorized tenant and portal-user records with contextual actions. Called by: management routes with overview permission. */
+function ManagementRecordsPage() {
   const scope = useShell();
   const { state, setSession } = useSession();
   const navigate = useNavigate();
@@ -363,6 +374,21 @@ export function ManagementPage() {
       <Typography role="status">Loading provisioning records…</Typography>
     );
   const tenant = data.tenants.find(t => t.id === scope.target);
+  /** Does: Identifies protected root identities in the authorized overview. */
+  function isRoot(id: string) {
+    return data?.users.some(u => u.id === id && u.is_root) ?? false;
+  }
+  /** Does: Identifies the operator tenant through its root membership. */
+  function isOperatorTenant(id: string) {
+    return (
+      data?.members.some(m => m.tenant_id === id && isRoot(m.portal_user_id)) ??
+      false
+    );
+  }
+  const operatorTenant = !!tenant && isOperatorTenant(tenant.id);
+  const bootstrap =
+    data.bootstrap?.tenant_id === tenant?.id ? data.bootstrap : null;
+
   const tenantMembers = data.members.filter(m => m.tenant_id === tenant?.id);
   const members = tenantMembers.filter(
     m =>
@@ -380,7 +406,7 @@ export function ManagementPage() {
     m => m.status === 'active' && !m.ready
   );
   const activationBlocked =
-    !assignedCell?.enabled || !employees.length || pendingMembers;
+    !assignedCell?.available || !employees.length || pendingMembers;
   const requestedJob = new URLSearchParams(location.search).get('job');
   const savedJob = data.jobs.find(j => j.id === requestedJob);
   const savedJobMessage =
@@ -425,11 +451,15 @@ export function ManagementPage() {
         .toLowerCase()
         .includes(scope.search.toLowerCase())
   );
-  const selectedRows = filtered.filter(row =>
-    selection.type === 'include'
-      ? selection.ids.has(row.id)
-      : !selection.ids.has(row.id)
-  );
+  const selectedRows = filtered
+    .filter(
+      row => !(scope.portalUsers ? isRoot(row.id) : isOperatorTenant(row.id))
+    )
+    .filter(row =>
+      selection.type === 'include'
+        ? selection.ids.has(row.id)
+        : !selection.ids.has(row.id)
+    );
   const selectedIds = selectedRows.map(row => row.id);
   const page = Math.min(
     scope.page,
@@ -450,6 +480,7 @@ export function ManagementPage() {
   function userName(id: string) {
     return data?.users.find(u => u.id === id)?.email ?? id;
   }
+  /** Does: Labels a membership's business relationship, including the root exception. */
   function memberType(type: string | null) {
     return type === 'employee'
       ? 'Employee'
@@ -457,7 +488,7 @@ export function ManagementPage() {
         ? 'Client contact'
         : type === 'vendor'
           ? 'Vendor contact'
-          : 'Other';
+          : 'Root operator';
   }
   function membershipStatus(status: string, ready: boolean) {
     return `${status === 'active' ? 'Active' : 'Locked'} — ${ready ? 'ready' : 'pending sync'}`;
@@ -581,15 +612,18 @@ export function ManagementPage() {
               Create tenant
             </Button>
           )}
-        {!scope.create && can('members') && (scope.portalUsers || tenant) && (
-          <Button
-            variant="contained"
-            component={Link}
-            to={`/management/portal-users/new${tenant ? `?target=${tenant.id}` : user ? `?record=${user.id}` : ''}`}
-          >
-            Create or link portal user
-          </Button>
-        )}
+        {!scope.create &&
+          !user?.is_root &&
+          can('members') &&
+          (scope.portalUsers || tenant) && (
+            <Button
+              variant="contained"
+              component={Link}
+              to={`/management/portal-users/new${tenant ? `?target=${tenant.id}` : user ? `?record=${user.id}` : ''}`}
+            >
+              Create or link portal user
+            </Button>
+          )}
         {!scope.create && (
           <Button disabled={busy} onClick={() => setRevision(v => v + 1)}>
             Refresh
@@ -819,40 +853,156 @@ export function ManagementPage() {
                       Resume
                     </Button>
                   )}
-                  <Button
-                    disabled={busy}
-                    onClick={() =>
-                      void runControls(
-                        [
+                  {!operatorTenant && (
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        void runControls(
+                          [
+                            tenant.archived
+                              ? {
+                                  operation: 'tenant-unarchive',
+                                  target: tenant.id,
+                                  reason: 'Unarchived by operator',
+                                }
+                              : {
+                                  operation: 'tenant-archive',
+                                  target: tenant.id,
+                                  reason: 'Archived by operator',
+                                },
+                          ],
                           tenant.archived
-                            ? {
-                                operation: 'tenant-unarchive',
-                                target: tenant.id,
-                                reason: 'Unarchived by operator',
-                              }
-                            : {
-                                operation: 'tenant-archive',
-                                target: tenant.id,
-                                reason: 'Archived by operator',
-                              },
-                        ],
-                        tenant.archived
-                          ? 'Tenant unarchived.'
-                          : 'Tenant archived.'
-                      )
-                    }
-                  >
-                    {tenant.archived ? 'Unarchive' : 'Archive'}
-                  </Button>
+                            ? 'Tenant unarchived.'
+                            : 'Tenant archived.'
+                        )
+                      }
+                    >
+                      {tenant.archived ? 'Unarchive' : 'Archive'}
+                    </Button>
+                  )}
                 </>
               )}
             </Stack>
             <Typography>
               Assigned cell:{' '}
               {assignedCell
-                ? `${assignedCell.database_name} (${assignedCell.enabled ? 'enabled' : 'disabled'})`
-                : 'Unavailable'}
+                ? `${assignedCell.database_name} (${!assignedCell.enabled ? 'Disabled' : assignedCell.available ? 'Available' : 'Enabled but unavailable'})`
+                : tenant.cell_id
+                  ? 'Unavailable'
+                  : 'Not assigned'}
             </Typography>
+            {bootstrap && (
+              <Alert
+                severity={
+                  bootstrap.status === 'failed'
+                    ? 'error'
+                    : bootstrap.status === 'completed'
+                      ? 'success'
+                      : 'info'
+                }
+              >
+                Operator bootstrap:{' '}
+                {bootstrap.status === 'waiting'
+                  ? 'Waiting for the first successfully provisioned cell.'
+                  : bootstrap.status}
+                {bootstrap.failure_code && ` — ${bootstrap.failure_code}`}
+                {bootstrap.status === 'failed' &&
+                  session?.actorId === bootstrap.root_id &&
+                  can('provision') && (
+                    <Button
+                      disabled={busy}
+                      onClick={() =>
+                        void runControls(
+                          [
+                            {
+                              operation: 'bootstrap-retry',
+                              bootstrap: bootstrap.id,
+                            },
+                          ],
+                          'Bootstrap retry queued.'
+                        )
+                      }
+                    >
+                      Retry bootstrap
+                    </Button>
+                  )}
+                {bootstrap.status === 'waiting' && (
+                  <Button component={Link} to="/management/cells">
+                    Go to Cells
+                  </Button>
+                )}
+              </Alert>
+            )}
+            {tenant.status === 'active' &&
+              (!tenant.provisioned ||
+                !tenant.rbac_ready ||
+                !assignedCell?.available) && (
+                <Alert severity="warning">
+                  Tenant access is not ready. Check provisioning, RBAC readiness
+                  and cell availability.
+                </Alert>
+              )}
+            <Typography>
+              RBAC: {tenant.rbac_ready ? 'Ready' : 'Pending'}
+            </Typography>
+            {(can('access') || can('impersonate')) && (
+              <Button
+                component={Link}
+                to={`/management/access?target=${tenant.id}`}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Controlled access
+              </Button>
+            )}
+            {can('registry') && tenant.cell_id && (
+              <Box component="details">
+                <Typography component="summary">
+                  Edit tier or pending assignment
+                </Typography>
+                <Stack
+                  component="form"
+                  spacing={2}
+                  sx={managementFormStyles}
+                  onSubmit={e => void submit(e)}
+                >
+                  <input type="hidden" name="operation" value="tenant-update" />
+                  <input type="hidden" name="target" value={tenant.id} />
+                  <TextField
+                    select
+                    name="tier"
+                    label="Tier"
+                    defaultValue={tenant.tier}
+                  >
+                    {['starter', 'growth', 'enterprise'].map(tier => (
+                      <MenuItem key={tier} value={tier}>
+                        {tier}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {tenant.status === 'pending' &&
+                  !tenant.provisioned &&
+                  tenantMembers.length === 0 ? (
+                    <TextField
+                      select
+                      name="cell"
+                      label="Assigned cell"
+                      defaultValue={tenant.cell_id}
+                    >
+                      {enabledCells.map(cell => (
+                        <MenuItem key={cell.id} value={cell.id}>
+                          {cell.database_name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  ) : (
+                    <input type="hidden" name="cell" value={tenant.cell_id} />
+                  )}
+                  <Button type="submit" disabled={busy}>
+                    Save tenant settings
+                  </Button>
+                </Stack>
+              </Box>
+            )}
             {tenant.status === 'pending' && (
               <Alert severity={activationBlocked ? 'info' : 'success'}>
                 {!assignedCell?.enabled
@@ -866,14 +1016,16 @@ export function ManagementPage() {
                         : 'Ready for activation checks. Choose the initial tenant administrator and activate.'}
               </Alert>
             )}
-            {tenant.status === 'active' && (
-              <Alert severity="success">
-                Tenant activated. The initial administrator can sign in at
-                /login. New portal users must change their temporary password
-                before entering the tenant. Linked users keep their existing
-                credentials.
-              </Alert>
-            )}
+            {tenant.status === 'active' &&
+              tenant.provisioned &&
+              tenant.rbac_ready &&
+              assignedCell?.available && (
+                <Alert severity="success">
+                  {operatorTenant
+                    ? 'Operator tenant is ready. Root keeps its existing credentials.'
+                    : 'Tenant activated. The initial administrator can sign in at /login. New portal users must change their temporary password before entering the tenant. Linked users keep their existing credentials.'}
+                </Alert>
+              )}
             <Typography>
               Projection: {tenant.provisioned ? 'Confirmed' : 'Pending'}
             </Typography>
@@ -932,7 +1084,7 @@ export function ManagementPage() {
                     {m.archived ? ' · Archived' : ''}
                   </Typography>
                 </Stack>
-                {can('members') && (
+                {can('members') && !isRoot(m.portal_user_id) && (
                   <Stack direction="row" spacing={1}>
                     {m.archived ? (
                       <Button
@@ -1213,7 +1365,7 @@ export function ManagementPage() {
               />
               {user.archived && <Chip label="archived" variant="outlined" />}
             </Stack>
-            {can('members') && (
+            {can('members') && !user.is_root && (
               <Stack
                 direction="row"
                 spacing={1}
@@ -1332,7 +1484,7 @@ export function ManagementPage() {
                     {membershipStatus(m.status, m.ready)}
                     {m.archived ? ' · Archived' : ''}
                   </Button>
-                  {can('members') && (
+                  {can('members') && !isRoot(m.portal_user_id) && (
                     <Stack direction="row" spacing={1}>
                       {m.archived ? (
                         <Button
@@ -1712,19 +1864,21 @@ export function ManagementPage() {
               >
                 {scope.portalUsers ? 'View memberships' : 'View tenant'}
               </MenuItem>
-              {can('members') && (
-                <MenuItem
-                  component={Link}
-                  to={`/management/portal-users/new?${scope.portalUsers ? 'record' : 'target'}=${rowMenu?.id}`}
-                  onClick={() => setRowMenu(null)}
-                >
-                  {scope.portalUsers
-                    ? 'Link to tenant'
-                    : 'Create or link portal user'}
-                </MenuItem>
-              )}
+              {can('members') &&
+                !(scope.portalUsers && isRoot(rowMenu?.id ?? '')) && (
+                  <MenuItem
+                    component={Link}
+                    to={`/management/portal-users/new?${scope.portalUsers ? 'record' : 'target'}=${rowMenu?.id}`}
+                    onClick={() => setRowMenu(null)}
+                  >
+                    {scope.portalUsers
+                      ? 'Link to tenant'
+                      : 'Create or link portal user'}
+                  </MenuItem>
+                )}
               {menuRow &&
                 scope.portalUsers &&
+                !isRoot(menuRow.id) &&
                 can('members') &&
                 !menuRow.archived && (
                   <MenuItem
@@ -1752,33 +1906,36 @@ export function ManagementPage() {
                     {menuRow.status === 'active' ? 'Suspend' : 'Unsuspend'}
                   </MenuItem>
                 )}
-              {menuRow && scope.portalUsers && can('members') && (
-                <MenuItem
-                  onClick={() => {
-                    setRowMenu(null);
-                    void runControls(
-                      [
+              {menuRow &&
+                scope.portalUsers &&
+                !isRoot(menuRow.id) &&
+                can('members') && (
+                  <MenuItem
+                    onClick={() => {
+                      setRowMenu(null);
+                      void runControls(
+                        [
+                          menuRow.archived
+                            ? {
+                                operation: 'portal-user-unarchive',
+                                user: menuRow.id,
+                                reason: 'Unarchived by operator',
+                              }
+                            : {
+                                operation: 'portal-user-archive',
+                                user: menuRow.id,
+                                reason: 'Archived by operator',
+                              },
+                        ],
                         menuRow.archived
-                          ? {
-                              operation: 'portal-user-unarchive',
-                              user: menuRow.id,
-                              reason: 'Unarchived by operator',
-                            }
-                          : {
-                              operation: 'portal-user-archive',
-                              user: menuRow.id,
-                              reason: 'Archived by operator',
-                            },
-                      ],
-                      menuRow.archived
-                        ? 'Portal user unarchived.'
-                        : 'Portal user archived.'
-                    );
-                  }}
-                >
-                  {menuRow.archived ? 'Unarchive' : 'Archive'}
-                </MenuItem>
-              )}
+                          ? 'Portal user unarchived.'
+                          : 'Portal user archived.'
+                      );
+                    }}
+                  >
+                    {menuRow.archived ? 'Unarchive' : 'Archive'}
+                  </MenuItem>
+                )}
               {menuRow &&
                 !scope.portalUsers &&
                 can('registry') &&
@@ -1811,33 +1968,36 @@ export function ManagementPage() {
                     {menuRow.status === 'active' ? 'Suspend' : 'Resume'}
                   </MenuItem>
                 )}
-              {menuRow && !scope.portalUsers && can('registry') && (
-                <MenuItem
-                  onClick={() => {
-                    setRowMenu(null);
-                    void runControls(
-                      [
+              {menuRow &&
+                !scope.portalUsers &&
+                !isOperatorTenant(menuRow.id) &&
+                can('registry') && (
+                  <MenuItem
+                    onClick={() => {
+                      setRowMenu(null);
+                      void runControls(
+                        [
+                          menuRow.archived
+                            ? {
+                                operation: 'tenant-unarchive',
+                                target: menuRow.id,
+                                reason: 'Unarchived by operator',
+                              }
+                            : {
+                                operation: 'tenant-archive',
+                                target: menuRow.id,
+                                reason: 'Archived by operator',
+                              },
+                        ],
                         menuRow.archived
-                          ? {
-                              operation: 'tenant-unarchive',
-                              target: menuRow.id,
-                              reason: 'Unarchived by operator',
-                            }
-                          : {
-                              operation: 'tenant-archive',
-                              target: menuRow.id,
-                              reason: 'Archived by operator',
-                            },
-                      ],
-                      menuRow.archived
-                        ? 'Tenant unarchived.'
-                        : 'Tenant archived.'
-                    );
-                  }}
-                >
-                  {menuRow.archived ? 'Unarchive' : 'Archive'}
-                </MenuItem>
-              )}
+                          ? 'Tenant unarchived.'
+                          : 'Tenant archived.'
+                      );
+                    }}
+                  >
+                    {menuRow.archived ? 'Unarchive' : 'Archive'}
+                  </MenuItem>
+                )}
             </Menu>
           </Box>
         )}

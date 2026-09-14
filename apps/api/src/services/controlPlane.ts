@@ -4,7 +4,12 @@
  */
 import { resolveEnvironment } from '../util/env.js';
 
-import { seedTenantRoles, seedTenantAdmin } from './roleSeeds.js';
+import { projectTenant } from './tenantProjection.js';
+import {
+  retryOperatorBootstrap,
+  operatorBootstrapOverview,
+} from './operatorBootstrap.js';
+import { seedTenantAdmin } from './roleSeeds.js';
 import { protectTenantAdmin } from './accessAdministration.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -16,7 +21,6 @@ import { audit, requirePlatform } from './platform.js';
 import type { AdminRepositories } from '../db/admin/repositories.js';
 import type { AdminTransaction } from '../db/withAdminTransaction.js';
 import type { CellRegistry } from './cellRegistry.js';
-import type { CellHandle } from '../db/cell/repositories.js';
 import type { AuthConfiguration } from '../util/authConfig.js';
 
 /** Does: Chooses the permission for a validated control command. Called by: the control router. */
@@ -35,7 +39,7 @@ export function commandPermission(body: z.infer<typeof controlBodySchema>) {
     body.operation === 'member-unarchive'
   )
     return 'members';
-  if (['retry', 'activate', 'reconcile'].includes(body.operation))
+  if (['retry', 'activate', 'bootstrap-retry'].includes(body.operation))
     return 'provision';
   return 'registry';
 }
@@ -46,6 +50,7 @@ export async function controlOverview(
 ) {
   return {
     cellEnvironment: resolveEnvironment(),
+    bootstrap: await operatorBootstrapOverview(tx),
     cells: (
       await tx.any<{
         id: string;
@@ -70,9 +75,10 @@ export async function controlOverview(
         status: string;
         cell_id: string | null;
         provisioned: boolean;
+        rbac_ready: boolean;
         archived: boolean;
       }>(
-        `SELECT id,tenant_code,company,tier,status,cell_id,provisioned,deactivated_at IS NOT NULL AS archived FROM admin.tenants ORDER BY company LIMIT 200`
+        `SELECT id,tenant_code,company,tier,status,cell_id,provisioned,rbac_ready,deactivated_at IS NOT NULL AS archived FROM admin.tenants ORDER BY company LIMIT 200`
       )
     ).map(
       ({
@@ -83,6 +89,7 @@ export async function controlOverview(
         status,
         cell_id,
         provisioned,
+        rbac_ready,
         archived,
       }) => ({
         id,
@@ -92,6 +99,7 @@ export async function controlOverview(
         status,
         cell_id,
         provisioned,
+        rbac_ready,
         archived,
       })
     ),
@@ -102,15 +110,17 @@ export async function controlOverview(
         status: string;
         archived: boolean;
         must_change_password: boolean;
+        is_root: boolean;
       }>(
-        `SELECT id,email,status,must_change_password,deactivated_at IS NOT NULL AS archived FROM admin.portal_users ORDER BY email LIMIT 200`
+        `SELECT id,email,status,must_change_password,is_root,deactivated_at IS NOT NULL AS archived FROM admin.portal_users ORDER BY email LIMIT 200`
       )
-    ).map(({ id, email, status, archived, must_change_password }) => ({
+    ).map(({ id, email, status, archived, must_change_password, is_root }) => ({
       id,
       email,
       status,
       archived,
       must_change_password,
+      is_root,
     })),
     members: (
       await tx.any<{
@@ -183,32 +193,6 @@ async function assigned(tx: AdminTransaction<AdminRepositories>, id: string) {
   if (!tenant || !tenant.cell_id || !tenant.enabled)
     throw new HttpError('FORBIDDEN');
   return tenant;
-}
-/** Does: Writes a tenant projection through its RLS transaction. Called by: activation and member synchronization. */
-async function projectTenant(
-  tx: AdminTransaction<AdminRepositories>,
-  cell: CellHandle,
-  id: string
-) {
-  const tenant = await tx.tenants.findById(id);
-  if (!tenant) throw new HttpError('NOT_FOUND');
-  await withTenantTransaction(cell, id, async local => {
-    const row = await local.cell_tenants.findById(id);
-    if (row && row.revision <= tenant.revision)
-      await local.cell_tenants.update(id, {
-        revision: tenant.revision,
-        code: tenant.tenant_code,
-        status: tenant.status,
-      });
-    else if (!row)
-      await local.cell_tenants.insert({
-        revision: tenant.revision,
-        id,
-        tenant_id: id,
-        code: tenant.tenant_code,
-        status: tenant.status,
-      });
-  });
 }
 /** Does: Replays one durable membership job and records a safe failure stage. Called by: provisioning and operator retry. */
 async function runJob(
@@ -676,42 +660,9 @@ export async function controlCommand(
     case 'retry':
       await runJob(tx, cells, body.job, body.name);
       break;
-    case 'reconcile': {
-      const root = await tx.portal_users.lockIdentity(actor);
-      if (!root?.is_root) throw new HttpError('FORBIDDEN');
-      const memberships = await tx.portal_user_tenants.findWhere({
-        portal_user_id: actor,
-      });
-      const membership = memberships[0];
-      const selected = await tx.cells.findById(body.cell);
-      if (!membership || !selected?.enabled) throw new HttpError('FORBIDDEN');
-      const tenant = await tx.tenants.findById(membership.tenant_id);
-      if (!tenant || (tenant.cell_id && tenant.cell_id !== body.cell))
-        throw new HttpError('CONFLICT');
-      const cell = cells.get(body.cell);
-      await tx.tenants.update(tenant.id, { cell_id: body.cell });
-      await projectTenant(tx, cell, tenant.id);
-      await withTenantTransaction(cell, tenant.id, async local => {
-        await seedTenantRoles(local, tenant.id);
-        if (!(await local.tenant_user_bindings.findById(membership.id)))
-          await local.tenant_user_bindings.insert({
-            id: membership.id,
-            tenant_id: tenant.id,
-            portal_user_id: actor,
-            entity_id: null,
-            user_type: null,
-            status: 'active',
-          });
-      });
-      await withTenantTransaction(cell, tenant.id, local =>
-        seedTenantAdmin(local, tenant.id, membership.id)
-      );
-      await tx.tenants.update(tenant.id, {
-        provisioned: true,
-        rbac_ready: true,
-      });
+    case 'bootstrap-retry':
+      await retryOperatorBootstrap(tx, actor, body.bootstrap);
       break;
-    }
     case 'activate': {
       const tenant = await assigned(tx, body.target);
       const cell = cells.get(tenant.cell_id);

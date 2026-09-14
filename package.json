@@ -24,6 +24,7 @@
     "prepare": "husky",
     "licenses": "node scripts/check-licenses.mjs",
     "db:migrate:admin": "npm run build --workspace @nap/api && node scripts/database.mjs migrate admin",
+    "db:clean:dev": "npm run build --workspace @nap/api && node scripts/clean-dev.mjs",
     "db:reset:admin": "npm run db:reset:admin --workspace @nap/api --",
     "db:reset:cell": "npm run db:reset:cell --workspace @nap/api --",
     "db:bootstrap": "npm run build --workspace @nap/api && node scripts/database.mjs bootstrap admin",

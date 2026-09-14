@@ -2,6 +2,8 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
+import { createElement } from 'react';
+import { Navigate } from 'react-router';
 import { ProductShell } from './shell/ProductShell.js';
 import { SessionProvider } from './auth/SessionProvider.js';
 import type { RouteObject } from 'react-router';
@@ -29,6 +31,29 @@ export const routes: RouteObject[] = [
         Component: ProductShell,
         ErrorBoundary: RouteError,
         children: [
+          ...[
+            ['/management/platform-access', 'PlatformAccessPage'],
+            ['/management/access', 'ManagementAccessPage'],
+            ['/management/audit', 'ManagementAuditPage'],
+          ].map(([path, page]) => ({
+            path,
+            lazy: async () => {
+              if (page === 'PlatformAccessPage')
+                return {
+                  Component: (await import('./pages/PlatformAccessPage.js'))
+                    .PlatformAccessPage,
+                };
+              if (page === 'ManagementAccessPage')
+                return {
+                  Component: (await import('./pages/ManagementAccessPage.js'))
+                    .ManagementAccessPage,
+                };
+              return {
+                Component: (await import('./pages/ManagementAuditPage.js'))
+                  .ManagementAuditPage,
+              };
+            },
+          })),
           {
             path: '/app/:tenantId/dashboard',
             lazy: async () => ({
@@ -76,9 +101,9 @@ export const routes: RouteObject[] = [
       },
       {
         path: '/platform-access',
-        lazy: async () => ({
-          Component: (await import('./pages/PlatformAccessPage.js'))
-            .PlatformAccessPage,
+        element: createElement(Navigate, {
+          replace: true,
+          to: '/management/platform-access',
         }),
       },
       {
@@ -102,10 +127,18 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        path: '/management',
+        lazy: async () => ({
+          Component: (await import('./pages/ManagementLandingPage.js'))
+            .ManagementLandingPage,
+        }),
+      },
+      {
         path: '/control',
         HydrateFallback: RouteLoading,
         lazy: async () => ({
-          Component: (await import('./pages/ControlPage.js')).ControlPage,
+          Component: (await import('./pages/ManagementLandingPage.js'))
+            .ManagementLandingPage,
         }),
       },
       {

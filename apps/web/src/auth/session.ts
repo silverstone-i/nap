@@ -70,7 +70,7 @@ export function sessionDestination(
       'admin-tenancy::control::overview'
     )
       ? '/management/tenants'
-      : '/control';
+      : '/management';
   }
   if (
     !session.userType &&

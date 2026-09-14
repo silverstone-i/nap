@@ -153,7 +153,6 @@ describe.each([false, true])('RBAC with cache=%s', cacheEnabled => {
       (await test.admin.db.cells.findOneBy({ database_name: 'cell-1' }))!.id,
       (await test.admin.db.cells.findOneBy({ database_name: 'cell-2' }))!.id,
     ];
-    await command('provision', { operation: 'reconcile', cell: cells[0] });
   }, 30000);
   afterAll(async () => {
     await test?.cleanup();

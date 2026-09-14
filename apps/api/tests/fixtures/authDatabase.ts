@@ -19,6 +19,11 @@ import {
   bootstrapRoot,
 } from '../../src/services/bootstrap.js';
 import { createCellRegistry } from '../../src/services/cellRegistry.js';
+import {
+  claimOperatorCell,
+  completeOperatorBootstrap,
+} from '../../src/services/operatorBootstrap.js';
+import { withAdminTransaction } from '../../src/db/withAdminTransaction.js';
 import { createApp } from '../../src/app.js';
 
 /**
@@ -40,7 +45,7 @@ export const authEnv = {
  * Does: Migrates and seeds a disposable database and serves it through the real auth routes.
  * Called by: authentication integration suites; cleanup touches only fixture resources.
  */
-export async function authDatabase() {
+export async function authDatabase(completeBootstrap = true) {
   const fixture = await postgresFixture();
   const admin = createAdminDatabase(fixture.runtimeUrl(fixture.adminUrl), {
     repositories: adminRepositories,
@@ -69,7 +74,7 @@ export async function authDatabase() {
       await grantDb.close();
     }
     await owner.none(
-      'GRANT SELECT,INSERT,UPDATE ON admin.cell_provisioning TO $1:name',
+      'GRANT SELECT,INSERT,UPDATE ON admin.cell_provisioning,admin.operator_bootstrap TO $1:name',
       [fixture.role]
     );
     const config = authConfiguration(authEnv);
@@ -80,12 +85,14 @@ export async function authDatabase() {
     const registered = await owner.one<{ id: string }>(
       "INSERT INTO admin.cells(database_name,enabled) VALUES('cell-1',true) RETURNING id"
     );
-    await owner.none(
-      'UPDATE admin.tenants SET cell_id=$1,provisioned=true,rbac_ready=true WHERE id=$2',
-      [registered.id, root.tenantId]
-    );
     const cells = createCellRegistry(new Map([[registered.id, cell]]));
     await cells.check();
+    if (completeBootstrap) {
+      await withAdminTransaction(admin, tx =>
+        claimOperatorCell(tx, registered.id)
+      );
+      await completeOperatorBootstrap(admin, cells);
+    }
     const app = createApp(undefined, { admin, cells }, { auth: config });
     const server = createServer(app);
     server.listen(0, '127.0.0.1');

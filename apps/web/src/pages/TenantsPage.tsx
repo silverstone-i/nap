@@ -130,7 +130,7 @@ export function TenantsPage() {
           Account
         </Button>
         {!!state.session.platformPermissions.length && (
-          <Button component={Link} to="/control">
+          <Button component={Link} to="/management">
             Administration
           </Button>
         )}

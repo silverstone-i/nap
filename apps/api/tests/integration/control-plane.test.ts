@@ -158,7 +158,6 @@ beforeAll(async () => {
     });
   cellId = (await test.admin.db.cells.findOneBy({ database_name: 'cell-1' }))!
     .id;
-  await command('provision', { operation: 'reconcile', cell: cellId });
 }, 30000);
 afterAll(async () => {
   await test?.cleanup();
@@ -1171,6 +1170,7 @@ it('exposes safe provisioning relationships and bounded employee navigation with
   expect(data.users.find(u => u.id === m.user.id)).toEqual({
     id: m.user.id,
     email: m.email,
+    is_root: false,
     status: 'active',
     archived: false,
     must_change_password: false,
