@@ -716,17 +716,67 @@ it('waits for Render readiness and stops before creation if credential persisten
   });
   const wait = vi.fn();
   const save = vi.fn();
+  const probe = vi
+    .fn()
+    .mockRejectedValueOnce(
+      Object.assign(new Error('private connection'), { code: 'ECONNREFUSED' })
+    )
+    .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'))
+    .mockResolvedValue(undefined);
   const connection = await provisionRender(
     { env, api: true, save },
     entry,
     call,
-    wait
+    wait,
+    probe
   );
   expect(new URL(connection).hostname).toBe('internal');
-  expect(wait).toHaveBeenCalledOnce();
+  expect(probe).toHaveBeenCalledTimes(3);
+  expect(probe).toHaveBeenLastCalledWith(connection);
+  expect(wait).toHaveBeenCalledTimes(3);
   expect(
     call.mock.calls.filter(([, method]) => method === 'POST')
   ).toHaveLength(1);
+  call.mockClear();
+  wait.mockClear();
+  probe
+    .mockReset()
+    .mockRejectedValue(
+      Object.assign(new Error('private connection'), { code: '57P03' })
+    );
+  await expect(
+    provisionRender({ env, api: true, save }, entry, call, wait, probe)
+  ).rejects.toThrow('not accepting connections yet; retry the same cell');
+  expect(probe).toHaveBeenCalledTimes(10);
+  expect(wait).toHaveBeenCalledTimes(9);
+  expect(call.mock.calls.some(([, method]) => method === 'POST')).toBe(false);
+  wait.mockClear();
+  probe
+    .mockReset()
+    .mockRejectedValue(
+      Object.assign(new Error('private password'), { code: '28P01' })
+    );
+  await expect(
+    provisionRender({ env, api: true, save }, entry, call, wait, probe)
+  ).rejects.toThrow('verify provider credentials and database permissions');
+  expect(probe).toHaveBeenCalledOnce();
+  expect(wait).not.toHaveBeenCalled();
+  probe.mockClear();
+  await expect(
+    provisionRender(
+      { env, api: true, save, signal: AbortSignal.abort() },
+      entry,
+      call,
+      wait,
+      probe
+    )
+  ).rejects.toThrow('readiness interrupted');
+  expect(probe).not.toHaveBeenCalled();
+  expect(
+    new URL(await provisionRender({ env, save }, entry, call, wait, probe))
+      .hostname
+  ).toBe('external');
+  expect(probe).not.toHaveBeenCalled();
   const blocked = {
     database: 'nap_prod_cell_blocked',
     operationId: '00000000-0000-4000-8000-000000000003',
