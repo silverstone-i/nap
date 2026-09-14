@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.19.1] - 2026-09-14
+
 ### Fixed
 
 - Automate production admin maintenance with Blueprint defaults, temporary
