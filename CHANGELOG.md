@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.19.0] - 2026-09-14
+
 ### Added
 
 - Serve the production web client and API from one origin, with a Render
