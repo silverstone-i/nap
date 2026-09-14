@@ -11,6 +11,8 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+## [v0.19.2] - 2026-09-14
+
 ### Fixed
 
 - Wait for new Render cell databases to accept connections before configuring
