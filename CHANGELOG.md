@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Fixed
+
+- Install development dependencies during Render builds so TypeScript and Vite
+  remain available with production configuration, and skip Git hook installation.
+
 ## [v0.19.0] - 2026-09-14
 
 ### Added

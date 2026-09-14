@@ -10,7 +10,7 @@ services:
     repo: https://github.com/silverstone-i/nap
     branch: main
     autoDeployTrigger: off
-    buildCommand: npm ci && npm run build
+    buildCommand: HUSKY=0 npm ci --include=dev && npm run build
     startCommand: node apps/api/dist/server.js
     healthCheckPath: /health/ready
     envVars:
