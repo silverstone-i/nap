@@ -1250,7 +1250,8 @@ Verification evidence is recorded in the implementation plan.
 ## Render verification — 2026-09-13
 
 Design: existing platform deployment and provisioning contracts. Implementation:
-preparation in progress locally; live verification pending. The
+preparation Verified upon merge of [PR #26](https://github.com/silverstone-i/nap/pull/26)
+with required checks passing; live verification pending. The
 [Render verification plan](../implementation-plans/render-verification.md) and
 [runbook](../guides/render-verification.md) cover one same-origin API/web service
 with isolated Virginia admin and first-cell databases. The gate before Reference

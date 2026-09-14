@@ -22,4 +22,6 @@ One local capability change followed by a separate, approved Render creation/ver
 
 ## Local preparation evidence
 
+Preparation is Verified upon merge of [PR #26](https://github.com/silverstone-i/nap/pull/26)
+with required checks passing. This status does not complete the live Render gate.
 Render's published Blueprint JSON Schema accepted `render.yaml`. The unit HTTP fixture and a smoke test using the actual built API and Vite output covered the entry page, deep links, assets, API 404 and missing build behavior. The final full local rerun passed all 491 tests, lint, typecheck, build, formatting, licenses and diff check. An earlier full run had one intermittent failure in the untouched workbook-body empty-request case (401 instead of 400); that file passed alone and the full rerun passed. The `.env` and `.env.example` comment/key order matches; no configuration values changed. No Render service or database was created. Live deployment and browser verification remain pending the explicit resource-creation step.
