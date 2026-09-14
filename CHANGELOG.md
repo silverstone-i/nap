@@ -13,6 +13,9 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ### Fixed
 
+- Automate production admin maintenance with Blueprint defaults, temporary
+  operator-only network access, verified TLS, correct database ownership transfer,
+  and automatic publication of internal connections and recovery state.
 - Install development dependencies during Render builds so TypeScript and Vite
   remain available with production configuration, and skip Git hook installation.
 

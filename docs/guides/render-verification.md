@@ -16,7 +16,7 @@ The service uses the repository root, `.nvmrc`/`NODE_VERSION=24.19.0`, `HUSKY=0 
 
 ## Prepare admin from the operator machine
 
-Use a private production configuration, not the checked-in `.env.example`. Set the Render API key, selected workspace ID, service ID, Virginia region, PostgreSQL 18, `0.1c-256mb` plan and 1 GB disk. Set `ROOT_TENANT_CODE_PROD`, `ROOT_COMPANY_PROD`, `ROOT_EMAIL_PROD` and a new root password for this isolated installation. Keep the local provisioning-state file private and backed up. The API key must be able to inspect the service, create PostgreSQL instances and update that service's environment variables. The local operator machine must be permitted to connect to the new database's external endpoint for migration and bootstrap.
+Use a private production configuration, not the checked-in `.env.example`. Set `RENDER_API_KEY` and `RENDER_API_SERVICE_ID` privately. Local PROD admin setup, migration and bootstrap read workspace, region, PostgreSQL version, plan and disk defaults from the single web service in the repository’s `render.yaml`. For those five settings, nonblank shell values override nonblank `.env` values, which override Blueprint values; blank placeholders fall through. `NAP_ENV_FILE` selects an alternative private environment file. Fully specified private settings do not require a Blueprint. DEV/TEST commands and server-side cell provisioning do not use this fallback. Set `ROOT_TENANT_CODE_PROD`, `ROOT_COMPANY_PROD`, `ROOT_EMAIL_PROD` and a new root password for this isolated installation. Keep the local provisioning-state file private and backed up. The API key must be able to inspect the service, create PostgreSQL instances and update that service's environment variables. The CLI discovers direct IPv4 egress through OpenDNS, temporarily allows that address as a /32, and removes only its own rule after each operation. HTTPS IP discovery is unsuitable when its proxy egress differs from PostgreSQL. DNS access to OpenDNS is required. Saved cleanup intent lets the next command remove a rule left by an interrupted process; retry promptly after interruption. Avoid concurrent dashboard allowlist edits while maintenance runs.
 
 Run the three explicit admin operations from the repository root:
 
@@ -26,18 +26,13 @@ npm run db:migrate:admin -- --env prod
 npm run db:bootstrap -- --env prod
 ```
 
-`db:setup:admin` creates the first paid database. Do not create `nap_prod_admin` separately. Check each command's exit status; retain its saved provisioning state for retry. A rerun with matching bootstrap configuration preserves existing root credentials and records.
+`db:setup:admin` creates the first paid database. Do not create `nap_prod_admin` separately. Configuration validation runs before setup opens state or contacts Render. Missing settings are reported together. Check each command's exit status; retain its saved provisioning state for retry. Failures after saving progress report the local state path without claiming a remote resource was created. A rerun with matching bootstrap configuration preserves existing root credentials and records.
 
 ## Configure the web service and deploy
 
-In the Render service's **Environment** page, set these private values without pasting them into Git, a shell command, or a ticket:
+Successful admin migration and bootstrap publish `ADMIN_DATABASE_PROD` with the internal endpoint and merge the admin entry into `NAP_PROVISION_STATE_PROD`, preserving existing cell state. They also supply missing `RENDER_API_KEY`, `RENDER_API_SERVICE_ID` and an initial empty `CELL_DATABASES_PROD`. Conflicting existing credentials or identities stop publication. No manual credential or state copying is required. The local recovery file retains the external endpoint. Blueprint settings and generated session secrets continue to be owned by Render.
 
-- `ADMIN_DATABASE_PROD`: a JSON object containing the admin entry's **internal** runtime endpoint, app password and admin password from the saved admin setup state.
-- `NAP_PROVISION_STATE_PROD`: the saved admin provisioning state with that admin entry's maintenance endpoint changed to its internal endpoint for use by the running API. Preserve the operation ID, resource ID, credentials, and other saved fields. Keep the original external-endpoint state on the operator machine for CLI recovery.
-- `CELL_DATABASES_PROD`: `{}` initially; the API updates this when cells are registered.
-- `RENDER_API_KEY` and `RENDER_API_SERVICE_ID`: the same authorized key and new service ID used for setup. The Blueprint supplies the workspace, region, plan, disk and PostgreSQL version settings. It generates separate session and throttle secrets.
-
-Do not copy the local state file verbatim if its admin endpoint is external: the running API should use Render's internal database endpoint. Treat all three database/state values as private; Blueprint sync does not own them. Trigger a manual deployment after these values are set. Confirm the latest deployment is live, `/health/live` and `/health/ready` return 200, `/` loads the web client, and `/api/unknown` remains an API error. Log in with the root identity.
+Trigger a manual deployment after these values are set. Confirm the latest deployment is live, `/health/live` and `/health/ready` return 200, `/` loads the web client, and `/api/unknown` remains an API error. Log in with the root identity.
 
 ## Register and verify the first cell
 

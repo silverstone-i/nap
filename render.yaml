@@ -1,6 +1,6 @@
 # The application creates admin and cell PostgreSQL instances through its
-# resumable Render provisioning workflow. Add changing credentials and state
-# through the service Environment page after creation; do not duplicate them here.
+# resumable Render provisioning workflow. Admin maintenance publishes changing
+# credentials and state to the service; do not duplicate them here.
 services:
   - type: web
     name: nap-verification

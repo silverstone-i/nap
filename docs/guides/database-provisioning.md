@@ -71,6 +71,17 @@ TEST; fixture configuration never writes the developer's .env or calls Render.
 
 ## Production on Render
 
+Local PROD admin setup, migration and bootstrap read five nonsecret defaults from the repository's
+`render.yaml`: `RENDER_WORKSPACE_ID`, `RENDER_REGION`, `RENDER_POSTGRES_VERSION`,
+`RENDER_POSTGRES_PLAN` and `RENDER_DISK_GB`. Nonblank shell values take precedence
+over nonblank private `.env` values, then Blueprint defaults. Blank placeholders
+fall through. `NAP_ENV_FILE` remains supported. Supply `RENDER_API_KEY` and
+`RENDER_API_SERVICE_ID` privately. Complete explicit settings work without a
+Blueprint; otherwise it must contain one web service and unique literal settings.
+Setup validates configuration before opening state or contacting Render. Errors
+identify saved state when progress was persisted; existing state is preserved for
+retry. This fallback applies only to local PROD admin maintenance. Each operation discovers the direct operator IPv4 through OpenDNS and temporarily allows its /32, preserving existing rules. Cleanup removes only the saved operation-owned rule; retries recover interrupted cleanup. External TLS uses verify-full. Successful migration and bootstrap publish the internal admin connection and merge admin recovery state into Render service secrets without deploying or overwriting cell entries.
+
 Configure the API service with RENDER_API_KEY, workspace, region, PostgreSQL
 version, plan, disk size and service ID. Register cell chooses PROD from the server
 environment. It creates an independently hosted database through Render, preserves

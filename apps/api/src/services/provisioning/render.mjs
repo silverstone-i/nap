@@ -145,7 +145,7 @@ export async function provisionRender(context, entry, call, wait = delay) {
         `/postgres/${encodeURIComponent(entry.renderId)}/connection-info`
       );
       const external = new URL(info.externalConnectionString);
-      external.searchParams.set('sslmode', 'require');
+      external.searchParams.set('sslmode', 'verify-full');
       const internal = new URL(info.internalConnectionString);
       if (
         external.pathname !== `/${entry.database}` ||

@@ -145,6 +145,7 @@ async function setup(context, command) {
       context.signal
     );
     url = await provisionRender(context, entry, call);
+    await context.prepareMaintenance?.(entry, url);
   } else {
     url = localSetupUrl(context, entry);
     const parsed = new URL(url);

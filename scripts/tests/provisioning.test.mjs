@@ -18,7 +18,7 @@ import { withAdminTransaction } from '../../apps/api/dist/db/withAdminTransactio
 import { createRuntime } from '../../apps/api/dist/runtime.js';
 import { authConfiguration } from '../../apps/api/dist/util/authConfig.js';
 
-import { using } from '../provision/postgres.mjs';
+import { using, databasePrivileges } from '../provision/postgres.mjs';
 import { cleanDev } from '../clean-dev.mjs';
 import { provisionRender, renderClient } from '../provision/render.mjs';
 
@@ -880,4 +880,38 @@ it('cleans only DEV databases and resets files without changing credentials', as
     await db.none('DROP DATABASE nap_prod_cell_cleanup');
   });
   expect((await cleanDev(['--confirm'], inherited)).removed).toEqual([]);
+});
+
+it('transfers a provider-owned database to nap_admin and preserves runtime restrictions', async () => {
+  const providerUrl = roleUrl(
+    context.env.SETUP_DATABASE_TEST,
+    'postgres',
+    'fixture-owner-password'
+  );
+  const database = 'nap_test_render_ownership';
+  await using(providerUrl, db =>
+    db.none('CREATE DATABASE $1:name', [database])
+  );
+  const entry = { database, renderId: 'fixture-provider-resource' };
+  await databasePrivileges(providerUrl, entry);
+  await databasePrivileges(providerUrl, entry);
+  await using(providerUrl, async db => {
+    expect(
+      await db.one(
+        'SELECT pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=$1',
+        [database]
+      )
+    ).toEqual({ owner: 'nap_admin' });
+    expect(
+      await db.one(
+        "SELECT has_database_privilege('nap_app', $1, 'CONNECT') AS connect, has_database_privilege('nap_app', $1, 'CREATE') AS create",
+        [database]
+      )
+    ).toEqual({ connect: true, create: false });
+    expect(
+      await db.one(
+        "SELECT EXISTS(SELECT 1 FROM pg_auth_members WHERE roleid=(SELECT oid FROM pg_roles WHERE rolname='nap_admin') AND member=(SELECT oid FROM pg_roles WHERE rolname='postgres')) AS member"
+      )
+    ).toEqual({ member: false });
+  });
 });

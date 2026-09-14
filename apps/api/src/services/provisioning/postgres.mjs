@@ -132,7 +132,7 @@ export async function databasePrivileges(infrastructureUrl, entry) {
       const current = await db.one('SELECT current_user AS name');
       await db.none('GRANT nap_admin TO $1:name', [current.name]);
       try {
-        await db.none('ALTER DATABASE $1:name OWNER nap_admin', [
+        await db.none('ALTER DATABASE $1:name OWNER TO nap_admin', [
           entry.database,
         ]);
       } finally {
