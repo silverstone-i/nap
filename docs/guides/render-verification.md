@@ -12,7 +12,7 @@ Review the exact service definition and the chosen workspace/region before apply
 
 After this preparation change is merged to `main`, open the [Render Blueprint creation page](https://dashboard.render.com/blueprint/new?repo=https://github.com/silverstone-i/nap), select **My Workspace**, and review `render.yaml`. Applying it creates only the web service. Record its `srv-...` ID and public URL. The first deploy is expected to fail readiness until admin provisioning is complete. The Blueprint contains no database instances because NAP's setup and Register cell operations create independently named, resumable instances. Later Blueprint syncs must not overwrite their credentials or saved operation state.
 
-The service uses the repository root, `.nvmrc`/`NODE_VERSION=24.19.0`, `npm ci && npm run build`, `node apps/api/dist/server.js`, and `/health/ready`. It serves `/api/...` and the web client from the same origin. The production build must contain `apps/web/dist/index.html`; startup refuses a missing web build.
+The service uses the repository root, `.nvmrc`/`NODE_VERSION=24.19.0`, `npm ci --include=dev && npm run build`, `node apps/api/dist/server.js`, and `/health/ready`. The explicit dev-dependency inclusion is required while `NODE_ENV=production` because the build uses TypeScript and Vite, and the install prepare script runs Husky. It serves `/api/...` and the web client from the same origin. The production build must contain `apps/web/dist/index.html`; startup refuses a missing web build.
 
 ## Prepare admin from the operator machine
 

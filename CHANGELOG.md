@@ -11,6 +11,11 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Fixed
+
+- Install development dependencies during Render builds so TypeScript, Vite,
+  and the Husky prepare script remain available with production configuration.
+
 ## [v0.19.0] - 2026-09-14
 
 ### Added
