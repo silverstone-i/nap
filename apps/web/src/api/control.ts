@@ -43,7 +43,7 @@ export async function command(body: z.infer<typeof controlBodySchema>) {
             'member-unarchive',
           ].includes(body.operation)
         ? 'members'
-        : ['retry', 'activate', 'reconcile'].includes(body.operation)
+        : ['retry', 'activate', 'bootstrap-retry'].includes(body.operation)
           ? 'provision'
           : 'registry';
   const result = await requestContract(

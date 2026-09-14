@@ -59,11 +59,32 @@ npm run db:migrate:admin -- --env dev
 npm run db:bootstrap -- --env dev
 ```
 
-Setup creates infrastructure; migrations create application tables; admin bootstrap
-creates root records; cell seeding inserts shared reference codes. Activation is
-separate. Tenant assignment and tenant RBAC seeds remain tenant-provisioning work.
-The new admin baseline requires empty databases; existing historical migration
-ledgers are refused. No reset or rename is performed automatically.
+Start the API and web app in separate terminals:
+
+```bash
+npm run dev:api
+npm run dev:web
+```
+
+Sign in as root, then open **Tenant Management → Cells → Register cell**.
+The first successfully provisioned cell automatically hosts NapSoft and completes
+root's tenant access and RBAC setup. Check progress under **Tenant Management →
+Tenants**. See the [Database provisioning guide](docs/guides/database-provisioning.md)
+for prerequisites, configuration, and bootstrap failure/retry instructions.
+
+To start DEV again from empty databases, stop the API and run:
+
+```bash
+npm run db:clean:dev -- --confirm
+```
+
+This permanently deletes `nap_dev_admin` and every `nap_dev_cell_*` database
+owned by `nap_admin` on the `SETUP_DATABASE_DEV` server, deletes
+`apps/api/.env.provisioning.dev.json`, and sets `CELL_DATABASES_DEV='{}'` in
+`apps/api/.env`. PostgreSQL roles and configured passwords are preserved.
+Then repeat the setup, migration, bootstrap, and startup sequence above.
+The [cleanup details](docs/guides/database-provisioning.md#clean-development-environment)
+explain scope and recovery after an interrupted cleanup.
 
 Runtime still selects configuration using NODE_ENV. Maintenance commands use their
 explicit environment and private provisioning state. DEV and TEST use independently

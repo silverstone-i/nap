@@ -107,3 +107,36 @@ transition if a registration has no verified mapping; reconcile that metadata wi
 the physical identity before retrying. Editable old labels are never a source.
 Unfinished operations appear in Cells and can be retried with their original private
 state. Keep that state until recovery is complete.
+
+## Complete greenfield operator bootstrap
+
+Run admin setup, migration and bootstrap, then start the API and web application. Sign in as root and register a cell in Tenant Management → Cells. The first successfully provisioned available cell automatically hosts the operator tenant. Tenant Management → Tenants displays bootstrap progress, cell availability, projection and RBAC readiness. Root remains an identity without an employee record.
+
+A bootstrap failure leaves the cell available. Use Retry bootstrap on the operator tenant to resume the saved operation and cell. Restart resumes interrupted work. Do not create another root or rerun initial setup to recover cell synchronization. Normal bootstrap reruns preserve existing records and completed state; upgrades never enroll existing installations. Explicit root password recovery remains a separate operation.
+
+Tenant Management also contains Portal users, Platform access, Access and Audit. Each destination retains its permission requirements; controlled access requires a reason. Legacy control URLs redirect into this navigation.
+
+Apply the additive admin migration before running this version of the API. It creates bootstrap tracking without enrolling existing installations. Deploy the matching administration client and reload legacy open control pages; manual reconcile requests are retired. Existing customer contracts remain unchanged.
+
+## Clean development environment
+
+Stop the API before running `npm run db:clean:dev -- --confirm`. This destructive
+command uses `SETUP_DATABASE_DEV` (which must target the `postgres` maintenance
+database) and `NAP_ADMIN_PSWD_DEV`. It removes `nap_dev_admin` and all databases
+matching `nap_dev_cell_<suffix>` on that server, including partially provisioned
+cells. Every matching database must be owned by `nap_admin`; an ownership mismatch
+stops cleanup before any drops. Other database names and PostgreSQL roles remain.
+Do not share these DEV database names with another installation on the same server.
+
+After the drops succeed, it sets `CELL_DATABASES_DEV='{}'` in `apps/api/.env` and
+removes `apps/api/.env.provisioning.dev.json`. Other environment values remain.
+The standard `NAP_ENV_FILE` and `NAP_PROVISION_STATE` overrides are supported for
+isolated fixtures; unset an inherited nonempty `CELL_DATABASES_DEV` before use.
+The command takes the provisioning-state lock. Stop the API so its in-memory
+connections and configuration cannot race with cleanup.
+
+Drops are not transactional. If cleanup fails partway, saved state remains until
+the final configuration write succeeds; correct the cause and rerun the same
+command. Missing databases/state are harmless on rerun. Then follow
+[Prepare admin before any cells](#prepare-admin-before-any-cells) and
+[Greenfield operator bootstrap](#complete-greenfield-operator-bootstrap).

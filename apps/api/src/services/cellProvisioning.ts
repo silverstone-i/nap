@@ -1,3 +1,8 @@
+import {
+  claimOperatorCell,
+  completeOperatorBootstrap,
+} from './operatorBootstrap.js';
+import { withAdminTransaction } from '../db/withAdminTransaction.js';
 /*
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
@@ -336,6 +341,7 @@ export function createCellProvisioning(
     if (flight) return flight;
     if (stopped) return Promise.resolve();
     flight = (async () => {
+      await completeOperatorBootstrap(admin, cells);
       while (!stopped) {
         const row = await admin.oneOrNone<Operation>(
           "UPDATE admin.cell_provisioning SET status='running',started_at=now(),updated_at=now() WHERE cell_id=(SELECT cell_id FROM admin.cell_provisioning WHERE status='queued' AND environment=$1 ORDER BY updated_at LIMIT 1) RETURNING *",
@@ -358,10 +364,13 @@ export function createCellProvisioning(
                 : [operation, 'cell', '--env', lower, '--cell-id', row.cell_id];
             await run(argumentsFor(args), context);
           }
-          await admin.none(
-            "UPDATE admin.cell_provisioning SET status='completed',completed_at=now(),updated_at=now(),failure_code=NULL WHERE cell_id=$1",
-            [row.cell_id]
-          );
+          await withAdminTransaction(admin, async tx => {
+            await tx.none(
+              "UPDATE admin.cell_provisioning SET status='completed',completed_at=now(),updated_at=now(),failure_code=NULL WHERE cell_id=$1",
+              [row.cell_id]
+            );
+            await claimOperatorCell(tx, row.cell_id);
+          });
         } catch (error) {
           const message =
             error instanceof ProvisioningError
@@ -375,6 +384,7 @@ export function createCellProvisioning(
         } finally {
           await context?.close();
         }
+        if (!stopped) await completeOperatorBootstrap(admin, cells);
       }
     })().finally(() => {
       flight = undefined;

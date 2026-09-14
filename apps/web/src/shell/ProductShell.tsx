@@ -35,9 +35,13 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FolderIcon from '@mui/icons-material/Folder';
-import BusinessIcon from '@mui/icons-material/Business';
-import PeopleIcon from '@mui/icons-material/People';
 import StorageIcon from '@mui/icons-material/Storage';
+import PeopleIcon from '@mui/icons-material/People';
+import SecurityIcon from '@mui/icons-material/Security';
+import LoginIcon from '@mui/icons-material/Login';
+import HistoryIcon from '@mui/icons-material/History';
+import BusinessIcon from '@mui/icons-material/Business';
+import { managementDestinations } from './managementNavigation.js';
 import { useSession, sessionDestination } from '../auth/session.js';
 import { SessionStatus } from '../auth/SessionStatus.js';
 import { logout } from '../api/auth.js';
@@ -174,29 +178,28 @@ export function ProductShell() {
     query.set('tab', 'employees');
     return <Navigate replace to={`${location.pathname}?${query}`} />;
   }
-  const canManage =
-    !session.controlledAccess &&
-    session.platformPermissions.includes('admin-tenancy::control::overview');
-  const canRegisterCell =
-    !session.controlledAccess &&
-    session.platformPermissions.includes('admin-tenancy::control::registry');
+  const managementLinks = session.controlledAccess
+    ? []
+    : managementDestinations(session.platformPermissions);
+  const currentManagement = managementLinks.find(
+    item =>
+      location.pathname === item.path ||
+      location.pathname.startsWith(item.path + '/')
+  );
+  const canManage = managementLinks.length > 0;
   const employees =
     navigation?.tenant === session.tenantId && navigation.employees && !refusal;
   const home = session.tenantId ? `/app/${session.tenantId}/dashboard` : '/';
   const directory = `/app/${session.tenantId}/accounting/directories?tab=employees`;
   const heading = scope.central
-    ? scope.cells
-      ? 'Cells'
-      : scope.portalUsers
-        ? 'Portal users'
-        : 'Tenants'
+    ? (currentManagement?.label ?? 'Tenant Management')
     : scope.directory
       ? 'Employees'
       : 'Dashboard';
   const denied =
     refusal ||
     (scope.central
-      ? !(canManage || (scope.cells && scope.create && canRegisterCell))
+      ? !currentManagement
       : scope.directory && navigation !== null && !employees);
   const links = (
     <Box
@@ -220,22 +223,6 @@ export function ProductShell() {
           >
             <DashboardIcon />
             {!(desktop && collapsed) && <ListItemText primary="Dashboard" />}
-          </ListItemButton>
-        )}
-        {!canManage && canRegisterCell && (
-          <ListItemButton
-            component={Link}
-            to="/management/cells/new"
-            selected={scope.cells && scope.create}
-            onClick={closeMenu}
-            sx={activeNavigationStyles}
-            aria-label="Register cell"
-            aria-current={scope.cells && scope.create ? 'page' : undefined}
-          >
-            <StorageIcon />
-            {!(desktop && collapsed) && (
-              <ListItemText primary="Register cell" />
-            )}
           </ListItemButton>
         )}
         {canManage && (
@@ -278,54 +265,35 @@ export function ProductShell() {
               in={!(desktop && collapsed) && managementOpen}
             >
               <List disablePadding sx={{ pl: 2 }}>
-                <ListItemButton
-                  component={Link}
-                  to="/management/tenants"
-                  selected={scope.central && !scope.cells && !scope.portalUsers}
-                  onClick={closeMenu}
-                  sx={activeNavigationStyles}
-                  aria-label="Tenants"
-                  aria-current={
-                    scope.central && !scope.cells && !scope.portalUsers
-                      ? 'page'
-                      : undefined
-                  }
-                >
-                  <BusinessIcon />
-                  {!(desktop && collapsed) && (
-                    <ListItemText primary="Tenants" />
-                  )}
-                </ListItemButton>
-                <ListItemButton
-                  component={Link}
-                  to="/management/cells"
-                  selected={scope.central && scope.cells}
-                  onClick={closeMenu}
-                  sx={activeNavigationStyles}
-                  aria-label="Cells"
-                  aria-current={
-                    scope.central && scope.cells ? 'page' : undefined
-                  }
-                >
-                  <StorageIcon />
-                  {!(desktop && collapsed) && <ListItemText primary="Cells" />}
-                </ListItemButton>
-                <ListItemButton
-                  component={Link}
-                  to="/management/portal-users"
-                  selected={scope.central && scope.portalUsers}
-                  onClick={closeMenu}
-                  sx={activeNavigationStyles}
-                  aria-label="Portal users"
-                  aria-current={
-                    scope.central && scope.portalUsers ? 'page' : undefined
-                  }
-                >
-                  <PeopleIcon />
-                  {!(desktop && collapsed) && (
-                    <ListItemText primary="Portal users" />
-                  )}
-                </ListItemButton>
+                {managementLinks.map(item => (
+                  <ListItemButton
+                    key={item.path}
+                    component={Link}
+                    to={item.path}
+                    selected={currentManagement?.path === item.path}
+                    onClick={closeMenu}
+                    sx={activeNavigationStyles}
+                    aria-label={item.label}
+                    aria-current={
+                      currentManagement?.path === item.path ? 'page' : undefined
+                    }
+                  >
+                    {item.label === 'Cells' ? (
+                      <StorageIcon />
+                    ) : item.label === 'Portal users' ? (
+                      <PeopleIcon />
+                    ) : item.label === 'Platform access' ? (
+                      <SecurityIcon />
+                    ) : item.label === 'Access' ? (
+                      <LoginIcon />
+                    ) : item.label === 'Audit' ? (
+                      <HistoryIcon />
+                    ) : (
+                      <BusinessIcon />
+                    )}
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                ))}
               </List>
             </Collapse>
             <Menu
@@ -336,30 +304,17 @@ export function ProductShell() {
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'left' }}
             >
-              <MenuItem
-                component={Link}
-                to="/management/tenants"
-                selected={scope.central && !scope.cells && !scope.portalUsers}
-                onClick={closeMenu}
-              >
-                Tenants
-              </MenuItem>
-              <MenuItem
-                component={Link}
-                to="/management/cells"
-                selected={scope.central && scope.cells}
-                onClick={closeMenu}
-              >
-                Cells
-              </MenuItem>
-              <MenuItem
-                component={Link}
-                to="/management/portal-users"
-                selected={scope.central && scope.portalUsers}
-                onClick={closeMenu}
-              >
-                Portal users
-              </MenuItem>
+              {managementLinks.map(item => (
+                <MenuItem
+                  key={item.path}
+                  component={Link}
+                  to={item.path}
+                  selected={currentManagement?.path === item.path}
+                  onClick={closeMenu}
+                >
+                  {item.label}
+                </MenuItem>
+              ))}
             </Menu>
           </>
         )}
@@ -534,7 +489,7 @@ export function ProductShell() {
                 <RouteLoading />
               ) : (
                 <Outlet
-                  key={`${location.pathname}:${scope.record ?? ''}:${scope.target ?? ''}`}
+                  key={`${location.pathname}:${scope.record ?? ''}:${scope.target ?? ''}:${JSON.stringify(session)}`}
                 />
               )}
             </Stack>

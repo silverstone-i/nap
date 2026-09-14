@@ -104,7 +104,7 @@ The shared `transport/control.ts` definitions enumerate the request fields.
 | `GET /admin-tenancy/v1/control/overview`   | Central overview permission; operator registry, members, jobs and grants                                          |
 | `POST /admin-tenancy/v1/control/registry`  | Register/update cells, create pending tenants, update tier/pending assignment, suspend/resume provisioned tenants |
 | `POST /admin-tenancy/v1/control/members`   | Provision or revoke a typed membership                                                                            |
-| `POST /admin-tenancy/v1/control/provision` | Retry a job, activate a tenant, or reconcile the root operator tenant                                             |
+| `POST /admin-tenancy/v1/control/provision` | Retry a job, activate a tenant, or retry the saved operator bootstrap                                             |
 | `POST /admin-tenancy/v1/control/grants`    | Grant/revoke one central route permission                                                                         |
 | `GET /admin-tenancy/v1/control/audit`      | Audit-review permission; latest managed events                                                                    |
 | `GET /core/v1/identity/profile`            | Own linked record; controlled direct access may name a record/kind within its selected tenant                     |
@@ -140,16 +140,14 @@ it never activates the membership. Revocation queues a job for projection retry
 and denies access centrally immediately. New tenant activation requires every
 active membership ready and at least one confirmed employee administrator.
 
-Root reconciliation is explicit and root-only. It creates the root projection
-without an employee record, preserves credentials, and refuses reassignment.
+Greenfield root bootstrap records durable intent and completes automatically on the first successful available cell (ADR 0015). It creates the root projection without an employee record, preserves credentials, and refuses reassignment. Root-only bootstrap retry uses the saved operation, never a replacement cell. Existing installations are not enrolled.
 Tenants with existing memberships cannot change assignment even while pending;
 movement requires the later dedicated workflow.
 
 ## Acceptance and rollout
 
 The capability plan owns execution order and test scenarios. Additive migrations
-precede deployment; explicit operator actions provision and reconcile the cell.
-No runtime migration or bootstrap. Failed stages are retried, not automatically
+precede deployment. Register cell runs its accepted provisioning workflow; the worker completes saved greenfield operator bootstrap under ADR 0015. Initial admin creation and migration remain CLI operations. Failed stages are retried, not automatically
 activated. Reverting application security behavior requires session revocation.
 
 ## Revisions
@@ -308,3 +306,11 @@ Revision 2026-09-13: owner approved full Register cell workflow and UUID/databas
 
 Revision 2026-09-13: reconciled PR #24 implementation and verification evidence;
 Register cell verification becomes effective on merge with required checks passing.
+
+## TEN-011 — Operator bootstrap completion
+
+Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
+
+The specification and ADR 0015 own the greenfield lifecycle. Overview exposes safe bootstrap status, RBAC readiness and protected-root metadata to authorized operators. Replace the manual reconcile command with bootstrap-retry naming the saved operation. Cell success is independent of bootstrap failure. Completion verifies projections, root role assignment and isolation before marking readiness.
+
+Revision 2026-09-14: reconciled PR #25 verification; status becomes effective on merge with required checks passing.

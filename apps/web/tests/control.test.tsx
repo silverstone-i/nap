@@ -184,7 +184,7 @@ it('limits support forms to explicit permissions', async () => {
     reply({ ...base, platformPermissions: ['admin-tenancy::control::access'] })
   );
   mount('/control');
-  await screen.findByText('Controlled access');
+  await screen.findByRole('heading', { name: 'Access' });
   expect(screen.queryByText('Register tenant')).toBeNull();
   expect(screen.queryByText('Platform permissions')).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -205,8 +205,70 @@ it('directs cell registration to the Cells page', async () => {
           })
         : respond({ jobId: null })
   );
-  mount('/control');
-  const link = await screen.findByRole('link', { name: 'Manage cells' });
+  const router = mount('/control');
+  await screen.findByRole('heading', { name: 'Tenants' });
+  expect(router.state.location.pathname).toBe('/management/tenants');
+  fireEvent.click(screen.getByRole('button', { name: 'Toggle navigation' }));
+  const link = await screen.findByRole('link', { name: 'Cells' });
   expect(link.getAttribute('href')).toBe('/management/cells');
   expect(screen.queryByLabelText('Cell code')).toBeNull();
+});
+
+it('opens Audit with audit permission alone without requesting overview', async () => {
+  fetchMock.mockImplementation(url =>
+    String(url).endsWith('/session')
+      ? respond({
+          ...base,
+          platformPermissions: ['admin-tenancy::control::audit'],
+        })
+      : respond([])
+  );
+  const router = mount('/control');
+  await screen.findByRole('heading', { name: 'Audit' });
+  expect(router.state.location.pathname).toBe('/management/audit');
+  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/overview'))).toBe(
+    false
+  );
+});
+it('keeps member commands reachable without overview permission', async () => {
+  fetchMock.mockResolvedValue(
+    reply({ ...base, platformPermissions: ['admin-tenancy::control::members'] })
+  );
+  const router = mount('/control');
+  await screen.findByRole('heading', { name: 'Portal users' });
+  expect(router.state.location.pathname).toBe('/management/portal-users');
+  expect(screen.getAllByText('Revoke membership')[0]).toBeTruthy();
+  expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/overview'))).toBe(
+    false
+  );
+});
+it('clears audit data after permission refusal', async () => {
+  let revoked = false;
+  fetchMock.mockImplementation(url =>
+    String(url).endsWith('/session')
+      ? respond({
+          ...base,
+          platformPermissions: revoked ? [] : ['admin-tenancy::control::audit'],
+        })
+      : revoked
+        ? respond(null, 403)
+        : respond([
+            {
+              id: membership,
+              operator_id: id,
+              effective_user_id: null,
+              target_id: tenant,
+              event: 'private-audit-event',
+              reason: 'Fixture audit',
+              created_at: '2026-09-13T00:00:00Z',
+            },
+          ])
+  );
+  mount('/management/audit');
+  await screen.findByText(/private-audit-event/);
+  revoked = true;
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+  await waitFor(() =>
+    expect(screen.queryByText(/private-audit-event/)).toBeNull()
+  );
 });

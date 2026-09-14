@@ -146,7 +146,10 @@ export const controlBodySchema = z.discriminatedUnion('operation', [
     target: z.uuid(),
     administrator: z.uuid().optional(),
   }),
-  z.strictObject({ operation: z.literal('reconcile'), cell: z.uuid() }),
+  z.strictObject({
+    operation: z.literal('bootstrap-retry'),
+    bootstrap: z.uuid(),
+  }),
 ]);
 /** Does: Defines controlled tenant access intent. Used by: operator access form and auth action. */
 export const accessBodySchema = z.strictObject({
@@ -172,6 +175,17 @@ export const membershipsResponseSchema = successResponseSchema(
 export const controlResponseSchema = successResponseSchema(
   z.strictObject({
     cellEnvironment: z.enum(['DEV', 'TEST', 'PROD']),
+    bootstrap: z
+      .strictObject({
+        id: z.uuid(),
+        tenant_id: z.uuid(),
+        root_id: z.uuid(),
+        cell_id: z.uuid().nullable(),
+        status: z.enum(['waiting', 'queued', 'running', 'failed', 'completed']),
+        failure_code: z.string().nullable(),
+      })
+      .nullable()
+      .default(null),
     cells: z.array(
       z.strictObject({
         id: z.uuid(),
@@ -194,6 +208,7 @@ export const controlResponseSchema = successResponseSchema(
         status: z.string(),
         cell_id: z.uuid().nullable(),
         provisioned: z.boolean(),
+        rbac_ready: z.boolean().default(false),
         archived: z.boolean(),
       })
     ),
@@ -205,6 +220,7 @@ export const controlResponseSchema = successResponseSchema(
           status: z.string(),
           archived: z.boolean(),
           must_change_password: z.boolean(),
+          is_root: z.boolean().default(false),
         })
       )
       .default([]),

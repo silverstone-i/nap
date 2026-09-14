@@ -160,8 +160,7 @@ eager and routed major pages lazy under the specification's conventions.
 
 ## Provisioning delivery inventory
 
-Current code supplies provisioning through `/control` and the admin-tenancy
-control APIs. PRD 0009 requires the following shell integration; existing route
+Tenant Management supplies provisioning through the admin-tenancy control APIs. The legacy `/control` URL redirects to a permitted management destination. PRD 0009 requires the following shell integration; existing route
 availability does not limit the required scope.
 
 | Records              | Current contract                                                                                        | Required shell delivery                                                                                                              |
@@ -228,15 +227,15 @@ The implementation plan records current verification evidence.
 Tenant Management adds Cells alongside Tenants and Portal users in expanded,
 collapsed and mobile navigation. Routes are `/management/cells`,
 `/management/cells/new` and `/management/cells/:target`. Use Header1 for title,
-search and Register cell; DataGrid for code, name, enabled state and row actions.
-Explicit Save/Cancel forms provide registration and editing; disabling uses a
+search and Register cell; DataGrid for UUID, database name, provisioning status and row actions.
+Explicit registration starts the ADR 0014 provisioning workflow; disabling uses a
 confirmation dialog. Lists retain the existing URL-state conventions.
 
 PRD 0004 TEN-010 owns the cell and provisioning behavior. Reuse existing tenant
 and portal-user pages, presenting next actions, status and recoverable failures
 in the tenant context. Empty enabled-cell choices link to Cells and prevent
 submission. Preserve permission gates and clear stale replies on session changes.
-No wizard, infrastructure controls or generic employee administration is added.
+Register cell owns infrastructure provisioning under ADR 0014; no wizard or generic employee administration is added.
 
 Revision, 2026-09-11: Owner accepted SHELL-009 with implementation authorization.
 Evidence is tracked in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
@@ -244,3 +243,11 @@ Evidence is tracked in the [UI delivery plan](../implementation-plans/0004-cell-
 UI verification: Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
 The UI delivery plan records browser/API evidence and review fixes; historical
 Verified entries retain their original scope.
+
+## SHELL-010 — Consolidated Tenant Management
+
+Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
+
+Tenants owns lifecycle, tier/allowed assignment, provisioning and bootstrap status/retry. Portal users owns identities and memberships. Cells retains its workflow. Add Platform access, Access and Audit destinations at /management/platform-access, /management/access and /management/audit. Preserve each server permission independently, including identifier entry for access-only operators. Legacy /control redirects to a permission-aware /management landing; /platform-access redirects to its management destination. Display lifecycle, provisioning, RBAC and availability distinctly; protected root actions are hidden. Session changes clear prior administrative data.
+
+Revision 2026-09-14: reconciled PR #25 verification; status becomes effective on merge with required checks passing.

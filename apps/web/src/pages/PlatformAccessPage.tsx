@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router';
+import { Navigate } from 'react-router';
 import {
   Alert,
   Box,
   Button,
   Checkbox,
-  Container,
+  Toolbar,
   FormControlLabel,
   MenuItem,
   Stack,
@@ -24,6 +24,7 @@ import {
   saveEntitlement,
 } from '../api/access.js';
 import { overview } from '../api/control.js';
+import { managementHeaderStyles } from '../theme/styles.js';
 import { useSession } from '../auth/session.js';
 import { SessionStatus } from '../auth/SessionStatus.js';
 /** Does: Manages platform roles, shared support permissions and module grants. Called by: operator access route. */
@@ -46,6 +47,7 @@ export function PlatformAccessPage() {
   const allowed = permissions.includes(
     'admin-tenancy::control::access-overview'
   );
+  const canOverview = permissions.includes('admin-tenancy::control::overview');
   useEffect(() => {
     if (!allowed) return;
     let active = true;
@@ -56,16 +58,19 @@ export function PlatformAccessPage() {
         else setMessage(r.error.message);
       }
     });
-    void overview().then(r => {
-      if (active && r.ok) {
-        setTenants(r.body.data.tenants);
-        setPeople([...new Set(r.body.data.members.map(m => m.portal_user_id))]);
-      }
-    });
+    if (canOverview)
+      void overview().then(r => {
+        if (active && r.ok) {
+          setTenants(r.body.data.tenants);
+          setPeople([
+            ...new Set(r.body.data.members.map(m => m.portal_user_id)),
+          ]);
+        }
+      });
     return () => {
       active = false;
     };
-  }, [allowed, revision]);
+  }, [allowed, revision, canOverview]);
   /** Does: Applies a central access change. Called by: platform administration buttons. */
   async function save(body: Parameters<typeof savePlatformAccess>[0]) {
     setBusy(true);
@@ -77,14 +82,13 @@ export function PlatformAccessPage() {
   if (state.status !== 'ready') return <SessionStatus />;
   if (!state.session) return <Navigate to="/login" replace />;
   return (
-    <Container maxWidth="md" component="main" sx={{ py: 4 }}>
-      <Stack spacing={3}>
-        <Typography component="h1" variant="h4">
+    <Box>
+      <Toolbar sx={managementHeaderStyles}>
+        <Typography component="h1" variant="h5">
           Platform access
         </Typography>
-        <Button component={Link} to="/control">
-          Platform control
-        </Button>
+      </Toolbar>
+      <Stack spacing={3} sx={{ p: 3, maxWidth: 900 }}>
         {message && <Alert severity="info">{message}</Alert>}
         {!allowed ? (
           <Alert severity="warning">
@@ -290,6 +294,6 @@ export function PlatformAccessPage() {
           )
         )}
       </Stack>
-    </Container>
+    </Box>
   );
 }

@@ -129,7 +129,6 @@ beforeAll(async () => {
     });
   cell2 = (await test.admin.db.cells.findOneBy({ database_name: 'cell-2' }))!
     .id;
-  await command('provision', { operation: 'reconcile', cell: cell1 });
 }, 30000);
 afterAll(async () => {
   await test?.cleanup();

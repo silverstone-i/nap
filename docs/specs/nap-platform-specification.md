@@ -1306,7 +1306,7 @@ password rotation, or adoption of unrelated databases is permitted.
 
 Admin setup, migration and bootstrap remain CLI operations. Cell CLI operations
 are replaced by the management workflow and directly callable test service.
-Admin bootstrap does not require a cell. Cell seeding supplies countries and
+Admin bootstrap does not require a cell. For a greenfield installation it records durable operator-bootstrap intent. The first successfully provisioned available cell is claimed atomically for that intent; the existing worker completes operator projections and RBAC, with immutable assignment and resumable execution. Bootstrap reruns preserve existing records; upgrades do not enroll existing installations. Bootstrap failure does not disable a ready cell. Root-only retry resumes the saved operation without selecting another cell (ADR 0015). Cell seeding supplies countries and
 currencies; tenant provisioning supplies tenant-scoped RBAC seeds.
 
 ### Environment configuration
@@ -1829,3 +1829,5 @@ Revision 2026-09-12: clarified the owner-approved two-role setup contract, compo
 Revision 2026-09-12: clarified full database names for setup-created cell codes and initial display names.
 
 Revision 2026-09-13: approved Register cell provisioning, live loading, UUID/database-name records and isolated TEST service support (ADR 0014).
+
+Revision 2026-09-13: owner accepted automatic greenfield operator bootstrap and Tenant Management consolidation under ADR 0015. The operator control contract retires manual reconciliation in the coordinated administration-client/API update; customer contracts are unchanged.

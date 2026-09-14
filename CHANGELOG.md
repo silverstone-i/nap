@@ -11,6 +11,19 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Added
+
+- Automatically complete greenfield operator-tenant bootstrap on the first
+  successfully provisioned cell, with durable progress and root-only retry.
+- Add an explicit DEV cleanup command and document the full setup sequence.
+
+### Changed
+
+- Consolidate control operations under Tenant Management with independent
+  destination permissions, legacy redirects, and protected-root controls.
+- Show tenant lifecycle, provisioning, RBAC readiness, and cell availability
+  separately so incomplete setup does not appear ready.
+
 ## [v0.17.0] - 2026-09-13
 
 ### Fixed

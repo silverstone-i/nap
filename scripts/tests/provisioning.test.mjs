@@ -4,7 +4,7 @@
  */
 import { beforeAll, afterAll, expect, it, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
@@ -19,6 +19,7 @@ import { createRuntime } from '../../apps/api/dist/runtime.js';
 import { authConfiguration } from '../../apps/api/dist/util/authConfig.js';
 
 import { using } from '../provision/postgres.mjs';
+import { cleanDev } from '../clean-dev.mjs';
 import { provisionRender, renderClient } from '../provision/render.mjs';
 
 let admin, cells, service, runtime, actor, origin, rootCookie;
@@ -239,10 +240,9 @@ it('provisions two TEST cells into the same running API and preserves existing p
     ).toEqual({ name: `nap_test_cell_${suffix}` });
     expect(runtime.server.address()).toEqual(address);
     if (suffix === 'east')
-      await http('/api/admin-tenancy/v1/control/provision', {
-        operation: 'reconcile',
-        cell: id,
-      });
+      expect(
+        (await admin.one('SELECT status FROM admin.operator_bootstrap')).status
+      ).toBe('completed');
     profiles.push(await tenantProfile(id, suffix));
     for (const profile of profiles) {
       const reply = await http(
@@ -808,4 +808,76 @@ it('closes all dynamic pools and reloads persisted cells after restarting the AP
         (await http('/api/core/v1/identity/profile', null, profile.cookie)).data
       )
     ).toContain(profile.email);
+});
+
+it('cleans only DEV databases and resets files without changing credentials', async () => {
+  const envFile = join(directory, 'cleanup.env');
+  const stateFile = join(directory, 'cleanup-state.json');
+  const inherited = {
+    NAP_ENV_FILE: envFile,
+    NAP_PROVISION_STATE: stateFile,
+    SETUP_DATABASE_DEV: context.env.SETUP_DATABASE_TEST,
+    NAP_ADMIN_PSWD_DEV: context.env.NAP_ADMIN_PSWD_TEST,
+  };
+  const original =
+    "# Development\nCELL_DATABASES_DEV = '{\"old\":\"endpoint\"}' # cells\nNAP_ADMIN_PSWD_DEV='preserved'\nCELL_DATABASES_PROD='{}'\n";
+  await writeFile(envFile, original);
+  await writeFile(
+    stateFile,
+    JSON.stringify({ environment: 'dev', databases: {} })
+  );
+  const url = roleUrl(
+    inherited.SETUP_DATABASE_DEV,
+    'nap_admin',
+    inherited.NAP_ADMIN_PSWD_DEV
+  );
+  await using(url, async db => {
+    await db.none('CREATE DATABASE nap_dev_admin OWNER nap_admin');
+    await db.none('CREATE DATABASE nap_dev_cell_cleanup OWNER nap_admin');
+    await db.none('CREATE DATABASE nap_prod_cell_cleanup OWNER nap_admin');
+  });
+  await expect(cleanDev([], inherited)).rejects.toThrow('Required');
+  await expect(
+    cleanDev(['--confirm', '--env', 'prod'], inherited)
+  ).rejects.toThrow('Required');
+  expect(await readFile(envFile, 'utf8')).toBe(original);
+  const ownerUrl = new URL(url);
+  ownerUrl.username = 'postgres';
+  ownerUrl.password = 'fixture-owner-password';
+  await using(ownerUrl.href, db =>
+    db.none('ALTER DATABASE nap_dev_cell_cleanup OWNER TO postgres')
+  );
+  await expect(cleanDev(['--confirm'], inherited)).rejects.toThrow('ownership');
+  await using(url, async db => {
+    expect(
+      await db.oneOrNone(
+        "SELECT 1 FROM pg_database WHERE datname='nap_dev_admin'"
+      )
+    ).not.toBeNull();
+  });
+  expect(await readFile(envFile, 'utf8')).toBe(original);
+  expect(JSON.parse(await readFile(stateFile, 'utf8')).environment).toBe('dev');
+  await using(ownerUrl.href, db =>
+    db.none('ALTER DATABASE nap_dev_cell_cleanup OWNER TO nap_admin')
+  );
+  const result = await cleanDev(['--confirm'], inherited);
+  expect(result.removed).toEqual(['nap_dev_admin', 'nap_dev_cell_cleanup']);
+  expect(await readFile(envFile, 'utf8')).toBe(
+    original.replace('{"old":"endpoint"}', '{}')
+  );
+  await expect(readFile(stateFile)).rejects.toMatchObject({ code: 'ENOENT' });
+  await using(url, async db => {
+    expect(
+      await db.oneOrNone(
+        "SELECT 1 FROM pg_database WHERE datname='nap_prod_cell_cleanup'"
+      )
+    ).not.toBeNull();
+    expect(
+      await db.oneOrNone(
+        "SELECT 1 FROM pg_database WHERE datname='nap_test_admin'"
+      )
+    ).not.toBeNull();
+    await db.none('DROP DATABASE nap_prod_cell_cleanup');
+  });
+  expect((await cleanDev(['--confirm'], inherited)).removed).toEqual([]);
 });
