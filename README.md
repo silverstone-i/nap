@@ -101,6 +101,8 @@ The license gate checks installed production dependencies, including hoisted
 transitives, against `.licenses-allowed.json` using the lockfile's dependency
 classification. Unknown licenses and missing required packages fail the check.
 
+For an isolated production-mode deployment, follow the [Render verification runbook](docs/guides/render-verification.md).
+
 ## Documentation
 
 Start with the [documentation index](docs/README.md). It defines the authority,

@@ -4,6 +4,8 @@
  */
 
 import express from 'express';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import type { CellRegistry } from './services/cellRegistry.js';
 import { setAuditActorResolver } from 'pg-schemata';
 import { requestContext } from './util/requestContext.js';
@@ -33,7 +35,7 @@ export type AppHandles = {
 /**
  * Does: Builds the Express application: the shared middleware chain, the two
  * health endpoints, every registered module router, the not-found fallback,
- * and the error handler.
+ * optional built web client, and the error handler.
  * Called by: createRuntime at startup, and by app tests directly.
  * Why: it opens no listener and connects to no database, so tests can drive
  * it with in-memory requests. The isReady callback decides what the readiness
@@ -50,9 +52,11 @@ export function createApp(
   {
     trustProxyHops = 0,
     auth,
+    webRoot,
   }: {
     trustProxyHops?: number;
     auth?: AuthConfiguration;
+    webRoot?: string;
   } = {}
 ) {
   const app = express();
@@ -61,6 +65,17 @@ export function createApp(
   const config = handles ? (auth ?? authConfiguration()) : undefined;
   setAuditActorResolver(() => requestContext.getStore()?.actorId ?? null);
   app.use(correlation, requestLogging);
+  if (webRoot) {
+    const webEntry = resolve(webRoot, 'index.html');
+    if (!existsSync(webEntry))
+      throw new Error(`Built web client is unavailable: ${webEntry}`);
+    const staticFiles = express.static(webRoot, { index: false });
+    /** Does: Sends built assets while leaving API and health URLs to their routers. */
+    app.use((request, response, next) => {
+      if (/^\/(?:api|health)(?:\/|$)/.test(request.path)) return next();
+      staticFiles(request, response, next);
+    });
+  }
   if (handles && config) app.use(sessionResolver(handles.admin, config));
   app.use(jsonBody);
   app.use(['/health/live', '/health/ready'], (_request, response, next) => {
@@ -81,6 +96,21 @@ export function createApp(
     });
   });
   if (handles) mountRoutes(app, handles, config);
+  if (webRoot) {
+    /** Does: Sends the web entry for client routes and leaves API errors intact. */
+    app.use((request, response, next) => {
+      if (
+        !['GET', 'HEAD'].includes(request.method) ||
+        /^\/(?:api|health)(?:\/|$)/.test(request.path) ||
+        request.path.includes('.') ||
+        !request.accepts('html')
+      )
+        return next();
+      response.sendFile(resolve(webRoot, 'index.html'), error => {
+        if (error) next(error);
+      });
+    });
+  }
   app.use((_request, _response, next) => next(new HttpError('NOT_FOUND')));
   app.use(errorHandler);
   return app;

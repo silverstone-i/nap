@@ -14,6 +14,7 @@ import { adminRepositories } from './db/admin/repositories.js';
 import { createCellDatabase } from './db/cell/index.js';
 import { cellRepositories } from './db/cell/repositories.js';
 import { logger } from './util/logger.js';
+import { fileURLToPath } from 'node:url';
 import {
   loadLocalEnvironment,
   resolveCacheConfiguration,
@@ -81,7 +82,15 @@ try {
     handles.cells.setProvisioning(
       createCellProvisioning(handles.admin, handles.cells, { cache })
     );
-  runtime = createRuntime(handles, { trustProxyHops, auth, cache });
+  runtime = createRuntime(handles, {
+    trustProxyHops,
+    auth,
+    cache,
+    webRoot:
+      resolveEnvironment() === 'PROD'
+        ? fileURLToPath(new URL('../../web/dist/', import.meta.url))
+        : undefined,
+  });
   runtime.server.on('error', () => {
     listenerFailed = true;
     logger.error({ event: 'api.listen_failed' }, 'API failed to listen');

@@ -1,0 +1,46 @@
+# The application creates admin and cell PostgreSQL instances through its
+# resumable Render provisioning workflow. Add changing credentials and state
+# through the service Environment page after creation; do not duplicate them here.
+services:
+  - type: web
+    name: nap-verification
+    runtime: node
+    region: virginia
+    plan: 0.5c-512mb
+    repo: https://github.com/silverstone-i/nap
+    branch: main
+    autoDeployTrigger: off
+    buildCommand: npm ci && npm run build
+    startCommand: node apps/api/dist/server.js
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: SESSION_SECRET_PROD
+        generateValue: true
+      - key: AUTH_THROTTLE_SECRET_PROD
+        generateValue: true
+      - key: COOKIE_SECURE_PROD
+        value: 'true'
+      - key: COOKIE_SAMESITE_PROD
+        value: lax
+      - key: TRUST_PROXY_HOPS_PROD
+        value: '1'
+      - key: REDIS_CACHE_ENABLED_PROD
+        value: 'false'
+      - key: REDIS_CACHE_NAMESPACE_PROD
+        value: nap_render_verification
+      # My Workspace owns this test service; applying it elsewhere requires
+      # changing this ID to that workspace before any database is provisioned.
+      - key: RENDER_WORKSPACE_ID
+        value: tea-d2lu0bndiees73cbqmag
+      - key: RENDER_REGION
+        value: virginia
+      - key: RENDER_POSTGRES_VERSION
+        value: '18'
+      - key: RENDER_POSTGRES_PLAN
+        value: 0.1c-256mb
+      - key: RENDER_DISK_GB
+        value: '1'
