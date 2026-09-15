@@ -6,7 +6,7 @@ import { Resolver } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import { using, maintenanceUrl } from './postgres.mjs';
-import { ProvisioningError } from './config.mjs';
+import { ProvisioningError, adminDatabaseName } from './config.mjs';
 import { renderClient } from '../../apps/api/dist/services/provisioning/render.mjs';
 
 /**
@@ -91,7 +91,11 @@ export async function maintainProduction(
   async function prepare(current, connection) {
     if (entry) return;
     entry = current;
-    if (!entry?.renderId || entry.database !== 'nap_prod_admin')
+    if (
+      !entry?.renderId ||
+      (entry.requestedDatabase ?? entry.database) !==
+        adminDatabaseName('prod', context.env)
+    )
       throw new ProvisioningError(
         'Missing matching production admin setup state'
       );

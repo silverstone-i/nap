@@ -93,6 +93,8 @@ export async function provisionRender(
       'Render API service workspace or region mismatch'
     );
   const user = `nap_setup_${entry.operationId.replaceAll('-', '')}`;
+  const admin = context.state?.databases?.admin === entry && !entry.id;
+  const requested = entry.requestedDatabase ?? entry.database;
   if (!entry.renderId) {
     let cursor = '';
     const matches = [];
@@ -111,7 +113,7 @@ export async function provisionRender(
       if (
         matches.length !== 1 ||
         matches[0].databaseUser !== user ||
-        matches[0].databaseName !== entry.database ||
+        (!admin && matches[0].databaseName !== entry.database) ||
         matches[0].region !== settings.RENDER_REGION
       )
         throw new ProvisioningError(
@@ -148,8 +150,16 @@ export async function provisionRender(
     const resource = await call(
       `/postgres/${encodeURIComponent(entry.renderId)}`
     );
+    const recoverName =
+      admin &&
+      !entry.requestedDatabase &&
+      !entry.endpoint &&
+      entry.stage === 'registered' &&
+      resource.id === entry.renderId &&
+      resource.name === requested &&
+      /^[a-z][a-z0-9_]{0,62}$/.test(resource.databaseName);
     if (
-      resource.databaseName !== entry.database ||
+      (resource.databaseName !== entry.database && !recoverName) ||
       resource.databaseUser !== user ||
       resource.region !== settings.RENDER_REGION ||
       resource.owner?.id !== settings.RENDER_WORKSPACE_ID
@@ -163,10 +173,14 @@ export async function provisionRender(
       external.searchParams.set('sslmode', 'verify-full');
       const internal = new URL(info.internalConnectionString);
       if (
-        external.pathname !== `/${entry.database}` ||
+        external.pathname !== `/${resource.databaseName}` ||
         internal.pathname !== external.pathname
       )
         throw new ProvisioningError('Render database connection mismatch');
+      if (resource.databaseName !== entry.database) {
+        entry.requestedDatabase = requested;
+        entry.database = resource.databaseName;
+      }
       const maintenance = context.api ? internal : external;
       entry.endpoint =
         maintenance.host + maintenance.pathname + maintenance.search;

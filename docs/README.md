@@ -3,6 +3,11 @@
 Each document has one job. Documents link to an owning requirement or decision
 instead of copying it.
 
+## Environment setup
+
+- [Development setup](guides/development-setup.md)
+- [Production setup on Render](guides/production-setup.md)
+
 ## Documentation contract
 
 Authority depends on the question:

@@ -1,7 +1,7 @@
 # One API application serving multiple cell databases
 
 > Historical delivery record. Database setup commands, names, and deferrals below
-> are superseded by ADR 0013 and the [current provisioning runbook](../guides/database-provisioning.md).
+> are superseded by ADR 0013 and the [current provisioning runbook](../guides/development-setup.md).
 
 Design accepted by owner, 2026-09-11. Implemented locally; not merged or shipped.
 The owner authorized PR preparation with release:minor on 2026-09-12, superseding

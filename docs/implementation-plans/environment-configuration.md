@@ -1,7 +1,7 @@
 # Environment configuration restructuring
 
 > Historical delivery record. Database setup commands, names, and deferrals below
-> are superseded by ADR 0013 and the [current provisioning runbook](../guides/database-provisioning.md).
+> are superseded by ADR 0013 and the [current provisioning runbook](../guides/development-setup.md).
 
 Design accepted 2026-09-12. Implemented locally; PR preparation authorized. Not merged or shipped.
 

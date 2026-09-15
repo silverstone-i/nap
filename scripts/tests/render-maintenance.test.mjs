@@ -221,3 +221,31 @@ it('refuses mismatched remote identity without overwriting it', async () => {
   );
   expect(call.mock.calls.some(([, method]) => method === 'PUT')).toBe(false);
 });
+
+it('maintains a custom admin name and refuses changed saved intent', async () => {
+  context.env.ADMIN_DATABASE_NAME_PROD = 'acme_admin';
+  entry.database = 'acme_admin';
+  entry.endpoint = 'external/acme_admin?sslmode=require';
+  resource.databaseName = 'acme_admin';
+  await maintainProduction(
+    { operation: 'setup' },
+    context,
+    async () => context.prepareMaintenance(entry),
+    call,
+    address,
+    async () => {}
+  );
+  context.env.ADMIN_DATABASE_NAME_PROD = 'different_admin';
+  call.mockClear();
+  await expect(
+    maintainProduction(
+      { operation: 'setup' },
+      context,
+      async () => context.prepareMaintenance(entry),
+      call,
+      address,
+      async () => {}
+    )
+  ).rejects.toThrow('Missing matching production admin setup state');
+  expect(call).not.toHaveBeenCalled();
+});

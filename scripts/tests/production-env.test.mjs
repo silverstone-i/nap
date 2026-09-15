@@ -182,3 +182,20 @@ it.each([false, true])(
     if (existing) expect(await readFile(stateFile, 'utf8')).toBe(savedState);
   }
 );
+
+it('accepts a custom admin database name from the private file', async () => {
+  await writeFile(env.NAP_ENV_FILE, 'ADMIN_DATABASE_NAME_PROD=acme_admin\n');
+  expect(
+    (await productionEnvironment(env, blueprint)).ADMIN_DATABASE_NAME_PROD
+  ).toBe('acme_admin');
+});
+
+it.each(['invalid-name', '1admin', 'Admin', 'a'.repeat(64)])(
+  'rejects invalid admin name %s before provisioning',
+  async name => {
+    await writeFile(env.NAP_ENV_FILE, `ADMIN_DATABASE_NAME_PROD=${name}\n`);
+    await expect(productionEnvironment(env, blueprint)).rejects.toThrow(
+      'ADMIN_DATABASE_NAME_PROD'
+    );
+  }
+);

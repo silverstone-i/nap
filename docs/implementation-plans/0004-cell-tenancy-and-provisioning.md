@@ -1,7 +1,7 @@
 # Cell tenancy and provisioning implementation plan
 
 > Historical delivery record. Database setup commands, names, and deferrals below
-> are superseded by ADR 0013 and the [current provisioning runbook](../guides/database-provisioning.md).
+> are superseded by ADR 0013 and the [current provisioning runbook](../guides/development-setup.md).
 
 > Historical implementation record. Its inter-API topology and deployment runbook
 > are superseded by [the multi-cell API plan](multi-cell-api.md) and ADR 0011.

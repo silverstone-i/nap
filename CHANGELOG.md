@@ -11,6 +11,16 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow a configured production admin database name and recover Render-assigned
+  physical names after verifying the saved provisioning identity.
+
+### Changed
+
+- Separate development and production setup guides with explicit local and
+  hosted configuration instructions and prerequisites.
+
 ## [v0.19.2] - 2026-09-14
 
 ### Fixed

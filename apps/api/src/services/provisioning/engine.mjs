@@ -2,7 +2,7 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { ProvisioningError } from './config.mjs';
+import { ProvisioningError, adminDatabaseName } from './config.mjs';
 import { randomUUID } from 'node:crypto';
 import { passwords, publishLocal, roleUrl } from './config.mjs';
 import {
@@ -131,7 +131,7 @@ async function setup(context, command) {
     };
     context.state.databases[key] = entry;
   }
-  if (entry.database !== command.database)
+  if ((entry.requestedDatabase ?? entry.database) !== command.database)
     throw new ProvisioningError('Saved database name differs');
   context.activeEntry = entry;
   passwords(context, entry);
@@ -263,6 +263,11 @@ async function activate(context, command, entry) {
 }
 /** Does: Runs one explicitly selected provisioning operation. Called by: the CLI and disposable integration tests. */
 export async function run(command, context) {
+  if (command.target === 'admin')
+    command = {
+      ...command,
+      database: adminDatabaseName(command.environment, context.env),
+    };
   if (command.operation === 'setup') return setup(context, command);
   const entry =
     command.target === 'admin'
@@ -271,9 +276,9 @@ export async function run(command, context) {
   if (!entry?.endpoint)
     throw new ProvisioningError('Missing setup state; run setup first');
   if (
-    entry.database !==
+    (entry.requestedDatabase ?? entry.database) !==
     (command.target === 'admin'
-      ? `nap_${command.environment}_admin`
+      ? command.database
       : `nap_${command.environment}_cell_${entry.name}`)
   )
     throw new ProvisioningError('Saved target does not match environment');
