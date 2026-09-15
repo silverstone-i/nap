@@ -227,7 +227,17 @@ Verified entries retain their original scope.
 
 Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
 
-Tenants owns lifecycle, tier/allowed assignment, provisioning and bootstrap status/retry. Portal users owns identities and memberships. Cells retains its workflow. Add Platform access, Access and Audit destinations at /management/platform-access, /management/access and /management/audit. Preserve each server permission independently, including identifier entry for access-only operators. Legacy /control redirects to a permission-aware /management landing; /platform-access redirects to its management destination. Display lifecycle, provisioning, RBAC and availability distinctly; protected root actions are hidden. Session changes clear prior administrative data.
+- The Tenants page manages lifecycle, tier, permitted cell assignment, provisioning, and bootstrap status and retry.
+- The Portal users page manages identities and memberships.
+- Cells retains its registration and provisioning workflow.
+- Platform access, Access, and Audit use `/management/platform-access`, `/management/access`, and `/management/audit`.
+- Each destination preserves its independent server permission.
+- Access-only operators can enter target identifiers directly.
+- Legacy `/control` redirects to a permitted `/management` destination.
+- Legacy `/platform-access` redirects to `/management/platform-access`.
+- Lifecycle, provisioning, RBAC readiness, and availability have distinct status displays.
+- Protected root actions are hidden.
+- Session changes clear prior administrative data.
 
 ## Revisions
 
@@ -253,3 +263,5 @@ Evidence is tracked in the [UI delivery plan](../implementation-plans/0004-cell-
 Revision 2026-09-14: reconciled PR #25 verification; status becomes effective on merge with required checks passing.
 
 Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.
+
+Revision 2026-09-15: separated SHELL-010 requirements into independently reviewable obligations.

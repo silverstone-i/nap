@@ -157,7 +157,7 @@ delivery and is neither architectural nor status authority.
   explicitly non-authoritative.
 
 Document locations and the repository skeleton are defined in
-[Specification — Repository structure](specs/nap-platform-specification.md#repository-structure).
+[Specification — Repository structure and shared contracts](specs/nap-platform-specification.md#repository-structure).
 
 ## Component PRDs
 

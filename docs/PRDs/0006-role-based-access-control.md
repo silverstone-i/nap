@@ -130,10 +130,10 @@ checks database revisions before using derived grants.
 
 ### RBAC-006 — Permanent built-in roles
 
-The following names describe the proposed target design, not current behavior.
-Their identities cannot be renamed or deleted.
+The following built-in roles are implemented. Their identities cannot be
+renamed or deleted.
 
-| Role             | Target authority                                                                                                                                          | Grant mutability                                    |
+| Role             | Authority                                                                                                                                                 | Grant mutability                                    |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | `platform_admin` | All platform and tenant application capabilities, including controlled access across tenants.                                                             | Fixed full authority.                               |
 | `tenant_admin`   | All tenant administration and business capabilities, including field access, within its tenant and enabled modules. No central or cross-tenant authority. | Fixed full tenant authority.                        |
@@ -247,12 +247,9 @@ extra grants, and cannot hold grant-management capability.
 
 ## Database provisioning integration
 
-The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
-contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
-root records without a cell. Disabled cell registration precedes database creation;
-physical identity checks precede migration/seeding/activation. Cell reference seeding
-is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
-through registry edits before activation has verified the running API.
+[RBAC-007](#rbac-007--mutable-business-roles-and-seed-boundary) owns tenant role
+seeding. Provisioning follows the specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract and the activation gates in [PRD 0004](0004-tenant-membership-and-control-plane.md#recovery-and-operational-defaults).
 
 ## Revisions
 
@@ -272,3 +269,5 @@ Revision 2026-09-12: accepted provisioning script integration and consolidated b
 [verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
 
 Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.
+
+Revision 2026-09-15: corrected built-in role status and replaced copied provisioning requirements with component-specific references.

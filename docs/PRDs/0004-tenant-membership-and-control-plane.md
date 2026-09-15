@@ -272,12 +272,10 @@ Verified entries retain their original scope.
 
 ## Database provisioning integration
 
-The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
-contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
-root records without a cell. Disabled cell registration precedes database creation;
-physical identity checks precede migration/seeding/activation. Cell reference seeding
-is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
-through registry edits before activation has verified the running API.
+[TEN-010](#ten-010--cell-registration-and-provisioning-ui) connects management
+registration to the specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract. [TEN-011](#ten-011--operator-bootstrap-completion) owns operator
+bootstrap completion.
 
 ## TEN-011 — Operator bootstrap completion
 
@@ -322,3 +320,5 @@ Verification evidence: 287 repository tests and all required local checks pass;
 [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
 
 Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.
+
+Revision 2026-09-15: replaced copied infrastructure requirements with references to cell registration and operator bootstrap contracts.

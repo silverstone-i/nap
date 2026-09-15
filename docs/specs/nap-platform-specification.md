@@ -225,11 +225,13 @@ the change that introduces it.
 Adding to, removing from, or replacing an entry in that table is a change to
 this section, made with the code that requires it.
 
-## Repository structure
+<a id="repository-structure"></a>
 
-This section owns physical placement, import direction, and ownership. It does
-not restate behavior, which the requirements below own, and it does not define
-build order, which the development roadmap owns.
+## Repository structure and shared contracts
+
+This section defines source placement, import direction, module ownership, and
+the shared database, HTTP, transport, and web contracts implemented by those
+layers. The development roadmap owns build order.
 
 ### Repository skeleton
 
@@ -346,9 +348,11 @@ migrations. `db/assertRuntimeRole.ts` is shared by both: readiness runs it
 against each handle. An unsafe admin connection prevents startup; an unsafe
 cell connection quarantines that cell while admin and healthy cells remain available.
 
-`util/env.ts` resolves the environment and the connection string for each
-database and role. Nothing else reads a connection variable, and a connection
-string never leaves that module in an error message or a log line.
+`util/env.ts` resolves the environment and builds runtime database connections.
+The provisioning services also read connection settings to prepare databases,
+publish their configuration, and restore saved connections at startup under
+the [Environment configuration](#environment-configuration) contract. Connection
+strings must never appear in error messages or logs.
 
 `withTenantTransaction.ts` is the application entry point for tenant business
 work. The tenant transaction contract below defines its required
@@ -899,14 +903,10 @@ packages/shared/src/
     └── control.ts      control-plane contracts
 ```
 
-```ts
-export const apiErrorSchema = z.object({
-  version: z.literal(1),
-  code: z.string().min(1),
-  message: z.string().min(1),
-  fieldErrors: z.record(z.string(), z.array(z.string())).optional(),
-});
-```
+The [error schema](../../packages/shared/src/transport/errors.ts) rejects
+unknown fields and accepts only registered error codes. `fieldErrors` is
+permitted only with `INVALID_INPUT`. That file owns the executable schema and
+code registry.
 
 The success and list envelopes are factories over the schema of the value they
 carry. `page` names its fields `size`, the applied page size; `total`, the
@@ -1839,12 +1839,9 @@ under ADR 0010, delivered with PRD 0009 implementation.
 | 2026-09-04 | Reissued PRD 0000 as the NAP Platform Specification: added a version, added the section defining how PRDs, ADRs, and RULES derive from it, removed the user-scenario narratives, and renamed the requirement and conformance sections                                                                                               |
 | 2026-09-08 | Accepted shared-origin API routing mode, central session transitions and independent cell validation (ADR 0007).                                                                                                                                                                                                                    |
 
-## RBAC adoption — 2026-09-09
+<a id="rbac-adoption--2026-09-09"></a>
 
-Historical amendment record. Current ownership and resource authorization are in
-[RBAC integration](#rbac-integration).
-
-Revision: 2026-09-09 — Owner authorized PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) and ADR 0008 implementation.
+Revision: 2026-09-09 — Owner authorized PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) and ADR 0008 implementation. Current ownership and resource authorization are in [RBAC integration](#rbac-integration).
 
 Revision: 2026-09-10 — Owner accepted the PRD 0009 shell, vendor-selection and settings-placement amendments with their implementation.
 
@@ -1863,3 +1860,5 @@ Revision 2026-09-13: approved Register cell provisioning, live loading, UUID/dat
 Revision 2026-09-13: owner accepted automatic greenfield operator bootstrap and Tenant Management consolidation under ADR 0015. The operator control contract retires manual reconciliation in the coordinated administration-client/API update; customer contracts are unchanged.
 
 Revision 2026-09-15: accepted ADR 0016 provisioning exceptions; reconciled descriptor, module and shared-contract layouts; moved plan policy to the documentation index and consolidated current RBAC requirements.
+
+Revision 2026-09-15: corrected configuration ownership and error-schema documentation; clarified the shared-contract section scope and grouped amendment history under Revisions.

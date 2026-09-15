@@ -31,9 +31,12 @@ behavior; forgotten-password delivery remains a later capability.
   PRD 0004 TEN-003 owns vendor selection, ordinary single-membership entry,
   restricted selection sessions, and platform-only access. Temporary
   credentials require password change before selection or tenant work.
-- **AUTH-002 Session cookie.** The cookie is `HttpOnly`, `Secure` unless
-  `COOKIE_SECURE_DEV=false`, `SameSite` from `COOKIE_SAMESITE_{DEV,TEST,PROD}` (default `lax`),
-  path `/`, and holds a `jose`-signed compact token carrying the session
+- **AUTH-002 Session cookie.** The cookie is `HttpOnly`. `Secure` is set by
+  `COOKIE_SECURE_{DEV,TEST,PROD}` for the selected environment (default `true`).
+  The [production setup](../guides/production-setup.md#3-customize-the-blueprint-in-your-fork)
+  requires `true`. Configuration rejects SameSite `none` with `Secure=false`.
+  `SameSite` comes from `COOKIE_SAMESITE_{DEV,TEST,PROD}` (default `lax`).
+  The cookie uses path `/` and holds a `jose`-signed compact token carrying the session
   identifier and a random secret. The database row stores only the SHA-256
   digest of the secret. The cookie is a reference: it carries no actor,
   tenant, role, or expiry that the server trusts.
@@ -235,12 +238,10 @@ from current server state; customer contracts do not disclose deployment details
 
 ## Database provisioning integration
 
-The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
-contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
-root records without a cell. Disabled cell registration precedes database creation;
-physical identity checks precede migration/seeding/activation. Cell reference seeding
-is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
-through registry edits before activation has verified the running API.
+[AUTH-007](#accepted-behavior) owns root identity creation and password recovery.
+It integrates with the specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract; [TEN-011](0004-tenant-membership-and-control-plane.md#ten-011--operator-bootstrap-completion)
+owns operator bootstrap completion.
 
 ## Revisions
 
@@ -272,3 +273,5 @@ Authentication verification refreshed 2026-09-08: 263 tests and all repository c
 PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and onboarding.
 
 Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.
+
+Revision 2026-09-15: clarified environment-specific cookie configuration and linked component bootstrap responsibilities to their owning contracts.
