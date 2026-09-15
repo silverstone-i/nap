@@ -8,9 +8,14 @@ Verify a separate NAP installation in the selected Render workspace (Virginia) u
 
 The platform specification's web build, database provisioning and environment configuration contracts govern. ADR 0011 owns one API with multiple cells; ADR 0014 permits the API service to hold provisioning credentials; ADR 0015 owns first-cell operator bootstrap. This is deployment composition, not a new tenancy architecture.
 
-## Current gap and changes
+<a id="current-gap-and-changes"></a>
 
-The API serves only JSON routes and there is no Render service definition. Add production-only Vite asset serving on the API origin, a Render Blueprint for one Node web service, and a production runbook. Correct stale environment-template comments to match ADR 0014 without changing variable names, order, or values. The admin setup CLI creates its database using the existing Render adapter; Register cell creates the first cell. Redis caching may be disabled for the initial verification.
+## Completed preparation
+
+PR #26 added production-only Vite asset serving on the API origin, a Render
+Blueprint for one Node web service, and a production runbook. It corrected
+environment-template comments to match ADR 0014 without changing variable names,
+order, or values. The admin setup CLI creates its database using the existing Render adapter; Register cell creates the first cell. Redis caching may be disabled for the initial verification.
 
 ## Risks and recovery
 
@@ -32,4 +37,6 @@ Render's published Blueprint JSON Schema accepted `render.yaml`. The unit HTTP f
 
 The single approved `nap_prod_cell_primary` database uses `0.1c-256mb` and 1 GB. Its initial provisioning attempt exposed a provider readiness race: Render reported availability before PostgreSQL accepted connections. Retrying the same saved cell completed migration, reference seeding, activation and operator bootstrap; the API reported the cell enabled and available and the operator tenant projection and RBAC ready. No replacement database was created. The follow-up fix bounds internal connection retries before role setup and tests exhaustion, credential failures, cancellation and unchanged local behavior.
 
-Deployment restart recovery remains to be verified after shipping the readiness fix. Ordinary-tenant provisioning and administrator login remain part of the broader live Render gate; this evidence does not mark that whole gate complete.
+The later [production verification record](../guides/production-setup.md#verification-record)
+records completed restart checks on 2026-09-14. This supersedes the earlier
+pending restart status; the documentation correction did not repeat that test. Ordinary-tenant provisioning and administrator login remain part of the broader live Render gate; this evidence does not mark that whole gate complete.

@@ -28,7 +28,7 @@ ARCH-022, ARCH-023, ARCH-029, ARCH-047, ARCH-050; ADR 0008.
   privileged identities. Root remains protected. Policy activation requires
   confirmed cell state and an active tenant administrator. Central tenants carry
   `rbac_ready`, default false on expansion. Only successful fresh provisioning,
-  root reconciliation, or the reviewed transition sets it true. An existing
+  greenfield operator bootstrap under TEN-011, or the reviewed transition sets it true. An existing
   provisioned tenant cannot use activation to bypass its reviewed mapping.
   Transition readiness commits with central audit only after all selected cell
   mappings succeed; partial cell work cannot activate tenant business access.
@@ -39,14 +39,6 @@ Prove disable/re-enable, stale/replayed projections, failed synchronization,
 revocation on the next request, two-cell isolation, unauthorized changes, and
 absence of grants from tier/client state. Missing authority always refuses.
 
-## Revisions
-
-| Date       | Change                                          |
-| ---------- | ----------------------------------------------- |
-| 2026-09-09 | Accepted initial explicit entitlement contract. |
-
-| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing. |
-
 ## Cache integration
 
 ARCH-029 and [ADR 0009](../ADRs/0009-authorization-cache-freshness.md) permit
@@ -56,9 +48,18 @@ remains mandatory. A failed projection cannot undo a central revocation; a Redis
 outage cannot preserve a stale enablement. Cache UUID revisions are separate from
 the entitlement's existing integer projection revision.
 
-| Date       | Change                                                                                 |
-| ---------- | -------------------------------------------------------------------------------------- |
-| 2026-09-09 | Documented revision-checked entitlement caching without changing projection authority. |
-
 **Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
 [verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
+
+## Revisions
+
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
+
+| Date       | Change                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------- |
+| 2026-09-09 | Accepted initial explicit entitlement contract.                                        |
+| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing. |
+| 2026-09-09 | Documented revision-checked entitlement caching without changing projection authority. |
+
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.

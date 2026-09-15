@@ -37,8 +37,12 @@ negative cross-tenant reads/writes, and real browser CRUD and denied states.
 
 ## Revisions
 
-| Date       | Change                                            |
-| ---------- | ------------------------------------------------- |
-| 2026-09-09 | Accepted minimal scope records for RBAC delivery. |
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
 
+| Date       | Change                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------- |
+| 2026-09-09 | Accepted minimal scope records for RBAC delivery.                                      |
 | 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing. |
+
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.

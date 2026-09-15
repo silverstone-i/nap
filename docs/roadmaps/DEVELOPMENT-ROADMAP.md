@@ -402,8 +402,10 @@ types both sides of the API boundary use.
 
 **Required surfaces:** `transport/errors.ts` with the `apiErrorSchema` envelope
 — `version`, `code`, `message`, optional `fieldErrors` — the matching success
-envelope the framework contract requires, the error-code registry, one folder
-per domain group, and one export line per folder in the root index.
+envelope the framework contract requires, and the error-code registry. Current
+contract placement and root exports follow the
+[shared package boundary](../specs/nap-platform-specification.md#shared-package-boundary),
+amended by ADR 0016.
 
 **Gate:** Request and response validation runs at the API boundary and in the
 client, and the package imports no API domain, persistence, configuration, or
@@ -1237,7 +1239,7 @@ Design: Accepted. Implementation: Verified upon merge of [PR #24](https://github
 ADR 0013 and the [implementation plan](../implementation-plans/database-provisioning.md)
 cover admin setup/migration/bootstrap and the ADR 0014 Register cell workflow,
 descriptive database names, Render provisioning, physical identity, and the admin baseline.
-PRD 0008 covers the countries/currencies seed subset; broader Reference data and Core
+[PRD 0010](../PRDs/0010-reference-data.md) covers the countries/currencies seed subset; broader Reference data and Core
 workflows remain separate. Verification status follows recorded test evidence.
 
 ## Register cell workflow — 2026-09-13
@@ -1258,3 +1260,16 @@ with isolated Virginia admin and first-cell databases. The gate before Reference
 data and Core is a live Render deployment showing health, root login, first-cell
 bootstrap and RBAC readiness, restart recovery, and ordinary tenant provisioning.
 Local tests and mocked Render calls do not establish this gate.
+
+## Documentation consistency — 2026-09-15
+
+Design: Accepted. Implementation: Implemented and validated locally; not shipped.
+
+[ADR 0016](../ADRs/0016-provisioning-implementation-boundaries.md) records the
+owner-approved provisioning exceptions. The [delivery checklist](../implementation-plans/documentation-consistency.md)
+covers documentation reconciliation and architecture checks without runtime changes.
+Production and ordinary-tenant acceptance retain their existing evidence limits.
+
+The owner approved the existing shared-package layout for finding 24. ADR 0016
+and the specification record that amendment. All 548 tests and the repository
+checks pass; the delivery checklist records the rendered-review limitations.

@@ -7,8 +7,8 @@
 - Responsive two-level navigation and page headings/actions.
 - Tenant provisioning through tenants, portal_users, and employees, with
   authorized screens and actions for the complete provisioning workflow.
-- Tenant Management for tenants and portal users; Accounting → Directories
-  for Employees.
+- Tenant Management for Tenants, Portal users, Cells, Platform access, Access,
+  and Audit; Accounting → Directories for Employees.
 - One vendor login workflow: always choose a tenant, even with one membership;
   a persistent Change tenant action returns to the same selection page.
 - A static Dashboard as the initial default landing page, reachable from the
@@ -49,13 +49,19 @@ discussions without changing this PRD's requirements or implementation status.
 
 The header spans the application: menu control and tenant logo at the left,
 active tenant context alongside, and a circular profile button showing the
-first letter of the signed-in email at the right. Its dropdown starts with
+first letter of the signed-in email at the right.
+
+Its dropdown starts with
 Profile and Settings, currently disabled placeholders for personal information
 and personal preferences; editable fields and page behavior remain undecided.
 These are followed by Mode
 (Light, Dark, System), Change password (`/account/password`), and Logout.
-Mode uses the existing device-local theme preference. Where no tenant logo is available, show the tenant name; logo upload and
-storage are not introduced by this capability. The rail sits below the header
+Mode uses the existing device-local theme preference.
+
+Where no tenant logo is available, show the tenant name; logo upload and
+storage are not introduced by this capability.
+
+The rail sits below the header
 on the left, with a small NAP wordmark at its bottom. Content occupies the
 remaining area. No footer or notification subsystem is included.
 
@@ -66,23 +72,24 @@ overlay, theme, and focus-restoration contracts.
 
 The management pages provide a compact Header1 with title, relevant filters,
 and feature actions. Tenants and Portal users use MUI X DataGrid with row action
-menus and no default bulk selection. Search, status, sorting, pagination, and
+menus and selection checkboxes for permitted bulk lifecycle actions. Search, status, sorting, pagination, and
 selected portal-user membership details follow the shared URL-state contract.
+
 Tenant details show provisioning information and reveal existing action forms
 on demand. Creation stays routed and explicitly submitted; portal-user creation
 returns to Portal users unless initiated for a specific tenant.
+
 Tenant Management expands in the full Navbar and opens a keyboard-accessible
 group flyout in the collapsed rail.
 
 ### SHELL-002 — Business navigation
 
 The initial shell must support tenant provisioning through `admin.tenants`,
-`admin.portal_users`, and `app.employees`. Tenant Management exposes tenants and
-portal users; Accounting → Directories exposes Employees. Dashboard is the
+`admin.portal_users`, and `app.employees`. Tenant Management exposes Tenants, Portal users, Cells, Platform access, Access,
+and Audit under SHELL-009/010. Accounting → Directories exposes Employees. Dashboard is the
 application home and has an explicit top-level Dashboard item in the desktop
 navigation rail and mobile navigation menu. Selecting it opens the Dashboard
-for the active tenant and marks the item active. These destinations must provide the views and actions needed
-for provisioning, including where the current UI does not yet provide them.
+for the active tenant and marks the item active. These destinations provide the views and actions required for provisioning.
 
 The authorized operator can create a pending tenant, create or link its portal
 user and initial employee administrator, inspect provisioning status, retry
@@ -97,9 +104,9 @@ administrator does not thereby gain platform provisioning authority. Record
 visibility retains central and tenant access boundaries. Navigation does not
 create permissions or provide unrestricted table editing.
 
-Companies, Projects, other directories, and standalone access-administration
-integration are outside the initial shell scope. Existing independent screens
-do not determine this capability's requirements.
+Companies, Projects, and other directories remain outside this shell capability.
+SHELL-010 owns the integrated access-administration destinations. Independent
+business screens retain their own requirements.
 
 ### SHELL-003 — Entry and tenant transitions
 
@@ -135,7 +142,7 @@ roadmap capability. Configurable landing destinations are deferred.
 
 The [user settings register](../settings/user-settings.md) and
 [tenant settings register](../settings/tenant-settings.md) own the settings
-inventory and defaults. Future shell code reads settings through a small lookup
+inventory and defaults. Shell lists read settings through a small lookup
 that returns the documented default when an override is absent; it does not
 call a nonexistent endpoint or table. Persistence and management screens are
 not part of this shell delivery. Preserve the current theme selector and its
@@ -163,20 +170,19 @@ eager and routed major pages lazy under the specification's conventions.
 Tenant Management supplies provisioning through the admin-tenancy control APIs. The legacy `/control` URL redirects to a permitted management destination. PRD 0009 requires the following shell integration; existing route
 availability does not limit the required scope.
 
-| Records              | Current contract                                                                                        | Required shell delivery                                                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `admin.tenants`      | PRD 0004 registry, provisioning status/retry, and activation                                            | Tenant Management: expose tenant creation and provisioning progress through activation                                               |
-| `admin.portal_users` | PRDs 0003/0004 portal identity and membership provisioning                                              | Tenant Management: expose creation or linking of the portal user for provisioning, preserving credential and membership rules        |
-| `app.employees`      | PRD 0005 employee model, provisioning writes, and bounded identity reads; no standalone Employees route | Accounting → Directories → Employees: expose the provisioned employee and the employee actions required by the provisioning workflow |
+| Records              | Current contract                                                                                          | Required shell delivery                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `admin.tenants`      | PRD 0004 registry, provisioning status/retry, and activation                                              | Tenant Management: expose tenant creation and provisioning progress through activation                                               |
+| `admin.portal_users` | PRDs 0003/0004 portal identity and membership provisioning                                                | Tenant Management: expose creation or linking of the portal user for provisioning, preserving credential and membership rules        |
+| `app.employees`      | PRD 0005 employee model, provisioning writes, and bounded identity reads; no standalone employee CRUD API | Accounting → Directories → Employees: expose the provisioned employee and the employee actions required by the provisioning workflow |
 
-Reuse the existing provisioning services and contracts. Supply the missing
-presentation and any bounded API support needed to complete this workflow;
-do not replace it with generic CRUD. The existing tenant picker, account,
+The shell uses the existing provisioning services and contracts. Its bounded
+API support serves this workflow; it does not expose generic CRUD. The existing tenant picker, account,
 login, and controlled-access banner/exit remain shared utilities.
 
-Evidence: `apps/web/src/routes.ts`, `apps/web/src/pages/ControlPage.tsx`,
+Evidence: `apps/web/src/routes.ts`, `apps/web/src/pages/ManagementPage.tsx`,
 `apps/api/src/modules/admin-tenancy/apiRoutes/v1/`, and the Core identity model
-and API. Current code is not verification of the future shell.
+and API. The delivery plan separates implementation evidence from browser and deployment verification.
 
 ## Acceptance criteria
 
@@ -196,30 +202,6 @@ and API. Current code is not verification of the future shell.
 
 The implementation plan records current verification evidence.
 
-## Revisions
-
-| Date       | Change                                                                                                                           |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-09 | Drafted the owner-discussed shell, navigation, vendor workflow, and deferred settings for review; no application implementation. |
-
-| 2026-09-09 | Corrected initial shell scope to tenant provisioning through tenants, portal_users, and employees; removed unrelated directory integration and redundant draft language. |
-
-| 2026-09-09 | Required an explicit Dashboard item in desktop and mobile navigation, with navigation acceptance coverage. |
-
-| 2026-09-10 | Owner accepted this design and linked amendments with the implementation plan. |
-
-| 2026-09-10 | Implemented SHELL-001–005 with local API, web and browser acceptance; evidence is in the delivery plan, with merge/CI verification pending. |
-
-| 2026-09-10 | Replaced separate header account, sign-out, and theme controls with an initial avatar and profile menu under SHELL-001. |
-
-| 2026-09-10 | Added disabled Profile and Settings menu placeholders; their pages and editable data are deferred. |
-
-| 2026-09-10 | Linked non-authoritative UI design guidelines; accepted behavior and implementation status are unchanged. |
-
-| 2026-09-11 | Applied owner-requested management UI guidelines: focused Header1, MUI X DataGrid, record actions, and Tenant Management collapse/flyout navigation. |
-
-| 2026-09-11 | Reconciled SHELL-001–005 verification for PR #21; final local checks and CI passed, with Verified effective upon merge. |
-
 ## SHELL-009 — Cells and provisioning completion
 
 **Design:** Accepted by owner, 2026-09-11.
@@ -237,9 +219,6 @@ in the tenant context. Empty enabled-cell choices link to Cells and prevent
 submission. Preserve permission gates and clear stale replies on session changes.
 Register cell owns infrastructure provisioning under ADR 0014; no wizard or generic employee administration is added.
 
-Revision, 2026-09-11: Owner accepted SHELL-009 with implementation authorization.
-Evidence is tracked in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
-
 UI verification: Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
 The UI delivery plan records browser/API evidence and review fixes; historical
 Verified entries retain their original scope.
@@ -248,6 +227,41 @@ Verified entries retain their original scope.
 
 Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
 
-Tenants owns lifecycle, tier/allowed assignment, provisioning and bootstrap status/retry. Portal users owns identities and memberships. Cells retains its workflow. Add Platform access, Access and Audit destinations at /management/platform-access, /management/access and /management/audit. Preserve each server permission independently, including identifier entry for access-only operators. Legacy /control redirects to a permission-aware /management landing; /platform-access redirects to its management destination. Display lifecycle, provisioning, RBAC and availability distinctly; protected root actions are hidden. Session changes clear prior administrative data.
+- The Tenants page manages lifecycle, tier, permitted cell assignment, provisioning, and bootstrap status and retry.
+- The Portal users page manages identities and memberships.
+- Cells retains its registration and provisioning workflow.
+- Platform access, Access, and Audit use `/management/platform-access`, `/management/access`, and `/management/audit`.
+- Each destination preserves its independent server permission.
+- Access-only operators can enter target identifiers directly.
+- Legacy `/control` redirects to a permitted `/management` destination.
+- Legacy `/platform-access` redirects to `/management/platform-access`.
+- Lifecycle, provisioning, RBAC readiness, and availability have distinct status displays.
+- Protected root actions are hidden.
+- Session changes clear prior administrative data.
+
+## Revisions
+
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
+
+| Date       | Change                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-09-09 | Drafted the owner-discussed shell, navigation, vendor workflow, and deferred settings for review; no application implementation.                                         |
+| 2026-09-09 | Corrected initial shell scope to tenant provisioning through tenants, portal_users, and employees; removed unrelated directory integration and redundant draft language. |
+| 2026-09-09 | Required an explicit Dashboard item in desktop and mobile navigation, with navigation acceptance coverage.                                                               |
+| 2026-09-10 | Owner accepted this design and linked amendments with the implementation plan.                                                                                           |
+| 2026-09-10 | Implemented SHELL-001–005 with local API, web and browser acceptance; evidence is in the delivery plan, with merge/CI verification pending.                              |
+| 2026-09-10 | Replaced separate header account, sign-out, and theme controls with an initial avatar and profile menu under SHELL-001.                                                  |
+| 2026-09-10 | Added disabled Profile and Settings menu placeholders; their pages and editable data are deferred.                                                                       |
+| 2026-09-10 | Linked non-authoritative UI design guidelines; accepted behavior and implementation status are unchanged.                                                                |
+| 2026-09-11 | Applied owner-requested management UI guidelines: focused Header1, MUI X DataGrid, record actions, and Tenant Management collapse/flyout navigation.                     |
+| 2026-09-11 | Reconciled SHELL-001–005 verification for PR #21; final local checks and CI passed, with Verified effective upon merge.                                                  |
+
+Revision, 2026-09-11: Owner accepted SHELL-009 with implementation authorization.
+Evidence is tracked in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-tenant-provisioning-ui.md).
 
 Revision 2026-09-14: reconciled PR #25 verification; status becomes effective on merge with required checks passing.
+
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.
+
+Revision 2026-09-15: separated SHELL-010 requirements into independently reviewable obligations.

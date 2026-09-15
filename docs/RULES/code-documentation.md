@@ -175,11 +175,12 @@ After:
  * for it, given the database connections it depends on.
  * Called by: the server entry point at startup, and by runtime tests with
  * short deadlines and real sockets.
- * Why: start refuses to listen until every database passes a readiness
- * check. Shutdown drains HTTP connections before closing database pools so
+ * Why: start requires admin readiness and quarantines individual failed cells. Shutdown drains HTTP connections before closing database pools so
  * in-flight requests finish against open connections. This function installs
  * no signal handlers and never exits the process; the entry point owns both.
- * All database handles are supplied here; none can be added after start.
+ * Verified cell handles and their bound routers can be added after start,
+ * and each cell router is bound to its own pool. Proxy and optional built-web
+ * configuration are passed to the app.
  */
 export function createRuntime(
 ```

@@ -183,7 +183,20 @@ Complete this check before declaring ordinary-tenant provisioning and administra
 
 This check creates persistent tenant, employee and login records in the production cell. Use a deliberately named acceptance tenant and an email address you control. Retain those records for acceptance testing, or manage them afterward through the supported tenant/user lifecycle controls; they are not automatically removed.
 
-Create the acceptance tenant in **Tenant Management → Tenants → Create tenant**. Supply tenant code/name, select a tier and the enabled cell, and choose **Create pending tenant**. Open that tenant and choose **Create or link portal user**, then provision an employee: choose the tenant and select `employee` under **Relationship**, enter the employee name and portal-user email, and supply a temporary password for a new identity. Select **Provision user** and wait for that membership to be ready. Open the tenant, choose **Activate tenant**, select that employee under **Initial administrator**, then **Verify and activate**. Wait for provisioning to finish, then test its administrator login in a separate browser session and complete any required temporary-password change. Confirm it can enter that tenant. This uses the existing cell and creates no additional database.
+1. Open **Tenant Management → Tenants → Create tenant**.
+2. Supply the tenant code and name, select a tier and the enabled cell, then
+   choose **Create pending tenant**.
+3. Open the tenant and choose **Create or link portal user**.
+4. Choose the tenant, select `employee` under **Relationship**, and enter the
+   employee name and portal-user email. Supply a temporary password for a new identity.
+5. Select **Provision user** and wait for the membership to be ready.
+6. Open the tenant and choose **Activate tenant**. Select that employee under
+   **Initial administrator**, then choose **Verify and activate**.
+7. Wait for provisioning to finish. Test the administrator login in a separate
+   browser session and complete any required temporary-password change.
+8. Confirm the administrator can enter that tenant.
+
+This check uses the existing cell and creates no additional database.
 
 Reference seeds are platform data. No standalone production sample-data command is part of this procedure.
 

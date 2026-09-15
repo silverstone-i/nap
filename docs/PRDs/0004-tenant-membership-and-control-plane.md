@@ -20,18 +20,21 @@ ADR 0006 records central platform authority. PRD 0005 owns linked Core records.
   record id; root alone has neither. Serialize each identity's membership changes.
   Multiple active bindings require all to be vendor bindings. Revocation takes
   effect centrally before cell synchronization. Root retains its sole binding.
-- **TEN-003 Sessions.** Login with one eligible membership selects it; several
-  produce a selection session. Zero refuses login unless the identity has central
-  grants. Required password change precedes selection. Selection validates a
-  membership id against current state, rotates the current reference, and retains
-  absolute expiry. Customer views disclose no cell identifiers. Every data request
-  requires one active tenant assigned to a configured cell for tenant data. Restricted sessions
-  cannot run tenant-data operations. PostgreSQL is checked on every request.
-- **TEN-004 Platform grants.** Fixed route-action permissions govern registry,
-  provisioning, memberships, grants, audit review, access, and impersonation.
-  Package administrators hold the control-plane permissions; support holds only
-  explicitly assigned access, impersonation, and audit-review permissions. Only
-  package administrators change grants. Root is permanently package_admin.
+- **TEN-003 Sessions.** After any required password change, every vendor selects
+  an eligible tenant after login, including a vendor with one membership.
+  A non-vendor with one eligible membership enters that tenant. Multiple choices
+  produce a selection session; zero choices refuse login unless central grants
+  permit a platform-only session. Selection validates membership intent against
+  current state, rotates the reference, and retains absolute expiry.
+  Customer views disclose no cell identifiers. Tenant data requires one active
+  tenant assigned to a configured cell; restricted sessions cannot access it.
+  PostgreSQL is checked on every request. The persistent vendor Change tenant
+  action returns to the same selection page; SHELL-003 owns its presentation.
+- **TEN-004 Platform grants.** Central route-action permissions govern registry,
+  provisioning, memberships, grants, audit, access, and impersonation.
+  [RBAC-006](0006-role-based-access-control.md#rbac-006--permanent-built-in-roles)
+  owns platform administrator and shared support policy. Root remains protected.
+  Platform grants do not authorize ordinary business routes.
 - **TEN-005 Controlled access.** Access and impersonation name one tenant and
   require a nonempty reason. Impersonation additionally names an active ordinary
   member, cannot target root, cannot nest, and never inherits platform privileges.
@@ -45,7 +48,7 @@ ADR 0006 records central platform authority. PRD 0005 owns linked Core records.
   identities retain credentials. Only confirmed Core records and projections
   enable memberships. Failures leave inaccessible, resumable work. Activation
   requires initial employee administrator, projections, seed state and negative
-  isolation proof; operator reconciliation permits the root record exception.
+  isolation proof. TEN-011 owns the greenfield operator bootstrap exception.
 - **TEN-007 Web.** Provide tenant picker, password-change restriction, operator
   registry/grant/provisioning/member forms, status/retry, audit review and controlled
   access banner/exit. Clear tenant data after switching and validate replies.
@@ -73,16 +76,16 @@ which retains standard audit timestamps/actors but has no soft deletion and
 rejects UPDATE/DELETE even through an owner connection. Its runtime grants are
 SELECT/INSERT only. Frozen migrations own constraint names and executable DDL.
 
-| Table                 | Additional fields and constraints                                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenants`             | `tier text` (starter default), nullable `cell_id uuid` FK cells, `provisioned boolean` (false), monotonic `revision integer` (1); cell FK indexed                 |
-| `portal_users`        | `must_change_password boolean` (false)                                                                                                                            |
-| `portal_user_tenants` | nullable `user_type text` and `entity_id uuid` (root exception), `ready boolean` (false), `revision integer` (1); unique live tenant/record binding               |
-| `sessions`            | nullable selected `tenant_id`; nullable `access_mode`, `effective_user_id` FK portal_users, and `access_reason`; original reference and expiry contract retained  |
-| `cells`               | `database_name text`, `enabled boolean`; unique live database name                                                                                                |
-| `platform_grants`     | `portal_user_id` FK portal_users, `role` package_admin/support, route `permission`; unique live identity/permission                                               |
-| `provisioning_jobs`   | tenant and membership FKs, preallocated record and optional vendor IDs, kind employee/client/vendor, stage pending/complete/failed and nullable safe failure code |
-| `managed_events`      | operator ID, optional effective-user/target/session IDs, event and reason; immutable creation record                                                              |
+| Table                 | Additional fields and constraints                                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tenants`             | `tier text` (starter default), nullable `cell_id uuid` FK cells, `provisioned boolean` (false), monotonic `revision integer` (1); cell FK indexed                               |
+| `portal_users`        | `must_change_password boolean` (false)                                                                                                                                          |
+| `portal_user_tenants` | nullable `user_type text` and `entity_id uuid` (root exception), `ready boolean` (false), `revision integer` (1); unique live tenant/record binding                             |
+| `sessions`            | nullable selected `tenant_id`; nullable `access_mode`, `effective_user_id` FK portal_users, and `access_reason`; original reference and expiry contract retained                |
+| `cells`               | `database_name text`, `enabled boolean`; unique live database name                                                                                                              |
+| `platform_grants`     | `portal_user_id` FK portal_users, legacy `role` package_admin/support and route `permission`; current role/policy storage is owned by PRD 0006; unique live identity/permission |
+| `provisioning_jobs`   | tenant and membership FKs, preallocated record and optional vendor IDs, kind employee/client/vendor, stage pending/complete/failed and nullable safe failure code               |
+| `managed_events`      | operator ID, optional effective-user/target/session IDs, event and reason; immutable creation record                                                                            |
 
 The membership id and tenant revision are projected with the source fields.
 Projection updates compare revisions; older state never replaces newer state.
@@ -92,52 +95,62 @@ to the same-tenant vendor. Runtime timestamps are enforced by database triggers.
 
 ## API and initial permission policy
 
+The heading is retained for existing links. The policy below describes current
+access; PRD 0006 owns the replacement of the original per-user grants.
+
 All endpoints use the existing versioned envelopes and shared Zod contracts.
 The shared `transport/control.ts` definitions enumerate the request fields.
 
-| Endpoint under `/api`                      | Access and behavior                                                                                               |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `GET /admin-tenancy/v1/auth/memberships`   | Unrestricted-password session; returns this identity's active memberships without cell information                |
-| `POST /admin-tenancy/v1/auth/select`       | Membership intent only; rejects another identity's binding and unusable assignments                               |
-| `POST /admin-tenancy/v1/auth/access`       | Explicit current access or impersonate permission, tenant target and reason                                       |
-| `POST /admin-tenancy/v1/auth/end-access`   | Ends the current controlled context and rotates into selection state                                              |
-| `GET /admin-tenancy/v1/control/overview`   | Central overview permission; operator registry, members, jobs and grants                                          |
-| `POST /admin-tenancy/v1/control/registry`  | Register/update cells, create pending tenants, update tier/pending assignment, suspend/resume provisioned tenants |
-| `POST /admin-tenancy/v1/control/members`   | Provision or revoke a typed membership                                                                            |
-| `POST /admin-tenancy/v1/control/provision` | Retry a job, activate a tenant, or retry the saved operator bootstrap                                             |
-| `POST /admin-tenancy/v1/control/grants`    | Grant/revoke one central route permission                                                                         |
-| `GET /admin-tenancy/v1/control/audit`      | Audit-review permission; latest managed events                                                                    |
-| `GET /core/v1/identity/profile`            | Own linked record; controlled direct access may name a record/kind within its selected tenant                     |
+| Endpoint under `/api`                      | Access and behavior                                                                                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /admin-tenancy/v1/auth/memberships`   | Unrestricted-password session; returns this identity's active memberships without cell information                               |
+| `POST /admin-tenancy/v1/auth/select`       | Membership intent only; rejects another identity's binding and unusable assignments                                              |
+| `POST /admin-tenancy/v1/auth/access`       | Explicit current access or impersonate permission, tenant target and reason                                                      |
+| `POST /admin-tenancy/v1/auth/end-access`   | Ends the current controlled context and rotates into selection state                                                             |
+| `GET /admin-tenancy/v1/control/overview`   | Central overview permission; operator registry, members, jobs and grants                                                         |
+| `POST /admin-tenancy/v1/control/registry`  | Register/update cells, create pending tenants, update tier/pending assignment, suspend/resume provisioned tenants                |
+| `POST /admin-tenancy/v1/control/members`   | Provision or revoke a typed membership                                                                                           |
+| `POST /admin-tenancy/v1/control/provision` | Retry a job, activate a tenant, or retry the saved operator bootstrap                                                            |
+| `POST /admin-tenancy/v1/control/grants`    | Legacy endpoint; grant commands return conflict. Current assignments use `POST /admin-tenancy/v1/control/role-policy` (PRD 0006) |
+| `GET /admin-tenancy/v1/control/audit`      | Audit-review permission; latest managed events                                                                                   |
+| `GET /core/v1/identity/profile`            | Own linked record; controlled direct access may name a record/kind within its selected tenant                                    |
 
-Central keys are `admin-tenancy::control::<action>` for overview, registry,
-provision, members, grants, audit, access and impersonate. Root resolves all keys
-without mutable grant rows. Every non-root grant is explicit; package_admin can
-receive any key, support only access/impersonate/audit. Grants never authorize
-ordinary business routes. Controlled sessions cannot administer grants/registry.
-An impersonated profile read uses the effective membership's own record only.
+Central route keys use `admin-tenancy::control::<action>`. PRD 0006 owns
+current platform-role assignments and shared support permissions. Root retains
+its protected authority. Controlled sessions cannot administer grants or the
+registry; impersonated profile reads use the effective membership's record.
 
 Overview and audit replies are capped at 200 records for this initial operator
 surface. Customer membership listing is complete. Broader operator pagination,
-business permissions and module licensing are not part of these routes.
+business permissions and module licensing have separate contracts in PRDs 0006/0007.
 
 ## Recovery and operational defaults
 
 Runtime connections are built from registered UUID-keyed `CELL_DATABASES_*`
 entries under the specification's Environment configuration contract (ADR 0012).
-Explicit cell maintenance commands require a cell UUID and use nap_admin;
-admin and cell migrations grant the fixed nap_app runtime role. Neither
+Register cell runs cell setup, migrations, and activation under ADR 0014.
+Admin setup, migration, and bootstrap remain CLI operations. Access-maintenance
+commands select an explicit cell UUID. Migrations grant the fixed nap_app role. Neither
 connection credentials nor cell IDs enter customer session contracts.
 
 A new member operation commits a pending job and returns its ID before any cell
-write. The web form follows that reply with an explicit retry command carrying
+write.
+
+The web form follows that reply with an explicit retry command carrying
 the name. A new member operation persists only identity metadata and record IDs centrally;
 the person's display name lives in Core. If the first cell write fails, retry
 requires the name again. Once the cell record exists, replay needs only the job
-ID. Passwords are hashed before storage and are never persisted in jobs. A missing name before first-time record creation returns `INVALID_INPUT` without
-changing the durable job status. A cell synchronization failure returns normal
+ID. Passwords are hashed before storage and are never persisted in jobs.
+
+A missing name before first-time record creation returns `INVALID_INPUT` without
+changing the durable job status.
+
+A cell synchronization failure returns normal
 command completion with failure visible in the job's status;
 it never activates the membership. Revocation queues a job for projection retry
-and denies access centrally immediately. New tenant activation requires every
+and denies access centrally immediately.
+
+New tenant activation requires every
 active membership ready and at least one confirmed employee administrator.
 
 Greenfield root bootstrap records durable intent and completes automatically on the first successful available cell (ADR 0015). It creates the root projection without an employee record, preserves credentials, and refuses reassignment. Root-only bootstrap retry uses the saved operation, never a replacement cell. Existing installations are not enrolled.
@@ -149,21 +162,6 @@ movement requires the later dedicated workflow.
 The capability plan owns execution order and test scenarios. Additive migrations
 precede deployment. Register cell runs its accepted provisioning workflow; the worker completes saved greenfield operator bootstrap under ADR 0015. Initial admin creation and migration remain CLI operations. Failed stages are retried, not automatically
 activated. Reverting application security behavior requires session revocation.
-
-## Revisions
-
-| Date       | Change                                                                |
-| ---------- | --------------------------------------------------------------------- |
-| 2026-09-08 | Accepted owner-approved control-plane design; implementation started. |
-
-| 2026-09-08 | Completed implementation and local acceptance checks; merge and CI remain pending. |
-
-| 2026-09-08 | Clarified retry validation errors separately from durable cell synchronization failures. |
-
-Verification evidence: 287 repository tests and all required local checks pass;
-[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
-
-| 2026-09-08 | Reconciled verification for PR #15; status becomes effective on merge with required checks passing. |
 
 ## Multi-cell delivery — 2026-09-08
 
@@ -179,18 +177,14 @@ Verification evidence: 287 repository tests and all required local checks pass;
   activation. Retry incomplete work with the existing job identifiers. Active
   activation replay may return success only after repeating these checks.
 
-| Date       | Change                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| 2026-09-08 | Accepted TEN-008 and TEN-009, extending one-cell selection and provisioning under ADR 0007. |
-
 [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.
 
 ## RBAC adoption (2026-09-09)
 
-ADR 0008 and PRDs 0006–0008 replace the initial authorization policy: platform_admin
+ADR 0008 and PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) replace the initial authorization policy: platform_admin
 replaces package_admin, support grants are shared and editable only by platform
-administrators, and tenant roles resolve in Core. Historical implementation
-sections above describe the pre-RBAC baseline. RBAC changes are Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing. See the
+administrators, and tenant roles resolve in Core. The revision history retains the pre-RBAC delivery evidence. Current
+requirements use the accepted RBAC policy. RBAC changes are Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing. See the
 [delivery plan](../implementation-plans/0006-rbac-and-module-entitlement.md).
 Self-profile remains available; broader access requires current scoped grants.
 New provisioning seeds the initial tenant administrator before activation.
@@ -205,23 +199,13 @@ invalidate principal, tenant, support and routing revisions inside the modifying
 transaction, including provisioning and administrative scripts. Redis failure does
 not change session, revocation or controlled-access outcomes.
 
-| Date       | Change                                                                                       |
-| ---------- | -------------------------------------------------------------------------------------------- |
-| 2026-09-09 | Recorded revision-checked authorization cache integration without changing access semantics. |
-
 **Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
 [verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
 
 ## Vendor selection amendment — accepted
 
-Amendment to TEN-003: after required password change, every vendor
-must select an eligible tenant after each login, even with one eligible
-membership. Non-vendor single-membership selection, zero-membership/platform-only
-handling, membership validation, reference rotation and expiry remain unchanged.
-TEN-007 reuses the same tenant-selection screen from the persistent vendor
-Change tenant control; the shell owns its presentation under SHELL-003.
-The TEN-003 text above records the historical baseline; this amendment supersedes
-its vendor auto-selection policy.
+TEN-003 contains the current selection contract. This retained amendment anchor
+records its adoption under ADR 0010; it does not define a second selection policy.
 
 See [PRD 0009](0009-product-shell-and-navigation.md) and
 [ADR 0010](../ADRs/0010-product-shell-and-vendor-selection.md).
@@ -229,22 +213,12 @@ Owner accepted this amendment with PRD 0009 implementation on 2026-09-10.
 Its implementation evidence is tracked in the shell delivery plan, separately
 from the earlier Verified status.
 
-| Date       | Change                                                                                                   |
-| ---------- | -------------------------------------------------------------------------------------------------------- |
-| 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history. |
-
 ## Shell provisioning integration — accepted
 
 [PRD 0009 SHELL-002](0009-product-shell-and-navigation.md#shell-002--business-navigation)
 owns initial shell exposure of tenants, portal users, and employees for the
 TEN-006/007 provisioning workflow. Its presentation work retains the existing
 provisioning, membership, permission, retry, and activation contracts.
-
-| Date       | Change                                                                 |
-| ---------- | ---------------------------------------------------------------------- |
-| 2026-09-09 | Linked the initial tenant-provisioning shell requirements in PRD 0009. |
-
-| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
 
 Shell implementation exposes permitted portal identity/status and provisioning
 relationships through the existing control overview contract. Customer membership
@@ -260,45 +234,78 @@ in the [UI delivery plan](../implementation-plans/0004-cell-registration-and-ten
 Authorized operators register a suffix and see its full environment-specific database
 name. Register commits a disabled cell and durable operation, then provisions,
 migrates, seeds, persists configuration, loads the pool and routers, and activates.
+
 The Cells page displays copyable UUID, database name, status, and state-dependent
-Retry/Activate/Disable actions. No code or editable label remains. Registry permission
+Retry/Activate/Disable actions. No code or editable label remains.
+
+Registry permission
 controls mutations; overview permission controls viewing. The server selects DEV/PROD;
-TEST is available only through the shared service for fixtures. Browser closure does
+TEST is available only through the shared service for fixtures.
+
+Browser closure does
 not cancel work; retry resumes the same UUID and saved stages. Disable requires a
 confirmation explaining assigned tenant access loss. Progress and safe errors are
-visible through overview. The specification's provisioning contract owns credentials,
+visible through overview.
+
+The specification's provisioning contract owns credentials,
 physical identity, recovery, and live pool lifecycle (ADR 0014).
 
 Tenant creation offers enabled cells only and links to cell setup when none exist.
 Existing employee provisioning and activation use TEN-006/TEN-009 and PRD 0006:
 a sole eligible employee may be preselected; multiple employees require a choice.
+
 Show assigned cell, readiness, durable job stage and safe failure information,
 with explicit refresh and retry. Preserve a created job ID when synchronization
 fails; retry that job without recreating membership. Do not equate HTTP success
-with provisioning completion or status unavailability with success. Ask for the
-name again when the first Core write requires it. Never persist passwords in UI
-storage or jobs. After activation explain first login and required temporary
-password change; existing linked identities retain their credentials.
+with provisioning completion or status unavailability with success.
 
-Revision, 2026-09-11: Owner accepted TEN-010 for the cell registration and tenant
-provisioning UI; prior implementation verification remains historical.
+Ask for the
+name again when the first Core write requires it. Never persist passwords in UI
+storage or jobs.
+
+After activation explain first login and required temporary
+password change; existing linked identities retain their credentials.
 
 UI verification: Verified upon merge of [PR #23](https://github.com/silverstone-i/nap/pull/23) with required checks passing.
 The UI delivery plan records browser/API evidence and review fixes; historical
 Verified entries retain their original scope.
 
+## Database provisioning integration
+
+[TEN-010](#ten-010--cell-registration-and-provisioning-ui) connects management
+registration to the specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract. [TEN-011](#ten-011--operator-bootstrap-completion) owns operator
+bootstrap completion.
+
+## TEN-011 — Operator bootstrap completion
+
+Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
+
+The specification and ADR 0015 own the greenfield lifecycle. Overview exposes safe bootstrap status, RBAC readiness and protected-root metadata to authorized operators. Replace the manual reconcile command with bootstrap-retry naming the saved operation. Cell success is independent of bootstrap failure. Completion verifies projections, root role assignment and isolation before marking readiness.
+
+## Revisions
+
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
+
+| Date       | Change                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-09-08 | Accepted owner-approved control-plane design; implementation started.                                    |
+| 2026-09-08 | Completed implementation and local acceptance checks; merge and CI remain pending.                       |
+| 2026-09-08 | Clarified retry validation errors separately from durable cell synchronization failures.                 |
+| 2026-09-08 | Reconciled verification for PR #15; status becomes effective on merge with required checks passing.      |
+| 2026-09-08 | Accepted TEN-008 and TEN-009, extending one-cell selection and provisioning under ADR 0007.              |
+| 2026-09-09 | Recorded revision-checked authorization cache integration without changing access semantics.             |
+| 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history. |
+| 2026-09-09 | Linked the initial tenant-provisioning shell requirements in PRD 0009.                                   |
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved.              |
+
+Revision, 2026-09-11: Owner accepted TEN-010 for the cell registration and tenant
+provisioning UI; prior implementation verification remains historical.
+
 Revision, 2026-09-11: ADR 0011 supersedes ADR 0007 topology. Sessions resolve centrally without cell reads; module requests and provisioning select UUID-keyed database handles inside one API process. Individual cell outages do not block central operations.
 
 Revision, 2026-09-12: Adopted ADR 0012 configuration components and explicit cell command selection; provisioning behavior unchanged.
-
-## Database provisioning integration
-
-The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
-contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
-root records without a cell. Disabled cell registration precedes database creation;
-physical identity checks precede migration/seeding/activation. Cell reference seeding
-is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
-through registry edits before activation has verified the running API.
 
 Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.
 
@@ -307,10 +314,11 @@ Revision 2026-09-13: owner approved full Register cell workflow and UUID/databas
 Revision 2026-09-13: reconciled PR #24 implementation and verification evidence;
 Register cell verification becomes effective on merge with required checks passing.
 
-## TEN-011 — Operator bootstrap completion
-
-Design: Accepted, 2026-09-13. Implementation: Verified upon merge of [PR #25](https://github.com/silverstone-i/nap/pull/25) with required checks passing.
-
-The specification and ADR 0015 own the greenfield lifecycle. Overview exposes safe bootstrap status, RBAC readiness and protected-root metadata to authorized operators. Replace the manual reconcile command with bootstrap-retry naming the saved operation. Cell success is independent of bootstrap failure. Completion verifies projections, root role assignment and isolation before marking readiness.
-
 Revision 2026-09-14: reconciled PR #25 verification; status becomes effective on merge with required checks passing.
+
+Verification evidence: 287 repository tests and all required local checks pass;
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
+
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.
+
+Revision 2026-09-15: replaced copied infrastructure requirements with references to cell registration and operator bootstrap contracts.

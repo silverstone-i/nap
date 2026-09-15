@@ -14,18 +14,17 @@ govern placement, styling, routing, and theme preference.
 
 ## Accepted behavior
 
-- **ENTRY-001:** `/` presents an accessible HTML wordmark, the heading
-  “Project-first accounting & ERP,” and “Application under development.”
-  Content is centered with bounded width, responsive padding, and natural
-  scrolling on short screens.
+- **ENTRY-001:** PRD 0009 SHELL-003/004 owns current product entry and the
+  static Dashboard. It replaces the original holding page; its historical
+  brand verification remains recorded below.
 - **ENTRY-002:** A visibly labeled System / Light / Dark selector applies the
   specification's theme preference contract before page content renders.
   Missing or invalid stored preferences use system. Storage failures leave
   selection usable in memory. System changes affect only system preference;
   subscriptions are removed when their owner unmounts.
-- **ENTRY-003:** The entry page is lazy-loaded with an accessible loading state.
-  Page-render and import failures show “We couldn’t load this page.” and a
-  “Retry” button that reloads the current URL. Raw errors are never rendered.
+- **ENTRY-003:** Routed entry pages use accessible loading and failure states
+  under SHELL-005. Page-render and import failures show “We couldn’t load this
+  page.” and a Retry button that reloads the current URL. Raw errors are not shown.
 - **ENTRY-004:** Unknown URLs show “Page not found” and a link to `/`.
   Loading, error, and unknown-page views share the brand and active theme.
 - **ENTRY-005:** The supplied favicon assets and manifest are served locally.
@@ -35,9 +34,9 @@ govern placement, styling, routing, and theme preference.
 ## Boundaries and interfaces
 
 The theme provider exposes preference, resolved mode, and a preference setter.
-There are no API, database, authentication, product navigation, tenant URL,
-product shell, or offline/service-worker additions. Existing transport behavior
-is unchanged. Gold on these views is confined to the wordmark dot.
+This brand capability owns no API or database behavior. Authentication and
+product navigation are owned by PRDs 0003/0009. It introduces no offline or
+service-worker behavior. Gold on these views is confined to the wordmark dot.
 
 ## Acceptance evidence
 
@@ -64,18 +63,10 @@ with the `changelog`, `checks`, and `release` workflows passing. Tests added on
 2026-09-07 prove no hex literal exists outside the token module and gold is
 confined to the wordmark dot.
 
-## Revisions
-
-| Date       | Change                                                       |
-| ---------- | ------------------------------------------------------------ |
-| 2026-09-07 | Accepted the owner-approved minimal holding-page design.     |
-| 2026-09-07 | Marked Verified after merge, CI, and brand-discipline tests. |
-
 ## Product entry amendment — accepted
 
-ENTRY-001 and ENTRY-003 currently describe the implemented holding entry.
-PRD 0009 SHELL-003/004 now owns product
-entry and the static Dashboard, replacing that holding-page experience.
+ENTRY-001/003 reference the current product-entry contract in PRD 0009.
+This retained amendment anchor records the replacement of the holding page.
 ENTRY-002 theme behavior and ENTRY-004/005 shared recovery/assets remain owned
 here. SHELL-001 adds tenant branding and relocates the small NAP wordmark in the
 product frame without changing existing brand tokens or historical evidence.
@@ -86,8 +77,16 @@ Owner accepted this amendment with PRD 0009 implementation on 2026-09-10.
 Its implementation evidence is tracked in the shell delivery plan, separately
 from the earlier Verified status.
 
+## Revisions
+
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
+
 | Date       | Change                                                                                                   |
 | ---------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-09-07 | Accepted the owner-approved minimal holding-page design.                                                 |
+| 2026-09-07 | Marked Verified after merge, CI, and brand-discipline tests.                                             |
 | 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history. |
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved.              |
 
-| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.

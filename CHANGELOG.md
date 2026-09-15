@@ -11,6 +11,14 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Reconcile architecture, setup guidance, PRD identifiers and delivery evidence
+  with the implementation, and add documentation and architecture checks to
+  prevent drift.
+- Correct remaining cookie, role-status and configuration documentation, link the
+  enforced error schema, and separate shared contracts and revision history.
+
 ## [v0.19.3] - 2026-09-15
 
 ### Fixed

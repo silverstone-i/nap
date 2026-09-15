@@ -28,12 +28,15 @@ behavior; forgotten-password delivery remains a later capability.
 - **AUTH-001 Login.** `POST /login` takes normalized `email` and `password`.
   Wrong credentials, locked identities and absence of eligible membership or
   central authorization answer `UNAUTHENTICATED` with the same credential work.
-  PRD 0004 TEN-003 now owns single-membership selection, restricted multi-membership
-  sessions and platform administration without an ordinary membership. Temporary
+  PRD 0004 TEN-003 owns vendor selection, ordinary single-membership entry,
+  restricted selection sessions, and platform-only access. Temporary
   credentials require password change before selection or tenant work.
-- **AUTH-002 Session cookie.** The cookie is `HttpOnly`, `Secure` unless
-  `COOKIE_SECURE_DEV=false`, `SameSite` from `COOKIE_SAMESITE_{DEV,TEST,PROD}` (default `lax`),
-  path `/`, and holds a `jose`-signed compact token carrying the session
+- **AUTH-002 Session cookie.** The cookie is `HttpOnly`. `Secure` is set by
+  `COOKIE_SECURE_{DEV,TEST,PROD}` for the selected environment (default `true`).
+  The [production setup](../guides/production-setup.md#3-customize-the-blueprint-in-your-fork)
+  requires `true`. Configuration rejects SameSite `none` with `Secure=false`.
+  `SameSite` comes from `COOKIE_SAMESITE_{DEV,TEST,PROD}` (default `lax`).
+  The cookie uses path `/` and holds a `jose`-signed compact token carrying the session
   identifier and a random secret. The database row stores only the SHA-256
   digest of the secret. The cookie is a reference: it carries no actor,
   tenant, role, or expiry that the server trusts.
@@ -159,11 +162,12 @@ The implementation promotes these names in
 - Session resolution and the actor resolver are services and import no module
   (`ARCH-048`); the framework gates are unchanged.
 - PRD 0004 adds explicit central permissions and the bounded Core self-read
-  permission. General tenant business RBAC remains deferred.
+  permission. PRD 0006 owns current tenant business RBAC.
 - No email is sent. Forgotten-password reset waits for the capability that
   introduces email delivery; until then the seed's reset flag recovers root,
   Ordinary identity onboarding now follows PRD 0004.
-- Redis is not used; every session decision reads PostgreSQL.
+- Session validation reads PostgreSQL; derived lookups may use revision-checked
+  caching under ARCH-029 and the Authorization cache integration section.
 - Diagnostic logs never carry an email, password, hash, cookie, token, or
   throttle key. A login failure logs an event name and the correlation
   identifier only.
@@ -183,21 +187,6 @@ password change, loading, and error states. Repository checks pass before
 Implemented. Verified requires merged code, passing CI, and roadmap
 reconciliation.
 
-## Revisions
-
-| Date       | Change                                                                                                                            |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-07 | Drafted from the roadmap's Authentication and sessions entry and ADR 0004.                                                        |
-| 2026-09-07 | Accepted by the owner.                                                                                                            |
-| 2026-09-08 | Recorded the owner-approved anonymous throttle actor exception, configuration bounds, and runtime grants; implementation started. |
-| 2026-09-08 | Linked AUTH-005 to AUTH-008 and named the nullable audit columns explicitly to clarify pre-authentication throttle writes.        |
-| 2026-09-08 | Updated to pg-schemata 3.1.1 and verified all local checks; implementation complete, merge and CI pending.                        |
-| 2026-09-08 | Verified merged PR #14 and passing CI; linked intentional session/onboarding extensions to PRD 0004.                              |
-
-Authentication verification refreshed 2026-09-08: 263 tests and all repository checks passed.
-[PR #14](https://github.com/silverstone-i/nap/pull/14) merged; [CI](https://github.com/silverstone-i/nap/actions/runs/34180826031) passed.
-PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and onboarding.
-
 ## Multi-cell authentication amendment
 
 Login evaluates all centrally eligible memberships. Session and password actions
@@ -205,18 +194,14 @@ are central and selection validates the assigned active cell without requiring
 database connectivity for central actions. A cell-data request requires its assigned
 configured database. See PRD 0004 TEN-008 and ADR 0011; cookie rotation and expiry are unchanged.
 
-| Date       | Change                                                       |
-| ---------- | ------------------------------------------------------------ |
-| 2026-09-08 | Accepted central authentication across cells under ADR 0007. |
-
 Multi-cell amendment: Verified upon merge of [PR #17](https://github.com/silverstone-i/nap/pull/17) with required checks passing. [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34314494340) passed; required CI must also pass on the final PR head.
 
 ## RBAC adoption (2026-09-09)
 
-ADR 0008 and PRDs 0006–0008 replace the initial authorization policy: platform_admin
+ADR 0008 and PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) replace the initial authorization policy: platform_admin
 replaces package_admin, support grants are shared and editable only by platform
-administrators, and tenant roles resolve in Core. Historical implementation
-sections above describe the pre-RBAC baseline. RBAC changes are Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing. See the
+administrators, and tenant roles resolve in Core. The revision history retains the pre-RBAC delivery evidence. Current
+requirements use the accepted RBAC policy. RBAC changes are Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing. See the
 [delivery plan](../implementation-plans/0006-rbac-and-module-entitlement.md).
 Self-profile remains available; broader access requires current scoped grants.
 New provisioning seeds the initial tenant administrator before activation.
@@ -231,18 +216,12 @@ invalidate principal, tenant, support and routing revisions inside the modifying
 transaction, including provisioning and administrative scripts. Redis failure does
 not change session, revocation or controlled-access outcomes.
 
-| Date       | Change                                                                                       |
-| ---------- | -------------------------------------------------------------------------------------------- |
-| 2026-09-09 | Recorded revision-checked authorization cache integration without changing access semantics. |
-
 **Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
 [verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
 
 ## Shell entry and vendor selection amendment — accepted
 
-AUTH-001 and the membership references above follow PRD 0004's accepted
-vendor-selection amendment: vendor selection is mandatory even for one eligible
-membership. Password-change requirements still precede selection. AUTH-009
+AUTH-001 follows the current TEN-003 selection contract in PRD 0004. AUTH-009
 account/login remain standalone; SHELL-003 owns product entry and safe deep-link
 continuation. Session validation, logout, throttling, and credential contracts
 are unchanged. Existing acceptance evidence describes the implemented baseline.
@@ -253,29 +232,46 @@ Owner accepted this amendment with PRD 0009 implementation on 2026-09-10.
 Its implementation evidence is tracked in the shell delivery plan, separately
 from the earlier Verified status.
 
-| Date       | Change                                                                                                   |
-| ---------- | -------------------------------------------------------------------------------------------------------- |
-| 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history. |
-
-| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
-
 The session transport now includes the selected tenant's display name, effective
 membership type and vendor-switch availability for SHELL-003. These are computed
 from current server state; customer contracts do not disclose deployment details.
 
+## Database provisioning integration
+
+[AUTH-007](#accepted-behavior) owns root identity creation and password recovery.
+It integrates with the specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
+contract; [TEN-011](0004-tenant-membership-and-control-plane.md#ten-011--operator-bootstrap-completion)
+owns operator bootstrap completion.
+
+## Revisions
+
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
+
+| Date       | Change                                                                                                                                  |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-07 | Drafted from the roadmap's Authentication and sessions entry and ADR 0004.                                                              |
+| 2026-09-07 | Accepted by the owner.                                                                                                                  |
+| 2026-09-08 | Recorded the owner-approved anonymous throttle actor exception, configuration bounds, and runtime grants; implementation started.       |
+| 2026-09-08 | Linked AUTH-005 to AUTH-008 and named the nullable audit columns explicitly to clarify pre-authentication throttle writes.              |
+| 2026-09-08 | Updated to pg-schemata 3.1.1 and verified all local checks; implementation complete, merge and CI pending.                              |
+| 2026-09-08 | Verified merged PR #14 and passing CI; linked intentional session/onboarding extensions to PRD 0004.                                    |
+| 2026-09-08 | Accepted central authentication across cells under ADR 0007.                                                                            |
+| 2026-09-09 | Recorded revision-checked authorization cache integration without changing access semantics.                                            |
+| 2026-09-09 | Added proposed shell-related amendment for review; preserved accepted baseline and verification history.                                |
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved.                                             |
 | 2026-09-10 | Dedicated password page replaces the combined account screen, with confirmation, visibility control, and voluntary/required navigation. |
 
 Revision, 2026-09-11: ADR 0011 supersedes ADR 0007 topology. Sessions resolve centrally without cell reads; module requests and provisioning select UUID-keyed database handles inside one API process. Individual cell outages do not block central operations.
 
 Revision, 2026-09-12: ADR 0012 separates secrets, bootstrap inputs, cookies and proxy trust by environment; common tuning and authentication behavior remain unchanged.
 
-## Database provisioning integration
-
-The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
-contract and ADR 0013 govern explicit-environment preparation. Admin bootstrap creates
-root records without a cell. Disabled cell registration precedes database creation;
-physical identity checks precede migration/seeding/activation. Cell reference seeding
-is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
-through registry edits before activation has verified the running API.
-
 Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.
+
+Authentication verification refreshed 2026-09-08: 263 tests and all repository checks passed.
+[PR #14](https://github.com/silverstone-i/nap/pull/14) merged; [CI](https://github.com/silverstone-i/nap/actions/runs/34180826031) passed.
+PRD 0004 extends AUTH-001/003/006/009 with restricted sessions, selection and onboarding.
+
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.
+
+Revision 2026-09-15: clarified environment-specific cookie configuration and linked component bootstrap responsibilities to their owning contracts.
