@@ -2,9 +2,14 @@
  * Copyright (c) 2026–present NapSoft, LLC.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
-import { ProvisioningError, adminDatabaseName } from './config.mjs';
+import {
+  ProvisioningError,
+  adminDatabaseName,
+  passwords,
+  publishLocal,
+  roleUrl,
+} from './config.mjs';
 import { randomUUID } from 'node:crypto';
-import { passwords, publishLocal, roleUrl } from './config.mjs';
 import {
   using,
   prepareRoles,
