@@ -4,10 +4,31 @@
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, relative, dirname } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { parsers } from 'prettier/plugins/markdown';
 import { expect, it } from 'vitest';
 
 const root = process.cwd();
+// A developer's ignored files must not make a broken repository path pass.
+const trackedPaths = new Set();
+for (const name of execFileSync('git', ['ls-files', '-z'], {
+  encoding: 'utf8',
+}).split('\0')) {
+  if (!name) continue;
+  let path = resolve(root, name);
+  while (path !== root) {
+    trackedPaths.add(path);
+    path = dirname(path);
+  }
+}
+// Guides intentionally describe setup and build outputs created after checkout.
+// Keep this list exact: blanket ignored-file exemptions would conceal typos.
+const generatedPaths = new Set([
+  'apps/api/.env',
+  'apps/api/.env.provisioning.dev.json',
+  'apps/api/.env.provisioning.prod.json',
+  'apps/api/dist/server.js',
+]);
 
 /** Does: Lists Markdown files below a documentation directory. Called by: document inventory. */
 function markdownFiles(directory) {
@@ -94,7 +115,7 @@ function linkProblems(file, tree, documents) {
 }
 
 /** Does: Finds current repo-qualified inline paths that no longer exist. Called by: documentation checks and historical/example fixtures. */
-function inlinePathProblems(tree, exists = existsSync) {
+function inlinePathProblems(tree, exists = path => trackedPaths.has(path)) {
   const problems = [];
   const headings = [];
   walk(tree, (node, parents) => {
@@ -123,7 +144,7 @@ function inlinePathProblems(tree, exists = existsSync) {
       )
     )
       return;
-    if (!exists(resolve(root, value)))
+    if (!generatedPaths.has(value) && !exists(resolve(root, value)))
       problems.push(`${node.position.start.line}: ${value}`);
   });
   return problems;
@@ -192,6 +213,22 @@ it('checks current inline paths but excludes explicitly historical and illustrat
   expect(inlinePathProblems(tree, () => false)).toEqual([
     '1: apps/web/src/Missing.tsx',
     '11: apps/api/src/Missing.ts',
+  ]);
+});
+
+it('allows documented setup outputs without accepting missing source files or misspelled outputs', () => {
+  const tree = parsers.markdown.parse(
+    [
+      '`apps/api/.env`',
+      '`apps/api/.env.provisioning.dev.json`',
+      '`apps/api/.env.provisioning.prod.json`',
+      '`apps/api/.env.provisioning.prodd.json`',
+      '`apps/api/src/missing.ts`',
+    ].join('\n\n')
+  );
+  expect(inlinePathProblems(tree, () => false)).toEqual([
+    '7: apps/api/.env.provisioning.prodd.json',
+    '9: apps/api/src/missing.ts',
   ]);
 });
 

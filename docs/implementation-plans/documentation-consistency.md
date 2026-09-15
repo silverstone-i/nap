@@ -70,10 +70,10 @@ pass after this amendment.
 
 - Architecture checks: all five pass, including approved imports, rejected
   import variants, all runtime extensions, and the four-file language limit.
-- Documentation checks: all six pass, including the complete corpus check.
+- Documentation checks: all seven pass, including the complete corpus check.
   ADR titles, statuses and requirements match the index. Every ADR index entry
   must be in a parsed table row. PRD identifiers are unique and indexed.
-- Final `npm test`: all 547 tests pass (114 toolchain, 340 API, 79 web,
+- Final `npm test`: all 548 tests pass (115 toolchain, 340 API, 79 web,
   and 14 shared). Finding 24 no longer fails the corpus check.
 - Workspace suites run separately: API 340, web 79 and shared 14 tests pass.
   The first API run returned 401 instead of 404 in an archived-record assertion.
@@ -115,3 +115,19 @@ Historical CI and live acceptance records remain historical evidence.
 The implementation request excluded shipping. The subsequent owner instruction
 `/ship pr with release:patch` authorizes a signed-off commit, push and labeled PR.
 It does not authorize a merge, deployment or new live acceptance.
+
+## CI checkout correction
+
+The first PR check failed because the inline-path test relied on files present
+only in the developer checkout. Environment and provisioning-state files are
+intentionally ignored and absent in CI. The check now uses Git's tracked path
+inventory and an exact list of documented setup/build outputs. It does not
+exempt arbitrary ignored files or misspelled output paths.
+
+The original test fails in a clean temporary clone; the corrected seven-test
+documentation suite passes there without environment files or build output.
+Regression coverage still rejects misspelled setup paths and missing source
+files. No local configuration or credentials were copied into the clone.
+
+After the correction, all 548 tests pass locally. Lint, formatting and
+`git diff --check` also pass.

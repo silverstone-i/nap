@@ -1271,5 +1271,5 @@ covers documentation reconciliation and architecture checks without runtime chan
 Production and ordinary-tenant acceptance retain their existing evidence limits.
 
 The owner approved the existing shared-package layout for finding 24. ADR 0016
-and the specification record that amendment. All 547 tests and the repository
+and the specification record that amendment. All 548 tests and the repository
 checks pass; the delivery checklist records the rendered-review limitations.
