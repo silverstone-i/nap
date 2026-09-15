@@ -94,6 +94,18 @@ export function argumentsFor(args) {
           : undefined,
   };
 }
+/** Does: Resolves and validates the selected admin database name. Called by: admin CLI preflight and provisioning operations. */
+export function adminDatabaseName(environment, env) {
+  const name =
+    environment === 'prod'
+      ? env.ADMIN_DATABASE_NAME_PROD?.trim() || 'nap_prod_admin'
+      : `nap_${environment}_admin`;
+  if (!/^[a-z][a-z0-9_]{0,62}$/.test(name))
+    throw new ProvisioningError(
+      'ADMIN_DATABASE_NAME_PROD must be 1–63 lowercase letters, digits or underscores, starting with a letter'
+    );
+  return name;
+}
 /** Does: Reads a file or returns its initial empty contents. Called by: local configuration and state readers. */
 async function readOptional(file) {
   try {

@@ -1253,7 +1253,7 @@ Design: existing platform deployment and provisioning contracts. Implementation:
 preparation Verified upon merge of [PR #26](https://github.com/silverstone-i/nap/pull/26)
 with required checks passing; live verification pending. The
 [Render verification plan](../implementation-plans/render-verification.md) and
-[runbook](../guides/render-verification.md) cover one same-origin API/web service
+[runbook](../guides/production-setup.md) cover one same-origin API/web service
 with isolated Virginia admin and first-cell databases. The gate before Reference
 data and Core is a live Render deployment showing health, root login, first-cell
 bootstrap and RBAC readiness, restart recovery, and ordinary tenant provisioning.

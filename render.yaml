@@ -31,7 +31,7 @@ services:
       - key: REDIS_CACHE_ENABLED_PROD
         value: 'false'
       - key: REDIS_CACHE_NAMESPACE_PROD
-        value: nap_render_verification
+        value: nap_prod
       # My Workspace owns this test service; applying it elsewhere requires
       # changing this ID to that workspace before any database is provisioned.
       - key: RENDER_WORKSPACE_ID

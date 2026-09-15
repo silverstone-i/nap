@@ -26,82 +26,14 @@ isolation and `ARCH-029` owns the Redis boundary. Package manifests, the
 lockfile, `.nvmrc`, and `tsconfig.base.json` own the exact installed versions
 and compiler settings.
 
-## Local development
+## Environment setup
 
-Use the Node version pinned in `.nvmrc` (`nvm use`), then run `npm ci`.
+Start with the guide for your environment:
 
-- `npm run dev:api` starts the API on port 3000 and watches TypeScript output.
-- `npm run dev:web` starts Vite on its reported local URL (normally port 5173).
-- `npm run build --workspace @nap/api`, `@nap/web`, or `@nap/shared` builds
-  that workspace. Application builds first build the public shared package.
+- [Development setup](docs/guides/development-setup.md): fresh fork, macOS or Ubuntu tools, local PostgreSQL roles, private configuration, admin setup, first cell, checks and recovery.
+- [Production setup on Render](docs/guides/production-setup.md): fork-specific Blueprint configuration, account credentials, paid resource creation, deployment, first cell and recovery.
 
-The API exposes `GET /health/live` and `GET /health/ready`; other paths return
-version-1 JSON errors. Every application response carries `X-Request-ID`.
-Startup requires admin readiness and probes each configured cell independently.
-Unavailable cells are quarantined and retried every 30 seconds while admin and
-healthy cells remain available. The web uses the same public origin as the API.
-
-Copy `apps/api/.env.example` to `apps/api/.env` for local configuration. The API
-and database commands load that file without overriding inherited environment
-values. The example documents implemented configuration names and placeholder
-values. Never commit the local environment file.
-
-### Database setup and checks
-
-Install PostgreSQL 18 client/server tooling and OpenSSL on PATH. Operator commands
-require an explicit `--env dev|test|prod`. Follow the
-[database provisioning runbook](docs/guides/database-provisioning.md) for credentials,
-Render settings, recovery, and activation.
-
-```bash
-npm run db:setup:admin -- --env dev
-npm run db:migrate:admin -- --env dev
-npm run db:bootstrap -- --env dev
-```
-
-Start the API and web app in separate terminals:
-
-```bash
-npm run dev:api
-npm run dev:web
-```
-
-Sign in as root, then open **Tenant Management → Cells → Register cell**.
-The first successfully provisioned cell automatically hosts NapSoft and completes
-root's tenant access and RBAC setup. Check progress under **Tenant Management →
-Tenants**. See the [Database provisioning guide](docs/guides/database-provisioning.md)
-for prerequisites, configuration, and bootstrap failure/retry instructions.
-
-To start DEV again from empty databases, stop the API and run:
-
-```bash
-npm run db:clean:dev -- --confirm
-```
-
-This permanently deletes `nap_dev_admin` and every `nap_dev_cell_*` database
-owned by `nap_admin` on the `SETUP_DATABASE_DEV` server, deletes
-`apps/api/.env.provisioning.dev.json`, and sets `CELL_DATABASES_DEV='{}'` in
-`apps/api/.env`. PostgreSQL roles and configured passwords are preserved.
-Then repeat the setup, migration, bootstrap, and startup sequence above.
-The [cleanup details](docs/guides/database-provisioning.md#clean-development-environment)
-explain scope and recovery after an interrupted cleanup.
-
-Runtime still selects configuration using NODE_ENV. Maintenance commands use their
-explicit environment and private provisioning state. DEV and TEST use independently
-shared role passwords; PROD uses independent instance passwords. Never commit
-`.env` or provisioning state. The test suite owns disposable databases and test data.
-
-Run `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm test`,
-`npm run build`, and `npm run licenses` before pushing. Local toolchain tests
-start and clean up a temporary PostgreSQL cluster; they do not use your local
-application databases. CI uses its disposable PostgreSQL service and unique
-fixture databases/roles. HTTP tests require permission to open local sockets.
-
-The license gate checks installed production dependencies, including hoisted
-transitives, against `.licenses-allowed.json` using the lockfile's dependency
-classification. Unknown licenses and missing required packages fail the check.
-
-For an isolated production-mode deployment, follow the [Render verification runbook](docs/guides/render-verification.md).
+Both guides distinguish verified operations from walkthroughs that have not been exercised. Follow the complete sequence before treating an installation as ready.
 
 ## Documentation
 
@@ -155,30 +87,6 @@ if reverting to a build without health endpoints.
 
 ### Multi-cell runtime configuration
 
-Start with `CELL_DATABASES_DEV={}` for admin-only API configuration. Register
-cells in Management → Cells and copy each UUID from its detail page. Add each
-UUID and its credential-free endpoint to CELL_DATABASES_DEV. DEV and TEST use
-NAP_APP_PSWD_* and NAP_ADMIN_PSWD_*; PROD entries contain their own passwords.
-Register cell persists and loads new connections without restarting. Recovery of an already configured cell
-still uses independent readiness probes.
+One API connects to admin and multiple cell databases. Management cell registration persists connection maps and loads the new cell without restarting; do not manually add a cell map as a replacement for registration. Follow the [environment setup guides](#environment-setup) for the complete lifecycle and recovery.
 
-Existing setup, migration, and reset commands require an explicit --cell-id;
-setup still prepares admin and the selected cell together. This task changes
-configuration consumption only: setup does not yet enforce registration or
-physical database identity. Do not treat configuration selection as provisioning
-verification. The complete empty-environment setup workflow is separate work.
-
-Access maintenance retains
-`npm run db:access -- seed <tenant-uuid> <cell-uuid>` and
-`npm run db:access -- transition <reviewed-mapping.json> <cell-uuid>`.
-It builds the selected maintenance connection from the same cell entry and
-retains its existing central assignment checks.
-
-Remove the old complete-URL variables, role-name overrides, unsuffixed
-session/bootstrap/Redis/cookie/proxy settings, CELL_ID, CELL_CODE, API_MODE, and
-CELL_API_ORIGINS. Obsolete settings fail with key-only diagnostics.
-Production configuration updates and deployment are separate authorized operations.
-See the [configuration plan](docs/implementation-plans/environment-configuration.md)
-and [multi-cell plan](docs/implementation-plans/multi-cell-api.md).
-
-Create cells through **Management → Cells → Register cell**. The server provisions, migrates, seeds and activates without restarting. TEST fixtures use the shared service directly. See [database provisioning](docs/guides/database-provisioning.md).
+Access maintenance retains `npm run db:access -- seed <tenant-uuid> <cell-uuid>` and `npm run db:access -- transition <reviewed-mapping.json> <cell-uuid>` for their separate access-maintenance purposes. These are not cell creation commands.

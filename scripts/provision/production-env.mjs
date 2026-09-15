@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import { parseDocument } from 'yaml';
-import { ProvisioningError } from './config.mjs';
+import { ProvisioningError, adminDatabaseName } from './config.mjs';
 import { renderSettings } from '../../apps/api/dist/services/provisioning/render.mjs';
 
 const blueprintKeys = [
@@ -83,6 +83,7 @@ export async function productionEnvironment(
   ].filter(key => !env[key]?.trim());
   if (missing.length)
     throw new ProvisioningError(`Required ${missing.join(', ')}`);
+  adminDatabaseName('prod', env);
   renderSettings(env);
   return env;
 }

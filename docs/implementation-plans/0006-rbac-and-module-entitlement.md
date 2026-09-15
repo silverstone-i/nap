@@ -1,7 +1,7 @@
 # RBAC and module entitlement implementation plan
 
 > Historical delivery record. Database setup commands, names, and deferrals below
-> are superseded by ADR 0013 and the [current provisioning runbook](../guides/database-provisioning.md).
+> are superseded by ADR 0013 and the [current provisioning runbook](../guides/development-setup.md).
 
 ## Features provided
 
