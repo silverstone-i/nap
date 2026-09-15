@@ -11,6 +11,12 @@ version when a pull request carrying a `release:patch`, `release:minor`, or
 
 ## [Unreleased]
 
+### Changed
+
+- Reconcile architecture, setup guidance, PRD identifiers and delivery evidence
+  with the implementation, and add documentation and architecture checks to
+  prevent drift.
+
 ## [v0.19.3] - 2026-09-15
 
 ### Fixed

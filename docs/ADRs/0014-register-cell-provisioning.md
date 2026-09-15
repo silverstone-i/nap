@@ -22,3 +22,5 @@ A forward migration preserves existing assignments and verified database names.
 This supersedes ADR 0011's startup-only pool lifecycle, ADR 0012's exclusion of
 maintenance secrets from the API, and ADR 0013's separate cell CLI activation.
 Their other decisions remain in effect. Remove cell CLI commands; retain admin CLI.
+
+Implementation-boundary amendment: [ADR 0016](0016-provisioning-implementation-boundaries.md) records the approved language, seed-import, and polling exceptions. The lifecycle above remains in effect.

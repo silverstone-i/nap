@@ -63,7 +63,10 @@ Write commit subjects in the imperative mood ("Add tenant schema resolver", not 
 
 ## Development setup
 
-See the [README](README.md) for the stack (PERN — Postgres 18, Express 5, React 19, Node 24). Detailed install/run/test instructions will be added to the README once the project scaffolding lands; until then, open an issue if you want to get involved early.
+Follow [Development setup](docs/guides/development-setup.md) for installation,
+configuration, startup, and checks. Use [Production setup](docs/guides/production-setup.md)
+for Render. The [technology stack](docs/specs/nap-platform-specification.md#technology-stack)
+owns technology choices; repository manifests own installed versions.
 
 ---
 

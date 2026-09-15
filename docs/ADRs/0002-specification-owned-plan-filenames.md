@@ -26,3 +26,5 @@ filename guidance.
 
 The existing workspace plan and the database-foundation plan have valid names.
 This changes documentation placement only, not capability requirements or status.
+
+Navigation update, 2026-09-15: filename rules remain in the specification; delivery-plan triggers and contents are now in the [documentation change workflow](../README.md#implementation-plans).

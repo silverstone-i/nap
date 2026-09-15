@@ -69,7 +69,7 @@ Before designing or implementing work:
 If the component PRD does not exist, design and accept it before implementation.
 The workflow is defined in [Change workflow](#change-workflow) below, and the
 triggers requiring an implementation plan are defined in
-[Specification — Documentation placement](specs/nap-platform-specification.md#documentation-placement).
+[Implementation plans](#implementation-plans).
 
 ## Change workflow
 
@@ -109,6 +109,29 @@ closes.
 Accepted ADR rationale is not rewritten. A changed decision receives a new ADR
 that supersedes the old one, and both records link the supersession.
 
+### Implementation plans
+
+A plan is required only when delivery has at least one of these properties:
+
+- it implements a feature defined by an accepted component PRD, even when the
+  feature ships in one pull request;
+- it requires more than one pull request;
+- it changes an authentication, authorization, tenant-isolation, credential, or
+  other security boundary;
+- it includes a destructive or data-moving migration, backfill, compatibility
+  window, or recovery procedure; or
+- it requires staged deployment, feature gates, ordered release units, or a
+  coordinated rollback.
+
+A change without one of those properties proceeds directly from accepted design
+to implementation. Creating a plan is never the delivered outcome: the task that
+creates one continues into implementation.
+
+A plan states its outcome, the accepted design it implements, its impact on
+current code, its risks, the changes it requires, its pull-request sequence,
+its tests and evidence, and its rollout and recovery path. It coordinates
+delivery and is neither architectural nor status authority.
+
 ## Duplication policy
 
 - A requirement is written once in its owning PRD and receives a stable ID
@@ -123,7 +146,7 @@ that supersedes the old one, and both records link the supersession.
 - The roadmap references accepted documents and records sequencing, status,
   implementation slices, evidence, and gaps.
 - Required implementation plans follow the format in
-  [Specification — Documentation placement](specs/nap-platform-specification.md#documentation-placement)
+  [Implementation plans](#implementation-plans)
   and retain coordination detail without becoming architecture, status, or CI
   authority.
 - [`BRAND.md`](branding/BRAND.md) owns brand values and visual specifications;
@@ -146,13 +169,21 @@ Document locations and the repository skeleton are defined in
 - [Core identity records](PRDs/0005-core-identity-records.md)
 - [Role-based access control](PRDs/0006-role-based-access-control.md)
 
-- [RBAC and module entitlement implementation plan](implementation-plans/0006-rbac-and-module-entitlement.md)
 - [Module entitlements](PRDs/0007-module-entitlements.md)
 - [Company and project scope records](PRDs/0008-company-and-project-scope-records.md)
 
-- [Authorization cache acceleration implementation plan](implementation-plans/authorization-cache-acceleration.md)
-
 - [Product shell and navigation](PRDs/0009-product-shell-and-navigation.md)
+
+- [Cell reference data](PRDs/0010-reference-data.md)
+
+## Delivery records
+
+The [roadmap](roadmaps/DEVELOPMENT-ROADMAP.md) links each capability to its plan.
+Plans coordinate work and retain evidence; they do not own current requirements.
+
+- [RBAC and module entitlement](implementation-plans/0006-rbac-and-module-entitlement.md)
+- [Authorization cache acceleration](implementation-plans/authorization-cache-acceleration.md)
+- [Documentation consistency](implementation-plans/documentation-consistency.md)
 
 ## Design guidance
 

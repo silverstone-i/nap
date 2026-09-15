@@ -24,7 +24,7 @@
 
 [CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34385270254) passed. Required CI must also pass on the final PR head.
 
-Implement PRDs 0006–0008 and ADR 0008 in one capability change on codex/rbac.
+Implement PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) and ADR 0008 in one capability change on codex/rbac.
 Shipping is authorized through PR #18. Specification
 ARCH-006, ARCH-013–ARCH-023, ARCH-029, ARCH-040, ARCH-043, ARCH-045,
 ARCH-047–ARCH-050 govern. The owner approved the role model, explicit module

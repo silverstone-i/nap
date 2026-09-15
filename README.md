@@ -11,8 +11,9 @@ with a separate central administration database and one or more tenant-cell
 databases. Cell databases use shared tenant tables protected by PostgreSQL
 row-level security, enforced through a non-owning runtime role rather than
 forced on the table owner. Redis caches derived session, routing, and
-authorization state so those lookups stay off the database path, but
-PostgreSQL always decides: no authorization outcome depends on the cache.
+authorization state to reduce repeated lookups. PostgreSQL revision checks
+and live session validation remain on the request path. Cache availability
+does not determine authorization outcomes.
 
 The [platform specification](docs/specs/nap-platform-specification.md) owns
 these choices. Its
@@ -57,15 +58,20 @@ The maintainer (Ian Silverstone) has sole enforcement authority over project pol
 
 Copyright (c) 2026–present NapSoft, LLC. All contributors retain copyright in their contributions, licensed to the project under AGPL-3.0-or-later via the DCO sign-off.
 
-### API operations
+## API operations
 
 Configure process liveness with `GET /health/live` and traffic readiness with
 `GET /health/ready`. Successful probes return HTTP 200 and
 `{"version":1,"data":{"status":"ok"}}`. Unready probes return HTTP 503 with a
 safe shared error envelope; health responses are not cacheable. Probes reveal
-no infrastructure details. Readiness freshly checks both runtime roles, shares
-an outstanding check, and has a five-second total budget. Startup performs the
-same check before opening HTTP. Keep the deployment probe timeout above five
+no infrastructure details.
+
+Readiness checks the admin connection and runtime role, shares
+an outstanding check, and has a five-second total budget. Startup requires
+that check before opening HTTP.
+
+Each cell has an independent readiness probe;
+a failed cell is quarantined while admin and healthy cells remain available. Keep the deployment probe timeout above five
 seconds to receive the API's failure response.
 
 JSON requests have a 100 KiB ceiling; compressed bodies and unsupported media
@@ -79,13 +85,16 @@ SIGINT/SIGTERM stop readiness and admission, allow ten seconds for active HTTP
 requests, and then allow five seconds for pool cleanup. Exhausted deadlines or
 cleanup failures exit unsuccessfully. Set the deployment termination grace
 period above fifteen seconds. Interrupted startup cannot later open a listener.
-There are no automatic retries, metrics exporter, or sampling policy yet.
 
-Deploy the API artifact and update probes together. No database migration or
-credential change is needed. Roll back both the artifact and probe configuration
-if reverting to a build without health endpoints.
+Provisioning includes bounded readiness polling and resumable work. See the
+[operational standards](docs/specs/nap-platform-specification.md#operational-standards)
+for polling and retry limits. No metrics exporter or sampling policy is implemented.
 
-### Multi-cell runtime configuration
+For health-endpoint changes, deploy the API artifact and probe configuration
+together. Health endpoints themselves require no migration or credential change.
+Follow the production guide for releases that also change database state.
+
+## Multi-cell runtime configuration
 
 One API connects to admin and multiple cell databases. Management cell registration persists connection maps and loads the new cell without restarting; do not manually add a cell map as a replacement for registration. Follow the [environment setup guides](#environment-setup) for the complete lifecycle and recovery.
 

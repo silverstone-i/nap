@@ -182,7 +182,7 @@ depended on; package manifests, the lockfile, `.nvmrc`, and
 | Concern                | Choice                                                        | Boundary                                                                                                                    |
 | ---------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Runtime                | Node.js, version pinned by `.nvmrc`                           | Every workspace runs the same major version                                                                                 |
-| Language               | TypeScript in strict mode, ES modules, `nodenext` resolution  | No JavaScript source files and no implicit `any` in production code                                                         |
+| Language               | TypeScript in strict mode, ES modules, `nodenext` resolution  | TypeScript by default; only the provisioning exception below permits production JavaScript                                  |
 | Repository             | npm workspaces in one monorepo                                | `apps/api`, `apps/web`, and `packages/shared` build independently                                                           |
 | Database               | PostgreSQL 18 or later                                        | Row-level security, `set_config`, and partial unique indexes are assumed available                                          |
 | Persistence            | `pg-schemata` over `pg-promise`                               | The only data-access abstraction (`ARCH-049`); `pg-promise` is reached only through it                                      |
@@ -200,6 +200,14 @@ depended on; package manifests, the lockfile, `.nvmrc`, and
 | Tests                  | Vitest, with Supertest for HTTP and Testing Library for React | One test runner across every workspace                                                                                      |
 | Lint and format        | ESLint with `typescript-eslint`, and Prettier                 | Formatting is checked, not negotiated per file                                                                              |
 | Continuous integration | GitHub Actions                                                | The pull-request gate runs the repository checks below                                                                      |
+
+The only production JavaScript exception is the shared provisioning code in
+`apps/api/src/services/provisioning/`: `config.mjs`, `engine.mjs`,
+`postgres.mjs`, and `render.mjs`. These ES modules are used by the API and
+maintenance CLI and are included in the API build. They follow ESLint and the
+same import boundaries as TypeScript. Other production source remains strict
+TypeScript with no implicit `any`. ADR 0016 records this limited exception;
+adding another production JavaScript file requires an architectural amendment.
 
 The repository check commands are `lint`, `format:check`, `typecheck`, `test`,
 `build`, and `licenses`. Continuous integration runs the same commands as the
@@ -315,6 +323,13 @@ not ordinary members of the physical folder's import layer. They may import
 module descriptors, repositories, migrations, and routers only to assemble the
 application. This exception is required by `ARCH-042`.
 
+One additional import exception applies to provisioning:
+`services/provisioning/engine.mjs` may import only the named functions
+`seedReference` and `referenceReady` from `modules/reference-data/seed.ts`
+(using its emitted `.js` path). The module retains seed ownership. This permits
+no other service-to-module import, namespace import, re-export, or dynamic
+import. It is not a general composition-root exemption (ADR 0016).
+
 Middleware does not import modules. Authentication, active-tenant selection,
 entitlement, RBAC, and resource-scope middleware use shared services, database
 access, utilities, route metadata, and request context. The registered module
@@ -328,8 +343,8 @@ completes is a service, never a module.
 module repositories and migrations. `db/cell/` constructs each UUID-keyed cell handle
 available to the API and assembles cell-targeted repositories and
 migrations. `db/assertRuntimeRole.ts` is shared by both: readiness runs it
-against each handle so a connection that could bypass or disable row-level
-security fails startup rather than serving traffic.
+against each handle. An unsafe admin connection prevents startup; an unsafe
+cell connection quarantines that cell while admin and healthy cells remain available.
 
 `util/env.ts` resolves the environment and the connection string for each
 database and role. Nothing else reads a connection variable, and a connection
@@ -434,10 +449,15 @@ modules/<feature>/
 ├── models/
 ├── domain/
 ├── schema/migrations/
-├── <feature>Repositories.ts
+├── repositories.ts
 ├── descriptor.ts
 └── index.ts
 ```
+
+Create controllers, domain folders, and `index.ts` only when the module needs
+them. Do not add empty folders or pass-through barrels to satisfy the diagram.
+A router may instantiate a framework controller directly when no specialized
+controller behavior is required.
 
 The module's internal dependency direction is:
 
@@ -679,10 +699,30 @@ assigns; and presentation, which belongs to the web client. A controller that
 grows query or business logic signals that the behavior belongs in `domain/`,
 or that every module needs an operation `framework/` does not yet have.
 
+### RBAC integration
+
+ADR 0008 and PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) adopt platform_admin naming, fixed tenant-admin
+privileges, shared editable support permissions, and scoped additive business
+roles. Admin-tenancy owns central role assignments, support grants and module
+entitlements. Core owns tenant role definitions/assignments and companies;
+Projects owns projects. Cell-tenancy owns revisioned entitlement projections.
+Descriptors require an entitlement mode: foundation, optional or infrastructure.
+Core is foundation; Projects is optional. Platform operations are independently
+authorized and infrastructure modules expose no business routes.
+
+Framework resource authorization carries scope and field policy into its single
+operation transaction. Candidate capability gates precede execution; resource
+queries and mutation targets are constrained inside that transaction before
+business work, pagination, counts or exports. A response may omit fields denied
+by policy without weakening validation of the underlying module response.
+Extension routes declare and enforce their resource policy through the same
+boundary. Authorization decisions remain in shared services, not module imports
+from middleware. Root/controlled-access isolation and audit remain mandatory.
+
 ### Module descriptor
 
 The descriptor is the structural declaration for a module. Its shape is
-`pg-schemata`'s `ModuleDescriptor` plus two NAP-local fields, paired as a
+`pg-schemata`'s `ModuleDescriptor` plus three NAP-local fields, paired as a
 discriminated union:
 
 | Field            | Source                  | Meaning                                                                                                                                                                                    |
@@ -690,6 +730,7 @@ discriminated union:
 | `name`           | `pg-schemata`           | Stable module identifier; becomes `module_name` in the migration tracking table                                                                                                            |
 | `models`         | `pg-schemata`, optional | Repository constructors owned by the module. Earlier NAP documents called this field `repositories`. It derives module-level foreign-key ordering and builds `MigrationContext.models`     |
 | `migrations`     | `pg-schemata`           | Ordered migrations. Array order is authoritative within a module; the manager never re-sorts it                                                                                            |
+| `entitlement`    | NAP                     | `foundation`, `optional`, or `infrastructure`; defines the module entitlement mode under PRD 0007                                                                                          |
 | `databaseTarget` | NAP                     | `admin` or `cell`: the one database this module's tables live in, and therefore the one registry it may appear in                                                                          |
 | `schema`         | NAP                     | The one physical schema this module's tables live in: `admin` for an admin module, one of the canonical cell schemas for a cell module. The cell migration runner groups descriptors by it |
 
@@ -720,7 +761,7 @@ navigation conventions are owned by the web shared behavior section below.
 | `theme/`      | Tokens, MUI theme construction, shared styles, and mode selection                                  | `lib/`                                                                         |
 | `components/` | Reusable presentation with no server business policy                                               | `theme/`, `lib/`                                                               |
 | `auth/`       | Current-session state, authenticated-route gates, login/password form behavior, and auth actions   | `api/`, `components/`, `theme/`, `lib/`                                        |
-| `shell/`      | Future tenant-aware application frame and normalized URL-derived product scope                     | `auth/`, `api/`, `components/`, `theme/`, `lib/`                               |
+| `shell/`      | Tenant-aware application frame and normalized URL-derived product scope                            | `auth/`, `api/`, `components/`, `theme/`, `lib/`                               |
 | `pages/`      | Routed page composition; pages delegate transport and session behavior to their owning lower layer | `auth/`, and when applicable `shell/`, `api/`, `components/`, `theme/`, `lib/` |
 
 Dependencies point one way down that table. Lower layers do not import pages,
@@ -829,33 +870,33 @@ contracts and the TypeScript DTO types inferred from them, implementing
 `ARCH-043`. Transport constants may live beside their schemas.
 
 Each transport contract belongs to the component that defines its endpoint.
-This section states the placement that rule produces inside the package, and
-names the one case it does not cover.
+The package shares schemas and inferred types; it contains no business modules.
 
-- One folder per domain group under `packages/shared/src/`. A folder is named
-  for the domain its contracts describe, not for a module and not for a
-  service. The package contains no modules, so a domain folder does not
-  conflict with the ownership map's statement that `identity` and
-  `access-control` are not modules.
-- A contract no domain owns lives in `transport/`. The `ARCH-043` error
-  envelope is the first instance.
-- Each folder carries its own `index.ts`. The package's root `index.ts` is one
-  export line per folder, not one line per file.
+Current contracts live in `transport/`. This includes identity/session contracts
+in `auth.ts`, access contracts in `access.ts`, and control-plane contracts in
+`control.ts`, alongside shared envelopes and list/batch contracts. Their folder
+does not transfer endpoint ownership to a separate transport module.
+
+The root `index.ts` exports the `transport/index.ts` barrel and directly exports
+`transport/control.ts`. This is the existing public package entry point; consumers
+must not use deep imports. New domain folders are added only when a new domain
+needs them, with a local barrel exported by the root. Empty folders and barrels
+are not required. ADR 0016 records the amendment for this existing layout.
 
 ```text
 packages/shared/src/
-├── index.ts            one export line per folder
-├── transport/          contracts no domain owns
-│   ├── index.ts
-│   ├── envelopes.ts    transportVersion, successResponseSchema, listResponseSchema
-│   ├── errors.ts       apiErrorSchema, ApiError
-│   └── health.ts       healthResponseSchema, HealthResponse
-├── identity/           identity and session contracts
-│   ├── index.ts
-│   └── auth.ts
-└── sales/              added when sales gets its first endpoint
-    ├── index.ts
-    └── opportunities.ts
+├── index.ts            exports transport/index and transport/control
+└── transport/
+    ├── index.ts        exports the other transport files
+    ├── envelopes.ts    transportVersion and success/list envelopes
+    ├── errors.ts       apiErrorSchema and ApiError
+    ├── health.ts       healthResponseSchema and HealthResponse
+    ├── lists.ts        list requests and responses
+    ├── batches.ts      batch requests and responses
+    ├── spreadsheets.ts spreadsheet transport contracts
+    ├── auth.ts         identity and session contracts
+    ├── access.ts       access contracts
+    └── control.ts      control-plane contracts
 ```
 
 ```ts
@@ -897,10 +938,6 @@ export function listResponseSchema<T extends z.ZodType>(itemSchema: T) {
 }
 ```
 
-`packages/shared/src/identity/` keeps its name: it is named for the identity
-domain even though the endpoints that define its contracts belong to
-`admin-tenancy`.
-
 ### Documentation placement
 
 The purpose and authority of each documentation folder are defined in the
@@ -918,26 +955,8 @@ is `NNNN-<capability>.md`, where `NNNN` matches its owning PRD and
 capability with no component PRD uses `<capability>.md`, without an invented
 PRD number; see [ADR 0002](../ADRs/0002-specification-owned-plan-filenames.md).
 
-A plan is required only when delivery has at least one of these properties:
-
-- it implements a feature defined by an accepted component PRD, even when the
-  feature ships in one pull request;
-- it requires more than one pull request;
-- it changes an authentication, authorization, tenant-isolation, credential, or
-  other security boundary;
-- it includes a destructive or data-moving migration, backfill, compatibility
-  window, or recovery procedure; or
-- it requires staged deployment, feature gates, ordered release units, or a
-  coordinated rollback.
-
-A change without one of those properties proceeds directly from accepted design
-to implementation. Creating a plan is never the delivered outcome: the task that
-creates one continues into implementation.
-
-A plan states its outcome, the accepted design it implements, its impact on
-current code, its risks, the changes it requires, its pull-request sequence,
-its tests and evidence, and its rollout and recovery path. It coordinates
-delivery and is neither architectural nor status authority.
+Plan triggers, required contents, and delivery rules are owned by the
+[documentation change workflow](../README.md#implementation-plans).
 
 ### How the skeleton supports growth
 
@@ -1227,6 +1246,20 @@ Retries preserve the original correlation identifier, record each attempt
 number, and surface terminal failure and recovery state instead of retrying
 forever.
 
+Database availability polling is a separate, read-only operation under ADR 0016.
+These existing loops may use fixed intervals without jitter or per-attempt logs:
+
+- The Render adapter checks resource status at most 120 times, five seconds apart.
+- After availability, API provisioning probes PostgreSQL at most ten times,
+  two seconds apart; only its classified transient connection failures retry.
+- The maintenance CLI probes access-rule propagation at most ten times,
+  two seconds apart; authentication failure stops immediately.
+
+The Render loops honor cancellation. Polling exhaustion and terminal failures
+retain safe diagnostics and resumable state. These exceptions do not authorize
+repeating a resource creation or another mutation, or relaxing application
+retry rules outside these named loops.
+
 Health responses report only the status their intended probe needs and never
 expose configuration, credentials, database addresses, or stack traces.
 Liveness proves the process can respond; readiness proves only the dependencies
@@ -1304,10 +1337,21 @@ runtime permissions, identity, migrations and reference seeds pass verification.
 Failures remain disabled with safe stage-specific diagnostics. No implicit drops,
 password rotation, or adoption of unrelated databases is permitted.
 
-Admin setup, migration and bootstrap remain CLI operations. Cell CLI operations
-are replaced by the management workflow and directly callable test service.
-Admin bootstrap does not require a cell. For a greenfield installation it records durable operator-bootstrap intent. The first successfully provisioned available cell is claimed atomically for that intent; the existing worker completes operator projections and RBAC, with immutable assignment and resumable execution. Bootstrap reruns preserve existing records; upgrades do not enroll existing installations. Bootstrap failure does not disable a ready cell. Root-only retry resumes the saved operation without selecting another cell (ADR 0015). Cell seeding supplies countries and
-currencies; tenant provisioning supplies tenant-scoped RBAC seeds.
+Admin setup, migration and bootstrap remain CLI operations. Register cell
+replaces cell CLI operations; fixtures call the shared service directly.
+Admin bootstrap does not require a cell.
+
+For a greenfield installation, admin bootstrap records durable operator intent.
+The first successfully provisioned available cell is claimed atomically for that
+intent. The existing worker completes operator projections and RBAC. Assignment
+is immutable and execution is resumable.
+
+Bootstrap reruns preserve existing records. Upgrades do not enroll existing
+installations. Bootstrap failure does not disable a ready cell. Root-only retry
+resumes the saved operation without selecting another cell (ADR 0015).
+
+Cell seeding supplies countries and currencies. Tenant provisioning supplies
+tenant-scoped RBAC seeds.
 
 ### Environment configuration
 
@@ -1714,7 +1758,8 @@ and refusal behavior are defined by the framework HTTP contract above.
 
 ### ARCH-051 — Fixed technology stack
 
-One runtime, language, database, persistence library, HTTP framework,
+One runtime, TypeScript with the named provisioning exception, database,
+persistence library, HTTP framework,
 validation library, UI kit, build tool, and test runner serve the whole
 platform, as the technology stack section defines. A second dependency filling
 a role already filled is a deviation. Provider-specific dependencies are
@@ -1762,10 +1807,10 @@ every production dependency carries an allowed license.
 | `ARCH-045`                                                 | Operational tests prove correlation propagation, safe error mapping, redaction, audit separation, bounded retry behavior, safe health responses, and low-cardinality metrics                                                                                                                                                                                        |
 | `ARCH-046`                                                 | Ownership and integration tests prove mutable source records remain with their source module, executed agreement history is immutable, and milestone consumers create their own idempotent downstream records                                                                                                                                                       |
 | `ARCH-047`                                                 | A registry test proves every registered production table resolves to exactly one owning module in the ownership map, and that each descriptor declares one database and one schema                                                                                                                                                                                  |
-| `ARCH-048`                                                 | Import-boundary tests prove no file under `services/` or `middleware/` imports `modules/`, and that no service owns a migration or a table                                                                                                                                                                                                                          |
+| `ARCH-048`                                                 | Import-boundary tests scan TypeScript and JavaScript and reject service/middleware module imports except the two named provisioning seed imports above; no service owns a migration or table                                                                                                                                                                        |
 | `ARCH-049`                                                 | A conformance test proves every production repository extends a `pg-schemata` model and every production migration is built with `defineMigration` without hand-written DDL outside its frozen table definition                                                                                                                                                     |
 | `ARCH-050`                                                 | A conformance test proves every module router is produced by the framework router factory, that no controller reaches a database handle outside `withTenantTransaction`, and that only the `admin-tenancy` authentication router declares `anonymous` or `authenticated` route access                                                                               |
-| `ARCH-051`                                                 | Dependency and import-boundary tests prove one dependency per stack role, no provider SDK imported by a module or a page, and an allowed license on every production dependency                                                                                                                                                                                     |
+| `ARCH-051`                                                 | Dependency, language and import-boundary tests prove the four-file JavaScript exception, one dependency per stack role, no provider SDK imported by a module or page, and approved production licenses                                                                                                                                                              |
 
 ## Revisions
 
@@ -1796,25 +1841,10 @@ under ADR 0010, delivered with PRD 0009 implementation.
 
 ## RBAC adoption — 2026-09-09
 
-ADR 0008 and PRDs 0006–0008 adopt platform_admin naming, fixed tenant-admin
-privileges, shared editable support permissions, and scoped additive business
-roles. Admin-tenancy owns central role assignments, support grants and module
-entitlements. Core owns tenant role definitions/assignments and companies;
-Projects owns projects. Cell-tenancy owns revisioned entitlement projections.
-Descriptors require an entitlement mode: foundation, optional or infrastructure.
-Core is foundation; Projects is optional. Platform operations are independently
-authorized and infrastructure modules expose no business routes.
+Historical amendment record. Current ownership and resource authorization are in
+[RBAC integration](#rbac-integration).
 
-Framework resource authorization carries scope and field policy into its single
-operation transaction. Candidate capability gates precede execution; resource
-queries and mutation targets are constrained inside that transaction before
-business work, pagination, counts or exports. A response may omit fields denied
-by policy without weakening validation of the underlying module response.
-Extension routes declare and enforce their resource policy through the same
-boundary. Authorization decisions remain in shared services, not module imports
-from middleware. Root/controlled-access isolation and audit remain mandatory.
-
-Revision: 2026-09-09 — Owner authorized PRDs 0006–0008 and ADR 0008 implementation.
+Revision: 2026-09-09 — Owner authorized PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) and ADR 0008 implementation.
 
 Revision: 2026-09-10 — Owner accepted the PRD 0009 shell, vendor-selection and settings-placement amendments with their implementation.
 
@@ -1831,3 +1861,5 @@ Revision 2026-09-12: clarified full database names for setup-created cell codes 
 Revision 2026-09-13: approved Register cell provisioning, live loading, UUID/database-name records and isolated TEST service support (ADR 0014).
 
 Revision 2026-09-13: owner accepted automatic greenfield operator bootstrap and Tenant Management consolidation under ADR 0015. The operator control contract retires manual reconciliation in the coordinated administration-client/API update; customer contracts are unchanged.
+
+Revision 2026-09-15: accepted ADR 0016 provisioning exceptions; reconciled descriptor, module and shared-contract layouts; moved plan policy to the documentation index and consolidated current RBAC requirements.

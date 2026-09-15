@@ -68,3 +68,10 @@ lifecycle requirement it addresses. If none exists, simplify it.
 Judge simplicity by how easily someone can follow the behavior, not by line
 count alone. Apply these conventions within the requested change; do not
 refactor unrelated code solely to match them.
+
+## Provisioning JavaScript exception
+
+The [technology stack](../specs/nap-platform-specification.md#technology-stack)
+owns the four-file production JavaScript exception recorded in ADR 0016. Those
+files retain ESLint and import-boundary checks. This exception does not relax
+strict typing for TypeScript or permit other production JavaScript files.

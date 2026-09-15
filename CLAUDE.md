@@ -23,7 +23,7 @@ Do not treat the roadmap or `docs/reference/` as architectural authority. Do
 not copy a requirement into a second document; link its stable ID instead.
 
 An instruction to implement X means X ships in that task. When the
-specification's [documentation placement](docs/specs/nap-platform-specification.md#documentation-placement) section
+documentation index's [implementation-plan policy](docs/README.md#implementation-plans)
 requires an implementation plan, write it as the first step and then execute it
 to completion in the same task; never deliver the plan, or one slice of it, in
 place of X. If X must be split across pull requests, ask before writing
@@ -88,7 +88,7 @@ owns it governs.
 - Design and implementation work follows the
   [change workflow](docs/README.md#change-workflow), and the triggers requiring
   an implementation plan are in
-  [documentation placement](docs/specs/nap-platform-specification.md#documentation-placement).
+  [implementation plans](docs/README.md#implementation-plans).
 - Release, versioning, and dependency-licensing work follows
   [Commit and release operations](#commit-and-release-operations) below.
 

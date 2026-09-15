@@ -1,5 +1,11 @@
 # Shared transport package implementation plan
 
+This is the historical delivery record for PR 8. Current placement is owned by
+[Shared package boundary](../specs/nap-platform-specification.md#shared-package-boundary).
+On 2026-09-15, the owner approved the existing transport folder and direct root
+control export in [ADR 0016](../ADRs/0016-provisioning-implementation-boundaries.md).
+The earlier one-export-per-folder description below records the original baseline.
+
 ## Features already implemented
 
 Delivered by the operational baseline in

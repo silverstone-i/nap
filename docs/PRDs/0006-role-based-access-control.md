@@ -120,7 +120,7 @@ cannot enable an unavailable module or bypass a tenant suspension.
 Workflow invariants remain enforced by their owning modules. For example,
 permission to edit an invoice does not permit editing a posted invoice, and
 multiple roles cannot bypass an applicable prohibition on self-approval.
-Configurable record-state visibility is outside this draft unless a concrete
+Configurable record-state visibility is outside this accepted design unless a concrete
 business requirement establishes it.
 
 Authorization remains PostgreSQL-backed under ARCH-023 and ARCH-029. Role,
@@ -245,18 +245,6 @@ assignment is tenant-wide; permanent role identity and fixed privileges cannot
 be edited or archived. Support uses one central role definition, never per-user
 extra grants, and cannot hold grant-management capability.
 
-## Revisions
-
-| Date       | Change                                                                                                                                              |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-09 | Drafted the owner-agreed capability, scoped-assignment, field-grant, built-in-role, and template-seeding direction; recorded adoption requirements. |
-| 2026-09-09 | Accepted scope, administration and transition contracts for implementation under ADR 0008.                                                          |
-| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing.                                                              |
-| 2026-09-09 | Adopted revision-checked cache acceleration under ARCH-029 and ADR 0009; revocation semantics remain unchanged.                                     |
-
-**Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
-[verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
-
 ## Database provisioning integration
 
 The specification's [Database provisioning](../specs/nap-platform-specification.md#database-provisioning)
@@ -266,4 +254,21 @@ physical identity checks precede migration/seeding/activation. Cell reference se
 is separate from tenant-scoped RBAC seeding. Setup-managed cells cannot be enabled
 through registry edits before activation has verified the running API.
 
+## Revisions
+
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
+
+| Date       | Change                                                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-09 | Drafted the owner-agreed capability, scoped-assignment, field-grant, built-in-role, and template-seeding direction; recorded adoption requirements. |
+| 2026-09-09 | Accepted scope, administration and transition contracts for implementation under ADR 0008.                                                          |
+| 2026-09-09 | Reconciled verification for PR #18; effective upon merge with required checks passing.                                                              |
+| 2026-09-09 | Adopted revision-checked cache acceleration under ARCH-029 and ADR 0009; revocation semantics remain unchanged.                                     |
+
 Revision 2026-09-12: accepted provisioning script integration and consolidated baseline.
+
+**Authorization cache implementation:** Verified upon merge of [PR #20](https://github.com/silverstone-i/nap/pull/20) with required checks passing. See the
+[verification record](../implementation-plans/authorization-cache-acceleration.md#verification).
+
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.

@@ -23,7 +23,8 @@ and ARCH-049. PRD 0004 owns portal identities and membership provisioning.
   record. Broader contacts, payment terms, HR, and commercial workflows are deferred.
 - **CID-004 Access.** The initial tenant endpoint lets an ordinary member read
   its own linked record. Controlled operators can read target records under the
-  separately audited permission. General business editing waits for Core RBAC.
+  separately audited permission. Broader access requires the current scoped grants defined by PRD 0006.
+  This identity endpoint does not introduce general business editing.
 
 ## Physical tables and seed boundary
 
@@ -50,25 +51,12 @@ the confirmed initial employee; no unrelated business configuration is invented.
 Prove same-tenant vendor relationships, negative cross-tenant reads and writes,
 immutable keys, replay-safe provisioning, and absence of business data in admin.
 
-## Revisions
-
-| Date       | Change                                                      |
-| ---------- | ----------------------------------------------------------- |
-| 2026-09-08 | Accepted minimal Core records brought forward for PRD 0004. |
-
-| 2026-09-08 | Completed implementation and local acceptance checks; merge and CI remain pending. |
-
-Verification evidence: 287 repository tests and all required local checks pass;
-[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
-
-| 2026-09-08 | Reconciled verification for PR #15; status becomes effective on merge with required checks passing. |
-
 ## RBAC adoption (2026-09-09)
 
-ADR 0008 and PRDs 0006–0008 replace the initial authorization policy: platform_admin
+ADR 0008 and PRDs 0006–0008 (RBAC, module entitlements, and company/project scope records) replace the initial authorization policy: platform_admin
 replaces package_admin, support grants are shared and editable only by platform
-administrators, and tenant roles resolve in Core. Historical implementation
-sections above describe the pre-RBAC baseline. RBAC changes are Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing. See the
+administrators, and tenant roles resolve in Core. The revision history retains the pre-RBAC delivery evidence. Current
+requirements use the accepted RBAC policy. RBAC changes are Verified upon merge of [PR #18](https://github.com/silverstone-i/nap/pull/18) with required checks passing. See the
 [delivery plan](../implementation-plans/0006-rbac-and-module-entitlement.md).
 Self-profile remains available; broader access requires current scoped grants.
 New provisioning seeds the initial tenant administrator before activation.
@@ -81,13 +69,25 @@ requires employee exposure in the initial tenant-provisioning shell. CID-001–0
 continue to own employee records and access; the shell supplies the required
 provisioning presentation under PRD 0004.
 
-| Date       | Change                                                                 |
-| ---------- | ---------------------------------------------------------------------- |
-| 2026-09-09 | Linked the initial tenant-provisioning shell requirements in PRD 0009. |
-
-| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved. |
-
 The shell uses `GET /api/core/v1/identity/navigation` for a bounded Employees
 eligibility hint. It applies the normal tenant, entitlement and permission gates;
 CID-004 profile authorization remains authoritative. The hint adds no record
 listing or editing permission. Shared transport schemas own its response shape.
+
+## Revisions
+
+Historical entries below record the state at each delivery date. Current
+requirements are in the subject sections above.
+
+| Date       | Change                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------- |
+| 2026-09-08 | Accepted minimal Core records brought forward for PRD 0004.                                         |
+| 2026-09-08 | Completed implementation and local acceptance checks; merge and CI remain pending.                  |
+| 2026-09-08 | Reconciled verification for PR #15; status becomes effective on merge with required checks passing. |
+| 2026-09-09 | Linked the initial tenant-provisioning shell requirements in PRD 0009.                              |
+| 2026-09-10 | Accepted shell integration with PRD 0009 implementation; historical verification preserved.         |
+
+Verification evidence: 287 repository tests and all required local checks pass;
+[CI on the reviewed implementation](https://github.com/silverstone-i/nap/actions/runs/34234767998) passed. The final PR head must also pass required CI before merge.
+
+Revision 2026-09-15: consolidated current requirements and references; repaired revision tables without changing historical evidence or runtime behavior.

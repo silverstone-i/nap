@@ -30,7 +30,7 @@ future user-within-tenant storage, not a second persistence implementation.
 The lookup boundary can later accept stored overrides. Storage shape, migration,
 editing permissions, and transition from device-local Mode require an accepted
 settings design. Do not silently copy one tenant's overrides into another.
-There is no implicit tenant-to-user inheritance in this draft.
+There is no implicit tenant-to-user inheritance in this accepted design.
 
 Updated 2026-09-09 — Initial review register; no runtime changes.
 
