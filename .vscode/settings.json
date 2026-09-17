@@ -1,0 +1,43 @@
+{
+  // Use the TypeScript pinned by the repository rather than the copy bundled
+  // with VS Code, so editor diagnostics match `npm run typecheck`.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // Format on save with Prettier so saved files already satisfy
+  // `npm run format:check`, and apply ESLint's safe fixes at the same time.
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Build and coverage output is generated; keep it out of the file tree and
+  // out of search results, matching globalIgnores in eslint.config.mjs.
+  "files.exclude": {
+    "**/dist": true,
+    "**/coverage": true
+  },
+  "search.exclude": {
+    "**/dist": true,
+    "**/coverage": true,
+    "package-lock.json": true
+  }
+}

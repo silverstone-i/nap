@@ -1,0 +1,71 @@
+name: Release on Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: ['main']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - name: Select unreleased batch
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.mjs select
+      - name: Recover baseline GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.mjs recover
+      - name: Install dependencies
+        if: steps.bump.outputs.type != 'none'
+        run: npm ci
+      - name: Lint
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run lint
+      - name: Format check
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run format:check
+      - name: Test
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm test
+      - name: Build
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run build
+      - name: License check
+        if: contains(fromJSON('["patch","minor","major"]'), steps.bump.outputs.type)
+        run: npm run licenses
+      - name: Publish checked version and GitHub Release
+        if: steps.bump.outputs.type != 'none'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TYPE: ${{ steps.bump.outputs.type }}
+          RELEASE_SNAPSHOT: ${{ steps.bump.outputs.snapshot }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node scripts/release.mjs publish

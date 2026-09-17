@@ -1,0 +1,27 @@
+# NAP release PR contract enforced by scripts/check-release-pr.mjs.
+name: Changelog Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches: ['main']
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      # PR code runs with read-only permissions and no persisted credentials.
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Validate release labels, notes, and versions
+        run: node scripts/check-release-pr.mjs
