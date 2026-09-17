@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.1.0] - 2026-09-17
+
 ### Fixed
 
 - Allow the first automated release without a pre-existing version tag and
@@ -22,3 +24,4 @@ when a pull request with a release label merges into `main`.
 - Add the NAP brand reference, visual specimens, and favicon assets.
 - Add the development roadmap and CI validation for declared progress updates
   and completion evidence; unrelated PRs require no roadmap update.
+
