@@ -62,20 +62,20 @@ and tests have been verified.
 
 Every PRD follows the sections in [TEMPLATE.md](TEMPLATE.md), in this order:
 
-1. Document control
+1. Document Control
 2. Purpose
 3. Scope
-4. Actors and permissions
-5. Concepts and terminology
-6. Functional requirements
-7. Business rules and invariants
-8. Lifecycle and state transitions
-9. Data requirements
-10. API requirements
-11. Cross-module interactions
-12. Security and audit
-13. Acceptance criteria
-14. Open questions
+4. Actors And Permissions
+5. Concepts And Terminology
+6. Functional Requirements
+7. Business Rules And Invariants
+8. Lifecycle And State Transitions
+9. Data Requirements
+10. API Requirements
+11. Cross-Module Interactions
+12. Security And Audit
+13. Acceptance Criteria
+14. Open Questions
 
 The Purpose section is mandatory. Other sections must remain present. Write
 `Not applicable` with a short reason when a section does not apply.
@@ -133,6 +133,10 @@ the parent does not reference. Split a chapter only when the material becomes
 difficult to review in the parent document.
 
 ## Writing And Review
+
+Prerequisite: install and configure the `human-writing` and `check-relevancy`
+skills in your coding agent's local environment. These required skills are not
+bundled in this repository.
 
 Use the `human-writing` skill while drafting or editing every PRD and supporting
 chapter. Then use the `check-relevancy` skill and revise the text before review

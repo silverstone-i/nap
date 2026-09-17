@@ -888,7 +888,9 @@ Keep it boring. No zebra stripes. No vertical gridlines. Gold only on the totals
 
 ## Favicon & asset inventory
 
-All in `/favicons/`:
+Source assets are in `docs/branding/favicons/`. Deploy the contents at the site
+root to match the favicon snippets and manifest paths, such as `/favicon.ico`
+and `/site.webmanifest`.
 
 | File                     | Size               | Used for                                          |
 | ------------------------ | ------------------ | ------------------------------------------------- |
