@@ -10,6 +10,11 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Allow the first automated release without a pre-existing version tag and
+  prevent unlabeled merges from publishing pending releases.
+
 ### Changed
 
 - Document the BFF, admin/cell architecture, migration strategy, and module boundaries.

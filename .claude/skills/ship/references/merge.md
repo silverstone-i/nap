@@ -6,9 +6,10 @@ NAP's [release script](../../../../scripts/release.mjs), run by the
 [Release on Merge workflow](../../../../.github/workflows/release-on-merge.yml),
 selects pending labeled PRs from the unreleased Git history and applies the
 highest bump: patch < minor < major. The current PR's label is combined with
-labels on merged-but-unreleased PRs. An unlabeled merge contributes no bump,
-but can trigger publication of that existing backlog, so the effective release
-cannot be inferred from the current diff alone.
+labels on merged-but-unreleased PRs. Only a merge with a release label can
+trigger publication of that backlog. An unlabeled merge creates no version
+update, tag, or GitHub Release. Before the first release, the root package
+version is the starting point; no baseline tag needs to be created manually.
 
 ## Query the queued labels
 
@@ -19,7 +20,7 @@ gh pr list --state merged --base main --search "merged:>$since" --limit 200 \
   --json number,labels
 ```
 
-If there is no release tag yet, only this PR's label counts.
+If there is no release tag yet, inspect all merged PRs for pending release labels.
 
 ## Present the decision
 
@@ -92,7 +93,7 @@ gh pr edit <number> --add-label unlabeled
 
 Creating and applying the label carries out an approval already given — the
 named level, the selected option, or `/ship unlabeled`. It is never a reason to
-ask again, and `unlabeled` never changes what CI releases.
+ask again. An `unlabeled` merge never publishes a release.
 
 ## Cleanup deletes exactly one branch
 

@@ -24,6 +24,7 @@ import {
   ensureRelease,
   baseline,
   selectBump,
+  releaseSelection,
   publish,
   git,
 } from '../release.mjs';
@@ -175,7 +176,7 @@ it('distinguishes a missing Release from authentication, server, and network fai
  * Does: Creates an isolated Git history and bare remote for publication tests.
  * Called by: Git integration tests before changing process working directory.
  */
-function fixture() {
+function fixture(version = '1.0.0', tagged = true) {
   const directory = mkdtempSync(join(tmpdir(), 'nap-release-'));
   const previous = process.cwd();
   execFileSync('git', ['init', '--bare', join(directory, 'remote.git')], {
@@ -191,7 +192,7 @@ function fixture() {
     'package.json',
     JSON.stringify({
       name: 'release-fixture',
-      version: '1.0.0',
+      version,
       private: true,
       workspaces: ['apps/*'],
     })
@@ -210,7 +211,7 @@ function fixture() {
   writeFileSync('CHANGELOG.md', notes);
   git('add', '.');
   git('commit', '-m', 'baseline');
-  git('tag', '-a', 'v1.0.0', '-m', 'baseline');
+  if (tagged) git('tag', '-a', `v${version}`, '-m', 'baseline');
   git('remote', 'add', 'origin', join(directory, 'remote.git'));
   git('push', 'origin', 'main', '--tags');
   return { directory, previous };
@@ -307,7 +308,7 @@ it('rejects an atomic push when remote main advances without publishing the new 
   }
 });
 
-it('fails on missing or inconsistent baseline tags and invalid PR version changes', () => {
+it('allows absent tags but rejects inconsistent baseline tags and PR version changes', () => {
   const state = fixture();
   try {
     const base = git('rev-parse', 'HEAD');
@@ -328,7 +329,7 @@ it('fails on missing or inconsistent baseline tags and invalid PR version change
     git('tag', 'v3.0.0');
     expect(() => baseline()).toThrow('disagree');
     git('tag', '-d', 'v3.0.0', 'v1.0.0');
-    expect(() => baseline()).toThrow('No valid');
+    expect(baseline()).toBeNull();
   } finally {
     cleanup(state);
   }
@@ -350,4 +351,103 @@ it('runs pull-request content read-only and releases only from main', () => {
   const release = read('release-on-merge.yml');
   expect(release).toMatch(/^\s+ref: main$/m);
   expect(release).not.toMatch(/github\.event\.pull_request\.head/);
+  expect(release).toMatch(
+    /name: Recover baseline GitHub Release\n\s+if: steps\.bump\.outputs\.tag != ''/
+  );
+});
+
+it.each([
+  ['patch', '0.0.1'],
+  ['minor', '0.1.0'],
+  ['major', '1.0.0'],
+])(
+  'publishes the first %s release from the root version and makes reruns inert',
+  async (type, version) => {
+    const state = fixture('0.0.0', false);
+    try {
+      const snapshot = change('first-release');
+      const pull = { ...pr(snapshot, type), merged: true };
+      const api = vi.fn().mockResolvedValue([pull]);
+      expect(baseline()).toBeNull();
+      expect(
+        await releaseSelection(
+          'pull_request',
+          { pull_request: pull },
+          snapshot,
+          api
+        )
+      ).toEqual({ type, tag: null });
+      expect(publish(type, snapshot)).toBe(`v${version}`);
+      expect(JSON.parse(readFileSync('package.json')).version).toBe(version);
+      expect(
+        JSON.parse(readFileSync('package-lock.json')).packages[''].version
+      ).toBe(version);
+      expect(git('ls-remote', 'origin', `refs/tags/v${version}`)).not.toBe('');
+      expect(JSON.parse(readFileSync('apps/api/package.json')).version).toBe(
+        '0.0.0'
+      );
+      // Even newly pending work must not cause an already released event to publish twice.
+      const newer = change('new-pending-work');
+      api.mockClear().mockResolvedValue([pull, pr(newer, 'major')]);
+      expect(
+        await releaseSelection(
+          'pull_request',
+          { pull_request: pull },
+          newer,
+          api
+        )
+      ).toEqual({ type: 'none', tag: `v${version}` });
+      expect(api).not.toHaveBeenCalled();
+    } finally {
+      cleanup(state);
+    }
+  }
+);
+
+it.each([true, false])(
+  'leaves unlabeled merges unchanged with pending releases (baseline: %s)',
+  async tagged => {
+    const state = fixture('1.0.0', tagged);
+    try {
+      const pending = change('pending-major');
+      const snapshot = change('unlabeled-change');
+      const api = vi.fn().mockResolvedValue([pr(pending, 'major')]);
+      const before = git('show-ref');
+      for (const labels of [[], [{ name: 'unlabeled' }]]) {
+        const pull = { ...pr(snapshot), merged: true, labels };
+        expect(
+          await releaseSelection(
+            'pull_request',
+            { pull_request: pull },
+            snapshot,
+            api
+          )
+        ).toEqual({ type: 'none', tag: null });
+      }
+      expect(api).not.toHaveBeenCalled();
+      expect(git('show-ref')).toBe(before);
+      expect(git('status', '--porcelain')).toBe('');
+    } finally {
+      cleanup(state);
+    }
+  }
+);
+
+it('keeps manual recovery non-releasing and rejects conflicting release decisions', async () => {
+  expect(() => bumpType(['unlabeled', 'release:minor'])).toThrow('combine');
+  const state = fixture('0.0.0', false);
+  try {
+    const api = vi.fn();
+    expect(
+      await releaseSelection(
+        'workflow_dispatch',
+        {},
+        git('rev-parse', 'HEAD'),
+        api
+      )
+    ).toEqual({ type: 'none', tag: null });
+    expect(api).not.toHaveBeenCalled();
+  } finally {
+    cleanup(state);
+  }
 });
