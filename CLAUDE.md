@@ -10,7 +10,20 @@ files, `@types/*` packages, or typechecking tools.
 - Preserve the module boundaries under `apps/api/src`.
 - Add source-file copyright headers to new `.js`, `.jsx`, and `.mjs` files.
 
+## Product requirements documents
+
+- Follow `docs/PRDs/README.md` and start new PRDs from
+  `docs/PRDs/TEMPLATE.md`.
+- Use the `human-writing` skill when writing or editing a PRD or supporting
+  chapter.
+- After drafting, use the `check-relevancy` skill and revise the document
+  before treating it as complete.
+
 ## Checks
+
+For work that changes roadmap progress, update `docs/roadmap/ROADMAP.md` and
+list affected deliverable names under `## Roadmap` in the PR description.
+Unrelated PRs may omit that section or use `None`.
 
 - `npm run lint`
 - `npm run format:check`

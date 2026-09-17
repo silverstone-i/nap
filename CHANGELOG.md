@@ -9,3 +9,16 @@ Entries accumulate under `## [Unreleased]`. Release automation promotes them
 when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
+
+### Fixed
+
+- Allow the first automated release without a pre-existing version tag and
+  prevent unlabeled merges from publishing pending releases.
+
+### Changed
+
+- Document the BFF, admin/cell architecture, migration strategy, and module boundaries.
+- Add PRD authoring guidance and a reusable requirements template.
+- Add the NAP brand reference, visual specimens, and favicon assets.
+- Add the development roadmap and CI validation for declared progress updates
+  and completion evidence; unrelated PRs require no roadmap update.

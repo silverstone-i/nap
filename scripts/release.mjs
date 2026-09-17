@@ -25,6 +25,8 @@ export function bumpType(labels) {
   const types = ['patch', 'minor', 'major'].filter(type =>
     labels.includes(`release:${type}`)
   );
+  if (types.length && labels.includes('unlabeled'))
+    throw new Error('Do not combine unlabeled with a release label');
   if (types.length > 1) throw new Error('Use exactly one release label');
   return types[0] ?? 'none';
 }
@@ -118,7 +120,7 @@ export function baseline(snapshot = 'HEAD') {
   const tag = tags.find(value =>
     /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)
   );
-  if (!tag) throw new Error('No valid stable baseline tag');
+  if (!tag) return null;
   const version = JSON.parse(git('show', `${tag}:package.json`)).version;
   if (`v${version}` !== tag)
     throw new Error('Baseline tag and version disagree');
@@ -184,13 +186,45 @@ export function selectBump(pulls, tag, snapshot) {
     }
     if (
       !isAncestor(pr.merge_commit_sha, snapshot) ||
-      isAncestor(pr.merge_commit_sha, tag)
+      (tag && isAncestor(pr.merge_commit_sha, tag))
     )
       continue;
     const type = bumpType(pr.labels.map(label => label.name));
     if (ranks.indexOf(type) > ranks.indexOf(selected)) selected = type;
   }
   return selected;
+}
+
+/**
+ * Does: Gates publication on the triggering merge and handles an untagged repository.
+ * Called by: workflow selection before any release mutation.
+ */
+export async function releaseSelection(
+  eventName,
+  event,
+  snapshot,
+  api = github
+) {
+  const pr = event.pull_request;
+  if (
+    eventName !== 'workflow_dispatch' &&
+    (eventName !== 'pull_request' ||
+      !pr?.merged ||
+      bumpType(pr.labels.map(label => label.name)) === 'none')
+  )
+    return { type: 'none', tag: null };
+
+  const tag = baseline(snapshot);
+  const version = JSON.parse(git('show', `${snapshot}:package.json`)).version;
+  if (tag && version !== tag.slice(1))
+    throw new Error('Snapshot version differs from baseline');
+  if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version))
+    throw new Error('Expected a stable root package version');
+  if (eventName === 'workflow_dispatch') return { type: 'none', tag };
+  if (!pr.merge_commit_sha || !isAncestor(pr.merge_commit_sha, snapshot))
+    throw new Error('Triggering merge is outside the release snapshot');
+  if (tag && isAncestor(pr.merge_commit_sha, tag)) return { type: 'none', tag };
+  return { type: selectBump(await mergedPulls(api), tag, snapshot), tag };
 }
 
 /**
@@ -276,22 +310,18 @@ async function main() {
   const mode = process.argv[2];
   if (mode === 'select') {
     const snapshot = git('rev-parse', 'HEAD');
-    const tag = baseline(snapshot);
-    if (
-      JSON.parse(readFileSync('package.json', 'utf8')).version !== tag.slice(1)
-    )
-      throw new Error('Snapshot version differs from baseline');
-    const type =
-      process.env.GITHUB_EVENT_NAME === 'workflow_dispatch'
-        ? 'none'
-        : selectBump(await mergedPulls(), tag, snapshot);
+    const { type, tag } = await releaseSelection(
+      process.env.GITHUB_EVENT_NAME,
+      JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')),
+      snapshot
+    );
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `type=${type}\ntag=${tag}\nsnapshot=${snapshot}\n`
+      `type=${type}\ntag=${tag ?? ''}\nsnapshot=${snapshot}\n`
     );
   } else if (mode === 'recover') {
     const tag = baseline();
-    await ensureRelease(tag);
+    if (tag) await ensureRelease(tag);
   } else if (mode === 'publish') {
     await ensureRelease(
       publish(process.env.RELEASE_TYPE, process.env.RELEASE_SNAPSHOT)

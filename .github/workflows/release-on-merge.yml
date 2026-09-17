@@ -38,6 +38,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.mjs select
       - name: Recover baseline GitHub Release
+        if: steps.bump.outputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release.mjs recover
