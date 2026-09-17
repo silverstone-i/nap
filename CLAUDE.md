@@ -21,6 +21,10 @@ files, `@types/*` packages, or typechecking tools.
 
 ## Checks
 
+For work that changes roadmap progress, update `docs/roadmap/ROADMAP.md` and
+list affected deliverable names under `## Roadmap` in the PR description.
+Unrelated PRs may omit that section or use `None`.
+
 - `npm run lint`
 - `npm run format:check`
 - `npm test`

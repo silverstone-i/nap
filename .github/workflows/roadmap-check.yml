@@ -1,0 +1,25 @@
+name: Roadmap Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: ['main']
+
+permissions:
+  contents: read
+
+jobs:
+  roadmap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - name: Validate roadmap updates
+        run: node scripts/check-roadmap-pr.mjs

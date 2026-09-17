@@ -15,3 +15,5 @@ when a pull request with a release label merges into `main`.
 - Document the BFF, admin/cell architecture, migration strategy, and module boundaries.
 - Add PRD authoring guidance and a reusable requirements template.
 - Add the NAP brand reference, visual specimens, and favicon assets.
+- Add the development roadmap and CI validation for declared progress updates
+  and completion evidence; unrelated PRs require no roadmap update.
