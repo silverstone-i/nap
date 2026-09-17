@@ -9,3 +9,9 @@ Entries accumulate under `## [Unreleased]`. Release automation promotes them
 when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
+
+### Changed
+
+- Document the BFF, admin/cell architecture, migration strategy, and module boundaries.
+- Add PRD authoring guidance and a reusable requirements template.
+- Add the NAP brand reference, visual specimens, and favicon assets.
