@@ -2,144 +2,129 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                      |
-| Type                 | Module work unit                                                                                                                                                                                                                                                                                                                                                                           |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                                                                                                                                                                                                          |
-| Owner                | To be confirmed                                                                                                                                                                                                                                                                                                                                                                            |
-| Related architecture | [BFF](../../../architecture/bff.md), [Module design](../../../architecture/module-design.md)                                                                                                                                                                                                                                                                                               |
-| Related PRDs         | [M0001-01: Tenant and Portal-User Foundation](M0001-01-tenant-and-portal-user-foundation.md), [M0001-03: Authentication](M0001-03-authentication.md), [M0001-09: Tenant Selection and Support Access](M0001-09-tenant-selection-and-support-access.md), [M0001-11: Cache Consistency](M0001-11-cache-consistency.md), [M0001-12: Administrative Events](M0001-12-administrative-events.md) |
-| Related decisions    | None recorded separately; unresolved decisions are in section 14                                                                                                                                                                                                                                                                                                                           |
-| Last reviewed        | 2026-09-18                                                                                                                                                                                                                                                                                                                                                                                 |
+| Field                | Value                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| Status               | Draft                                                                                               |
+| Type                 | Module work unit                                                                                    |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                   |
+| Related architecture | [BFF](../../../architecture/bff.md)                                                                 |
+| Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | None                                                                                                |
+| Last reviewed        | 2026-09-18                                                                                          |
 
 ## 2. Purpose
 
-Create, resolve, rotate, expire, and revoke authenticated sessions using the
-admin database as the source of truth.
+Create, resolve, rotate, expire, and revoke browser sessions.
 
 ## 3. Scope
 
 ### Included
 
-- Persisted session identity and lifecycle.
-- Validation of session credentials and their portal-user association.
-- Session fields used by tenant selection and support access.
+- Opaque session credentials and BFF cookies.
+- Idle and absolute expiry.
+- Rotation, revocation, and restricted password-change sessions.
 
 ### Excluded
 
-- Password verification and login throttling.
-- Membership decisions, support authorization, and tenant transactions.
-- Browser restoration, logout presentation, and shell behavior owned by C0002: Session Management.
+- Password verification.
+- Tenant selection and support-access rules.
+- Persistent browser tokens outside the session cookie.
 
 ## 4. Actors And Permissions
 
-| Context                            | Actor                                | Required state or authority                   | Result                                      |
-| ---------------------------------- | ------------------------------------ | --------------------------------------------- | ------------------------------------------- |
-| Issue ordinary session             | Authentication application operation | Successful eligible outcome from unit 3       | Create a session                            |
-| Resolve session                    | Request runtime                      | Valid session credential                      | Return the permitted session context        |
-| Rotate or end own session          | Session holder                       | Valid proof under the agreed session contract | Apply the corresponding lifecycle operation |
-| Revoke another user's session      | Operator                             | Permission and scope unresolved               | Requires an explicit decision in Q03        |
-| Resolve expired or revoked session | Any caller                           | Session is no longer valid                    | Deny authenticated context                  |
+| Actor              | Operation                                                       | Result                             |
+| ------------------ | --------------------------------------------------------------- | ---------------------------------- |
+| Authenticated user | Read, rotate, or end own session                                | Apply operation to current session |
+| `platform_admin`   | Revoke any user's session                                       | Revoke target session              |
+| `support`          | Revoke a platform session or one targeting a non-Napsoft tenant | Revoke target session              |
+| `support`          | Revoke a session targeting the Napsoft tenant                   | Deny                               |
+| Anonymous caller   | Present cookie                                                  | Resolve or reject it               |
 
 ## 5. Concepts And Terminology
 
-| Term                    | Meaning                                                              |
-| ----------------------- | -------------------------------------------------------------------- |
-| Session credential      | Secret supplied by the client to identify or prove a session         |
-| Rotation                | Replacement of session credentials under an agreed invalidation rule |
-| Expiry                  | End of session validity determined by the expiry rules               |
-| Revocation              | Explicit termination of session validity                             |
-| Selected-tenant context | Central tenant selection attached to a session by unit 9             |
+| Term          | Meaning                                             |
+| ------------- | --------------------------------------------------- |
+| Session token | Random 256-bit value held only by the browser       |
+| Token hash    | HMAC-SHA-256 value stored in the database           |
+| Rotation      | Replace the token and invalidate the previous token |
+| Revocation    | Archive a session so it cannot resolve again        |
 
 ## 6. Functional Requirements
 
-- M0001-04-R001: The module must create persisted sessions only from an authorized authentication outcome and associate them with the correct portal user.
-- M0001-04-R002: Session resolution must validate the supplied credential and persisted session state before returning authenticated context.
-- M0001-04-R003: The module must support rotation, expiry, and explicit revocation.
-- M0001-04-R004: Unknown, invalid, expired, or revoked sessions must not resolve to ordinary authenticated context.
-- M0001-04-R005: Session storage must support the tenant-selection and support-attribution contract owned by unit 9 without allowing ordinary session updates to bypass it.
+- M0001-04-R001: Successful authentication must create a session for the verified portal user.
+- M0001-04-R002: Resolution must verify the token hash, account eligibility, expiry, and revocation before returning context.
+- M0001-04-R003: Sessions must support immediate rotation, idle expiry, absolute expiry, and explicit revocation.
+- M0001-04-R004: Unknown, tampered, expired, archived, or revoked sessions must not authenticate.
+- M0001-04-R005: Session operations must preserve tenant and support context established by unit 9.
 
 ## 7. Business Rules And Invariants
 
-- M0001-04-R006: Session changes must preserve user association and lifecycle consistency when resolution, rotation, and revocation compete.
+- M0001-04-R006: Concurrent rotation or revocation must permit at most one successful state change for the same current token.
+- M0001-04-R007: Support may revoke platform sessions and sessions targeting non-Napsoft tenants, but must not read or revoke a session targeting the Napsoft tenant.
 
-The token format, absolute or idle expiry, rotation overlap, concurrent-session
-rules, and race guarantees remain open in Q01–Q02.
+The idle timeout is 30 minutes and the absolute lifetime is 12 hours. Resolution
+updates `last_seen_at` and idle expiry at most once every five minutes. Each user
+may have ten active sessions; creating an eleventh revokes the oldest.
+
+Rotation has no overlap window. The prior token fails as soon as the transaction
+commits. Login, password change, tenant selection, support entry, and support
+exit rotate the token.
 
 ## 8. Lifecycle And State Transitions
 
-| Starting condition                      | Operation                            | Required outcome                                   |
-| --------------------------------------- | ------------------------------------ | -------------------------------------------------- |
-| Eligible authentication outcome         | Create                               | Persisted session linked to the authenticated user |
-| Valid session                           | Resolve                              | Authorized context                                 |
-| Valid session                           | Rotate                               | Replacement credential under Q02                   |
-| Time limit reached                      | Resolve                              | Expired session does not authenticate              |
-| Revocation requested with authority     | Revoke                               | Session no longer authenticates                    |
-| Required-password-change authentication | Create or resolve restricted context | Preserve unit 3 restrictions under Q04             |
-
-Deletion and archival of expired records are separate retention decisions.
+| State                          | Action                                     | Result                                           |
+| ------------------------------ | ------------------------------------------ | ------------------------------------------------ |
+| Verified login                 | Create                                     | Active normal or restricted session              |
+| Active session                 | Resolve                                    | Authenticated context and bounded idle extension |
+| Active session                 | Rotate                                     | New token; prior token invalid                   |
+| Active session                 | Revoke or logout                           | Archived session and cleared cookie              |
+| Idle or absolute limit reached | Resolve                                    | Archive and reject session                       |
+| Restricted session             | Any route except password change or logout | Reject                                           |
 
 ## 9. Data Requirements
 
-| Table                       | Required meaning                                                                                                 | Relationships and access                                                |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `admin.sessions`            | Session identity, credential-validation data, validity/expiry and revocation data, rotation state where required | References portal user; resolution by credential; lookup for revocation |
-| `admin.sessions` extensions | Selected tenant and real/effective actor context as agreed by unit 9                                             | Central references; no client-supplied database connection              |
-
-Session records are security-sensitive. Exact keys, credential representation,
-timestamps, indexes, and retention remain open in Q01–Q02 and Q05. Unit 9 owns
-selection semantics even though this unit owns the base table.
+This work unit uses `admin.sessions`. M0001-00 defines its schema and token-hash
+lookup. Soft-deleted session records are not purged automatically.
 
 ## 10. API Requirements
 
-| Operation | Input                           | Result                            |
-| --------- | ------------------------------- | --------------------------------- |
-| Create    | Verified authentication outcome | New session and client credential |
-| Resolve   | Client session credential       | Valid context or rejection        |
-| Rotate    | Authorized current session      | Replacement credential or failure |
-| Revoke    | Authorized session target       | Revocation outcome                |
+| Method and route                            | Authority                                  | Result                                        |
+| ------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
+| `GET /api/admin-tenancy/v1/session/current` | Valid session                              | Safe session view                             |
+| `POST /api/admin-tenancy/v1/session/rotate` | Current session                            | Rotated cookie and safe session view          |
+| `POST /api/admin-tenancy/v1/auth/logout`    | Presented cookie, valid or expired         | Revoked reference and cleared cookie          |
+| `DELETE /api/admin-tenancy/v1/sessions/:id` | Own session or permitted platform operator | `204`; repeated revocation also returns `204` |
 
-The BFF owns session cookies. Public methods and routes, cookie attributes,
-request protection, status codes, repeated-revocation behavior, and response
-schemas remain open in Q01–Q03. Tenant switching is specified in unit 9.
+The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, has no `Domain`, and is
+`Secure` outside local development. Its maximum age never exceeds absolute
+expiry. Responses never contain the token or token hash.
 
 ## 11. Cross-Module Interactions
 
-- [M0001-03: Authentication](M0001-03-authentication.md) supplies authentication and required-password-change outcomes.
-- [M0001-01: Tenant and Portal-User Foundation](M0001-01-tenant-and-portal-user-foundation.md) supplies the central portal-user identity.
-- [M0001-09: Tenant Selection and Support Access](M0001-09-tenant-selection-and-support-access.md) validates tenant and support context before session mutation.
-
-C0002: Session Management owns browser integration and references this lifecycle.
-Session creation and resolution require no cell database. Opening a selected
-tenant transaction belongs to later integration work.
+Unit 3 supplies authentication and password changes. Unit 9 owns selected-tenant
+and support context. Account disable or archive revokes all sessions. Membership
+removal revokes sessions currently selecting that tenant. Platform-role removal
+invalidates cached authority immediately and ends affected support sessions.
 
 ## 12. Security And Audit
 
-- M0001-04-R007: Session credentials must not appear in ordinary session views, logs, or administrative events.
+- M0001-04-R008: Session tokens and token hashes must not appear in responses, logs, or events.
 
-[M0001-11: Cache Consistency](M0001-11-cache-consistency.md) defines cached-resolution invalidation; PostgreSQL remains authoritative.
-[M0001-12: Administrative Events](M0001-12-administrative-events.md) defines session lifecycle events. Account disable, password change,
-membership change, and role-removal effects require the shared rules in Q04.
+Creation, rotation, revocation, expiry detected during resolution, and support
+context changes create managed events with session UUIDs only.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                        | Requirements                                                                                                                                           |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AC01      | Eligible verification creates a session for the correct user; rejected verification cannot.                                                            | M0001-04-R001                                                                                                                                          |
-| AC02      | Valid sessions resolve; unknown, tampered, expired, and revoked credentials do not authenticate.                                                       | M0001-04-R002, M0001-04-R004                                                                                                                           |
-| AC03      | Rotation, expiry boundaries, and revocation follow the agreed lifecycle and retry rules.                                                               | M0001-04-R003                                                                                                                                          |
-| AC04      | Ordinary session updates cannot inject another tenant or support actor context.                                                                        | M0001-04-R005                                                                                                                                          |
-| AC05      | Competing rotate, resolve, and revoke operations meet the selected race guarantees.                                                                    | M0001-04-R006                                                                                                                                          |
-| AC06      | Public views and recorded output omit session secrets.                                                                                                 | M0001-04-R007                                                                                                                                          |
-| AC07      | Applicable source mutations invalidate their cached decisions and record the required catalogue events; failures follow the accepted shared contracts. | [M0001-11-R002](M0001-11-cache-consistency.md#6-functional-requirements), [M0001-12-R001](M0001-12-administrative-events.md#6-functional-requirements) |
+| Criterion | Required result                                                                                  | Requirements                 |
+| --------- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| AC01      | Eligible authentication creates a session for the correct user.                                  | M0001-04-R001                |
+| AC02      | Valid sessions resolve; tampered, expired, archived, and revoked sessions do not.                | M0001-04-R002, M0001-04-R004 |
+| AC03      | Rotation immediately invalidates the prior token and concurrent attempts produce one winner.     | M0001-04-R003, M0001-04-R006 |
+| AC04      | Idle and absolute limits, ten-session cap, logout, and repeated revocation follow this contract. | M0001-04-R003                |
+| AC05      | Unit 9 context survives ordinary resolution and changes only through its operations.             | M0001-04-R005                |
+| AC06      | No response, log, or event exposes session credentials.                                          | M0001-04-R008                |
+| AC07      | Support can revoke platform and non-Napsoft sessions but cannot access Napsoft tenant sessions.  | M0001-04-R007                |
 
-## 14. Open Questions
+## 14. Outstanding Questions
 
-| ID  | Decision required before acceptance                                                                        |
-| --- | ---------------------------------------------------------------------------------------------------------- |
-| Q01 | What credential format, storage, cookie settings, endpoints, and expiry rules apply?                       |
-| Q02 | What rotation overlap, race, repeated-revocation, concurrent-session, and cleanup rules apply?             |
-| Q03 | Who can rotate or revoke which sessions, and what request proof is required?                               |
-| Q04 | How are restricted password-change sessions and account, credential, membership, or role changes enforced? |
-| Q05 | Which unit 9 context fields and retention rules belong in the final session schema?                        |
+None.

@@ -15,7 +15,7 @@ docs/PRDs/
 |-- modules/
 |   `-- M0001-admin-tenancy.md
 |-- features/
-|   `-- C0001-authentication.md
+|   `-- F0001-authentication.md
 `-- workflows/
     `-- W0001-tenant-provisioning.md
 ```
@@ -24,8 +24,7 @@ docs/PRDs/
 - Feature PRDs define application behavior that may use several modules.
 - Workflow PRDs define sequencing across modules or infrastructure.
 
-Feature PRDs retain the `C` identifier prefix. "Capability" is reserved for
-authorization identifiers in `module::router::action` form.
+"Capability" is reserved for authorization identifiers in `module::router::action` form.
 
 Each category has its own four-digit sequence. Numbers identify documents; they
 do not set implementation order.
@@ -36,7 +35,7 @@ Use these filename patterns:
 
 ```text
 M0001-admin-tenancy.md
-C0001-authentication.md
+F0001-authentication.md
 W0001-tenant-provisioning.md
 ```
 
@@ -46,7 +45,7 @@ Use the same identifier in the document title:
 # M0001: Admin Tenancy
 ```
 
-Refer to another PRD by identifier and title, such as `C0003: RBAC`.
+Refer to another PRD by identifier and title, such as `F0003: RBAC`.
 
 ## Status
 
@@ -57,7 +56,7 @@ A PRD has one status:
 - `Implemented`: delivered and verified against the accepted requirements.
 - `Superseded`: replaced by another identified PRD or decision.
 
-Only explicit owner approval moves a PRD from `Draft` to `Accepted`. Code alone
+Only explicit developer approval moves a PRD from `Draft` to `Accepted`. Code alone
 does not change a PRD's status. Use `Implemented` only when the relevant code
 and tests have been verified.
 
@@ -79,7 +78,7 @@ Every standalone or work-unit PRD follows the sections in
 11. Cross-Module Interactions
 12. Security And Audit
 13. Acceptance Criteria
-14. Open Questions
+14. Outstanding Questions
 
 The Purpose section is mandatory. Other sections must remain present. Write
 `Not applicable` with a short reason when a section does not apply.
@@ -94,7 +93,7 @@ Give every normative requirement a stable identifier based on its PRD:
 ```text
 M0001-R001
 M0001-01-R001
-C0002-R001
+F0002-R001
 W0001-R001
 ```
 
@@ -139,38 +138,40 @@ difficult to review in the parent document.
 
 ### Independently Delivered Work Units
 
-A module with independently accepted deliverables can use a family overview
-and work-unit PRDs:
+For a module delivered in work units, the parent document is a mini roadmap.
+It defines the scope, lists the work in its planned order, and tracks each
+unit's implementation status.
 
 ```text
 modules/
 |-- M0001-admin-tenancy.md
 `-- M0001-admin-tenancy/
-    |-- M0001-01-tenant-and-portal-user-foundation.md
+    |-- M0001-00-admin-database-foundation.md
+    |-- M0001-01-tenant-and-portal-user-access.md
     `-- M0001-02-root-user-provisioning.md
 ```
 
-The overview records document control, purpose, boundaries, table ownership,
-the work-unit index, and dependencies. It does not repeat detailed requirements
-and is exempt from the 14-section template. Its status describes acceptance of
-the family boundaries; delivery progress belongs in the roadmap.
+The mini roadmap contains:
 
-Each work-unit PRD follows the full template, owns its requirements, and has
-its own status. Accepting the overview does not accept its work units. These
-documents are not supporting chapters and do not inherit the overview's status.
-Use identifiers such as `M0001-01` and `M0001-01-R001`; work-unit numbers do not
-define implementation order.
+- The work included in the module and the work delivered elsewhere.
+- The planned start order and prerequisites that affect that order.
+- Each work unit's deliverable and link to its PRD.
+- Each unit's status, blocker when applicable, and completion evidence.
 
-A work unit can own the admin-side contract of a feature or workflow.
-The feature or workflow PRD references that contract and owns the remaining
-application behavior, UI, and cross-module integration. This grouping does not
-change module or application code placement.
+Use `Not started`, `In progress`, `Blocked`, and `Complete` for implementation
+status. Update a unit when work starts, a blocker changes, or its accepted
+requirements have been verified. Record the blocker for `Blocked` and the
+verification evidence for `Complete`.
 
-Record external dependencies in the work-unit PRD and assign their delivery to
-the receiving roadmap item. Complete admin behavior and its integration
-interface can be verified independently; verification of that interface does
-not establish that the external integration is implemented. Unresolved local
-requirements still block acceptance of the affected work unit.
+Keep architecture descriptions and detailed requirements in their owning
+documents. The mini roadmap is exempt from the 14-section PRD template.
+The project roadmap tracks overall delivery; the mini roadmap tracks the
+module's individual work units.
+
+Each work-unit PRD follows the full template and has its own acceptance status.
+A `Draft` PRD is not permission to implement its requirements. Use stable
+identifiers such as `M0001-01` and `M0001-01-R001`; record delivery order
+separately so reordering work does not rename its PRDs.
 
 ## Writing And Review
 

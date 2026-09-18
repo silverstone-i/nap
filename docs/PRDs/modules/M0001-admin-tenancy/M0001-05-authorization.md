@@ -2,151 +2,128 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Type                 | Module work unit                                                                                                                                                                                                                                                                                                                                                                                           |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                                                                                                                                                                                                                          |
-| Owner                | To be confirmed                                                                                                                                                                                                                                                                                                                                                                                            |
-| Related architecture | [Module map](../../../architecture/module-map.md), [Module design](../../../architecture/module-design.md)                                                                                                                                                                                                                                                                                                 |
-| Related PRDs         | [M0001-01: Tenant and Portal-User Foundation](M0001-01-tenant-and-portal-user-foundation.md), [M0001-02: Root-User Provisioning](M0001-02-root-user-provisioning.md), [M0001-09: Tenant Selection and Support Access](M0001-09-tenant-selection-and-support-access.md), [M0001-11: Cache Consistency](M0001-11-cache-consistency.md), [M0001-12: Administrative Events](M0001-12-administrative-events.md) |
-| Related decisions    | None recorded separately; unresolved decisions are in section 14                                                                                                                                                                                                                                                                                                                                           |
-| Last reviewed        | 2026-09-18                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Field                | Value                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Status               | Draft                                                                                                       |
+| Type                 | Module work unit                                                                                            |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                           |
+| Related architecture | [Module design](../../../architecture/module-design.md)                                                     |
+| Related PRDs         | [M0001-02](M0001-02-root-user-provisioning.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                          |
+| Last reviewed        | 2026-09-18                                                                                                  |
 
 ## 2. Purpose
 
-Store NAP's immutable system-role definitions and assign platform roles to
-portal users so admin authorization can use explicit central grants.
+Define system roles and assign platform roles to portal users.
 
 ## 3. Scope
 
 ### Included
 
-- `platform_admin`, `support`, and `tenant_admin` system-role definitions.
-- Their `module::router::action` capabilities.
-- Multiple platform-role assignments per portal user.
-- Central lookup and maintenance contracts for those definitions and assignments.
+- The immutable `platform_admin`, `support`, and `tenant_admin` definitions.
+- Platform-role assignment and removal.
+- Capability lookup for central authorization.
 
 ### Excluded
 
-- Seeding applicable system roles into `cell.roles`.
-- Assigning `tenant_admin` or custom roles inside cells.
-- Tenant scope evaluation and broader RBAC behavior owned by C0003: RBAC.
+- Table definitions and migrations.
+- Custom tenant roles and cell-side assignments.
+- Route-specific business checks beyond the Napsoft support restriction.
 
 ## 4. Actors And Permissions
 
-| Context                                                 | Actor                 | Required authority or condition                            | Result                            |
-| ------------------------------------------------------- | --------------------- | ---------------------------------------------------------- | --------------------------------- |
-| Read definitions for authorization                      | Authorization service | Internal access to central capability definitions          | Read system roles and assignments |
-| Assign or remove a platform role                        | Operator              | Explicit grant-management capability; catalogue unresolved | Apply a valid assignment change   |
-| Assign `platform_admin` or `support`                    | Authorized operator   | Existing portal user and valid system role                 | Eligible central assignment       |
-| Assign `tenant_admin` or a custom role centrally        | Any operator          | Role is not a platform role                                | Reject                            |
-| Edit or delete a system definition through runtime APIs | Any portal user       | Definition is immutable                                    | Reject                            |
-
-A role's name does not supply unspecified capabilities. The exact catalogue
-and grant-management capabilities remain open in Q01.
+| Actor            | Target                                 | Result                                                |
+| ---------------- | -------------------------------------- | ----------------------------------------------------- |
+| `platform_admin` | Any central record                     | Permit matching capability                            |
+| `support`        | Record outside the Napsoft tenant      | Permit matching capability                            |
+| `support`        | Napsoft tenant or data belonging to it | Deny before the operation reads or changes the record |
+| `tenant_admin`   | Own tenant                             | Permit only the tenant-scoped capabilities below      |
+| Any actor        | Own role assignment                    | Cannot grant a role to itself                         |
 
 ## 5. Concepts And Terminology
 
-| Term                     | Meaning                                                         |
-| ------------------------ | --------------------------------------------------------------- |
-| System role              | One of the three fixed role definitions                         |
-| Capability               | An authorization name in `module::router::action` form          |
-| Platform role assignment | A link from a portal user to `platform_admin` or `support`      |
-| Immutable definition     | A definition that ordinary runtime administration cannot change |
+| Term          | Meaning                                                                                                     |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| Capability    | Authorization identifier in `module::router::action` form                                                   |
+| System role   | Immutable named capability set                                                                              |
+| Platform role | `platform_admin` or `support` assignment stored centrally                                                   |
+| Napsoft data  | Tenant, membership, session, entitlement, event, or cell action whose target tenant has `is_napsoft = true` |
 
 ## 6. Functional Requirements
 
-- M0001-05-R001: `admin.system_roles` must define exactly `platform_admin`, `support`, and `tenant_admin`, with their agreed capabilities in `module::router::action` form.
-- M0001-05-R002: System-role definitions must be immutable through ordinary runtime operations.
-- M0001-05-R003: `admin.platform_roles` must map portal users only to assigned platform roles; it must not contain independent role definitions or capability overrides.
-- M0001-05-R004: A portal user must be able to hold multiple platform assignments, including both `platform_admin` and `support`.
-- M0001-05-R005: Central authorization consumers must be able to retrieve a user's platform assignments and their associated capability definitions.
+- M0001-05-R001: Initialization must create exactly `platform_admin`, `support`, and `tenant_admin` with the capability sets below.
+- M0001-05-R002: Runtime APIs must not edit or delete system-role definitions.
+- M0001-05-R003: Platform assignments must link portal users only to `platform_admin` or `support` and must not contain capability overrides.
+- M0001-05-R004: A portal user may hold both platform roles.
+- M0001-05-R005: Authorization must combine all assigned role capabilities and apply target restrictions before calling the operation.
+
+| Role             | Capabilities                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `platform_admin` | `admin-tenancy::control::read`, `admin-tenancy::control::write`, `admin-tenancy::accounts::read`, `admin-tenancy::accounts::write`, `admin-tenancy::roles::read`, `admin-tenancy::roles::write`, `admin-tenancy::sessions::revoke`, `admin-tenancy::entitlements::read`, `admin-tenancy::entitlements::write`, `admin-tenancy::events::read`, `admin-tenancy::access::support` |
+| `support`        | Same capabilities as `platform_admin`, subject to the Napsoft-data denial                                                                                                                                                                                                                                                                                                      |
+| `tenant_admin`   | `admin-tenancy::accounts::read`, `admin-tenancy::accounts::write`, `admin-tenancy::entitlements::read` within its tenant                                                                                                                                                                                                                                                       |
 
 ## 7. Business Rules And Invariants
 
-- M0001-05-R006: Platform assignments must reference an existing portal user and a defined `platform_admin` or `support` role; `tenant_admin` and custom roles must not be assigned through `admin.platform_roles`.
-- M0001-05-R007: Platform-role changes must require explicit authorization and must not derive their authority solely from tenant membership.
+- M0001-05-R006: Platform assignments must reference an existing active portal user and an initialized platform role.
+- M0001-05-R007: A platform-role change requires `admin-tenancy::roles::write`; tenant membership alone does not grant it.
 
-Unit 1 owns portal-user identity. Whether identical duplicate assignments are
-rejected or treated as an existing assignment remains open in Q03. Controlled
-release changes to immutable definitions require the rules in Q02.
+Initialization is idempotent and fails if an existing role has a different
+capability set. Repeat grants return the active assignment. Repeat removals
+return success. Removing the final active `platform_admin` is forbidden.
+
+Support cannot read or change a Napsoft membership, selected-tenant session,
+entitlement, event, or tenant-scoped record. A portal user and a platform
+session are platform records, even when the user has a Napsoft membership.
 
 ## 8. Lifecycle And State Transitions
 
-| Record              | Operation               | Outcome                                            |
-| ------------------- | ----------------------- | -------------------------------------------------- |
-| System roles        | Initial seed            | Three named definitions and agreed capability sets |
-| System roles        | Runtime edit or delete  | Rejected                                           |
-| Platform assignment | Authorized grant        | User receives the named platform assignment        |
-| Platform assignment | Authorized removal      | Assignment ceases to grant authority               |
-| Existing assignment | Repeat grant or removal | Follow Q03                                         |
-
-Role removal effects on active support sessions and cached decisions are shared
-with units 9 and 11. No last-administrator rule is assumed; Q04 resolves it.
+| State                         | Action       | Result                                                          |
+| ----------------------------- | ------------ | --------------------------------------------------------------- |
+| Role absent                   | Initialize   | Insert immutable definition                                     |
+| Definition matches            | Reinitialize | No change                                                       |
+| Definition differs            | Reinitialize | Fail; use a reviewed migration for catalogue changes            |
+| Assignment absent or archived | Grant        | Create or restore assignment                                    |
+| Assignment active             | Grant        | Return existing assignment                                      |
+| Assignment active             | Remove       | Archive assignment unless it is the last platform administrator |
 
 ## 9. Data Requirements
 
-| Table                  | Required contents                                          | Constraints and access                                                |
-| ---------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
-| `admin.system_roles`   | Stable role identity/name and its capability definitions   | Three agreed names; lookup by role; immutable runtime definitions     |
-| `admin.platform_roles` | Portal-user reference and assigned platform-role reference | Multiple assignments per user; references restricted by M0001-05-R006 |
-
-Physical capability representation, assignment keys, grant metadata, uniqueness,
-and retention are open in Q02–Q03. Platform access is central and separate from
-cell-local tenant role assignments.
+This work unit uses `admin.system_roles` and `admin.platform_roles`. M0001-00
+defines their schema and constraints.
 
 ## 10. API Requirements
 
-| Operation                 | Input                                       | Result                                 |
-| ------------------------- | ------------------------------------------- | -------------------------------------- |
-| Read system roles         | Role identity or catalogue request          | Immutable definitions and capabilities |
-| Read platform assignments | Portal-user identity                        | Assigned platform roles                |
-| Grant platform role       | Authorized actor, target user, allowed role | Assignment result                      |
-| Remove platform role      | Authorized actor and target assignment      | Removal result                         |
+| Method and route                                     | Capability                    | Result                                 |
+| ---------------------------------------------------- | ----------------------------- | -------------------------------------- |
+| `GET /api/admin-tenancy/v1/roles`                    | `admin-tenancy::roles::read`  | System roles and safe capability lists |
+| `GET /api/admin-tenancy/v1/users/:id/roles`          | `admin-tenancy::roles::read`  | Active platform assignments            |
+| `PUT /api/admin-tenancy/v1/users/:id/roles/:role`    | `admin-tenancy::roles::write` | `200` active assignment                |
+| `DELETE /api/admin-tenancy/v1/users/:id/roles/:role` | `admin-tenancy::roles::write` | `204`                                  |
 
-Methods, routes, exact capability checks, response schemas, and idempotency are
-open in Q01 and Q03. There is no runtime API to author system roles.
+Unknown users or roles return `404`; disallowed `tenant_admin` assignments,
+self-grants, last-admin removal, and Napsoft support targets return `403`.
 
 ## 11. Cross-Module Interactions
 
-- [M0001-02: Root-User Provisioning](M0001-02-root-user-provisioning.md) coordinates initial installation; initial root authority is decided in Q04.
-- [M0001-09: Tenant Selection and Support Access](M0001-09-tenant-selection-and-support-access.md) consumes platform authority for controlled support access.
-- [M0001-11: Cache Consistency](M0001-11-cache-consistency.md) and [M0001-12: Administrative Events](M0001-12-administrative-events.md) define invalidation and event contracts for assignment changes.
-
-Cell-role seeding and tenant/custom-role assignments are separate roadmap
-integration deliverables. C0003: RBAC owns the broader decision model, including
-how multiple applicable capabilities combine; it references these central
-records instead of defining another platform-role catalogue.
+Unit 2 assigns the root user `platform_admin`. Unit 9 evaluates support entry.
+Cell access-control initialization copies the `tenant_admin` definition but owns
+its cell-side assignment.
 
 ## 12. Security And Audit
 
-Grant-management capabilities, self-grants, last-administrator protection, and
-support restrictions require explicit decisions. Multiple assignments do not
-implicitly establish precedence or an unrestricted support bypass.
-
-Administrative events cover agreed grant/removal outcomes under [M0001-12: Administrative Events](M0001-12-administrative-events.md).
-Capability definitions and assignment history need the disclosure and retention
-rules in Q03.
+Every grant and removal records actor, target user, role, outcome, and request
+ID. Role changes advance authorization cache revisions in the same transaction.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                        | Requirements                                                                                                                                           |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AC01      | Seeding establishes the three named roles with approved capability syntax and contents.                                                                | M0001-05-R001                                                                                                                                          |
-| AC02      | Runtime edits and deletion of system definitions are rejected.                                                                                         | M0001-05-R002                                                                                                                                          |
-| AC03      | A user can hold both allowed platform roles; assignment rows contain no independent capability overrides.                                              | M0001-05-R003, M0001-05-R004                                                                                                                           |
-| AC04      | Authorization lookup returns the user's assignments and referenced definitions.                                                                        | M0001-05-R005                                                                                                                                          |
-| AC05      | Unknown users, unknown roles, `tenant_admin`, and custom-role assignments are rejected centrally.                                                      | M0001-05-R006                                                                                                                                          |
-| AC06      | Unauthorized grants/removals fail, including callers relying only on tenant membership.                                                                | M0001-05-R007                                                                                                                                          |
-| AC07      | Applicable source mutations invalidate their cached decisions and record the required catalogue events; failures follow the accepted shared contracts. | [M0001-11-R002](M0001-11-cache-consistency.md#6-functional-requirements), [M0001-12-R001](M0001-12-administrative-events.md#6-functional-requirements) |
+| Criterion | Required result                                                                           | Requirements                 |
+| --------- | ----------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Initialization creates the three exact definitions and rejects drift.                     | M0001-05-R001, M0001-05-R002 |
+| AC02      | Users can hold both platform roles without capability overrides.                          | M0001-05-R003, M0001-05-R004 |
+| AC03      | Authorization combines assignments and denies support access to Napsoft data.             | M0001-05-R005                |
+| AC04      | Unknown, inactive, self-granted, tenant-admin, unauthorized, and last-admin changes fail. | M0001-05-R006, M0001-05-R007 |
 
-## 14. Open Questions
+## 14. Outstanding Questions
 
-| ID  | Decision required before acceptance                                                                               |
-| --- | ----------------------------------------------------------------------------------------------------------------- |
-| Q01 | What exact capabilities belong to each role, and which authorize reads, grants, and removals?                     |
-| Q02 | How are capabilities stored, and how are deliberate release changes to immutable definitions approved and seeded? |
-| Q03 | What are the API, assignment uniqueness, retry, attribution, deletion, and retention contracts?                   |
-| Q04 | What initial role does the root user receive, and what self-grant or last-administrator protections apply?        |
-| Q05 | What is the central consumer contract for capability combination and role-removal effects on active sessions?     |
+None.

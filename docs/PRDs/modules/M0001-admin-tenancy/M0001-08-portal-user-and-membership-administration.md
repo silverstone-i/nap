@@ -2,150 +2,146 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Type                 | Module work unit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Owner                | To be confirmed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Related architecture | [Module map](../../../architecture/module-map.md), [Module design](../../../architecture/module-design.md)                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Related PRDs         | [M0001-01: Tenant and Portal-User Foundation](M0001-01-tenant-and-portal-user-foundation.md), [M0001-03: Authentication](M0001-03-authentication.md), [M0001-05: Authorization](M0001-05-authorization.md), [M0001-07: Tenant Creation](M0001-07-tenant-creation.md), [M0001-09: Tenant Selection and Support Access](M0001-09-tenant-selection-and-support-access.md), [M0001-11: Cache Consistency](M0001-11-cache-consistency.md), [M0001-12: Administrative Events](M0001-12-administrative-events.md) |
-| Related decisions    | None recorded separately; unresolved decisions are in section 14                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Last reviewed        | 2026-09-18                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Field                | Value                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status               | Draft                                                                                                                                      |
+| Type                 | Module work unit                                                                                                                           |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                          |
+| Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                    |
+| Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-05](M0001-05-authorization.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | None                                                                                                                                       |
+| Last reviewed        | 2026-09-18                                                                                                                                 |
 
 ## 2. Purpose
 
-Maintain ordinary portal users and central tenant memberships, and record
-requested membership provisioning and its failures without requiring cell-side
-identity creation.
+Administer ordinary portal users and tenant memberships and track requested
+cell-side member provisioning.
 
 ## 3. Scope
 
 ### Included
 
-- Ordinary portal-user and membership creation and maintenance.
-- Central validation and permitted lifecycle changes.
-- Membership provisioning-job storage and result tracking.
+- Create, read, update, disable, archive, and restore ordinary portal users.
+- Create, read, suspend, reactivate, archive, and restore memberships.
+- Queue, inspect, retry, and complete membership-provisioning jobs.
 
 ### Excluded
 
-- Root bootstrap and password verification.
-- Creating `cell.tenant_user_bindings` or business-directory records.
-- Tenant role assignment and support impersonation.
+- Table definitions and migrations.
+- Root-user changes.
+- Cell-side employee, client, vendor, or vendor-contact creation.
+- Self-service profile and password changes.
 
 ## 4. Actors And Permissions
 
-| Context                                         | Actor                               | Required authority or state                    | Result                             |
-| ----------------------------------------------- | ----------------------------------- | ---------------------------------------------- | ---------------------------------- |
-| Create or maintain ordinary user                | Administrator                       | Explicit operation capability and target scope | Apply allowed central changes      |
-| Create or maintain membership                   | Administrator                       | Explicit capability covering the target tenant | Apply allowed relationship changes |
-| Report provisioning result                      | Trusted workflow                    | Matching registered job and membership         | Update central progress or failure |
-| Change unrelated tenant membership              | Caller without target authority     | Target outside authorized scope                | Deny                               |
-| Self-service or delegated tenant administration | Portal user or tenant administrator | Rules unresolved                               | No implicit grant                  |
-
-The administrator role, self-service permissions, and cross-tenant identity
-maintenance rules remain open in Q01.
+| Actor                         | Target                                           | Result                                                                                  |
+| ----------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `platform_admin`              | Any ordinary user or membership                  | Permit matching accounts capability                                                     |
+| `support`                     | Any ordinary user; non-Napsoft membership or job | Permit matching accounts capability                                                     |
+| `support`                     | Napsoft membership or provisioning job           | Deny                                                                                    |
+| `tenant_admin`                | Memberships and users within own tenant          | Read users and manage own-tenant memberships; cannot disable or archive shared accounts |
+| Trusted provisioning workflow | Existing queued or running job                   | Report progress or result                                                               |
 
 ## 5. Concepts And Terminology
 
-| Term                 | Meaning                                                                       |
-| -------------------- | ----------------------------------------------------------------------------- |
-| Ordinary portal user | A centrally administered person other than the bootstrap root identity        |
-| Membership           | Central relationship between a portal user and tenant                         |
-| Provisioning job     | Recorded request to establish the membership's required cell-side records     |
-| Binding              | Cell-local link between central membership and the relevant business identity |
+| Term               | Meaning                                                              |
+| ------------------ | -------------------------------------------------------------------- |
+| Shared account     | Portal user with memberships in more than one tenant                 |
+| Temporary password | Operator-supplied password that must be replaced at next login       |
+| Provisioning job   | Central request to create the membership's cell-side business record |
 
 ## 6. Functional Requirements
 
-- M0001-08-R001: Authorized operations must create and maintain ordinary portal users through the foundation contracts.
-- M0001-08-R002: Authorized operations must create and maintain central memberships between existing portal users and tenants.
-- M0001-08-R003: The module must record requested membership provisioning in `admin.provisioning_jobs` and expose its status and failure information.
-- M0001-08-R004: Central user and membership operations must not require cell bindings or employee, client, vendor, or vendor-contact creation.
-- M0001-08-R005: Provisioning results must be attributable to the requested central membership and job; failed provisioning must not be reported as completed.
+- M0001-08-R001: Authorized operations must create and maintain ordinary portal users without changing root records.
+- M0001-08-R002: Authorized operations must create and maintain one active membership per portal-user/tenant pair.
+- M0001-08-R003: Creating a membership must queue one provisioning job and expose its current result.
+- M0001-08-R004: Central operations must commit without requiring a cell to be available.
+- M0001-08-R005: A provisioning result must match its job, tenant, membership, and member type; failure must not mark the membership ready.
 
 ## 7. Business Rules And Invariants
 
-- M0001-08-R006: Membership administration must validate the actor's target-tenant authority; changing an identifier must not bypass that boundary.
+- M0001-08-R006: Every operation must authorize the target tenant independently of user-supplied user, membership, job, or entity UUIDs.
+- M0001-08-R007: Support may manage platform-level portal-user records but must not read or change Napsoft memberships or their provisioning jobs.
 
-[M0001-01: Tenant and Portal-User Foundation](M0001-01-tenant-and-portal-user-foundation.md) owns identity and relationship constraints. Creating membership does
-not itself create a cell role assignment or establish cell readiness.
-Job request deduplication and stale/repeated result handling remain open in Q03.
+Support may manage the platform-level portal-user record. Responses to support
+must omit the user's Napsoft memberships and related provisioning jobs.
+
+Email is trimmed and lowercased and must be a valid address no longer than 254
+characters. A new user requires a temporary password meeting unit 3 rules,
+starts `active`, and has `must_change_password = true`. An existing active user
+with the same email is reused when adding another membership.
+
+Member type is `employee`, `client`, `vendor`, or `vendor_contact`. New membership
+and job states are `pending` and `queued`. Only one unarchived membership exists
+per user and tenant; only one queued or running job exists per membership.
+
+Disabling or archiving a user revokes all sessions. Suspending or archiving a
+membership revokes sessions selecting its tenant and clears readiness. Restoring
+a user returns it as `disabled`; restoring a membership returns it as `suspended`
+with no readiness until explicitly reactivated and reprovisioned.
 
 ## 8. Lifecycle And State Transitions
 
-| Central operation               | Required outcome                            | Unresolved rules                                |
-| ------------------------------- | ------------------------------------------- | ----------------------------------------------- |
-| Create user                     | Central person identity                     | Initial status and credential setup             |
-| Create membership               | Central user/tenant relationship            | Initial status and membership kind              |
-| Maintain identity or membership | Authorized valid change                     | Allowed fields, disable, re-enable, and removal |
-| Request provisioning            | Persist a job tied to the membership        | Eligibility and duplicate handling              |
-| Receive failure                 | Persist actionable failure state            | Retry authority and recovery rules              |
-| Receive success                 | Persist a result matching the requested job | Completion evidence from the receiving workflow |
-
-Exact state names and transitions are open in Q02–Q03. Central creation success
-and downstream provisioning success are separate outcomes.
+| Record              | Action             | Result                                                |
+| ------------------- | ------------------ | ----------------------------------------------------- |
+| New user            | Create             | Active account requiring password change              |
+| Active user         | Disable            | Disabled; all sessions revoked                        |
+| Ordinary user       | Archive            | Archived; all sessions revoked                        |
+| Archived user       | Restore            | Disabled account                                      |
+| No membership       | Create             | Pending membership and queued job                     |
+| Pending membership  | Successful job     | Active, ready, result entity stored                   |
+| Pending membership  | Failed job         | Pending, not ready, failure recorded                  |
+| Active membership   | Suspend or archive | Not eligible for selection; matching sessions revoked |
+| Archived membership | Restore            | Suspended and not ready                               |
 
 ## 9. Data Requirements
 
-| Table                       | This unit's contract                                                         | Required access and sensitivity                                      |
-| --------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `admin.portal_users`        | Ordinary administration fields and state; credentials follow unit 3          | Authorized identity lookup/update; personal data                     |
-| `admin.portal_user_tenants` | Membership administration fields, state, and provisioning linkage            | Query by tenant and user; access-sensitive relationship              |
-| `admin.provisioning_jobs`   | Job identity, target membership, requested work, status, and failure details | Queue/inspect work and correlate results; sensitive operational data |
-
-Exact requested-work fields and any external result identifiers require Q03.
-They do not create cross-database foreign keys. Foundation keys and retention
-remain authoritative in unit 1; job retention is decided here.
+This work unit uses `admin.portal_users`, `admin.portal_user_tenants`, and
+`admin.provisioning_jobs`. M0001-00 defines their schema and constraints.
 
 ## 10. API Requirements
 
-| Operation                       | Input                                                | Result                             |
-| ------------------------------- | ---------------------------------------------------- | ---------------------------------- |
-| Create or update portal user    | Authorized actor and allowed identity fields         | Central user or validation failure |
-| Create or update membership     | Actor, user, tenant, and allowed membership fields   | Central relationship or rejection  |
-| Request membership provisioning | Authorized target membership and agreed work request | Job identity and central status    |
-| Inspect or report job result    | Authorized read or trusted result for a job          | Central progress/failure state     |
+| Method and route                                              | Purpose                            |
+| ------------------------------------------------------------- | ---------------------------------- |
+| `POST /api/admin-tenancy/v1/accounts/users`                   | Create or reuse a user             |
+| `GET /api/admin-tenancy/v1/accounts/users/:id`                | Read a safe user view              |
+| `PATCH /api/admin-tenancy/v1/accounts/users/:id`              | Change email or account status     |
+| `DELETE /api/admin-tenancy/v1/accounts/users/:id`             | Archive user; repeat returns `204` |
+| `POST /api/admin-tenancy/v1/accounts/users/:id/restore`       | Restore as disabled                |
+| `POST /api/admin-tenancy/v1/accounts/memberships`             | Create membership and queued job   |
+| `PATCH /api/admin-tenancy/v1/accounts/memberships/:id`        | Suspend or reactivate membership   |
+| `DELETE /api/admin-tenancy/v1/accounts/memberships/:id`       | Archive membership                 |
+| `POST /api/admin-tenancy/v1/accounts/memberships/:id/restore` | Restore as suspended               |
+| `GET /api/admin-tenancy/v1/accounts/jobs/:id`                 | Read safe provisioning status      |
+| `POST /api/admin-tenancy/v1/accounts/jobs/:id/retry`          | Requeue a failed job               |
 
-Routes, methods, response/error schemas, idempotency, concurrency,
-and per-field permissions remain open in Q01–Q03.
+Create requests require an `Idempotency-Key` UUID. Repeats return the original
+result; changed payloads return `409`. The provisioning workflow uses internal
+transactional methods, not a public result route. Invalid input returns `400`,
+unauthorized access `403`, missing records `404`, and invalid states `409`.
 
 ## 11. Cross-Module Interactions
 
-- [M0001-03: Authentication](M0001-03-authentication.md) owns credential setup effects and verification behavior.
-- [M0001-09: Tenant Selection and Support Access](M0001-09-tenant-selection-and-support-access.md) consumes membership state for selection decisions.
-- Cell tenancy owns `cell.tenant_user_bindings` under the receiving contract.
-- Business Directory owns employee, client, vendor, and vendor-contact creation.
-
-“Core” in the work breakdown refers here to the business-directory dependency;
-[the module map](../../../architecture/module-map.md) names that owner
-`business-directory`. The cross-module workflow and binding schema still need
-agreement. This unit is testable through job requests and supplied result fixtures.
+The membership-provisioning workflow creates the appropriate cell-side record
+and binding, then reports its UUID. No admin foreign key points into a cell.
+Units 4, 9, 11, and 12 apply session, access, cache, and event effects.
 
 ## 12. Security And Audit
 
-- M0001-08-R007: Administration responses and provisioning failures must not disclose credentials or memberships outside the caller's authorized scope.
-
-[M0001-11: Cache Consistency](M0001-11-cache-consistency.md) defines invalidation for user and membership changes; [M0001-12: Administrative Events](M0001-12-administrative-events.md) defines
-administrative and provisioning events. Session effects of disabling or removing
-a membership are coordinated with units 4 and 9, not left to UI visibility.
+Responses exclude password hashes and temporary passwords. Events record actor,
+tenant, target UUID, action, and outcome. They never record credentials or cell
+failure detail that contains secrets.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                        | Requirements                                                                                                                                           |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AC01      | Authorized ordinary user and membership maintenance persists valid central records.                                                                    | M0001-08-R001, M0001-08-R002                                                                                                                           |
-| AC02      | Provisioning requests have inspectable central jobs and failures.                                                                                      | M0001-08-R003                                                                                                                                          |
-| AC03      | Central creation works without cell bindings or business records.                                                                                      | M0001-08-R004                                                                                                                                          |
-| AC04      | Failure and success fixtures update only the matching membership/job; failure does not imply completion.                                               | M0001-08-R005                                                                                                                                          |
-| AC05      | Substituting another tenant or user outside scope is rejected.                                                                                         | M0001-08-R006                                                                                                                                          |
-| AC06      | Responses and recorded failures omit credentials and memberships outside the caller's authorized scope.                                                | M0001-08-R007                                                                                                                                          |
-| AC07      | Applicable source mutations invalidate their cached decisions and record the required catalogue events; failures follow the accepted shared contracts. | [M0001-11-R002](M0001-11-cache-consistency.md#6-functional-requirements), [M0001-12-R001](M0001-12-administrative-events.md#6-functional-requirements) |
+| Criterion | Required result                                                                              | Requirements                                |
+| --------- | -------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| AC01      | Authorized account operations follow normalization, root protection, and lifecycle rules.    | M0001-08-R001                               |
+| AC02      | Membership operations enforce tenant scope, one active pair, and the Napsoft support denial. | M0001-08-R002, M0001-08-R006, M0001-08-R007 |
+| AC03      | Creation atomically records the membership and one queued job without a cell connection.     | M0001-08-R003, M0001-08-R004                |
+| AC04      | Mismatched, repeated, stale, failed, and successful job results follow the stated contract.  | M0001-08-R005                               |
+| AC05      | User and membership restrictions revoke affected sessions and never expose credentials.      | M0001-08-R001, M0001-08-R002                |
 
-## 14. Open Questions
+## 14. Outstanding Questions
 
-| ID  | Decision required before acceptance                                                                                                                      |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q01 | Who can perform each operation or change each field, including self-service and users shared across tenants?                                             |
-| Q02 | Which fields and states define ordinary users and memberships, and what are the disable, re-enable, removal, credential-initiation, and session effects? |
-| Q03 | What are the provisioning-job payload, trusted result, retry, deduplication, concurrency, API, failure, and retention contracts?                         |
-| Q04 | Which binding and business-record types can be requested, and what identifiers must the receiving workflow return?                                       |
+None.

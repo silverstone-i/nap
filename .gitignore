@@ -21,3 +21,4 @@ vite.config.js.timestamp-*
 *.swp
 *.swo
 *.code-workspace
+/temp/

@@ -3,7 +3,7 @@
 ## Purpose
 
 This roadmap records NAP's implementation order, current progress, and
-verification evidence. It covers the modules, features, workflows, and UI
+verification evidence. It covers the modules, capabilities, workflows, and UI
 defined by the current architecture.
 
 Update this document when work starts, becomes blocked, or is verified as
@@ -32,7 +32,7 @@ Use one status for each roadmap item:
 
 ## Incremental UI Strategy
 
-The UI grows with the features and modules it exposes. NAP will not build a
+The UI grows with the capabilities and modules it exposes. NAP will not build a
 complete frontend before the underlying behavior, and it will not postpone all
 UI work until the backend is complete.
 
@@ -88,9 +88,9 @@ tenant, and enter the application shell.
 |     9 | Tenant access-control data | `M0003: Access Control` | Role, permission, assignment, and access-scope administration  | Not started |          |
 |    10 | RBAC decision model        | `C0003: RBAC`           | Permission-aware routes, navigation, actions, and denied state | Not started |          |
 
-Design these two PRDs together. The feature defines authorization decisions;
+Design these two PRDs together. The capability defines authorization decisions;
 the module defines the tenant-owned records used by those decisions. Implement
-the data contract before the feature relies on it for tenant authorization.
+the data contract before the capability relies on it for tenant authorization.
 
 Phase 2 is complete when server-side authorization and UI visibility use the
 same accepted decision model, while the server remains authoritative.
@@ -159,76 +159,6 @@ accepted accounting rules and can be reconciled to ledger balances.
 
 Phase 8 is complete when authorized users can view tenant-safe reports whose
 figures reconcile to the owning modules.
-
-## Admin Tenancy Work Units
-
-[M0001: Admin Tenancy](../PRDs/modules/M0001-admin-tenancy.md) is a family of
-independently accepted admin deliverables. Its phase-1 entry starts with the
-foundation; it does not require all 12 units to finish before authentication
-work can start. Work-unit numbers are not a strict delivery sequence. The
-parent Admin tenancy item is complete when all 12 admin work units are complete;
-the receiving cell and application milestones retain their own acceptance.
-
-Each row becomes complete only when its accepted admin contract, including
-applicable cache and event integration, is verified. Physical cell work is
-tracked under the receiving deliverables below. Drafting these documents does
-not change implementation progress.
-
-| Unit | Deliverable                                      | PRD                                                                                                   | UI increment                                                 | Status      | Evidence |
-| ---: | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ----------- | -------- |
-|    1 | Admin: Tenant and Portal-User Foundation         | [M0001-01](../PRDs/modules/M0001-admin-tenancy/M0001-01-tenant-and-portal-user-foundation.md)         | None; internal foundation                                    | Not started |          |
-|    2 | Admin: Root-User Provisioning                    | [M0001-02](../PRDs/modules/M0001-admin-tenancy/M0001-02-root-user-provisioning.md)                    | None; operator command                                       | Not started |          |
-|    3 | Admin: Authentication                            | [M0001-03](../PRDs/modules/M0001-admin-tenancy/M0001-03-authentication.md)                            | Login and password-change flow through C0001                 | Not started |          |
-|    4 | Admin: Session Management                        | [M0001-04](../PRDs/modules/M0001-admin-tenancy/M0001-04-session-management.md)                        | Restore/logout/expiry through C0002                          | Not started |          |
-|    5 | Admin: Authorization                             | [M0001-05](../PRDs/modules/M0001-admin-tenancy/M0001-05-authorization.md)                             | Platform-access administration through C0003                 | Not started |          |
-|    6 | Admin: Cell Management                           | [M0001-06](../PRDs/modules/M0001-admin-tenancy/M0001-06-cell-management.md)                           | Cell controls and progress through W0002                     | Not started |          |
-|    7 | Admin: Tenant Creation                           | [M0001-07](../PRDs/modules/M0001-admin-tenancy/M0001-07-tenant-creation.md)                           | Tenant creation through W0001                                | Not started |          |
-|    8 | Admin: Portal-User and Membership Administration | [M0001-08](../PRDs/modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md) | User/membership administration through the exposing workflow | Not started |          |
-|    9 | Admin: Tenant Selection and Support Access       | [M0001-09](../PRDs/modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md)       | Tenant selection through C0002; support flow through C0003   | Not started |          |
-|   10 | Admin: Module Entitlements                       | [M0001-10](../PRDs/modules/M0001-admin-tenancy/M0001-10-module-entitlements.md)                       | Entitlement administration through the exposing feature      | Not started |          |
-|   11 | Admin: Cache Consistency                         | [M0001-11](../PRDs/modules/M0001-admin-tenancy/M0001-11-cache-consistency.md)                         | None; internal consistency                                   | Not started |          |
-|   12 | Admin: Administrative Events                     | [M0001-12](../PRDs/modules/M0001-admin-tenancy/M0001-12-administrative-events.md)                     | Authorized history through the exposing admin UI             | Not started |          |
-
-Define units 11 and 12 early enough for their consumers to meet their cache and
-event requirements. Resolve the identity, credential, and initial-authority
-contracts before bootstrap; resolve session, membership, and platform-access
-contracts before tenant selection or support integration.
-
-### Feature And Workflow Ownership
-
-| Existing deliverable              | Admin contract to reference      | Remaining delivery                                                                  |
-| --------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------- |
-| C0001: Authentication             | M0001-03                         | Application login/password-change flow, UI, and session integration                 |
-| C0002: Session Management         | M0001-04 and M0001-09            | Browser restoration/logout/selection, shell context, and runtime integration        |
-| C0003: RBAC                       | M0001-05 and M0001-09            | Broader authorization decisions, cell-role integration, and permission-aware UI     |
-| W0002: Cell Provisioning          | M0001-06                         | Physical setup through activation, runtime readiness, recovery, and operator UI     |
-| W0001: Tenant Provisioning        | M0001-07 and M0001-08            | Assignment, projections, business identities, activation, recovery, and operator UI |
-| W0003: Projection Synchronization | M0001-08, M0001-10, and M0001-11 | Delivery, reconciliation, and freshness across admin and cells                      |
-
-These planned documents own integration behavior, not a second definition of the
-admin requirements. Module and application code placement remains unchanged.
-
-### Admin-To-Cell Integration Dependencies
-
-All receiving work below is not started. The referenced roadmap deliverable owns
-its completion evidence; successful admin tests do not satisfy that evidence.
-
-| Admin source | Receiving deliverable                                             | Integration to implement and verify                                                                                  |
-| ------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Units 01–04  | None                                                              | Foundation, bootstrap, authentication, and session persistence have no cell dependency                               |
-| Unit 05      | Cell tenancy, Tenant access-control data, and RBAC decision model | Seed applicable roles into `cell.roles`; settle cell-role ownership; assign `tenant_admin` and custom roles in cells |
-| Unit 06      | Cell provisioning and runtime infrastructure                      | Create, migrate, verify, and activate the physical database; publish runtime readiness                               |
-| Unit 07      | Tenant provisioning, Cell tenancy, and Projection synchronization | Assign cells, project `cell.tenants`, provision, activate, and synchronize status                                    |
-| Unit 08      | Tenant provisioning, Cell tenancy, and Business directory         | Establish `cell.tenant_user_bindings` and employee, client, vendor, or vendor-contact records                        |
-| Unit 09      | Session management and tenant selection; RBAC decision model      | Open and authorize the selected or support tenant transaction in the assigned cell                                   |
-| Unit 10      | Cell tenancy, Projection synchronization, and RBAC decision model | Populate `cell.entitlement_projections` and enforce entitlements in cells                                            |
-| Unit 11      | Cell tenancy and Projection synchronization                       | Define cell-local cache revisions and invalidation guarantees                                                        |
-| Unit 12      | Each receiving cell module                                        | Define and verify cell-local audit events where required                                                             |
-
-The work breakdown's “Core” identity dependency maps to the current
-`business-directory` module. The exact cell-role and binding contracts remain
-receiving-owner decisions; these draft admin PRDs do not silently change the
-module map or cell schema ownership.
 
 ## Progress Log
 

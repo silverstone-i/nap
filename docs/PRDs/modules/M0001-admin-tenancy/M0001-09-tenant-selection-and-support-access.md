@@ -2,151 +2,124 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Type                 | Module work unit                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                                                                                                                                                                                                                                                |
-| Owner                | To be confirmed                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Related architecture | [BFF](../../../architecture/bff.md), [Admin and cells](../../../architecture/admin-cells.md)                                                                                                                                                                                                                                                                                                                                     |
-| Related PRDs         | [M0001-04: Session Management](M0001-04-session-management.md), [M0001-05: Authorization](M0001-05-authorization.md), [M0001-07: Tenant Creation](M0001-07-tenant-creation.md), [M0001-08: Portal-User and Membership Administration](M0001-08-portal-user-and-membership-administration.md), [M0001-11: Cache Consistency](M0001-11-cache-consistency.md), [M0001-12: Administrative Events](M0001-12-administrative-events.md) |
-| Related decisions    | None recorded separately; unresolved decisions are in section 14                                                                                                                                                                                                                                                                                                                                                                 |
-| Last reviewed        | 2026-09-18                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Field                | Value                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| Status               | Draft                                                                                        |
+| Type                 | Module work unit                                                                             |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                            |
+| Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md) |
+| Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md)            |
+| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data           |
+| Last reviewed        | 2026-09-18                                                                                   |
 
 ## 2. Purpose
 
-Validate central tenant membership, record an authorized tenant selection in a
-session, and control support access or impersonation with clear actor attribution.
+Select a tenant for normal work and create controlled, attributed platform
+operator access to tenant context.
 
 ## 3. Scope
 
 ### Included
 
-- Membership-based tenant selection and changes to session tenant context.
-- Central permission checks for support access or impersonation.
-- Entry, exit, and attribution of any approved support context.
+- Listing and selecting eligible memberships.
+- Entering and exiting support context.
+- Optional effective-user attribution during support access.
 
 ### Excluded
 
-- Creating sessions, users, memberships, or platform-role assignments.
-- Opening tenant database transactions and enforcing cell-local permissions.
-- Defining an unrestricted support bypass or automatic tenant membership.
+- Session creation and base expiry.
+- Opening the cell transaction.
+- Cell-side permission evaluation.
 
 ## 4. Actors And Permissions
 
-| Context                 | Actor                     | Required state or authority                                 | Result                                                |
-| ----------------------- | ------------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
-| Select tenant normally  | Authenticated portal user | Eligible membership and tenant under Q01                    | Record selected tenant                                |
-| Select unrelated tenant | Authenticated portal user | No eligible membership and no approved support authority    | Deny                                                  |
-| Begin support access    | Authenticated operator    | Matching explicit platform capability and Q02 prerequisites | Establish the approved support context                |
-| Begin impersonation     | Authenticated operator    | Explicit impersonation rules, target, and authorization     | Establish attributed context only if the rules permit |
-| End support context     | Authorized session actor  | Existing support context                                    | Remove it according to the restoration contract       |
-
-Holding `support` or `platform_admin` alone does not resolve the action catalogue
-or impersonation rules. Unit 5 supplies assignments; Q02 establishes permitted
-support actions.
+| Actor            | Target                           | Result                             |
+| ---------------- | -------------------------------- | ---------------------------------- |
+| Portal user      | Own active, ready membership     | Select tenant                      |
+| `platform_admin` | Any active, ready tenant         | Enter support context              |
+| `support`        | Active, ready non-Napsoft tenant | Enter support context              |
+| `support`        | Napsoft tenant                   | Deny without returning tenant data |
 
 ## 5. Concepts And Terminology
 
-| Term             | Meaning                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| Tenant selection | Central decision attaching an authorized tenant to a session                              |
-| Support access   | Approved operator access to a tenant outside ordinary membership use                      |
-| Impersonation    | Approved operation using another user's effective identity while retaining the real actor |
-| Real actor       | Portal user who authenticated and initiated the action                                    |
-| Effective actor  | Identity whose permissions apply during an approved impersonation context                 |
+| Term            | Meaning                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| Selected tenant | Tenant stored in the session for later routing                                               |
+| Support context | Time-limited platform access attributed to the real operator                                 |
+| Effective user  | Optional tenant member whose authorization context is used while retaining the real operator |
 
 ## 6. Functional Requirements
 
-- M0001-09-R001: Normal tenant selection must validate the authenticated user's central membership and the target tenant's eligibility before changing session context.
-- M0001-09-R002: A failed selection must leave the existing session tenant context unchanged.
-- M0001-09-R003: Support access or impersonation must require explicit authorization and the agreed entry conditions; it must not be inferred from a supplied tenant or user ID.
-- M0001-09-R004: Approved support context must retain the real actor, target tenant, and effective actor where impersonation applies.
-- M0001-09-R005: The module must support ending approved support context and applying the agreed restoration or termination result.
+- M0001-09-R001: Normal selection must validate the current user's active, ready membership and the tenant's routing eligibility before changing the session.
+- M0001-09-R002: Failed selection must leave the existing session unchanged.
+- M0001-09-R003: Support entry must require `admin-tenancy::access::support`, a target tenant, and a reason; support-role entry must reject the Napsoft tenant.
+- M0001-09-R004: Support context must retain the real actor, tenant, optional effective user, reason, and expiry.
+- M0001-09-R005: Exit must remove support context, return to a platform session, and rotate the session token.
 
 ## 7. Business Rules And Invariants
 
-- M0001-09-R006: Central selection must return enough validated context for later routing without allowing the browser to choose a database or cell connection.
-- M0001-09-R007: Selecting a tenant centrally must not claim that a tenant transaction has opened or that cell-local authorization succeeded.
+- M0001-09-R006: The API resolves the cell from the tenant record; callers never supply a database or connection.
+- M0001-09-R007: Central selection does not claim that a cell transaction opened or that cell-side authorization passed.
 
-[M0001-04: Session Management](M0001-04-session-management.md) owns session validity and storage. Tenant readiness, membership states,
-and central behavior when no usable assignment exists remain open in Q01.
-The admin deliverable includes making that decision; the transaction it enables
-belongs to later integration.
+Normal selection requires an active, ready membership; an active, provisioned,
+RBAC-ready tenant; an assigned enabled cell; and runtime readiness. An unavailable
+runtime cell returns `503 CELL_UNAVAILABLE` without changing the session.
+
+Support access lasts at most 60 minutes and cannot outlive the session. Reason
+is trimmed and contains 10–512 characters. An effective user, when supplied,
+must be active and have an active, ready membership in the target tenant.
+Support contexts cannot nest or switch tenants; exit first.
 
 ## 8. Lifecycle And State Transitions
 
-| Starting context       | Request                     | Central outcome                       |
-| ---------------------- | --------------------------- | ------------------------------------- |
-| Valid ordinary session | Eligible tenant selection   | Selected tenant recorded              |
-| Valid session          | Ineligible tenant selection | Rejection; previous context preserved |
-| Valid operator session | Approved support entry      | Attributed support context            |
-| Support context        | Approved exit               | Restoration or termination under Q03  |
-| Any context            | Session loses validity      | Unit 4 lifecycle applies              |
-
-Whether tenant switching is allowed during support, whether nesting is allowed,
-and how role or membership changes terminate context are open in Q03.
+| State               | Action                         | Result                                         |
+| ------------------- | ------------------------------ | ---------------------------------------------- |
+| Platform session    | Select own tenant              | Normal tenant session and rotated token        |
+| Platform session    | Enter support                  | Time-limited support session and rotated token |
+| Tenant session      | Select another eligible tenant | New normal tenant session and rotated token    |
+| Support session     | Enter or select                | Reject; exit first                             |
+| Support session     | Exit or access expiry          | Platform session and rotated token             |
+| Eligibility removed | Resolve                        | Revoke the affected session                    |
 
 ## 9. Data Requirements
 
-| Table                       | Use in this work unit                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------- |
-| `admin.sessions`            | Persist selected tenant and agreed support attribution; base schema owned by unit 4 |
-| `admin.portal_user_tenants` | Read membership eligibility; schema and maintenance owned by units 1 and 8          |
-| `admin.tenants`             | Read central eligibility and assignment context                                     |
-| `admin.platform_roles`      | Read operator assignments through unit 5                                            |
-
-Selected-tenant and support fields extend `sessions`; exact columns and history
-requirements are open in Q03. Selection does not rewrite membership or platform
-assignments. Support attribution is sensitive administrative data.
+This work unit reads tenants, memberships, platform roles, and cells and updates
+`admin.sessions`. M0001-00 defines all schema fields.
 
 ## 10. API Requirements
 
-| Operation               | Input                                                          | Result                                |
-| ----------------------- | -------------------------------------------------------------- | ------------------------------------- |
-| List selectable tenants | Valid session                                                  | Centrally permitted choices under Q01 |
-| Select tenant           | Valid session and tenant identity                              | Updated central context or rejection  |
-| Enter support context   | Valid operator session, tenant, and any approved target/reason | Attributed context or rejection       |
-| Exit support context    | Valid session and authorized exit request                      | Context restored or ended             |
+| Method and route                              | Request                              | Result                                     |
+| --------------------------------------------- | ------------------------------------ | ------------------------------------------ |
+| `GET /api/admin-tenancy/v1/access/tenants`    | Current session                      | Eligible tenant views                      |
+| `POST /api/admin-tenancy/v1/access/select`    | `{ tenant }`                         | Selected tenant context and rotated cookie |
+| `POST /api/admin-tenancy/v1/access/support`   | `{ tenant, reason, effectiveUser? }` | Support context and rotated cookie         |
+| `DELETE /api/admin-tenancy/v1/access/support` | Current support session              | Platform context and rotated cookie        |
 
-HTTP routes, public response/error fields, retry handling, concurrent switches,
-and session rotation during entry/exit are open in Q03.
+Invalid input returns `400`; missing records `404`; ineligible membership or
+authority `403`; invalid transitions `409`; unavailable cell `503`.
 
 ## 11. Cross-Module Interactions
 
-[M0001-04: Session Management](M0001-04-session-management.md) supplies session lifecycle, [M0001-05: Authorization](M0001-05-authorization.md) platform assignments, and [M0001-08: Portal-User and Membership Administration](M0001-08-portal-user-and-membership-administration.md)
-membership state. C0002: Session Management owns selection UI and C0003: RBAC
-owns the broader support and tenant authorization integration.
-
-The receiving runtime work opens and authorizes the transaction in the assigned
-cell. Central tests use assignment and eligibility fixtures; real cell routing
-requires separate integration evidence.
+M0001-04 owns token handling. Runtime routing uses the resolved cell UUID. The
+receiving cell rechecks tenant availability, entitlements, and effective-user
+permissions before beginning work.
 
 ## 12. Security And Audit
 
-- M0001-09-R008: Support and impersonation actions must retain real-actor attribution for the administrative event contract.
-
-[M0001-12: Administrative Events](M0001-12-administrative-events.md) owns the event fields and required catalogue. [M0001-11: Cache Consistency](M0001-11-cache-consistency.md) owns invalidation
-when membership, platform roles, or routing context changes. Consent, reasons,
-duration limits, and support data restrictions remain open in Q02.
+Entry, denial, exit, expiry, and every action performed in support context retain
+the real operator. Events also record tenant, effective user, reason, session,
+outcome, and request ID without session credentials.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                        | Requirements                                                                                                                                           |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AC01      | Eligible membership selection succeeds; missing or ineligible membership is rejected.                                                                  | M0001-09-R001                                                                                                                                          |
-| AC02      | A rejected switch preserves the prior session context.                                                                                                 | M0001-09-R002                                                                                                                                          |
-| AC03      | Unauthorized support or impersonation requests fail; approved requests satisfy all agreed access rules.                                                | M0001-09-R003                                                                                                                                          |
-| AC04      | Entry records real actor, tenant, and any effective actor; exit follows the agreed restoration rule.                                                   | M0001-09-R004, M0001-09-R005                                                                                                                           |
-| AC05      | Client-supplied cell or database choices cannot override validated central context.                                                                    | M0001-09-R006                                                                                                                                          |
-| AC06      | Central success does not assert successful cell transaction or authorization.                                                                          | M0001-09-R007                                                                                                                                          |
-| AC07      | Support event input preserves the real actor across entry, actions, and exit.                                                                          | M0001-09-R008                                                                                                                                          |
-| AC08      | Applicable source mutations invalidate their cached decisions and record the required catalogue events; failures follow the accepted shared contracts. | [M0001-11-R002](M0001-11-cache-consistency.md#6-functional-requirements), [M0001-12-R001](M0001-12-administrative-events.md#6-functional-requirements) |
+| Criterion | Required result                                                                                     | Requirements                 |
+| --------- | --------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Only eligible memberships and tenants can be selected; failure preserves the session.               | M0001-09-R001, M0001-09-R002 |
+| AC02      | Browser-supplied database or cell values cannot influence routing.                                  | M0001-09-R006                |
+| AC03      | Support entry enforces capability, reason, duration, effective-user checks, and the Napsoft denial. | M0001-09-R003, M0001-09-R004 |
+| AC04      | Entry and exit rotate the token, prevent nesting, and preserve real-actor attribution.              | M0001-09-R004, M0001-09-R005 |
+| AC05      | Central success never reports cell-side authorization success.                                      | M0001-09-R007                |
 
-## 14. Open Questions
+## 14. Outstanding Questions
 
-| ID  | Decision required before acceptance                                                                                                           |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q01 | Which membership and tenant states permit selection, including pending, unassigned, disabled, or unavailable targets?                         |
-| Q02 | Is support access distinct from impersonation, and what capabilities, consent, reason, duration, target, and data restrictions apply to each? |
-| Q03 | What session fields, routes, response schemas, rotation, retry, concurrency, nesting, switching, exit, and revocation rules apply?            |
+None.

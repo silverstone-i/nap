@@ -2,138 +2,122 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                            |
-| Type                 | Module work unit                                                                                                                                                                                                                                                                                                                                 |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                                                                                                                                                                |
-| Owner                | To be confirmed                                                                                                                                                                                                                                                                                                                                  |
-| Related architecture | [Module map](../../../architecture/module-map.md)                                                                                                                                                                                                                                                                                                |
-| Related PRDs         | [M0001-01: Tenant and Portal-User Foundation](M0001-01-tenant-and-portal-user-foundation.md), [M0001-05: Authorization](M0001-05-authorization.md), [M0001-07: Tenant Creation](M0001-07-tenant-creation.md), [M0001-11: Cache Consistency](M0001-11-cache-consistency.md), [M0001-12: Administrative Events](M0001-12-administrative-events.md) |
-| Related decisions    | None recorded separately; unresolved decisions are in section 14                                                                                                                                                                                                                                                                                 |
-| Last reviewed        | 2026-09-18                                                                                                                                                                                                                                                                                                                                       |
+| Field                | Value                                                                            |
+| -------------------- | -------------------------------------------------------------------------------- |
+| Status               | Draft                                                                            |
+| Type                 | Module work unit                                                                 |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                |
+| Related architecture | [Module map](../../../architecture/module-map.md)                                |
+| Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-11](M0001-11-cache-consistency.md) |
+| Related decisions    | None                                                                             |
+| Last reviewed        | 2026-09-18                                                                       |
 
 ## 2. Purpose
 
-Store which modules each tenant may use and expose that central entitlement
-state to authorized admin operations and later cell projections.
+Control which optional product modules each tenant may use.
 
 ## 3. Scope
 
 ### Included
 
-- Central module-entitlement schema, validation, reads, and changes.
-- Tenant/module relationships and entitlement state.
-- The source-data contract for later projection work.
+- Central entitlement reads, grants, and withdrawals.
+- The module catalogue used for validation.
+- Source data for cell entitlement projection.
 
 ### Excluded
 
-- `cell.entitlement_projections` and cell-side enforcement.
-- Billing, commercial plan calculations, and implicit tier-to-module mappings.
-- Tenant roles or user-specific permissions.
+- Table definitions and migrations.
+- Cell projection delivery and cell-side enforcement.
+- Platform roles and tenant role assignments.
 
 ## 4. Actors And Permissions
 
-| Context                                          | Actor                                        | Required authority or condition               | Result                                          |
-| ------------------------------------------------ | -------------------------------------------- | --------------------------------------------- | ----------------------------------------------- |
-| Read or change tenant entitlement                | Operator                                     | Matching platform capability and tenant scope | Return or apply valid central entitlement state |
-| Consume entitlement data                         | Authorized application or projection service | Trusted internal context                      | Read central source data                        |
-| Change entitlement using tenant membership alone | Portal user                                  | No matching administrative grant              | Deny                                            |
-| Grant unknown module                             | Any caller                                   | Module identity is invalid                    | Reject under the agreed module catalogue        |
-
-Capability keys and any tenant self-service read rights remain open in Q01.
+| Actor            | Target             | Result                      |
+| ---------------- | ------------------ | --------------------------- |
+| `platform_admin` | Any tenant         | Read or change entitlements |
+| `support`        | Non-Napsoft tenant | Read or change entitlements |
+| `tenant_admin`   | Own tenant         | Read entitlements only      |
+| Any actor        | Unknown module     | Reject                      |
 
 ## 5. Concepts And Terminology
 
-| Term                   | Meaning                                                                       |
-| ---------------------- | ----------------------------------------------------------------------------- |
-| Module entitlement     | Tenant-level permission to use a module                                       |
-| Module identity        | Stable name or identifier from the accepted module catalogue                  |
-| Entitlement projection | Cell-local representation of central entitlement state                        |
-| User permission        | Authorization for an actor's action; distinct from tenant module availability |
+| Term             | Meaning                                                                 |
+| ---------------- | ----------------------------------------------------------------------- |
+| Entitlement      | Central decision that an optional module is enabled for a tenant        |
+| Mandatory module | Infrastructure module always available and not stored as an entitlement |
+| Catalogue        | Fixed list of optional module names accepted by this API                |
 
 ## 6. Functional Requirements
 
-- M0001-10-R001: The module must persist central tenant/module entitlements in `admin.module_entitlements`.
-- M0001-10-R002: Authorized consumers must be able to determine a tenant's central entitlement state for a module and inspect its entitlement records.
-- M0001-10-R003: Authorized administration must support granting and withdrawing module use under the agreed entitlement lifecycle.
-- M0001-10-R004: Central entitlement operations must not require a cell projection to exist or succeed.
+- M0001-10-R001: The module must store one current entitlement per tenant and optional module.
+- M0001-10-R002: Authorized callers must read one entitlement or list all entitlement states for a tenant.
+- M0001-10-R003: Authorized callers must grant and withdraw optional module use idempotently.
+- M0001-10-R004: Central changes must commit without a cell connection or projection result.
+
+The optional catalogue is `business-directory`, `companies`, `catalog`,
+`projects`, `cost-codes`, `estimating`, `scheduling`, `project-costs`, `sales`,
+`contracts`, `accounting`, `accounts-payable`, and `accounts-receivable`.
+
+`cell-tenancy`, `reference-data`, `access-control`, `tenant-settings`, and
+`reporting` are mandatory infrastructure modules and do not have entitlement rows.
 
 ## 7. Business Rules And Invariants
 
-- M0001-10-R005: Entitlement records must reference an existing central tenant and a valid module identity under the agreed catalogue contract.
-- M0001-10-R006: An entitlement change must not itself grant platform roles or tenant-user permissions.
+- M0001-10-R005: Entitlements must reference an existing unarchived tenant and a module in the optional catalogue.
+- M0001-10-R006: Entitlement changes must not grant platform roles, tenant roles, or user permissions.
 
-Default entitlements, absence semantics, mandatory modules, effective dates, and
-whether withdrawal changes state or removes a row remain open in Q02. No tier
-mapping is inferred from tenant registration metadata.
+An absent row means disabled. Grant creates the row or sets `enabled = true`.
+Withdrawal sets `enabled = false`; it does not delete the row. Each actual state
+change increments `revision`; repeating the current state returns it unchanged.
+Concurrent changes lock the row, so the last committed request determines state.
 
 ## 8. Lifecycle And State Transitions
 
-| Operation           | Central outcome                      | Cell outcome                               |
-| ------------------- | ------------------------------------ | ------------------------------------------ |
-| Grant module use    | Persist the agreed entitled state    | Projection handled separately              |
-| Withdraw module use | Persist the agreed withdrawal result | Enforcement propagation handled separately |
-| Read entitlement    | Return central state                 | No assertion about projection freshness    |
-
-Exact stored states, repeat changes, scheduled changes, and restoration behavior
-require Q02–Q03.
+| State              | Action   | Result                                          |
+| ------------------ | -------- | ----------------------------------------------- |
+| Absent or disabled | Grant    | Enabled entitlement; revision increments        |
+| Enabled            | Grant    | No change                                       |
+| Enabled            | Withdraw | Disabled entitlement; revision increments       |
+| Absent or disabled | Withdraw | Disabled result; no unnecessary row for absence |
 
 ## 9. Data Requirements
 
-| Table                       | Required meaning                                                          | Access and sensitivity                                        |
-| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `admin.module_entitlements` | Central tenant reference, module identity, and entitlement representation | Lookup by tenant/module; list by tenant; access configuration |
-
-The authoritative module catalogue, key types, tenant/module uniqueness,
-change metadata, deletion, and retention are open in Q01–Q03. The database
-representation does not require a cross-database reference to a projection.
+This work unit uses `admin.module_entitlements`. M0001-00 defines its schema and
+tenant/module uniqueness.
 
 ## 10. API Requirements
 
-| Operation                | Input                                      | Result                                          |
-| ------------------------ | ------------------------------------------ | ----------------------------------------------- |
-| Read tenant entitlements | Authorized tenant identity                 | Central records and agreed state interpretation |
-| Grant or withdraw        | Actor, tenant, module, and intended change | Persisted outcome or rejection                  |
-| Supply projection data   | Trusted request for source state           | Data required by W0003's agreed contract        |
+| Method and route                                                    | Capability                           | Result                                               |
+| ------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------- |
+| `GET /api/admin-tenancy/v1/tenants/:tenant/entitlements`            | `admin-tenancy::entitlements::read`  | Full catalogue with effective booleans and revisions |
+| `PUT /api/admin-tenancy/v1/tenants/:tenant/entitlements/:module`    | `admin-tenancy::entitlements::write` | Enabled state                                        |
+| `DELETE /api/admin-tenancy/v1/tenants/:tenant/entitlements/:module` | `admin-tenancy::entitlements::write` | Disabled state                                       |
 
-Methods, routes, payloads, error codes, idempotency, and competing updates remain
-open in Q03. A mutation response reports central persistence, not successful
-cell-side enforcement.
+Unknown tenants or modules return `404`; unauthorized or Napsoft support targets
+return `403`. Grant and withdrawal return `200`, including repeated requests.
 
 ## 11. Cross-Module Interactions
 
-[M0001-01: Tenant and Portal-User Foundation](M0001-01-tenant-and-portal-user-foundation.md) and [M0001-07: Tenant Creation](M0001-07-tenant-creation.md) supply tenant identity; [M0001-05: Authorization](M0001-05-authorization.md) supplies operator authority.
-[M0001-11: Cache Consistency](M0001-11-cache-consistency.md) defines central entitlement-cache invalidation.
-
-M0002: Cell Tenancy owns the future `cell.entitlement_projections` contract.
-W0003: Projection Synchronization owns delivery and reconciliation, and the
-receiving cell authorization work owns enforcement.
+The projection workflow reads the complete source state and applies it in the
+cell. Central success means only that the source changed. Projection status does
+not change the entitlement row.
 
 ## 12. Security And Audit
 
-- M0001-10-R007: Entitlement reads and changes must enforce the caller's authorized tenant scope.
-
-[M0001-12: Administrative Events](M0001-12-administrative-events.md) defines the grant/withdrawal event contract. Projection lag and loss of
-module access require later integration acceptance; central tests must not be
-reported as proof that access was removed in every cell.
+Grant and withdrawal record actor, tenant, module, prior state, resulting state,
+revision, and outcome. The source mutation and cache revision advance commit in
+one transaction.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                        | Requirements                                                                                                                                           |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AC01      | Central entitlements persist and can be inspected by tenant and module.                                                                                | M0001-10-R001, M0001-10-R002                                                                                                                           |
-| AC02      | Authorized grant and withdrawal follow the agreed lifecycle, including repeats and races.                                                              | M0001-10-R003                                                                                                                                          |
-| AC03      | Central changes work without cell databases or projections.                                                                                            | M0001-10-R004                                                                                                                                          |
-| AC04      | Unknown tenants and invalid module identities are rejected.                                                                                            | M0001-10-R005                                                                                                                                          |
-| AC05      | Entitlement changes do not create role assignments or user permissions.                                                                                | M0001-10-R006                                                                                                                                          |
-| AC06      | Out-of-scope reads and changes are rejected.                                                                                                           | M0001-10-R007                                                                                                                                          |
-| AC07      | Applicable source mutations invalidate their cached decisions and record the required catalogue events; failures follow the accepted shared contracts. | [M0001-11-R002](M0001-11-cache-consistency.md#6-functional-requirements), [M0001-12-R001](M0001-12-administrative-events.md#6-functional-requirements) |
+| Criterion | Required result                                                                        | Requirements                 |
+| --------- | -------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Reads return the effective state for every optional module and reject unknown tenants. | M0001-10-R001, M0001-10-R002 |
+| AC02      | Grant, withdrawal, repeats, and competing updates follow the revision rules.           | M0001-10-R003, M0001-10-R005 |
+| AC03      | Central changes work without a cell and do not claim projection success.               | M0001-10-R004                |
+| AC04      | Entitlement changes grant no role or permission.                                       | M0001-10-R006                |
+| AC05      | Support cannot read or change Napsoft entitlements.                                    | M0001-10-R002, M0001-10-R003 |
 
-## 14. Open Questions
+## 14. Outstanding Questions
 
-| ID  | Decision required before acceptance                                                                                             |
-| --- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Q01 | Which module catalogue and operator capabilities apply, and who can read tenant entitlements?                                   |
-| Q02 | What do absent records mean, which modules are mandatory or default, and what grant/withdrawal states or effective dates exist? |
-| Q03 | What are the schema uniqueness, APIs, concurrency, repeated-change, history, retention, and projection-source contracts?        |
+None.
