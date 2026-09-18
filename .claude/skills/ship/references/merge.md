@@ -118,7 +118,7 @@ Deleting any other branch requires the user asking for that branch by name in
 their current message. Tidying up branches is not part of `ship` and is never
 offered as a follow-on to a successful merge.
 
-## Reconcile capability verification before merge
+## Reconcile feature verification before merge
 
 For a PR governed by an owning roadmap, PRD, or implementation plan, inspect
 those documents before merging. Confirm the promised scope is complete and
@@ -132,7 +132,7 @@ Commit and push any documentation corrections on the PR branch, run applicable
 local checks, and wait for required CI on the new head before merging. Shipping
 authorization covers this reconciliation; no separate approval is needed. After
 merge, confirm the merged status and CI satisfy the recorded condition. Do not
-leave routine capability verification for a follow-up documentation PR.
+leave routine feature verification for a follow-up documentation PR.
 
 ## Resolve the cleanup targets before merge
 

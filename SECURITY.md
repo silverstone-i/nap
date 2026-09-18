@@ -1,4 +1,4 @@
-# Security Policy
+# Security Reporting
 
 NAP is pre-release. Only the current `main` branch receives security fixes.
 

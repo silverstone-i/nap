@@ -14,15 +14,18 @@ PRDs are grouped by what they describe:
 docs/PRDs/
 |-- modules/
 |   `-- M0001-admin-tenancy.md
-|-- capabilities/
+|-- features/
 |   `-- C0001-authentication.md
 `-- workflows/
     `-- W0001-tenant-provisioning.md
 ```
 
 - Module PRDs define an area that owns tables and module-specific rules.
-- Capability PRDs define application behavior that may use several modules.
+- Feature PRDs define application behavior that may use several modules.
 - Workflow PRDs define sequencing across modules or infrastructure.
+
+Feature PRDs retain the `C` identifier prefix. "Capability" is reserved for
+authorization identifiers in `module::router::action` form.
 
 Each category has its own four-digit sequence. Numbers identify documents; they
 do not set implementation order.
@@ -60,7 +63,8 @@ and tests have been verified.
 
 ## Required Format
 
-Every PRD follows the sections in [TEMPLATE.md](TEMPLATE.md), in this order:
+Every standalone or work-unit PRD follows the sections in
+[TEMPLATE.md](TEMPLATE.md), in this order:
 
 1. Document Control
 2. Purpose
@@ -89,6 +93,7 @@ Give every normative requirement a stable identifier based on its PRD:
 
 ```text
 M0001-R001
+M0001-01-R001
 C0002-R001
 W0001-R001
 ```
@@ -115,7 +120,7 @@ requirement instead of restating it.
 For example:
 
 - a module PRD owns its stored data and module invariants;
-- a capability PRD owns behavior that uses module data;
+- a feature PRD owns behavior that uses module data;
 - a workflow PRD owns cross-module sequencing, retry, and failure recovery.
 
 Large PRDs may use supporting chapters:
@@ -131,6 +136,41 @@ The numbered PRD remains authoritative. A supporting chapter must link to its
 parent, inherits the parent's status, and must not introduce a requirement that
 the parent does not reference. Split a chapter only when the material becomes
 difficult to review in the parent document.
+
+### Independently Delivered Work Units
+
+A module with independently accepted deliverables can use a family overview
+and work-unit PRDs:
+
+```text
+modules/
+|-- M0001-admin-tenancy.md
+`-- M0001-admin-tenancy/
+    |-- M0001-01-tenant-and-portal-user-foundation.md
+    `-- M0001-02-root-user-provisioning.md
+```
+
+The overview records document control, purpose, boundaries, table ownership,
+the work-unit index, and dependencies. It does not repeat detailed requirements
+and is exempt from the 14-section template. Its status describes acceptance of
+the family boundaries; delivery progress belongs in the roadmap.
+
+Each work-unit PRD follows the full template, owns its requirements, and has
+its own status. Accepting the overview does not accept its work units. These
+documents are not supporting chapters and do not inherit the overview's status.
+Use identifiers such as `M0001-01` and `M0001-01-R001`; work-unit numbers do not
+define implementation order.
+
+A work unit can own the admin-side contract of a feature or workflow.
+The feature or workflow PRD references that contract and owns the remaining
+application behavior, UI, and cross-module integration. This grouping does not
+change module or application code placement.
+
+Record external dependencies in the work-unit PRD and assign their delivery to
+the receiving roadmap item. Complete admin behavior and its integration
+interface can be verified independently; verification of that interface does
+not establish that the external integration is implemented. Unresolved local
+requirements still block acceptance of the affected work unit.
 
 ## Writing And Review
 

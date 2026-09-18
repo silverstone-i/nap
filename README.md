@@ -47,10 +47,10 @@ infrastructure.
 
 Contributions are welcome. Every commit must carry a Signed-off-by: trailer
 asserting the Developer Certificate of Origin (DCO 1.1). See COLLABORATION.md
-for details and the dependency policy.
+for details and the dependency rules.
 
 The maintainer (Ian Silverstone) has sole enforcement authority over project
-policy.
+rules.
 
 ## Copyright
 

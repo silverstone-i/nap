@@ -2,15 +2,17 @@
 
 ## 1. Document Control
 
-| Field                | Value                                      |
-| -------------------- | ------------------------------------------ |
-| Status               | Draft                                      |
-| Type                 | Module, capability, or workflow            |
-| Owner                | <owner>                                    |
-| Related architecture | <links or `None`>                          |
-| Related PRDs         | <identifiers, titles, and links or `None`> |
-| Related decisions    | <links or `None`>                          |
-| Last reviewed        | YYYY-MM-DD                                 |
+| Field                | Value                                          |
+| -------------------- | ---------------------------------------------- |
+| Status               | Draft                                          |
+| Type                 | Module, module work unit, feature, or workflow |
+| Owner                | <owner>                                        |
+| Related architecture | <links or `None`>                              |
+| Related PRDs         | <identifiers, titles, and links or `None`>     |
+| Related decisions    | <links or `None`>                              |
+| Last reviewed        | YYYY-MM-DD                                     |
+
+<!-- For a work-unit PRD, add a Family field linking to its module overview. -->
 
 ## 2. Purpose
 

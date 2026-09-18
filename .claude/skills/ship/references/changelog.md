@@ -8,7 +8,7 @@ Keep a Changelog format. Entries go under `## [Unreleased]`, grouped by:
 ## [Unreleased]
 
 ### Added
-- New user-facing capability
+- New user-facing feature
 
 ### Changed
 - Behavior that differs from the previous release
@@ -17,7 +17,7 @@ Keep a Changelog format. Entries go under `## [Unreleased]`, grouped by:
 - Bug that no longer occurs
 
 ### Removed
-- Capability that no longer exists
+- Feature that no longer exists
 ```
 
 Only include the sections that have entries. Match the file's existing tone

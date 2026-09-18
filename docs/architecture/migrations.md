@@ -76,7 +76,7 @@ The commands do this:
 - `db:setup:admin`: create or find the admin database and roles.
 - `db:migrate:admin`: apply admin migrations.
 - `db:bootstrap`: create the initial admin tenant, root portal user, and
-  platform policy.
+  platform capabilities.
 
 Bootstrap requires the admin schema. It creates operational data, not schema.
 
@@ -121,7 +121,7 @@ before activation.
 The reference-data seed must load the committed country and currency snapshot,
 then record the applied seed version in `reference.seed_versions`.
 
-Admin bootstrap must also seed the platform policy.
+Admin bootstrap must also seed the platform capabilities.
 
 Changing the reference seed version requires a seed rollout for existing cells.
 New cells receive the required seed version during provisioning. Existing cells
