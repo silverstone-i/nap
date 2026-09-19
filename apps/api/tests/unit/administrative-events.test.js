@@ -317,6 +317,10 @@ describe('listEvents', () => {
       'a reversed date range',
       { from: '2026-09-30T00:00:00.000Z', to: '2026-09-01T00:00:00.000Z' },
     ],
+    [
+      'a range reversed only once its offsets are applied',
+      { from: '2026-09-19T00:00:00-10:00', to: '2026-09-19T05:00:00Z' },
+    ],
     ['a malformed timestamp', { from: '2026-09-30' }],
     ['a malformed cursor', { cursor: 'not-base64url-json' }],
     ['an unknown filter', { napsoft: true }],
@@ -325,6 +329,24 @@ describe('listEvents', () => {
     await expect(listEvents(db, scope('*'), filters)).rejects.toMatchObject({
       code: 'INVALID_INPUT',
     });
+  });
+
+  // The bounds are instants, not text: this range runs 18:00Z to 20:00Z, but
+  // sorts backwards when the two strings are compared directly.
+  it('accepts a range whose offsets sort against its chronology', async () => {
+    const { db, page } = reader();
+    await listEvents(db, scope('*'), {
+      from: '2026-09-19T23:00:00+05:00',
+      to: '2026-09-19T20:00:00Z',
+    });
+    expect(page.mock.calls[0][0]).toEqual([
+      {
+        occurred_at: {
+          $from: '2026-09-19T23:00:00+05:00',
+          $to: '2026-09-19T20:00:00Z',
+        },
+      },
+    ]);
   });
 
   it.each([

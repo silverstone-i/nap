@@ -335,7 +335,11 @@ export async function listEvents(db, scope, filters = {}) {
   const query = parsedFilters.data;
   if (query.event && !Object.hasOwn(EVENT_CATALOGUE, query.event))
     throw new AdminEventError('INVALID_INPUT');
-  if (query.from && query.to && query.from > query.to)
+  // Compared as instants, not as text. The schema accepts offsets, and
+  // lexicographic order disagrees with chronological order across them:
+  // `2026-09-19T23:00:00+05:00` sorts after `2026-09-19T20:00:00Z` but
+  // happens two hours earlier.
+  if (query.from && query.to && Date.parse(query.from) > Date.parse(query.to))
     throw new AdminEventError('INVALID_INPUT');
   const limit = parseLimitOrInvalid(query.limit);
 
