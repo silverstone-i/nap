@@ -60,3 +60,11 @@ rules.
 Copyright (c) 2026-present NapSoft, LLC. All contributors retain copyright in
 their contributions, licensed to the project under AGPL-3.0-or-later via the
 DCO sign-off.
+
+## Database setup
+
+- [Development setup](docs/guides/development-setup.md)
+- [Render production setup](docs/guides/production-setup.md)
+
+Setup and migration install the empty Admin foundation. Root bootstrap, login,
+and cell provisioning belong to later Work Units.

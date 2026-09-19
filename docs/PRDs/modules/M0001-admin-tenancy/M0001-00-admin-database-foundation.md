@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                               |
+| Status               | Implemented                                                                                                                                                         |
 | Type                 | Module Work Unit                                                                                                                                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                   |
 | Related architecture | [Module design](../../../architecture/module-design.md), [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
@@ -207,6 +207,23 @@ WU 12’s administrative event API.
 | AC07      | Changed applied migration contents fail checksum validation; new changes use a new migration.                                                                                                                               | M0001-00-R010                |
 | AC08      | Success, repeat, partial setup, and failure output contain no credentials or secret-bearing values.                                                                                                                         | M0001-00-R006, M0001-00-R013 |
 | AC09      | Archived rows remain stored after time passes, startup, setup, and migration; no automatic purge is configured or invoked.                                                                                                  | M0001-00-R011                |
+
+### Verification Evidence
+
+Verified on 2026-09-19: `npm run lint`, `npm run format:check`, `npm test`
+(62 tests), `npm run test:db` (13 PostgreSQL 18 tests), `npm run build`,
+`npm run licenses`, and `git diff --check` passed. Root setup and migration
+commands reported `created`, `applied`, then `unchanged` on repeat runs against
+an isolated database.
+
+[Database tests](../../../../apps/api/tests/integration/admin-foundation.test.js)
+cover catalog equivalence, constraints, grants, concurrent migration and
+membership protection, rollback, checksum drift, root protections, retention,
+and failure cleanup. [Provider-role tests](../../../../apps/api/tests/integration/provider-roles.test.js)
+verify missing-role creation and retry using a non-superuser maintenance role.
+[Render fixtures](../../../../apps/api/tests/unit/render-provisioning.test.js)
+cover resource reconciliation, private state, configuration publication, and
+maintenance-access cleanup. Live Render deployment has not been verified.
 
 ## 14. Outstanding Questions
 

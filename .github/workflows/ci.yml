@@ -16,6 +16,20 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: fixture-postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,6 +46,10 @@ jobs:
         run: npm run format:check
       - name: Test
         run: npm test
+      - name: Database tests
+        run: npm run test:db
+        env:
+          FOUNDATION_TEST_URL: postgresql://postgres:fixture-postgres@127.0.0.1:5432/postgres
       - name: Build
         run: npm run build
       - name: License check

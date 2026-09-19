@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: nap-api
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeployTrigger: off
+    buildCommand: npm ci && npm run build
+    startCommand: node apps/api/src/server.js
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY_HOPS_PROD
+        value: '1'
+      - key: RENDER_REGION
+        value: oregon
+      - key: RENDER_POSTGRES_VERSION
+        value: '18'
+      - key: RENDER_POSTGRES_PLAN
+        value: basic_256mb
+      - key: RENDER_DISK_GB
+        value: '1'

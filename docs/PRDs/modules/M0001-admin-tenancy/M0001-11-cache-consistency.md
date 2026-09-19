@@ -58,7 +58,7 @@ Prevent cached admin decisions from outliving the data that authorized them.
 | ------------- | ------------------------------------------------- | ----------------------------------------------------- |
 | `user`        | Portal-user UUID                                  | Account, password, or eligibility change              |
 | `session`     | Session UUID                                      | Create, rotate, context change, expiry, or revocation |
-| `roles`       | Portal-user UUID                                  | Any portal-user role grant or removal                        |
+| `roles`       | Portal-user UUID                                  | Any portal-user role grant or removal                 |
 | `membership`  | Portal-user UUID and tenant UUID as separate keys | Membership change                                     |
 | `tenant`      | Tenant UUID                                       | Tenant state, assignment, or readiness change         |
 | `cell`        | Cell UUID                                         | Registry, enabled, or provisioning change             |

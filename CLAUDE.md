@@ -26,6 +26,7 @@ Unrelated PRs may omit that section or use `None`.
 - `npm run lint`
 - `npm run format:check`
 - `npm test`
+- `npm run test:db` (requires `FOUNDATION_TEST_URL` for a disposable PostgreSQL 18 server)
 - `npm run build`
 - `npm run licenses`
 

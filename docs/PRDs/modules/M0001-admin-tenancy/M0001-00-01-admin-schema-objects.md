@@ -1,7 +1,7 @@
 # M0001-00-01: Admin Schema Objects
 
 This chapter belongs to [M0001-00: Admin Database Foundation](M0001-00-admin-database-foundation.md)
-and inherits its Draft status. It defines the schema objects and migration
+and inherits its Implemented status. It defines the schema objects and migration
 triggers for the 12 admin tables.
 
 ## Shared Rules

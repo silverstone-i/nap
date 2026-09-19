@@ -29,6 +29,11 @@ Each module must export a descriptor containing its name, database target,
 schema, models, migrations, and entitlement type. Admin and cell descriptors
 must use separate registries.
 
+The descriptor field `entitlementType` is `foundation`, `optional`, or
+`infrastructure`. Foundation modules are always available to tenants; optional
+modules require an entitlement; infrastructure modules support platform operations
+and are not tenant-selectable. `admin-tenancy` uses `infrastructure`.
+
 ## Module Folders
 
 ```text

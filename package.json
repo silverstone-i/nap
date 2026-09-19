@@ -21,7 +21,10 @@
     "dev:api": "npm run dev --workspace @nap/api",
     "dev:web": "npm run dev --workspace @nap/web",
     "prepare": "husky",
-    "licenses": "node scripts/check-licenses.mjs"
+    "licenses": "node scripts/check-licenses.mjs",
+    "db:setup:admin": "npm run db:setup:admin --workspace @nap/api --",
+    "db:migrate:admin": "npm run db:migrate:admin --workspace @nap/api --",
+    "test:db": "npm run test:db --workspace @nap/api"
   },
   "dependencies": {
     "yaml": "^2.9.1"
