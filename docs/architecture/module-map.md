@@ -14,12 +14,12 @@ and shows which modules must work together to provide a product area.
 
 | Module                | Database/schema  | Purpose                                                                                                                   |
 | --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `admin-tenancy`       | `admin/admin`    | Owns tenants, cells, portal users, memberships, sessions, module entitlements, platform access, and provisioning records. |
+| `admin-tenancy`       | `admin/admin`    | Owns tenants, cells, portal users, memberships, sessions, module entitlements, all portal-user role assignments, and provisioning records. |
 | `cell-tenancy`        | `cell/cell`      | Holds the tenant, membership, and entitlement projections used to enforce access inside a cell.                           |
 | `reference-data`      | `cell/reference` | Owns shared reference data such as countries and currencies.                                                              |
 | `business-directory`  | `cell/app`       | Owns employees, clients, vendors, contacts, addresses, and contact methods.                                               |
 | `companies`           | `cell/app`       | Owns legal entities and their tax registrations.                                                                          |
-| `access-control`      | `cell/app`       | Owns tenant roles, permissions, assignments, and access scopes.                                                           |
+| `access-control`      | `cell/app`       | Owns tenant-local role definitions, permissions, and access scopes.                                                           |
 | `tenant-settings`     | `cell/app`       | Owns numbering, preferences, payment terms, and approval configuration.                                                   |
 | `catalog`             | `cell/app`       | Owns products, materials, vendor SKUs and prices, SKU matching, and material assemblies.                                  |
 | `projects`            | `cell/app`       | Owns projects, project components, memberships, and operational project changes.                                          |
@@ -44,7 +44,11 @@ assignment inside the cell.
 clients, vendors, and contacts. `companies` owns the tenant's legal entities.
 Projects, accounting, RBAC, and reporting use those company records.
 
-`access-control` owns tenant roles and access assignments. `tenant-settings`
+`access-control` owns tenant-local role definitions and access scopes.
+System roles are seeded into the same role table as tenant-defined roles:
+`tenant_admin` for every tenant, and `platform_admin` and `support` only for the
+configured owning tenant. `admin-tenancy` stores all portal-user role assignments
+in `admin.platform_roles`; it validates the referenced role in the tenant's cell. `tenant-settings`
 owns tenant-wide configuration used by business modules.
 
 `catalog` and `cost-codes` provide reusable product and cost definitions.

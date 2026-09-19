@@ -5,7 +5,7 @@
 | Field                | Value                                                                                                      |
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Status               | Draft                                                                                                      |
-| Type                 | Module work unit                                                                                           |
+| Type                 | Module Work Unit                                                                                           |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                          |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-12](M0001-12-administrative-events.md)                       |
@@ -85,7 +85,7 @@ enabled only by a new successful activation check.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.cells` and `admin.cell_provisioning`. M0001-00 defines
+This Work Unit uses `admin.cells` and `admin.cell_provisioning`. M0001-00 defines
 their schema. Neither table stores a password, connection string, or provider secret.
 
 ## 10. API Requirements

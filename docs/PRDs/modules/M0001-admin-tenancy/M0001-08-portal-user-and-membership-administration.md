@@ -5,7 +5,7 @@
 | Field                | Value                                                                                                                                      |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Status               | Draft                                                                                                                                      |
-| Type                 | Module work unit                                                                                                                           |
+| Type                 | Module Work Unit                                                                                                                           |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                          |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                    |
 | Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-05](M0001-05-authorization.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
@@ -67,12 +67,14 @@ Support may manage the platform-level portal-user record. Responses to support
 must omit the user's Napsoft memberships and related provisioning jobs.
 
 Email is trimmed and lowercased and must be a valid address no longer than 254
-characters. A new user requires a temporary password meeting unit 3 rules,
+characters. A new user requires a temporary password meeting WU 3 rules,
 starts `active`, and has `must_change_password = true`. An existing active user
 with the same email is reused when adding another membership.
 
-Member type is `employee`, `client`, `vendor`, or `vendor_contact`. New membership
-and job states are `pending` and `queued`. Only one unarchived membership exists
+Member type is `employee`, `client`, `vendor`, or `contact`. A `vendor` member
+is a person working for a vendor, not the vendor business itself.
+
+New membership and job states are `pending` and `queued`. Only one unarchived membership exists
 per user and tenant; only one queued or running job exists per membership.
 
 Disabling or archiving a user revokes all sessions. Suspending or archiving a
@@ -96,7 +98,7 @@ with no readiness until explicitly reactivated and reprovisioned.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.portal_users`, `admin.portal_user_tenants`, and
+This Work Unit uses `admin.portal_users`, `admin.portal_user_tenants`, and
 `admin.provisioning_jobs`. M0001-00 defines their schema and constraints.
 
 ## 10. API Requirements
@@ -124,7 +126,7 @@ unauthorized access `403`, missing records `404`, and invalid states `409`.
 
 The membership-provisioning workflow creates the appropriate cell-side record
 and binding, then reports its UUID. No admin foreign key points into a cell.
-Units 4, 9, 11, and 12 apply session, access, cache, and event effects.
+WUs 4, 9, 11, and 12 apply session, access, cache, and event effects.
 
 ## 12. Security And Audit
 

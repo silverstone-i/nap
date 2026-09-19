@@ -5,7 +5,7 @@
 | Field                | Value                                                                                             |
 | -------------------- | ------------------------------------------------------------------------------------------------- |
 | Status               | Draft                                                                                             |
-| Type                 | Module work unit                                                                                  |
+| Type                 | Module Work Unit                                                                                  |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                 |
 | Related architecture | [BFF](../../../architecture/bff.md)                                                               |
 | Related PRDs         | [M0001-01](M0001-01-tenant-and-portal-user-access.md), [M0001-04](M0001-04-session-management.md) |
@@ -38,7 +38,7 @@ slow repeated login attacks.
 | Anonymous caller              | Submit login credentials                      | Authenticate, reject, or throttle          |
 | Authenticated user            | Prove current password and supply replacement | Replace password and revoke other sessions |
 | Password-change-required user | Replace temporary password                    | Continue with a normal session             |
-| Operator                      | Set a temporary password through unit 8       | Force replacement on next login            |
+| Operator                      | Set a temporary password through WU 8         | Force replacement on next login            |
 
 ## 5. Concepts And Terminology
 
@@ -81,7 +81,7 @@ Expired throttle rows may be deleted after 24 hours.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.portal_users` and `admin.login_throttles`. M0001-00
+This Work Unit uses `admin.portal_users` and `admin.login_throttles`. M0001-00
 defines their schema and credential-specific model methods.
 
 ## 10. API Requirements
@@ -98,7 +98,7 @@ Password change requires a valid same-origin session and request protection.
 
 M0001-04 creates and revokes sessions. Password changes revoke every other
 session. Disabling or archiving an account causes all its sessions to fail
-resolution and be revoked by unit 8.
+resolution and be revoked by WU 8.
 
 ## 12. Security And Audit
 

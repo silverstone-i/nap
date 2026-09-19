@@ -62,7 +62,7 @@ and tests have been verified.
 
 ## Required Format
 
-Every standalone or work-unit PRD follows the sections in
+Every standalone or Work Unit PRD follows the sections in
 [TEMPLATE.md](TEMPLATE.md), in this order:
 
 1. Document Control
@@ -138,9 +138,9 @@ difficult to review in the parent document.
 
 ### Independently Delivered Work Units
 
-For a module delivered in work units, the parent document is a mini roadmap.
+For a module delivered in Work Units, the parent document is a mini roadmap.
 It defines the scope, lists the work in its planned order, and tracks each
-unit's implementation status.
+WU's implementation status.
 
 ```text
 modules/
@@ -155,20 +155,20 @@ The mini roadmap contains:
 
 - The work included in the module and the work delivered elsewhere.
 - The planned start order and prerequisites that affect that order.
-- Each work unit's deliverable and link to its PRD.
-- Each unit's status, blocker when applicable, and completion evidence.
+- Each Work Unit's deliverable and link to its PRD.
+- Each WU's status, blocker when applicable, and completion evidence.
 
 Use `Not started`, `In progress`, `Blocked`, and `Complete` for implementation
-status. Update a unit when work starts, a blocker changes, or its accepted
+status. Update a WU when work starts, a blocker changes, or its accepted
 requirements have been verified. Record the blocker for `Blocked` and the
 verification evidence for `Complete`.
 
 Keep architecture descriptions and detailed requirements in their owning
 documents. The mini roadmap is exempt from the 14-section PRD template.
 The project roadmap tracks overall delivery; the mini roadmap tracks the
-module's individual work units.
+module's individual Work Units.
 
-Each work-unit PRD follows the full template and has its own acceptance status.
+Each Work Unit PRD follows the full template and has its own acceptance status.
 A `Draft` PRD is not permission to implement its requirements. Use stable
 identifiers such as `M0001-01` and `M0001-01-R001`; record delivery order
 separately so reordering work does not rename its PRDs.

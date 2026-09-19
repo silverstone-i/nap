@@ -5,7 +5,7 @@
 | Field                | Value                                                                                               |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
 | Status               | Draft                                                                                               |
-| Type                 | Module work unit                                                                                    |
+| Type                 | Module Work Unit                                                                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                   |
 | Related architecture | [BFF](../../../architecture/bff.md)                                                                 |
 | Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
@@ -55,7 +55,7 @@ Create, resolve, rotate, expire, and revoke browser sessions.
 - M0001-04-R002: Resolution must verify the token hash, account eligibility, expiry, and revocation before returning context.
 - M0001-04-R003: Sessions must support immediate rotation, idle expiry, absolute expiry, and explicit revocation.
 - M0001-04-R004: Unknown, tampered, expired, archived, or revoked sessions must not authenticate.
-- M0001-04-R005: Session operations must preserve tenant and support context established by unit 9.
+- M0001-04-R005: Session operations must preserve tenant and support context established by WU 9.
 
 ## 7. Business Rules And Invariants
 
@@ -83,7 +83,7 @@ exit rotate the token.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.sessions`. M0001-00 defines its schema and token-hash
+This Work Unit uses `admin.sessions`. M0001-00 defines its schema and token-hash
 lookup. Soft-deleted session records are not purged automatically.
 
 ## 10. API Requirements
@@ -101,7 +101,7 @@ expiry. Responses never contain the token or token hash.
 
 ## 11. Cross-Module Interactions
 
-Unit 3 supplies authentication and password changes. Unit 9 owns selected-tenant
+WU 3 supplies authentication and password changes. WU 9 owns selected-tenant
 and support context. Account disable or archive revokes all sessions. Membership
 removal revokes sessions currently selecting that tenant. Platform-role removal
 invalidates cached authority immediately and ends affected support sessions.
@@ -121,7 +121,7 @@ context changes create managed events with session UUIDs only.
 | AC02      | Valid sessions resolve; tampered, expired, archived, and revoked sessions do not.                | M0001-04-R002, M0001-04-R004 |
 | AC03      | Rotation immediately invalidates the prior token and concurrent attempts produce one winner.     | M0001-04-R003, M0001-04-R006 |
 | AC04      | Idle and absolute limits, ten-session cap, logout, and repeated revocation follow this contract. | M0001-04-R003                |
-| AC05      | Unit 9 context survives ordinary resolution and changes only through its operations.             | M0001-04-R005                |
+| AC05      | WU 9 context survives ordinary resolution and changes only through its operations.               | M0001-04-R005                |
 | AC06      | No response, log, or event exposes session credentials.                                          | M0001-04-R008                |
 | AC07      | Support can revoke platform and non-Napsoft sessions but cannot access Napsoft tenant sessions.  | M0001-04-R007                |
 

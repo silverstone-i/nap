@@ -5,7 +5,7 @@
 | Field                | Value                                                                            |
 | -------------------- | -------------------------------------------------------------------------------- |
 | Status               | Draft                                                                            |
-| Type                 | Module work unit                                                                 |
+| Type                 | Module Work Unit                                                                 |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                |
 | Related architecture | [Module map](../../../architecture/module-map.md)                                |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-11](M0001-11-cache-consistency.md) |
@@ -82,7 +82,7 @@ Concurrent changes lock the row, so the last committed request determines state.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.module_entitlements`. M0001-00 defines its schema and
+This Work Unit uses `admin.module_entitlements`. M0001-00 defines its schema and
 tenant/module uniqueness.
 
 ## 10. API Requirements

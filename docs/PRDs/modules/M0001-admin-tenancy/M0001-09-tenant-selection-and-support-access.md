@@ -5,7 +5,7 @@
 | Field                | Value                                                                                        |
 | -------------------- | -------------------------------------------------------------------------------------------- |
 | Status               | Draft                                                                                        |
-| Type                 | Module work unit                                                                             |
+| Type                 | Module Work Unit                                                                             |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                            |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md) |
 | Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md)            |
@@ -83,7 +83,7 @@ Support contexts cannot nest or switch tenants; exit first.
 
 ## 9. Data Requirements
 
-This work unit reads tenants, memberships, platform roles, and cells and updates
+This Work Unit reads tenants, memberships, platform roles, and cells and updates
 `admin.sessions`. M0001-00 defines all schema fields.
 
 ## 10. API Requirements

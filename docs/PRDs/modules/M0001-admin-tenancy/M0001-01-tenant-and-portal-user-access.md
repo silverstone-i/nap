@@ -5,7 +5,7 @@
 | Field                | Value                                                                                                                                                                                                 |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Status               | Draft                                                                                                                                                                                                 |
-| Type                 | Module work unit                                                                                                                                                                                      |
+| Type                 | Module Work Unit                                                                                                                                                                                      |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                     |
 | Related architecture | [Module design](../../../architecture/module-design.md)                                                                                                                                               |
 | Related PRDs         | [M0001-00](M0001-00-admin-database-foundation.md), [M0001-03](M0001-03-authentication.md), [M0001-07](M0001-07-tenant-creation.md), [M0001-08](M0001-08-portal-user-and-membership-administration.md) |
@@ -20,14 +20,14 @@ Provide scoped internal reads for tenants, portal users, and memberships.
 
 ### Included
 
-- Record lookup and membership-list operations used by other admin work units.
+- Record lookup and membership-list operations used by other admin Work Units.
 - Explicit field selection for ordinary and credential-bearing reads.
 - Consistent missing-record, validation, conflict, and database-error behavior.
 
 ### Excluded
 
 - Tables, models, grants, setup, and migrations, owned by M0001-00.
-- Public administration APIs, owned by units 7 and 8.
+- Public administration APIs, owned by WUs 7 and 8.
 - Password verification, session handling, and authorization decisions.
 
 ## 4. Actors And Permissions
@@ -66,12 +66,12 @@ management authority.
 
 ## 8. Lifecycle And State Transitions
 
-This work unit does not change record state. It exposes active records to normal
+This Work Unit does not change record state. It exposes active records to normal
 operations and archived records only to authorized restore operations.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.tenants`, `admin.portal_users`, and
+This Work Unit uses `admin.tenants`, `admin.portal_users`, and
 `admin.portal_user_tenants`. M0001-00 defines their schema and models.
 
 ## 10. API Requirements
@@ -92,7 +92,7 @@ UUIDs and limits return `INVALID_INPUT`; an unauthorized scope returns
 
 ## 11. Cross-Module Interactions
 
-Units 2, 3, 7, 8, and 9 use these methods. Cell projections may reference the
+WUs 2, 3, 7, 8, and 9 use these methods. Cell projections may reference the
 returned UUIDs but are not required for central reads.
 
 ## 12. Security And Audit

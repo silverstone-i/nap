@@ -5,7 +5,7 @@
 | Field                | Value                                                                          |
 | -------------------- | ------------------------------------------------------------------------------ |
 | Status               | Draft                                                                          |
-| Type                 | Module work unit                                                               |
+| Type                 | Module Work Unit                                                               |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                              |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                        |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-06](M0001-06-cell-management.md) |
@@ -80,7 +80,7 @@ requests that use different keys.
 
 ## 9. Data Requirements
 
-This work unit writes `admin.tenants`. M0001-00 defines the table, model, and
+This Work Unit writes `admin.tenants`. M0001-00 defines the table, model, and
 constraints.
 
 ## 10. API Requirements
@@ -103,8 +103,11 @@ it does not change the central creation contract.
 
 ## 11. Cross-Module Interactions
 
-Unit 6 supplies eligible cells to a later assignment workflow. Cell-tenancy and
+WU 6 supplies eligible cells to a later assignment workflow. Cell-tenancy and
 provisioning own projection, provisioning, activation, and status synchronization.
+That later tenant-provisioning workflow runs the all-tenant `tenant_admin` seed
+from M0001-05 and the owner-only seed only for the configured owning tenant.
+Central tenant creation does not seed roles or claim that provisioning is complete.
 
 ## 12. Security And Audit
 

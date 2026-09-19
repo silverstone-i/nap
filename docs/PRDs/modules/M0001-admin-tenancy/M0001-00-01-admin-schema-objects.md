@@ -1,8 +1,8 @@
 # M0001-00-01: Admin Schema Objects
 
 This chapter belongs to [M0001-00: Admin Database Foundation](M0001-00-admin-database-foundation.md)
-and inherits its Draft status. It defines the `pg-schemata` 3.1.2 objects used
-by the admin-tenancy models and frozen migration.
+and inherits its Draft status. It defines the schema objects and migration
+triggers for the 12 admin tables.
 
 ## Shared Rules
 
@@ -10,14 +10,10 @@ by the admin-tenancy models and frozen migration.
 - Audit-enabled tables add `created_at`, `updated_at`, `created_by`, and `updated_by`.
 - Audit actor fields are nullable because setup and background work may not have a portal user.
 - `softDelete: true` adds `deactivated_at`; ordinary reads exclude archived rows.
-- Soft-deleted rows are never purged automatically.
 - Foreign keys use `ON DELETE RESTRICT`.
-- Admin tables do not use row-level security.
-- Models export the named schema object and extend `pg-schemata.TableModel`.
-- `repositories.js` registers each model under its table name.
 
-The migration contains frozen copies of these objects. It does not import the
-runtime model definitions and does not insert data.
+Migration immutability, retention, and database permissions are defined in the
+parent PRD.
 
 ## `admin.cells`
 
@@ -63,8 +59,9 @@ export const cellsSchema = {
 ## `admin.tenants`
 
 Stores tenant registration, lifecycle, cell assignment, and readiness. The
-immutable `is_napsoft` flag identifies the protected Napsoft tenant without
-depending on a mutable name or code.
+immutable `is_napsoft` flag identifies the owning tenant. Its name comes from
+environment configuration. A null `cell_id` permits registration before cell
+assignment.
 
 ```js
 export const tenantsSchema = {
@@ -132,8 +129,7 @@ export const tenantsSchema = {
 
 ## `admin.portal_users`
 
-Stores central accounts. Ordinary reads exclude `password_hash`; only the
-authentication model method selects it.
+Stores portal accounts, password hashes, account status, and the root-user marker.
 
 ```js
 export const portalUsersSchema = {
@@ -184,8 +180,9 @@ export const portalUsersSchema = {
 
 ## `admin.portal_user_tenants`
 
-Stores central tenant membership and the cell-side record created for that
-membership. `entity_id` is a value returned by a cell workflow, not a foreign key.
+Links portal users to tenants. `member_type` identifies the kind of member;
+`member_id` stores that member’s UUID in the tenant’s cell, not a foreign key.
+A `vendor` member is a person working for a vendor.
 
 ```js
 export const portalUserTenantsSchema = {
@@ -205,17 +202,17 @@ export const portalUserTenantsSchema = {
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'member_type', type: 'text' },
     { name: 'status', type: 'text', notNull: true, default: 'pending' },
-    { name: 'entity_id', type: 'uuid' },
+    { name: 'member_id', type: 'uuid' },
     { name: 'ready', type: 'boolean', notNull: true, default: false },
     { name: 'revision', type: 'integer', notNull: true, default: 1 },
   ],
   constraints: {
     primaryKey: ['id'],
     checks: [
-      "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor', 'vendor_contact')",
+      "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor', 'contact')",
       "status IN ('pending', 'active', 'suspended')",
       'revision > 0',
-      "(member_type IS NULL AND status = 'active' AND ready = true AND entity_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND entity_id IS NOT NULL)))",
+      "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND member_id IS NOT NULL)))",
     ],
     foreignKeys: [
       {
@@ -339,29 +336,13 @@ export const loginThrottlesSchema = {
 };
 ```
 
-## `admin.system_roles`
-
-Stores the immutable system-role catalogue. Unit 5 inserts the three definitions.
-
-```js
-export const systemRolesSchema = {
-  dbSchema: 'admin',
-  table: 'system_roles',
-  hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
-  columns: [
-    { name: 'name', type: 'text', notNull: true, immutable: true },
-    { name: 'capabilities', type: 'text[]', notNull: true },
-  ],
-  constraints: {
-    primaryKey: ['name'],
-    checks: ["name IN ('platform_admin', 'support', 'tenant_admin')"],
-  },
-};
-```
-
 ## `admin.platform_roles`
 
-Stores active and archived assignments of `platform_admin` or `support`.
+Stores active and archived assignments of any valid tenant-local role to a
+portal user, including seeded system roles and tenant-defined roles.
+`tenant_id` identifies the tenant whose cell contains the role; `role_id` is
+that role record's UUID. The role reference crosses databases, so WU 5 validates
+it rather than using a foreign key.
 
 ```js
 export const platformRolesSchema = {
@@ -378,11 +359,11 @@ export const platformRolesSchema = {
       immutable: true,
     },
     { name: 'portal_user_id', type: 'uuid', notNull: true, immutable: true },
-    { name: 'role', type: 'text', notNull: true, immutable: true },
+    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+    { name: 'role_id', type: 'uuid', notNull: true, immutable: true },
   ],
   constraints: {
     primaryKey: ['id'],
-    checks: ["role IN ('platform_admin', 'support')"],
     foreignKeys: [
       {
         type: 'ForeignKey',
@@ -392,18 +373,18 @@ export const platformRolesSchema = {
       },
       {
         type: 'ForeignKey',
-        columns: ['role'],
+        columns: ['tenant_id'],
         references: {
           schema: 'admin',
-          table: 'system_roles',
-          columns: ['name'],
+          table: 'tenants',
+          columns: ['id'],
         },
         onDelete: 'RESTRICT',
       },
     ],
     indexes: [
       {
-        columns: ['portal_user_id', 'role'],
+        columns: ['portal_user_id', 'tenant_id', 'role_id'],
         unique: true,
         where: 'deactivated_at IS NULL',
       },
@@ -414,7 +395,8 @@ export const platformRolesSchema = {
 
 ## `admin.cell_provisioning`
 
-Stores one resumable physical-provisioning operation for each registered cell.
+Tracks cell database setup, migration, seeding, and activation. One row per
+cell records progress, attempts, failure, and completion.
 
 ```js
 export const cellProvisioningSchema = {
@@ -474,7 +456,9 @@ export const cellProvisioningSchema = {
 
 ## `admin.provisioning_jobs`
 
-Stores one active cell-side provisioning request for a membership.
+Tracks creation of a member record in a tenant’s cell. `membership_id` references
+the portal-user/tenant association; `result_member_id` stores the created member’s
+UUID. Only one unarchived queued or running job is allowed per association.
 
 ```js
 export const provisioningJobsSchema = {
@@ -495,16 +479,16 @@ export const provisioningJobsSchema = {
     { name: 'kind', type: 'text', notNull: true, immutable: true },
     { name: 'status', type: 'text', notNull: true, default: 'queued' },
     { name: 'attempts', type: 'integer', notNull: true, default: 0 },
-    { name: 'result_entity_id', type: 'uuid' },
+    { name: 'result_member_id', type: 'uuid' },
     { name: 'failure_code', type: 'varchar(64)' },
   ],
   constraints: {
     primaryKey: ['id'],
     checks: [
-      "kind IN ('employee', 'client', 'vendor', 'vendor_contact')",
+      "kind IN ('employee', 'client', 'vendor', 'contact')",
       "status IN ('queued', 'running', 'failed', 'completed')",
       'attempts >= 0',
-      "(status = 'completed' AND result_entity_id IS NOT NULL AND failure_code IS NULL) OR status <> 'completed'",
+      "(status = 'completed' AND result_member_id IS NOT NULL AND failure_code IS NULL) OR status <> 'completed'",
     ],
     foreignKeys: [
       {
@@ -658,18 +642,6 @@ export const managedEventsSchema = {
 };
 ```
 
-## Model-Specific Operations
-
-Generic model methods cover normal inserts and updates. These operations need
-named methods because they enforce narrower field selection or atomic changes:
-
-- `portal_users.findCredentialByEmail(email)` selects the password hash for authentication.
-- Ordinary `portal_users` reads never select `password_hash`.
-- `login_throttles.recordFailure(key, now)` updates the failure window atomically.
-- `cache_revisions.advance(domain, entity)` performs `revision = revision + 1` in the source transaction.
-- `managed_events.append(event)` is the only runtime write method for events.
-- `sessions.findByTokenHash(hash)` selects one active session for resolution.
-
 ## Migration-Only Protections
 
 The migration adds database triggers that:
@@ -681,4 +653,6 @@ The migration adds database triggers that:
 - reject a null membership `member_type` unless the membership belongs to the
   root user and Napsoft tenant;
 - reject removal, suspension, reassignment, or archival of the root membership;
-- reject changing `tenants.cell_id` after provisioning starts or memberships exist.
+- allow the initial `tenants.cell_id` assignment from null, including for the
+  owning tenant after root bootstrap; reject later reassignment once provisioning
+  starts or memberships exist.

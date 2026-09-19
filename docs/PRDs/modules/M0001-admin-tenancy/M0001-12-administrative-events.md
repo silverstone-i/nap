@@ -5,7 +5,7 @@
 | Field                | Value                                                   |
 | -------------------- | ------------------------------------------------------- |
 | Status               | Draft                                                   |
-| Type                 | Module work unit                                        |
+| Type                 | Module Work Unit                                        |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)       |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md) |
 | Related PRDs         | M0001-01 through M0001-11                               |
@@ -96,7 +96,7 @@ indefinitely and have no update, archive, delete, or purge API.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.managed_events`. M0001-00 defines its append-only
+This Work Unit uses `admin.managed_events`. M0001-00 defines its append-only
 schema, indexes, and deduplication constraint.
 
 ## 10. API Requirements
@@ -111,7 +111,7 @@ Napsoft event exists. There is no event write, update, or delete HTTP route.
 
 ## 11. Cross-Module Interactions
 
-Units 2–11 append their listed events. Unit 1 reads do not create events. Cell
+WUs 2–11 append their listed events. WU 1 reads do not create events. Cell
 modules own their local audit history; a central event does not prove that a
 cell-side operation completed.
 

@@ -5,13 +5,13 @@
 | Field                | Value                                          |
 | -------------------- | ---------------------------------------------- |
 | Status               | Draft                                          |
-| Type                 | Module, module work unit, feature, or workflow |
+| Type                 | Module, module Work Unit, feature, or workflow |
 | Related architecture | [links or `None`]                              |
 | Related PRDs         | [identifiers, titles, and links or `None`]     |
 | Related decisions    | [links or `None`]                              |
 | Last reviewed        | YYYY-MM-DD                                     |
 
-<!-- For a work-unit PRD, add a Family field linking to its module overview. -->
+<!-- For a Work Unit PRD, add a Family field linking to its module overview. -->
 
 ## 2. Purpose
 

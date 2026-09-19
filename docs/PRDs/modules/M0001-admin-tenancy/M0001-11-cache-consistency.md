@@ -5,7 +5,7 @@
 | Field                | Value                                               |
 | -------------------- | --------------------------------------------------- |
 | Status               | Draft                                               |
-| Type                 | Module work unit                                    |
+| Type                 | Module Work Unit                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)   |
 | Related architecture | [BFF](../../../architecture/bff.md)                 |
 | Related PRDs         | M0001-01 through M0001-10                           |
@@ -58,12 +58,11 @@ Prevent cached admin decisions from outliving the data that authorized them.
 | ------------- | ------------------------------------------------- | ----------------------------------------------------- |
 | `user`        | Portal-user UUID                                  | Account, password, or eligibility change              |
 | `session`     | Session UUID                                      | Create, rotate, context change, expiry, or revocation |
-| `roles`       | Portal-user UUID                                  | Platform-role grant or removal                        |
+| `roles`       | Portal-user UUID                                  | Any portal-user role grant or removal                        |
 | `membership`  | Portal-user UUID and tenant UUID as separate keys | Membership change                                     |
 | `tenant`      | Tenant UUID                                       | Tenant state, assignment, or readiness change         |
 | `cell`        | Cell UUID                                         | Registry, enabled, or provisioning change             |
 | `entitlement` | Tenant UUID                                       | Entitlement change                                    |
-| `catalogue`   | `system_roles`                                    | System-role initialization or reviewed release change |
 
 ## 7. Business Rules And Invariants
 
@@ -91,7 +90,7 @@ never used. Revision rows are current state and are not deleted automatically.
 
 ## 9. Data Requirements
 
-This work unit uses `admin.cache_revisions`. M0001-00 defines its composite key,
+This Work Unit uses `admin.cache_revisions`. M0001-00 defines its composite key,
 64-bit counter, timestamp, and atomic model method.
 
 ## 10. API Requirements
@@ -109,8 +108,13 @@ may retry the entire idempotent operation.
 
 ## 11. Cross-Module Interactions
 
-Every source work unit calls `advance` for its listed keys. Cell-local revisions
-and projection delivery remain separate contracts.
+Every source Work Unit calls `advance` for its listed keys. Role definitions
+live in cells; authorization caches must also validate the owning cell's role
+revision before reusing resolved capabilities. Definition changes, role removal,
+and reviewed system-role updates must invalidate dependent authorization.
+If the relevant cell revision cannot be verified, cached authority must not be
+used. Cell-local revision storage and delivery belong to access-control's
+integration contract; an Admin assignment revision alone is insufficient.
 
 ## 12. Security And Audit
 
