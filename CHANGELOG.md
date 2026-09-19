@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.2.0] - 2026-09-19
+
 ### Added
 
 - Set up and migrate the Admin database locally and on Render, with schema verification and retry recovery.
