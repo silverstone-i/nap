@@ -4,13 +4,13 @@
 
 | Field                | Value                                                                                                                                                                                                 |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                 |
+| Status               | Implemented                                                                                                                                                                                           |
 | Type                 | Module Work Unit                                                                                                                                                                                      |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                     |
 | Related architecture | [Module design](../../../architecture/module-design.md)                                                                                                                                               |
 | Related PRDs         | [M0001-00](M0001-00-admin-database-foundation.md), [M0001-03](M0001-03-authentication.md), [M0001-07](M0001-07-tenant-creation.md), [M0001-08](M0001-08-portal-user-and-membership-administration.md) |
 | Related decisions    | None                                                                                                                                                                                                  |
-| Last reviewed        | 2026-09-18                                                                                                                                                                                            |
+| Last reviewed        | 2026-09-19                                                                                                                                                                                            |
 
 ## 2. Purpose
 
@@ -32,16 +32,18 @@ Provide scoped internal reads for tenants, portal users, and memberships.
 
 ## 4. Actors And Permissions
 
-| Caller                     | Required authority                                           | Result                                  |
-| -------------------------- | ------------------------------------------------------------ | --------------------------------------- |
-| Admin operation            | Permission for its target tenant and action                  | Read ordinary records                   |
-| Authentication operation   | Internal credential-read authority                           | Read the login fields and password hash |
-| `platform_admin` operation | Matching route capability                                    | Read any tenant, including Napsoft      |
-| `support` operation        | Matching route capability; target is platform or non-Napsoft | Read the requested record               |
-| `support` operation        | Target is Napsoft tenant data                                | Deny before reading the record          |
+The application performs runtime reads as the `nap-app` PostgreSQL role defined
+by M0001-00. The calling operation must authorize its target before using these
+methods.
 
-Internal access methods receive an authorization scope from the calling
-operation. They do not infer access from a supplied record ID.
+| Caller                   | Required authority                 | Result                                  |
+| ------------------------ | ---------------------------------- | --------------------------------------- |
+| Admin operation          | Authorization scope for its target | Read ordinary fields within that scope  |
+| Authentication operation | Internal credential-read authority | Read the login fields and password hash |
+
+These methods enforce the supplied scope and credential-read boundary. They do
+not determine application roles, resolve capabilities, or infer access from a
+supplied record ID. M0001-05 owns those authorization decisions.
 
 ## 5. Concepts And Terminology
 
@@ -110,6 +112,21 @@ own event and cache invalidation.
 | AC02      | UUID lookups and both membership lists return the permitted records and stable pagination.                                    | M0001-01-R003 |
 | AC03      | Missing records, empty lists, invalid input, conflicts, authorization failures, and database failures remain distinguishable. | M0001-01-R005 |
 | AC04      | Ordinary reads never return password hashes; credential lookup is unavailable outside authentication.                         | M0001-01-R006 |
+
+### Verification Evidence
+
+Local validation on 2026-09-19: `npm run lint`, `npm run format:check`,
+`npm test` (129 tests across the workspace, including 59 new unit tests),
+`npm run build`, `npm run licenses`, and `git diff --check` passed.
+
+`npm run test:db` passed 27 tests against a disposable PostgreSQL 18 server,
+including 13 access integration tests.
+[Database tests](../../../../apps/api/tests/integration/admin-tenancy-access.test.js)
+cover active, missing, and archived tenant and portal-user reads;
+archive-authority denial; tenant-scoped and explicitly denied membership
+filtering; portal-user authorization through active memberships; platform-level
+portal-user reads; authentication-only credential reads; stable pagination;
+and every read running under the `nap-app` role alone.
 
 ## 14. Outstanding Questions
 

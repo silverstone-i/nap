@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add scoped Admin tenant, portal-user, credential, and membership reads with safe field selection and stable pagination.
+
 ## [v0.2.0] - 2026-09-19
 
 ### Added

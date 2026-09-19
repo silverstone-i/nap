@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2026–present NapSoft, LLC.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/** SQLSTATE codes treated as a transient write conflict rather than a failure. */
+const CONFLICT_SQLSTATES = new Set(['40001', '40P01']);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` access codes:
+ * `INVALID_INPUT`, `FORBIDDEN`, `CONFLICT`, or `INTERNAL_ERROR`. Never carries
+ * database detail — callers report `code` and nothing else.
+ */
+export class AdminAccessError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminAccessError`.
+ *
+ * An `AdminAccessError` thrown by `operation` (an authorization or validation
+ * decision) passes through unchanged. Any other thrown value is assumed to be
+ * a database driver error: a serialization failure or deadlock (SQLSTATE
+ * `40001`/`40P01`) becomes `CONFLICT`; everything else becomes
+ * `INTERNAL_ERROR`, discarding the original message, detail, and constraint
+ * name so database structure never reaches a caller.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminAccessError}
+ */
+export async function withDatabaseErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminAccessError) throw error;
+    throw new AdminAccessError(
+      CONFLICT_SQLSTATES.has(error?.code) ? 'CONFLICT' : 'INTERNAL_ERROR'
+    );
+  }
+}
