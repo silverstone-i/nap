@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Define the Admin Tenancy PRD work units, database schema contracts, and tenant role seeding; refine PRD authoring guidance.
+
 ## [v0.1.0] - 2026-09-17
 
 ### Fixed

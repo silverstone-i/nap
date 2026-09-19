@@ -14,15 +14,17 @@ PRDs are grouped by what they describe:
 docs/PRDs/
 |-- modules/
 |   `-- M0001-admin-tenancy.md
-|-- capabilities/
-|   `-- C0001-authentication.md
+|-- features/
+|   `-- F0001-authentication.md
 `-- workflows/
     `-- W0001-tenant-provisioning.md
 ```
 
 - Module PRDs define an area that owns tables and module-specific rules.
-- Capability PRDs define application behavior that may use several modules.
+- Feature PRDs define application behavior that may use several modules.
 - Workflow PRDs define sequencing across modules or infrastructure.
+
+"Capability" is reserved for authorization identifiers in `module::router::action` form.
 
 Each category has its own four-digit sequence. Numbers identify documents; they
 do not set implementation order.
@@ -33,7 +35,7 @@ Use these filename patterns:
 
 ```text
 M0001-admin-tenancy.md
-C0001-authentication.md
+F0001-authentication.md
 W0001-tenant-provisioning.md
 ```
 
@@ -43,7 +45,7 @@ Use the same identifier in the document title:
 # M0001: Admin Tenancy
 ```
 
-Refer to another PRD by identifier and title, such as `C0003: RBAC`.
+Refer to another PRD by identifier and title, such as `F0003: RBAC`.
 
 ## Status
 
@@ -54,13 +56,14 @@ A PRD has one status:
 - `Implemented`: delivered and verified against the accepted requirements.
 - `Superseded`: replaced by another identified PRD or decision.
 
-Only explicit owner approval moves a PRD from `Draft` to `Accepted`. Code alone
+Only explicit developer approval moves a PRD from `Draft` to `Accepted`. Code alone
 does not change a PRD's status. Use `Implemented` only when the relevant code
 and tests have been verified.
 
 ## Required Format
 
-Every PRD follows the sections in [TEMPLATE.md](TEMPLATE.md), in this order:
+Every standalone or Work Unit PRD follows the sections in
+[TEMPLATE.md](TEMPLATE.md), in this order:
 
 1. Document Control
 2. Purpose
@@ -75,7 +78,7 @@ Every PRD follows the sections in [TEMPLATE.md](TEMPLATE.md), in this order:
 11. Cross-Module Interactions
 12. Security And Audit
 13. Acceptance Criteria
-14. Open Questions
+14. Outstanding Questions
 
 The Purpose section is mandatory. Other sections must remain present. Write
 `Not applicable` with a short reason when a section does not apply.
@@ -89,7 +92,8 @@ Give every normative requirement a stable identifier based on its PRD:
 
 ```text
 M0001-R001
-C0002-R001
+M0001-01-R001
+F0002-R001
 W0001-R001
 ```
 
@@ -115,7 +119,7 @@ requirement instead of restating it.
 For example:
 
 - a module PRD owns its stored data and module invariants;
-- a capability PRD owns behavior that uses module data;
+- a feature PRD owns behavior that uses module data;
 - a workflow PRD owns cross-module sequencing, retry, and failure recovery.
 
 Large PRDs may use supporting chapters:
@@ -131,6 +135,43 @@ The numbered PRD remains authoritative. A supporting chapter must link to its
 parent, inherits the parent's status, and must not introduce a requirement that
 the parent does not reference. Split a chapter only when the material becomes
 difficult to review in the parent document.
+
+### Independently Delivered Work Units
+
+For a module delivered in Work Units, the parent document is a mini roadmap.
+It defines the scope, lists the work in its planned order, and tracks each
+WU's implementation status.
+
+```text
+modules/
+|-- M0001-admin-tenancy.md
+`-- M0001-admin-tenancy/
+    |-- M0001-00-admin-database-foundation.md
+    |-- M0001-01-tenant-and-portal-user-access.md
+    `-- M0001-02-root-user-provisioning.md
+```
+
+The mini roadmap contains:
+
+- The work included in the module and the work delivered elsewhere.
+- The planned start order and prerequisites that affect that order.
+- Each Work Unit's deliverable and link to its PRD.
+- Each WU's status, blocker when applicable, and completion evidence.
+
+Use `Not started`, `In progress`, `Blocked`, and `Complete` for implementation
+status. Update a WU when work starts, a blocker changes, or its accepted
+requirements have been verified. Record the blocker for `Blocked` and the
+verification evidence for `Complete`.
+
+Keep architecture descriptions and detailed requirements in their owning
+documents. The mini roadmap is exempt from the 14-section PRD template.
+The project roadmap tracks overall delivery; the mini roadmap tracks the
+module's individual Work Units.
+
+Each Work Unit PRD follows the full template and has its own acceptance status.
+A `Draft` PRD is not permission to implement its requirements. Use stable
+identifiers such as `M0001-01` and `M0001-01-R001`; record delivery order
+separately so reordering work does not rename its PRDs.
 
 ## Writing And Review
 
