@@ -122,7 +122,7 @@ function membershipTenantFilter(scope) {
 }
 
 /**
- * Find an active tenant by UUID.
+ * Find a tenant by UUID, excluding an archived tenant.
  * @param {AdminTenancyDb} db
  * @param {unknown} scope
  * @param {unknown} tenantId
@@ -167,7 +167,7 @@ export async function findTenantIncludingArchived(db, scope, tenantId) {
 }
 
 /**
- * Find an active portal user by UUID.
+ * Find a portal user by UUID, excluding an archived portal user.
  * @param {AdminTenancyDb} db
  * @param {unknown} scope
  * @param {unknown} portalUserId
@@ -210,8 +210,8 @@ export async function findPortalUserIncludingArchived(db, scope, portalUserId) {
 }
 
 /**
- * List a portal user's active permitted tenant memberships in stable UUID
- * order, paginated by opaque cursor.
+ * List a portal user's permitted, non-archived tenant memberships in stable
+ * UUID order, paginated by opaque cursor.
  * @param {AdminTenancyDb} db
  * @param {unknown} scope
  * @param {unknown} portalUserId
@@ -250,7 +250,8 @@ export async function listMembershipsByUser(
 }
 
 /**
- * List a tenant's active memberships, stably paginated by opaque cursor.
+ * List a tenant's non-archived memberships, stably paginated by opaque
+ * cursor.
  * @param {AdminTenancyDb} db
  * @param {unknown} scope
  * @param {unknown} tenantId
