@@ -6,7 +6,11 @@
 import express from 'express';
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { healthResponse, notFoundResponse } from '@nap/shared';
+import {
+  healthResponse,
+  notFoundResponse,
+  transportVersion,
+} from '@nap/shared';
 
 /**
  * Build the Express application for the backend-for-frontend (BFF).
@@ -49,7 +53,7 @@ export function createApp({ webRoot, trustProxyHops = 0, isReady } = {}) {
         ready
           ? healthResponse
           : {
-              version: 1,
+              version: transportVersion,
               error: {
                 code: 'SERVICE_UNAVAILABLE',
                 message: 'Service unavailable',
@@ -89,7 +93,7 @@ export function createApp({ webRoot, trustProxyHops = 0, isReady } = {}) {
   app.use((error, _request, response, next) => {
     if (response.headersSent) return next(error);
     response.status(500).json({
-      version: 1,
+      version: transportVersion,
       error: { code: 'INTERNAL_ERROR', message: 'Internal error' },
     });
   });

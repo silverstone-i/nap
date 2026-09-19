@@ -52,25 +52,30 @@ export function createRuntime(
     })
   );
   async function start(port, host) {
-    await handles.admin.connect();
-    if (stopped) return;
-    if (!(await ready()))
-      throw new Error('Admin database is unavailable or unsafe');
-    if (stopped) return;
-    await new Promise((resolve, reject) => {
-      const failed = () => {
-        server.removeListener('listening', opened);
-        reject(new Error('API failed to listen'));
-      };
-      const opened = () => {
-        server.removeListener('error', failed);
-        listening = true;
-        resolve();
-      };
-      server.once('error', failed);
-      server.once('listening', opened);
-      server.listen(port, host);
-    });
+    try {
+      await handles.admin.connect();
+      if (stopped) return;
+      if (!(await ready()))
+        throw new Error('Admin database is unavailable or unsafe');
+      if (stopped) return;
+      await new Promise((resolve, reject) => {
+        const failed = () => {
+          server.removeListener('listening', opened);
+          reject(new Error('API failed to listen'));
+        };
+        const opened = () => {
+          server.removeListener('error', failed);
+          listening = true;
+          resolve();
+        };
+        server.once('error', failed);
+        server.once('listening', opened);
+        server.listen(port, host);
+      });
+    } catch (error) {
+      await shutdown(1);
+      throw error;
+    }
   }
   function shutdown(code = 0) {
     if (stopping) return stopping;

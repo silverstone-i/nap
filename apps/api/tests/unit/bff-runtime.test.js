@@ -8,6 +8,8 @@ import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
+import { createServer } from 'node:http';
+import { transportVersion } from '@nap/shared';
 import { createApp } from '../../src/app.js';
 import { createRuntime } from '../../src/application/runtime/createRuntime.js';
 import { runtimeConfiguration } from '../../src/application/shared/runtimeConfiguration.js';
@@ -100,6 +102,7 @@ it('requires safe Admin readiness before listening and closes the pool on shutdo
   admin.tx.any.mockRejectedValue(new Error('private db detail'));
   const down = await request(runtime.server).get('/health/ready');
   expect(down.status).toBe(503);
+  expect(down.body.version).toBe(transportVersion);
   expect(down.text).not.toContain('private');
   const first = runtime.shutdown();
   expect(runtime.shutdown()).toBe(first);
@@ -115,7 +118,8 @@ it('refuses unsafe database startup and closes its handle', async () => {
     'unavailable or unsafe'
   );
   expect(runtime.server.listening).toBe(false);
-  await runtime.shutdown(1);
+  expect(admin.close).toHaveBeenCalledOnce();
+  expect(await runtime.shutdown(1)).toBe(1);
   expect(admin.close).toHaveBeenCalledOnce();
 });
 it('bounds a stalled pool shutdown', async () => {
@@ -123,4 +127,27 @@ it('bounds a stalled pool shutdown', async () => {
   admin.close.mockImplementation(() => new Promise(() => {}));
   const runtime = createRuntime({ admin }, { poolCloseMs: 10 });
   expect(await runtime.shutdown()).toBe(1);
+});
+
+it('closes the pool when connecting fails', async () => {
+  const admin = handle();
+  const failure = new Error('connection failed');
+  admin.connect.mockRejectedValue(failure);
+  const runtime = createRuntime({ admin });
+  await expect(runtime.start(0, '127.0.0.1')).rejects.toBe(failure);
+  expect(admin.close).toHaveBeenCalledOnce();
+  expect(runtime.server.listening).toBe(false);
+});
+it('closes the pool when the listener cannot bind', async () => {
+  const occupied = createServer();
+  await new Promise(resolve => occupied.listen(0, '127.0.0.1', resolve));
+  cleanups.push(() => new Promise(resolve => occupied.close(resolve)));
+  const admin = handle();
+  const runtime = createRuntime({ admin });
+  cleanups.push(() => runtime.shutdown());
+  await expect(
+    runtime.start(occupied.address().port, '127.0.0.1')
+  ).rejects.toThrow('API failed to listen');
+  expect(admin.close).toHaveBeenCalledOnce();
+  expect(runtime.server.listening).toBe(false);
 });
