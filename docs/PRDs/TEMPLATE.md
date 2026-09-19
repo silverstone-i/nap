@@ -1,16 +1,17 @@
-# <ID>: <Title>
+# [ID]: [Title]
 
 ## 1. Document Control
 
-| Field                | Value                                      |
-| -------------------- | ------------------------------------------ |
-| Status               | Draft                                      |
-| Type                 | Module, capability, or workflow            |
-| Owner                | <owner>                                    |
-| Related architecture | <links or `None`>                          |
-| Related PRDs         | <identifiers, titles, and links or `None`> |
-| Related decisions    | <links or `None`>                          |
-| Last reviewed        | YYYY-MM-DD                                 |
+| Field                | Value                                          |
+| -------------------- | ---------------------------------------------- |
+| Status               | Draft                                          |
+| Type                 | Module, module Work Unit, feature, or workflow |
+| Related architecture | [links or `None`]                              |
+| Related PRDs         | [identifiers, titles, and links or `None`]     |
+| Related decisions    | [links or `None`]                              |
+| Last reviewed        | YYYY-MM-DD                                     |
+
+<!-- For a Work Unit PRD, add a Family field linking to its module overview. -->
 
 ## 2. Purpose
 
@@ -103,6 +104,6 @@ support access, throttling, revocation, and retention as applicable.
 State verifiable outcomes and reference the requirements each criterion covers.
 -->
 
-## 14. Open Questions
+## 14. Outstanding Questions
 
 <!-- Record unresolved decisions. Use `None` when all questions are resolved. -->

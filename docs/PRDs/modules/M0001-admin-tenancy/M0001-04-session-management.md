@@ -1,0 +1,130 @@
+# M0001-04: Session Management
+
+## 1. Document Control
+
+| Field                | Value                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| Status               | Draft                                                                                               |
+| Type                 | Module Work Unit                                                                                    |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                   |
+| Related architecture | [BFF](../../../architecture/bff.md)                                                                 |
+| Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | None                                                                                                |
+| Last reviewed        | 2026-09-18                                                                                          |
+
+## 2. Purpose
+
+Create, resolve, rotate, expire, and revoke browser sessions.
+
+## 3. Scope
+
+### Included
+
+- Opaque session credentials and BFF cookies.
+- Idle and absolute expiry.
+- Rotation, revocation, and restricted password-change sessions.
+
+### Excluded
+
+- Password verification.
+- Tenant selection and support-access rules.
+- Persistent browser tokens outside the session cookie.
+
+## 4. Actors And Permissions
+
+| Actor              | Operation                                                       | Result                             |
+| ------------------ | --------------------------------------------------------------- | ---------------------------------- |
+| Authenticated user | Read, rotate, or end own session                                | Apply operation to current session |
+| `platform_admin`   | Revoke any user's session                                       | Revoke target session              |
+| `support`          | Revoke a platform session or one targeting a non-Napsoft tenant | Revoke target session              |
+| `support`          | Revoke a session targeting the Napsoft tenant                   | Deny                               |
+| Anonymous caller   | Present cookie                                                  | Resolve or reject it               |
+
+## 5. Concepts And Terminology
+
+| Term          | Meaning                                             |
+| ------------- | --------------------------------------------------- |
+| Session token | Random 256-bit value held only by the browser       |
+| Token hash    | HMAC-SHA-256 value stored in the database           |
+| Rotation      | Replace the token and invalidate the previous token |
+| Revocation    | Archive a session so it cannot resolve again        |
+
+## 6. Functional Requirements
+
+- M0001-04-R001: Successful authentication must create a session for the verified portal user.
+- M0001-04-R002: Resolution must verify the token hash, account eligibility, expiry, and revocation before returning context.
+- M0001-04-R003: Sessions must support immediate rotation, idle expiry, absolute expiry, and explicit revocation.
+- M0001-04-R004: Unknown, tampered, expired, archived, or revoked sessions must not authenticate.
+- M0001-04-R005: Session operations must preserve tenant and support context established by WU 9.
+
+## 7. Business Rules And Invariants
+
+- M0001-04-R006: Concurrent rotation or revocation must permit at most one successful state change for the same current token.
+- M0001-04-R007: Support may revoke platform sessions and sessions targeting non-Napsoft tenants, but must not read or revoke a session targeting the Napsoft tenant.
+
+The idle timeout is 30 minutes and the absolute lifetime is 12 hours. Resolution
+updates `last_seen_at` and idle expiry at most once every five minutes. Each user
+may have ten active sessions; creating an eleventh revokes the oldest.
+
+Rotation has no overlap window. The prior token fails as soon as the transaction
+commits. Login, password change, tenant selection, support entry, and support
+exit rotate the token.
+
+## 8. Lifecycle And State Transitions
+
+| State                          | Action                                     | Result                                           |
+| ------------------------------ | ------------------------------------------ | ------------------------------------------------ |
+| Verified login                 | Create                                     | Active normal or restricted session              |
+| Active session                 | Resolve                                    | Authenticated context and bounded idle extension |
+| Active session                 | Rotate                                     | New token; prior token invalid                   |
+| Active session                 | Revoke or logout                           | Archived session and cleared cookie              |
+| Idle or absolute limit reached | Resolve                                    | Archive and reject session                       |
+| Restricted session             | Any route except password change or logout | Reject                                           |
+
+## 9. Data Requirements
+
+This Work Unit uses `admin.sessions`. M0001-00 defines its schema and token-hash
+lookup. Soft-deleted session records are not purged automatically.
+
+## 10. API Requirements
+
+| Method and route                            | Authority                                  | Result                                        |
+| ------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
+| `GET /api/admin-tenancy/v1/session/current` | Valid session                              | Safe session view                             |
+| `POST /api/admin-tenancy/v1/session/rotate` | Current session                            | Rotated cookie and safe session view          |
+| `POST /api/admin-tenancy/v1/auth/logout`    | Presented cookie, valid or expired         | Revoked reference and cleared cookie          |
+| `DELETE /api/admin-tenancy/v1/sessions/:id` | Own session or permitted platform operator | `204`; repeated revocation also returns `204` |
+
+The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, has no `Domain`, and is
+`Secure` outside local development. Its maximum age never exceeds absolute
+expiry. Responses never contain the token or token hash.
+
+## 11. Cross-Module Interactions
+
+WU 3 supplies authentication and password changes. WU 9 owns selected-tenant
+and support context. Account disable or archive revokes all sessions. Membership
+removal revokes sessions currently selecting that tenant. Platform-role removal
+invalidates cached authority immediately and ends affected support sessions.
+
+## 12. Security And Audit
+
+- M0001-04-R008: Session tokens and token hashes must not appear in responses, logs, or events.
+
+Creation, rotation, revocation, expiry detected during resolution, and support
+context changes create managed events with session UUIDs only.
+
+## 13. Acceptance Criteria
+
+| Criterion | Required result                                                                                  | Requirements                 |
+| --------- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| AC01      | Eligible authentication creates a session for the correct user.                                  | M0001-04-R001                |
+| AC02      | Valid sessions resolve; tampered, expired, archived, and revoked sessions do not.                | M0001-04-R002, M0001-04-R004 |
+| AC03      | Rotation immediately invalidates the prior token and concurrent attempts produce one winner.     | M0001-04-R003, M0001-04-R006 |
+| AC04      | Idle and absolute limits, ten-session cap, logout, and repeated revocation follow this contract. | M0001-04-R003                |
+| AC05      | WU 9 context survives ordinary resolution and changes only through its operations.               | M0001-04-R005                |
+| AC06      | No response, log, or event exposes session credentials.                                          | M0001-04-R008                |
+| AC07      | Support can revoke platform and non-Napsoft sessions but cannot access Napsoft tenant sessions.  | M0001-04-R007                |
+
+## 14. Outstanding Questions
+
+None.
