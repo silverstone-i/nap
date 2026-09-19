@@ -210,8 +210,11 @@ WU 12’s administrative event API.
 
 ### Verification Evidence
 
-Verified on 2026-09-19: `npm run lint`, `npm run format:check`, `npm test`
-(62 tests), `npm run test:db` (13 PostgreSQL 18 tests), `npm run build`,
+Final verification requires [PR #3](https://github.com/silverstone-i/nap/pull/3)
+to be merged with passing CI.
+
+Local validation on 2026-09-19: `npm run lint`, `npm run format:check`, `npm test`
+(70 tests), `npm run test:db` (14 PostgreSQL 18 tests), `npm run build`,
 `npm run licenses`, and `git diff --check` passed. Root setup and migration
 commands reported `created`, `applied`, then `unchanged` on repeat runs against
 an isolated database.
