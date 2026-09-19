@@ -67,6 +67,7 @@ it('loads production runtime credentials without requiring a maintenance passwor
   };
   const c = runtimeConfiguration(env);
   expect(c.admin).toContain('nap-app:');
+  expect(c.cache).toEqual({ enabled: false, url: undefined, namespace: 'nap' });
   expect(c.webRoot).toMatch(/apps\/web\/dist\/$/);
   expect(c.trustProxyHops).toBe(1);
   expect(() =>
@@ -78,6 +79,42 @@ it('loads production runtime credentials without requiring a maintenance passwor
   expect(() =>
     runtimeConfiguration({ ...env, ADMIN_DATABASE_PROD: 'secret-bad-json' })
   ).toThrow('INVALID_CONFIGURATION');
+});
+it('validates optional Redis cache configuration', () => {
+  const base = {
+    NODE_ENV: 'test',
+    ADMIN_DATABASE_TEST: 'db.example/nap_test_admin',
+    NAP_APP_PSWD_TEST: 'runtime-secret',
+  };
+  expect(
+    runtimeConfiguration({
+      ...base,
+      REDIS_CACHE_ENABLED_TEST: 'true',
+      REDIS_URL_TEST: 'rediss://cache.example:6380',
+      REDIS_CACHE_NAMESPACE_TEST: 'nap_test',
+    }).cache
+  ).toEqual({
+    enabled: true,
+    url: 'rediss://cache.example:6380',
+    namespace: 'nap_test',
+  });
+  for (const change of [
+    { REDIS_CACHE_ENABLED_TEST: 'yes' },
+    { REDIS_CACHE_ENABLED_TEST: 'true' },
+    {
+      REDIS_CACHE_ENABLED_TEST: 'true',
+      REDIS_URL_TEST: 'https://cache.example',
+      REDIS_CACHE_NAMESPACE_TEST: 'nap_test',
+    },
+    {
+      REDIS_CACHE_ENABLED_TEST: 'true',
+      REDIS_URL_TEST: 'redis://cache.example',
+      REDIS_CACHE_NAMESPACE_TEST: 'not valid',
+    },
+  ])
+    expect(() => runtimeConfiguration({ ...base, ...change })).toThrow(
+      'INVALID_CONFIGURATION'
+    );
 });
 function handle() {
   const tx = {
@@ -95,7 +132,8 @@ function handle() {
 }
 it('requires safe Admin readiness before listening and closes the pool on shutdown', async () => {
   const admin = handle();
-  const runtime = createRuntime({ admin }, { webRoot: await web() });
+  const cache = { close: vi.fn(async () => {}) };
+  const runtime = createRuntime({ admin, cache }, { webRoot: await web() });
   cleanups.push(() => runtime.shutdown());
   await runtime.start(0, '127.0.0.1');
   expect((await request(runtime.server).get('/health/ready')).status).toBe(200);
@@ -108,6 +146,7 @@ it('requires safe Admin readiness before listening and closes the pool on shutdo
   expect(runtime.shutdown()).toBe(first);
   expect(await first).toBe(0);
   expect(admin.close).toHaveBeenCalledOnce();
+  expect(cache.close).toHaveBeenCalledOnce();
 });
 it('refuses unsafe database startup and closes its handle', async () => {
   const admin = handle();

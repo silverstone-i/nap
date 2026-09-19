@@ -7,13 +7,47 @@ import { fileURLToPath } from 'node:url';
 import { roleUrl, secret, endpoint } from './configuration.js';
 import { MaintenanceError, requireCondition } from './errors.js';
 
+function cacheConfiguration(env, suffix) {
+  const enabledSetting = `REDIS_CACHE_ENABLED_${suffix}`;
+  const enabledText = env[enabledSetting]?.trim() || 'false';
+  requireCondition(
+    enabledText === 'true' || enabledText === 'false',
+    'INVALID_CONFIGURATION',
+    enabledSetting
+  );
+  const enabled = enabledText === 'true';
+  const urlSetting = `REDIS_URL_${suffix}`;
+  const namespaceSetting = `REDIS_CACHE_NAMESPACE_${suffix}`;
+  const url = env[urlSetting]?.trim();
+  const namespace = env[namespaceSetting]?.trim();
+  if (enabled) {
+    requireCondition(url, 'INVALID_CONFIGURATION', urlSetting);
+    try {
+      requireCondition(
+        ['redis:', 'rediss:'].includes(new URL(url).protocol),
+        'INVALID_CONFIGURATION',
+        urlSetting
+      );
+    } catch {
+      throw new MaintenanceError('INVALID_CONFIGURATION', urlSetting);
+    }
+    requireCondition(
+      typeof namespace === 'string' &&
+        /^[a-z0-9][a-z0-9_-]{0,63}$/i.test(namespace),
+      'INVALID_CONFIGURATION',
+      namespaceSetting
+    );
+  }
+  return { enabled, url, namespace: namespace || 'nap' };
+}
+
 /**
  * Resolve the settings the running API needs from `NODE_ENV` and its
  * `*_DEV`, `*_TEST`, or `*_PROD` variables. Production reads the JSON
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, admin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
+ * @returns {{port: number, trustProxyHops: number, admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -63,6 +97,7 @@ export function runtimeConfiguration(env) {
     port,
     trustProxyHops,
     admin: roleUrl(entry.endpoint, 'nap-app', entry.appPassword),
+    cache: cacheConfiguration(env, suffix),
     webRoot:
       suffix === 'PROD'
         ? fileURLToPath(new URL('../../../../web/dist/', import.meta.url))

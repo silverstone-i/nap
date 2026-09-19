@@ -15,7 +15,7 @@ import { checkAdminReadiness } from '../../infrastructure/runtime/adminReadiness
  * requests for up to `drainMs`, closes the pool within `poolCloseMs`, and
  * resolves to the process exit code. Readiness checks are shared while one
  * is in flight and report not ready once shutdown begins.
- * @param {{admin: import('pg-schemata').Database}} handles
+ * @param {{admin: import('pg-schemata').Database, cache?: {close: () => Promise<void>}}} handles
  * @param {object} [options]
  * @param {number} [options.trustProxyHops=0]
  * @param {string} [options.webRoot]
@@ -101,8 +101,10 @@ export function createRuntime(
           failed = true;
           resolve();
         }, poolCloseMs);
-        Promise.resolve()
-          .then(() => handles.admin.close())
+        Promise.all([
+          Promise.resolve().then(() => handles.cache?.close()),
+          Promise.resolve().then(() => handles.admin.close()),
+        ])
           .catch(() => {
             failed = true;
           })

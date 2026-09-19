@@ -12,12 +12,14 @@ import { environment } from './application/shared/configuration.js';
 import { runtimeConfiguration } from './application/shared/runtimeConfiguration.js';
 import { createRuntime } from './application/runtime/createRuntime.js';
 import { createAdminDatabase } from './infrastructure/runtime/adminDatabase.js';
+import { createRevisionCache } from './infrastructure/cache/index.js';
 
 let runtime;
 let admin;
+let cache;
 async function stop(code = 0) {
   const result = runtime ? await runtime.shutdown(code) : code;
-  if (!runtime) await admin?.close();
+  if (!runtime) await Promise.all([cache?.close(), admin?.close()]);
   process.exit(result);
 }
 process.once('SIGINT', () => void stop());
@@ -25,8 +27,9 @@ process.once('SIGTERM', () => void stop());
 try {
   const config = runtimeConfiguration(environment());
   admin = createAdminDatabase(config.admin);
+  cache = createRevisionCache({ admin, ...config.cache });
   runtime = createRuntime(
-    { admin },
+    { admin, cache },
     { trustProxyHops: config.trustProxyHops, webRoot: config.webRoot }
   );
   await runtime.start(config.port);
