@@ -4,13 +4,13 @@
 
 | Field                | Value                                               |
 | -------------------- | --------------------------------------------------- |
-| Status               | Draft                                               |
+| Status               | Implemented                                         |
 | Type                 | Module Work Unit                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)   |
 | Related architecture | [BFF](../../../architecture/bff.md)                 |
 | Related PRDs         | M0001-01 through M0001-10                           |
 | Related decisions    | PostgreSQL remains authoritative; Redis is optional |
-| Last reviewed        | 2026-09-18                                          |
+| Last reviewed        | 2026-09-19                                          |
 
 ## 2. Purpose
 
@@ -28,6 +28,7 @@ Prevent cached admin decisions from outliving the data that authorized them.
 
 - Table definitions and migrations.
 - Cache payload persistence in PostgreSQL.
+- Mutation-specific calls from later source Work Units.
 - Cell-local cache invalidation.
 
 ## 4. Actors And Permissions
@@ -50,7 +51,7 @@ Prevent cached admin decisions from outliving the data that authorized them.
 ## 6. Functional Requirements
 
 - M0001-11-R001: The module must read and atomically advance persistent revision counters.
-- M0001-11-R002: Every authorization-relevant admin mutation must advance all affected revision keys in the source transaction.
+- M0001-11-R002: The service must let each authorization-relevant admin mutation advance all affected revision keys in the source transaction. The source Work Unit owns and verifies its calls.
 - M0001-11-R003: Consumers must reuse a cached value only when every stored revision matches PostgreSQL.
 - M0001-11-R004: Correct behavior must continue when Redis is absent or unavailable.
 
@@ -69,9 +70,11 @@ Prevent cached admin decisions from outliving the data that authorized them.
 - M0001-11-R005: A successful source mutation and its revision advances must commit or roll back together.
 - M0001-11-R006: Cache keys must include every user, tenant, role, session, and entitlement dimension that affects the result.
 
-The first advance inserts revision `1`; later advances use `revision + 1` under
-row locking. Counters are 64-bit integers. Cache fill reads source data and its
-revision vector in one transaction, then writes Redis after commit.
+An unstored key reads as revision `0` without creating a row. The first advance
+inserts revision `1`; later advances use `revision + 1` under row locking.
+Vectors expose revisions as decimal strings so JavaScript does not lose 64-bit
+integer precision. Cache fill reads source data and its revision vector in one
+read-only, repeatable-read transaction, then writes Redis after commit.
 
 Redis failures are ignored after safe logging. PostgreSQL source or revision
 failure returns `503` for authorization-dependent operations; stale authority is
@@ -97,40 +100,54 @@ This Work Unit uses `admin.cache_revisions`. M0001-00 defines its composite key,
 
 No public route is introduced.
 
-| Internal operation                  | Result                                              |
-| ----------------------------------- | --------------------------------------------------- |
-| `current(keys)`                     | Complete ordered revision vector or storage failure |
-| `advance(keys, tx)`                 | New revisions inside the source transaction         |
-| `getOrLoad(cacheKey, keys, loader)` | Valid cached value or authoritative result          |
+| Internal operation                  | Result                                               |
+| ----------------------------------- | ---------------------------------------------------- |
+| `current(keys, { tx? })`            | Complete ordered decimal-string revision vector      |
+| `advance(keys, { tx })`             | New revisions inside the required source transaction |
+| `getOrLoad(cacheKey, keys, loader)` | Valid cached value or authoritative result           |
 
-The operations do not retry failed source transactions. The originating command
-may retry the entire idempotent operation.
+`loader(tx)` receives the repeatable-read transaction and returns a
+JSON-serializable value. Duplicate or malformed revision keys return
+`INVALID_INPUT`. PostgreSQL failures return `SERVICE_UNAVAILABLE`. The
+operations do not retry failed source transactions; the originating command may
+retry its entire idempotent operation.
 
 ## 11. Cross-Module Interactions
 
-Every source Work Unit calls `advance` for its listed keys. Role definitions
-live in cells; authorization caches must also validate the owning cell's role
-revision before reusing resolved capabilities. Definition changes, role removal,
-and reviewed system-role updates must invalidate dependent authorization.
-If the relevant cell revision cannot be verified, cached authority must not be
-used. Cell-local revision storage and delivery belong to access-control's
-integration contract; an Admin assignment revision alone is insufficient.
+Each later source Work Unit calls `advance` for its listed keys and verifies that
+integration. Role definitions live in cells, so the receiving access-control
+integration must also supply the owning cell's role revision before resolved
+capabilities may be cached. An Admin assignment revision alone is insufficient.
 
 ## 12. Security And Audit
 
-Cache payload access follows the source record's authorization scope. Cache keys
-contain opaque UUIDs, not emails, names, passwords, tokens, or reasons. Revision
-failures record a managed event; ordinary cache hits and fills do not.
+Cache payload access follows the source record's authorization scope. Redis keys
+hash the caller's opaque cache identity and canonical revision keys; they do not
+contain emails, names, passwords, tokens, reasons, or UUIDs. Redis failures log
+only stable codes. Ordinary cache hits and fills do not create managed events.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                          | Requirements                 |
-| --------- | ---------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | Every domain can initialize, read, and advance a monotonic revision.                     | M0001-11-R001                |
-| AC02      | Each listed mutation advances its affected keys in the source transaction.               | M0001-11-R002, M0001-11-R005 |
-| AC03      | Missing or mismatched vectors prevent cache reuse.                                       | M0001-11-R003                |
-| AC04      | Redis failure falls back to PostgreSQL; PostgreSQL failure does not use stale authority. | M0001-11-R004                |
-| AC05      | Cross-user, cross-tenant, and cross-session cache reuse is impossible.                   | M0001-11-R006                |
+| Criterion | Required result                                                                                                         | Requirements                 |
+| --------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Every domain can initialize, read, and advance a monotonic revision.                                                    | M0001-11-R001                |
+| AC02      | Callers can advance multiple affected keys in the source transaction; source failure rolls back every revision advance. | M0001-11-R002, M0001-11-R005 |
+| AC03      | Missing or mismatched vectors prevent cache reuse.                                                                      | M0001-11-R003                |
+| AC04      | Redis failure falls back to PostgreSQL; PostgreSQL failure does not use stale authority.                                | M0001-11-R004                |
+| AC05      | Cross-user, cross-tenant, and cross-session cache reuse is impossible.                                                  | M0001-11-R006                |
+
+### Verification Evidence
+
+Local validation on 2026-09-19: `npm run lint`, `npm run format:check`,
+`npm test` (147 tests across the workspace), `npm run build`,
+`npm run licenses`, and `git diff --check` passed.
+
+`npm run test:db` passed 30 tests against a disposable PostgreSQL 18 server.
+[Cache consistency tests](../../../../apps/api/tests/integration/cache-consistency.test.js)
+cover missing revision keys, atomic multi-key advance, transaction rollback, and
+concurrent monotonic advance. Unit tests cover validation, opaque Redis keys,
+matching and stale vectors, Redis fallback, PostgreSQL fail-closed behavior,
+runtime configuration, and cache shutdown.
 
 ## 14. Outstanding Questions
 

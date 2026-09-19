@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add PostgreSQL revision vectors and optional Redis validation for consistent Admin authorization caches.
+
 ## [v0.3.0] - 2026-09-19
 
 ### Added
