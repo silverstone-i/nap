@@ -4,13 +4,13 @@
 
 | Field                | Value                                                   |
 | -------------------- | ------------------------------------------------------- |
-| Status               | Draft                                                   |
+| Status               | Implemented                                             |
 | Type                 | Module Work Unit                                        |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)       |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md) |
 | Related PRDs         | M0001-01 through M0001-11                               |
 | Related decisions    | Events are append-only and retained indefinitely        |
-| Last reviewed        | 2026-09-18                                              |
+| Last reviewed        | 2026-09-19                                              |
 
 ## 2. Purpose
 
@@ -85,6 +85,20 @@ The originating operation supplies one stable deduplication UUID. Repeating the
 same logical operation returns the existing event. Events are retained
 indefinitely and have no update, archive, delete, or purge API.
 
+Many events have no tenant: bootstrap, cell registration, and a session created
+before tenant selection all store a null tenant.
+
+| Reader scope                      | Tenant events           | Null-tenant events |
+| --------------------------------- | ----------------------- | ------------------ |
+| Every tenant                      | All                     | Readable           |
+| Every tenant, with denied tenants | All but the denied ones | Readable           |
+| Named tenants                     | Only the named ones     | Not readable       |
+| No tenant                         | None                    | Not readable       |
+
+A named-tenant reader is fail-closed, so `tenant_admin` reads its own tenant's
+events and nothing else. `support` keeps platform visibility because its scope
+covers every tenant apart from the Napsoft tenants it is denied.
+
 ## 8. Lifecycle And State Transitions
 
 | Situation                 | Result                                      |
@@ -101,13 +115,25 @@ schema, indexes, and deduplication constraint.
 
 ## 10. API Requirements
 
-| Method and route                   | Filters                                                                | Result                |
-| ---------------------------------- | ---------------------------------------------------------------------- | --------------------- |
-| `GET /api/admin-tenancy/v1/events` | `tenant`, `actor`, `event`, `outcome`, `from`, `to`, `cursor`, `limit` | Authorized event page |
+No HTTP route is introduced. `GET /api/admin-tenancy/v1/events` needs an
+authenticated caller to resolve a scope from, so it lands with the
+authentication and session Work Units and exposes `listEvents` below.
+
+| Internal operation      | Input                                                                            | Result                            |
+| ----------------------- | -------------------------------------------------------------------------------- | --------------------------------- |
+| `append(event, { tx })` | Catalogue event, outcome, attribution, target, details, deduplication UUID       | Stored event, or the existing one |
+| `listEvents`            | Scope and `tenant`, `actor`, `event`, `outcome`, `from`, `to`, `cursor`, `limit` | Authorized event page             |
 
 Limits default to 50 and cannot exceed 100. Sort order is `occurred_at DESC,
-id DESC`; cursors are opaque. A caller cannot infer whether a filtered-out
-Napsoft event exists. There is no event write, update, or delete HTTP route.
+id DESC`. Cursors are opaque and bound to the filters and scope that issued
+them, so a caller cannot widen a query part-way through a page. A caller cannot
+infer whether a filtered-out Napsoft event exists.
+
+Invalid keys, outcomes, attribution, targets, or details return `INVALID_INPUT`;
+an unauthorized scope returns `FORBIDDEN`; a write conflict returns `CONFLICT`;
+an event that cannot be stored returns `AUDIT_UNAVAILABLE`, which a source
+transaction surfaces as `503`. There is no event write, update, or delete
+route.
 
 ## 11. Cross-Module Interactions
 
@@ -123,15 +149,41 @@ errors are redacted before any failure event is attempted.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                               | Requirements                 |
-| --------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | Every catalogue operation emits its required success, failure, or denial event.                               | M0001-12-R001, M0001-12-R005 |
-| AC02      | Invalid keys, outcomes, attribution, or detail fields are rejected.                                           | M0001-12-R002                |
-| AC03      | Runtime update and delete attempts fail and no purge path exists.                                             | M0001-12-R003                |
-| AC04      | Readers receive only permitted events with stable filtering and pagination.                                   | M0001-12-R004                |
-| AC05      | Support activity retains real and effective actors and support cannot infer Napsoft events.                   | M0001-12-R006                |
-| AC06      | Events contain none of the prohibited secrets or raw identifiers.                                             | M0001-12-R007                |
-| AC07      | Transaction failure, event-storage failure, and operation retry follow the atomicity and deduplication rules. | M0001-12-R005                |
+| Criterion | Required result                                                                                                                                   | Requirements                 |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | The catalogue names every listed key, and `append` accepts each one with its permitted outcomes. Each source Work Unit verifies its own emission. | M0001-12-R001, M0001-12-R005 |
+| AC02      | Invalid keys, outcomes, attribution, or detail fields are rejected.                                                                               | M0001-12-R002                |
+| AC03      | Runtime update and delete attempts fail and no purge path exists.                                                                                 | M0001-12-R003                |
+| AC04      | Readers receive only permitted events with stable filtering and pagination.                                                                       | M0001-12-R004                |
+| AC05      | Support activity retains real and effective actors and support cannot infer Napsoft events.                                                       | M0001-12-R006                |
+| AC06      | Events contain none of the prohibited secrets or raw identifiers.                                                                                 | M0001-12-R007                |
+| AC07      | Transaction failure, event-storage failure, and operation retry follow the atomicity and deduplication rules.                                     | M0001-12-R005                |
+
+### Verification Evidence
+
+Local validation on 2026-09-19: `npm run lint`, `npm run format:check`,
+`npm test` (216 tests across the workspace, including 69 new unit tests),
+`npm run build`, `npm run licenses`, and `git diff --check` passed.
+
+`npm run test:db` passed 37 of 40 tests against a disposable PostgreSQL 18
+server, including all 10
+[administrative event tests](../../../../apps/api/tests/integration/administrative-events.test.js).
+The three failures are in `admin-foundation.test.js` and predate this Work
+Unit: the same three fail on an unmodified checkout, because the local fixture
+server has no `postgres` superuser role. They do not touch `managed_events`.
+
+Integration tests cover append inside and outside a transaction, rollback with
+the source transaction, deduplication-key reuse, update and delete rejection,
+pagination across pages, every filter, the reader-scope table including
+null-tenant events, support attribution, and rejection storing nothing. Unit
+tests cover the catalogue, the detail allowlist and its secret denylist,
+attribution and target validation, scope-to-filter translation, cursor binding,
+and error-code translation without database detail.
+
+Pagination reads the position as microsecond text rather than through
+`findAfterCursor`. That helper builds its cursor from the returned row, where
+`occurred_at` has already become a millisecond-precision JavaScript `Date`; an
+integration test caught it skipping rows inside the truncated remainder.
 
 ## 14. Outstanding Questions
 
