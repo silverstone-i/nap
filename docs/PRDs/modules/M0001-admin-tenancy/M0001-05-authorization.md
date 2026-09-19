@@ -34,23 +34,23 @@ Seed immutable system roles into tenants and assign valid roles to portal users.
 
 ## 4. Actors And Permissions
 
-| Actor            | Target                                 | Result                                                |
-| ---------------- | -------------------------------------- | ----------------------------------------------------- |
-| `platform_admin` | Any central record                     | Permit matching capability                            |
-| `support`        | Record outside the Napsoft tenant      | Permit matching capability                            |
-| `support`        | Napsoft tenant or data belonging to it | Deny before the operation reads or changes the record |
-| `tenant_admin`   | Own tenant                             | Permit only the tenant-scoped capabilities below      |
-| Tenant-defined role | Own tenant | Permit its assigned capabilities within that tenant |
-| Any actor        | Own role assignment                    | Cannot grant a role to itself                         |
+| Actor               | Target                                 | Result                                                |
+| ------------------- | -------------------------------------- | ----------------------------------------------------- |
+| `platform_admin`    | Any central record                     | Permit matching capability                            |
+| `support`           | Record outside the Napsoft tenant      | Permit matching capability                            |
+| `support`           | Napsoft tenant or data belonging to it | Deny before the operation reads or changes the record |
+| `tenant_admin`      | Own tenant                             | Permit only the tenant-scoped capabilities below      |
+| Tenant-defined role | Own tenant                             | Permit its assigned capabilities within that tenant   |
+| Any actor           | Own role assignment                    | Cannot grant a role to itself                         |
 
 ## 5. Concepts And Terminology
 
-| Term          | Meaning                                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------- |
-| Capability    | Authorization identifier in `module::router::action` form                                                   |
-| System role   | Immutable named capability set                                                                              |
-| Role assignment | Portal user linked to a tenant-local role UUID in `admin.platform_roles`                                                   |
-| Napsoft data  | Tenant, membership, session, entitlement, event, or cell action whose target tenant has `is_napsoft = true` |
+| Term            | Meaning                                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
+| Capability      | Authorization identifier in `module::router::action` form                                                   |
+| System role     | Immutable named capability set                                                                              |
+| Role assignment | Portal user linked to a tenant-local role UUID in `admin.platform_roles`                                    |
+| Napsoft data    | Tenant, membership, session, entitlement, event, or cell action whose target tenant has `is_napsoft = true` |
 
 ## 6. Functional Requirements
 
@@ -64,7 +64,7 @@ Seed immutable system roles into tenants and assign valid roles to portal users.
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `platform_admin` | `admin-tenancy::control::read`, `admin-tenancy::control::write`, `admin-tenancy::accounts::read`, `admin-tenancy::accounts::write`, `admin-tenancy::roles::read`, `admin-tenancy::roles::write`, `admin-tenancy::sessions::revoke`, `admin-tenancy::entitlements::read`, `admin-tenancy::entitlements::write`, `admin-tenancy::events::read`, `admin-tenancy::access::support` |
 | `support`        | Same capabilities as `platform_admin`, subject to the Napsoft-data denial                                                                                                                                                                                                                                                                                                      |
-| `tenant_admin`   | `admin-tenancy::accounts::read`, `admin-tenancy::accounts::write`, `admin-tenancy::entitlements::read` within its tenant                                                                                                                                                                                                                                                       |
+| `tenant_admin`   | `admin-tenancy::accounts::read`, `admin-tenancy::accounts::write`, `admin-tenancy::entitlements::read`, `admin-tenancy::events::read` within its tenant                                                                                                                                                                                                                        |
 
 ## 7. Business Rules And Invariants
 
@@ -87,7 +87,7 @@ session are platform records, even when the user has a Napsoft membership.
 
 | State                         | Action       | Result                                                          |
 | ----------------------------- | ------------ | --------------------------------------------------------------- |
-| Role absent                   | Initialize   | Seed immutable definition into the tenant role table                                     |
+| Role absent                   | Initialize   | Seed immutable definition into the tenant role table            |
 | Definition matches            | Reinitialize | No change                                                       |
 | Definition differs            | Reinitialize | Fail; use a reviewed migration for catalogue changes            |
 | Assignment absent or archived | Grant        | Create or restore assignment                                    |
@@ -108,10 +108,10 @@ this PRD family refers to that configured owning tenant.
 
 ## 10. API Requirements
 
-| Method and route                                     | Capability                    | Result                                 |
-| ---------------------------------------------------- | ----------------------------- | -------------------------------------- |
-| `GET /api/admin-tenancy/v1/tenants/:tenant/roles`                    | `admin-tenancy::roles::read`  | Tenant roles and safe capability lists |
-| `GET /api/admin-tenancy/v1/users/:id/roles`          | `admin-tenancy::roles::read`  | Active role assignments            |
+| Method and route                                                       | Capability                    | Result                                 |
+| ---------------------------------------------------------------------- | ----------------------------- | -------------------------------------- |
+| `GET /api/admin-tenancy/v1/tenants/:tenant/roles`                      | `admin-tenancy::roles::read`  | Tenant roles and safe capability lists |
+| `GET /api/admin-tenancy/v1/users/:id/roles`                            | `admin-tenancy::roles::read`  | Active role assignments                |
 | `PUT /api/admin-tenancy/v1/tenants/:tenant/users/:id/roles/:roleId`    | `admin-tenancy::roles::write` | `200` active assignment                |
 | `DELETE /api/admin-tenancy/v1/tenants/:tenant/users/:id/roles/:roleId` | `admin-tenancy::roles::write` | `204`                                  |
 
@@ -138,12 +138,12 @@ ID. Role changes advance authorization cache revisions in the same transaction.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                           | Requirements                 |
-| --------- | ----------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | Every tenant receives `tenant_admin`; only the configured owning tenant receives `platform_admin` and `support`. Repeat seeds preserve UUIDs and reject drift; runtime edits to system roles fail.                     | M0001-05-R001, M0001-05-R002 |
-| AC02      | Users can hold system and tenant-defined roles; duplicate active user/tenant/role assignments are prevented and no capability overrides are stored.                          | M0001-05-R003, M0001-05-R004 |
-| AC03      | Authorization combines applicable assignments, prevents cross-tenant authority, rejects unresolved roles, and denies support access to the owning tenant’s data.             | M0001-05-R005                |
-| AC04      | Unknown, inactive, wrong-tenant, self-granted, unauthorized, and last-admin changes fail; valid `tenant_admin` and custom-role assignments succeed. | M0001-05-R006, M0001-05-R007 |
+| Criterion | Required result                                                                                                                                                                                    | Requirements                 |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Every tenant receives `tenant_admin`; only the configured owning tenant receives `platform_admin` and `support`. Repeat seeds preserve UUIDs and reject drift; runtime edits to system roles fail. | M0001-05-R001, M0001-05-R002 |
+| AC02      | Users can hold system and tenant-defined roles; duplicate active user/tenant/role assignments are prevented and no capability overrides are stored.                                                | M0001-05-R003, M0001-05-R004 |
+| AC03      | Authorization combines applicable assignments, prevents cross-tenant authority, rejects unresolved roles, and denies support access to the owning tenant’s data.                                   | M0001-05-R005                |
+| AC04      | Unknown, inactive, wrong-tenant, self-granted, unauthorized, and last-admin changes fail; valid `tenant_admin` and custom-role assignments succeed.                                                | M0001-05-R006, M0001-05-R007 |
 
 ## 14. Outstanding Questions
 

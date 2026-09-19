@@ -95,7 +95,42 @@ Runtime database configuration uses:
 - `NAP_APP_PSWD_<ENV>` and `NAP_ADMIN_PSWD_<ENV>` for local role passwords;
 - production JSON entries that include endpoint and role passwords.
 
-The API must reject database configuration names outside this contract.
+Maintenance commands also accept `SETUP_DATABASE_<ENV>` for the maintenance
+endpoint and `ADMIN_DATABASE_NAME_PROD` for the production Admin database name.
+Provider setup may resolve endpoints after creating the resource. These settings
+are not required for ordinary runtime startup.
+
+Reject database configuration names outside this contract.
+
+## Browser Request Protection
+
+The web app and API use the same origin; the API does not grant cross-origin
+access through CORS.
+
+Before a state-changing API operation runs, validate the request's `Origin`
+against the configured public application origin, including scheme, hostname,
+and port. Use the browser-facing development origin when Vite proxies requests.
+Do not derive the trusted origin from an unvalidated `Host` or forwarded header.
+If `Origin` is absent, validate the origin of `Referer` instead. Reject a
+mismatched, malformed, or `null` Origin without falling back to Referer; reject
+requests with neither header. Rejections return `403 FORBIDDEN` without running
+the operation.
+
+Apply this check to POST, PUT, PATCH, and DELETE routes, including login,
+logout, bodyless requests, and spreadsheet uploads. GET, HEAD, and OPTIONS must
+not expose business mutations. Session expiry and last-seen bookkeeping remain
+part of session resolution.
+
+Session cookies use `HttpOnly`, `SameSite=Lax`, and `Secure` in production.
+`SameSite=None` is not supported by this deployment model. JSON operations
+reject nonempty bodies with other content types; spreadsheet imports accept
+only their declared upload type. Neither a bodyless request nor an upload
+bypasses the origin check. This policy does not require a separate CSRF token.
+
+Verification must cover valid same-origin requests, foreign and null origins,
+missing headers, Referer fallback, bodyless logout, and spreadsheet uploads.
+Rejected requests must leave application state unchanged. Production cookie
+configuration must reject `SameSite=None`.
 
 ## API Routing
 
@@ -124,14 +159,16 @@ For a normal browser API request:
 1. The web app calls `/api/...` through its shared request client.
 2. The browser sends the session cookie with `credentials: 'same-origin'`.
 3. Express assigns correlation and logging context.
-4. Session middleware resolves the current portal user, tenant membership, and
+4. Browser request protection validates state-changing requests before session
+   resolution or the requested operation can change state.
+5. Session middleware resolves the current portal user, tenant membership, and
    selected cell.
-5. The route registry dispatches admin routes to the admin database, or cell
+6. The route registry dispatches admin routes to the admin database, or cell
    routes to the session's cell.
-6. Cell routes re-check that the selected cell is ready and that the session is
+7. Cell routes re-check that the selected cell is ready and that the session is
    still authorized for it.
-7. The API returns a validated success or error envelope.
-8. The web client validates the response envelope before showing data.
+8. The API returns a validated success or error envelope.
+9. The web client validates the response envelope before showing data.
 
 ## Business Rules
 

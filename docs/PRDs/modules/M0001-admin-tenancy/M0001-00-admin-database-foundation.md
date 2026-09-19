@@ -23,7 +23,7 @@ Define the admin database schema, models, permissions, setup, and migration.
 - All 12 admin tables and their `pg-schemata` schema objects.
 - Models, repository registration, and the admin-tenancy module descriptor.
 - Database roles, grants, constraints, and triggers.
-- Admin database setup and the initial admin-tenancy migration.
+- Local and Render Admin database setup, deployment configuration, setup guides, and the initial admin-tenancy migration.
 - Verification of the installed schema and permissions.
 
 ### Excluded
@@ -71,7 +71,7 @@ enforce user and tenant access.
 
 - M0001-00-R001: The module must define every table and named schema object in section 9 and the linked schema chapter.
 - M0001-00-R002: Each table must have a JavaScript model extending `pg-schemata.TableModel`, exporting its schema object, and registered by table name in `repositories.js`; `descriptor.js` must register the module, admin database target, `admin` schema, models, migrations, and entitlement type.
-- M0001-00-R003: `db:setup:admin` must use `nap-admin` to create or verify the selected admin database and roles without deleting data or running bootstrap.
+- M0001-00-R003: `db:setup:admin` must create or verify the selected admin database and roles without deleting data or running bootstrap. Local setup uses existing `nap-admin` credentials; Render setup uses provider credentials to establish missing roles before maintenance runs as `nap-admin`.
 - M0001-00-R004: `db:migrate:admin` must validate the admin registry before connecting, apply pending migrations as `nap-admin` through `pg-schemata`, and close connections on success or failure.
 - M0001-00-R005: Migration must install and verify the grants, constraints, and triggers, and must leave RLS disabled on every admin table.
 - M0001-00-R006: Setup and migration must report success, no change, or failure without exposing secrets; a failed or incomplete run must not report success.
@@ -86,15 +86,15 @@ enforce user and tenant access.
 
 ## 8. Lifecycle And State Transitions
 
-| Starting state                         | Command                | Result                                                    |
-| -------------------------------------- | ---------------------- | --------------------------------------------------------- |
-| Database or `nap-app` absent           | Setup                  | Create missing resources and verify the target            |
-| Compatible database and roles exist    | Setup                  | Preserve data and report no change                        |
-| Existing configuration is incompatible | Setup                  | Fail with the mismatched setting identified               |
-| Setup complete, no module schema       | Migrate                | Install the baseline schema and grants                    |
-| Pending migrations exist               | Migrate                | Apply pending changes under the library's ledger and lock |
-| No pending migrations                  | Migrate                | Verify the target and report no migration applied         |
-| Setup or migration fails               | Retry after correction | Reuse verified resources; follow the migration ledger     |
+| Starting state                                 | Command                | Result                                                    |
+| ---------------------------------------------- | ---------------------- | --------------------------------------------------------- |
+| Local database or Render database/roles absent | Setup                  | Create missing resources and verify the target            |
+| Compatible database and roles exist            | Setup                  | Preserve data and report no change                        |
+| Existing configuration is incompatible         | Setup                  | Fail with the mismatched setting identified               |
+| Setup complete, no module schema               | Migrate                | Install the baseline schema and grants                    |
+| Pending migrations exist                       | Migrate                | Apply pending changes under the library's ledger and lock |
+| No pending migrations                          | Migrate                | Verify the target and report no migration applied         |
+| Setup or migration fails                       | Retry after correction | Reuse verified resources; follow the migration ledger     |
 
 Database creation may leave resources after a later setup failure because
 `CREATE DATABASE` cannot run inside a transaction. Report what was created;
@@ -139,11 +139,15 @@ database target and `nap-admin` and `nap-app` credentials. Credentials must not 
 
 The root command calls a JavaScript setup entry point that:
 
-1. Resolves the chosen environment's admin target and `nap-admin` credentials.
-2. Connects to the configured maintenance database.
-3. Creates the admin database and `nap-app` role if absent, or verifies existing resources; `nap-admin` must already exist for the connection.
+1. Validates the selected environment's setup configuration before mutation.
+2. For local setup, connects as the existing `nap-admin`, verifies both local roles, and creates or verifies the Admin database.
+3. For Render, creates or reconciles the provider resource and uses provider credentials to create missing roles or verify existing ones before connecting as `nap-admin`.
 4. Applies database connection and schema-creation restrictions.
 5. Verifies ownership and role attributes, reports the result, and closes connections.
+
+Setup follows the [local and Render workflow](../../../architecture/migrations.md#local-and-render-setup),
+including saved resource identity, safe retries, temporary-access cleanup, and
+operator guides. Provider credentials must not become runtime credentials.
 
 ### Module Migration
 
@@ -159,7 +163,8 @@ Install and verify the functions, triggers, and grants specified in §4 and the
 schema chapter.
 
 Model objects and the frozen migration must produce equivalent table contracts.
-Runtime startup must not run migrations.
+The 12 tables are the initial contract; later migrations may add tables or change
+the schema. Runtime startup must not run migrations.
 Commands return exit code zero only on success or verified no change, and a
 nonzero code on failure. Report the target, migration ID, and safe error context.
 
@@ -191,17 +196,17 @@ WU 12’s administrative event API.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                             | Requirements                 |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | All 12 schema objects, models, and repository entries match the migrated PostgreSQL catalog; no cell connection is required.                                                | M0001-00-R001, M0001-00-R002 |
-| AC02      | Setup creates an empty target; a second run preserves rows and credentials; incompatible targets fail without destructive changes.                                          | M0001-00-R003, M0001-00-R009 |
-| AC03      | Migration creates all tables in dependency order, records success in the library ledger, and applies nothing on a repeated run.                                             | M0001-00-R004, M0001-00-R007 |
-| AC04      | Wrong-target descriptors fail before connection; migration failure leaves no falsely applied ledger entry; connections close on both paths.                                 | M0001-00-R004, M0001-00-R006 |
-| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 12 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled. | M0001-00-R005, M0001-00-R012 |
-| AC06      | Direct SQL as `nap-app` rejects invalid foreign keys, duplicate constrained values, immutable-key changes, and event updates/deletes; valid writes maintain audit fields.   | M0001-00-R007, M0001-00-R008 |
-| AC07      | Changed applied migration contents fail checksum validation; new changes use a new migration.                                                                               | M0001-00-R010                |
-| AC08      | Success, repeat, partial setup, and failure output contain no credentials or secret-bearing values.                                                                         | M0001-00-R006, M0001-00-R013 |
-| AC09      | Archived rows remain stored after time passes, startup, setup, and migration; no automatic purge is configured or invoked.                                                  | M0001-00-R011                |
+| Criterion | Required result                                                                                                                                                                                                             | Requirements                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | All 12 schema objects, models, and repository entries match the migrated PostgreSQL catalog; no cell connection is required.                                                                                                | M0001-00-R001, M0001-00-R002 |
+| AC02      | Local setup verifies existing roles; Render setup creates missing roles using provider credentials. Fresh setup produces an empty target; retries preserve existing rows and credentials and reject incompatible resources. | M0001-00-R003, M0001-00-R009 |
+| AC03      | Migration creates all tables in dependency order, records success in the library ledger, and applies nothing on a repeated run.                                                                                             | M0001-00-R004, M0001-00-R007 |
+| AC04      | Wrong-target descriptors fail before connection; migration failure leaves no falsely applied ledger entry; connections close on both paths.                                                                                 | M0001-00-R004, M0001-00-R006 |
+| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 12 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled.                                                 | M0001-00-R005, M0001-00-R012 |
+| AC06      | Direct SQL as `nap-app` rejects invalid foreign keys, duplicate constrained values, immutable-key changes, and event updates/deletes; valid writes maintain audit fields.                                                   | M0001-00-R007, M0001-00-R008 |
+| AC07      | Changed applied migration contents fail checksum validation; new changes use a new migration.                                                                                                                               | M0001-00-R010                |
+| AC08      | Success, repeat, partial setup, and failure output contain no credentials or secret-bearing values.                                                                                                                         | M0001-00-R006, M0001-00-R013 |
+| AC09      | Archived rows remain stored after time passes, startup, setup, and migration; no automatic purge is configured or invoked.                                                                                                  | M0001-00-R011                |
 
 ## 14. Outstanding Questions
 

@@ -75,10 +75,34 @@ The commands do this:
 
 - `db:setup:admin`: create or find the admin database and roles.
 - `db:migrate:admin`: apply admin migrations.
-- `db:bootstrap`: create the initial admin tenant, root portal user, and
-  platform capabilities.
+- `db:bootstrap`: create or verify the owning tenant, root portal user, and
+  root membership under [M0001-02](../PRDs/modules/M0001-admin-tenancy/M0001-02-root-user-provisioning.md).
 
 Bootstrap requires the admin schema. It creates operational data, not schema.
+It does not create ordinary tenants or seed platform capability definitions.
+M0001-02 owns finalizing the root assignment after the owning tenant's role seeds.
+
+### Local And Render Setup
+
+Local setup verifies the existing `nap-admin` and `nap-app` roles and credentials
+and creates or verifies the Admin database. Development instructions must cover
+establishing these roles on a new local installation.
+
+Render setup creates or reconciles the Admin database resource, then uses
+provider-issued credentials to create missing `nap-admin` and `nap-app` roles
+or verify existing ones. Migrations run as `nap-admin`. Setup preserves existing
+compatible resources and credentials and rejects incompatible configurations.
+
+Persist resource identity and provisioning progress before advancing so retries
+reuse the same resource after partial or uncertain failures. Production
+maintenance verifies the service, workspace, and database identity, grants only
+the temporary network access it needs, and removes that access on success or
+failure. Failed cleanup retains recovery state for the next attempt.
+
+The database-foundation deliverable includes Render configuration and development
+and production guides covering prerequisites, private configuration, setup,
+migrations, deployment, and recovery. Guides must identify later bootstrap,
+login, and cell-management dependencies rather than imply they are implemented.
 
 ## Cell Workflow
 
@@ -121,7 +145,9 @@ before activation.
 The reference-data seed must load the committed country and currency snapshot,
 then record the applied seed version in `reference.seed_versions`.
 
-Admin bootstrap must also seed the platform capabilities.
+Tenant provisioning runs the system-role seeds defined by
+[M0001-05](../PRDs/modules/M0001-admin-tenancy/M0001-05-authorization.md).
+These seeds are separate from Admin bootstrap.
 
 Changing the reference seed version requires a seed rollout for existing cells.
 New cells receive the required seed version during provisioning. Existing cells
@@ -142,6 +168,8 @@ separate operator-workflow specification.
 - Failed cell provisioning is retried against the same registered cell.
 - A migration's ID and contents are immutable after it has been applied to a
   persistent environment.
+- Schema evolution may add or change tables through new migrations; the initial
+  table count is not a permanent limit.
 - Before that boundary, a pre-release baseline reset may consolidate migrations.
   Record the reset in the changelog and recreate affected disposable databases.
 

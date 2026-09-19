@@ -104,7 +104,9 @@ Duplicate suffix or database name returns `409 CONFLICT`; invalid input returns
 
 ## 11. Cross-Module Interactions
 
-The provisioning infrastructure performs setup, migration, seed, and activation.
+The provisioning infrastructure performs setup, migration, seed, and activation,
+including [durable connection publication and live pool loading](../../../architecture/admin-cells.md#provisioning-and-activation).
+UI registration requires neither a preconfigured cell endpoint nor an operator restart.
 M0001-07 may assign tenants only after a separate assignment operation verifies
 the cell is enabled. Runtime readiness remains an infrastructure result.
 

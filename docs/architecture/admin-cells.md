@@ -135,6 +135,19 @@ Setup creates or finds the physical database. Migration creates the cell
 schema. Seed adds required starting data. Activation checks that the database is
 the registered cell, then enables it for tenant traffic.
 
+The runner obtains the connection endpoint during provider or local setup;
+a new cell UUID does not need a pre-existing `CELL_DATABASES_<ENV>` entry.
+Before enabling the cell, the runner durably saves its endpoint and credentials
+in private configuration, publishes the UUID-keyed runtime entry, and loads and
+verifies its pool in the running API. Registration through the UI does not
+require an operator to edit configuration or restart the API. Startup reloads
+saved connections after a restart.
+
+Missing provisioning configuration or a failure to save or load the connection
+leaves the cell disabled with a safe failure code. Retry uses the same cell and
+operation identity and any saved provisioning progress. Connection secrets stay
+out of central registry rows, responses, logs, and events.
+
 The operation must be marked completed only after those steps pass. If a step
 fails, the cell stays disabled and the failure is saved for retry.
 
@@ -181,8 +194,8 @@ with:
 ```
 
 A tenant may receive its first cell assignment when `cell_id` is null, including
-the owning tenant after root bootstrap. Later reassignment is allowed only before
-provisioning starts and while the tenant has no memberships.
+the owning tenant after root bootstrap. Later reassignment or clearing is allowed only while
+`provisioned = false` and no membership exists, including archived memberships.
 
 ## Readiness And Overview
 
