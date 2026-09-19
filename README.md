@@ -1,23 +1,28 @@
-# nap
+# NAP
 
-NAP is a hobby project that I have long wanted to do. Rather than spend an
-inordinate amount of time figuring out what to name the project I went with
-Not Another Program (NAP), but if you prefer you can think of it as
-Next-generation Accounting Platform.
+NAP means Not Another Program or Next-generation Accounting Platform. It is a
+project-native, multi-company ERP for construction workflows.
 
-NAP is a horizontal, project-native, multi-company ERP. The base ERP core
-includes multi-tenant infrastructure, RBAC, master data, projects, activities,
-AP/AR, double-entry accounting, cashflow, and profitability. The initial
-release focuses on construction-industry workflows.
+The core includes:
+
+- Multi-tenant infrastructure
+- Role-based access control
+- Master data
+- Projects and activities
+- Accounts payable and receivable
+- Double-entry accounting
+- Cash flow and profitability
 
 ## Stack
 
-NAP uses PostgreSQL, Express, React, and Node.
+- PostgreSQL
+- Express
+- React
+- Node.js
 
 ## Documentation
 
-The active documentation set is being rebuilt around focused architecture
-guides:
+Architecture guides:
 
 - [BFF](docs/architecture/bff.md)
 - [Admin and cells](docs/architecture/admin-cells.md)
@@ -25,9 +30,8 @@ guides:
 - [Module design](docs/architecture/module-design.md)
 - [Module map](docs/architecture/module-map.md)
 
-The previous documentation is no longer part of the tracked repository. An
-ignored local `reference-material/` archive may exist for historical research,
-but it is not current implementation authority.
+The tracked documentation is authoritative. Any ignored `reference-material/`
+archive is historical only.
 
 ## Development
 
@@ -36,18 +40,17 @@ verification.
 
 ## License
 
-Released under the GNU Affero General Public License, version 3 or later
-(AGPL-3.0-or-later). See LICENSE.
+NAP is licensed under the GNU Affero General Public License, version 3 or later
+(AGPL-3.0-or-later). See [LICENSE](LICENSE).
 
 If you run a modified version of NAP over a network, you must make the modified
-source available to your users. This is intentional: NAP is open
-infrastructure.
+source available to your users.
 
 ## Contributing
 
-Contributions are welcome. Every commit must carry a Signed-off-by: trailer
-asserting the Developer Certificate of Origin (DCO 1.1). See COLLABORATION.md
-for details and the dependency rules.
+Every commit must include a `Signed-off-by` trailer asserting the Developer
+Certificate of Origin 1.1. See [COLLABORATION.md](COLLABORATION.md) for the
+contribution and dependency rules.
 
 The maintainer (Ian Silverstone) has sole enforcement authority over project
 rules.

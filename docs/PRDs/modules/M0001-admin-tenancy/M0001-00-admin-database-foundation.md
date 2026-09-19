@@ -33,8 +33,6 @@ Define the admin database schema, models, permissions, setup, and migration.
 - Creating, migrating, seeding, or activating physical cell databases.
 - Data migration from or compatibility with the previous project.
 
-Use `pg-schemata` 3.1.2, declared as `^3.1.2` in `apps/api/package.json`.
-
 ## 4. Actors And Permissions
 
 The two PostgreSQL roles are separate from the application roles

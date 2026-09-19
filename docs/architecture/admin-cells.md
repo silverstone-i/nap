@@ -180,9 +180,9 @@ with:
 }
 ```
 
-Changing a tenant's cell is allowed only while the tenant is still pending, not
-provisioned, and has no memberships. After provisioning begins, moving the
-tenant is a separate migration problem, not a registry edit.
+A tenant may receive its first cell assignment when `cell_id` is null, including
+the owning tenant after root bootstrap. Later reassignment is allowed only before
+provisioning starts and while the tenant has no memberships.
 
 ## Readiness And Overview
 
