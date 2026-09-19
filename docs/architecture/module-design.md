@@ -29,6 +29,11 @@ Each module must export a descriptor containing its name, database target,
 schema, models, migrations, and entitlement type. Admin and cell descriptors
 must use separate registries.
 
+The descriptor field `entitlementType` is `foundation`, `optional`, or
+`infrastructure`. Foundation modules are always available to tenants; optional
+modules require an entitlement; infrastructure modules support platform operations
+and are not tenant-selectable. `admin-tenancy` uses `infrastructure`.
+
 ## Module Folders
 
 ```text
@@ -67,7 +72,7 @@ Place a rule according to what it protects:
   belong with the router operation.
 - Workflow rules that require more than one module belong in `application/`.
 - Database invariants belong in module migrations as constraints, row-level
-  security policies, or triggers.
+  security, or triggers.
 
 Use middleware only for rules that apply across routes. A module rule does not
 become middleware because an HTTP request triggers it.
@@ -82,7 +87,7 @@ the module requires additional behavior.
 
 ### API Routers
 
-Routers define API paths, request and response schemas, required permissions,
+Routers define API paths, request and response schemas, required capabilities,
 and the operation to run. Versioned routers live under `apiRoutes/v1/` and must
 be registered with the framework route registry.
 
@@ -91,6 +96,13 @@ The API mounts routers at:
 ```text
 /api/<module>/v<version>/<router>
 ```
+
+## Capability Terminology
+
+A capability identifies an authorization in `module::router::action` form.
+Roles group capabilities; capability evaluation determines whether the supplied
+capabilities authorize an action. Use "feature" for application behavior such as
+authentication or session management, and "rules" for other constraints.
 
 ## Code Outside Modules
 
@@ -110,7 +122,7 @@ module is classified by when it runs and what it does.
 | Responsibility   | Meaning                                                                  |
 | ---------------- | ------------------------------------------------------------------------ |
 | Application      | Performs an operation using one or more module repositories.             |
-| Policy           | Defines or evaluates rules without coordinating a workflow.              |
+| Capability       | Evaluates authorization using `module::router::action` identifiers.      |
 | Infrastructure   | Communicates with PostgreSQL, Redis, Render, or another external system. |
 | Runtime registry | Maintains runtime connections or health state.                           |
 
@@ -119,7 +131,7 @@ Each file receives one lifecycle and one responsibility.
 ## API Structure
 
 The API separates modules from cross-module workflows, external systems,
-policy, request middleware, framework code, and operator scripts:
+capability evaluation, request middleware, framework code, and operator scripts:
 
 ```text
 apps/api/src/
@@ -131,7 +143,7 @@ apps/api/src/
 |   |-- cache/
 |   |-- provisioning/
 |   `-- runtime/
-|-- policy/
+|-- capability/
 |-- modules/
 |-- middleware/
 |-- framework/
@@ -143,7 +155,7 @@ apps/api/src/
 - Put table ownership, data access, and module rules in the owning module.
 - Put workflows that coordinate repositories or infrastructure in `application/`.
 - Put access to external systems outside module-owned data access in `infrastructure/`.
-- Put rules that do not coordinate workflows or access persistence in `policy/`.
+- Put capability evaluation in `capability/`; it does not coordinate workflows or access persistence.
 - Put request checks shared across routes in `middleware/`.
 - Put database invariants in the owning module's migrations.
 - Put reusable HTTP mechanics in `framework/`.

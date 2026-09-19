@@ -1,7 +1,7 @@
 # M0001-00-01: Admin Schema Objects
 
 This chapter belongs to [M0001-00: Admin Database Foundation](M0001-00-admin-database-foundation.md)
-and inherits its Draft status. It defines the schema objects and migration
+and inherits its Implemented status. It defines the schema objects and migration
 triggers for the 12 admin tables.
 
 ## Shared Rules
@@ -654,5 +654,5 @@ The migration adds database triggers that:
   root user and Napsoft tenant;
 - reject removal, suspension, reassignment, or archival of the root membership;
 - allow the initial `tenants.cell_id` assignment from null, including for the
-  owning tenant after root bootstrap; reject later reassignment once provisioning
-  starts or memberships exist.
+  owning tenant after root bootstrap; reject later reassignment or clearing when
+  `provisioned = true` or any membership exists, including archived memberships.

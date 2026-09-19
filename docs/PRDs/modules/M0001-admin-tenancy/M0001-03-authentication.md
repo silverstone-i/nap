@@ -33,12 +33,12 @@ slow repeated login attacks.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Operation                                     | Result                                     |
-| ----------------------------- | --------------------------------------------- | ------------------------------------------ |
-| Anonymous caller              | Submit login credentials                      | Authenticate, reject, or throttle          |
-| Authenticated user            | Prove current password and supply replacement | Replace password and revoke other sessions |
-| Password-change-required user | Replace temporary password                    | Continue with a normal session             |
-| Operator                      | Set a temporary password through WU 8         | Force replacement on next login            |
+| Actor                         | Operation                                                  | Result                                     |
+| ----------------------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| Anonymous caller              | Submit login credentials                                   | Authenticate, reject, or throttle          |
+| Authenticated user            | Prove current password and supply replacement              | Replace password and revoke other sessions |
+| Password-change-required user | Replace temporary password                                 | Continue with a normal session             |
+| Operator                      | Set a temporary password when creating a user through WU 8 | Force replacement on next login            |
 
 ## 5. Concepts And Terminology
 
@@ -92,7 +92,9 @@ defines their schema and credential-specific model methods.
 | `POST /api/admin-tenancy/v1/auth/password` | `{ currentPassword, newPassword }` | `200` with no secret data     | `400 INVALID_INPUT`, `401 UNAUTHENTICATED`, or `403 FORBIDDEN` |
 
 Login failures use the same public message. `THROTTLED` includes `Retry-After`.
-Password change requires a valid same-origin session and request protection.
+Password change requires a valid session. Login and password change follow the
+[BFF browser request protection](../../../architecture/bff.md#browser-request-protection)
+contract.
 
 ## 11. Cross-Module Interactions
 
@@ -102,19 +104,22 @@ resolution and be revoked by WU 8.
 
 ## 12. Security And Audit
 
+- M0001-03-R007: Login and password change must enforce the BFF browser request protection contract before authentication or credential mutation.
+
 Record login success, login failure, throttling, and password change without
 the password, hash, raw email, or raw client address. Failure events use the
 request ID and hashed throttle key.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                       | Requirements                 |
-| --------- | ----------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | Valid active credentials authenticate; all ineligible or invalid cases receive the generic rejection. | M0001-03-R001, M0001-03-R004 |
-| AC02      | Temporary-password login permits only password replacement and logout.                                | M0001-03-R002                |
-| AC03      | Concurrent failures enforce both throttle keys and the stated window.                                 | M0001-03-R003                |
-| AC04      | Password replacement is atomic and revokes every other session.                                       | M0001-03-R006                |
-| AC05      | Responses, logs, and events contain no plaintext password, hash, raw email, or raw client address.    | M0001-03-R005                |
+| Criterion | Required result                                                                                                                                                                                                  | Requirements                 |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Valid active credentials authenticate; all ineligible or invalid cases receive the generic rejection.                                                                                                            | M0001-03-R001, M0001-03-R004 |
+| AC02      | Temporary-password login permits only password replacement and logout.                                                                                                                                           | M0001-03-R002                |
+| AC03      | Concurrent failures enforce both throttle keys and the stated window.                                                                                                                                            | M0001-03-R003                |
+| AC04      | Password replacement is atomic and revokes every other session.                                                                                                                                                  | M0001-03-R006                |
+| AC05      | Responses, logs, and events contain no plaintext password, hash, raw email, or raw client address.                                                                                                               | M0001-03-R005                |
+| AC06      | Same-origin login and password change pass request protection; foreign, null, and missing-origin requests follow the BFF rejection and Referer-fallback rules without changing credentials or creating sessions. | M0001-03-R007                |
 
 ## 14. Outstanding Questions
 

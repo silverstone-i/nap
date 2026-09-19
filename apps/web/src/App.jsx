@@ -5,6 +5,12 @@
 
 import { Container, Typography } from '@mui/material';
 
+/**
+ * Root React component. Renders the placeholder shell until the
+ * authentication and session contracts are accepted; see
+ * docs/roadmap/ROADMAP.md.
+ * @returns {JSX.Element}
+ */
 export function App() {
   return (
     <Container component="main" sx={{ py: 6 }}>

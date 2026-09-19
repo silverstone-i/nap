@@ -1,7 +1,7 @@
 # Project guidance
 
-NAP is a JavaScript-only Node 24 ESM monorepo. Do not add TypeScript, declaration
-files, `@types/*` packages, or typechecking tools.
+NAP uses JavaScript with Node 24 and ESM. JSDoc type annotations and JavaScript
+typechecking tools may be used when useful.
 
 ## Working approach
 
@@ -14,22 +14,23 @@ files, `@types/*` packages, or typechecking tools.
 
 - Follow `docs/PRDs/README.md` and start new PRDs from
   `docs/PRDs/TEMPLATE.md`.
-- Use the `human-writing` skill when writing or editing a PRD or supporting
-  chapter.
-- After drafting, use the `check-relevancy` skill and revise the document
-  before treating it as complete.
+- For every PRD or supporting chapter, use the `human-writing` skill, then use
+  `check-relevancy` and revise the document before completion.
 
 ## Checks
 
-For work that changes roadmap progress, update `docs/roadmap/ROADMAP.md` and
-list affected deliverable names under `## Roadmap` in the PR description.
+When work changes roadmap progress, update `docs/roadmap/ROADMAP.md` and list
+the affected deliverables under `## Roadmap` in the PR description.
 Unrelated PRs may omit that section or use `None`.
 
 - `npm run lint`
 - `npm run format:check`
 - `npm test`
+- `npm run test:db` (requires `FOUNDATION_TEST_URL` for a disposable PostgreSQL 18 server)
 - `npm run build`
 - `npm run licenses`
+
+## Shipping
 
 Use `.claude/skills/ship/SKILL.md` for commit, PR, review, merge, changelog, and
 release operations after Git has been initialized.

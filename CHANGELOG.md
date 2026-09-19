@@ -10,9 +10,15 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Set up and migrate the Admin database locally and on Render, with schema verification and retry recovery.
+- Serve the built web client through the BFF and check Admin database readiness before accepting requests.
+
 ### Changed
 
 - Define the Admin Tenancy PRD work units, database schema contracts, and tenant role seeding; refine PRD authoring guidance.
+- Document workspace responsibilities, database setup, and runtime configuration; add PostgreSQL integration tests to CI.
 
 ## [v0.1.0] - 2026-09-17
 
@@ -28,4 +34,3 @@ when a pull request with a release label merges into `main`.
 - Add the NAP brand reference, visual specimens, and favicon assets.
 - Add the development roadmap and CI validation for declared progress updates
   and completion evidence; unrelated PRs require no roadmap update.
-

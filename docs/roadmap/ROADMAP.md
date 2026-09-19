@@ -66,16 +66,19 @@ common pattern.
 
 ### Phase 1: Control Plane And Application Entry
 
-| Order | Deliverable                             | PRD                                 | UI increment                                                     | Status      | Evidence |
-| ----: | --------------------------------------- | ----------------------------------- | ---------------------------------------------------------------- | ----------- | -------- |
-|     1 | Admin tenancy                           | `M0001: Admin Tenancy`              | None until authentication exposes operator and tenant entry      | Not started |          |
-|     2 | Authentication                          | `C0001: Authentication`             | Login, authentication errors, and signed-out state               | Not started |          |
-|     3 | Session management and tenant selection | `C0002: Session Management`         | Session restoration, logout, expiry, and tenant selection        | Not started |          |
-|     4 | Application shell                       | Covered by `C0001`–`C0002`          | Layout, tenant context, navigation, loading, and error states    | Not started |          |
-|     5 | Cell tenancy                            | `M0002: Cell Tenancy`               | Tenant and cell context shown where needed                       | Not started |          |
-|     6 | Cell provisioning                       | `W0002: Cell Provisioning`          | Cell registration, progress, failure, retry, and disable actions | Not started |          |
-|     7 | Tenant provisioning                     | `W0001: Tenant Provisioning`        | Tenant creation, progress, failure, and retry                    | Not started |          |
-|     8 | Projection synchronization              | `W0003: Projection Synchronization` | Synchronization state and actionable failures                    | Not started |          |
+| Order | Deliverable                             | PRD                                 | UI increment                                                     | Status      | Evidence                                                                                                                                                |
+| ----: | --------------------------------------- | ----------------------------------- | ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|     1 | Admin tenancy                           | `M0001: Admin Tenancy`              | None until authentication exposes operator and tenant entry      | In progress | [M0001-00 verified](../PRDs/modules/M0001-admin-tenancy/M0001-00-admin-database-foundation.md#verification-evidence); remaining Work Units not started. |
+|     2 | Authentication                          | `F0001: Authentication`             | Login, authentication errors, and signed-out state               | Not started |                                                                                                                                                         |
+|     3 | Session management and tenant selection | `F0002: Session Management`         | Session restoration, logout, expiry, and tenant selection        | Not started |                                                                                                                                                         |
+|     4 | Application shell                       | Covered by `F0001`–`F0002`          | Layout, tenant context, navigation, loading, and error states    | Not started |                                                                                                                                                         |
+|     5 | Cell tenancy                            | `M0002: Cell Tenancy`               | Tenant and cell context shown where needed                       | Not started |                                                                                                                                                         |
+|     6 | Cell provisioning                       | `W0002: Cell Provisioning`          | Cell registration, progress, failure, retry, and disable actions | Not started |                                                                                                                                                         |
+|     7 | Tenant provisioning                     | `W0001: Tenant Provisioning`        | Tenant creation, progress, failure, and retry                    | Not started |                                                                                                                                                         |
+|     8 | Projection synchronization              | `W0003: Projection Synchronization` | Synchronization state and actionable failures                    | Not started |                                                                                                                                                         |
+
+Authentication and session feature PRDs own the user-facing flows and reference
+M0001-03, M0001-04, and M0001-09 for their API contracts rather than redefining them.
 
 Phase 1 is complete when an authorized operator can sign in, restore a session,
 register a cell, create a tenant, monitor provisioning, select an available
@@ -86,11 +89,11 @@ tenant, and enter the application shell.
 | Order | Deliverable                | PRD                     | UI increment                                                   | Status      | Evidence |
 | ----: | -------------------------- | ----------------------- | -------------------------------------------------------------- | ----------- | -------- |
 |     9 | Tenant access-control data | `M0003: Access Control` | Role, permission, assignment, and access-scope administration  | Not started |          |
-|    10 | RBAC decision model        | `C0003: RBAC`           | Permission-aware routes, navigation, actions, and denied state | Not started |          |
+|    10 | RBAC decision model        | `F0003: RBAC`           | Permission-aware routes, navigation, actions, and denied state | Not started |          |
 
-Design these two PRDs together. The capability defines authorization decisions;
+Design these two PRDs together. The feature defines authorization decisions;
 the module defines the tenant-owned records used by those decisions. Implement
-the data contract before the capability relies on it for tenant authorization.
+the data contract before the feature relies on it for tenant authorization.
 
 Phase 2 is complete when server-side authorization and UI visibility use the
 same accepted decision model, while the server remains authoritative.
@@ -190,9 +193,9 @@ or change statuses automatically. Priorities and acceptance remain manual.
 Add one entry for each material status change. Link to the PRD, implementation
 plan, pull request, test output, or release evidence when available.
 
-| Date | Item | Change | Evidence |
-| ---- | ---- | ------ | -------- |
-|      |      |        |          |
+| Date       | Item          | Change                                   | Evidence                                                                                                                   |
+| ---------- | ------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-19 | Admin tenancy | M0001-00 implemented; family in progress | [Foundation verification](../PRDs/modules/M0001-admin-tenancy/M0001-00-admin-database-foundation.md#verification-evidence) |
 
 ## Current Blockers
 

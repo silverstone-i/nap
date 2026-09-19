@@ -97,7 +97,10 @@ lookup. Soft-deleted session records are not purged automatically.
 
 The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, has no `Domain`, and is
 `Secure` outside local development. Its maximum age never exceeds absolute
-expiry. Responses never contain the token or token hash.
+expiry. `SameSite=None` is not supported. State-changing session routes,
+including bodyless logout, follow the
+[BFF browser request protection](../../../architecture/bff.md#browser-request-protection)
+contract. Responses never contain the token or token hash.
 
 ## 11. Cross-Module Interactions
 
@@ -109,21 +112,23 @@ invalidates cached authority immediately and ends affected support sessions.
 ## 12. Security And Audit
 
 - M0001-04-R008: Session tokens and token hashes must not appear in responses, logs, or events.
+- M0001-04-R009: State-changing session routes must enforce BFF browser request protection; production configuration must reject `SameSite=None` and insecure session cookies.
 
 Creation, rotation, revocation, expiry detected during resolution, and support
 context changes create managed events with session UUIDs only.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                  | Requirements                 |
-| --------- | ------------------------------------------------------------------------------------------------ | ---------------------------- |
-| AC01      | Eligible authentication creates a session for the correct user.                                  | M0001-04-R001                |
-| AC02      | Valid sessions resolve; tampered, expired, archived, and revoked sessions do not.                | M0001-04-R002, M0001-04-R004 |
-| AC03      | Rotation immediately invalidates the prior token and concurrent attempts produce one winner.     | M0001-04-R003, M0001-04-R006 |
-| AC04      | Idle and absolute limits, ten-session cap, logout, and repeated revocation follow this contract. | M0001-04-R003                |
-| AC05      | WU 9 context survives ordinary resolution and changes only through its operations.               | M0001-04-R005                |
-| AC06      | No response, log, or event exposes session credentials.                                          | M0001-04-R008                |
-| AC07      | Support can revoke platform and non-Napsoft sessions but cannot access Napsoft tenant sessions.  | M0001-04-R007                |
+| Criterion | Required result                                                                                                                                                                                           | Requirements                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Eligible authentication creates a session for the correct user.                                                                                                                                           | M0001-04-R001                |
+| AC02      | Valid sessions resolve; tampered, expired, archived, and revoked sessions do not.                                                                                                                         | M0001-04-R002, M0001-04-R004 |
+| AC03      | Rotation immediately invalidates the prior token and concurrent attempts produce one winner.                                                                                                              | M0001-04-R003, M0001-04-R006 |
+| AC04      | Idle and absolute limits, ten-session cap, logout, and repeated revocation follow this contract.                                                                                                          | M0001-04-R003                |
+| AC05      | WU 9 context survives ordinary resolution and changes only through its operations.                                                                                                                        | M0001-04-R005                |
+| AC06      | No response, log, or event exposes session credentials.                                                                                                                                                   | M0001-04-R008                |
+| AC07      | Support can revoke platform and non-Napsoft sessions but cannot access Napsoft tenant sessions.                                                                                                           | M0001-04-R007                |
+| AC08      | Same-origin session changes pass request protection; foreign or unproven origins cannot rotate or revoke sessions, including through bodyless logout; unsafe production cookie configuration is rejected. | M0001-04-R009                |
 
 ## 14. Outstanding Questions
 

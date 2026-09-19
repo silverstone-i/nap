@@ -64,6 +64,10 @@ is hard-coded to Napsoft. Bootstrap sets `is_napsoft = true` and status
 change the supplied password. The root membership is active and is not tied to
 a cell-side business record.
 
+The owning tenant may receive its first cell assignment after bootstrap while
+`cell_id` is null, despite being active and having the root membership. Once
+assigned, it cannot be reassigned because that membership exists.
+
 The root user and root membership cannot be archived, disabled, reassigned, or
 deleted. Rerunning bootstrap never acts as password recovery.
 
