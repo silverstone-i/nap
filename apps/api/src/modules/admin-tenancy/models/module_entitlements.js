@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.module_entitlements`: the current central decision for one tenant and optional module.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const moduleEntitlementsSchema = {
   dbSchema: 'admin',
   table: 'module_entitlements',
@@ -38,6 +42,7 @@ export const moduleEntitlementsSchema = {
   },
 };
 
+/** Model for `admin.module_entitlements`. Inherits the standard table operations only. */
 export class ModuleEntitlements extends TableModel {
   static schema = moduleEntitlementsSchema;
   constructor(db, pgp, logger) {

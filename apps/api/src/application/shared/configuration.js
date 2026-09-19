@@ -8,6 +8,12 @@ import { parseEnv } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import { requireCondition, MaintenanceError } from './errors.js';
+/**
+ * Parse maintenance CLI arguments.
+ * @param {string[]} args Arguments after the script name; only `--env <dev|test|prod>` is accepted.
+ * @returns {'dev'|'test'|'prod'} The selected environment.
+ * @throws {MaintenanceError} `INVALID_ARGUMENTS`
+ */
 export function argumentsFor(args) {
   requireCondition(
     args.length === 2 &&
@@ -17,6 +23,13 @@ export function argumentsFor(args) {
   );
   return args[1];
 }
+/**
+ * Load the API-local `.env` file, or the file named by `NAP_ENV_FILE`, and
+ * merge it beneath the process environment so inherited variables win.
+ * @param {NodeJS.ProcessEnv} [env=process.env]
+ * @returns {Record<string, string | undefined>}
+ * @throws {MaintenanceError} `MISSING_ENV_FILE` when `NAP_ENV_FILE` names an absent file; `INVALID_ENV_FILE` when the file cannot be parsed.
+ */
 export function environment(env = process.env) {
   const file =
     env.NAP_ENV_FILE ||
@@ -30,6 +43,16 @@ export function environment(env = process.env) {
   }
   return { ...local, ...env };
 }
+/**
+ * Validate a database endpoint of the form `host:port/database?options`.
+ * Credentials, a protocol prefix, a fragment, and options other than
+ * `sslmode`, `sslcert`, `sslkey`, `sslrootcert`, and `application_name`
+ * are rejected.
+ * @param {unknown} value Endpoint text.
+ * @param {string} setting Setting name reported on failure; never the value.
+ * @returns {URL} Parsed `postgresql://` URL without credentials.
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION`
+ */
 export function endpoint(value, setting) {
   try {
     requireCondition(
@@ -63,12 +86,27 @@ export function endpoint(value, setting) {
     throw new MaintenanceError('INVALID_CONFIGURATION', setting);
   }
 }
+/**
+ * Build a connection string for one database role.
+ * @param {string} value Endpoint accepted by `endpoint`.
+ * @param {string} role PostgreSQL role name.
+ * @param {string} password Role password.
+ * @returns {string} `postgresql://` URL with credentials. Never log it.
+ */
 export function roleUrl(value, role, password) {
   const url = endpoint(value, 'database endpoint');
   url.username = role;
   url.password = password;
   return url.href;
 }
+/**
+ * Require a nonempty secret that contains no `<placeholder>` markers left
+ * over from `.env.example`.
+ * @param {unknown} value
+ * @param {string} setting Setting name reported on failure.
+ * @returns {string}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION`
+ */
 export function secret(value, setting) {
   requireCondition(
     typeof value === 'string' && value.length > 0 && !/[<>]/.test(value),
@@ -77,6 +115,15 @@ export function secret(value, setting) {
   );
   return value;
 }
+/**
+ * Resolve the `dev` or `test` maintenance configuration from `*_<ENV>`
+ * settings. The maintenance and target endpoints must share host, port, and
+ * connection options.
+ * @param {'dev'|'test'} selected
+ * @param {Record<string, string | undefined>} env
+ * @returns {{environment: string, database: string, endpoint: string, maintenance: string, adminPassword: string, appPassword: string}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` or `ENDPOINT_MISMATCH`
+ */
 export function localConfiguration(selected, env) {
   const suffix = selected.toUpperCase();
   const adminPassword = secret(
@@ -108,6 +155,12 @@ export function localConfiguration(selected, env) {
     appPassword,
   };
 }
+/**
+ * Layer production settings: nonblank environment values override the
+ * nonsecret defaults read from the first service in `render.yaml`.
+ * @param {Record<string, string | undefined>} env
+ * @returns {Record<string, string>}
+ */
 export function productionEnvironment(env) {
   const blueprint = fileURLToPath(
     new URL('../../../../../render.yaml', import.meta.url)

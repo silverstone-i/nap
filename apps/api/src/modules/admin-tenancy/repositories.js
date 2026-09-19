@@ -16,6 +16,7 @@ import { ModuleEntitlements } from './models/module_entitlements.js';
 import { CacheRevisions } from './models/cache_revisions.js';
 import { ManagedEvents } from './models/managed_events.js';
 
+/** Table name to model class map used to build admin database repositories. */
 export const repositories = {
   cells: Cells,
   tenants: Tenants,

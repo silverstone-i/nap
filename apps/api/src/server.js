@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+/**
+ * @file API process entry point. Loads configuration, opens the admin
+ * database handle, starts the runtime, and exits on SIGINT or SIGTERM after
+ * a drained shutdown. Startup never runs setup or migrations.
+ */
 import { environment } from './application/shared/configuration.js';
 import { runtimeConfiguration } from './application/shared/runtimeConfiguration.js';
 import { createRuntime } from './application/runtime/createRuntime.js';

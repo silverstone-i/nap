@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.portal_user_tenants`: portal-user to tenant memberships. `member_id` holds the member's UUID in the tenant's cell and is not a foreign key.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const portalUserTenantsSchema = {
   dbSchema: 'admin',
   table: 'portal_user_tenants',
@@ -59,6 +63,7 @@ export const portalUserTenantsSchema = {
   },
 };
 
+/** Model for `admin.portal_user_tenants`. Inherits the standard table operations only. */
 export class PortalUserTenants extends TableModel {
   static schema = portalUserTenantsSchema;
   constructor(db, pgp, logger) {

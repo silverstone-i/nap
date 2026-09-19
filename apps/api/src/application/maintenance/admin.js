@@ -15,6 +15,18 @@ import { setupLocal } from '../../infrastructure/provisioning/postgres.js';
 import { runRender } from '../../infrastructure/provisioning/render.js';
 import { migrateAdmin } from './migrateAdmin.js';
 import { MaintenanceError, requireCondition } from '../shared/errors.js';
+/**
+ * Run an admin database maintenance operation for one environment.
+ *
+ * Validates the module registry before loading configuration. `dev` and
+ * `test` run against the local PostgreSQL server; `prod` provisions and
+ * connects through Render using the private state file.
+ * @param {'setup'|'migrate'} operation
+ * @param {string[]} args CLI arguments, `--env <dev|test|prod>`.
+ * @param {NodeJS.ProcessEnv} [rawEnv=process.env]
+ * @returns {Promise<{status: 'created'|'unchanged'|'applied', database: string}>}
+ * @throws {MaintenanceError} On invalid input, configuration, or a failed operation.
+ */
 export async function runAdmin(operation, args, rawEnv = process.env) {
   requireCondition(
     ['setup', 'migrate'].includes(operation),
@@ -44,6 +56,14 @@ export async function runAdmin(operation, args, rawEnv = process.env) {
   const config = localConfiguration(selected, env);
   return operation === 'setup' ? setupLocal(config) : migrateAdmin(config);
 }
+/**
+ * Command-line wrapper for `runAdmin`. Prints one JSON line to stdout on
+ * success or to stderr on failure, and sets a nonzero exit code on failure.
+ * Output contains codes, setting names, and resource identifiers only.
+ * @param {'setup'|'migrate'} operation
+ * @param {string[]} [args=process.argv.slice(2)]
+ * @returns {Promise<void>}
+ */
 export async function cli(operation, args = process.argv.slice(2)) {
   try {
     const result = await runAdmin(operation, args);

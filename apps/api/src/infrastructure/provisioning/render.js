@@ -23,6 +23,13 @@ import {
   verifyDatabase,
 } from './postgres.js';
 import { using } from '../runtime/adminDatabase.js';
+/**
+ * Validate the Render settings needed to provision the production admin
+ * database.
+ * @param {Record<string, string | undefined>} env
+ * @returns {Record<string, string | undefined>} The same object.
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION`, `INVALID_RENDER_SETTINGS`, or `INVALID_RENDER_STORAGE`.
+ */
 export function renderSettings(env) {
   for (const key of [
     'RENDER_API_KEY',
@@ -55,6 +62,13 @@ export function renderSettings(env) {
   );
   return env;
 }
+/**
+ * Build a Render REST API caller with bearer authentication, a 30 second
+ * timeout, and no redirect following.
+ * @param {{RENDER_API_KEY?: string}} env
+ * @param {typeof fetch} [request=fetch] Injectable for tests.
+ * @returns {(path: string, method?: string, body?: unknown) => Promise<unknown>} Resolves to parsed JSON, or `null` on 204.
+ */
 export function renderClient(env, request = fetch) {
   return async (path, method = 'GET', body) => {
     let response;
@@ -81,6 +95,12 @@ export function renderClient(env, request = fetch) {
     }
   };
 }
+/**
+ * Discover the operator's public IPv4 address by resolving
+ * `myip.opendns.com` against OpenDNS, for a temporary database access rule.
+ * @returns {Promise<string>}
+ * @throws {MaintenanceError} `OPERATOR_ADDRESS_FAILED`
+ */
 export async function operatorAddress() {
   try {
     const resolver = new Resolver({ timeout: 3000, tries: 2 });
@@ -95,6 +115,23 @@ export async function operatorAddress() {
     throw new MaintenanceError('OPERATOR_ADDRESS_FAILED');
   }
 }
+/**
+ * Set up or migrate the production admin database on Render.
+ *
+ * Under the private state file's lock it reconciles the saved operation
+ * identity with the configured service, finds or creates the PostgreSQL
+ * resource, waits for it, opens a temporary IP allow-list rule for the
+ * operator, runs provider role setup or the supplied migration, publishes
+ * `ADMIN_DATABASE_PROD` to the service, and removes its own access rule
+ * even on failure. Retries reuse the saved resource and passwords.
+ * @param {'setup'|'migrate'} operation
+ * @param {Record<string, string | undefined>} env Validated by `renderSettings`.
+ * @param {string} stateFile Path of the private provisioning state JSON.
+ * @param {(config: object) => Promise<{status: string, database: string}>} migrate Migration runner used for `migrate`.
+ * @param {{call?: Function, wait?: Function, address?: Function, providerSetup?: Function, using?: Function}} [options] Test injection points.
+ * @returns {Promise<{status: 'created'|'unchanged'|'applied', database: string}>}
+ * @throws {MaintenanceError} With `created` and `resourceId` set once a Render resource exists.
+ */
 export async function runRender(
   operation,
   env,

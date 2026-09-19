@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.platform_roles`: assignments of a tenant-local role to a portal user. `role_id` is validated in the tenant's cell, not by a foreign key.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const platformRolesSchema = {
   dbSchema: 'admin',
   table: 'platform_roles',
@@ -52,6 +56,7 @@ export const platformRolesSchema = {
   },
 };
 
+/** Model for `admin.platform_roles`. Inherits the standard table operations only. */
 export class PlatformRoles extends TableModel {
   static schema = platformRolesSchema;
   constructor(db, pgp, logger) {

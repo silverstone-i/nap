@@ -8,6 +8,14 @@ import { createAdminDatabase } from '../../infrastructure/runtime/adminDatabase.
 import { verifyDatabase } from '../../infrastructure/provisioning/postgres.js';
 import { verifyAdmin } from '../../modules/admin-tenancy/schema/verify.js';
 import { roleUrl } from '../shared/configuration.js';
+/**
+ * Apply pending admin migrations as `nap-admin`, then verify the installed
+ * contract. Connections close on success and failure.
+ * @param {{endpoint: string, adminPassword: string, database: string}} config
+ * @param {object[]} [modules=adminModules]
+ * @returns {Promise<{status: 'applied'|'unchanged', database: string}>}
+ * @throws {MaintenanceError} From registry validation, database verification, or contract verification.
+ */
 export async function migrateAdmin(config, modules = adminModules) {
   validateAdminRegistry(modules);
   const handle = createAdminDatabase(

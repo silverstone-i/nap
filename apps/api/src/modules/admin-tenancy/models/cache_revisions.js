@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.cache_revisions`: a monotonic revision per cache dependency key.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const cacheRevisionsSchema = {
   dbSchema: 'admin',
   table: 'cache_revisions',
@@ -25,6 +29,7 @@ export const cacheRevisionsSchema = {
   },
 };
 
+/** Model for `admin.cache_revisions`. Inherits the standard table operations only. */
 export class CacheRevisions extends TableModel {
   static schema = cacheRevisionsSchema;
   constructor(db, pgp, logger) {

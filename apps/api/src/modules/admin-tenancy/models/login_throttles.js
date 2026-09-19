@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.login_throttles`: keyed login-failure windows. Keys are HMAC values, never emails or addresses.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const loginThrottlesSchema = {
   dbSchema: 'admin',
   table: 'login_throttles',
@@ -22,6 +26,7 @@ export const loginThrottlesSchema = {
   },
 };
 
+/** Model for `admin.login_throttles`. Inherits the standard table operations only. */
 export class LoginThrottles extends TableModel {
   static schema = loginThrottlesSchema;
   constructor(db, pgp, logger) {

@@ -5,6 +5,16 @@
 
 import { repositories } from '../../modules/admin-tenancy/repositories.js';
 
+/**
+ * Report whether the runtime connection is safe to serve traffic.
+ *
+ * In one transaction with a 5 second statement timeout, confirms the
+ * session is `nap-app` with no elevated attributes, memberships, owned
+ * objects, or CREATE rights anywhere, and that every admin table grants it
+ * SELECT, INSERT, UPDATE, and DELETE. Any error reports not ready.
+ * @param {import('pg-schemata').Database} handle Connected handle.
+ * @returns {Promise<boolean>}
+ */
 export async function checkAdminReadiness(handle) {
   try {
     return await handle.db.tx(async tx => {

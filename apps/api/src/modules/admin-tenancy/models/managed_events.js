@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.managed_events`: append-only administrative events. Actor references are values, not foreign keys.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const managedEventsSchema = {
   dbSchema: 'admin',
   table: 'managed_events',
@@ -55,6 +59,7 @@ export const managedEventsSchema = {
   },
 };
 
+/** Model for `admin.managed_events`. Inherits the standard table operations only. */
 export class ManagedEvents extends TableModel {
   static schema = managedEventsSchema;
   constructor(db, pgp, logger) {

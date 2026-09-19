@@ -15,6 +15,19 @@ import {
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { requireCondition } from '../../application/shared/errors.js';
+/**
+ * Run `operation` with exclusive access to a private JSON state file.
+ *
+ * Takes a sibling `.lock` directory, rejects a state file readable by
+ * others, and passes the parsed state (or `undefined`) with a `save`
+ * function that writes atomically through a synced temp file and rename.
+ * The lock is removed on exit; a stale one reports `STATE_LOCKED`.
+ * @template T
+ * @param {string} file
+ * @param {(state: object | undefined, save: (value: object) => Promise<void>) => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {MaintenanceError} `STATE_LOCKED` or `UNSAFE_STATE_FILE`
+ */
 export async function withState(file, operation) {
   await mkdir(dirname(file), { recursive: true, mode: 0o700 });
   const lock = file + '.lock';

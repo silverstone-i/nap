@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.sessions`: hashed session credentials, expiry, selected tenant, and support-access attribution.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const sessionsSchema = {
   dbSchema: 'admin',
   table: 'sessions',
@@ -70,6 +74,7 @@ export const sessionsSchema = {
   },
 };
 
+/** Model for `admin.sessions`. Inherits the standard table operations only. */
 export class Sessions extends TableModel {
   static schema = sessionsSchema;
   constructor(db, pgp, logger) {

@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.tenants`: tenant registration, lifecycle, cell assignment, and readiness. `is_napsoft` marks the owning tenant.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const tenantsSchema = {
   dbSchema: 'admin',
   table: 'tenants',
@@ -67,6 +71,7 @@ export const tenantsSchema = {
   },
 };
 
+/** Model for `admin.tenants`. Inherits the standard table operations only. */
 export class Tenants extends TableModel {
   static schema = tenantsSchema;
   constructor(db, pgp, logger) {

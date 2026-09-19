@@ -5,6 +5,15 @@
 
 import { defineMigration, TableModel } from 'pg-schemata';
 
+/**
+ * Baseline admin migration. It creates the twelve admin tables in dependency
+ * order, installs the protection trigger functions and triggers, disables
+ * row-level security, and applies the `nap-app` grant contract.
+ *
+ * Schema objects are copied here rather than imported so the migration
+ * checksum covers the whole contract. Do not edit after this migration has
+ * been applied to a persistent environment; add a new migration instead.
+ */
 export const migration = defineMigration({
   id: '001-admin-tenancy',
   up: async ({ db, pgp }) => {

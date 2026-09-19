@@ -8,6 +8,20 @@ import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { healthResponse, notFoundResponse } from '@nap/shared';
 
+/**
+ * Build the Express application for the backend-for-frontend (BFF).
+ *
+ * Registers, in order: `/health/live`; `/health/ready` when `isReady` is
+ * supplied; static assets and the single-page-app fallback when `webRoot`
+ * is supplied; a JSON 404 for everything else; and a JSON 500 error
+ * handler. Paths under `/api` and `/health` never fall back to the web client.
+ * @param {object} [options]
+ * @param {string} [options.webRoot] Directory holding the built web client; must contain `index.html`.
+ * @param {number} [options.trustProxyHops=0] Trusted reverse-proxy hop count, 0 to 16.
+ * @param {() => Promise<boolean> | boolean} [options.isReady] Readiness probe; a thrown error reports not ready.
+ * @returns {import('express').Express}
+ * @throws {Error} When `trustProxyHops` is out of range or `webRoot` has no `index.html`.
+ */
 export function createApp({ webRoot, trustProxyHops = 0, isReady } = {}) {
   if (
     !Number.isInteger(trustProxyHops) ||

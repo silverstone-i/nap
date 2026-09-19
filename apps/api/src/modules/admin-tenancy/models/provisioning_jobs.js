@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.provisioning_jobs`: requests to create a membership's member record in the tenant's cell.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const provisioningJobsSchema = {
   dbSchema: 'admin',
   table: 'provisioning_jobs',
@@ -63,6 +67,7 @@ export const provisioningJobsSchema = {
   },
 };
 
+/** Model for `admin.provisioning_jobs`. Inherits the standard table operations only. */
 export class ProvisioningJobs extends TableModel {
   static schema = provisioningJobsSchema;
   constructor(db, pgp, logger) {

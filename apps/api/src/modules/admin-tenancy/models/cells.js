@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.cells`: registered cell databases and whether each may receive tenant traffic.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const cellsSchema = {
   dbSchema: 'admin',
   table: 'cells',
@@ -40,6 +44,7 @@ export const cellsSchema = {
   },
 };
 
+/** Model for `admin.cells`. Inherits the standard table operations only. */
 export class Cells extends TableModel {
   static schema = cellsSchema;
   constructor(db, pgp, logger) {

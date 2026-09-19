@@ -6,7 +6,19 @@
 import { TableModel } from 'pg-schemata';
 import { descriptor } from './admin-tenancy/descriptor.js';
 import { requireCondition } from '../application/shared/errors.js';
+/** Admin database module registry. Every descriptor targets the `admin` schema. */
 export const adminModules = [descriptor];
+/**
+ * Validate the admin module registry before any database connection opens.
+ *
+ * Rejects a descriptor that targets another database or schema, repeats a
+ * module name or migration ID, lacks a migration array, uses an unknown
+ * `entitlementType`, or registers a model whose schema targets another
+ * PostgreSQL schema or table name.
+ * @param {object[]} [modules=adminModules] Module descriptors to check.
+ * @returns {object[]} The same array when valid.
+ * @throws {MaintenanceError} `INVALID_REGISTRY` on the first violation.
+ */
 export function validateAdminRegistry(modules = adminModules) {
   const names = new Set();
   const ids = new Set();

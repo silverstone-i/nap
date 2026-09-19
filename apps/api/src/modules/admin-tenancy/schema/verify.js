@@ -41,6 +41,20 @@ async function catalog(db, schema) {
     'SCHEMA.'
   );
 }
+/**
+ * Verify that the connected admin database matches the module contract.
+ *
+ * Checks database and role safety, `admin` schema ownership and grants, the
+ * table set, row-level security state, `nap-app` table privileges, absence
+ * of PUBLIC access, trigger functions and triggers, and the
+ * `schema_migrations` ledger. It then builds the runtime model definitions
+ * in a scratch schema inside a rolled-back transaction and compares the two
+ * catalogs.
+ * @param {import('pg-schemata').Database} handle Connected handle for `nap-admin`.
+ * @param {object[]} modules Validated admin module descriptors.
+ * @returns {Promise<void>}
+ * @throws {MaintenanceError} A `*_CONTRACT_MISMATCH`, `TABLE_GRANT_MISMATCH`, or `PUBLIC_ACCESS` code naming the first failed check.
+ */
 export async function verifyAdmin(handle, modules) {
   const { db, pgp } = handle;
   const { name } = await db.one('SELECT current_database() AS name');

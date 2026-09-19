@@ -7,6 +7,22 @@ import { createServer } from 'node:http';
 import { createApp } from '../../app.js';
 import { checkAdminReadiness } from '../../infrastructure/runtime/adminReadiness.js';
 
+/**
+ * Create the HTTP runtime around the Express app.
+ *
+ * `start` connects the admin handle, requires a passing readiness check,
+ * then listens. `shutdown` stops accepting connections, drains in-flight
+ * requests for up to `drainMs`, closes the pool within `poolCloseMs`, and
+ * resolves to the process exit code. Readiness checks are shared while one
+ * is in flight and report not ready once shutdown begins.
+ * @param {{admin: import('pg-schemata').Database}} handles
+ * @param {object} [options]
+ * @param {number} [options.trustProxyHops=0]
+ * @param {string} [options.webRoot]
+ * @param {number} [options.drainMs=10000]
+ * @param {number} [options.poolCloseMs=5000]
+ * @returns {{server: import('node:http').Server, start: (port: number, host?: string) => Promise<void>, shutdown: (code?: number) => Promise<number>}}
+ */
 export function createRuntime(
   handles,
   { trustProxyHops = 0, webRoot, drainMs = 10000, poolCloseMs = 5000 } = {}

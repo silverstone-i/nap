@@ -9,6 +9,16 @@ import {
   requireCondition,
   MaintenanceError,
 } from '../../application/shared/errors.js';
+/**
+ * Verify the `nap-admin` and `nap-app` role attributes on the connected
+ * server. `nap-admin` must log in with CREATEDB and CREATEROLE and nothing
+ * stronger; `nap-app` must log in with no elevated attributes, memberships,
+ * or owned objects.
+ * @param {import('pg-promise').IBaseProtocol<unknown>} db
+ * @param {boolean} [allowMissing=false] Accept an absent role, used before provider setup creates it.
+ * @returns {Promise<void>}
+ * @throws {MaintenanceError} `UNSAFE_ADMIN_ROLE` or `UNSAFE_RUNTIME_ROLE`
+ */
 export async function verifyRoles(db, allowMissing = false) {
   const rows =
     await db.any(`SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls, rolreplication,
@@ -41,6 +51,14 @@ export async function verifyRoles(db, allowMissing = false) {
     'UNSAFE_RUNTIME_ROLE'
   );
 }
+/**
+ * Verify that `name` is the connected database, is owned by `nap-admin`,
+ * grants `nap-app` CONNECT only, and lets PUBLIC create nothing in `public`.
+ * @param {import('pg-promise').IBaseProtocol<unknown>} db
+ * @param {string} name
+ * @returns {Promise<void>}
+ * @throws {MaintenanceError} `DATABASE_CONTRACT_MISMATCH` or `PUBLIC_SCHEMA_CREATE`, plus role failures from `verifyRoles`.
+ */
 export async function verifyDatabase(db, name) {
   await verifyRoles(db);
   const row = await db.one(
@@ -62,12 +80,29 @@ export async function verifyDatabase(db, name) {
   );
   requireCondition(!publicCreate.unsafe, 'PUBLIC_SCHEMA_CREATE');
 }
+/**
+ * Apply the database-level grant contract: revoke PUBLIC creation in
+ * `public`, revoke CREATE and TEMP from PUBLIC and `nap-app`, and grant
+ * `nap-app` CONNECT.
+ * @param {import('pg-promise').IBaseProtocol<unknown>} db Connection as `nap-admin`.
+ * @param {string} name Database name.
+ * @returns {Promise<void>}
+ */
 export async function configureDatabase(db, name) {
   await db.none(
     'REVOKE CREATE ON SCHEMA public FROM PUBLIC; REVOKE CREATE, TEMP ON DATABASE $1:name FROM PUBLIC, "nap-app"; GRANT CONNECT ON DATABASE $1:name TO "nap-app"',
     [name]
   );
 }
+/**
+ * Create absent `nap-admin` and `nap-app` roles using a hosting provider's
+ * own credentials, verify existing ones by logging in, and move a
+ * provider-owned database to `nap-admin`.
+ * @param {string} connection Provider connection string for the target database.
+ * @param {{database: string, endpoint: string, adminPassword: string, appPassword: string}} config
+ * @returns {Promise<void>}
+ * @throws {MaintenanceError} `DATABASE_OWNER_MISMATCH` or role verification failures; a wrong saved password surfaces as a connection failure.
+ */
 export async function prepareProviderRoles(connection, config) {
   await using(connection, async db => {
     await verifyRoles(db, true);
@@ -115,6 +150,17 @@ export async function prepareProviderRoles(connection, config) {
     }
   });
 }
+/**
+ * Create or verify the admin database on a local PostgreSQL server.
+ *
+ * Holds an advisory lock keyed by database name while checking roles and
+ * ownership and creating the database when absent, then applies and
+ * verifies the grant contract and confirms `nap-app` can connect. Existing
+ * rows and credentials are never changed.
+ * @param {{database: string, endpoint: string, maintenance: string, adminPassword: string, appPassword: string}} config
+ * @returns {Promise<{status: 'created'|'unchanged', database: string}>}
+ * @throws {MaintenanceError} With `created` set to the database name when creation succeeded before a later step failed.
+ */
 export async function setupLocal(config) {
   let created = false;
   try {

@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.cell_provisioning`: one provisioning operation per cell: stage, status, attempts, and failure.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const cellProvisioningSchema = {
   dbSchema: 'admin',
   table: 'cell_provisioning',
@@ -59,6 +63,7 @@ export const cellProvisioningSchema = {
   },
 };
 
+/** Model for `admin.cell_provisioning`. Inherits the standard table operations only. */
 export class CellProvisioning extends TableModel {
   static schema = cellProvisioningSchema;
   constructor(db, pgp, logger) {

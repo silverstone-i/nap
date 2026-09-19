@@ -5,6 +5,10 @@
 
 import { TableModel } from 'pg-schemata';
 
+/**
+ * Schema object for `admin.portal_users`: portal accounts, password hashes, account status, and the root-user marker.
+ * Kept identical to the copy frozen in migration `001-admin-tenancy`.
+ */
 export const portalUsersSchema = {
   dbSchema: 'admin',
   table: 'portal_users',
@@ -50,6 +54,7 @@ export const portalUsersSchema = {
   },
 };
 
+/** Model for `admin.portal_users`. Inherits the standard table operations only. */
 export class PortalUsers extends TableModel {
   static schema = portalUsersSchema;
   constructor(db, pgp, logger) {

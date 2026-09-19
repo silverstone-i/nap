@@ -7,6 +7,15 @@ import { fileURLToPath } from 'node:url';
 import { roleUrl, secret, endpoint } from './configuration.js';
 import { MaintenanceError, requireCondition } from './errors.js';
 
+/**
+ * Resolve the settings the running API needs from `NODE_ENV` and its
+ * `*_DEV`, `*_TEST`, or `*_PROD` variables. Production reads the JSON
+ * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
+ * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
+ * @param {Record<string, string | undefined>} env
+ * @returns {{port: number, trustProxyHops: number, admin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
 export function runtimeConfiguration(env) {
   const suffix = { development: 'DEV', test: 'TEST', production: 'PROD' }[
     env.NODE_ENV ?? 'development'
