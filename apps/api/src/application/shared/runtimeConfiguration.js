@@ -4,7 +4,12 @@
  */
 
 import { fileURLToPath } from 'node:url';
-import { roleUrl, secret, endpoint } from './configuration.js';
+import {
+  roleUrl,
+  secret,
+  endpoint,
+  argon2PolicyFromEnv,
+} from './configuration.js';
 import { MaintenanceError, requireCondition } from './errors.js';
 
 function cacheConfiguration(env, suffix) {
@@ -148,22 +153,7 @@ function authenticationConfiguration(env, suffix, sessionSecret) {
     'INVALID_CONFIGURATION',
     secretSetting
   );
-  const parameters = [
-    ['ARGON2_MEMORY_KIB', 19456, 1048576, 'memoryKib'],
-    ['ARGON2_TIME_COST', 2, 16, 'timeCost'],
-    ['ARGON2_PARALLELISM', 1, 16, 'parallelism'],
-  ];
-  const hashing = {};
-  for (const [setting, floor, ceiling, field] of parameters) {
-    const value = Number(env[setting]?.trim() || String(floor));
-    requireCondition(
-      Number.isInteger(value) && value >= floor && value <= ceiling,
-      'INVALID_CONFIGURATION',
-      setting
-    );
-    hashing[field] = value;
-  }
-  return { throttleSecret, ...hashing };
+  return { throttleSecret, ...argon2PolicyFromEnv(env) };
 }
 
 /**

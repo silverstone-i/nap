@@ -67,6 +67,9 @@ function table(model) {
   return `${model.schemaName}.${model.tableName}`;
 }
 
+/** Columns safe to return outside the authentication-only credential lookup: every column but `password_hash`. */
+const SAFE_COLUMNS = 'id,email,must_change_password,status,is_root';
+
 /**
  * Model for `admin.portal_users`.
  *
@@ -125,6 +128,61 @@ export class PortalUsers extends TableModel {
         WHERE u.id=$1 AND u.deactivated_at IS NULL AND u.status='active'
         RETURNING u.id`,
       [id, passwordHash]
+    );
+  }
+
+  /**
+   * Lock and return the root portal user, if one has been bootstrapped.
+   *
+   * Excludes `password_hash`: bootstrap's identity check needs only the
+   * email to detect a conflict, and M0001-01-R006 confines the hash to the
+   * authentication-only credential lookup.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockRoot({ tx }) {
+    return tx.oneOrNone(
+      `SELECT ${SAFE_COLUMNS} FROM ${table(this)}
+        WHERE is_root=true AND deactivated_at IS NULL FOR UPDATE`
+    );
+  }
+
+  /**
+   * Lock and return the active portal user registered under `email`, if any.
+   * @param {string} email Normalized (trimmed, lowercased) email.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockActiveByEmail(email, { tx }) {
+    return tx.oneOrNone(
+      `SELECT ${SAFE_COLUMNS} FROM ${table(this)}
+        WHERE lower(email)=lower($1) AND deactivated_at IS NULL FOR UPDATE`,
+      [email]
+    );
+  }
+
+  /**
+   * Insert the root portal user, returning every column but `password_hash`.
+   *
+   * A bespoke insert rather than the inherited one: that method's
+   * `RETURNING *` would hand the digest it just stored back to its caller,
+   * and bootstrap's caller is a CLI that prints its result to stdout —
+   * exactly what M0001-02-R006 forbids.
+   *
+   * `must_change_password` starts `false`: root authority comes from
+   * `is_root = true` alone (M0001-05-R005), not from a session restricted
+   * until a password change, so there is nothing to force on first login.
+   * @param {{email: string, passwordHash: string}} user
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object>}
+   */
+  async insertRoot({ email, passwordHash }, { tx }) {
+    return tx.one(
+      `INSERT INTO ${table(this)}
+         (email,password_hash,must_change_password,status,is_root,created_by,updated_by)
+       VALUES ($1,$2,false,'active',true,NULL,NULL)
+       RETURNING ${SAFE_COLUMNS}`,
+      [email, passwordHash]
     );
   }
 }

@@ -63,10 +63,35 @@ export const portalUserTenantsSchema = {
   },
 };
 
-/** Model for `admin.portal_user_tenants`. Inherits the standard table operations only. */
+/**
+ * Qualified table name for a model instance. See `sessions.js` for why this
+ * is a module function rather than a private getter.
+ * @param {PortalUserTenants} model
+ * @returns {string}
+ */
+function table(model) {
+  return `${model.schemaName}.${model.tableName}`;
+}
+
+/** Model for `admin.portal_user_tenants`. Adds the locked read bootstrap needs. */
 export class PortalUserTenants extends TableModel {
   static schema = portalUserTenantsSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, portalUserTenantsSchema, logger);
+  }
+
+  /**
+   * Lock and return the active membership linking a portal user and tenant, if any.
+   * @param {string} portalUserId
+   * @param {string} tenantId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockByUserAndTenant(portalUserId, tenantId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)}
+        WHERE portal_user_id=$1 AND tenant_id=$2 AND deactivated_at IS NULL FOR UPDATE`,
+      [portalUserId, tenantId]
+    );
   }
 }
