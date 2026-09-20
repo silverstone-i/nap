@@ -122,7 +122,8 @@ function sessionConfiguration(env, suffix) {
  * The throttle secret is per-environment and separate from the session
  * secret, so the key that turns an email address into a stored throttle row
  * is not the key that turns a cookie into a session. Reusing one value for
- * both would mean a leak of either compromises both.
+ * both would mean a leak of either compromises both, so a throttle secret
+ * identical to the session secret is refused rather than merely discouraged.
  *
  * The Argon2id parameters are shared across environments and are floors, not
  * preferences: M0001-03 §7 fixes 19456 KiB, two iterations, and one lane as
@@ -130,14 +131,20 @@ function sessionConfiguration(env, suffix) {
  * it. Raising one is also what makes the post-login rehash fire.
  * @param {Record<string, string | undefined>} env
  * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @param {string} sessionSecret The session secret already resolved for this environment.
  * @returns {{throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}}
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
-function authenticationConfiguration(env, suffix) {
+function authenticationConfiguration(env, suffix, sessionSecret) {
   const secretSetting = `AUTH_THROTTLE_SECRET_${suffix}`;
   const throttleSecret = secret(env[secretSetting], secretSetting);
   requireCondition(
     throttleSecret.length >= 32,
+    'INVALID_CONFIGURATION',
+    secretSetting
+  );
+  requireCondition(
+    throttleSecret !== sessionSecret,
     'INVALID_CONFIGURATION',
     secretSetting
   );
@@ -248,13 +255,14 @@ export function runtimeConfiguration(env) {
     };
   endpoint(entry.endpoint, `ADMIN_DATABASE_${suffix}`);
   secret(entry.appPassword, `ADMIN_DATABASE_${suffix}`);
+  const session = sessionConfiguration(env, suffix);
   return {
     port,
     trustProxyHops,
     admin: roleUrl(entry.endpoint, 'nap-app', entry.appPassword),
     cache: cacheConfiguration(env, suffix),
-    session: sessionConfiguration(env, suffix),
-    authentication: authenticationConfiguration(env, suffix),
+    session: session,
+    authentication: authenticationConfiguration(env, suffix, session.secret),
     cookie: cookieConfiguration(env, suffix),
     applicationOrigin: originConfiguration(env, suffix),
     webRoot:

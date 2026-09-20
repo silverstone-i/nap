@@ -837,6 +837,10 @@ describe('authentication configuration', () => {
       { ARGON2_PARALLELISM: '0' },
       { ARGON2_MEMORY_KIB: 'lots' },
       { ARGON2_TIME_COST: '2.5' },
+      // A throttle secret identical to the session secret would let one leak
+      // compromise both HMACs, so startup rejects the pair regardless of
+      // which value the operator copy-pasted into the other setting.
+      { AUTH_THROTTLE_SECRET_TEST: base.SESSION_SECRET_TEST },
     ])
       expect(() => runtimeConfiguration({ ...base, ...change })).toThrow(
         'INVALID_CONFIGURATION'
