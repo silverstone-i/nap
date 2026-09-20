@@ -10,7 +10,7 @@
 | Related architecture | [Module map](../../../architecture/module-map.md)                                |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-11](M0001-11-cache-consistency.md) |
 | Related decisions    | None                                                                             |
-| Last reviewed        | 2026-09-18                                                                       |
+| Last reviewed        | 2026-09-20                                                                       |
 
 ## 2. Purpose
 
@@ -32,12 +32,12 @@ Control which optional product modules each tenant may use.
 
 ## 4. Actors And Permissions
 
-| Actor            | Target             | Result                      |
-| ---------------- | ------------------ | --------------------------- |
-| `platform_admin` | Any tenant         | Read or change entitlements |
-| `support`        | Non-Napsoft tenant | Read or change entitlements |
-| `tenant_admin`   | Own tenant         | Read entitlements only      |
-| Any actor        | Unknown module     | Reject                      |
+| Actor                         | Target             | Result                      |
+| ----------------------------- | ------------------ | --------------------------- |
+| Root user or `platform_admin` | Any tenant         | Read or change entitlements |
+| `support`                     | Non-Napsoft tenant | Read or change entitlements |
+| `tenant_admin`                | Own tenant         | Read entitlements only      |
+| Any actor                     | Unknown module     | Reject                      |
 
 ## 5. Concepts And Terminology
 

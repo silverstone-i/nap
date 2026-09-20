@@ -48,7 +48,9 @@ Projects, accounting, RBAC, and reporting use those company records.
 System roles are seeded into the same role table as tenant-defined roles:
 `tenant_admin` for every tenant, and `platform_admin` and `support` only for the
 configured owning tenant. `admin-tenancy` stores all portal-user role assignments
-in `admin.platform_roles`; it validates the referenced role in the tenant's cell. `tenant-settings`
+in `admin.platform_roles`; it validates the referenced role in the tenant's cell.
+The root user is the exception: software grants the `platform_admin` capability
+set from `admin.portal_users.is_root` without a role assignment. `tenant-settings`
 owns tenant-wide configuration used by business modules.
 
 `catalog` and `cost-codes` provide reusable product and cost definitions.

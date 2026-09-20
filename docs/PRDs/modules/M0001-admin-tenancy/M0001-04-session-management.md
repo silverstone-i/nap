@@ -32,13 +32,13 @@ Create, resolve, rotate, expire, and revoke browser sessions.
 
 ## 4. Actors And Permissions
 
-| Actor              | Operation                                                       | Result                             |
-| ------------------ | --------------------------------------------------------------- | ---------------------------------- |
-| Authenticated user | Read, rotate, or end own session                                | Apply operation to current session |
-| `platform_admin`   | Revoke any user's session                                       | Revoke target session              |
-| `support`          | Revoke a platform session or one targeting a non-Napsoft tenant | Revoke target session              |
-| `support`          | Revoke a session targeting the Napsoft tenant                   | Deny                               |
-| Anonymous caller   | Present cookie                                                  | Resolve or reject it               |
+| Actor                         | Operation                                                       | Result                             |
+| ----------------------------- | --------------------------------------------------------------- | ---------------------------------- |
+| Authenticated user            | Read, rotate, or end own session                                | Apply operation to current session |
+| Root user or `platform_admin` | Revoke any user's session                                       | Revoke target session              |
+| `support`                     | Revoke a platform session or one targeting a non-Napsoft tenant | Revoke target session              |
+| `support`                     | Revoke a session targeting the Napsoft tenant                   | Deny                               |
+| Anonymous caller              | Present cookie                                                  | Resolve or reject it               |
 
 ## 5. Concepts And Terminology
 

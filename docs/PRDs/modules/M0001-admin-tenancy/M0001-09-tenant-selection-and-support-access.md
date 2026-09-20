@@ -10,7 +10,7 @@
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md) |
 | Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md)            |
 | Related decisions    | Support has full platform access except access to or action on Napsoft tenant data           |
-| Last reviewed        | 2026-09-18                                                                                   |
+| Last reviewed        | 2026-09-20                                                                                   |
 
 ## 2. Purpose
 
@@ -33,12 +33,12 @@ operator access to tenant context.
 
 ## 4. Actors And Permissions
 
-| Actor            | Target                           | Result                             |
-| ---------------- | -------------------------------- | ---------------------------------- |
-| Portal user      | Own active, ready membership     | Select tenant                      |
-| `platform_admin` | Any active, ready tenant         | Enter support context              |
-| `support`        | Active, ready non-Napsoft tenant | Enter support context              |
-| `support`        | Napsoft tenant                   | Deny without returning tenant data |
+| Actor                         | Target                           | Result                             |
+| ----------------------------- | -------------------------------- | ---------------------------------- |
+| Portal user                   | Own active, ready membership     | Select tenant                      |
+| Root user or `platform_admin` | Any active, ready tenant         | Enter support context              |
+| `support`                     | Active, ready non-Napsoft tenant | Enter support context              |
+| `support`                     | Napsoft tenant                   | Deny without returning tenant data |
 
 ## 5. Concepts And Terminology
 
