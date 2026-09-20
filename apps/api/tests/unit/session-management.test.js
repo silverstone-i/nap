@@ -79,9 +79,10 @@ function row(overrides = {}) {
  * concurrency are decided by SQL in the real model, so they are verified in
  * the database integration test rather than here.
  * @param {object[]} rows Session rows, keyed on their token hash.
+ * @param {{rootUserIds?: string[]}} [options]
  * @returns {{db: object, events: object[], revisions: object[]}}
  */
-function fakeAdmin(rows) {
+function fakeAdmin(rows, { rootUserIds = [] } = {}) {
   const events = [];
   const revisions = [];
   const store = new Map(rows.map(entry => [entry.token_hash, entry]));
@@ -99,6 +100,12 @@ function fakeAdmin(rows) {
         revisions.push(...keys);
         return keys;
       },
+    },
+    portal_users: {
+      findOneBy: async ({ id }) => ({
+        id,
+        is_root: rootUserIds.includes(id),
+      }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -149,10 +156,11 @@ function fakeAdmin(rows) {
 /**
  * Build the API with a fake admin handle and the real route table.
  * @param {object[]} rows
+ * @param {{rootUserIds?: string[]}} [options]
  * @returns {{app: import('express').Express, admin: object}}
  */
-function api(rows = []) {
-  const admin = fakeAdmin(rows);
+function api(rows = [], options) {
+  const admin = fakeAdmin(rows, options);
   const app = createApp({
     api: {
       admin,
@@ -564,6 +572,20 @@ describe('session routes', () => {
       .set('Cookie', `nap_session=${theirs.token}`);
     expect(repeat.status).toBe(403);
     expect(theirs.session.deactivated_at).toBeNull();
+  });
+
+  it("lets an unrestricted root revoke another user's session", async () => {
+    const root = live();
+    const target = live();
+    const { app } = api([root.session, target.session], {
+      rootUserIds: [root.session.portal_user_id],
+    });
+    const response = await request(app)
+      .delete(`/api/admin-tenancy/v1/sessions/${target.session.id}`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', `nap_session=${root.token}`);
+    expect(response.status).toBe(204);
+    expect(target.session.deactivated_at).not.toBeNull();
   });
 
   it('refuses an unknown session identifier the same way as a forbidden one', async () => {

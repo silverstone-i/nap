@@ -22,7 +22,7 @@ are later Work Units; see the [roadmap](../../docs/roadmap/ROADMAP.md).
 | `framework/`                   | Response envelopes, session cookies, and the route registry.                                                                        |
 | `middleware/`                  | Correlation, browser request protection, JSON body typing, and session resolution.                                                  |
 | `infrastructure/cache/`        | Optional Redis-backed revision cache.                                                                                               |
-| `capability/`                  | Reserved by the architecture. Not yet implemented.                                                                                  |
+| `capability/`                  | Built-in capability catalogue used to grant root authority.                                                                         |
 
 ## Commands
 

@@ -7,17 +7,19 @@ import { Router } from 'express';
 import { sendNoContent } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import { revokeSession } from '../../domain/session.js';
+import {
+  accessScope,
+  resolveAuthorization,
+} from '../../domain/authorization.js';
 import { discardSessionCookie, sendSessionError } from './shared.js';
 
 /**
  * Build the `sessions` router: revoke a session by identifier.
  *
- * The route passes `scope: null`, so the only session a caller can revoke
- * over HTTP today is their own. Platform-operator revocation is implemented
- * in `revokeSession`, which takes the operator's scope and enforces
- * M0001-04-R007 against it; M0001-05 supplies that scope from the caller's
- * platform roles, and this route gains it then. Nothing here has to change
- * for the authorization rule itself.
+ * Self-revocation passes no platform scope. Revoking another user's session
+ * derives the caller's root authority and passes its scope to `revokeSession`,
+ * which enforces M0001-04-R007. Role-based operator authority remains deferred
+ * with the rest of M0001-05.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} context.cookiePolicy
@@ -28,9 +30,16 @@ export function createSessionsRouter({ admin, cookiePolicy }) {
 
   router.delete('/:id', requireSession(), async (request, response) => {
     try {
+      const scope =
+        request.params.id === request.session.id
+          ? null
+          : accessScope(
+              await resolveAuthorization(admin.db, request.session),
+              'admin-tenancy::sessions::revoke'
+            );
       await revokeSession(
         admin.db,
-        { actorId: request.session.user, scope: null },
+        { actorId: request.session.user, scope },
         request.params.id,
         { requestId: request.requestId }
       );
