@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                                                  |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                  |
+| Status               | Accepted                                                                                                                                                                               |
 | Type                 | Module Work Unit                                                                                                                                                                       |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                      |
 | Related architecture | [Module design](../../../architecture/module-design.md)                                                                                                                                |
@@ -168,6 +168,4 @@ ID. Role changes advance authorization cache revisions in the same transaction.
 
 ## 14. Outstanding Questions
 
-Role seeds, assignments, and non-root role resolution remain deferred until a
-supported cell provisioning and migration path exists. Root authority does not
-depend on that path and may be implemented independently.
+None.
