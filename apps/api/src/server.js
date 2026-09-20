@@ -37,6 +37,7 @@ try {
       api: {
         admin,
         sessionPolicy: config.session,
+        authenticationPolicy: config.authentication,
         cookiePolicy: config.cookie,
         applicationOrigin: config.applicationOrigin,
         registrations: adminTenancyRoutesV1,

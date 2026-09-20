@@ -60,9 +60,18 @@ variables override the file.
 ## API routes
 
 Module routers mount at `/api/<module>/v<version>/<router>`. Version 1 of
-`admin-tenancy` serves `session/current`, `session/rotate`, `auth/logout`, and
-`sessions/:id`; see
+`admin-tenancy` serves `auth/login`, `auth/password`, `auth/logout`,
+`session/current`, `session/rotate`, and `sessions/:id`; see
+[M0001-03](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-03-authentication.md)
+and
 [M0001-04](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-04-session-management.md).
+
+A login that fails for any reason returns the same `401` envelope, so the
+response cannot say whether an address holds an account. Five failures against
+one account or one client address inside fifteen minutes lock that key for
+fifteen minutes and answer `429` with `Retry-After`. An account carrying a
+temporary password reaches `auth/password` and `auth/logout` and nothing
+else.
 
 Every POST, PUT, PATCH, and DELETE under `/api` must prove it came from
 `APP_ORIGIN_<ENV>`, through `Origin` or, when that header is absent, `Referer`.

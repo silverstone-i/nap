@@ -4,13 +4,13 @@
 
 | Field                | Value                                                                                             |
 | -------------------- | ------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                             |
+| Status               | Implemented                                                                                       |
 | Type                 | Module Work Unit                                                                                  |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                 |
 | Related architecture | [BFF](../../../architecture/bff.md)                                                               |
 | Related PRDs         | [M0001-01](M0001-01-tenant-and-portal-user-access.md), [M0001-04](M0001-04-session-management.md) |
 | Related decisions    | None                                                                                              |
-| Last reviewed        | 2026-09-18                                                                                        |
+| Last reviewed        | 2026-09-20                                                                                        |
 
 ## 2. Purpose
 
@@ -120,6 +120,67 @@ request ID and hashed throttle key.
 | AC04      | Password replacement is atomic and revokes every other session.                                                                                                                                                  | M0001-03-R006                |
 | AC05      | Responses, logs, and events contain no plaintext password, hash, raw email, or raw client address.                                                                                                               | M0001-03-R005                |
 | AC06      | Same-origin login and password change pass request protection; foreign, null, and missing-origin requests follow the BFF rejection and Referer-fallback rules without changing credentials or creating sessions. | M0001-03-R007                |
+
+### Verification Evidence
+
+Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
+`npm test` (298 tests across the workspace, including 49 new unit tests),
+`npm run build`, and `npm run licenses` passed.
+
+`npm run test:db` passed 83 of 85 tests against a disposable PostgreSQL 18
+server, including all 20
+[authentication tests](../../../../apps/api/tests/integration/authentication.test.js).
+The two failures are in `admin-foundation.test.js` and predate this Work Unit:
+the local fixture server authenticates with `trust`, so the wrong-password
+cases those tests rely on still connect. Neither touches `admin.portal_users`
+or `admin.login_throttles`.
+
+Integration tests cover authentication and its throttle together: successful
+login for an eligible account, a restricted session for a temporary password,
+the same `UNAUTHENTICATED` rejection for a wrong password, an unknown or
+unparseable account, and a locked, disabled, or archived account, none of
+which leaves a session row behind. They cover the throttle window on its own:
+the fifth failure locking a key for fifteen minutes; the sixth refused without
+a verification; the window restarting once it elapses; a key not re-locking on
+the single attempt after its lock expires; five concurrent failures against
+one account recording exactly five; the account and client-address dimensions
+enforced independently, including five failures from one address against five
+different accounts locking only the address; a successful login clearing the
+account key and leaving the address key; and `purgeExpired` removing a stale
+row while keeping a live lock. They cover the post-login rehash raising a
+stored digest's parameters and leaving a stronger one alone under a weaker
+configuration. They cover password change: the hash, the cleared flag, every
+other session's revocation, and this session's rotation committing together;
+a wrong current password, a too-short or repeated replacement, and an account
+disabled between session resolution and the change each leaving the old hash
+in place; and an injected event-append failure rolling the hash, the flag, the
+revocation, and the rotation all back together. A final scan of every event
+recorded across the run finds no password, hash fragment, raw email, or raw
+client address.
+
+Unit tests cover the password policy at the Unicode boundary — an emoji
+password satisfies twelve characters by code point, not by UTF-16 length — the
+Argon2id floor, hashing and verification including a malformed stored digest
+reported as a mismatch rather than an error, the rehash rule firing only on an
+increase, throttle-key derivation and normalization, and the routes
+themselves against an in-memory admin handle: successful login and its
+cookie; every ineligible and invalid login case answering with the same
+envelope; a locked account's `429` and `Retry-After`; a restricted session
+confined to password change and logout; password change's rotation and
+event; browser request protection on both new routes across the standard nine
+header cases; and configuration rules that reject a short or placeholder
+throttle secret and an Argon2id parameter below the PRD floor.
+
+Two design points worth recording. First, the digest parameter parser reads
+`m`, `t`, and `p` by name rather than by position: the library writes them as
+`m,p,t`, not the `m,t,p` order the RFC's own examples use, and matching a
+fixed order would have read every digest this API writes as unparseable and
+silently rehashed the whole table on each login. Second, the throttle's
+`recordFailure` is a single `INSERT … ON CONFLICT DO UPDATE`, so PostgreSQL
+decides the window, the lock, and the concurrency between two racing failures
+in one statement, the same way `admin.sessions`' methods decide expiry — an
+API process comparing timestamps client-side could not make M0001-03-R003's
+atomicity claim hold under concurrent load.
 
 ## 14. Outstanding Questions
 

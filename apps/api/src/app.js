@@ -35,6 +35,7 @@ const JSON_BODY_LIMIT = '64kb';
  * @param {object} api
  * @param {import('pg-schemata').Database} api.admin Admin database handle.
  * @param {object} api.sessionPolicy Session secret and lifetimes.
+ * @param {object} api.authenticationPolicy Throttle secret and Argon2id parameters.
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} api.cookiePolicy
  * @param {string} api.applicationOrigin Configured public application origin.
  * @param {object[]} [api.registrations] Route registrations to mount.
@@ -45,6 +46,7 @@ function mountApi(app, api) {
   const {
     admin,
     sessionPolicy,
+    authenticationPolicy,
     cookiePolicy,
     applicationOrigin,
     registrations = [],
@@ -64,7 +66,12 @@ function mountApi(app, api) {
     next(error);
   });
   app.use('/api', sessionContext({ admin, sessionPolicy, cookiePolicy }));
-  registry.mount(app, { admin, sessionPolicy, cookiePolicy });
+  registry.mount(app, {
+    admin,
+    sessionPolicy,
+    authenticationPolicy,
+    cookiePolicy,
+  });
 }
 
 /**
@@ -79,7 +86,7 @@ function mountApi(app, api) {
  * @param {string} [options.webRoot] Directory holding the built web client; must contain `index.html`.
  * @param {number} [options.trustProxyHops=0] Trusted reverse-proxy hop count, 0 to 16.
  * @param {() => Promise<boolean> | boolean} [options.isReady] Readiness probe; a thrown error reports not ready.
- * @param {object} [options.api] Admin handle, session and cookie policy, application origin, and route registrations.
+ * @param {object} [options.api] Admin handle, session, authentication, and cookie policy, application origin, and route registrations.
  * @returns {import('express').Express}
  * @throws {Error} When `trustProxyHops` is out of range, `webRoot` has no `index.html`, or `api` is misconfigured.
  */

@@ -141,3 +141,62 @@ export async function withSessionErrors(operation) {
     );
   }
 }
+
+/** Stable codes an authentication operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const AUTH_CODES = new Set([
+  'INVALID_INPUT',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'THROTTLED',
+  'CONFLICT',
+  'AUDIT_UNAVAILABLE',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` authentication codes:
+ * `INVALID_INPUT`, `UNAUTHENTICATED`, `FORBIDDEN`, `THROTTLED`, `CONFLICT`,
+ * `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, or `INTERNAL_ERROR`. Never
+ * carries a password, a password hash, a throttle key, or database detail.
+ *
+ * Kept separate from `AdminSessionError` because only authentication can
+ * report `THROTTLED`, and only a throttled error carries the seconds a caller
+ * must wait. `retryAfterSeconds` is `null` for every other code.
+ */
+export class AdminAuthError extends Error {
+  constructor(code, retryAfterSeconds = null) {
+    super(code);
+    this.code = code;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminAuthError`.
+ *
+ * An access, event, session, or authentication error already carrying an
+ * authentication code keeps that code and, when it is an `AdminAuthError`, its
+ * `retryAfterSeconds`. That is what lets a failed event append surface as
+ * `AUDIT_UNAVAILABLE` rather than being flattened into a login rejection. Any
+ * other thrown value is assumed to be a database driver error: a serialization
+ * failure or deadlock (SQLSTATE `40001`/`40P01`) becomes `CONFLICT`; everything
+ * else becomes `INTERNAL_ERROR`, discarding the original message, detail, and
+ * constraint name.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminAuthError}
+ */
+export async function withAuthErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminAuthError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminAuthError('CONFLICT');
+    throw new AdminAuthError(
+      AUTH_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}

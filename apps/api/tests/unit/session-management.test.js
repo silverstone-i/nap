@@ -615,6 +615,7 @@ describe('session configuration', () => {
     ADMIN_DATABASE_TEST: 'db.example/nap_test_admin',
     NAP_APP_PSWD_TEST: 'runtime-secret',
     SESSION_SECRET_TEST: 'test-session-secret-of-ample-length-here',
+    AUTH_THROTTLE_SECRET_TEST: 'test-throttle-secret-of-ample-length-here',
     APP_ORIGIN_TEST: 'http://localhost:5173',
   };
 
@@ -655,6 +656,7 @@ describe('session configuration', () => {
       NODE_ENV: 'production',
       TRUST_PROXY_HOPS_PROD: '1',
       SESSION_SECRET_PROD: 'production-session-secret-of-ample-length',
+      AUTH_THROTTLE_SECRET_PROD: 'production-throttle-secret-of-ample-length',
       APP_ORIGIN_PROD: 'https://app.example',
       ADMIN_DATABASE_PROD: JSON.stringify({
         endpoint: 'db.example/nap_prod_admin',

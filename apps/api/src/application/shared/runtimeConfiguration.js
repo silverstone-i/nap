@@ -117,6 +117,56 @@ function sessionConfiguration(env, suffix) {
 }
 
 /**
+ * Resolve the throttle secret and the Argon2id parameters.
+ *
+ * The throttle secret is per-environment and separate from the session
+ * secret, so the key that turns an email address into a stored throttle row
+ * is not the key that turns a cookie into a session. Reusing one value for
+ * both would mean a leak of either compromises both, so a throttle secret
+ * identical to the session secret is refused rather than merely discouraged.
+ *
+ * The Argon2id parameters are shared across environments and are floors, not
+ * preferences: M0001-03 §7 fixes 19456 KiB, two iterations, and one lane as
+ * the minimum, so a deployment may raise the cost of a login but never lower
+ * it. Raising one is also what makes the post-login rehash fire.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @param {string} sessionSecret The session secret already resolved for this environment.
+ * @returns {{throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
+function authenticationConfiguration(env, suffix, sessionSecret) {
+  const secretSetting = `AUTH_THROTTLE_SECRET_${suffix}`;
+  const throttleSecret = secret(env[secretSetting], secretSetting);
+  requireCondition(
+    throttleSecret.length >= 32,
+    'INVALID_CONFIGURATION',
+    secretSetting
+  );
+  requireCondition(
+    throttleSecret !== sessionSecret,
+    'INVALID_CONFIGURATION',
+    secretSetting
+  );
+  const parameters = [
+    ['ARGON2_MEMORY_KIB', 19456, 1048576, 'memoryKib'],
+    ['ARGON2_TIME_COST', 2, 16, 'timeCost'],
+    ['ARGON2_PARALLELISM', 1, 16, 'parallelism'],
+  ];
+  const hashing = {};
+  for (const [setting, floor, ceiling, field] of parameters) {
+    const value = Number(env[setting]?.trim() || String(floor));
+    requireCondition(
+      Number.isInteger(value) && value >= floor && value <= ceiling,
+      'INVALID_CONFIGURATION',
+      setting
+    );
+    hashing[field] = value;
+  }
+  return { throttleSecret, ...hashing };
+}
+
+/**
  * Resolve the public application origin used by browser request protection.
  *
  * It must be configured, never derived from `Host` or a forwarded header,
@@ -159,7 +209,7 @@ function originConfiguration(env, suffix) {
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
+ * @returns {{port: number, trustProxyHops: number, admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -205,12 +255,14 @@ export function runtimeConfiguration(env) {
     };
   endpoint(entry.endpoint, `ADMIN_DATABASE_${suffix}`);
   secret(entry.appPassword, `ADMIN_DATABASE_${suffix}`);
+  const session = sessionConfiguration(env, suffix);
   return {
     port,
     trustProxyHops,
     admin: roleUrl(entry.endpoint, 'nap-app', entry.appPassword),
     cache: cacheConfiguration(env, suffix),
-    session: sessionConfiguration(env, suffix),
+    session: session,
+    authentication: authenticationConfiguration(env, suffix, session.secret),
     cookie: cookieConfiguration(env, suffix),
     applicationOrigin: originConfiguration(env, suffix),
     webRoot:

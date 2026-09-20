@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import { AdminAccessError, withDatabaseErrors } from './errors.js';
-import { parseNormalizedEmail } from './validation.js';
+import { parseNormalizedEmail, parseUuid } from './validation.js';
 
 /**
  * The only view that may include `password_hash`. Kept out of
@@ -55,6 +55,37 @@ export async function findCredentialByEmail(
   return withDatabaseErrors(async () => {
     const row = await db.portal_users.findOneBy(
       { email },
+      { columnWhitelist: CREDENTIAL_VIEW_COLUMNS }
+    );
+    return row ?? null;
+  });
+}
+
+/**
+ * Find a portal user's login fields, including the password hash, by
+ * identifier.
+ *
+ * The companion to `findCredentialByEmail`, for the one operation that already
+ * knows which account it is acting on: a password change behind a resolved
+ * session. Routing that through the email lookup would mean reading an
+ * address out of the session context only to look it up again, and would give
+ * the credential reader a second caller shaped differently from the first.
+ * @param {import('./access.js').AdminTenancyDb} db
+ * @param {unknown} authenticationContext Marker `{ caller: 'authentication' }`.
+ * @param {unknown} portalUserId
+ * @returns {Promise<object|null>} Login fields and password hash, or `null` if missing or archived.
+ * @throws {AdminAccessError} `INVALID_INPUT`, `CONFLICT`, `INTERNAL_ERROR`
+ */
+export async function findCredentialById(
+  db,
+  authenticationContext,
+  portalUserId
+) {
+  requireAuthenticationContext(authenticationContext);
+  const id = parseUuid(portalUserId);
+  return withDatabaseErrors(async () => {
+    const row = await db.portal_users.findOneBy(
+      { id },
       { columnWhitelist: CREDENTIAL_VIEW_COLUMNS }
     );
     return row ?? null;
