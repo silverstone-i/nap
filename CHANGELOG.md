@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-09-20
+
 ### Added
 
 - Add an append-only Admin event history with a validated catalogue, transactional append, and authorized, filtered, paginated reads.
