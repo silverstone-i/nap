@@ -136,15 +136,16 @@ Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
 `npm test` (249 tests across the workspace, including 31 new unit tests),
 `npm run build`, `npm run licenses`, and `git diff --check` passed.
 
-`npm run test:db` passed 62 of 64 tests against a disposable PostgreSQL 18
-server, including all 24
+`npm run test:db` passed 63 of 65 tests against a disposable PostgreSQL 18
+server, including all 25
 [session tests](../../../../apps/api/tests/integration/session-management.test.js).
 The two failures are in `admin-foundation.test.js` and predate this Work Unit:
 the local fixture server authenticates with `trust`, so the wrong-password
 cases those tests rely on still connect. Neither touches `admin.sessions`.
 
 Integration tests cover creation and its rollback with the caller's
-transaction, the ten-session cap, resolution of live and restricted sessions,
+transaction, the ten-session cap and its exclusion of idle-expired sessions,
+resolution of live and restricted sessions,
 rejection of unknown, tampered, expired, archived, and revoked tokens, the
 idle and absolute limits, bounded `last_seen_at` refresh, rotation with a
 single winner among five concurrent attempts, preserved tenant and support
