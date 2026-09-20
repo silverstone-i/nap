@@ -36,7 +36,7 @@ cell-side member provisioning.
 
 | Actor                         | Target                                           | Result                                                                                  |
 | ----------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Root or `platform_admin`      | Any ordinary user or membership                  | Permit matching accounts capability                                                     |
+| Root user or `platform_admin` | Any ordinary user or membership                  | Permit matching accounts capability                                                     |
 | `support`                     | Any ordinary user; non-Napsoft membership or job | Permit matching accounts capability                                                     |
 | `support`                     | Napsoft membership or provisioning job           | Deny                                                                                    |
 | `tenant_admin`                | Memberships and users within own tenant          | Read users and manage own-tenant memberships; cannot disable or archive shared accounts |

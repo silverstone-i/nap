@@ -32,11 +32,11 @@ Create a central tenant before cell assignment and provisioning.
 
 ## 4. Actors And Permissions
 
-| Actor                    | Authority                       | Result                      |
-| ------------------------ | ------------------------------- | --------------------------- |
-| Root or `platform_admin` | `admin-tenancy::control::write` | Create a tenant             |
-| `support`                | Same capability                 | Create a non-Napsoft tenant |
-| Other caller             | None                            | Deny                        |
+| Actor                         | Authority                       | Result                      |
+| ----------------------------- | ------------------------------- | --------------------------- |
+| Root user or `platform_admin` | `admin-tenancy::control::write` | Create a tenant             |
+| `support`                     | Same capability                 | Create a non-Napsoft tenant |
+| Other caller                  | None                            | Deny                        |
 
 Only bootstrap may create a tenant with `is_napsoft = true`.
 

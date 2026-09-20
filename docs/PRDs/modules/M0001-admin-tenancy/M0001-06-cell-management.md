@@ -33,12 +33,12 @@ database inside an HTTP request.
 
 ## 4. Actors And Permissions
 
-| Actor                    | Authority                         | Result                                                          |
-| ------------------------ | --------------------------------- | --------------------------------------------------------------- |
-| Root or `platform_admin` | `admin-tenancy::control::write`   | Register, retry, or disable any cell                            |
-| `support`                | Same capability                   | Perform the operation unless it would affect the Napsoft tenant |
-| Provisioning runner      | Trusted in-process runner context | Update the current operation's stage and outcome                |
-| Authorized operator      | `admin-tenancy::control::read`    | Read overview and readiness                                     |
+| Actor                         | Authority                         | Result                                                          |
+| ----------------------------- | --------------------------------- | --------------------------------------------------------------- |
+| Root user or `platform_admin` | `admin-tenancy::control::write`   | Register, retry, or disable any cell                            |
+| `support`                     | Same capability                   | Perform the operation unless it would affect the Napsoft tenant |
+| Provisioning runner           | Trusted in-process runner context | Update the current operation's stage and outcome                |
+| Authorized operator           | `admin-tenancy::control::read`    | Read overview and readiness                                     |
 
 ## 5. Concepts And Terminology
 

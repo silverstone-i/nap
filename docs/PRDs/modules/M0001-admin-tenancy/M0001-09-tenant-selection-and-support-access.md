@@ -33,12 +33,12 @@ operator access to tenant context.
 
 ## 4. Actors And Permissions
 
-| Actor                    | Target                           | Result                             |
-| ------------------------ | -------------------------------- | ---------------------------------- |
-| Portal user              | Own active, ready membership     | Select tenant                      |
-| Root or `platform_admin` | Any active, ready tenant         | Enter support context              |
-| `support`                | Active, ready non-Napsoft tenant | Enter support context              |
-| `support`                | Napsoft tenant                   | Deny without returning tenant data |
+| Actor                         | Target                           | Result                             |
+| ----------------------------- | -------------------------------- | ---------------------------------- |
+| Portal user                   | Own active, ready membership     | Select tenant                      |
+| Root user or `platform_admin` | Any active, ready tenant         | Enter support context              |
+| `support`                     | Active, ready non-Napsoft tenant | Enter support context              |
+| `support`                     | Napsoft tenant                   | Deny without returning tenant data |
 
 ## 5. Concepts And Terminology
 

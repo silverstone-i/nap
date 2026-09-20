@@ -33,13 +33,13 @@ to establish who did what and whether it succeeded.
 
 ## 4. Actors And Permissions
 
-| Actor                    | Target                                        | Result                     |
-| ------------------------ | --------------------------------------------- | -------------------------- |
-| Originating operation    | Valid catalogue event                         | Append event               |
-| Root or `platform_admin` | Any central event                             | Read event                 |
-| `support`                | Event not associated with Napsoft tenant data | Read event                 |
-| `tenant_admin`           | Event associated with own tenant              | Read tenant event          |
-| Any runtime actor        | Existing event                                | Cannot update or delete it |
+| Actor                         | Target                                        | Result                     |
+| ----------------------------- | --------------------------------------------- | -------------------------- |
+| Originating operation         | Valid catalogue event                         | Append event               |
+| Root user or `platform_admin` | Any central event                             | Read event                 |
+| `support`                     | Event not associated with Napsoft tenant data | Read event                 |
+| `tenant_admin`                | Event associated with own tenant              | Read tenant event          |
+| Any runtime actor             | Existing event                                | Cannot update or delete it |
 
 ## 5. Concepts And Terminology
 
