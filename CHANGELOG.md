@@ -10,6 +10,14 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add Admin login with password verification, per-account and per-client-address throttling after five failed attempts in fifteen minutes, and required temporary-password replacement that revokes every other session.
+
+### Changed
+
+- Require `AUTH_THROTTLE_SECRET_<ENV>` at API startup, alongside `ARGON2_MEMORY_KIB`, `ARGON2_TIME_COST`, and `ARGON2_PARALLELISM` floors for password hashing.
+
 ## [v0.6.0] - 2026-09-20
 
 ### Added

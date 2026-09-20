@@ -54,3 +54,23 @@ export function issueSessionCookie(response, cookiePolicy, token, session) {
 export function discardSessionCookie(response, cookiePolicy) {
   clearSessionCookie(response, cookiePolicy);
 }
+
+/**
+ * Report an authentication failure through the shared error envelope.
+ *
+ * Identical to `sendSessionError` but for `THROTTLED`, which must tell the
+ * caller when to come back. M0001-03 §10 requires the header, and the body
+ * stays the same fixed sentence every other refusal uses, so the envelope
+ * itself still reveals nothing about the account.
+ * @param {import('express').Response} response
+ * @param {unknown} error
+ * @returns {void}
+ */
+export function sendAuthError(response, error) {
+  const code = error?.code;
+  if (code === 'THROTTLED' && Number.isFinite(error?.retryAfterSeconds))
+    return sendError(response, 'THROTTLED', {
+      'Retry-After': String(Math.max(1, Math.ceil(error.retryAfterSeconds))),
+    });
+  sendSessionError(response, error);
+}

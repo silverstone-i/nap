@@ -20,10 +20,14 @@ const FAILED = Object.freeze(['failed']);
 const DENIED = Object.freeze(['denied']);
 
 /**
- * Detail keys any event may carry. Every key is a stable code, a count, or a
- * public identifier. Nothing here can hold a password, hash, session token,
- * connection string, raw throttle input, or provider secret, which is what
- * M0001-12-R007 forbids; `parseDetails` enforces the per-event subset and the
+ * Detail keys any event may carry. Every key is a stable code, a count, a
+ * public identifier, or a keyed hash. `throttle_key` is the last of those: an
+ * HMAC taken under a secret the API holds, which is how a login failure is
+ * attributed to an account or a client without M0001-03-R005's forbidden raw
+ * email or raw address ever reaching the event store.
+ *
+ * Nothing here can hold a password, hash, session token, connection string,
+ * raw throttle input, or provider secret, which is what M0001-12-R007 forbids; `parseDetails` enforces the per-event subset and the
  * value shapes, and a unit test asserts this vocabulary against a denylist so
  * a later Work Unit cannot widen it into a leak.
  */
@@ -43,6 +47,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'role',
   'step',
   'tenant_code',
+  'throttle_key',
   'tier',
   'to_status',
 ]);
@@ -62,10 +67,10 @@ export const EVENT_CATALOGUE = Object.freeze({
   'bootstrap.failed': { outcomes: FAILED, details: ['step', 'code'] },
 
   'auth.login.succeeded': { outcomes: SUCCEEDED, details: ['method'] },
-  'auth.login.failed': { outcomes: FAILED, details: ['code'] },
+  'auth.login.failed': { outcomes: FAILED, details: ['code', 'throttle_key'] },
   'auth.login.throttled': {
     outcomes: DENIED,
-    details: ['code', 'retry_after_seconds'],
+    details: ['code', 'retry_after_seconds', 'throttle_key'],
   },
   'auth.password.changed': { outcomes: ANY_OUTCOME, details: ['forced'] },
 

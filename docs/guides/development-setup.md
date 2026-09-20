@@ -51,9 +51,18 @@ Edit the DEV values in this private file:
 - `SETUP_DATABASE_DEV`: `localhost:5432/postgres`.
 - `NAP_ADMIN_PSWD_DEV` and `NAP_APP_PSWD_DEV`: the passwords you established.
 - `SESSION_SECRET_DEV`: at least 32 characters from `openssl rand -hex 32`.
+- `AUTH_THROTTLE_SECRET_DEV`: a second, independently generated value of at
+  least 32 characters. It keys the hash that stands in for an email address or
+  a client address in `admin.login_throttles`, and it is separate from the
+  session secret so that leaking either one does not compromise both.
 - `APP_ORIGIN_DEV`: `http://localhost:5173`, the Vite server the browser talks
   to. Every state-changing `/api` request must prove it came from this origin,
   so the API's own port is the wrong value here.
+
+`ARGON2_MEMORY_KIB`, `ARGON2_TIME_COST`, and `ARGON2_PARALLELISM` are shared by
+every environment and default to 19456, 2, and 1. They are floors: startup
+refuses a lower value, and raising one makes each account rehash its password
+on its next successful login.
 
 Endpoints omit usernames, passwords, and the protocol prefix. Maintenance and
 target endpoints must use the same host, port, and connection options. An

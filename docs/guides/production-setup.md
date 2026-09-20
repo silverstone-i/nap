@@ -70,11 +70,15 @@ configuration. `TRUST_PROXY_HOPS_PROD=1` in the Blueprint accounts for Render's
 proxy; use the actual trusted hop count if your network topology differs. Runtime
 uses only `appPassword` from `ADMIN_DATABASE_PROD`, never maintenance credentials.
 
-Set `SESSION_SECRET_PROD` and `APP_ORIGIN_PROD` on the service before the first
-deploy. The secret keys the hash stored for every session token, and the origin
-is the public `https` address browsers load; startup refuses a short secret, a
+Set `SESSION_SECRET_PROD`, `AUTH_THROTTLE_SECRET_PROD`, and `APP_ORIGIN_PROD` on
+the service before the first deploy. The session secret keys the hash stored for
+every session token, the throttle secret keys the hash that stands in for an
+email address or a client address in `admin.login_throttles`, and the origin is
+the public `https` address browsers load; startup refuses a short secret, a
 plaintext origin, `COOKIE_SECURE_PROD=false`, or `COOKIE_SAMESITE_PROD=none`.
-Changing the secret invalidates every existing session.
+Generate the two secrets independently. Changing the session secret invalidates
+every existing session; changing the throttle secret resets every open
+failure window.
 
 Verify `/health/live` and `/health/ready` return HTTP 200, `/` serves the React
 app, and `/api/unknown` returns a JSON 404 rather than the SPA page. A browser
