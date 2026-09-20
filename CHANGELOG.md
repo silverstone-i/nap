@@ -12,7 +12,7 @@ when a pull request with a release label merges into `main`.
 
 ### Added
 
-- Enforce the built-in root capability set when one authenticated user revokes another user's session.
+- Allow an unrestricted root session to revoke another user's session using the built-in root capability set.
 
 ## [v0.8.0] - 2026-09-20
 
