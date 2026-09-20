@@ -42,3 +42,45 @@ export async function withDatabaseErrors(operation) {
     );
   }
 }
+
+/**
+ * Error carrying one of the stable `admin-tenancy` event codes:
+ * `INVALID_INPUT`, `FORBIDDEN`, `CONFLICT`, `INTERNAL_ERROR`, or
+ * `AUDIT_UNAVAILABLE`. Never carries database detail — callers report `code`
+ * and nothing else. Kept separate from `AdminAccessError` because an event
+ * that cannot be stored must roll its source transaction back, and no access
+ * code carries that meaning.
+ */
+export class AdminEventError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminEventError`.
+ *
+ * An `AdminEventError` thrown by `operation` passes through unchanged. Any
+ * other thrown value is assumed to be a database driver error: a serialization
+ * failure or deadlock (SQLSTATE `40001`/`40P01`) becomes `CONFLICT`, and
+ * everything else becomes `fallback`, discarding the original message, detail,
+ * and constraint name so database structure never reaches a caller. An append
+ * passes `AUDIT_UNAVAILABLE`, since a source transaction must roll back rather
+ * than commit an unrecorded mutation; a read passes `INTERNAL_ERROR`.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @param {'AUDIT_UNAVAILABLE'|'INTERNAL_ERROR'} fallback
+ * @returns {Promise<T>}
+ * @throws {AdminEventError}
+ */
+export async function withEventErrors(operation, fallback) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminEventError) throw error;
+    throw new AdminEventError(
+      CONFLICT_SQLSTATES.has(error?.code) ? 'CONFLICT' : fallback
+    );
+  }
+}
