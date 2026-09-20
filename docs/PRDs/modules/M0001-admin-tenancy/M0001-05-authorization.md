@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                       |
-| -------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                       |
-| Type                 | Module Work Unit                                                                                            |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                           |
-| Related architecture | [Module design](../../../architecture/module-design.md)                                                     |
-| Related PRDs         | [M0001-02](M0001-02-root-user-provisioning.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
-| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                          |
-| Last reviewed        | 2026-09-20                                                                                                  |
+| Field                | Value                                                                                                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Implemented                                                                                                                                                                            |
+| Type                 | Module Work Unit                                                                                                                                                                       |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                      |
+| Related architecture | [Module design](../../../architecture/module-design.md)                                                                                                                                |
+| Related PRDs         | [M0001-02](M0001-02-root-user-provisioning.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md), [M0003-00](../M0003-access-control/M0003-00-role-catalogue-foundation.md) |
+| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                                                                                                     |
+| Last reviewed        | 2026-09-20                                                                                                                                                                             |
 
 ## 2. Purpose
 
@@ -48,13 +48,14 @@ roles to portal users.
 
 ## 5. Concepts And Terminology
 
-| Term            | Meaning                                                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Capability      | Authorization identifier in `module::router::action` form                                                                      |
-| Root authority  | `platform_admin` capabilities granted by software to an active root user in an unrestricted session, without a role assignment |
-| System role     | Immutable named capability set                                                                                                 |
-| Role assignment | Portal user linked to a tenant-local role UUID in `admin.platform_roles`                                                       |
-| Napsoft data    | Tenant, membership, session, entitlement, event, or cell action whose target tenant has `is_napsoft = true`                    |
+| Term               | Meaning                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Capability         | Explicit authorization identifier in `module::router::action` form                                                             |
+| Capability pattern | Role capability whose `*` components match explicit capability components                                                      |
+| Root authority     | `platform_admin` capabilities granted by software to an active root user in an unrestricted session, without a role assignment |
+| System role        | Immutable named capability set                                                                                                 |
+| Role assignment    | Portal user linked to a tenant-local role UUID in `admin.platform_roles`                                                       |
+| Napsoft data       | Tenant, membership, session, entitlement, event, or cell action whose target tenant has `is_napsoft = true`                    |
 
 ## 6. Functional Requirements
 
@@ -63,6 +64,7 @@ roles to portal users.
 - M0001-05-R003: Assignments in `admin.platform_roles` must link non-root portal users to any valid system or tenant-defined role using its tenant and role UUID, without capability overrides.
 - M0001-05-R004: A non-root portal user may hold multiple roles, including system and tenant-defined roles.
 - M0001-05-R005: Authorization must grant an active root user in an unrestricted session the complete `platform_admin` capability set from `is_root = true`, without resolving or requiring a role assignment. For other users, authorization must resolve assigned roles in their owning tenant, combine capabilities applicable to the request, and apply target restrictions before calling the operation. Tenant-scoped assignments must not grant authority in another tenant; non-root platform authority comes only from the owning tenant’s seeded `platform_admin` or `support` roles.
+- M0001-05-R008: A role capability must contain exactly three `module::router::action` components. Each component must be a lowercase identifier or `*`; empty components are invalid. An explicit component matches only itself, while `*` matches every current and future identifier in that component. Requested capabilities must be fully explicit. Invalid capability patterns must fail closed.
 
 | Role             | Capabilities                                                                                                                                                                                                                                                                                                                                                                   |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -74,6 +76,15 @@ roles to portal users.
 
 - M0001-05-R006: Assignments must reference an active non-root portal user, an active association with the role’s tenant, and an existing role in that tenant. Unavailable role validation must fail closed; a role name alone must not confer system-role authority.
 - M0001-05-R007: A role-assignment change requires `admin-tenancy::roles::write`; tenant membership alone does not grant it.
+
+Authorization must resolve tenant scope and target restrictions before matching
+capabilities. Tenant is not part of a capability identifier, so `*::*::*`
+grants every capability only within the tenant scope of the applicable role
+assignment. It does not grant another tenant or platform-wide authority.
+
+Wildcard capability patterns provide no denies or exceptions. A role that
+needs every capability except one must list its allowed capabilities
+explicitly.
 
 Seeding is idempotent and fails if an existing role has a different
 capability set or system-role identity. Seed files are the version-controlled
@@ -147,12 +158,33 @@ ID. Role changes advance authorization cache revisions in the same transaction.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                                             | Requirements                 |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | Every tenant receives `tenant_admin`; only the configured owning tenant receives `platform_admin` and `support`. Repeat seeds preserve UUIDs and reject drift; runtime edits to system roles fail.          | M0001-05-R001, M0001-05-R002 |
-| AC02      | Non-root users can hold system and tenant-defined roles; duplicate active user/tenant/role assignments are prevented and no capability overrides are stored.                                                | M0001-05-R003, M0001-05-R004 |
-| AC03      | Authorization grants the root user `platform_admin` capabilities from `is_root` without an assignment; other users require resolvable assignments, and support remains denied access to owning-tenant data. | M0001-05-R005                |
-| AC04      | Unknown, inactive, root-targeted, wrong-tenant, self-granted, unauthorized, and last-admin changes fail; valid `tenant_admin` and custom-role assignments succeed.                                          | M0001-05-R006, M0001-05-R007 |
+| Criterion | Required result                                                                                                                                                                                                                  | Requirements                 |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Every tenant receives `tenant_admin`; only the configured owning tenant receives `platform_admin` and `support`. Repeat seeds preserve UUIDs and reject drift; runtime edits to system roles fail.                               | M0001-05-R001, M0001-05-R002 |
+| AC02      | Non-root users can hold system and tenant-defined roles; duplicate active user/tenant/role assignments are prevented and no capability overrides are stored.                                                                     | M0001-05-R003, M0001-05-R004 |
+| AC03      | Authorization grants the root user `platform_admin` capabilities from `is_root` without an assignment; other users require resolvable assignments, and support remains denied access to owning-tenant data.                      | M0001-05-R005                |
+| AC04      | Unknown, inactive, root-targeted, wrong-tenant, self-granted, unauthorized, and last-admin changes fail; valid `tenant_admin` and custom-role assignments succeed.                                                               | M0001-05-R006, M0001-05-R007 |
+| AC05      | Exact and wildcard capability patterns match component by component, including future matching capabilities; malformed or wildcard-bearing requested capabilities grant nothing, and wildcard grants cannot bypass tenant scope. | M0001-05-R008                |
+
+### Verification Evidence
+
+Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
+`npm test` (348 tests across the workspace), `npm run build`,
+`npm run licenses`, and `git diff --check` passed.
+
+`npm run test:db` passed 99 tests against a disposable PostgreSQL 18 server
+using `scram-sha-256` password authentication. The seven
+[authorization integration tests](../../../../apps/api/tests/integration/authorization-role-catalogue.test.js)
+use separate Admin and cell databases. They verify role migration, tenant RLS,
+reserved identities, repeat and restoring seeds, drift rejection, runtime
+system-role protection, cross-database role validation, atomic assignment audit
+and revision writes, HTTP list/grant/remove behavior, self-grant denial, and
+final non-root `platform_admin` protection.
+
+Unit tests verify exact and wildcard capability matching, malformed-pattern
+denial, root authority without role lookup, tenant isolation, the support
+Napsoft denial, fail-closed role-provider errors, configured-cell validation,
+and unavailable-cell quarantine.
 
 ## 14. Outstanding Questions
 

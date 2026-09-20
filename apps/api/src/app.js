@@ -45,6 +45,7 @@ const JSON_BODY_LIMIT = '64kb';
 function mountApi(app, api) {
   const {
     admin,
+    cells,
     sessionPolicy,
     authenticationPolicy,
     cookiePolicy,
@@ -68,6 +69,7 @@ function mountApi(app, api) {
   app.use('/api', sessionContext({ admin, sessionPolicy, cookiePolicy }));
   registry.mount(app, {
     admin,
+    cells,
     sessionPolicy,
     authenticationPolicy,
     cookiePolicy,

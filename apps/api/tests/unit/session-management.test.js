@@ -100,6 +100,12 @@ function fakeAdmin(rows) {
         return keys;
       },
     },
+    portal_users: {
+      findOneBy: async ({ id }) => ({ id, is_root: false }),
+    },
+    tenants: { findOneBy: async () => null },
+    platform_roles: { findWhere: async () => [] },
+    portal_user_tenants: { findWhere: async () => [] },
     sessions: {
       findByTokenHash: async hash => {
         const found = store.get(hash);
@@ -355,6 +361,8 @@ describe('route registry', () => {
       '/api/admin-tenancy/v1/session',
       '/api/admin-tenancy/v1/sessions',
       '/api/admin-tenancy/v1/auth',
+      '/api/admin-tenancy/v1/tenants',
+      '/api/admin-tenancy/v1/users',
     ]);
   });
 });

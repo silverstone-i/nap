@@ -46,6 +46,48 @@ function cacheConfiguration(env, suffix) {
   return { enabled, url, namespace: namespace || 'nap' };
 }
 
+function cellConfiguration(env, suffix) {
+  const setting = `CELL_DATABASES_${suffix}`;
+  let configured;
+  try {
+    configured = JSON.parse(env[setting]?.trim() || '{}');
+  } catch {
+    throw new MaintenanceError('INVALID_CONFIGURATION', setting);
+  }
+  requireCondition(
+    configured && typeof configured === 'object' && !Array.isArray(configured),
+    'INVALID_CONFIGURATION',
+    setting
+  );
+  const cells = {};
+  for (const [id, value] of Object.entries(configured)) {
+    requireCondition(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id
+      ),
+      'INVALID_CONFIGURATION',
+      setting
+    );
+    const entry =
+      suffix === 'PROD'
+        ? value
+        : { endpoint: value, appPassword: env[`NAP_APP_PSWD_${suffix}`] };
+    requireCondition(
+      entry && typeof entry === 'object' && !Array.isArray(entry),
+      'INVALID_CONFIGURATION',
+      setting
+    );
+    endpoint(entry.endpoint, setting);
+    secret(entry.appPassword, setting);
+    cells[id.toLowerCase()] = roleUrl(
+      entry.endpoint,
+      'nap-app',
+      entry.appPassword
+    );
+  }
+  return cells;
+}
+
 /**
  * Resolve the session cookie policy and reject an unsafe one.
  *
@@ -199,7 +241,7 @@ function originConfiguration(env, suffix) {
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
+ * @returns {{port: number, trustProxyHops: number, admin: string, cells: Record<string,string>, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` and `cells` contain `nap-app` connection strings.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -250,6 +292,7 @@ export function runtimeConfiguration(env) {
     port,
     trustProxyHops,
     admin: roleUrl(entry.endpoint, 'nap-app', entry.appPassword),
+    cells: cellConfiguration(env, suffix),
     cache: cacheConfiguration(env, suffix),
     session: session,
     authentication: authenticationConfiguration(env, suffix, session.secret),

@@ -13,14 +13,17 @@ import { runtimeConfiguration } from './application/shared/runtimeConfiguration.
 import { createRuntime } from './application/runtime/createRuntime.js';
 import { createAdminDatabase } from './infrastructure/runtime/adminDatabase.js';
 import { createRevisionCache } from './infrastructure/cache/index.js';
+import { createCellRegistry } from './infrastructure/runtime/cellRegistry.js';
 import { adminTenancyRoutesV1 } from './modules/admin-tenancy/apiRoutes/v1/index.js';
 
 let runtime;
 let admin;
 let cache;
+let cells;
 async function stop(code = 0) {
   const result = runtime ? await runtime.shutdown(code) : code;
-  if (!runtime) await Promise.all([cache?.close(), admin?.close()]);
+  if (!runtime)
+    await Promise.all([cache?.close(), cells?.close(), admin?.close()]);
   process.exit(result);
 }
 process.once('SIGINT', () => void stop());
@@ -28,14 +31,16 @@ process.once('SIGTERM', () => void stop());
 try {
   const config = runtimeConfiguration(environment());
   admin = createAdminDatabase(config.admin);
+  cells = createCellRegistry(config.cells, undefined, admin);
   cache = createRevisionCache({ admin, ...config.cache });
   runtime = createRuntime(
-    { admin, cache },
+    { admin, cells, cache },
     {
       trustProxyHops: config.trustProxyHops,
       webRoot: config.webRoot,
       api: {
         admin,
+        cells,
         sessionPolicy: config.session,
         authenticationPolicy: config.authentication,
         cookiePolicy: config.cookie,

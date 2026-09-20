@@ -6,6 +6,8 @@
 import { createAuthRouter } from './auth.js';
 import { createSessionRouter } from './session.js';
 import { createSessionsRouter } from './sessions.js';
+import { createRolesRouter } from './roles.js';
+import { createUsersRouter } from './users.js';
 
 /**
  * Version 1 route registrations for `admin-tenancy`.
@@ -35,5 +37,19 @@ export const adminTenancyRoutesV1 = [
     version: 1,
     database: 'admin',
     factory: createAuthRouter,
+  },
+  {
+    module: 'admin-tenancy',
+    router: 'tenants',
+    version: 1,
+    database: 'admin',
+    factory: createRolesRouter,
+  },
+  {
+    module: 'admin-tenancy',
+    router: 'users',
+    version: 1,
+    database: 'admin',
+    factory: createUsersRouter,
   },
 ];

@@ -15,7 +15,7 @@ import { checkAdminReadiness } from '../../infrastructure/runtime/adminReadiness
  * requests for up to `drainMs`, closes the pool within `poolCloseMs`, and
  * resolves to the process exit code. Readiness checks are shared while one
  * is in flight and report not ready once shutdown begins.
- * @param {{admin: import('pg-schemata').Database, cache?: {close: () => Promise<void>}}} handles
+ * @param {{admin: import('pg-schemata').Database, cells?: {connect: () => Promise<void>, close: () => Promise<void>}, cache?: {close: () => Promise<void>}}} handles
  * @param {object} [options]
  * @param {number} [options.trustProxyHops=0]
  * @param {string} [options.webRoot]
@@ -56,6 +56,7 @@ export function createRuntime(
   async function start(port, host) {
     try {
       await handles.admin.connect();
+      await handles.cells?.connect();
       if (stopped) return;
       if (!(await ready()))
         throw new Error('Admin database is unavailable or unsafe');
@@ -105,6 +106,7 @@ export function createRuntime(
         }, poolCloseMs);
         Promise.all([
           Promise.resolve().then(() => handles.cache?.close()),
+          Promise.resolve().then(() => handles.cells?.close()),
           Promise.resolve().then(() => handles.admin.close()),
         ])
           .catch(() => {

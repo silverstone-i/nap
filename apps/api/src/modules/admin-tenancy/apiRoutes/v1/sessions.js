@@ -7,6 +7,11 @@ import { Router } from 'express';
 import { sendNoContent } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import { revokeSession } from '../../domain/session.js';
+import { createRoleProvider } from '../../domain/roleProvider.js';
+import {
+  accessScope,
+  resolveAuthorization,
+} from '../../domain/authorization.js';
 import { discardSessionCookie, sendSessionError } from './shared.js';
 
 /**
@@ -23,14 +28,26 @@ import { discardSessionCookie, sendSessionError } from './shared.js';
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} context.cookiePolicy
  * @returns {import('express').Router}
  */
-export function createSessionsRouter({ admin, cookiePolicy }) {
+export function createSessionsRouter({ admin, cells, cookiePolicy }) {
   const router = Router();
+  const roleProvider = createRoleProvider(admin.db, cells);
 
   router.delete('/:id', requireSession(), async (request, response) => {
     try {
+      const scope =
+        request.params.id === request.session.id
+          ? null
+          : accessScope(
+              await resolveAuthorization(
+                admin.db,
+                roleProvider,
+                request.session
+              ),
+              'admin-tenancy::sessions::revoke'
+            );
       await revokeSession(
         admin.db,
-        { actorId: request.session.user, scope: null },
+        { actorId: request.session.user, scope },
         request.params.id,
         { requestId: request.requestId }
       );
