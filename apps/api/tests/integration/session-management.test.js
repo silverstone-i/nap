@@ -226,6 +226,30 @@ describe('creation', () => {
     }
   });
 
+  it('does not count an idle-expired session against the cap', async () => {
+    const user = await portalUser();
+    const oldest = await createSession(db, policy, { portalUserId: user });
+    const abandoned = [];
+    for (let index = 0; index < MAX_ACTIVE_SESSIONS - 1; index += 1)
+      abandoned.push(await createSession(db, policy, { portalUserId: user }));
+    // Every session but the oldest has gone idle. The user still holds one
+    // usable session, so a new login needs no room made for it.
+    await db.none(
+      "UPDATE admin.sessions SET idle_expires_at=now() - interval '1 second' WHERE id IN ($1:csv)",
+      [abandoned.map(session => session.session.id)]
+    );
+
+    await createSession(db, policy, { portalUserId: user });
+
+    expect((await stored(oldest.session.id)).deactivated_at).toBeNull();
+    expect((await resolveSession(db, policy, oldest.token)).id).toBe(
+      oldest.session.id
+    );
+    expect(
+      (await eventsFor(oldest.session.id)).map(event => event.event_key)
+    ).not.toContain('session.revoked');
+  });
+
   it('rolls the session back with the caller transaction', async () => {
     const user = await portalUser();
     let id;

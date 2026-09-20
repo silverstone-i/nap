@@ -156,6 +156,12 @@ export class Sessions extends TableModel {
   /**
    * Lock and list a user's live sessions, oldest first, for the session cap.
    *
+   * Liveness here is the same test resolution applies: unarchived and past
+   * neither limit. Counting an idle-expired session would let the cap evict
+   * the oldest session by `created_at` — which can be the one actually in use
+   * — to make room the user did not need, and would record a `session_cap`
+   * revocation for a session that could no longer authenticate.
+   *
    * `FOR UPDATE` is what makes the cap hold: two logins racing for the
    * eleventh slot serialize here, so the second sees the first one's row.
    * @param {string} portalUserId
@@ -165,7 +171,8 @@ export class Sessions extends TableModel {
   async lockLiveForUser(portalUserId, { tx }) {
     return tx.any(
       `SELECT id,tenant_id FROM ${table(this)}
-        WHERE portal_user_id=$1 AND deactivated_at IS NULL AND absolute_expires_at > now()
+        WHERE portal_user_id=$1 AND deactivated_at IS NULL
+          AND idle_expires_at > now() AND absolute_expires_at > now()
         ORDER BY created_at,id
           FOR UPDATE`,
       [portalUserId]
