@@ -297,7 +297,7 @@ describe('resolution', () => {
   it('refuses an unknown, tampered, archived, or revoked token alike', async () => {
     const user = await portalUser();
     const created = await createSession(db, policy, { portalUserId: user });
-    const tampered = `${created.token.slice(0, 42)}A`;
+    const tampered = `${created.token.startsWith('A') ? 'B' : 'A'}${created.token.slice(1)}`;
     for (const token of [createSessionToken(), tampered, 'short', ''])
       await expect(resolveSession(db, policy, token)).rejects.toMatchObject({
         code: 'UNAUTHENTICATED',
