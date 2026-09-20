@@ -10,7 +10,7 @@
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-12](M0001-12-administrative-events.md)                       |
 | Related decisions    | None                                                                                                       |
-| Last reviewed        | 2026-09-18                                                                                                 |
+| Last reviewed        | 2026-09-20                                                                                                 |
 
 ## 2. Purpose
 
@@ -33,12 +33,12 @@ database inside an HTTP request.
 
 ## 4. Actors And Permissions
 
-| Actor               | Authority                         | Result                                                          |
-| ------------------- | --------------------------------- | --------------------------------------------------------------- |
-| `platform_admin`    | `admin-tenancy::control::write`   | Register, retry, or disable any cell                            |
-| `support`           | Same capability                   | Perform the operation unless it would affect the Napsoft tenant |
-| Provisioning runner | Trusted in-process runner context | Update the current operation's stage and outcome                |
-| Authorized operator | `admin-tenancy::control::read`    | Read overview and readiness                                     |
+| Actor                    | Authority                         | Result                                                          |
+| ------------------------ | --------------------------------- | --------------------------------------------------------------- |
+| Root or `platform_admin` | `admin-tenancy::control::write`   | Register, retry, or disable any cell                            |
+| `support`                | Same capability                   | Perform the operation unless it would affect the Napsoft tenant |
+| Provisioning runner      | Trusted in-process runner context | Update the current operation's stage and outcome                |
+| Authorized operator      | `admin-tenancy::control::read`    | Read overview and readiness                                     |
 
 ## 5. Concepts And Terminology
 

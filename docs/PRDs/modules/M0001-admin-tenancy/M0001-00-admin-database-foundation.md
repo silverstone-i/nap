@@ -10,7 +10,7 @@
 | Related architecture | [Module design](../../../architecture/module-design.md), [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
 | Related PRDs         | M0001-01 through M0001-12, listed in the family document                                                                                                            |
 | Related decisions    | Decisions recorded in this PRD                                                                                                                                      |
-| Last reviewed        | 2026-09-18                                                                                                                                                          |
+| Last reviewed        | 2026-09-20                                                                                                                                                          |
 
 ## 2. Purpose
 
@@ -182,9 +182,10 @@ belong to those Work Units:
 | WU 11     | `cache_revisions.advance(domain, entity)`   | Increment the revision in the source transaction.                       |
 | WU 12     | `managed_events.append(event)`              | Provide the only runtime event-write method.                            |
 
-WU 2 owns root bootstrap. WU 5 defines role seeds and assignments; tenant
-provisioning runs the seeds in the cell. Cell setup, projections, and RLS belong
-to the receiving cell modules. `pg-schemata` owns the migration ledger.
+WU 2 owns root bootstrap. WU 5 derives root capabilities from `is_root` and
+defines role seeds and assignments for other users; tenant provisioning runs the
+seeds in the cell. Cell setup, projections, and RLS belong to the receiving cell
+modules. `pg-schemata` owns the migration ledger.
 
 ## 12. Security And Audit
 

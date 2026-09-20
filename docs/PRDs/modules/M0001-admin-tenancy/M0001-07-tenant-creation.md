@@ -10,7 +10,7 @@
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                        |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-06](M0001-06-cell-management.md) |
 | Related decisions    | Central tenant creation does not require cell assignment                       |
-| Last reviewed        | 2026-09-18                                                                     |
+| Last reviewed        | 2026-09-20                                                                     |
 
 ## 2. Purpose
 
@@ -32,11 +32,11 @@ Create a central tenant before cell assignment and provisioning.
 
 ## 4. Actors And Permissions
 
-| Actor            | Authority                       | Result                      |
-| ---------------- | ------------------------------- | --------------------------- |
-| `platform_admin` | `admin-tenancy::control::write` | Create a tenant             |
-| `support`        | Same capability                 | Create a non-Napsoft tenant |
-| Other caller     | None                            | Deny                        |
+| Actor                    | Authority                       | Result                      |
+| ------------------------ | ------------------------------- | --------------------------- |
+| Root or `platform_admin` | `admin-tenancy::control::write` | Create a tenant             |
+| `support`                | Same capability                 | Create a non-Napsoft tenant |
+| Other caller             | None                            | Deny                        |
 
 Only bootstrap may create a tenant with `is_napsoft = true`.
 

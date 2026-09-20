@@ -80,7 +80,9 @@ The commands do this:
 
 Bootstrap requires the admin schema. It creates operational data, not schema.
 It does not create ordinary tenants or seed platform capability definitions.
-M0001-02 owns finalizing the root assignment after the owning tenant's role seeds.
+Authorization grants the root user `platform_admin` capabilities from
+`is_root = true`; bootstrap does not create a role assignment or depend on the
+owning tenant's role seeds.
 
 ### Local And Render Setup
 

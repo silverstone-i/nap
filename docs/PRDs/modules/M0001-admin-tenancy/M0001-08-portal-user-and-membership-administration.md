@@ -10,7 +10,7 @@
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                    |
 | Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-05](M0001-05-authorization.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
 | Related decisions    | None                                                                                                                                       |
-| Last reviewed        | 2026-09-18                                                                                                                                 |
+| Last reviewed        | 2026-09-20                                                                                                                                 |
 
 ## 2. Purpose
 
@@ -36,7 +36,7 @@ cell-side member provisioning.
 
 | Actor                         | Target                                           | Result                                                                                  |
 | ----------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `platform_admin`              | Any ordinary user or membership                  | Permit matching accounts capability                                                     |
+| Root or `platform_admin`      | Any ordinary user or membership                  | Permit matching accounts capability                                                     |
 | `support`                     | Any ordinary user; non-Napsoft membership or job | Permit matching accounts capability                                                     |
 | `support`                     | Napsoft membership or provisioning job           | Deny                                                                                    |
 | `tenant_admin`                | Memberships and users within own tenant          | Read users and manage own-tenant memberships; cannot disable or archive shared accounts |
