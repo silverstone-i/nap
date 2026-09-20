@@ -50,6 +50,10 @@ Edit the DEV values in this private file:
 - `ADMIN_DATABASE_DEV`: `localhost:5432/nap_dev_admin`.
 - `SETUP_DATABASE_DEV`: `localhost:5432/postgres`.
 - `NAP_ADMIN_PSWD_DEV` and `NAP_APP_PSWD_DEV`: the passwords you established.
+- `SESSION_SECRET_DEV`: at least 32 characters from `openssl rand -hex 32`.
+- `APP_ORIGIN_DEV`: `http://localhost:5173`, the Vite server the browser talks
+  to. Every state-changing `/api` request must prove it came from this origin,
+  so the API's own port is the wrong value here.
 
 Endpoints omit usernames, passwords, and the protocol prefix. Maintenance and
 target endpoints must use the same host, port, and connection options. An

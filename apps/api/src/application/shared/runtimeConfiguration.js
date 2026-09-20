@@ -42,12 +42,124 @@ function cacheConfiguration(env, suffix) {
 }
 
 /**
+ * Resolve the session cookie policy and reject an unsafe one.
+ *
+ * `SameSite=None` is refused in every environment, not only production:
+ * this deployment serves the web client and the API from one origin, so a
+ * cross-site cookie has no legitimate use here and would defeat the
+ * origin check that replaces a CSRF token. Production additionally requires
+ * `Secure`, since a cookie sent in the clear is a session handed to anyone on
+ * the path. Together these are M0001-04-R009.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @returns {{secure: boolean, sameSite: 'lax'|'strict'}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
+function cookieConfiguration(env, suffix) {
+  const secureSetting = `COOKIE_SECURE_${suffix}`;
+  const sameSiteSetting = `COOKIE_SAMESITE_${suffix}`;
+  const secureText = env[secureSetting]?.trim() || 'true';
+  requireCondition(
+    secureText === 'true' || secureText === 'false',
+    'INVALID_CONFIGURATION',
+    secureSetting
+  );
+  const secure = secureText === 'true';
+  requireCondition(
+    suffix !== 'PROD' || secure,
+    'INVALID_CONFIGURATION',
+    secureSetting
+  );
+  const sameSite = (env[sameSiteSetting]?.trim() || 'lax').toLowerCase();
+  requireCondition(
+    sameSite === 'lax' || sameSite === 'strict',
+    'INVALID_CONFIGURATION',
+    sameSiteSetting
+  );
+  return { secure, sameSite };
+}
+
+/**
+ * Resolve the session secret and lifetimes.
+ *
+ * The secret keys the HMAC that turns a browser token into the stored hash,
+ * so a short or placeholder value would make stored hashes forgeable; 32
+ * characters is the floor the domain enforces as well.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @returns {{secret: string, idleMinutes: number, absoluteHours: number}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
+function sessionConfiguration(env, suffix) {
+  const secretSetting = `SESSION_SECRET_${suffix}`;
+  const value = secret(env[secretSetting], secretSetting);
+  requireCondition(value.length >= 32, 'INVALID_CONFIGURATION', secretSetting);
+  const idleMinutes = Number(env.SESSION_IDLE_MINUTES?.trim() || '30');
+  const absoluteHours = Number(env.SESSION_ABSOLUTE_HOURS?.trim() || '12');
+  requireCondition(
+    Number.isInteger(idleMinutes) && idleMinutes >= 1 && idleMinutes <= 1440,
+    'INVALID_CONFIGURATION',
+    'SESSION_IDLE_MINUTES'
+  );
+  requireCondition(
+    Number.isInteger(absoluteHours) &&
+      absoluteHours >= 1 &&
+      absoluteHours <= 168,
+    'INVALID_CONFIGURATION',
+    'SESSION_ABSOLUTE_HOURS'
+  );
+  requireCondition(
+    idleMinutes <= absoluteHours * 60,
+    'INVALID_CONFIGURATION',
+    'SESSION_IDLE_MINUTES'
+  );
+  return { secret: value, idleMinutes, absoluteHours };
+}
+
+/**
+ * Resolve the public application origin used by browser request protection.
+ *
+ * It must be configured, never derived from `Host` or a forwarded header,
+ * which is what stops a proxy or an attacker-controlled header from widening
+ * the set of origins allowed to change state.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @returns {string} Scheme, hostname, and port, with no path.
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
+function originConfiguration(env, suffix) {
+  const setting = `APP_ORIGIN_${suffix}`;
+  const value = env[setting]?.trim();
+  requireCondition(value, 'INVALID_CONFIGURATION', setting);
+  let origin;
+  try {
+    const url = new URL(value);
+    requireCondition(
+      ['http:', 'https:'].includes(url.protocol) &&
+        url.origin !== 'null' &&
+        `${url.origin}${url.pathname}`.replace(/\/$/, '') === url.origin,
+      'INVALID_CONFIGURATION',
+      setting
+    );
+    origin = url.origin;
+  } catch {
+    throw new MaintenanceError('INVALID_CONFIGURATION', setting);
+  }
+  requireCondition(
+    suffix !== 'PROD' || origin.startsWith('https://'),
+    'INVALID_CONFIGURATION',
+    setting
+  );
+  return origin;
+}
+
+/**
  * Resolve the settings the running API needs from `NODE_ENV` and its
  * `*_DEV`, `*_TEST`, or `*_PROD` variables. Production reads the JSON
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
+ * @returns {{port: number, trustProxyHops: number, admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -98,6 +210,9 @@ export function runtimeConfiguration(env) {
     trustProxyHops,
     admin: roleUrl(entry.endpoint, 'nap-app', entry.appPassword),
     cache: cacheConfiguration(env, suffix),
+    session: sessionConfiguration(env, suffix),
+    cookie: cookieConfiguration(env, suffix),
+    applicationOrigin: originConfiguration(env, suffix),
     webRoot:
       suffix === 'PROD'
         ? fileURLToPath(new URL('../../../../web/dist/', import.meta.url))

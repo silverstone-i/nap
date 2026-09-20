@@ -19,13 +19,14 @@ import { checkAdminReadiness } from '../../infrastructure/runtime/adminReadiness
  * @param {object} [options]
  * @param {number} [options.trustProxyHops=0]
  * @param {string} [options.webRoot]
+ * @param {object} [options.api] API request-chain settings and route registrations; omit to serve health and static assets only.
  * @param {number} [options.drainMs=10000]
  * @param {number} [options.poolCloseMs=5000]
  * @returns {{server: import('node:http').Server, start: (port: number, host?: string) => Promise<void>, shutdown: (code?: number) => Promise<number>}}
  */
 export function createRuntime(
   handles,
-  { trustProxyHops = 0, webRoot, drainMs = 10000, poolCloseMs = 5000 } = {}
+  { trustProxyHops = 0, webRoot, api, drainMs = 10000, poolCloseMs = 5000 } = {}
 ) {
   let stopped = false;
   let stopping;
@@ -43,6 +44,7 @@ export function createRuntime(
     createApp({
       webRoot,
       trustProxyHops,
+      api,
       isReady: () => (listening && !stopped ? ready() : false),
     })
   );

@@ -13,6 +13,7 @@ import { runtimeConfiguration } from './application/shared/runtimeConfiguration.
 import { createRuntime } from './application/runtime/createRuntime.js';
 import { createAdminDatabase } from './infrastructure/runtime/adminDatabase.js';
 import { createRevisionCache } from './infrastructure/cache/index.js';
+import { adminTenancyRoutesV1 } from './modules/admin-tenancy/apiRoutes/v1/index.js';
 
 let runtime;
 let admin;
@@ -30,7 +31,17 @@ try {
   cache = createRevisionCache({ admin, ...config.cache });
   runtime = createRuntime(
     { admin, cache },
-    { trustProxyHops: config.trustProxyHops, webRoot: config.webRoot }
+    {
+      trustProxyHops: config.trustProxyHops,
+      webRoot: config.webRoot,
+      api: {
+        admin,
+        sessionPolicy: config.session,
+        cookiePolicy: config.cookie,
+        applicationOrigin: config.applicationOrigin,
+        registrations: adminTenancyRoutesV1,
+      },
+    }
   );
   await runtime.start(config.port);
   runtime.server.on('error', () => {
