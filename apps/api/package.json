@@ -11,6 +11,7 @@
     "test": "vitest run",
     "db:setup:admin": "node src/scripts/setup-admin.js",
     "db:migrate:admin": "node src/scripts/migrate-admin.js",
+    "db:bootstrap": "node src/scripts/bootstrap-admin.js",
     "test:db": "vitest run --config vitest.db.config.js"
   },
   "dependencies": {

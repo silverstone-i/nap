@@ -71,10 +71,47 @@ export const tenantsSchema = {
   },
 };
 
-/** Model for `admin.tenants`. Inherits the standard table operations only. */
+/**
+ * Qualified table name for a model instance.
+ *
+ * A module function rather than a private getter, for the reason given in
+ * `sessions.js`: `forSchema` clones a model with `Object.create`, which does
+ * not carry private fields.
+ * @param {Tenants} model
+ * @returns {string}
+ */
+function table(model) {
+  return `${model.schemaName}.${model.tableName}`;
+}
+
+/** Model for `admin.tenants`. Adds the locked reads bootstrap needs. */
 export class Tenants extends TableModel {
   static schema = tenantsSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, tenantsSchema, logger);
+  }
+
+  /**
+   * Lock and return the owning tenant, if one has been bootstrapped.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockNapsoft({ tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE is_napsoft=true AND deactivated_at IS NULL FOR UPDATE`
+    );
+  }
+
+  /**
+   * Lock and return the active tenant registered under `tenantCode`, if any.
+   * @param {string} tenantCode
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockActiveByCode(tenantCode, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE lower(tenant_code)=lower($1) AND deactivated_at IS NULL FOR UPDATE`,
+      [tenantCode]
+    );
   }
 }

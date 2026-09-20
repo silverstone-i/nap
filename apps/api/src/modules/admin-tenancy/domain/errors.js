@@ -142,6 +142,61 @@ export async function withSessionErrors(operation) {
   }
 }
 
+/** Stable codes a bootstrap operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const BOOTSTRAP_CODES = new Set([
+  'INVALID_INPUT',
+  'TENANT_CONFLICT',
+  'ROOT_CONFLICT',
+  'MEMBERSHIP_CONFLICT',
+  'CONFLICT',
+  'AUDIT_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` bootstrap codes:
+ * `INVALID_INPUT`, `TENANT_CONFLICT`, `ROOT_CONFLICT`, `MEMBERSHIP_CONFLICT`,
+ * `CONFLICT`, `AUDIT_UNAVAILABLE`, or `INTERNAL_ERROR`. Never carries a
+ * password, a password hash, or database detail.
+ *
+ * The three `*_CONFLICT` codes are business outcomes M0001-02-R004 requires:
+ * a caller catches them to roll back and report `conflict` rather than
+ * letting them surface as an unhandled failure.
+ */
+export class AdminBootstrapError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminBootstrapError`.
+ *
+ * An access, event, or bootstrap error already carrying a bootstrap code keeps
+ * that code. Any other thrown value is assumed to be a database driver error:
+ * a serialization failure or deadlock (SQLSTATE `40001`/`40P01`) becomes
+ * `CONFLICT`; everything else becomes `INTERNAL_ERROR`, discarding the
+ * original message, detail, and constraint name so database structure never
+ * reaches a caller.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminBootstrapError}
+ */
+export async function withBootstrapErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminBootstrapError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminBootstrapError('CONFLICT');
+    throw new AdminBootstrapError(
+      BOOTSTRAP_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}
+
 /** Stable codes an authentication operation may report. Anything else becomes `INTERNAL_ERROR`. */
 const AUTH_CODES = new Set([
   'INVALID_INPUT',

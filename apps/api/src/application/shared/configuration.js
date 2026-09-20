@@ -177,3 +177,80 @@ export function productionEnvironment(env) {
     ...Object.fromEntries(Object.entries(env).filter(([, v]) => v?.trim())),
   };
 }
+/**
+ * Resolve the owning tenant's configured identity and the root user's
+ * initial credential, per M0001-02 §10: "the root email and initial
+ * password come from environment-specific secret configuration."
+ * @param {'dev'|'test'|'prod'} selected
+ * @param {Record<string, string | undefined>} env
+ * @returns {{tenantCode: string, tenantName: string, rootEmail: string, rootPassword: string}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION`
+ */
+export function bootstrapSecrets(selected, env) {
+  const suffix = selected.toUpperCase();
+  return {
+    tenantCode: secret(
+      env[`ROOT_TENANT_CODE_${suffix}`],
+      `ROOT_TENANT_CODE_${suffix}`
+    ),
+    tenantName: secret(env[`ROOT_COMPANY_${suffix}`], `ROOT_COMPANY_${suffix}`),
+    rootEmail: secret(env[`ROOT_EMAIL_${suffix}`], `ROOT_EMAIL_${suffix}`),
+    rootPassword: secret(
+      env[`ROOT_PASSWORD_${suffix}`],
+      `ROOT_PASSWORD_${suffix}`
+    ),
+  };
+}
+/**
+ * Parse the published `ADMIN_DATABASE_PROD` entry into a connection config
+ * for bootstrap, which assumes setup and migration have already run and so
+ * needs only the resolved endpoint and role passwords, not Render's resource
+ * reconciliation.
+ * @param {Record<string, string | undefined>} env
+ * @returns {{endpoint: string, adminPassword: string, appPassword: string}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION`
+ */
+export function productionAdminConnection(env) {
+  let parsed;
+  try {
+    parsed = JSON.parse(env.ADMIN_DATABASE_PROD);
+    requireCondition(
+      parsed && typeof parsed === 'object',
+      'INVALID_CONFIGURATION',
+      'ADMIN_DATABASE_PROD'
+    );
+  } catch {
+    throw new MaintenanceError('INVALID_CONFIGURATION', 'ADMIN_DATABASE_PROD');
+  }
+  endpoint(parsed.endpoint, 'ADMIN_DATABASE_PROD');
+  return {
+    endpoint: parsed.endpoint,
+    adminPassword: secret(parsed.adminPassword, 'ADMIN_DATABASE_PROD'),
+    appPassword: secret(parsed.appPassword, 'ADMIN_DATABASE_PROD'),
+  };
+}
+/**
+ * Resolve the Argon2id parameters shared across every environment. Floors
+ * match M0001-03 §7; a deployment may raise a value but never lower it.
+ * @param {Record<string, string | undefined>} env
+ * @returns {{memoryKib: number, timeCost: number, parallelism: number}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
+export function argon2PolicyFromEnv(env) {
+  const parameters = [
+    ['ARGON2_MEMORY_KIB', 19456, 1048576, 'memoryKib'],
+    ['ARGON2_TIME_COST', 2, 16, 'timeCost'],
+    ['ARGON2_PARALLELISM', 1, 16, 'parallelism'],
+  ];
+  const hashing = {};
+  for (const [setting, floor, ceiling, field] of parameters) {
+    const value = Number(env[setting]?.trim() || String(floor));
+    requireCondition(
+      Number.isInteger(value) && value >= floor && value <= ceiling,
+      'INVALID_CONFIGURATION',
+      setting
+    );
+    hashing[field] = value;
+  }
+  return hashing;
+}
