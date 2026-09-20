@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.9.0] - 2026-09-20
+
 ### Added
 
 - Allow an unrestricted root session to revoke another user's session using the built-in root capability set.
