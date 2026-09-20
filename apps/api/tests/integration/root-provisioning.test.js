@@ -175,9 +175,12 @@ describe('root provisioning', () => {
     expect(noRoleAssignment).toBeNull();
   });
 
-  it('preserves the password hash and every UUID on a repeat run', async () => {
+  it('preserves the password hash and every UUID on a repeat run, and writes no new event', async () => {
     const before = await db.one(
       'SELECT id,password_hash FROM admin.portal_users WHERE is_root=true'
+    );
+    const eventsBefore = await db.one(
+      'SELECT count(*) FROM admin.managed_events'
     );
 
     const second = await bootstrapRoot(db, MAIN);
@@ -188,6 +191,10 @@ describe('root provisioning', () => {
       'SELECT password_hash FROM admin.portal_users WHERE is_root=true'
     );
     expect(after.password_hash).toBe(before.password_hash);
+    const eventsAfter = await db.one(
+      'SELECT count(*) FROM admin.managed_events'
+    );
+    expect(eventsAfter.count).toBe(eventsBefore.count);
   });
 
   it('reports conflict when the existing owning tenant uses a different code', async () => {

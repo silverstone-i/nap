@@ -209,22 +209,26 @@ export async function bootstrapRoot(db, config) {
           tenant.row.id,
           rootUser.row.id
         );
-        await appendBootstrapEvent(
-          db,
-          {
-            event_key: 'bootstrap.succeeded',
-            outcome: 'succeeded',
-            request_id: requestId,
-            target_type: 'tenant',
-            target_id: tenant.row.id,
-          },
-          { tx }
-        );
+        const created =
+          tenant.created || rootUser.created || membership.created;
+        // A pure verify-only run — everything already matched the
+        // configuration — writes no event. Logging "succeeded" on every
+        // repeat invocation would make a health-check-style rerun grow the
+        // append-only event table without recording anything new.
+        if (created)
+          await appendBootstrapEvent(
+            db,
+            {
+              event_key: 'bootstrap.succeeded',
+              outcome: 'succeeded',
+              request_id: requestId,
+              target_type: 'tenant',
+              target_id: tenant.row.id,
+            },
+            { tx }
+          );
         return {
-          status:
-            tenant.created || rootUser.created || membership.created
-              ? 'created'
-              : 'existing',
+          status: created ? 'created' : 'existing',
           tenant: tenant.row,
           rootUser: rootUser.row,
           membership: membership.row,

@@ -63,9 +63,12 @@ export async function runBootstrap(args, rawEnv = process.env) {
 }
 /**
  * Command-line wrapper for `runBootstrap`. Prints one JSON line to stdout
- * with the outcome and created record UUIDs, and sets a nonzero exit code
- * for a conflict as well as a thrown failure (M0001-02 §10). Output never
- * contains a password, hash, or connection secret (M0001-02-R006).
+ * with the outcome and the created or verified tenant, root-user, and
+ * membership records, and sets a nonzero exit code for a conflict as well
+ * as a thrown failure (M0001-02 §10). `insertRoot` never returns
+ * `password_hash`, so the printed root-user record already excludes it;
+ * output never contains a password, hash, or connection secret
+ * (M0001-02-R006).
  * @param {string[]} [args=process.argv.slice(2)]
  * @returns {Promise<void>}
  */
