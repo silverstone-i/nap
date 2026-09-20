@@ -60,6 +60,8 @@ it('loads production runtime credentials without requiring a maintenance passwor
   const env = {
     NODE_ENV: 'production',
     TRUST_PROXY_HOPS_PROD: '1',
+    SESSION_SECRET_PROD: 'production-session-secret-of-ample-length',
+    APP_ORIGIN_PROD: 'https://app.example',
     ADMIN_DATABASE_PROD: JSON.stringify({
       endpoint: 'db.example/nap_prod_admin',
       appPassword: 'runtime-secret',
@@ -85,6 +87,8 @@ it('validates optional Redis cache configuration', () => {
     NODE_ENV: 'test',
     ADMIN_DATABASE_TEST: 'db.example/nap_test_admin',
     NAP_APP_PSWD_TEST: 'runtime-secret',
+    SESSION_SECRET_TEST: 'test-session-secret-of-ample-length-here',
+    APP_ORIGIN_TEST: 'http://localhost:5173',
   };
   expect(
     runtimeConfiguration({

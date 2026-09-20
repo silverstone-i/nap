@@ -1,25 +1,28 @@
 # @nap/api
 
 Express backend-for-frontend (BFF) for NAP. It owns the admin database
-connection, the health routes, and the maintenance commands that set up and
-migrate the admin database. Business routes, sessions, and cell routing are
-later Work Units; see the [roadmap](../../docs/roadmap/ROADMAP.md).
+connection, the health routes, browser sessions, and the maintenance commands
+that set up and migrate the admin database. Business routes and cell routing
+are later Work Units; see the [roadmap](../../docs/roadmap/ROADMAP.md).
 
 ## Layout
 
 `src/` follows [module design](../../docs/architecture/module-design.md).
 
-| Folder                                                              | Contents                                                                                              |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `app.js`, `server.js`                                               | Express app factory and the process entry point.                                                      |
-| `application/shared/`                                               | Environment loading, endpoint validation, runtime configuration, and `MaintenanceError`.              |
-| `application/maintenance/`                                          | The setup and migrate operations behind the `db:*` commands.                                          |
-| `application/runtime/`                                              | HTTP runtime: startup, readiness, and drained shutdown.                                               |
-| `infrastructure/provisioning/`                                      | Local PostgreSQL setup, Render provisioning, and the private state file.                              |
-| `infrastructure/runtime/`                                           | Admin database handle and the runtime readiness check.                                                |
-| `modules/admin.js`                                                  | Admin module registry and its validation.                                                             |
-| `modules/admin-tenancy/`                                            | Twelve table models, repositories, the baseline migration, trigger bodies, and contract verification. |
-| `capability/`, `framework/`, `middleware/`, `infrastructure/cache/` | Reserved by the architecture. Not yet implemented.                                                    |
+| Folder                         | Contents                                                                                                                            |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `app.js`, `server.js`          | Express app factory and the process entry point.                                                                                    |
+| `application/shared/`          | Environment loading, endpoint validation, runtime configuration, and `MaintenanceError`.                                            |
+| `application/maintenance/`     | The setup and migrate operations behind the `db:*` commands.                                                                        |
+| `application/runtime/`         | HTTP runtime: startup, readiness, and drained shutdown.                                                                             |
+| `infrastructure/provisioning/` | Local PostgreSQL setup, Render provisioning, and the private state file.                                                            |
+| `infrastructure/runtime/`      | Admin database handle and the runtime readiness check.                                                                              |
+| `modules/admin.js`             | Admin module registry and its validation.                                                                                           |
+| `modules/admin-tenancy/`       | Twelve table models, repositories, the baseline migration, trigger bodies, contract verification, domain rules, and the v1 routers. |
+| `framework/`                   | Response envelopes, session cookies, and the route registry.                                                                        |
+| `middleware/`                  | Correlation, browser request protection, JSON body typing, and session resolution.                                                  |
+| `infrastructure/cache/`        | Optional Redis-backed revision cache.                                                                                               |
+| `capability/`                  | Reserved by the architecture. Not yet implemented.                                                                                  |
 
 ## Commands
 
@@ -53,6 +56,19 @@ variables override the file.
 - In production the API serves `apps/web/dist`. Paths under `/api` and
   `/health` never fall back to the web client.
 - SIGINT and SIGTERM drain in-flight requests, close the pool, and exit.
+
+## API routes
+
+Module routers mount at `/api/<module>/v<version>/<router>`. Version 1 of
+`admin-tenancy` serves `session/current`, `session/rotate`, `auth/logout`, and
+`sessions/:id`; see
+[M0001-04](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-04-session-management.md).
+
+Every POST, PUT, PATCH, and DELETE under `/api` must prove it came from
+`APP_ORIGIN_<ENV>`, through `Origin` or, when that header is absent, `Referer`.
+A request that cannot is refused with `403` before its body is parsed or its
+session resolved. Session cookies are `HttpOnly` and `SameSite=Lax`;
+`SameSite=None` is rejected at startup, as is an insecure production cookie.
 
 ## Database roles
 

@@ -4,13 +4,13 @@
 
 | Field                | Value                                                                                               |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                               |
+| Status               | Implemented                                                                                         |
 | Type                 | Module Work Unit                                                                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                   |
 | Related architecture | [BFF](../../../architecture/bff.md)                                                                 |
 | Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
 | Related decisions    | None                                                                                                |
-| Last reviewed        | 2026-09-18                                                                                          |
+| Last reviewed        | 2026-09-20                                                                                          |
 
 ## 2. Purpose
 
@@ -129,6 +129,53 @@ context changes create managed events with session UUIDs only.
 | AC06      | No response, log, or event exposes session credentials.                                                                                                                                                   | M0001-04-R008                |
 | AC07      | Support can revoke platform and non-Napsoft sessions but cannot access Napsoft tenant sessions.                                                                                                           | M0001-04-R007                |
 | AC08      | Same-origin session changes pass request protection; foreign or unproven origins cannot rotate or revoke sessions, including through bodyless logout; unsafe production cookie configuration is rejected. | M0001-04-R009                |
+
+### Verification Evidence
+
+Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
+`npm test` (249 tests across the workspace, including 31 new unit tests),
+`npm run build`, `npm run licenses`, and `git diff --check` passed.
+
+`npm run test:db` passed 63 of 65 tests against a disposable PostgreSQL 18
+server, including all 25
+[session tests](../../../../apps/api/tests/integration/session-management.test.js).
+The two failures are in `admin-foundation.test.js` and predate this Work Unit:
+the local fixture server authenticates with `trust`, so the wrong-password
+cases those tests rely on still connect. Neither touches `admin.sessions`.
+
+Integration tests cover creation and its rollback with the caller's
+transaction, the ten-session cap and its exclusion of idle-expired sessions,
+resolution of live and restricted sessions,
+rejection of unknown, tampered, expired, archived, and revoked tokens, the
+idle and absolute limits, bounded `last_seen_at` refresh, rotation with a
+single winner among five concurrent attempts, preserved tenant and support
+context, logout idempotence, self and operator revocation including the
+Napsoft denial, bulk revocation for a password change, and an event stream
+holding no token or token hash.
+
+Unit tests cover token shape and hashing, policy and authority validation, the
+safe view, the error envelope, the route registry, and the routes themselves
+against an in-memory admin handle: origin acceptance and every refusal, the
+`Referer` fallback, bodyless logout, cookie attributes and maximum age,
+restricted-session confinement, and the configuration rules that reject
+`SameSite=None`, insecure production cookies, a weak secret, and a plaintext
+production origin.
+
+Rotation replaces a session's token hash and keeps its identifier, so its
+revision key, event history, and WU 9 context survive it. One caller wins a
+concurrent rotation because the update matches on the current hash: the second
+transaction blocks, re-reads the committed row, and matches nothing.
+
+`admin.sessions` has no restricted-session column. Resolution joins
+`admin.portal_users` and derives `restricted` from `must_change_password`, so
+clearing the flag in M0001-03 releases the session without a second rotation.
+
+Two parts of Section 10 are not yet reachable over HTTP. `DELETE /sessions/:id`
+passes no operator scope, so it revokes only the caller's own session;
+`revokeSession` takes the scope and enforces M0001-04-R007 against it, which
+the integration tests exercise, and M0001-05 supplies it from the caller's
+platform roles. Nothing creates a session over HTTP until M0001-03 adds login,
+which calls `createSession` inside its own transaction.
 
 ## 14. Outstanding Questions
 

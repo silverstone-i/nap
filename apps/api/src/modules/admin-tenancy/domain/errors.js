@@ -84,3 +84,60 @@ export async function withEventErrors(operation, fallback) {
     );
   }
 }
+
+/** Stable codes a session operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const SESSION_CODES = new Set([
+  'INVALID_INPUT',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'AUDIT_UNAVAILABLE',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` session codes:
+ * `INVALID_INPUT`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
+ * `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, or `INTERNAL_ERROR`. Never
+ * carries database detail, a session token, or a token hash.
+ *
+ * Kept separate from `AdminAccessError` because a session operation
+ * distinguishes an unauthenticated caller from a forbidden one, and no access
+ * code carries that meaning.
+ */
+export class AdminSessionError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminSessionError`.
+ *
+ * A session, access, event, or cache error already carrying a session code
+ * keeps that code, so an unavailable event store still reports
+ * `AUDIT_UNAVAILABLE` and an unavailable revision store still reports
+ * `SERVICE_UNAVAILABLE`. Any other thrown value is assumed to be a database
+ * driver error: a serialization failure or deadlock (SQLSTATE `40001`/`40P01`)
+ * becomes `CONFLICT`; everything else becomes `INTERNAL_ERROR`, discarding the
+ * original message, detail, and constraint name.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminSessionError}
+ */
+export async function withSessionErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminSessionError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminSessionError('CONFLICT');
+    throw new AdminSessionError(
+      SESSION_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}
