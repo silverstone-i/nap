@@ -86,10 +86,10 @@ tenant, and enter the application shell.
 
 ### Phase 2: Authorization
 
-| Order | Deliverable                | PRD                     | UI increment                                                   | Status      | Evidence |
-| ----: | -------------------------- | ----------------------- | -------------------------------------------------------------- | ----------- | -------- |
-|     9 | Tenant access-control data | `M0003: Access Control` | Role, permission, assignment, and access-scope administration  | Not started |          |
-|    10 | RBAC decision model        | `F0003: RBAC`           | Permission-aware routes, navigation, actions, and denied state | Not started |          |
+| Order | Deliverable                | PRD                     | UI increment                                                   | Status      | Evidence                                                                                                                                   |
+| ----: | -------------------------- | ----------------------- | -------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+|     9 | Tenant access-control data | `M0003: Access Control` | Role, permission, assignment, and access-scope administration  | Blocked     | [M0003-00](../PRDs/modules/M0003-access-control/M0003-00-role-catalogue-foundation.md) requires supported cell provisioning and migration. |
+|    10 | RBAC decision model        | `F0003: RBAC`           | Permission-aware routes, navigation, actions, and denied state | Not started |                                                                                                                                            |
 
 Design these two PRDs together. The feature defines authorization decisions;
 the module defines the tenant-owned records used by those decisions. Implement
