@@ -81,9 +81,9 @@ source; updates require a reviewed migration for existing tenants as well as
 updated seeds for new tenants. Seeded system roles are immutable to runtime
 APIs; tenant-defined role definitions remain editable under access-control rules.
 Repeat grants return the active assignment. Repeat removals
-return success. Removing the final active `platform_admin` is forbidden.
-The root user cannot receive a role assignment; `is_root` is the only
-non-role source of application capabilities.
+return success. Removing the final active non-root `platform_admin` role
+assignment is forbidden. The root user cannot receive a role assignment;
+`is_root` is the only non-role source of application capabilities.
 
 Support cannot read or change a Napsoft membership, selected-tenant session,
 entitlement, event, or tenant-scoped record. A portal user and a platform
@@ -91,15 +91,15 @@ session are platform records, even when the user has a Napsoft membership.
 
 ## 8. Lifecycle And State Transitions
 
-| State                         | Action       | Result                                                          |
-| ----------------------------- | ------------ | --------------------------------------------------------------- |
-| Role absent                   | Initialize   | Seed immutable definition into the tenant role table            |
-| Definition matches            | Reinitialize | No change                                                       |
-| Definition differs            | Reinitialize | Fail; use a reviewed migration for catalogue changes            |
-| Active root user              | Authorize    | Grant the `platform_admin` capability set without an assignment |
-| Assignment absent or archived | Grant        | Create or restore assignment                                    |
-| Assignment active             | Grant        | Return existing assignment                                      |
-| Assignment active             | Remove       | Archive assignment unless it is the last platform administrator |
+| State                         | Action       | Result                                                                     |
+| ----------------------------- | ------------ | -------------------------------------------------------------------------- |
+| Role absent                   | Initialize   | Seed immutable definition into the tenant role table                       |
+| Definition matches            | Reinitialize | No change                                                                  |
+| Definition differs            | Reinitialize | Fail; use a reviewed migration for catalogue changes                       |
+| Active root user              | Authorize    | Grant the `platform_admin` capability set without an assignment            |
+| Assignment absent or archived | Grant        | Create or restore assignment                                               |
+| Assignment active             | Grant        | Return existing assignment                                                 |
+| Assignment active             | Remove       | Archive unless it is the final active non-root `platform_admin` assignment |
 
 ## 9. Data Requirements
 

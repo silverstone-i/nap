@@ -100,8 +100,9 @@ npm run db:bootstrap -- --env dev
 
 `dev`, `test`, and `prod` are valid environments. The owning tenant’s name and
 code come from environment variables. The root email and initial password come
-from environment-specific secret configuration. Email is trimmed and lowercased. The command returns `created`, `existing`, or `conflict` and uses a
-nonzero exit code for conflict or failure.
+from environment-specific secret configuration. Email is trimmed and lowercased.
+The command returns `created`, `existing`, or `conflict` and uses a nonzero exit
+code for conflict or failure.
 
 ## 11. Cross-Module Interactions
 
