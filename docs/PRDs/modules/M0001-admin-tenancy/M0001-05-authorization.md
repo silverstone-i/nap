@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                                                  |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                            |
+| Status               | Draft                                                                                                                                                                                  |
 | Type                 | Module Work Unit                                                                                                                                                                       |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                      |
 | Related architecture | [Module design](../../../architecture/module-design.md)                                                                                                                                |
@@ -166,26 +166,8 @@ ID. Role changes advance authorization cache revisions in the same transaction.
 | AC04      | Unknown, inactive, root-targeted, wrong-tenant, self-granted, unauthorized, and last-admin changes fail; valid `tenant_admin` and custom-role assignments succeed.                                                               | M0001-05-R006, M0001-05-R007 |
 | AC05      | Exact and wildcard capability patterns match component by component, including future matching capabilities; malformed or wildcard-bearing requested capabilities grant nothing, and wildcard grants cannot bypass tenant scope. | M0001-05-R008                |
 
-### Verification Evidence
-
-Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
-`npm test` (348 tests across the workspace), `npm run build`,
-`npm run licenses`, and `git diff --check` passed.
-
-`npm run test:db` passed 99 tests against a disposable PostgreSQL 18 server
-using `scram-sha-256` password authentication. The seven
-[authorization integration tests](../../../../apps/api/tests/integration/authorization-role-catalogue.test.js)
-use separate Admin and cell databases. They verify role migration, tenant RLS,
-reserved identities, repeat and restoring seeds, drift rejection, runtime
-system-role protection, cross-database role validation, atomic assignment audit
-and revision writes, HTTP list/grant/remove behavior, self-grant denial, and
-final non-root `platform_admin` protection.
-
-Unit tests verify exact and wildcard capability matching, malformed-pattern
-denial, root authority without role lookup, tenant isolation, the support
-Napsoft denial, fail-closed role-provider errors, configured-cell validation,
-and unavailable-cell quarantine.
-
 ## 14. Outstanding Questions
 
-None.
+Role seeds, assignments, and non-root role resolution remain deferred until a
+supported cell provisioning and migration path exists. Root authority does not
+depend on that path and may be implemented independently.

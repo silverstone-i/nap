@@ -100,27 +100,6 @@ The API mounts routers at:
 ## Capability Terminology
 
 A capability identifies an authorization in `module::router::action` form.
-Each component is a lowercase identifier or `*`. A lowercase identifier starts
-with a letter and may continue with lowercase letters, digits, or hyphens. Empty
-components are invalid.
-
-An explicit capability names one action, such as
-`accounting::ledger::read`. In a role capability, `*` matches every current and
-future identifier in that component. Matching is component by component, so
-`accounting::ledger::*` covers every Ledger action, `accounting::*::*` covers
-every capability in Accounting, and `*::*::*` covers every capability within
-the authorization scope.
-
-Tenant is authorization scope, not a capability component. Capability matching
-runs only after the request's tenant scope and target restrictions have been
-resolved. Therefore, `*::*::*` does not grant access to another tenant or imply
-platform-wide authority. Root authority, support restrictions, role-assignment
-scope, and other target checks remain separate authorization gates.
-
-Wildcards grant matching capabilities without deny rules or exceptions. A role
-that needs every capability except one must list its allowed capabilities
-explicitly. Invalid capability patterns grant nothing.
-
 Roles group capabilities; capability evaluation determines whether the supplied
 capabilities authorize an action. Use "feature" for application behavior such as
 authentication or session management, and "rules" for other constraints.

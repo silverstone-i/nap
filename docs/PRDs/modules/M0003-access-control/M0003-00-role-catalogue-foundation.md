@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                        |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Status               | Implemented                                                                                                  |
+| Status               | Draft                                                                                                        |
 | Type                 | Module Work Unit                                                                                             |
 | Family               | [M0003: Access Control](../M0003-access-control.md)                                                          |
 | Related architecture | [Module map](../../../architecture/module-map.md), [Migration strategy](../../../architecture/migrations.md) |
@@ -87,8 +87,8 @@ Not applicable. M0001-05 owns the Admin role-list and assignment routes.
 ## 11. Cross-Module Interactions
 
 M0001-05 supplies the system-role definitions and uses this Work Unit's lookup
-contract. Static cell connections use the UUID-keyed runtime registry. M0001-06
-later publishes newly provisioned cells into that registry.
+contract. M0001-06 and the cell-provisioning workflow must provide the supported
+database registration and migration path before this Work Unit begins.
 
 ## 12. Security And Audit
 
@@ -105,14 +105,7 @@ to M0001-05.
 | AC03      | Repeat seeds preserve UUIDs, restore matching records, and reject drift.                          | M0003-00-R001, M0003-00-R002, M0003-00-R003 |
 | AC04      | Missing or unavailable configured cells fail with `SERVICE_UNAVAILABLE`.                          | M0003-00-R005                               |
 
-### Verification Evidence
-
-The M0001-05 verification suite exercises this Work Unit through separate
-Admin and cell databases. It verifies the `app.roles` migration, tenant RLS,
-reserved identities, system-role immutability, repeat and restoring seeds,
-drift rejection, safe lookup, and unavailable-cell behavior. See the
-[authorization verification evidence](../M0001-admin-tenancy/M0001-05-authorization.md#verification-evidence).
-
 ## 14. Outstanding Questions
 
-None.
+The runtime contract for discovering and migrating provisioned cell databases
+must be settled before implementation.

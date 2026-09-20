@@ -16,14 +16,13 @@ are later Work Units; see the [roadmap](../../docs/roadmap/ROADMAP.md).
 | `application/maintenance/`     | The setup and migrate operations behind the `db:*` commands.                                                                        |
 | `application/runtime/`         | HTTP runtime: startup, readiness, and drained shutdown.                                                                             |
 | `infrastructure/provisioning/` | Local PostgreSQL setup, Render provisioning, and the private state file.                                                            |
-| `infrastructure/runtime/`      | Admin database handle, UUID-keyed cell registry, and runtime readiness checks.                                                      |
+| `infrastructure/runtime/`      | Admin database handle and the runtime readiness check.                                                                              |
 | `modules/admin.js`             | Admin module registry and its validation.                                                                                           |
 | `modules/admin-tenancy/`       | Twelve table models, repositories, the baseline migration, trigger bodies, contract verification, domain rules, and the v1 routers. |
-| `modules/access-control/`      | Tenant-local role catalogue model, migration, seeds, and lookup rules.                                                              |
 | `framework/`                   | Response envelopes, session cookies, and the route registry.                                                                        |
 | `middleware/`                  | Correlation, browser request protection, JSON body typing, and session resolution.                                                  |
 | `infrastructure/cache/`        | Optional Redis-backed revision cache.                                                                                               |
-| `capability/`                  | Capability grammar validation and fail-closed exact or wildcard matching.                                                           |
+| `capability/`                  | Built-in capability catalogue used to grant root authority.                                                                         |
 
 ## Commands
 

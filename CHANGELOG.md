@@ -12,7 +12,7 @@ when a pull request with a release label merges into `main`.
 
 ### Added
 
-- Add tenant-local authorization roles, system-role seeds, role-assignment APIs, and configured cell-database loading with fail-closed availability checks.
+- Enforce the built-in root capability set when one authenticated user revokes another user's session.
 
 ## [v0.8.0] - 2026-09-20
 
