@@ -252,6 +252,63 @@ export async function withControlErrors(operation) {
   }
 }
 
+/** Stable codes a tenant operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const TENANT_CODES = new Set([
+  'INVALID_INPUT',
+  'FORBIDDEN',
+  'CONFLICT',
+  'IDEMPOTENCY_CONFLICT',
+  'AUDIT_UNAVAILABLE',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` tenant codes:
+ * `INVALID_INPUT`, `FORBIDDEN`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`,
+ * `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, or `INTERNAL_ERROR`. Never
+ * carries database detail. `SERVICE_UNAVAILABLE` passes through a
+ * `CacheConsistencyError` from an unavailable revision store, matching the
+ * session and authentication domains.
+ *
+ * Kept separate from `AdminAccessError` because only tenant creation reports
+ * `IDEMPOTENCY_CONFLICT`, for an `Idempotency-Key` reused with a different
+ * payload than the attempt it originally recorded.
+ */
+export class AdminTenantError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminTenantError`.
+ *
+ * An access, event, or tenant error already carrying a tenant code keeps that
+ * code. Any other thrown value is assumed to be a database driver error: a
+ * serialization failure or deadlock (SQLSTATE `40001`/`40P01`) becomes
+ * `CONFLICT`; everything else becomes `INTERNAL_ERROR`, discarding the
+ * original message, detail, and constraint name so database structure never
+ * reaches a caller.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminTenantError}
+ */
+export async function withTenantErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminTenantError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminTenantError('CONFLICT');
+    throw new AdminTenantError(
+      TENANT_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}
+
 /** Stable codes an authentication operation may report. Anything else becomes `INTERNAL_ERROR`. */
 const AUTH_CODES = new Set([
   'INVALID_INPUT',

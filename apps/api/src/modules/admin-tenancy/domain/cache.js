@@ -18,6 +18,14 @@ const domainSet = new Set(REVISION_DOMAINS);
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/**
+ * Sentinel entity for a domain-wide collection revision, distinct from any
+ * entity UUID. A newly created entity has no UUID that a previously cached
+ * list could already depend on, so a per-entity key can never invalidate
+ * that list; a collection key that every such list includes can.
+ */
+export const COLLECTION_ENTITY = 'list';
+
 /** Stable, detail-free failure from revision or cache operations. */
 export class CacheConsistencyError extends Error {
   constructor(code) {
@@ -43,10 +51,16 @@ export function normalizeRevisionKeys(keys) {
       Object.keys(key).sort().join(',') !== 'domain,entity' ||
       !domainSet.has(key.domain) ||
       typeof key.entity !== 'string' ||
-      !uuidPattern.test(key.entity)
+      (key.entity !== COLLECTION_ENTITY && !uuidPattern.test(key.entity))
     )
       throw new CacheConsistencyError('INVALID_INPUT');
-    return { domain: key.domain, entity: key.entity.toLowerCase() };
+    return {
+      domain: key.domain,
+      entity:
+        key.entity === COLLECTION_ENTITY
+          ? COLLECTION_ENTITY
+          : key.entity.toLowerCase(),
+    };
   });
   normalized.sort(
     (left, right) =>

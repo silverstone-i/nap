@@ -55,15 +55,15 @@ Prevent cached admin decisions from outliving the data that authorized them.
 - M0001-11-R003: Consumers must reuse a cached value only when every stored revision matches PostgreSQL.
 - M0001-11-R004: Correct behavior must continue when Redis is absent or unavailable.
 
-| Domain        | Entity                                            | Advanced by                                           |
-| ------------- | ------------------------------------------------- | ----------------------------------------------------- |
-| `user`        | Portal-user UUID                                  | Account, password, or eligibility change              |
-| `session`     | Session UUID                                      | Create, rotate, context change, expiry, or revocation |
-| `roles`       | Portal-user UUID                                  | Any portal-user role grant or removal                 |
-| `membership`  | Portal-user UUID and tenant UUID as separate keys | Membership change                                     |
-| `tenant`      | Tenant UUID                                       | Tenant state, assignment, or readiness change         |
-| `cell`        | Cell UUID                                         | Registry, enabled, or provisioning change             |
-| `entitlement` | Tenant UUID                                       | Entitlement change                                    |
+| Domain        | Entity                                            | Advanced by                                                                                                                                              |
+| ------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user`        | Portal-user UUID                                  | Account, password, or eligibility change                                                                                                                 |
+| `session`     | Session UUID                                      | Create, rotate, context change, expiry, or revocation                                                                                                    |
+| `roles`       | Portal-user UUID                                  | Any portal-user role grant or removal                                                                                                                    |
+| `membership`  | Portal-user UUID and tenant UUID as separate keys | Membership change                                                                                                                                        |
+| `tenant`      | Tenant UUID, or the literal `list`                | Tenant state, assignment, or readiness change; `list` on tenant creation, since a new tenant's own key cannot invalidate a list cached before it existed |
+| `cell`        | Cell UUID                                         | Registry, enabled, or provisioning change                                                                                                                |
+| `entitlement` | Tenant UUID                                       | Entitlement change                                                                                                                                       |
 
 ## 7. Business Rules And Invariants
 
