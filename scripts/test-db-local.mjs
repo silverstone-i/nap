@@ -107,22 +107,31 @@ export async function runLocalDatabaseTests(
   const port = await findFreePort(FIRST_PORT);
   let started = false;
 
+  const attemptStop = mode => {
+    try {
+      const result = run(bin(binDir, 'pg_ctl'), [
+        '-D',
+        dataDir,
+        '-m',
+        mode,
+        'stop',
+      ]);
+      return result.status === 0;
+    } catch (error) {
+      console.error(`Warning: pg_ctl stop (${mode}) failed: ${error.message}`);
+      return false;
+    }
+  };
+
   const stopCluster = () => {
-    try {
-      run(bin(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'fast', 'stop']);
-      return;
-    } catch (error) {
+    if (attemptStop('fast')) return;
+    console.error(
+      'Warning: graceful stop failed, retrying with an immediate shutdown'
+    );
+    if (!attemptStop('immediate'))
       console.error(
-        `Warning: graceful stop failed, retrying with an immediate shutdown: ${error.message}`
+        'Warning: failed to stop the disposable Postgres cluster; it may still be running'
       );
-    }
-    try {
-      run(bin(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'immediate', 'stop']);
-    } catch (error) {
-      console.error(
-        `Warning: failed to stop the disposable Postgres cluster; it may still be running: ${error.message}`
-      );
-    }
   };
 
   const cleanup = async () => {
