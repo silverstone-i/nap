@@ -296,6 +296,26 @@ export class Sessions extends TableModel {
   }
 
   /**
+   * Archive every live session a portal user holds for one tenant.
+   *
+   * The membership-scoped sibling of `archiveForUser`: a suspended or
+   * archived membership must revoke only the sessions that selected its
+   * tenant, leaving any session the user holds in a different tenant alone.
+   * @param {string} portalUserId
+   * @param {string} tenantId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<{id: string, tenant_id: string|null}[]>} The sessions this call archived.
+   */
+  async archiveForUserAndTenant(portalUserId, tenantId, { tx }) {
+    return tx.any(
+      `UPDATE ${table(this)} AS s SET deactivated_at=now()
+        WHERE s.portal_user_id=$1 AND s.tenant_id=$2 AND s.deactivated_at IS NULL
+        RETURNING s.id,s.tenant_id`,
+      [portalUserId, tenantId]
+    );
+  }
+
+  /**
    * Read a session's ownership and tenant by identifier, archived or not.
    *
    * Revocation authority is decided from this row before anything else is

@@ -632,3 +632,71 @@ export async function revokeSessionsForUser(
     return tx ? run(tx) : db.tx(run);
   });
 }
+
+/**
+ * Revoke every live session a portal user holds for one tenant.
+ *
+ * The seam M0001-08 uses when a membership is suspended or archived: only
+ * sessions that selected the affected tenant are revoked, unlike
+ * `revokeSessionsForUser`, which ends every session the account holds. Pass
+ * `tx` so the membership change and the revocations commit together.
+ * @param {AdminSessionDb} db
+ * @param {object} request
+ * @param {string} request.portalUserId
+ * @param {string} request.tenantId
+ * @param {string} [request.code] A value of `REVOCATION_CODES`.
+ * @param {string|null} [request.actorId] Operator responsible, when it is not the account holder.
+ * @param {string|null} [request.requestId]
+ * @param {{tx?: object}} [options]
+ * @returns {Promise<{revoked: string[]}>} The archived session UUIDs.
+ * @throws {AdminSessionError} `INVALID_INPUT`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function revokeSessionsForMembership(
+  db,
+  {
+    portalUserId,
+    tenantId,
+    code = REVOCATION_CODES.accountIneligible,
+    actorId = null,
+    requestId = null,
+  },
+  { tx } = {}
+) {
+  if (!z.uuid().safeParse(portalUserId).success)
+    throw new AdminSessionError('INVALID_INPUT');
+  if (!z.uuid().safeParse(tenantId).success)
+    throw new AdminSessionError('INVALID_INPUT');
+  if (!Object.values(REVOCATION_CODES).includes(code))
+    throw new AdminSessionError('INVALID_INPUT');
+  return withSessionErrors(async () => {
+    const run = async transaction => {
+      const rows = await db.sessions.archiveForUserAndTenant(
+        portalUserId,
+        tenantId,
+        { tx: transaction }
+      );
+      for (const row of rows)
+        await appendSessionEvent(
+          db,
+          {
+            event_key: 'session.revoked',
+            outcome: 'succeeded',
+            request_id: requestId,
+            actor_id: actorId ?? portalUserId,
+            tenant_id: row.tenant_id ?? null,
+            target_id: row.id,
+            session_id: row.id,
+            details: { code },
+          },
+          transaction
+        );
+      await advanceSessionRevisions(
+        db,
+        rows.map(row => row.id),
+        transaction
+      );
+      return { revoked: rows.map(row => row.id) };
+    };
+    return tx ? run(tx) : db.tx(run);
+  });
+}

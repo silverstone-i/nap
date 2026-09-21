@@ -148,6 +148,24 @@ export class PortalUsers extends TableModel {
   }
 
   /**
+   * Lock and return a portal user by identifier, archived or not.
+   *
+   * Excludes `password_hash`, matching every other read on this model:
+   * M0001-08's account operations never need the digest, only the account's
+   * own fields.
+   * @param {string} id
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockById(id, { tx }) {
+    return tx.oneOrNone(
+      `SELECT ${SAFE_COLUMNS},deactivated_at FROM ${table(this)}
+        WHERE id=$1 FOR UPDATE`,
+      [id]
+    );
+  }
+
+  /**
    * Lock and return the active portal user registered under `email`, if any.
    * @param {string} email Normalized (trimmed, lowercased) email.
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options

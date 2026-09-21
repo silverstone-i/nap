@@ -309,6 +309,66 @@ export async function withTenantErrors(operation) {
   }
 }
 
+/** Stable codes an account operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const ACCOUNT_CODES = new Set([
+  'INVALID_INPUT',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'INVALID_STATE',
+  'IDEMPOTENCY_CONFLICT',
+  'AUDIT_UNAVAILABLE',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` account codes:
+ * `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INVALID_STATE`,
+ * `IDEMPOTENCY_CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, or
+ * `INTERNAL_ERROR`. Never carries a password, a password hash, or database
+ * detail.
+ *
+ * Kept separate from `AdminTenantError` and `AdminControlError` because a
+ * portal-user or membership operation needs both `NOT_FOUND` (control lacks)
+ * and `IDEMPOTENCY_CONFLICT` (control lacks), together (tenant lacks
+ * `NOT_FOUND`/`INVALID_STATE`).
+ */
+export class AdminAccountError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminAccountError`.
+ *
+ * An access, event, session, or account error already carrying an account
+ * code keeps that code, so a Napsoft-scoped `NOT_FOUND` or an unavailable
+ * event store's `AUDIT_UNAVAILABLE` survive unchanged. Any other thrown value
+ * is assumed to be a database driver error: a serialization failure or
+ * deadlock (SQLSTATE `40001`/`40P01`) becomes `CONFLICT`; everything else
+ * becomes `INTERNAL_ERROR`, discarding the original message, detail, and
+ * constraint name so database structure never reaches a caller.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminAccountError}
+ */
+export async function withAccountErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminAccountError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminAccountError('CONFLICT');
+    throw new AdminAccountError(
+      ACCOUNT_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}
+
 /** Stable codes an authentication operation may report. Anything else becomes `INTERNAL_ERROR`. */
 const AUTH_CODES = new Set([
   'INVALID_INPUT',
