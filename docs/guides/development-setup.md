@@ -104,3 +104,9 @@ npm run test:db
 The fixture role passwords are `foundation-admin` and `foundation-app`; existing
 roles on the isolated server must match. Ordinary `npm test` does not require a
 database. CI supplies its own disposable PostgreSQL service.
+
+To skip provisioning a fixture server by hand, run `npm run test:db:local`
+instead. It uses the `initdb`/`pg_ctl` binaries from a local PostgreSQL 18
+install to start a throwaway cluster on a free port, points `FOUNDATION_TEST_URL`
+at it, runs `npm run test:db`, and tears the cluster down afterward — leaving
+your development database untouched.

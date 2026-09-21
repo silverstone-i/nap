@@ -25,7 +25,8 @@
     "db:setup:admin": "npm run db:setup:admin --workspace @nap/api --",
     "db:migrate:admin": "npm run db:migrate:admin --workspace @nap/api --",
     "db:bootstrap": "npm run db:bootstrap --workspace @nap/api --",
-    "test:db": "npm run test:db --workspace @nap/api"
+    "test:db": "npm run test:db --workspace @nap/api",
+    "test:db:local": "node scripts/test-db-local.mjs"
   },
   "dependencies": {
     "yaml": "^2.9.1"
