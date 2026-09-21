@@ -486,3 +486,58 @@ export async function withTenantAccessErrors(operation) {
     );
   }
 }
+
+/** Stable codes an entitlement operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const ENTITLEMENT_CODES = new Set([
+  'INVALID_INPUT',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'AUDIT_UNAVAILABLE',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` entitlement codes:
+ * `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `AUDIT_UNAVAILABLE`,
+ * `SERVICE_UNAVAILABLE`, or `INTERNAL_ERROR`. Never carries database detail.
+ *
+ * Kept separate from `AdminAccountError` because M0001-10 reports `FORBIDDEN`
+ * for both an ungranted tenant and a Napsoft-denied one — unlike the accounts
+ * and control domains, entitlements never report `NOT_FOUND` for a denied
+ * (as opposed to a nonexistent) tenant.
+ */
+export class AdminEntitlementError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminEntitlementError`.
+ *
+ * An access, event, or entitlement error already carrying an entitlement code
+ * keeps that code. Any other thrown value is assumed to be a database driver
+ * error: a serialization failure or deadlock (SQLSTATE `40001`/`40P01`)
+ * becomes `CONFLICT`; everything else becomes `INTERNAL_ERROR`, discarding the
+ * original message, detail, and constraint name so database structure never
+ * reaches a caller.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminEntitlementError}
+ */
+export async function withEntitlementErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminEntitlementError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminEntitlementError('CONFLICT');
+    throw new AdminEntitlementError(
+      ENTITLEMENT_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}

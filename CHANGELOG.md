@@ -15,6 +15,7 @@ when a pull request with a release label merges into `main`.
 ### Added
 
 - Add tenant selection and support access under `/api/admin-tenancy/v1/access`: list a portal user's own eligible tenants, select one for normal work, and enter or exit a time-limited, attributed support context on another tenant. Selection and entry each rotate the session token; a support session's 60-minute access window is enforced automatically, downgrading and rotating the token on the next request once it passes. Support entry is denied without exposing tenant data when the target is the Napsoft tenant.
+- Add module entitlement read, grant, and withdrawal under `/api/admin-tenancy/v1/tenants/:tenant/entitlements`: read the full optional-module catalogue with each module's effective state and revision, and grant or withdraw one module idempotently — repeating the current state returns it unchanged, and withdrawing an already-disabled or never-granted module never creates a row. Concurrent changes to the same tenant and module serialize to one committed result, and each change records an administrative event and advances the tenant's entitlement cache revision.
 
 ## [v0.11.0] - 2026-09-21
 
