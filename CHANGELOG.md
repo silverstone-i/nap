@@ -13,6 +13,7 @@ when a pull request with a release label merges into `main`.
 ### Changed
 
 - Reconcile the M0001-06, M0001-08, and M0001-09 Work Unit PRDs and the Admin Tenancy family roadmap: mark all three `Implemented`/`Complete` with fresh verification evidence, matching code and tests already merged.
+- Add `npm run test:db:local`, which provisions a disposable local PostgreSQL 18 cluster, runs the database integration tests against it, and tears it down afterward, so `test:db` no longer requires manually setting up a fixture server on your machine.
 
 ## [v0.12.0] - 2026-09-21
 

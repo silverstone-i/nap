@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const FIRST_PORT = 5433;
 const START_TIMEOUT_MS = 15_000;
+const COMMAND_TIMEOUT_MS = 30_000;
 // Force a plain locale: an empty/unset LANG on macOS can crash postgres at
 // startup with "postmaster became multithreaded during startup".
 const PG_ENV = { ...process.env, LC_ALL: 'C', LANG: 'C' };
@@ -54,9 +55,14 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     encoding: 'utf8',
     env: PG_ENV,
+    timeout: COMMAND_TIMEOUT_MS,
     ...options,
   });
   if (result.error) throw result.error;
+  if (result.signal === 'SIGTERM')
+    throw new Error(
+      `${command} timed out after ${COMMAND_TIMEOUT_MS}ms and was killed`
+    );
   return result;
 }
 
@@ -152,7 +158,9 @@ export async function runLocalDatabaseTests(
     await waitForReady(binDir, port, dataDir);
 
     const url = `postgresql://postgres:${FIXTURE_PASSWORD}@127.0.0.1:${port}/postgres`;
-    console.log(`Disposable PostgreSQL 18 cluster ready at ${url}`);
+    console.log(
+      `Disposable PostgreSQL 18 cluster ready at postgresql://postgres:***@127.0.0.1:${port}/postgres`
+    );
 
     const exitCode = await new Promise((resolve, reject) => {
       const child = spawn('npm', ['run', 'test:db'], {
