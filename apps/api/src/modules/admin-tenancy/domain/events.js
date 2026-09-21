@@ -41,6 +41,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'member_type',
   'method',
   'module_key',
+  'name',
   'previous_session_id',
   'region',
   'retry_after_seconds',
@@ -103,7 +104,10 @@ export const EVENT_CATALOGUE = Object.freeze({
 
   'tenant.created': {
     outcomes: ANY_OUTCOME,
-    details: ['tenant_code', 'tier'],
+    // `name` is stored so a repeated `Idempotency-Key` can compare the full
+    // normalized request against the immutable snapshot this event recorded,
+    // not against the live (possibly later-edited) `tenants` row.
+    details: ['tenant_code', 'tier', 'name'],
   },
 
   'user.created': { outcomes: ANY_OUTCOME, details: [] },

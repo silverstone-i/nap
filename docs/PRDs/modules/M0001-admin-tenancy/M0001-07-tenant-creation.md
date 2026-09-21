@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                          |
 | -------------------- | ------------------------------------------------------------------------------ |
-| Status               | Draft                                                                          |
+| Status               | Accepted                                                                       |
 | Type                 | Module Work Unit                                                               |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                              |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                        |
@@ -124,6 +124,45 @@ request headers or secrets. Success advances the tenant-list cache revision.
 | AC02      | Creation succeeds without a cell and reports no provisioning or readiness.                           | M0001-07-R002, M0001-07-R003 |
 | AC03      | Invalid, duplicate, repeated, and concurrent requests follow the stated outcomes without duplicates. | M0001-07-R004                |
 | AC04      | Support cannot create or designate the Napsoft tenant.                                               | M0001-07-R005                |
+
+### Verification Evidence
+
+Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
+`npm test` (306 tests across the workspace, including 12 new unit tests),
+`npm run build`, and `npm run licenses` passed.
+
+`npm run test:db` passed 122 of 125 tests against a disposable local
+PostgreSQL 18 server, including all 8
+[tenant-creation tests](../../../../apps/api/tests/integration/tenant-creation.test.js).
+The three failures are in `admin-foundation.test.js` and predate this Work
+Unit, as recorded in [M0001-12's verification evidence](M0001-12-administrative-events.md#verification-evidence):
+the local fixture server has no `postgres` superuser role and authenticates
+with `trust`, so its two wrong-password cases still connect. Neither touches
+`admin.tenants`.
+
+Integration tests cover a valid, authorized, normalized creation with no
+cell, no provisioning, and no RBAC readiness, and its recorded
+`tenant.created` event and `{tenant, list}` cache-revision advance (AC01,
+AC02); invalid input and a client-supplied `is_napsoft` each rejected
+without creating a row, advancing the revision, or claiming an
+`Idempotency-Key` (AC03); a denied actor recording a `denied` event; a
+case-insensitive duplicate code reported as a conflict; a repeated
+`Idempotency-Key` and payload returning the original `201` representation
+without a second insert; a reused key with a different payload reported as
+`IDEMPOTENCY_CONFLICT` without disturbing the original row; and two
+concurrent requests, both sharing one key resolving to a single tenant and
+both sharing a code under different keys resolving through code uniqueness
+to exactly one success and one conflict (AC03). Unit tests cover
+code/name/tier normalization and rejection, the required `Idempotency-Key`
+header, the `tenantView` camelCase mapping, and the route's session,
+capability, and error-shape gating over an in-memory admin handle.
+
+As `control.js` already notes for cell management, `authorization.js`
+currently resolves only root or no platform authority (M0001-05's
+role-based `platform_admin`/`support` remains deferred), so AC04 is
+demonstrated today by `is_napsoft` never being an acceptable request field
+for any actor — root included — rather than by a distinguishable `support`
+session, which has no runtime path to authenticate as yet.
 
 ## 14. Outstanding Questions
 
