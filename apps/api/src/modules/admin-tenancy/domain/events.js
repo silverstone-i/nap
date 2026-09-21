@@ -38,6 +38,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'code',
   'email',
   'forced',
+  'from_enabled',
   'from_status',
   'job_id',
   'member_type',
@@ -49,11 +50,13 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'region',
   'reset_required',
   'retry_after_seconds',
+  'revision',
   'role',
   'step',
   'tenant_code',
   'throttle_key',
   'tier',
+  'to_enabled',
   'to_status',
 ]);
 
@@ -167,8 +170,18 @@ export const EVENT_CATALOGUE = Object.freeze({
   'support.exited': { outcomes: ANY_OUTCOME, details: [] },
   'support.denied': { outcomes: DENIED, details: ['code'] },
 
-  'entitlement.granted': { outcomes: ANY_OUTCOME, details: ['module_key'] },
-  'entitlement.withdrawn': { outcomes: ANY_OUTCOME, details: ['module_key'] },
+  'entitlement.granted': {
+    outcomes: ANY_OUTCOME,
+    // `from_enabled`/`to_enabled`/`revision` complete the M0001-10 §12
+    // audit record: the current `module_entitlements` row can change again
+    // later, so its state at the time of this event must be captured here
+    // rather than left to be inferred from the (mutable) row.
+    details: ['module_key', 'from_enabled', 'to_enabled', 'revision'],
+  },
+  'entitlement.withdrawn': {
+    outcomes: ANY_OUTCOME,
+    details: ['module_key', 'from_enabled', 'to_enabled', 'revision'],
+  },
 
   'cache.revision.failed': { outcomes: FAILED, details: ['code'] },
 });

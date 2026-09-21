@@ -232,8 +232,9 @@ export async function listEntitlements(db, authority, tenantId) {
  * `tenants.js`/`accounts.js`/`cells.js`, this only needs to exclude other
  * writers of the same pair, since the table's `(tenant_id, module)`
  * uniqueness is already enforced by a real constraint. Every call — including
- * a no-op repeat — records a `managed_events` row (§12); a cache-revision
- * advance fires only when `enabled` actually changes.
+ * a no-op repeat — records a `managed_events` row carrying the module, the
+ * prior and resulting `enabled` state, and the resulting `revision` (§12); a
+ * cache-revision advance fires only when `enabled` actually changes.
  * @param {AdminEntitlementsDb} db
  * @param {unknown} authority `{actorId, scope}`; `scope` built for `admin-tenancy::entitlements::write`.
  * @param {unknown} tenantId
@@ -290,7 +291,12 @@ async function setEntitlement(
                 actor_id: granted.actorId,
                 tenant_id: id,
                 target_id: null,
-                details: { module_key: module },
+                details: {
+                  module_key: module,
+                  from_enabled: false,
+                  to_enabled: false,
+                  revision: 0,
+                },
               },
               { tx }
             );
@@ -310,7 +316,12 @@ async function setEntitlement(
               actor_id: granted.actorId,
               tenant_id: id,
               target_id: inserted.id,
-              details: { module_key: module },
+              details: {
+                module_key: module,
+                from_enabled: false,
+                to_enabled: true,
+                revision: inserted.revision,
+              },
             },
             { tx }
           );
@@ -334,7 +345,12 @@ async function setEntitlement(
               actor_id: granted.actorId,
               tenant_id: id,
               target_id: row.id,
-              details: { module_key: module },
+              details: {
+                module_key: module,
+                from_enabled: row.enabled,
+                to_enabled: row.enabled,
+                revision: row.revision,
+              },
             },
             { tx }
           );
@@ -356,7 +372,12 @@ async function setEntitlement(
             actor_id: granted.actorId,
             tenant_id: id,
             target_id: row.id,
-            details: { module_key: module },
+            details: {
+              module_key: module,
+              from_enabled: row.enabled,
+              to_enabled: targetEnabled,
+              revision: updated.revision,
+            },
           },
           { tx }
         );
