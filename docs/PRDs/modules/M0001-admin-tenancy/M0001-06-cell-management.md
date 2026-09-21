@@ -4,13 +4,13 @@
 
 | Field                | Value                                                                                                      |
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Status               | Accepted                                                                                                   |
+| Status               | Implemented                                                                                                |
 | Type                 | Module Work Unit                                                                                           |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                          |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-12](M0001-12-administrative-events.md)                       |
 | Related decisions    | None                                                                                                       |
-| Last reviewed        | 2026-09-20                                                                                                 |
+| Last reviewed        | 2026-09-21                                                                                                 |
 
 ## 2. Purpose
 
@@ -184,6 +184,18 @@ implementation to the PRD text:
   excludes ("Physical database setup, migration, seed, and activation");
   Cross-Module Interactions confirms "Runtime readiness remains an
   infrastructure result."
+
+Re-verified 2026-09-21, moving this Work Unit from `Accepted` to
+`Implemented`: `npm run lint`, `npm run format:check`, `npm test` (382 unit
+tests across the workspace), `npm run build`, and `npm run licenses` still
+pass, and `npm run test:db` passes all 158 tests against a disposable local
+PostgreSQL 18 server configured with real password authentication —
+including all 37 cell-management tests (12 unit, 25 integration). The two
+`admin-foundation.test.js` failures noted above on 2026-09-20 do not
+reproduce with a correctly authenticating fixture: they were an artifact of
+that session's disposable server using `trust` authentication (which accepts
+any password, defeating the two wrong-password test cases), not a defect in
+this or any other Work Unit.
 
 ## 14. Outstanding Questions
 

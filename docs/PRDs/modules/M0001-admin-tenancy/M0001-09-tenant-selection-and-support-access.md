@@ -4,13 +4,13 @@
 
 | Field                | Value                                                                                        |
 | -------------------- | -------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                        |
+| Status               | Implemented                                                                                  |
 | Type                 | Module Work Unit                                                                             |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                            |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md) |
 | Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md)            |
 | Related decisions    | Support has full platform access except access to or action on Napsoft tenant data           |
-| Last reviewed        | 2026-09-20                                                                                   |
+| Last reviewed        | 2026-09-21                                                                                   |
 
 ## 2. Purpose
 
@@ -119,6 +119,64 @@ outcome, and request ID without session credentials.
 | AC03      | Support entry enforces capability, reason, duration, effective-user checks, and the Napsoft denial. | M0001-09-R003, M0001-09-R004 |
 | AC04      | Entry and exit rotate the token, prevent nesting, and preserve real-actor attribution.              | M0001-09-R004, M0001-09-R005 |
 | AC05      | Central success never reports cell-side authorization success.                                      | M0001-09-R007                |
+
+### Verification Evidence
+
+This Work Unit shipped in [#15](https://github.com/silverstone-i/nap/pull/15)
+("Add tenant selection and support access") without this PRD's status or
+evidence being updated at the time; this section closes that gap against the
+code and tests already merged, re-verified fresh rather than reconstructed
+from the original PR.
+
+Local validation on 2026-09-21: `npm run lint`, `npm run format:check`,
+`npm test` (382 unit tests across the workspace, including 16 for this Work
+Unit), `npm run build`, and `npm run licenses` passed.
+
+`npm run test:db` passed all 158 tests against a disposable local PostgreSQL
+18 server configured with real password authentication, including all 13
+[tenant-access integration tests](../../../../apps/api/tests/integration/tenant-access.test.js).
+
+Integration tests cover: listing only the caller's own active, ready
+memberships in eligible tenants; selecting an eligible tenant, rotating the
+session token and setting the tenant (AC01); refusing an ineligible
+membership, an ineligible tenant, and an unavailable cell, in each case
+leaving the session unchanged (AC01); reporting the cell unavailable purely
+from the tenant record with no runtime collaborator wired up, even when the
+cell is centrally enabled — demonstrating that no client-supplied database or
+cell value can influence routing (AC02, AC05); refusing selection while
+already in a support session, requiring exit first, and exactly one winner
+among concurrent selections sharing a token (AC04); entering a time-limited
+support context and exiting it against real constraints, and denial for a
+caller with no support capability, with the denial itself recorded (AC03);
+refusing exit from a session not in support mode; an expired support session
+downgrading and rotating its token on the next read, with a concurrent reader
+losing that race without erroring, and — as the negative case proving the
+downgrade is real rather than unconditional — an ordinary read of a normal
+session never rotating its token, and an unrelated explicit rotation left
+undisturbed (AC04).
+
+Unit tests cover: the narrow eligible-tenant view mapping; session and
+capability gating over an in-memory admin handle for all four routes;
+eligibility validation (membership, tenant, cell, and runtime readiness) and
+its failure-leaves-session-unchanged guarantee (AC01); rejecting selection or
+support entry while already in a support session; support capability denial;
+granting root a time-limited, real-actor-attributed support context (AC03,
+AC04); denying the Napsoft tenant "without exposing that it exists" once a
+scope carries the restriction, matching R003's requirement precisely (AC03);
+the reason field's 10–512 character bound; requiring an effective user to
+exist with an active, ready membership in the target tenant (AC03); exit
+clearing context and rotating the token, and its refusal from a normal
+session (AC04); and the same expired-session downgrade-and-rotate path unit
+tests already cover at the integration layer.
+
+As every other Work Unit in this family documents, `authorization.js`
+currently resolves only root or no platform authority (M0001-05's role-based
+`platform_admin`/`support`/`tenant_admin` remains deferred to M0003's
+access-control module). AC03's Napsoft-support denial (M0001-09-R003) is
+therefore demonstrated today by hand-building a `support`-shaped, Napsoft-
+restricted scope and calling the domain functions directly, rather than by a
+distinguishable `support` session, which has no runtime path to authenticate
+as yet — the same posture M0001-08's verification evidence documents.
 
 ## 14. Outstanding Questions
 

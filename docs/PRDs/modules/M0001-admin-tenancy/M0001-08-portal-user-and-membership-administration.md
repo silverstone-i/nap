@@ -4,13 +4,13 @@
 
 | Field                | Value                                                                                                                                      |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status               | Draft                                                                                                                                      |
+| Status               | Implemented                                                                                                                                |
 | Type                 | Module Work Unit                                                                                                                           |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                          |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                    |
 | Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-05](M0001-05-authorization.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
 | Related decisions    | None                                                                                                                                       |
-| Last reviewed        | 2026-09-20                                                                                                                                 |
+| Last reviewed        | 2026-09-21                                                                                                                                 |
 
 ## 2. Purpose
 
@@ -143,6 +143,66 @@ failure detail that contains secrets.
 | AC03      | Creation atomically records the membership and one queued job without a cell connection.     | M0001-08-R003, M0001-08-R004                |
 | AC04      | Mismatched, repeated, stale, failed, and successful job results follow the stated contract.  | M0001-08-R005                               |
 | AC05      | User and membership restrictions revoke affected sessions and never expose credentials.      | M0001-08-R001, M0001-08-R002                |
+
+### Verification Evidence
+
+This Work Unit shipped in [#14](https://github.com/silverstone-i/nap/pull/14)
+("Add portal-user and membership administration") without this PRD's status
+or evidence being updated at the time; this section closes that gap against
+the code and tests already merged, re-verified fresh rather than reconstructed
+from the original PR.
+
+Local validation on 2026-09-21: `npm run lint`, `npm run format:check`,
+`npm test` (382 unit tests across the workspace, including 40 for this Work
+Unit), `npm run build`, and `npm run licenses` passed.
+
+`npm run test:db` passed all 158 tests against a disposable local PostgreSQL
+18 server configured with real password authentication, including all 10
+[accounts integration tests](../../../../apps/api/tests/integration/accounts.test.js).
+
+Integration tests cover: creating an active user requiring a password change,
+reused by email on a second membership rather than duplicated, with one
+succeeded event recorded each time (AC01); two concurrent creates sharing one
+`Idempotency-Key` resolving to a single user; disabling a user, revoking its
+sessions, with the change visible on read (AC01, AC05); archiving and
+restoring a user, returning it `disabled` and refusing a second archive
+(AC01); creating one membership and its one queued job atomically, with the
+table's unique partial index resolving two concurrent creates for the same
+user/tenant pair to a single row (AC02, AC03); a repeated `Idempotency-Key`
+and payload replaying the original membership and job; a membership's full
+lifecycle — provisioned, suspended (revoking tenant sessions), reactivated
+without restoring readiness, archived, restored as `suspended` and not ready
+(AC02, AC05); a failed provisioning report leaving the membership pending and
+never ready (AC04); and a Napsoft-denied tenant reporting identically to a
+missing membership, never distinguishing the two (AC02).
+
+Unit tests cover: camelCase view mapping for users, memberships, and jobs,
+none exposing `password_hash` or a temporary password; session, capability,
+body-validation, and `Idempotency-Key` gating over an in-memory admin handle;
+user creation normalization (trim/lowercase email) and reuse-by-email;
+email/status updates with session revocation on disable; archive/restore
+idempotency and state guards; membership creation, tenant-authority
+enforcement independent of caller-supplied UUIDs (R006), and the
+one-active-pair conflict; suspend/reactivate/archive/restore transitions and
+their `INVALID_STATE` guards; job read, retry (including the
+already-`queued`/`running` no-op and the refusal to retry a `completed` job),
+and the trusted provisioning-result path (a completed report activating the
+membership and stamping its member ID, a failed report leaving it pending, a
+result rejected for an already-completed job, and a late report on a
+membership archived mid-flight rejected without resurrecting it); and that no
+route or provisioning path can ever touch the root portal user or root
+membership (`member_type IS NULL`), demonstrating AC01's root-protection
+requirement.
+
+As every other Work Unit in this family documents, `authorization.js`
+currently resolves only root or no platform authority (M0001-05's role-based
+`platform_admin`/`support`/`tenant_admin` remains deferred to M0003's
+access-control module). AC02's Napsoft-support denial (M0001-08-R007) is
+therefore demonstrated today by hand-building a `deniedTenantIds`-carrying
+scope and calling the domain functions directly (mirroring
+`tests/integration/entitlements.test.js`'s later precedent), rather than by a
+distinguishable `support` session, which has no runtime path to authenticate
+as yet.
 
 ## 14. Outstanding Questions
 
