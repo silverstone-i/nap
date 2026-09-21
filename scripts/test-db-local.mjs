@@ -27,7 +27,11 @@ const FIXTURE_PASSWORD = 'fixture-postgres';
  * back to whatever `initdb`/`pg_ctl` resolve to on PATH.
  */
 function resolveBinDir() {
-  const pgConfig = spawnSync('pg_config', ['--bindir'], { encoding: 'utf8' });
+  const pgConfig = spawnSync('pg_config', ['--bindir'], {
+    encoding: 'utf8',
+    env: PG_ENV,
+    timeout: COMMAND_TIMEOUT_MS,
+  });
   if (pgConfig.status === 0) return pgConfig.stdout.trim();
   return '';
 }
@@ -103,16 +107,26 @@ export async function runLocalDatabaseTests(
   const port = await findFreePort(FIRST_PORT);
   let started = false;
 
-  const cleanup = async () => {
-    if (started) {
-      try {
-        run(bin(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'fast', 'stop']);
-      } catch (error) {
-        console.error(
-          `Warning: failed to stop the disposable Postgres cluster cleanly: ${error.message}`
-        );
-      }
+  const stopCluster = () => {
+    try {
+      run(bin(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'fast', 'stop']);
+      return;
+    } catch (error) {
+      console.error(
+        `Warning: graceful stop failed, retrying with an immediate shutdown: ${error.message}`
+      );
     }
+    try {
+      run(bin(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'immediate', 'stop']);
+    } catch (error) {
+      console.error(
+        `Warning: failed to stop the disposable Postgres cluster; it may still be running: ${error.message}`
+      );
+    }
+  };
+
+  const cleanup = async () => {
+    if (started) stopCluster();
     await Promise.all([
       rm(dataDir, { recursive: true, force: true }),
       rm(pwFileDir, { recursive: true, force: true }),
