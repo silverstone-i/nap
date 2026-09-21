@@ -58,11 +58,11 @@ function run(command, args, options = {}) {
     timeout: COMMAND_TIMEOUT_MS,
     ...options,
   });
-  if (result.error) throw result.error;
-  if (result.signal === 'SIGTERM')
+  if (result.error?.code === 'ETIMEDOUT')
     throw new Error(
       `${command} timed out after ${COMMAND_TIMEOUT_MS}ms and was killed`
     );
+  if (result.error) throw result.error;
   return result;
 }
 
@@ -105,7 +105,13 @@ export async function runLocalDatabaseTests(
 
   const cleanup = async () => {
     if (started) {
-      run(bin(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'fast', 'stop']);
+      try {
+        run(bin(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'fast', 'stop']);
+      } catch (error) {
+        console.error(
+          `Warning: failed to stop the disposable Postgres cluster cleanly: ${error.message}`
+        );
+      }
     }
     await Promise.all([
       rm(dataDir, { recursive: true, force: true }),
