@@ -532,9 +532,9 @@ describe('entitlements routes', () => {
     expect(admin.revisions.get(`entitlement:${tenant.id}`)).toBe(1);
   });
 
-  it('surfaces an unavailable cache-revision store as 503, not 500', async () => {
+  it('surfaces an unavailable cache-revision store as 503, not 500, and still records a failed attempt', async () => {
     const tenant = tenantRow();
-    const { app, cookie } = api({
+    const { app, admin, cookie } = api({
       tenants: [tenant],
       failAdvanceWith: Object.assign(new Error('unavailable'), {
         code: 'SERVICE_UNAVAILABLE',
@@ -546,6 +546,15 @@ describe('entitlements routes', () => {
       `/api/admin-tenancy/v1/tenants/${tenant.id}/entitlements/sales`
     );
     expect(response.status).toBe(ERROR_STATUS.SERVICE_UNAVAILABLE);
+    // The failure-catch append, always last regardless of whether an
+    // in-transaction "succeeded" event also landed in this fake (which,
+    // unlike real Postgres, does not roll back writes on a thrown error).
+    expect(admin.appended.at(-1)).toMatchObject({
+      event_key: 'entitlement.granted',
+      outcome: 'failed',
+      tenant_id: tenant.id,
+      details: { module_key: 'sales' },
+    });
   });
 
   it('records the required failure event for a denied grant', async () => {

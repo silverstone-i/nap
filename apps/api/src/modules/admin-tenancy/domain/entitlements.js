@@ -35,12 +35,22 @@ export const OPTIONAL_MODULES = Object.freeze([
 
 const OPTIONAL_MODULE_SET = new Set(OPTIONAL_MODULES);
 
-/** Business codes worth a recorded event when a mutation fails or is denied before completing. */
+/**
+ * Business codes worth a recorded event when a mutation fails or is denied
+ * before completing. Includes `SERVICE_UNAVAILABLE` (an unavailable
+ * `cache_revisions` store) unlike `tenants.js`/`accounts.js`'s equivalent
+ * sets: `appendFailureEvent` writes to `managed_events`, an independent
+ * table/subsystem the cache-revision store being down says nothing about,
+ * so — unlike an unavailable *event* store, which would make a second
+ * append attempt likely-also-failing — this append isn't expected to fail
+ * for the same reason the mutation did.
+ */
 const AUDITED_FAILURE_CODES = new Set([
   'INVALID_INPUT',
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
+  'SERVICE_UNAVAILABLE',
 ]);
 
 /**
