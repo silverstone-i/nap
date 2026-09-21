@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add tenant selection and support access under `/api/admin-tenancy/v1/access`: list a portal user's own eligible tenants, select one for normal work, and enter or exit a time-limited, attributed support context on another tenant. Selection and entry each rotate the session token; a support session's 60-minute access window is enforced automatically, downgrading and rotating the token on the next request once it passes. Support entry is denied without exposing tenant data when the target is the Napsoft tenant.
+
 ## [v0.11.0] - 2026-09-21
 
 ### Added

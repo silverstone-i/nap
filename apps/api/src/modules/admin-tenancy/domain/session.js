@@ -29,6 +29,16 @@ const policySchema = z.strictObject({
 });
 
 /**
+ * Marks a rotated token on the session view `resolveSession` returns, when
+ * an automatic support-access-expiry downgrade (M0001-09) replaced it. A
+ * `Symbol` key rather than a plain property: `JSON.stringify` — and so every
+ * JSON response envelope — silently omits symbol-keyed properties, which is
+ * what keeps this from ever leaking into an HTTP response the way a plain
+ * `rotatedToken` field would. Only `middleware/sessionContext.js` reads it.
+ */
+export const ROTATED_TOKEN = Symbol('rotatedToken');
+
+/**
  * Reasons recorded on `session.revoked`. Each is a stable code, never a
  * message, so the event catalogue's `code` detail stays free of prose.
  */
@@ -255,6 +265,56 @@ async function archiveSessions(db, sessions, context, tx) {
 }
 
 /**
+ * Downgrade a support session whose access window has passed, replacing its
+ * token in the same transaction.
+ *
+ * M0001-09 §12: "expiry ... retain[s] the real operator", so a
+ * `support.exited` event is recorded even though nothing the operator did
+ * triggered this — the passive read that discovered the expiry attributes
+ * it. Returns `null`, appending nothing, when a concurrent request already
+ * won the race (`Sessions.downgradeExpiredAccess`'s `id`-keyed precondition
+ * no longer matches); the caller re-reads the row itself in that case
+ * rather than treating it as a failure.
+ * @param {AdminSessionDb} db
+ * @param {object} row Pre-downgrade session row, from `findByTokenHash`.
+ * @param {string} nextHash Hash of the freshly generated replacement token.
+ * @param {{requestId: string|null, tx: object}} context
+ * @returns {Promise<object|null>} The downgraded row (view columns only), or `null`.
+ */
+async function downgradeExpiredSupportAccess(
+  db,
+  row,
+  nextHash,
+  { requestId, tx }
+) {
+  const downgraded = await db.sessions.downgradeExpiredAccess(
+    row.id,
+    nextHash,
+    {
+      tx,
+    }
+  );
+  if (!downgraded) return null;
+  await appendSessionEvent(
+    db,
+    {
+      event_key: 'support.exited',
+      outcome: 'succeeded',
+      request_id: requestId,
+      actor_id: row.portal_user_id,
+      effective_user_id: row.effective_user_id ?? null,
+      tenant_id: row.tenant_id,
+      target_id: row.id,
+      session_id: row.id,
+      details: {},
+    },
+    tx
+  );
+  await advanceSessionRevisions(db, [row.id], tx);
+  return downgraded;
+}
+
+/**
  * Create a session for an already-verified portal user.
  *
  * M0001-04-R001. Authentication owns password verification and eligibility;
@@ -344,11 +404,20 @@ export async function createSession(
  * row from being resurrected by a clock change. Bookkeeping writes happen at
  * most once every `TOUCH_INTERVAL_MINUTES`, so an idle-but-live session costs
  * one indexed read per request.
+ *
+ * A support session whose `access_expires_at` has passed (M0001-09) is
+ * downgraded to a normal session here too, with its token rotated in the
+ * same transaction — the PRD's lifecycle table treats access expiry the same
+ * as an explicit exit. The rotated token is attached to the returned view
+ * under the `ROTATED_TOKEN` symbol, never as an enumerable field, so
+ * `middleware/sessionContext.js` can set a fresh cookie without the token
+ * ever reaching a JSON response.
  * @param {AdminSessionDb} db
  * @param {unknown} policy
  * @param {unknown} token Value read from the session cookie.
  * @param {{requestId?: string|null}} [context]
- * @returns {Promise<object>} Safe session view.
+ * @returns {Promise<object>} Safe session view; carries a rotated token under
+ *   `ROTATED_TOKEN` only when a support-access downgrade just happened.
  * @throws {AdminSessionError} `UNAUTHENTICATED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function resolveSession(db, policy, token, { requestId } = {}) {
@@ -395,6 +464,26 @@ export async function resolveSession(db, policy, token, { requestId } = {}) {
       );
       throw new AdminSessionError('UNAUTHENTICATED');
     }
+    let rotatedToken = null;
+    if (row.access_mode === 'support' && row.access_expired) {
+      const next = createSessionToken();
+      const downgraded = await db.tx(tx =>
+        downgradeExpiredSupportAccess(db, row, hashSessionToken(parsed, next), {
+          requestId: requestId ?? null,
+          tx,
+        })
+      );
+      if (downgraded) {
+        Object.assign(row, downgraded);
+        rotatedToken = next;
+      } else {
+        // Another request already won the downgrade race; its rotation is
+        // already committed, so read the current row rather than treat this
+        // request as unauthenticated.
+        const current = await db.sessions.findById(row.id);
+        if (current) Object.assign(row, current);
+      }
+    }
     if (row.stale) {
       const touched = await db.tx(tx =>
         db.sessions.touch(row.id, parsed.idleMinutes, TOUCH_INTERVAL_MINUTES, {
@@ -403,7 +492,9 @@ export async function resolveSession(db, policy, token, { requestId } = {}) {
       );
       if (touched) Object.assign(row, touched);
     }
-    return sessionView(row);
+    const view = sessionView(row);
+    if (rotatedToken) view[ROTATED_TOKEN] = rotatedToken;
+    return view;
   });
 }
 
@@ -448,6 +539,195 @@ export async function rotateSession(db, policy, token, { requestId, tx } = {}) {
           actor_id: row.portal_user_id,
           effective_user_id: row.effective_user_id ?? null,
           tenant_id: row.tenant_id ?? null,
+          target_id: row.id,
+          session_id: row.id,
+          details: {},
+        },
+        transaction
+      );
+      await advanceSessionRevisions(db, [row.id], transaction);
+      return { token: next, session: sessionView(row) };
+    };
+    return tx ? run(tx) : db.tx(run);
+  });
+}
+
+/**
+ * Select a tenant for normal work, replacing the session's token in the
+ * same transaction.
+ *
+ * M0001-09-R001, M0001-09-R005. `Sessions.selectTenant` is a single
+ * conditional `UPDATE` keyed on the current token hash and requiring
+ * `access_mode='normal'`, so a session already in a support context is
+ * refused by that precondition rather than by a separate read-then-write
+ * check — "Support contexts cannot nest or switch tenants; exit first."
+ * Membership and tenant eligibility are `domain/tenantAccess.js`'s
+ * responsibility; this function only performs the write once they have
+ * already been confirmed.
+ * @param {AdminSessionDb} db
+ * @param {unknown} policy
+ * @param {unknown} token Current token.
+ * @param {object} request
+ * @param {string} request.tenantId
+ * @param {string|null} [request.requestId]
+ * @param {{tx?: object}} [context]
+ * @returns {Promise<{token: string, session: object}>}
+ * @throws {AdminSessionError} `INVALID_INPUT`, `UNAUTHENTICATED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function selectSessionTenant(
+  db,
+  policy,
+  token,
+  { tenantId, requestId = null },
+  { tx } = {}
+) {
+  const parsed = parseSessionPolicy(policy);
+  const presented = parseSessionToken(token);
+  if (!z.uuid().safeParse(tenantId).success)
+    throw new AdminSessionError('INVALID_INPUT');
+  return withSessionErrors(async () => {
+    const run = async transaction => {
+      const next = createSessionToken();
+      const row = await db.sessions.selectTenant(
+        hashSessionToken(parsed, presented),
+        hashSessionToken(parsed, next),
+        tenantId,
+        parsed.idleMinutes,
+        { tx: transaction }
+      );
+      if (!row) throw new AdminSessionError('UNAUTHENTICATED');
+      await appendSessionEvent(
+        db,
+        {
+          event_key: 'tenant.selected',
+          outcome: 'succeeded',
+          request_id: requestId,
+          actor_id: row.portal_user_id,
+          tenant_id: row.tenant_id,
+          target_id: row.id,
+          session_id: row.id,
+          details: {},
+        },
+        transaction
+      );
+      await advanceSessionRevisions(db, [row.id], transaction);
+      return { token: next, session: sessionView(row) };
+    };
+    return tx ? run(tx) : db.tx(run);
+  });
+}
+
+/**
+ * Enter a time-limited support context, replacing the session's token in
+ * the same transaction.
+ *
+ * M0001-09-R003, M0001-09-R004, M0001-09-R005. `Sessions.enterSupport`
+ * requires `access_mode='normal'`, ruling out nesting; capability, reason,
+ * tenant, and effective-user validity are all `domain/tenantAccess.js`'s
+ * responsibility.
+ * @param {AdminSessionDb} db
+ * @param {unknown} policy
+ * @param {unknown} token Current token.
+ * @param {object} request
+ * @param {string} request.tenantId
+ * @param {string|null} [request.effectiveUserId]
+ * @param {string} request.reason
+ * @param {string|null} [request.requestId]
+ * @param {{tx?: object}} [context]
+ * @returns {Promise<{token: string, session: object}>}
+ * @throws {AdminSessionError} `INVALID_INPUT`, `UNAUTHENTICATED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function enterSessionSupport(
+  db,
+  policy,
+  token,
+  { tenantId, effectiveUserId = null, reason, requestId = null },
+  { tx } = {}
+) {
+  const parsed = parseSessionPolicy(policy);
+  const presented = parseSessionToken(token);
+  if (!z.uuid().safeParse(tenantId).success)
+    throw new AdminSessionError('INVALID_INPUT');
+  return withSessionErrors(async () => {
+    const run = async transaction => {
+      const next = createSessionToken();
+      const row = await db.sessions.enterSupport(
+        hashSessionToken(parsed, presented),
+        hashSessionToken(parsed, next),
+        { tenantId, effectiveUserId, reason },
+        parsed.idleMinutes,
+        { tx: transaction }
+      );
+      if (!row) throw new AdminSessionError('UNAUTHENTICATED');
+      await appendSessionEvent(
+        db,
+        {
+          event_key: 'support.entered',
+          outcome: 'succeeded',
+          request_id: requestId,
+          actor_id: row.portal_user_id,
+          effective_user_id: row.effective_user_id ?? null,
+          tenant_id: row.tenant_id,
+          target_id: row.id,
+          session_id: row.id,
+          details: {},
+        },
+        transaction
+      );
+      await advanceSessionRevisions(db, [row.id], transaction);
+      return { token: next, session: sessionView(row) };
+    };
+    return tx ? run(tx) : db.tx(run);
+  });
+}
+
+/**
+ * Exit a support context, replacing the session's token in the same
+ * transaction.
+ *
+ * M0001-09-R005. `Sessions.exitSupport` requires `access_mode='support'`.
+ * The pre-exit `tenantId`/`effectiveUserId` are supplied by the caller
+ * (already known from the resolved session) because the `RETURNING` row has
+ * already cleared them by the time this function's event is recorded.
+ * @param {AdminSessionDb} db
+ * @param {unknown} policy
+ * @param {unknown} token Current token.
+ * @param {object} request
+ * @param {string|null} request.tenantId Pre-exit tenant, for the event.
+ * @param {string|null} [request.effectiveUserId] Pre-exit effective user, for the event.
+ * @param {string|null} [request.requestId]
+ * @param {{tx?: object}} [context]
+ * @returns {Promise<{token: string, session: object}>}
+ * @throws {AdminSessionError} `UNAUTHENTICATED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function exitSessionSupport(
+  db,
+  policy,
+  token,
+  { tenantId = null, effectiveUserId = null, requestId = null },
+  { tx } = {}
+) {
+  const parsed = parseSessionPolicy(policy);
+  const presented = parseSessionToken(token);
+  return withSessionErrors(async () => {
+    const run = async transaction => {
+      const next = createSessionToken();
+      const row = await db.sessions.exitSupport(
+        hashSessionToken(parsed, presented),
+        hashSessionToken(parsed, next),
+        parsed.idleMinutes,
+        { tx: transaction }
+      );
+      if (!row) throw new AdminSessionError('UNAUTHENTICATED');
+      await appendSessionEvent(
+        db,
+        {
+          event_key: 'support.exited',
+          outcome: 'succeeded',
+          request_id: requestId,
+          actor_id: row.portal_user_id,
+          effective_user_id: effectiveUserId,
+          tenant_id: tenantId,
           target_id: row.id,
           session_id: row.id,
           details: {},

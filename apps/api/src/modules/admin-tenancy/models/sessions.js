@@ -185,7 +185,7 @@ export class Sessions extends TableModel {
    * @param {string} tokenHash
    * @param {number} touchMinutes Minutes after which `last_seen_at` may be refreshed.
    * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
-   * @returns {Promise<object|null>} Safe session view plus `user_status`, `must_change_password`, `user_archived`, `expired`, and `stale`.
+   * @returns {Promise<object|null>} Safe session view plus `user_status`, `must_change_password`, `user_archived`, `expired`, `stale`, and `access_expired`.
    */
   async findByTokenHash(tokenHash, touchMinutes, { tx } = {}) {
     return (tx ?? this.db).oneOrNone(
@@ -194,7 +194,8 @@ export class Sessions extends TableModel {
               u.must_change_password,
               (u.deactivated_at IS NOT NULL) AS user_archived,
               (s.idle_expires_at <= now() OR s.absolute_expires_at <= now()) AS expired,
-              (s.last_seen_at <= now() - ($2::integer * interval '1 minute')) AS stale
+              (s.last_seen_at <= now() - ($2::integer * interval '1 minute')) AS stale,
+              (s.access_mode='support' AND s.access_expires_at <= now()) AS access_expired
          FROM ${table(this)} AS s
          JOIN ${this.schemaName}.portal_users AS u ON u.id = s.portal_user_id
         WHERE s.token_hash=$1 AND s.deactivated_at IS NULL`,
@@ -245,6 +246,159 @@ export class Sessions extends TableModel {
           AND s.idle_expires_at > now() AND s.absolute_expires_at > now()
         RETURNING ${viewColumns}`,
       [currentHash, nextHash, idleMinutes]
+    );
+  }
+
+  /**
+   * Select a tenant for normal work, replacing the token in the same
+   * statement as `rotate`. Requires the session to currently be a normal
+   * (non-support) session — M0001-09's lifecycle rule that a support session
+   * must exit before selecting again.
+   * @param {string} currentHash
+   * @param {string} nextHash
+   * @param {string} tenantId
+   * @param {number} idleMinutes
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>} Safe session view, or `null` when the
+   *   token was already replaced/expired/revoked, or the session was not
+   *   in normal mode.
+   */
+  async selectTenant(currentHash, nextHash, tenantId, idleMinutes, { tx }) {
+    return tx.oneOrNone(
+      `UPDATE ${table(this)} AS s
+          SET token_hash=$2,
+              tenant_id=$3,
+              access_mode='normal',
+              effective_user_id=NULL,
+              access_reason=NULL,
+              access_expires_at=NULL,
+              last_seen_at=now(),
+              idle_expires_at=LEAST(now() + ($4::integer * interval '1 minute'),s.absolute_expires_at)
+        WHERE s.token_hash=$1 AND s.deactivated_at IS NULL AND s.access_mode='normal'
+          AND s.idle_expires_at > now() AND s.absolute_expires_at > now()
+        RETURNING ${viewColumns}`,
+      [currentHash, nextHash, tenantId, idleMinutes]
+    );
+  }
+
+  /**
+   * Enter a time-limited support context, replacing the token in the same
+   * statement. Requires the session to currently be a normal session.
+   * `access_expires_at` never exceeds the session's own absolute expiry.
+   * @param {string} currentHash
+   * @param {string} nextHash
+   * @param {object} support
+   * @param {string} support.tenantId
+   * @param {string|null} support.effectiveUserId
+   * @param {string} support.reason
+   * @param {number} idleMinutes
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>} Safe session view, or `null` when the
+   *   token was already replaced/expired/revoked, or the session was not
+   *   in normal mode.
+   */
+  async enterSupport(
+    currentHash,
+    nextHash,
+    { tenantId, effectiveUserId, reason },
+    idleMinutes,
+    { tx }
+  ) {
+    return tx.oneOrNone(
+      `UPDATE ${table(this)} AS s
+          SET token_hash=$2,
+              tenant_id=$3,
+              access_mode='support',
+              effective_user_id=$4,
+              access_reason=$5,
+              access_expires_at=LEAST(now() + interval '60 minutes',s.absolute_expires_at),
+              last_seen_at=now(),
+              idle_expires_at=LEAST(now() + ($6::integer * interval '1 minute'),s.absolute_expires_at)
+        WHERE s.token_hash=$1 AND s.deactivated_at IS NULL AND s.access_mode='normal'
+          AND s.idle_expires_at > now() AND s.absolute_expires_at > now()
+        RETURNING ${viewColumns}`,
+      [currentHash, nextHash, tenantId, effectiveUserId, reason, idleMinutes]
+    );
+  }
+
+  /**
+   * Exit a support context, replacing the token in the same statement.
+   * Requires the session to currently be a support session.
+   * @param {string} currentHash
+   * @param {string} nextHash
+   * @param {number} idleMinutes
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>} Safe session view, or `null` when the
+   *   token was already replaced/expired/revoked, or the session was not
+   *   in support mode.
+   */
+  async exitSupport(currentHash, nextHash, idleMinutes, { tx }) {
+    return tx.oneOrNone(
+      `UPDATE ${table(this)} AS s
+          SET token_hash=$2,
+              tenant_id=NULL,
+              access_mode='normal',
+              effective_user_id=NULL,
+              access_reason=NULL,
+              access_expires_at=NULL,
+              last_seen_at=now(),
+              idle_expires_at=LEAST(now() + ($3::integer * interval '1 minute'),s.absolute_expires_at)
+        WHERE s.token_hash=$1 AND s.deactivated_at IS NULL AND s.access_mode='support'
+          AND s.idle_expires_at > now() AND s.absolute_expires_at > now()
+        RETURNING ${viewColumns}`,
+      [currentHash, nextHash, idleMinutes]
+    );
+  }
+
+  /**
+   * Downgrade a support session whose access window has passed, replacing
+   * the token in the same statement. Keyed by `id` rather than the
+   * presented token's hash: `resolveSession` calls this from a passive read
+   * path, where the caller only knows the session's *current* (still valid)
+   * token, not a hash that predicts a winner under concurrent requests. Two
+   * concurrent callers for the same session serialize on the row; the
+   * loser's `access_mode='support'` precondition no longer matches once the
+   * winner commits, so it returns `null` rather than a second, conflicting
+   * rotation.
+   * @param {string} id
+   * @param {string} nextHash
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>} Safe session view, or `null` when
+   *   another request already won the race, or the session no longer
+   *   qualifies.
+   */
+  async downgradeExpiredAccess(id, nextHash, { tx }) {
+    return tx.oneOrNone(
+      `UPDATE ${table(this)} AS s
+          SET token_hash=$2,
+              tenant_id=NULL,
+              access_mode='normal',
+              effective_user_id=NULL,
+              access_reason=NULL,
+              access_expires_at=NULL
+        WHERE s.id=$1 AND s.deactivated_at IS NULL AND s.access_mode='support'
+          AND s.access_expires_at <= now()
+        RETURNING ${viewColumns}`,
+      [id, nextHash]
+    );
+  }
+
+  /**
+   * Read a live session's current safe view by identifier.
+   *
+   * Used by `resolveSession` when it loses a race to downgrade an
+   * expired-access support session to another concurrent request: that
+   * request's rotation already committed, so this reads the result by `id`
+   * rather than by a token hash that no longer matches anything.
+   * @param {string} id
+   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
+   * @returns {Promise<object|null>} Safe session view, or `null` if archived or missing.
+   */
+  async findById(id, { tx } = {}) {
+    return (tx ?? this.db).oneOrNone(
+      `SELECT ${viewColumns} FROM ${table(this)} AS s
+        WHERE s.id=$1 AND s.deactivated_at IS NULL`,
+      [id]
     );
   }
 

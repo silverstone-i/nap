@@ -7,9 +7,13 @@ import {
   SESSION_COOKIE,
   clearSessionCookie,
   readCookie,
+  setSessionCookie,
 } from '../framework/cookies.js';
 import { sendError } from '../framework/envelope.js';
-import { resolveSession } from '../modules/admin-tenancy/domain/session.js';
+import {
+  ROTATED_TOKEN,
+  resolveSession,
+} from '../modules/admin-tenancy/domain/session.js';
 
 /**
  * Resolve the presented session cookie and attach the result.
@@ -28,6 +32,12 @@ import { resolveSession } from '../modules/admin-tenancy/domain/session.js';
  * revision store being unavailable while an expired session is archived —
  * is reported rather than swallowed, so a request never proceeds as anonymous
  * because a write failed.
+ *
+ * `resolveSession` also downgrades an expired support session (M0001-09) and
+ * rotates its token as part of that same read. When it does, the new token
+ * rides along under the `ROTATED_TOKEN` symbol — never a plain, JSON-visible
+ * field — and this middleware writes it as the response cookie immediately,
+ * the same shape `issueSessionCookie` uses for an explicit rotation.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin Admin database handle.
  * @param {object} context.sessionPolicy Session secret and lifetimes.
@@ -46,6 +56,16 @@ export function sessionContext({ admin, sessionPolicy, cookiePolicy }) {
         request.sessionToken,
         { requestId: request.requestId }
       );
+      const rotatedToken = request.session[ROTATED_TOKEN];
+      if (rotatedToken) {
+        const expiry = new Date(request.session.absoluteExpiresAt).getTime();
+        setSessionCookie(
+          response,
+          cookiePolicy,
+          rotatedToken,
+          expiry - Date.now()
+        );
+      }
     } catch (error) {
       if (error?.code !== 'UNAUTHENTICATED')
         return sendError(response, error?.code ?? 'INTERNAL_ERROR');

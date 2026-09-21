@@ -427,3 +427,62 @@ export async function withAuthErrors(operation) {
     );
   }
 }
+
+/** Stable codes a tenant-access operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const TENANT_ACCESS_CODES = new Set([
+  'INVALID_INPUT',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'CELL_UNAVAILABLE',
+  'AUDIT_UNAVAILABLE',
+  'SERVICE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` tenant-access codes:
+ * `INVALID_INPUT`, `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
+ * `CELL_UNAVAILABLE`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, or
+ * `INTERNAL_ERROR`. Never carries database detail, a session token, or which
+ * tenant UUID is Napsoft's.
+ *
+ * Kept separate from `AdminSessionError` because only tenant selection and
+ * support access report `CELL_UNAVAILABLE`, for a tenant's assigned cell
+ * being unassigned, disabled, or not runtime-ready (M0001-09-R001).
+ */
+export class AdminTenantAccessError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminTenantAccessError`.
+ *
+ * An access, event, or session error already carrying a tenant-access code
+ * keeps that code, so a raced token rotation still reports `UNAUTHENTICATED`
+ * and an unavailable event store still reports `AUDIT_UNAVAILABLE`. Any other
+ * thrown value is assumed to be a database driver error: a serialization
+ * failure or deadlock (SQLSTATE `40001`/`40P01`) becomes `CONFLICT`;
+ * everything else becomes `INTERNAL_ERROR`, discarding the original message,
+ * detail, and constraint name so database structure never reaches a caller.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminTenantAccessError}
+ */
+export async function withTenantAccessErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminTenantAccessError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminTenantAccessError('CONFLICT');
+    throw new AdminTenantAccessError(
+      TENANT_ACCESS_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}

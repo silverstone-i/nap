@@ -366,6 +366,7 @@ describe('route registry', () => {
       '/api/admin-tenancy/v1/control',
       '/api/admin-tenancy/v1/tenants',
       '/api/admin-tenancy/v1/accounts',
+      '/api/admin-tenancy/v1/access',
     ]);
   });
 });
