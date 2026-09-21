@@ -23,6 +23,7 @@ export const ERROR_STATUS = Object.freeze({
   INTERNAL_ERROR: 500,
   AUDIT_UNAVAILABLE: 503,
   SERVICE_UNAVAILABLE: 503,
+  CELL_UNAVAILABLE: 503,
 });
 
 /**
@@ -44,6 +45,7 @@ export const ERROR_MESSAGE = Object.freeze({
   INTERNAL_ERROR: 'Internal error',
   AUDIT_UNAVAILABLE: 'Service unavailable',
   SERVICE_UNAVAILABLE: 'Service unavailable',
+  CELL_UNAVAILABLE: 'Service unavailable',
 });
 
 /**
