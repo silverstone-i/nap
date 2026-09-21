@@ -343,7 +343,12 @@ describe('entitlements routes', () => {
       event_key: 'entitlement.granted',
       outcome: 'succeeded',
       tenant_id: tenant.id,
-      details: { module_key: 'sales' },
+      details: {
+        module_key: 'sales',
+        from_enabled: false,
+        to_enabled: true,
+        revision: 1,
+      },
     });
     expect(admin.revisions.get(`entitlement:${tenant.id}`)).toBe(1);
   });
@@ -374,6 +379,16 @@ describe('entitlements routes', () => {
       revision: 5,
     });
     expect(admin.appended).toHaveLength(1);
+    expect(admin.appended[0]).toMatchObject({
+      event_key: 'entitlement.granted',
+      outcome: 'succeeded',
+      details: {
+        module_key: 'sales',
+        from_enabled: true,
+        to_enabled: true,
+        revision: 5,
+      },
+    });
     expect(admin.revisions.has(`entitlement:${tenant.id}`)).toBe(false);
   });
 
@@ -401,6 +416,16 @@ describe('entitlements routes', () => {
       enabled: true,
       revision: 5,
     });
+    expect(admin.appended[0]).toMatchObject({
+      event_key: 'entitlement.granted',
+      outcome: 'succeeded',
+      details: {
+        module_key: 'sales',
+        from_enabled: false,
+        to_enabled: true,
+        revision: 5,
+      },
+    });
     expect(admin.revisions.get(`entitlement:${tenant.id}`)).toBe(1);
   });
 
@@ -423,6 +448,12 @@ describe('entitlements routes', () => {
     expect(admin.appended[0]).toMatchObject({
       event_key: 'entitlement.withdrawn',
       outcome: 'succeeded',
+      details: {
+        module_key: 'sales',
+        from_enabled: false,
+        to_enabled: false,
+        revision: 0,
+      },
     });
     expect(admin.revisions.size).toBe(0);
   });
@@ -451,6 +482,16 @@ describe('entitlements routes', () => {
       enabled: false,
       revision: 2,
     });
+    expect(admin.appended[0]).toMatchObject({
+      event_key: 'entitlement.withdrawn',
+      outcome: 'succeeded',
+      details: {
+        module_key: 'sales',
+        from_enabled: false,
+        to_enabled: false,
+        revision: 2,
+      },
+    });
     expect(admin.revisions.size).toBe(0);
   });
 
@@ -477,6 +518,16 @@ describe('entitlements routes', () => {
       module: 'sales',
       enabled: false,
       revision: 2,
+    });
+    expect(admin.appended[0]).toMatchObject({
+      event_key: 'entitlement.withdrawn',
+      outcome: 'succeeded',
+      details: {
+        module_key: 'sales',
+        from_enabled: true,
+        to_enabled: false,
+        revision: 2,
+      },
     });
     expect(admin.revisions.get(`entitlement:${tenant.id}`)).toBe(1);
   });
