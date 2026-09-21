@@ -124,11 +124,11 @@ Local validation on 2026-09-21: `npm run lint`, `npm run format:check`,
 `npm test` (382 unit tests across the workspace, including 17 new unit
 tests), `npm run build`, and `npm run licenses` passed.
 
-`npm run test:db` passed 156 of 158 tests against a disposable local
-PostgreSQL 18 server, including all 9
-[entitlements integration tests](../../../../apps/api/tests/integration/entitlements.test.js).
-The two failures are in `admin-foundation.test.js` and predate this Work
-Unit, as recorded in [M0001-07's verification evidence](M0001-07-tenant-creation.md#verification-evidence):
+`npm run test:db` ran 158 tests against a disposable local PostgreSQL 18
+server: 156 passed, including all 9
+[entitlements integration tests](../../../../apps/api/tests/integration/entitlements.test.js),
+and 2 failed. The two failures are in `admin-foundation.test.js` and predate
+this Work Unit, as recorded in [M0001-07's verification evidence](M0001-07-tenant-creation.md#verification-evidence):
 the local fixture server has no `postgres` superuser role and authenticates
 with `trust`, so its wrong-password cases still connect. Neither touches
 `admin.module_entitlements`.
