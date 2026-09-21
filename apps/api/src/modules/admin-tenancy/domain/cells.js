@@ -592,8 +592,13 @@ function parseLimitOrControl(value) {
 }
 
 /**
- * List every registered cell with its provisioning operation, newest
- * registration last, paginated by opaque cursor.
+ * List every registered cell with its provisioning operation, in ascending
+ * `id` order, paginated by opaque cursor.
+ *
+ * The order is stable, not chronological: `id` is a `gen_random_uuid()`
+ * primary key, so ascending `id` has no relationship to registration time.
+ * It is what makes cursor pagination deterministic, the same tradeoff
+ * `access.js`'s membership lists make.
  *
  * Unlike tenant or membership reads, this list carries no tenant scoping:
  * §4 grants `admin-tenancy::control::read` no Napsoft carve-out, only the
