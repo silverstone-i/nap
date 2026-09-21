@@ -44,10 +44,41 @@ export const cellsSchema = {
   },
 };
 
-/** Model for `admin.cells`. Inherits the standard table operations only. */
+/**
+ * Qualified table name for a model instance.
+ *
+ * A module function rather than a private getter: `forSchema` clones a model
+ * with `Object.create`, which does not carry private fields.
+ * @param {Cells} model
+ * @returns {string}
+ */
+function table(model) {
+  return `${model.schemaName}.${model.tableName}`;
+}
+
+/** Model for `admin.cells`. Adds the registration conflict check. */
 export class Cells extends TableModel {
   static schema = cellsSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, cellsSchema, logger);
+  }
+
+  /**
+   * Find the active (unarchived) cell registered under an environment and
+   * database name, if any.
+   *
+   * Read inside the caller's transaction, under the registration advisory
+   * lock, so a second registration racing for the same identity observes the
+   * first one's committed row rather than a stale pool read.
+   * @param {string} environment
+   * @param {string} databaseName
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async findActiveByIdentity(environment, databaseName, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE environment=$1 AND database_name=$2 AND deactivated_at IS NULL`,
+      [environment, databaseName]
+    );
   }
 }
