@@ -195,7 +195,7 @@ export class Sessions extends TableModel {
               (u.deactivated_at IS NOT NULL) AS user_archived,
               (s.idle_expires_at <= now() OR s.absolute_expires_at <= now()) AS expired,
               (s.last_seen_at <= now() - ($2::integer * interval '1 minute')) AS stale,
-              (s.access_mode='support' AND s.access_expires_at <= now()) AS access_expired
+              COALESCE(s.access_mode='support' AND s.access_expires_at <= now(), false) AS access_expired
          FROM ${table(this)} AS s
          JOIN ${this.schemaName}.portal_users AS u ON u.id = s.portal_user_id
         WHERE s.token_hash=$1 AND s.deactivated_at IS NULL`,

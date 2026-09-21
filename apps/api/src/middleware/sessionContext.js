@@ -37,7 +37,11 @@ import {
  * rotates its token as part of that same read. When it does, the new token
  * rides along under the `ROTATED_TOKEN` symbol — never a plain, JSON-visible
  * field — and this middleware writes it as the response cookie immediately,
- * the same shape `issueSessionCookie` uses for an explicit rotation.
+ * the same shape `issueSessionCookie` uses for an explicit rotation. It also
+ * replaces `request.sessionToken` with the rotated value, so a route handler
+ * later in the same request that mutates the session (`/access/select`,
+ * `/access/support`, `/session/rotate`) hashes the live token instead of the
+ * one this read just replaced.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin Admin database handle.
  * @param {object} context.sessionPolicy Session secret and lifetimes.
@@ -58,6 +62,7 @@ export function sessionContext({ admin, sessionPolicy, cookiePolicy }) {
       );
       const rotatedToken = request.session[ROTATED_TOKEN];
       if (rotatedToken) {
+        request.sessionToken = rotatedToken;
         const expiry = new Date(request.session.absoluteExpiresAt).getTime();
         setSessionCookie(
           response,
