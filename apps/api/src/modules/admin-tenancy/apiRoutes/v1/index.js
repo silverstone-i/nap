@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { createAccountsRouter } from './accounts.js';
 import { createAuthRouter } from './auth.js';
 import { createControlRouter } from './control.js';
 import { createSessionRouter } from './session.js';
@@ -51,5 +52,12 @@ export const adminTenancyRoutesV1 = [
     version: 1,
     database: 'admin',
     factory: createTenantsRouter,
+  },
+  {
+    module: 'admin-tenancy',
+    router: 'accounts',
+    version: 1,
+    database: 'admin',
+    factory: createAccountsRouter,
   },
 ];

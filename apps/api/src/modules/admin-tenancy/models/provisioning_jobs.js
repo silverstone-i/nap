@@ -67,10 +67,36 @@ export const provisioningJobsSchema = {
   },
 };
 
-/** Model for `admin.provisioning_jobs`. Inherits the standard table operations only. */
+/**
+ * Qualified table name for a model instance. See `sessions.js` for why this
+ * is a module function rather than a private getter.
+ * @param {ProvisioningJobs} model
+ * @returns {string}
+ */
+function table(model) {
+  return `${model.schemaName}.${model.tableName}`;
+}
+
+/**
+ * Model for `admin.provisioning_jobs`. Adds the locked read retry and the
+ * internal result report need, so two concurrent callers cannot both advance
+ * a job from what they each believed was its current state.
+ */
 export class ProvisioningJobs extends TableModel {
   static schema = provisioningJobsSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, provisioningJobsSchema, logger);
+  }
+
+  /**
+   * Lock and return a provisioning job by identifier, archived or not.
+   * @param {string} id
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockById(id, { tx }) {
+    return tx.oneOrNone(`SELECT * FROM ${table(this)} WHERE id=$1 FOR UPDATE`, [
+      id,
+    ]);
   }
 }

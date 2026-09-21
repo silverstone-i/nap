@@ -94,4 +94,16 @@ export class PortalUserTenants extends TableModel {
       [portalUserId, tenantId]
     );
   }
+
+  /**
+   * Lock and return a membership by identifier, archived or not.
+   * @param {string} id
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockById(id, { tx }) {
+    return tx.oneOrNone(`SELECT * FROM ${table(this)} WHERE id=$1 FOR UPDATE`, [
+      id,
+    ]);
+  }
 }

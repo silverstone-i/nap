@@ -36,14 +36,18 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'cell_code',
   'changed_fields',
   'code',
+  'email',
   'forced',
   'from_status',
+  'job_id',
   'member_type',
   'method',
   'module_key',
   'name',
+  'portal_user_id',
   'previous_session_id',
   'region',
+  'reset_required',
   'retry_after_seconds',
   'role',
   'step',
@@ -110,12 +114,25 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['tenant_code', 'tier', 'name'],
   },
 
-  'user.created': { outcomes: ANY_OUTCOME, details: [] },
+  'user.created': {
+    outcomes: ANY_OUTCOME,
+    // `email` and `reset_required` are stored so a repeated
+    // `Idempotency-Key` can compare against, and replay, the immutable
+    // snapshot this event recorded, not a live (possibly later-edited)
+    // `portal_users` row.
+    details: ['email', 'reset_required'],
+  },
   'user.updated': { outcomes: ANY_OUTCOME, details: ['changed_fields'] },
   'user.disabled': { outcomes: ANY_OUTCOME, details: ['code'] },
   'user.archived': { outcomes: ANY_OUTCOME, details: ['code'] },
   'user.restored': { outcomes: ANY_OUTCOME, details: [] },
-  'membership.created': { outcomes: ANY_OUTCOME, details: ['member_type'] },
+  'membership.created': {
+    outcomes: ANY_OUTCOME,
+    // `portal_user_id` and `job_id` complete the immutable snapshot an
+    // `Idempotency-Key` replay reconstructs: `tenant_id` is already a native
+    // column, and the membership's own id is `target_id`.
+    details: ['member_type', 'portal_user_id', 'job_id'],
+  },
   'membership.suspended': {
     outcomes: ANY_OUTCOME,
     details: ['from_status', 'to_status', 'code'],
@@ -131,6 +148,10 @@ export const EVENT_CATALOGUE = Object.freeze({
   'membership.restored': {
     outcomes: ANY_OUTCOME,
     details: ['from_status', 'to_status'],
+  },
+  'membership.provisioning.retried': {
+    outcomes: ANY_OUTCOME,
+    details: ['attempt'],
   },
   'membership.provisioning.failed': {
     outcomes: FAILED,
