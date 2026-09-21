@@ -39,3 +39,8 @@ Run these verification commands before presenting changes or completing a task:
 - `npm run test:db` (requires `FOUNDATION_TEST_URL` for a disposable PostgreSQL 18 server)
 - `npm run build`
 - `npm run licenses`
+
+## Shipping
+
+Use `.claude/skills/ship/SKILL.md` for commit, PR, review, merge, changelog, and
+release operations after Git has been initialized.

@@ -259,13 +259,17 @@ const TENANT_CODES = new Set([
   'CONFLICT',
   'IDEMPOTENCY_CONFLICT',
   'AUDIT_UNAVAILABLE',
+  'SERVICE_UNAVAILABLE',
   'INTERNAL_ERROR',
 ]);
 
 /**
  * Error carrying one of the stable `admin-tenancy` tenant codes:
  * `INVALID_INPUT`, `FORBIDDEN`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`,
- * `AUDIT_UNAVAILABLE`, or `INTERNAL_ERROR`. Never carries database detail.
+ * `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, or `INTERNAL_ERROR`. Never
+ * carries database detail. `SERVICE_UNAVAILABLE` passes through a
+ * `CacheConsistencyError` from an unavailable revision store, matching the
+ * session and authentication domains.
  *
  * Kept separate from `AdminAccessError` because only tenant creation reports
  * `IDEMPOTENCY_CONFLICT`, for an `Idempotency-Key` reused with a different

@@ -136,15 +136,17 @@ function snapshotMatches(snapshot, normalized) {
  * Resolve a previously recorded `tenant.created` success for this
  * idempotency key against the current request.
  *
- * Compares against the event's immutable `details` snapshot, not the live
- * `tenants` row, so a later edit to the tenant (a future Work Unit) cannot
- * change what an old idempotent replay returns.
+ * Both the comparison and the returned view come entirely from the event's
+ * immutable `details` snapshot and this Work Unit's fixed creation-time
+ * constants — never a fresh read of the live `tenants` row — so a later
+ * edit to the tenant (a future Work Unit) cannot change what an old
+ * idempotent replay returns.
  * @param {AdminTenantsDb} db
  * @param {string} idempotencyKey
  * @param {{code: string, name: string, tier: string}} normalized
  * @returns {Promise<object|null>} The original tenant's safe view, or `null`
  *   when no prior success is recorded for this key.
- * @throws {AdminTenantError} `IDEMPOTENCY_CONFLICT`, `INTERNAL_ERROR`
+ * @throws {AdminTenantError} `IDEMPOTENCY_CONFLICT`
  */
 async function resolveIdempotentReplay(db, idempotencyKey, normalized) {
   const existing = await db.managed_events.findOneBy({
@@ -155,9 +157,16 @@ async function resolveIdempotentReplay(db, idempotencyKey, normalized) {
   if (!existing) return null;
   if (!snapshotMatches(existing.details, normalized))
     throw new AdminTenantError('IDEMPOTENCY_CONFLICT');
-  const tenant = await db.tenants.findById(existing.target_id);
-  if (!tenant) throw new AdminTenantError('INTERNAL_ERROR');
-  return tenantView(tenant);
+  return {
+    id: existing.target_id,
+    code: existing.details.tenant_code,
+    name: existing.details.name,
+    tier: existing.details.tier,
+    status: 'pending',
+    cellId: null,
+    provisioned: false,
+    rbacReady: false,
+  };
 }
 
 /**
@@ -204,13 +213,20 @@ export async function createTenant(
   idempotencyKeyHeader,
   { requestId = null } = {}
 ) {
-  return withTenantErrors(async () => {
-    // Captured before `requireGranted` so a denial's event still attributes
-    // the real actor, not `null` — the throw happens before an assignment
-    // inside the `try` block below would run.
-    let actorId =
-      typeof authority?.actorId === 'string' ? authority.actorId : null;
-    try {
+  // Captured before `requireGranted` so a denial's event still attributes
+  // the real actor, not `null` — the throw happens before an assignment
+  // inside the `try` block below would run.
+  let actorId =
+    typeof authority?.actorId === 'string' ? authority.actorId : null;
+  try {
+    // `withTenantErrors` wraps only the core logic, translating a raw
+    // database or collaborator error (a serialization/deadlock SQLSTATE, an
+    // unavailable cache-revision store) into its final `AdminTenantError`
+    // code before this function's own `catch` decides whether to record a
+    // failure event. Deciding on the pre-translation error would miss the
+    // required event for a conflict that only becomes `CONFLICT` after
+    // translation.
+    return await withTenantErrors(async () => {
       const granted = requireGranted(authority);
       actorId = granted.actorId;
       const idempotencyKey = parseIdempotencyKey(idempotencyKeyHeader);
@@ -274,14 +290,14 @@ export async function createTenant(
         );
         return tenantView(tenant);
       });
-    } catch (error) {
-      if (AUDITED_FAILURE_CODES.has(error?.code))
-        await appendFailureEvent(
-          db,
-          error.code === 'FORBIDDEN' ? 'denied' : 'failed',
-          { requestId, actorId }
-        );
-      throw error;
-    }
-  });
+    });
+  } catch (error) {
+    if (AUDITED_FAILURE_CODES.has(error?.code))
+      await appendFailureEvent(
+        db,
+        error.code === 'FORBIDDEN' ? 'denied' : 'failed',
+        { requestId, actorId }
+      );
+    throw error;
+  }
 }

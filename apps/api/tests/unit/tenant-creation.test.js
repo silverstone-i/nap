@@ -118,10 +118,10 @@ function tenantRow(overrides = {}) {
  * resolution, capability gating, idempotency replay, and the response shape.
  * Concurrency and real-lock behavior are verified against real PostgreSQL in
  * the integration test.
- * @param {{tenants?: object[]}} [seed]
- * @returns {{db: object, appended: object[], sessionStore: Map, revisions: Map}}
+ * @param {{tenants?: object[], failInsertWith?: unknown, failAdvanceWith?: unknown}} [seed]
+ * @returns {{db: object, appended: object[], sessionStore: Map, revisions: Map, tenantStore: Map}}
  */
-function fakeAdmin({ tenants = [] } = {}) {
+function fakeAdmin({ tenants = [], failInsertWith, failAdvanceWith } = {}) {
   const appended = [];
   const sessionStore = new Map();
   const tenantStore = new Map(tenants.map(row => [row.id, { ...row }]));
@@ -149,6 +149,7 @@ function fakeAdmin({ tenants = [] } = {}) {
             !row.deactivated_at
         ) ?? null,
       insert: async dto => {
+        if (failInsertWith) throw failInsertWith;
         const row = tenantRow(dto);
         tenantStore.set(row.id, row);
         return row;
@@ -176,6 +177,7 @@ function fakeAdmin({ tenants = [] } = {}) {
     },
     cache_revisions: {
       advance: async keys => {
+        if (failAdvanceWith) throw failAdvanceWith;
         for (const key of keys) {
           const id = `${key.domain}:${key.entity}`;
           revisions.set(id, (revisions.get(id) ?? 0) + 1);
@@ -187,7 +189,7 @@ function fakeAdmin({ tenants = [] } = {}) {
       },
     },
   };
-  return { db, appended, sessionStore, revisions };
+  return { db, appended, sessionStore, revisions, tenantStore };
 }
 
 const ROOT_ID = randomUUID();
@@ -195,11 +197,11 @@ const ROOT_ID = randomUUID();
 /**
  * Build the API with a fake admin handle and the real route table, and a
  * live session cookie for a root or ordinary actor.
- * @param {{tenants?: object[], root?: boolean}} [options]
+ * @param {{tenants?: object[], root?: boolean, failInsertWith?: unknown, failAdvanceWith?: unknown}} [options]
  * @returns {{app: import('express').Express, admin: object, cookie: string}}
  */
-function api({ tenants, root = true } = {}) {
-  const admin = fakeAdmin({ tenants });
+function api({ tenants, root = true, failInsertWith, failAdvanceWith } = {}) {
+  const admin = fakeAdmin({ tenants, failInsertWith, failAdvanceWith });
   const token = createSessionToken();
   const actorId = root ? ROOT_ID : randomUUID();
   admin.sessionStore.set(hashSessionToken(policy, token), {
@@ -347,5 +349,45 @@ describe('tenants route', () => {
     expect(response.body.error.code).toBe('IDEMPOTENCY_CONFLICT');
     expect(admin.appended).toHaveLength(2);
     expect(admin.appended[1]).toMatchObject({ outcome: 'failed' });
+  });
+
+  it('replays the original snapshot even if the live tenant row later changed', async () => {
+    const { app, admin, cookie } = api();
+    const idempotencyKey = randomUUID();
+    const first = await post(app, cookie, { idempotencyKey });
+
+    const stored = admin.tenantStore.get(first.body.data.id);
+    stored.name = 'Renamed Out Of Band';
+    stored.tier = 'growth';
+
+    const second = await post(app, cookie, { idempotencyKey });
+    expect(second.status).toBe(201);
+    expect(second.body.data).toEqual(first.body.data);
+  });
+
+  it('surfaces an unavailable cache-revision store as 503, not 500', async () => {
+    const { app, cookie } = api({
+      failAdvanceWith: Object.assign(new Error('unavailable'), {
+        code: 'SERVICE_UNAVAILABLE',
+      }),
+    });
+    const response = await post(app, cookie);
+    expect(response.status).toBe(ERROR_STATUS.SERVICE_UNAVAILABLE);
+    expect(response.body.error.code).toBe('SERVICE_UNAVAILABLE');
+  });
+
+  it('records the required failure event for a database-level conflict', async () => {
+    const { app, admin, cookie } = api({
+      failInsertWith: Object.assign(new Error('serialization failure'), {
+        code: '40001',
+      }),
+    });
+    const response = await post(app, cookie);
+    expect(response.status).toBe(ERROR_STATUS.CONFLICT);
+    expect(admin.appended).toHaveLength(1);
+    expect(admin.appended[0]).toMatchObject({
+      event_key: 'tenant.created',
+      outcome: 'failed',
+    });
   });
 });

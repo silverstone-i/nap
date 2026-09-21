@@ -219,6 +219,21 @@ describe('idempotency', () => {
     expect(row.name).toBe(first.name);
   });
 
+  it('replays the original snapshot even after the live tenant row later changed', async () => {
+    const write = authority();
+    const idempotencyKey = randomUUID();
+    const request = body();
+    const first = await createTenant(db, write, request, idempotencyKey);
+
+    await db.none(
+      "UPDATE admin.tenants SET name='Renamed Out Of Band', tier='growth' WHERE id=$1",
+      [first.id]
+    );
+
+    const second = await createTenant(db, write, request, idempotencyKey);
+    expect(second).toEqual(first);
+  });
+
   it('serializes two concurrent requests sharing one key into a single tenant', async () => {
     const write = authority();
     const idempotencyKey = randomUUID();
