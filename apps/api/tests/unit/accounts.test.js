@@ -1042,4 +1042,47 @@ describe('provisioning jobs', () => {
       })
     ).rejects.toMatchObject({ code: 'INVALID_STATE' });
   });
+
+  it('refuses a late report for a membership archived while the job was in flight', async () => {
+    const admin = fakeAdmin();
+    const membership = seedMembership(admin, {
+      status: 'pending',
+      ready: false,
+      deactivated_at: new Date(),
+    });
+    const job = seedJob(admin, {
+      membership_id: membership.id,
+      tenant_id: membership.tenant_id,
+    });
+    await expect(
+      reportProvisioningResult(admin.db, job.id, {
+        kind: 'completed',
+        resultMemberId: randomUUID(),
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    expect(admin.membershipStore.get(membership.id)).toMatchObject({
+      status: 'pending',
+      ready: false,
+    });
+    expect(admin.jobStore.get(job.id)).toMatchObject({ status: 'queued' });
+  });
+
+  it('never lets a provisioning report touch the root membership', async () => {
+    const admin = fakeAdmin();
+    const membership = seedMembership(admin, {
+      member_type: null,
+      status: 'active',
+      ready: true,
+    });
+    const job = seedJob(admin, {
+      membership_id: membership.id,
+      tenant_id: membership.tenant_id,
+    });
+    await expect(
+      reportProvisioningResult(admin.db, job.id, {
+        kind: 'completed',
+        resultMemberId: randomUUID(),
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+  });
 });

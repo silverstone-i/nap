@@ -1369,6 +1369,12 @@ export async function reportProvisioningResult(db, jobId, result) {
         { tx }
       );
       if (!membership) throw new AdminAccountError('NOT_FOUND');
+      // A late report must not resurrect a membership an operator has since
+      // archived, nor ever touch the root membership (`member_type IS
+      // NULL`) — this module's own contract never manages either. Leaves
+      // the job row untouched, still `queued`/`running`.
+      if (membership.deactivated_at || membership.member_type === null)
+        throw new AdminAccountError('INVALID_STATE');
 
       if (parsed.data.kind === 'completed') {
         const updatedJob = await db.provisioning_jobs.update(
