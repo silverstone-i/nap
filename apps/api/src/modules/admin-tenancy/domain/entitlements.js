@@ -259,6 +259,14 @@ async function setEntitlement(
     typeof authority?.actorId === 'string' ? authority.actorId : null;
   let id = null;
   let module = null;
+  // Best-effort echo of the requested module for a failure event, captured
+  // before validation so a rejected (unknown or malformed) module is still
+  // named in the audit trail — mirroring `actorId`'s pre-validation capture
+  // above. Truncated to `parseDetails`' 256-character string limit.
+  const requestedModule =
+    typeof moduleParam === 'string' && moduleParam.length > 0
+      ? moduleParam.slice(0, 256)
+      : null;
   try {
     return await withEntitlementErrors(async () => {
       const granted = requireAuthority(authority);
@@ -268,7 +276,12 @@ async function setEntitlement(
       module = parseModuleParam(moduleParam);
 
       return await db.tx(async tx => {
-        await tx.one(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        // `hashtextextended` (64-bit) rather than `hashtext` (32-bit): unlike
+        // every other advisory lock in this module, which hashes one of a
+        // handful of fixed registry-name literals, this key is parameterized
+        // per `(tenant, module)` pair across a potentially large key space,
+        // so it needs the wider hash to keep collision risk negligible.
+        await tx.one(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
           `admin-tenancy:entitlement:${id}:${module}`,
         ]);
         await requireExistingTenant(db, id, { tx });
@@ -396,7 +409,7 @@ async function setEntitlement(
         db,
         eventKey,
         error.code === 'FORBIDDEN' ? 'denied' : 'failed',
-        { requestId, actorId, tenantId: id, module }
+        { requestId, actorId, tenantId: id, module: module ?? requestedModule }
       );
     throw error;
   }
