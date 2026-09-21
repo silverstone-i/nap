@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                      |
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                      |
+| Status               | Accepted                                                                                                   |
 | Type                 | Module Work Unit                                                                                           |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                          |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
@@ -126,6 +126,64 @@ events. Support cannot disable a cell containing the Napsoft tenant.
 | AC03      | Failure, retry, completion, and disable follow the stated transitions and preserve IDs. | M0001-06-R003, M0001-06-R004, M0001-06-R006 |
 | AC04      | Concurrent requests do not create duplicate cells or advance an operation twice.        | M0001-06-R001, M0001-06-R003                |
 | AC05      | No response, failure, log, or event reveals a connection or provider secret.            | M0001-06-R008                               |
+
+### Verification Evidence
+
+Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
+`npm test` (294 tests in the API workspace, including 12 new unit tests),
+`npm run build`, `npm run licenses`, and `git diff --check` passed.
+
+`npm run test:db` passed 115 of 117 tests against a disposable local
+PostgreSQL 18 server, including all 25
+[cell-management tests](../../../../apps/api/tests/integration/cell-management.test.js).
+The two failures are in `admin-foundation.test.js` and predate this Work
+Unit: the local fixture server authenticates with `trust`, so the
+wrong-password cases those tests rely on still connect. Neither touches
+`admin.cells` or `admin.cell_provisioning`.
+
+Integration tests cover atomic registration (cell and operation together,
+one row each, a queued event) and its duplicate-identity conflict; retry from
+`failed` (same cell and operation UUIDs, `attempts + 1`, cleared failure
+state), its idempotent no-op while `queued` or `running`, its refusal once
+`completed`, and exactly one attempt advancing under two concurrent retries
+(AC04); disable, idempotent and non-destructive; the full runner-trusted
+lifecycle (`started` → `advanced` × 3 → `completed`, enabling the cell only
+at the end) and a `failed` transition recording a safe failure code without
+enabling the cell, plus rejection of an out-of-order transition
+(`INVALID_STATE`); support's Napsoft restriction on retry and disable, and
+its absence from registration, which has no tenant yet; overview pagination
+pairing each cell with its own operation and advancing the cursor; readiness
+distinguishing the central `enabled` flag from an honestly-unwired runtime
+result; and that no cell event carries a credential, connection, or secret
+string (AC05).
+
+Unit tests cover suffix, environment, and database-name validation; control
+authority derivation from a capability; and the four routes against an
+in-memory admin handle: session and capability gating, request validation,
+the `INVALID_STATE` → `409` mapping, and each route's success shape.
+
+Three design points worth recording for a reader comparing this
+implementation to the PRD text:
+
+- `environment` is never read from the registration request body. It comes
+  from the running API's own configuration (threaded through
+  `runtimeConfiguration()` → `server.js` → `app.js` → the `control` router),
+  since §10's request shape (`{ operation: "cell", suffix }`) has no
+  `environment` field and a client must not be able to pick it.
+- §8's lifecycle table reads "attempts incremented" on the runner's own
+  start transition, but M0001-06-R003 states plainly that retry increments
+  the attempt count, and AC03 cites R003 directly. Since this Work Unit does
+  not build the runner (only the internal method a future one will call),
+  `retryCellProvisioning` performs the increment itself; the trusted
+  `started` transition does not increment a second time. This is the reading
+  that makes R003/AC03 demonstrable from what this Work Unit actually ships.
+- `getCellReadiness` reports runtime readiness through an optional
+  collaborator that nothing yet supplies, so it honestly answers
+  `{ ready: false, checked: false }` rather than fabricating a pass. Building
+  the runtime cell connection registry is infrastructure work the PRD
+  excludes ("Physical database setup, migration, seed, and activation");
+  Cross-Module Interactions confirms "Runtime readiness remains an
+  infrastructure result."
 
 ## 14. Outstanding Questions
 

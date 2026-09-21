@@ -36,6 +36,7 @@ try {
       webRoot: config.webRoot,
       api: {
         admin,
+        environment: config.environment,
         sessionPolicy: config.session,
         authenticationPolicy: config.authentication,
         cookiePolicy: config.cookie,

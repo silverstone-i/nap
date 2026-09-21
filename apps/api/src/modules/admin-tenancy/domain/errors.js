@@ -197,6 +197,61 @@ export async function withBootstrapErrors(operation) {
   }
 }
 
+/** Stable codes a control operation may report. Anything else becomes `INTERNAL_ERROR`. */
+const CONTROL_CODES = new Set([
+  'INVALID_INPUT',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'INVALID_STATE',
+  'AUDIT_UNAVAILABLE',
+  'INTERNAL_ERROR',
+]);
+
+/**
+ * Error carrying one of the stable `admin-tenancy` control codes:
+ * `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INVALID_STATE`,
+ * `AUDIT_UNAVAILABLE`, or `INTERNAL_ERROR`. Never carries database detail, a
+ * connection string, or a provider secret.
+ *
+ * Kept separate from `AdminAccessError` because only a cell-provisioning
+ * operation reports `INVALID_STATE`, for a transition the current stage or
+ * status does not permit.
+ */
+export class AdminControlError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs `operation` and translates its failures into an `AdminControlError`.
+ *
+ * An access, event, or control error already carrying a control code keeps
+ * that code. Any other thrown value is assumed to be a database driver error:
+ * a serialization failure or deadlock (SQLSTATE `40001`/`40P01`) becomes
+ * `CONFLICT`; everything else becomes `INTERNAL_ERROR`, discarding the
+ * original message, detail, and constraint name so database structure never
+ * reaches a caller.
+ * @template T
+ * @param {() => Promise<T>} operation
+ * @returns {Promise<T>}
+ * @throws {AdminControlError}
+ */
+export async function withControlErrors(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AdminControlError) throw error;
+    if (CONFLICT_SQLSTATES.has(error?.code))
+      throw new AdminControlError('CONFLICT');
+    throw new AdminControlError(
+      CONTROL_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
+    );
+  }
+}
+
 /** Stable codes an authentication operation may report. Anything else becomes `INTERNAL_ERROR`. */
 const AUTH_CODES = new Set([
   'INVALID_INPUT',

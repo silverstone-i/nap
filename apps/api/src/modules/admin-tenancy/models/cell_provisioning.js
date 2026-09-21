@@ -63,10 +63,55 @@ export const cellProvisioningSchema = {
   },
 };
 
-/** Model for `admin.cell_provisioning`. Inherits the standard table operations only. */
+/**
+ * Qualified table name for a model instance.
+ *
+ * A module function rather than a private getter: `forSchema` clones a model
+ * with `Object.create`, which does not carry private fields.
+ * @param {CellProvisioning} model
+ * @returns {string}
+ */
+function table(model) {
+  return `${model.schemaName}.${model.tableName}`;
+}
+
+/**
+ * Model for `admin.cell_provisioning`. Adds the locked reads retry and the
+ * runner's progress updates need — both change stage, status, and attempts
+ * from a value read under the same lock, so two concurrent callers cannot
+ * both advance the operation from what they each believed was its current
+ * state.
+ */
 export class CellProvisioning extends TableModel {
   static schema = cellProvisioningSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, cellProvisioningSchema, logger);
+  }
+
+  /**
+   * Lock and return the one provisioning operation registered for a cell.
+   * @param {string} cellId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockByCellId(cellId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE cell_id=$1 FOR UPDATE`,
+      [cellId]
+    );
+  }
+
+  /**
+   * Lock and return a provisioning operation by its retained operation
+   * identifier, the identifier a runner tracks across retries.
+   * @param {string} operationId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockByOperationId(operationId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE operation_id=$1 FOR UPDATE`,
+      [operationId]
+    );
   }
 }

@@ -363,6 +363,7 @@ describe('route registry', () => {
       '/api/admin-tenancy/v1/session',
       '/api/admin-tenancy/v1/sessions',
       '/api/admin-tenancy/v1/auth',
+      '/api/admin-tenancy/v1/control',
     ]);
   });
 });

@@ -199,7 +199,7 @@ function originConfiguration(env, suffix) {
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
+ * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -249,6 +249,7 @@ export function runtimeConfiguration(env) {
   return {
     port,
     trustProxyHops,
+    environment: { DEV: 'dev', TEST: 'test', PROD: 'prod' }[suffix],
     admin: roleUrl(entry.endpoint, 'nap-app', entry.appPassword),
     cache: cacheConfiguration(env, suffix),
     session: session,

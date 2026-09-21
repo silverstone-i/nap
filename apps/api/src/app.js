@@ -34,6 +34,7 @@ const JSON_BODY_LIMIT = '64kb';
  * @param {import('express').Express} app
  * @param {object} api
  * @param {import('pg-schemata').Database} api.admin Admin database handle.
+ * @param {'dev'|'test'|'prod'} [api.environment] The running API's own configured environment, passed to routers that need it rather than trusting client input.
  * @param {object} api.sessionPolicy Session secret and lifetimes.
  * @param {object} api.authenticationPolicy Throttle secret and Argon2id parameters.
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} api.cookiePolicy
@@ -45,6 +46,7 @@ const JSON_BODY_LIMIT = '64kb';
 function mountApi(app, api) {
   const {
     admin,
+    environment,
     sessionPolicy,
     authenticationPolicy,
     cookiePolicy,
@@ -68,6 +70,7 @@ function mountApi(app, api) {
   app.use('/api', sessionContext({ admin, sessionPolicy, cookiePolicy }));
   registry.mount(app, {
     admin,
+    environment,
     sessionPolicy,
     authenticationPolicy,
     cookiePolicy,
