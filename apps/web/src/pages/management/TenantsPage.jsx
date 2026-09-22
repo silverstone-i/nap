@@ -17,6 +17,7 @@ const COLUMNS = [
     headerName: 'Code',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -24,6 +25,7 @@ const COLUMNS = [
     headerName: 'Name',
     flex: 2,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -31,6 +33,7 @@ const COLUMNS = [
     headerName: 'Tier',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -38,6 +41,7 @@ const COLUMNS = [
     headerName: 'Status',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -45,6 +49,7 @@ const COLUMNS = [
     headerName: 'Cell',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'secondary',
   },
   {
@@ -52,6 +57,7 @@ const COLUMNS = [
     headerName: 'Provisioned',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'secondary',
     type: 'boolean',
   },
@@ -60,6 +66,7 @@ const COLUMNS = [
     headerName: 'RBAC ready',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'secondary',
     type: 'boolean',
   },

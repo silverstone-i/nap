@@ -23,6 +23,7 @@ const COLUMNS = [
     headerName: 'Email',
     flex: 2,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -30,6 +31,7 @@ const COLUMNS = [
     headerName: 'Status',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -37,6 +39,7 @@ const COLUMNS = [
     headerName: 'Must change password',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
     type: 'boolean',
   },
@@ -45,6 +48,7 @@ const COLUMNS = [
     headerName: 'Deactivated',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'secondary',
     type: 'dateTime',
   },

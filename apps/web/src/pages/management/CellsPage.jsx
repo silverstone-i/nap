@@ -36,6 +36,7 @@ const COLUMNS = [
     headerName: 'Environment',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -43,6 +44,7 @@ const COLUMNS = [
     headerName: 'Database',
     flex: 2,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -50,6 +52,7 @@ const COLUMNS = [
     headerName: 'Enabled',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
     type: 'boolean',
   },
@@ -58,6 +61,7 @@ const COLUMNS = [
     headerName: 'Stage',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -65,6 +69,7 @@ const COLUMNS = [
     headerName: 'Status',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'essential',
   },
   {
@@ -72,6 +77,7 @@ const COLUMNS = [
     headerName: 'Attempts',
     flex: 1,
     sortable: false,
+    filterable: false,
     priority: 'secondary',
     type: 'number',
   },

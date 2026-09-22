@@ -305,7 +305,7 @@ and introduce no new error code.
 | AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                                                            | F0002-R005   |
 | AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                                                             | F0002-R006   |
 | AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                                                          | F0002-R007   |
-| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userView`, with `Cache-Control: no-store`.                                                                     | F0002-R008   |
+| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userListView` (`userView` plus `isRoot`), with `Cache-Control: no-store`.                                      | F0002-R008   |
 | AC09      | Each screen's grid computes a row-count estimate (rendered via MUI's default footer, not visually distinguished from an exact count) and correctly re-fetches when sort, filter, or tenant context changes. | F0002-R009   |
 | AC10      | Each of the three nav children appears only once both its screen is implemented and `entryPoints.tenantManagement` authorizes it; neither alone is sufficient.                                              | F0002-R010   |
 
