@@ -100,8 +100,7 @@ export function SessionProvider({ children }) {
 
   /** Mid-use expiry: clear state, remember where we were, and bounce to `/login`. */
   const expire = useCallback(() => {
-    const path = locationRef.current.pathname + locationRef.current.search;
-    storeReturnPath(path);
+    storeReturnPath(locationRef.current.pathname);
     setState({ ...EMPTY, status: 'anonymous', notice: 'sessionExpired' });
     navigate('/login', { replace: true });
   }, [navigate]);
