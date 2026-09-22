@@ -14,15 +14,10 @@
  * (`apps/api/src/modules/admin-tenancy/apiRoutes/v1/access.js`). Neither
  * condition alone is sufficient (F0002-R010).
  *
- * Every child below is still `implemented: false`: F0001 §3 Scope
- * excludes entity-administration screens, and
  * [F0002](../../../../../docs/PRDs/features/F0002-platform-administration-screens.md)
- * (Draft), which defines them, has not been built yet. So
- * `visibleTenantManagementChildren` returns none today regardless of
- * `entryPoints`, which is what correctly keeps the whole group hidden
- * (F0001-R023, AC16's empty-group case). Flipping a child to
- * `implemented: true` is the only change F0002's implementation needs to
- * make here — the authorization gate below is already real.
+ * implements all three destinations (`apps/web/src/pages/management/`), so
+ * every child below is now `implemented: true` — the authorization gate
+ * below was already real (F0001-R024).
  */
 
 export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
@@ -30,21 +25,21 @@ export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
     id: 'tenants',
     label: 'Tenants',
     path: '/management/tenants',
-    implemented: false,
+    implemented: true,
     authKey: 'tenants',
   }),
   Object.freeze({
     id: 'cells',
     label: 'Cells',
     path: '/management/cells',
-    implemented: false,
+    implemented: true,
     authKey: 'cells',
   }),
   Object.freeze({
     id: 'portal-users',
     label: 'Portal Users',
     path: '/management/portal-users',
-    implemented: false,
+    implemented: true,
     authKey: 'portalUsers',
   }),
 ]);

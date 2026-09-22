@@ -97,9 +97,10 @@ describe('LoginPage', () => {
       expect(screen.getByText('Platform administration.')).toBeTruthy()
     );
     // F0001-R023, AC16 empty-group case, exercised end to end with the real
-    // (unmocked) `tenantManagementNav.js`: no child is implemented and
-    // server-authorized today, so the group stays hidden and only Home
-    // appears in the platform shell's navigation.
+    // (unmocked) `tenantManagementNav.js`: this fixture's `entryPoints`
+    // carries no `tenantManagement` signal at all, so every child stays
+    // unauthorized (F0002-R010 — implemented alone is not sufficient) and
+    // only Home appears in the platform shell's navigation.
     expect(screen.getByRole('button', { name: 'Home' })).toBeTruthy();
     expect(screen.queryByText('Tenant Management')).toBeNull();
   });

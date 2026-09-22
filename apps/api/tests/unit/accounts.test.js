@@ -170,6 +170,19 @@ function fakeAdmin() {
         found.deactivated_at = null;
         return 1;
       },
+      findAfterCursor: async (cursor, limit, orderBy, options = {}) => {
+        const { filters = {}, includeDeactivated = false } = options;
+        const rows = [...userStore.values()]
+          .filter(row => matches(row, filters))
+          .filter(row => includeDeactivated || !row.deactivated_at)
+          .sort((a, b) => (a.id < b.id ? -1 : 1))
+          .filter(row => !cursor?.id || row.id > cursor.id);
+        const page = rows.slice(0, limit);
+        return {
+          rows: page,
+          nextCursor: rows.length > limit ? { id: page.at(-1).id } : null,
+        };
+      },
     },
     portal_user_tenants: {
       lockByUserAndTenant: async (portalUserId, tenantId) => {
@@ -683,6 +696,78 @@ describe('users', () => {
       .set('Origin', ORIGIN)
       .set('Cookie', cookie);
     expect(response.status).toBe(ERROR_STATUS.INVALID_STATE);
+  });
+});
+
+describe('GET /users list', () => {
+  function get(app, cookie, query = '') {
+    return request(app)
+      .get(`${BASE}/users${query}`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie);
+  }
+
+  it('requires a session', async () => {
+    const { app } = api();
+    const response = await request(app)
+      .get(`${BASE}/users`)
+      .set('Origin', ORIGIN);
+    expect(response.status).toBe(ERROR_STATUS.UNAUTHENTICATED);
+  });
+
+  it('refuses a session with no accounts capability', async () => {
+    const { app, cookie } = api({ root: false });
+    const response = await get(app, cookie);
+    expect(response.status).toBe(ERROR_STATUS.FORBIDDEN);
+  });
+
+  it('lists portal-user accounts as the safe userListView shape, including root read-only', async () => {
+    const { app, admin, cookie, actorId } = api();
+    const user = seedUser(admin, { email: 'a@example.com' });
+    const response = await get(app, cookie);
+    expect(response.status).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body.data.rows).toHaveLength(2);
+    expect(response.body.data.rows).toContainEqual({
+      ...userView(user),
+      isRoot: false,
+    });
+    expect(response.body.data.rows).toContainEqual(
+      expect.objectContaining({ id: actorId, isRoot: true })
+    );
+  });
+
+  it('includes an archived user, so it remains reachable for Restore', async () => {
+    const { app, admin, cookie } = api();
+    const user = seedUser(admin, { deactivated_at: new Date() });
+    const response = await get(app, cookie);
+    expect(response.body.data.rows).toContainEqual({
+      ...userView(user),
+      deactivatedAt: user.deactivated_at.toISOString(),
+      isRoot: false,
+    });
+  });
+
+  it('paginates with cursor and limit, root included in the count', async () => {
+    const { app, admin, cookie, actorId } = api();
+    const users = Array.from({ length: 3 }, () => seedUser(admin));
+    const allIds = [...users.map(u => u.id), actorId].sort();
+
+    const seen = [];
+    let query = '?limit=2';
+    for (;;) {
+      const page = await get(app, cookie, query);
+      seen.push(...page.body.data.rows);
+      if (!page.body.data.nextCursor) break;
+      query = `?limit=2&cursor=${encodeURIComponent(page.body.data.nextCursor)}`;
+    }
+    expect(seen.map(row => row.id)).toEqual(allIds);
+  });
+
+  it('rejects an out-of-range limit', async () => {
+    const { app, cookie } = api();
+    const response = await get(app, cookie, '?limit=0');
+    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
   });
 });
 

@@ -6,29 +6,41 @@
 /* eslint-disable react-refresh/only-export-components --
  * The provider and its two accessor hooks are one unit. */
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
+// Two contexts, not one: `useState`'s setter is already referentially
+// stable across renders, but bundling it into one object with the
+// changing `header` value (the earlier single-context shape) forced every
+// `usePageHeader` caller — a context consumer through `SetPageHeaderContext`
+// alone — to also re-render whenever `header` changed. A page passing a
+// fresh `actions` node each render (any dynamic header action, e.g. F0002's
+// "Create tenant" button) would then recreate that node on the resulting
+// re-render, changing `usePageHeader`'s effect dependency, calling
+// `setHeader` again, and looping forever. Splitting the setter out means
+// `usePageHeader` only ever consumes a value that never changes.
 const PageHeaderContext = createContext(null);
+const SetPageHeaderContext = createContext(null);
 
 /** Holds whatever the active page has registered for the contextual action header (F0001 §5). */
 export function PageHeaderProvider({ children }) {
   const [header, setHeader] = useState({ title: '', actions: null });
-  const value = useMemo(() => ({ header, setHeader }), [header]);
   return (
-    <PageHeaderContext.Provider value={value}>
-      {children}
-    </PageHeaderContext.Provider>
+    <SetPageHeaderContext.Provider value={setHeader}>
+      <PageHeaderContext.Provider value={header}>
+        {children}
+      </PageHeaderContext.Provider>
+    </SetPageHeaderContext.Provider>
   );
 }
 
 /** @returns {{title: string, actions: import('react').ReactNode|null}} */
 export function usePageHeaderValue() {
-  const context = useContext(PageHeaderContext);
-  if (!context)
+  const header = useContext(PageHeaderContext);
+  if (!header)
     throw new Error(
       'usePageHeaderValue must be used within PageHeaderProvider'
     );
-  return context.header;
+  return header;
 }
 
 /**
@@ -38,10 +50,9 @@ export function usePageHeaderValue() {
  * @returns {void}
  */
 export function usePageHeader({ title, actions = null }) {
-  const context = useContext(PageHeaderContext);
-  if (!context)
+  const setHeader = useContext(SetPageHeaderContext);
+  if (!setHeader)
     throw new Error('usePageHeader must be used within PageHeaderProvider');
-  const { setHeader } = context;
   useEffect(() => {
     setHeader({ title, actions });
     document.title = title ? `${title} · nap.` : 'nap.';

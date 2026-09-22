@@ -17,6 +17,9 @@ import {
   NoAccessScreen,
 } from './auth/StatusScreens.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
+import { CellsPage } from './pages/management/CellsPage.jsx';
+import { PortalUsersPage } from './pages/management/PortalUsersPage.jsx';
+import { TenantsPage as ManagementTenantsPage } from './pages/management/TenantsPage.jsx';
 import { PasswordPage } from './pages/PasswordPage.jsx';
 import { PlatformHome } from './pages/PlatformHome.jsx';
 import { TenantHome } from './pages/TenantHome.jsx';
@@ -66,6 +69,39 @@ function PlatformShellRoute() {
   );
 }
 
+/** `/management/tenants` (F0002-R001). */
+function TenantsRoute() {
+  return (
+    <RequirePlatformAccess>
+      <AppShell homePath="/management" area="platform">
+        <ManagementTenantsPage />
+      </AppShell>
+    </RequirePlatformAccess>
+  );
+}
+
+/** `/management/cells` (F0002-R003/R004). */
+function CellsRoute() {
+  return (
+    <RequirePlatformAccess>
+      <AppShell homePath="/management" area="platform">
+        <CellsPage />
+      </AppShell>
+    </RequirePlatformAccess>
+  );
+}
+
+/** `/management/portal-users` (F0002-R005/R006). */
+function PortalUsersRoute() {
+  return (
+    <RequirePlatformAccess>
+      <AppShell homePath="/management" area="platform">
+        <PortalUsersPage />
+      </AppShell>
+    </RequirePlatformAccess>
+  );
+}
+
 export function App() {
   return (
     <SessionProvider>
@@ -88,6 +124,9 @@ export function App() {
           }
         />
         <Route path="/management" element={<PlatformShellRoute />} />
+        <Route path="/management/tenants" element={<TenantsRoute />} />
+        <Route path="/management/cells" element={<CellsRoute />} />
+        <Route path="/management/portal-users" element={<PortalUsersRoute />} />
         <Route path="/app/:tenantId" element={<TenantShellRoute />} />
         <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<RootRedirect />} />

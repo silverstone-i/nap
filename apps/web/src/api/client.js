@@ -32,16 +32,20 @@ export class ApiError extends Error {
  * @param {string} method
  * @param {string} path Same-origin path, e.g. `/api/admin-tenancy/v1/auth/login`.
  * @param {unknown} [body]
+ * @param {Record<string, string>} [extraHeaders] Additional request headers, e.g. `Idempotency-Key`.
  * @returns {Promise<unknown>} The envelope's `data`, or `null` for a `204`.
  * @throws {ApiError}
  */
-async function request(method, path, body) {
+async function request(method, path, body, extraHeaders = {}) {
   let response;
   try {
     response = await fetch(path, {
       method,
       credentials: 'same-origin',
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+      headers: {
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...extraHeaders,
+      },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -72,5 +76,8 @@ async function request(method, path, body) {
 
 /** GET `path` and return the envelope's `data`. @param {string} path @returns {Promise<unknown>} */
 export const apiGet = path => request('GET', path);
-/** POST `body` to `path` and return the envelope's `data`. @param {string} path @param {unknown} [body] @returns {Promise<unknown>} */
-export const apiPost = (path, body) => request('POST', path, body);
+/** POST `body` to `path` and return the envelope's `data`. @param {string} path @param {unknown} [body] @param {Record<string, string>} [extraHeaders] @returns {Promise<unknown>} */
+export const apiPost = (path, body, extraHeaders) =>
+  request('POST', path, body, extraHeaders);
+/** DELETE `path` and return the envelope's `data`, or `null` for a `204`. @param {string} path @returns {Promise<unknown>} */
+export const apiDelete = path => request('DELETE', path);

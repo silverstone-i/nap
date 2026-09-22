@@ -11,12 +11,26 @@
 
 import {
   accessContextResponseSchema,
+  controlOverviewResponseSchema,
   eligibleTenantsResponseSchema,
   sessionResponseSchema,
+  tenantResponseSchema,
+  tenantsListResponseSchema,
+  userResponseSchema,
+  usersListResponseSchema,
 } from '@nap/shared';
-import { apiGet, apiPost } from './client.js';
+import { apiDelete, apiGet, apiPost } from './client.js';
 
 const BASE = '/api/admin-tenancy/v1';
+
+/** Build a same-origin query string from a `{cursor, limit}` page request, omitting unset values. */
+function pageQuery({ cursor, limit } = {}) {
+  const params = new URLSearchParams();
+  if (cursor !== undefined && cursor !== null) params.set('cursor', cursor);
+  if (limit !== undefined && limit !== null) params.set('limit', String(limit));
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
 
 /**
  * @param {string} email
@@ -65,4 +79,104 @@ export async function listTenants() {
 export async function selectTenant(tenantId) {
   const data = await apiPost(`${BASE}/access/select`, { tenant: tenantId });
   return sessionResponseSchema.parse({ version: 1, data }).data;
+}
+
+// ---------------------------------------------------------------------------
+// Platform administration (F0002)
+// ---------------------------------------------------------------------------
+
+/**
+ * @param {{cursor?: string, limit?: number}} [page]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe tenant views (F0002-R007).
+ */
+export async function listTenantsPage(page) {
+  const data = await apiGet(`${BASE}/tenants${pageQuery(page)}`);
+  return tenantsListResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * @param {{code: string, name: string, tier: string}} input
+ * @returns {Promise<object>} Safe tenant view (F0002-R002).
+ */
+export async function createTenant(input) {
+  const data = await apiPost(`${BASE}/tenants`, input, {
+    'Idempotency-Key': crypto.randomUUID(),
+  });
+  return tenantResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * @param {{cursor?: string, limit?: number}} [page]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of `{cell, operation}` overview rows.
+ */
+export async function listCellsOverview(page) {
+  const data = await apiGet(`${BASE}/control/overview${pageQuery(page)}`);
+  return controlOverviewResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * @param {{suffix: string}} input
+ * @returns {Promise<object>} `{cell, operation}` UUIDs for the new registration.
+ */
+export async function registerCell({ suffix }) {
+  return apiPost(`${BASE}/control/registry`, { operation: 'cell', suffix });
+}
+
+/**
+ * @param {{cell: string}} input Cell UUID.
+ * @returns {Promise<object>} The current queued provisioning operation.
+ */
+export async function retryCellProvisioning({ cell }) {
+  return apiPost(`${BASE}/control/provision`, {
+    operation: 'cell-retry',
+    cell,
+  });
+}
+
+/**
+ * @param {{cell: string}} input Cell UUID.
+ * @returns {Promise<object>} The disabled registry view.
+ */
+export async function disableCell({ cell }) {
+  return apiPost(`${BASE}/control/provision`, {
+    operation: 'cell-disable',
+    cell,
+  });
+}
+
+/**
+ * @param {{cursor?: string, limit?: number}} [page]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe portal-user views (F0002-R008).
+ */
+export async function listUsersPage(page) {
+  const data = await apiGet(`${BASE}/accounts/users${pageQuery(page)}`);
+  return usersListResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * @param {{email: string, password: string}} input
+ * @returns {Promise<object>} Safe user view (F0002-R006).
+ */
+export async function createPortalUser(input) {
+  const data = await apiPost(`${BASE}/accounts/users`, input, {
+    'Idempotency-Key': crypto.randomUUID(),
+  });
+  return userResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * @param {string} id Portal-user UUID.
+ * @returns {Promise<void>}
+ */
+export async function deactivatePortalUser(id) {
+  await apiDelete(`${BASE}/accounts/users/${id}`);
+}
+
+/**
+ * @param {string} id Portal-user UUID.
+ * @returns {Promise<object>} Safe user view.
+ */
+export async function restorePortalUser(id) {
+  const data = await apiPost(`${BASE}/accounts/users/${id}/restore`);
+  return userResponseSchema.parse({ version: 1, data }).data;
 }

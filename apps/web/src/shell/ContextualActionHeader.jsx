@@ -19,9 +19,9 @@ export function ContextualActionHeader({ headingRef }) {
   return (
     <Stack
       direction="row"
-      alignItems="center"
-      justifyContent="space-between"
       sx={{
+        alignItems: 'center',
+        justifyContent: 'space-between',
         px: 3,
         py: 2,
         borderBottom: 1,

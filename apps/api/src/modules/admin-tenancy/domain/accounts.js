@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { AdminAccountError, withAccountErrors } from './errors.js';
 import { parseScope, isTenantPermitted } from './scope.js';
-import { parseUuid, parseNormalizedEmail } from './validation.js';
+import { parseUuid, parseNormalizedEmail, parseLimit } from './validation.js';
 import { hashPassword, parseHashingPolicy, parsePassword } from './password.js';
 import {
   revokeSessionsForUser,
@@ -424,6 +424,128 @@ export async function createOrReuseUser(
       );
     throw error;
   }
+}
+
+/** Raw columns `listUsers` reads before projecting through `userListView`. */
+const USER_LIST_COLUMNS = Object.freeze([
+  'id',
+  'email',
+  'status',
+  'must_change_password',
+  'deactivated_at',
+  'is_root',
+]);
+
+/**
+ * Safe projection for the platform-wide portal-user list only: `userView`
+ * plus whether the row is the root account. The root account is otherwise
+ * unreachable through this module (every other route's `userView` caller
+ * excludes it before it ever gets here — `userView` itself still never
+ * exposes `is_root`), but F0002's Portal Users screen must still display it
+ * for operator visibility, read-only — `isRoot` is what lets the UI hide
+ * Deactivate/Restore for that one row, since `archiveUser`/`restoreUser`
+ * both reject `is_root` with `NOT_FOUND` regardless.
+ * @param {object} row
+ * @returns {object}
+ */
+function userListView(row) {
+  return { ...userView(row), isRoot: Boolean(row.is_root) };
+}
+
+const userCursorSchema = z.strictObject({
+  v: z.literal(1),
+  op: z.literal('listUsers'),
+  last: z.uuid(),
+});
+
+/**
+ * Decode and validate an opaque portal-user-list cursor.
+ * @param {unknown} cursor
+ * @returns {{id: string}|null}
+ * @throws {AdminAccountError} `INVALID_INPUT`
+ */
+function parseUserCursor(cursor) {
+  if (cursor === undefined || cursor === null) return null;
+  if (typeof cursor !== 'string' || cursor.length === 0)
+    throw new AdminAccountError('INVALID_INPUT');
+  let decoded;
+  try {
+    decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw new AdminAccountError('INVALID_INPUT');
+  }
+  const result = userCursorSchema.safeParse(decoded);
+  if (!result.success) throw new AdminAccountError('INVALID_INPUT');
+  return { id: result.data.last };
+}
+
+/**
+ * Encode the next portal-user-list page's cursor.
+ * @param {{id: string}|null} nextCursor
+ * @returns {string|null}
+ */
+function encodeUserCursor(nextCursor) {
+  if (!nextCursor) return null;
+  const payload = { v: 1, op: 'listUsers', last: nextCursor.id };
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+/**
+ * Apply the shared 50/100 page limit, reporting the account error code.
+ * @param {unknown} value
+ * @returns {number}
+ * @throws {AdminAccountError} `INVALID_INPUT`
+ */
+function parseLimitOrAccount(value) {
+  try {
+    return parseLimit(value);
+  } catch {
+    throw new AdminAccountError('INVALID_INPUT');
+  }
+}
+
+/**
+ * List every portal-user account — including root, for operator visibility
+ * — in ascending `id` order, paginated by opaque cursor (F0002-R008).
+ *
+ * Reads with `includeDeactivated: true`: `admin.portal_users` is
+ * soft-delete tracked, so an archived account would otherwise vanish from
+ * this list entirely — and F0002-R006 requires a Restore action, which has
+ * no row to act on if the archived account it targets is unreachable here.
+ * `scope.archiveManagement` is granted whenever `platformPortalUserRead` is
+ * (both flip together in `accessScope`), so `requirePlatformAuthority`
+ * alone is the correct, sufficient gate — no separate archive-specific
+ * check is needed the way `findPortalUserIncludingArchived`
+ * (domain/access.js) requires one for its single-record read.
+ *
+ * No filter excludes `is_root`: root is otherwise invisible everywhere else
+ * this module reads or writes (`getUser`, `createOrReuseUser`,
+ * `archiveUser`, `restoreUser` all refuse to touch it), so listing it here
+ * is read-only visibility, not a new way to manage it — `userListView`'s
+ * `isRoot` flag is what lets the UI withhold Deactivate/Restore for that
+ * one row instead.
+ * @param {AdminAccountsDb} db
+ * @param {unknown} authority `{actorId, scope}`; `scope` built for `admin-tenancy::accounts::read`.
+ * @param {{cursor?: unknown, limit?: unknown}} [page]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe user-list views.
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `INTERNAL_ERROR`
+ */
+export async function listUsers(db, authority, { cursor, limit } = {}) {
+  requirePlatformAuthority(authority);
+  const parsedLimit = parseLimitOrAccount(limit);
+  const resumeFrom = parseUserCursor(cursor);
+  return withAccountErrors(async () => {
+    const page = await db.portal_users.findAfterCursor(
+      resumeFrom ?? {},
+      parsedLimit,
+      ['id'],
+      { columnWhitelist: USER_LIST_COLUMNS, includeDeactivated: true }
+    );
+    return {
+      rows: page.rows.map(userListView),
+      nextCursor: encodeUserCursor(page.nextCursor),
+    };
+  });
 }
 
 /**

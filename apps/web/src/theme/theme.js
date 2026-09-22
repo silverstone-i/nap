@@ -46,7 +46,7 @@ export function buildTheme(mode) {
         textTransform: 'none',
       },
       h1: {
-        fontSize: '28px',
+        fontSize: '21px',
         fontWeight: 600,
         letterSpacing: '-0.02em',
         lineHeight: 1.2,
@@ -73,6 +73,10 @@ export function buildTheme(mode) {
       MuiButton: {
         styleOverrides: {
           root: { borderRadius: 4 },
+          // 25% smaller than the base `button` typography token (14px) —
+          // the contextual action header's per-page actions (e.g. "Create
+          // tenant") use `size="small"` for this reduced footprint.
+          sizeSmall: { fontSize: '10.5px' },
           containedPrimary: {
             '&:hover': { backgroundColor: t.navyHover },
           },

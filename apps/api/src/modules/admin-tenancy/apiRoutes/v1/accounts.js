@@ -22,6 +22,7 @@ import {
   createOrReuseUser,
   getJob,
   getUser,
+  listUsers,
   restoreMembership,
   restoreUser,
   retryJob,
@@ -94,6 +95,22 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
         { requestId: request.requestId }
       );
       sendData(response, user, 201);
+    } catch (error) {
+      sendAccountError(response, error);
+    }
+  });
+
+  router.get('/users', requireSession(), async (request, response) => {
+    try {
+      const read = await authority(request, 'admin-tenancy::accounts::read');
+      const result = await listUsers(admin.db, read, {
+        cursor: request.query.cursor,
+        limit:
+          request.query.limit === undefined
+            ? undefined
+            : Number(request.query.limit),
+      });
+      sendData(response, result);
     } catch (error) {
       sendAccountError(response, error);
     }

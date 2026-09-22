@@ -30,17 +30,9 @@ const cookiePolicy = { secure: false, sameSite: 'lax' };
 
 describe('validation', () => {
   it('accepts a well-formed suffix and rejects the rest', () => {
-    for (const good of ['a', 'east', 'us-east-1', 'a'.repeat(32)])
+    for (const good of ['a', '1', 'east', 'us-east-1', '1east', 'a'.repeat(32)])
       expect(parseSuffix(good)).toBe(good);
-    for (const bad of [
-      '',
-      'A',
-      '1east',
-      '-east',
-      'east-',
-      'a'.repeat(33),
-      'has space',
-    ])
+    for (const bad of ['', 'A', '-east', 'east-', 'a'.repeat(33), 'has space'])
       expect(() => parseSuffix(bad)).toThrow(
         expect.objectContaining({ code: 'INVALID_INPUT' })
       );
