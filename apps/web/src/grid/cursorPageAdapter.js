@@ -7,9 +7,11 @@
  * @file Bridges `StandardDataGrid`'s `fetchPage({page, pageSize, sortModel,
  * filterModel}) -> {rows, rowCount}` contract to one of this module's
  * cursor-paginated list endpoints, `{cursor, limit} -> {rows, nextCursor}`
- * (F0002-R009). `rowCount` is always a disclosed estimate — rows already
- * fetched, plus one page's worth if the server reports more — never a claim
- * of an exact total the API does not provide.
+ * (F0002-R009). `rowCount` is always an estimate — rows already fetched,
+ * plus one page's worth if the server reports more — never a claim of an
+ * exact total the API does not provide. It is not visually distinguished
+ * from an exact count; `StandardDataGrid` renders it through MUI's default
+ * footer text.
  *
  * None of this feature's three screens expose sortable or filterable
  * columns (the underlying endpoints define no sort/filter query
