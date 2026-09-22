@@ -14,6 +14,8 @@ when a pull request with a release label merges into `main`.
 
 - Add the browser application shell: login with throttling and required password change, session restoration, protected routes, tenant selection and switching, platform and tenant Home areas, responsive navigation with contextual actions, and a light/dark display-mode toggle. A new `GET /api/admin-tenancy/v1/access/context` endpoint gives the browser one authoritative startup read of the session, selected tenant, and the per-destination `entryPoints` — including the Tenant Management navigation gate — used to route a signed-in user.
 
+## [v0.13.0] - 2026-09-21
+
 ### Changed
 
 - Reconcile the M0001-06, M0001-08, and M0001-09 Work Unit PRDs and the Admin Tenancy family roadmap: mark all three `Implemented`/`Complete` with fresh verification evidence, matching code and tests already merged.
