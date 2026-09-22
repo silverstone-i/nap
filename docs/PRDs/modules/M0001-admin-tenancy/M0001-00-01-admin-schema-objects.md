@@ -182,7 +182,8 @@ export const portalUsersSchema = {
 
 Links portal users to tenants. `member_type` identifies the kind of member;
 `member_id` stores that member’s UUID in the tenant’s cell, not a foreign key.
-A `vendor` member is a person working for a vendor.
+A `vendor_contact` member is a person working for a vendor; the vendor business
+itself is never a member.
 
 ```js
 export const portalUserTenantsSchema = {
@@ -209,7 +210,7 @@ export const portalUserTenantsSchema = {
   constraints: {
     primaryKey: ['id'],
     checks: [
-      "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor', 'contact')",
+      "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
       "status IN ('pending', 'active', 'suspended')",
       'revision > 0',
       "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND member_id IS NOT NULL)))",
@@ -485,7 +486,7 @@ export const provisioningJobsSchema = {
   constraints: {
     primaryKey: ['id'],
     checks: [
-      "kind IN ('employee', 'client', 'vendor', 'contact')",
+      "kind IN ('employee', 'client', 'vendor_contact', 'contact')",
       "status IN ('queued', 'running', 'failed', 'completed')",
       'attempts >= 0',
       "(status = 'completed' AND result_member_id IS NOT NULL AND failure_code IS NULL) OR status <> 'completed'",

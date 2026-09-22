@@ -174,6 +174,11 @@ separate operator-workflow specification.
   table count is not a permanent limit.
 - Before that boundary, a pre-release baseline reset may consolidate migrations.
   Record the reset in the changelog and recreate affected disposable databases.
+- A pre-release in-place edit to an applied migration ships a one-off SQL script
+  in `apps/api/src/scripts/sql/`, named for the edited migration. The script
+  brings an existing database to the edited schema and updates the ledger hash
+  in one transaction, and the changelog entry names it. Operators run it as
+  `nap-admin` before the next `db:migrate:admin`.
 
 ## What This Document Does Not Cover
 

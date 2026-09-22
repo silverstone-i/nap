@@ -82,6 +82,9 @@ ledger, then verifies the installed contract. Repeat both commands to verify
 safe reuse: each reports `unchanged` when no work remains. A failure returns a
 nonzero exit code and a safe code; fix the configuration and retry the same target.
 Do not delete the database or change passwords as a retry procedure.
+If migration reports a checksum mismatch after an update, check the changelog for
+a one-off script in `apps/api/src/scripts/sql/` and run it as `nap-admin`, or
+recreate a disposable development database.
 
 Run `npm run dev:api` and `npm run dev:web` for the existing development servers.
 `/health/live` proves process liveness; `/health/ready` checks the Admin database

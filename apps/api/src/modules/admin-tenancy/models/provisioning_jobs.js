@@ -33,7 +33,7 @@ export const provisioningJobsSchema = {
   constraints: {
     primaryKey: ['id'],
     checks: [
-      "kind IN ('employee', 'client', 'vendor', 'contact')",
+      "kind IN ('employee', 'client', 'vendor_contact', 'contact')",
       "status IN ('queued', 'running', 'failed', 'completed')",
       'attempts >= 0',
       "(status = 'completed' AND result_member_id IS NOT NULL AND failure_code IS NULL) OR status <> 'completed'",

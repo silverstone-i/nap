@@ -292,7 +292,7 @@ describe('memberships and provisioning jobs', () => {
     const { membership, job } = await createMembership(
       db,
       write,
-      { portalUserId: userId, tenantId, memberType: 'vendor' },
+      { portalUserId: userId, tenantId, memberType: 'vendor_contact' },
       randomUUID()
     );
 

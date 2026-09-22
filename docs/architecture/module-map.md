@@ -17,7 +17,7 @@ and shows which modules must work together to provide a product area.
 | `admin-tenancy`       | `admin/admin`    | Owns tenants, cells, portal users, memberships, sessions, module entitlements, all portal-user role assignments, and provisioning records. |
 | `cell-tenancy`        | `cell/cell`      | Holds the tenant, membership, and entitlement projections used to enforce access inside a cell.                                            |
 | `reference-data`      | `cell/reference` | Owns shared reference data such as countries and currencies.                                                                               |
-| `business-directory`  | `cell/app`       | Owns employees, clients, vendors, contacts, addresses, and contact methods.                                                                |
+| `business-directory`  | `cell/app`       | Owns employees, clients, vendors, vendor contacts, contacts, addresses, and contact methods.                                               |
 | `companies`           | `cell/app`       | Owns legal entities and their tax registrations.                                                                                           |
 | `access-control`      | `cell/app`       | Owns tenant-local role definitions, permissions, and access scopes.                                                                        |
 | `tenant-settings`     | `cell/app`       | Owns numbering, preferences, payment terms, and approval configuration.                                                                    |
@@ -41,7 +41,7 @@ tenant can use. `cell-tenancy` stores the projections needed to enforce that
 assignment inside the cell.
 
 `reference-data` supplies shared values. `business-directory` owns employees,
-clients, vendors, and contacts. `companies` owns the tenant's legal entities.
+clients, vendors, vendor contacts, and contacts. `companies` owns the tenant's legal entities.
 Projects, accounting, RBAC, and reporting use those company records.
 
 `access-control` owns tenant-local role definitions and access scopes.
