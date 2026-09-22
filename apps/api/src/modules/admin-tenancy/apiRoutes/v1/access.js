@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { sendData } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import { permits, resolveAuthorization } from '../../domain/authorization.js';
+import { AdminAccessError } from '../../domain/errors.js';
 import {
   eligibleTenantView,
   enterSupport,
@@ -66,6 +67,11 @@ export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
             { columnWhitelist: ['id', 'tenant_code', 'name', 'tier'] }
           ),
         ]);
+      // `resolveAuthorization` above runs the same `status: 'active'` lookup
+      // and already rejects when it comes up empty, but this handler must
+      // not depend on that sibling call's `Promise.all` ordering for its own
+      // correctness — guard it directly, same as `resolveAuthorization` does.
+      if (!user) throw new AdminAccessError('FORBIDDEN');
       sendData(response, {
         session,
         user: { id: user.id, email: user.email },

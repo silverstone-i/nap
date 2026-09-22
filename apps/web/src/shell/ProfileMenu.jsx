@@ -54,9 +54,7 @@ export function ProfileMenu() {
             bgcolor: theme.palette.primary.main,
           }}
         >
-          {initialsFromEmail(
-            session.user?.email ?? session.session?.user ?? ''
-          )}
+          {initialsFromEmail(session.user?.email ?? '')}
         </Avatar>
       </IconButton>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={close}>
