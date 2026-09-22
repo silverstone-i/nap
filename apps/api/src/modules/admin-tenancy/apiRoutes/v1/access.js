@@ -6,8 +6,9 @@
 import { Router } from 'express';
 import { sendData } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
-import { resolveAuthorization } from '../../domain/authorization.js';
+import { permits, resolveAuthorization } from '../../domain/authorization.js';
 import {
+  eligibleTenantView,
   enterSupport,
   exitSupport,
   listEligibleTenants,
@@ -37,6 +38,68 @@ import {
  */
 export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
   const router = Router();
+
+  // F0001-R022. Same guard convention as `GET /session/current`: no
+  // `allowRestricted`, so a restricted session gets
+  // `403 PASSWORD_CHANGE_REQUIRED` and the browser client treats that code
+  // as "go to /password" the same way it already does for every other
+  // protected read.
+  router.get('/context', requireSession(), async (request, response) => {
+    try {
+      const { session } = request;
+      const [user, authorization, tenants, selectedTenant, operator] =
+        await Promise.all([
+          admin.db.portal_users.findOneBy(
+            { id: session.user, status: 'active' },
+            { columnWhitelist: ['id', 'email'] }
+          ),
+          resolveAuthorization(admin.db, session),
+          listEligibleTenants(admin.db, session.user),
+          session.tenant
+            ? admin.db.tenants.findOneBy(
+                { id: session.tenant },
+                { columnWhitelist: ['id', 'tenant_code', 'name', 'tier'] }
+              )
+            : null,
+          admin.db.tenants.findOneBy(
+            { is_napsoft: true, status: 'active' },
+            { columnWhitelist: ['id', 'tenant_code', 'name', 'tier'] }
+          ),
+        ]);
+      sendData(response, {
+        session,
+        user: { id: user.id, email: user.email },
+        selectedTenant: selectedTenant
+          ? eligibleTenantView(selectedTenant)
+          : null,
+        // The platform operator's own company — a fixed, single record
+        // (`is_napsoft` is unique) rather than a caller-eligible tenant.
+        // Shown by the shell in platform context, where there is no
+        // selected tenant to display instead.
+        operator: operator ? eligibleTenantView(operator) : null,
+        entryPoints: {
+          platform: authorization.platform !== null,
+          tenant: tenants.length > 0,
+          // F0001-R024: a real, per-destination signal for the platform
+          // shell's Tenant Management nav group (F0001-R023), derived from
+          // the same resolved capabilities the server already enforces on
+          // each underlying route — never a stand-in built from the
+          // coarser `platform` flag above, and never the raw capability
+          // list itself.
+          tenantManagement: {
+            tenants: permits(authorization, 'admin-tenancy::control::read'),
+            cells: permits(authorization, 'admin-tenancy::control::read'),
+            portalUsers: permits(
+              authorization,
+              'admin-tenancy::accounts::read'
+            ),
+          },
+        },
+      });
+    } catch (error) {
+      sendSessionError(response, error);
+    }
+  });
 
   router.get('/tenants', requireSession(), async (request, response) => {
     try {

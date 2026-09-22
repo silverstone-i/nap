@@ -3,15 +3,41 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { render, screen } from '@testing-library/react';
-import { afterEach, expect, it } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router';
 import { App } from '../src/App.jsx';
+import { ThemeModeProvider } from '../src/theme/ThemeModeContext.jsx';
+import { ApiError } from '../src/api/client.js';
+import * as api from '../src/api/endpoints.js';
+import { installMatchMedia } from './testUtils.jsx';
 
-afterEach(cleanup);
+vi.mock('../src/api/endpoints.js', () => ({
+  login: vi.fn(),
+  changePassword: vi.fn(),
+  logout: vi.fn(),
+  getAccessContext: vi.fn(),
+  listTenants: vi.fn(),
+  selectTenant: vi.fn(),
+}));
 
-it('renders the project placeholder', () => {
-  render(<App />);
-  expect(screen.getByRole('heading', { name: 'NAP' })).toBeTruthy();
-  expect(screen.getByText('Project foundation is ready.')).toBeTruthy();
+beforeEach(() => {
+  installMatchMedia();
+  api.getAccessContext.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+it('sends an unauthenticated visitor to /login', async () => {
+  render(
+    <ThemeModeProvider>
+      <MemoryRouter initialEntries={['/']}>
+        <App />
+      </MemoryRouter>
+    </ThemeModeProvider>
+  );
+  expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
 });

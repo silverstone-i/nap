@@ -14,11 +14,12 @@ export default defineConfig([
   globalIgnores(['**/dist/', '**/coverage/', '**/node_modules/']),
   {
     files: ['**/*.{js,mjs,cjs}'],
+    ignores: ['apps/web/src/**', 'apps/web/tests/**'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['apps/web/src/**/*.jsx', 'apps/web/tests/**/*.jsx'],
+    files: ['apps/web/src/**/*.{js,jsx}', 'apps/web/tests/**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
