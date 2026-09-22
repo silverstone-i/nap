@@ -126,10 +126,7 @@ export function App() {
         <Route path="/management" element={<PlatformShellRoute />} />
         <Route path="/management/tenants" element={<TenantsRoute />} />
         <Route path="/management/cells" element={<CellsRoute />} />
-        <Route
-          path="/management/portal-users"
-          element={<PortalUsersRoute />}
-        />
+        <Route path="/management/portal-users" element={<PortalUsersRoute />} />
         <Route path="/app/:tenantId" element={<TenantShellRoute />} />
         <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<RootRedirect />} />

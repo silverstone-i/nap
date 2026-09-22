@@ -54,7 +54,10 @@ export function createCursorPageAdapter(fetchCursorPage, { mapRow } = {}) {
       page = 0;
     }
     const cursor = cursorsByPage.get(page);
-    const { rows, nextCursor } = await fetchCursorPage({ cursor, limit: pageSize });
+    const { rows, nextCursor } = await fetchCursorPage({
+      cursor,
+      limit: pageSize,
+    });
     if (nextCursor) cursorsByPage.set(page + 1, nextCursor);
     const knownRows = page * pageSize + rows.length;
     return {

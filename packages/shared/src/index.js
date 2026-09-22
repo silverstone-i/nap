@@ -176,7 +176,8 @@ export const tenantResponseSchema = z.strictObject({
 });
 
 /** Zod schema for the success envelope returned by `GET /tenants`. */
-export const tenantsListResponseSchema = cursorPageResponseSchema(tenantViewSchema);
+export const tenantsListResponseSchema =
+  cursorPageResponseSchema(tenantViewSchema);
 
 /**
  * Zod schema for the safe portal-user view — `userView`
@@ -215,7 +216,8 @@ export const userListRowSchema = z.strictObject({
 });
 
 /** Zod schema for the success envelope returned by `GET /accounts/users`. */
-export const usersListResponseSchema = cursorPageResponseSchema(userListRowSchema);
+export const usersListResponseSchema =
+  cursorPageResponseSchema(userListRowSchema);
 
 /**
  * Zod schema for the safe cell view — `cellView` (`apps/api`

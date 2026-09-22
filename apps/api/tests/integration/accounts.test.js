@@ -419,9 +419,7 @@ describe('reads', () => {
     expect(seenIds).toContain(rootId);
     expect(seen.find(row => row.id === rootId).isRoot).toBe(true);
     expect(
-      seen
-        .filter(row => row.id !== rootId)
-        .every(row => row.isRoot === false)
+      seen.filter(row => row.id !== rootId).every(row => row.isRoot === false)
     ).toBe(true);
   });
 

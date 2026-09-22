@@ -53,7 +53,13 @@ const COLUMNS = [
     priority: 'essential',
     type: 'boolean',
   },
-  { field: 'stage', headerName: 'Stage', flex: 1, sortable: false, priority: 'essential' },
+  {
+    field: 'stage',
+    headerName: 'Stage',
+    flex: 1,
+    sortable: false,
+    priority: 'essential',
+  },
   {
     field: 'status',
     headerName: 'Status',

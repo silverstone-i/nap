@@ -10,6 +10,14 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add platform administration screens under Tenant Management: Tenants (create-only), Cells (register, retry failed provisioning, disable), and Portal Users (create, deactivate, restore — with the root account shown read-only). Backed by two new cursor-paginated endpoints, `GET /api/admin-tenancy/v1/tenants` and `GET /api/admin-tenancy/v1/accounts/users`.
+
+### Fixed
+
+- Fix `ContextualActionHeader` layout props being dropped, and `PageHeaderContext` re-rendering consumers on every title change.
+
 ## [v0.14.0] - 2026-09-22
 
 ### Added

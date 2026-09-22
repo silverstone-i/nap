@@ -12,7 +12,13 @@ import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { CreateTenantDialog } from './CreateTenantDialog.jsx';
 
 const COLUMNS = [
-  { field: 'code', headerName: 'Code', flex: 1, sortable: false, priority: 'essential' },
+  {
+    field: 'code',
+    headerName: 'Code',
+    flex: 1,
+    sortable: false,
+    priority: 'essential',
+  },
   {
     field: 'name',
     headerName: 'Name',
@@ -20,7 +26,13 @@ const COLUMNS = [
     sortable: false,
     priority: 'essential',
   },
-  { field: 'tier', headerName: 'Tier', flex: 1, sortable: false, priority: 'essential' },
+  {
+    field: 'tier',
+    headerName: 'Tier',
+    flex: 1,
+    sortable: false,
+    priority: 'essential',
+  },
   {
     field: 'status',
     headerName: 'Status',

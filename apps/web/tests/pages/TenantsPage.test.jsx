@@ -94,7 +94,9 @@ describe('TenantsPage', () => {
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/Code/), 'ACME');
     await user.type(within(dialog).getByLabelText(/Name/), 'Acme Construction');
-    await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create tenant' })
+    );
 
     expect(api.createTenant).toHaveBeenCalledWith({
       code: 'ACME',
@@ -116,7 +118,9 @@ describe('TenantsPage', () => {
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/Code/), 'ACME');
     await user.type(within(dialog).getByLabelText(/Name/), 'Acme Construction');
-    await user.click(within(dialog).getByRole('button', { name: 'Create tenant' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create tenant' })
+    );
 
     expect(
       await within(dialog).findByText('A tenant with this code already exists.')

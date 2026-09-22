@@ -709,7 +709,9 @@ describe('GET /users list', () => {
 
   it('requires a session', async () => {
     const { app } = api();
-    const response = await request(app).get(`${BASE}/users`).set('Origin', ORIGIN);
+    const response = await request(app)
+      .get(`${BASE}/users`)
+      .set('Origin', ORIGIN);
     expect(response.status).toBe(ERROR_STATUS.UNAUTHENTICATED);
   });
 

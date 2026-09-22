@@ -73,7 +73,10 @@ afterEach(() => {
 
 describe('PortalUsersPage', () => {
   it('lists portal-user accounts (loading -> populated, F0001-R021)', async () => {
-    api.listUsersPage.mockResolvedValue({ rows: [ACTIVE_USER], nextCursor: null });
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER],
+      nextCursor: null,
+    });
     renderPage();
     expect(await screen.findByText('a@example.com')).toBeTruthy();
   });
@@ -91,23 +94,33 @@ describe('PortalUsersPage', () => {
   });
 
   it('offers only Deactivate for an active account, requiring confirmation (AC06)', async () => {
-    api.listUsersPage.mockResolvedValue({ rows: [ACTIVE_USER], nextCursor: null });
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER],
+      nextCursor: null,
+    });
     api.deactivatePortalUser.mockResolvedValue();
     renderPage();
     await screen.findByText('a@example.com');
     const user = userEvent.setup();
     await user.click(screen.getByRole('menuitem', { name: 'more' }));
     expect(screen.queryByRole('menuitem', { name: 'Restore' })).toBeNull();
-    await user.click(await screen.findByRole('menuitem', { name: 'Deactivate' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Deactivate' })
+    );
 
     const dialog = await screen.findByRole('dialog');
     expect(api.deactivatePortalUser).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Deactivate' }));
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Deactivate' })
+    );
     expect(api.deactivatePortalUser).toHaveBeenCalledWith('u1');
   });
 
   it('offers only Restore for an archived account, firing without confirmation (AC06)', async () => {
-    api.listUsersPage.mockResolvedValue({ rows: [ARCHIVED_USER], nextCursor: null });
+    api.listUsersPage.mockResolvedValue({
+      rows: [ARCHIVED_USER],
+      nextCursor: null,
+    });
     api.restorePortalUser.mockResolvedValue({});
     renderPage();
     await screen.findByText('b@example.com');
@@ -127,11 +140,18 @@ describe('PortalUsersPage', () => {
     const user = userEvent.setup();
     await screen.findByText('No portal users yet.');
 
-    await user.click(screen.getByRole('button', { name: 'Create portal user' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Create portal user' })
+    );
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/Email/), 'a@example.com');
-    await user.type(within(dialog).getByLabelText(/Temporary password/), 'a-temp-password');
-    await user.click(within(dialog).getByRole('button', { name: 'Create portal user' }));
+    await user.type(
+      within(dialog).getByLabelText(/Temporary password/),
+      'a-temp-password'
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create portal user' })
+    );
 
     expect(api.createPortalUser).toHaveBeenCalledWith({
       email: 'a@example.com',
@@ -148,11 +168,18 @@ describe('PortalUsersPage', () => {
     const user = userEvent.setup();
     await screen.findByText('No portal users yet.');
 
-    await user.click(screen.getByRole('button', { name: 'Create portal user' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Create portal user' })
+    );
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/Email/), 'a@example.com');
-    await user.type(within(dialog).getByLabelText(/Temporary password/), 'a-temp-password');
-    await user.click(within(dialog).getByRole('button', { name: 'Create portal user' }));
+    await user.type(
+      within(dialog).getByLabelText(/Temporary password/),
+      'a-temp-password'
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create portal user' })
+    );
 
     expect(
       await within(dialog).findByText(
@@ -162,7 +189,10 @@ describe('PortalUsersPage', () => {
   });
 
   it('shows no membership data on the grid, per F0002-R005', async () => {
-    api.listUsersPage.mockResolvedValue({ rows: [ACTIVE_USER], nextCursor: null });
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER],
+      nextCursor: null,
+    });
     renderPage();
     await screen.findByText('a@example.com');
     expect(screen.queryByText(/membership/i)).toBeNull();

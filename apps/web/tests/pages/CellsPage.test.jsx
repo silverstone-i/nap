@@ -74,7 +74,10 @@ afterEach(() => {
 
 describe('CellsPage', () => {
   it('flattens the overview row into environment/database/enabled/stage/status columns', async () => {
-    api.listCellsOverview.mockResolvedValue({ rows: [overviewRow()], nextCursor: null });
+    api.listCellsOverview.mockResolvedValue({
+      rows: [overviewRow()],
+      nextCursor: null,
+    });
     renderPage();
     expect(await screen.findByText('dev')).toBeTruthy();
     expect(screen.getByText('nap_dev_cell_acme')).toBeTruthy();
@@ -96,7 +99,11 @@ describe('CellsPage', () => {
 
   it('shows Retry only for a failed operation, non-destructively (AC04)', async () => {
     api.listCellsOverview.mockResolvedValue({
-      rows: [overviewRow({ operation: { ...overviewRow().operation, status: 'failed' } })],
+      rows: [
+        overviewRow({
+          operation: { ...overviewRow().operation, status: 'failed' },
+        }),
+      ],
       nextCursor: null,
     });
     api.retryCellProvisioning.mockResolvedValue({});
@@ -112,17 +119,25 @@ describe('CellsPage', () => {
   });
 
   it('hides Retry when the operation is not failed', async () => {
-    api.listCellsOverview.mockResolvedValue({ rows: [overviewRow()], nextCursor: null });
+    api.listCellsOverview.mockResolvedValue({
+      rows: [overviewRow()],
+      nextCursor: null,
+    });
     renderPage();
     await screen.findByText('dev');
     const user = userEvent.setup();
     await user.click(screen.getByRole('menuitem', { name: 'more' }));
     expect(screen.queryByRole('menuitem', { name: 'Retry' })).toBeNull();
-    expect(await screen.findByRole('menuitem', { name: 'Disable' })).toBeTruthy();
+    expect(
+      await screen.findByRole('menuitem', { name: 'Disable' })
+    ).toBeTruthy();
   });
 
   it('requires confirmation before Disable fires (AC04)', async () => {
-    api.listCellsOverview.mockResolvedValue({ rows: [overviewRow()], nextCursor: null });
+    api.listCellsOverview.mockResolvedValue({
+      rows: [overviewRow()],
+      nextCursor: null,
+    });
     api.disableCell.mockResolvedValue({});
     renderPage();
     await screen.findByText('dev');

@@ -188,14 +188,14 @@ populated cycle (F0001-R021); this feature introduces no new session,
 tenant, or authentication state transition beyond what F0001 already
 defines.
 
-| Current state | Trigger                                   | Next state | Required effect                                                                                         |
-| ------------- | ----------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
-| Loading       | List request resolves, empty              | Empty      | Show an explicit empty state, no invented rows                                                          |
-| Loading       | List request resolves, populated          | Populated  | Render the page; selection starts empty                                                                 |
-| Loading       | List request fails                        | Error      | Show a retryable error; no stale or partial rows                                                        |
+| Current state | Trigger                                   | Next state | Required effect                                                                                                                                                                                                 |
+| ------------- | ----------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Loading       | List request resolves, empty              | Empty      | Show an explicit empty state, no invented rows                                                                                                                                                                  |
+| Loading       | List request resolves, populated          | Populated  | Render the page; selection starts empty                                                                                                                                                                         |
+| Loading       | List request fails                        | Error      | Show a retryable error; no stale or partial rows                                                                                                                                                                |
 | Populated     | Create/Register succeeds                  | Loading    | Reset to page 0 and reload so the new record's presence is server-confirmed, never optimistically inserted (accepted tradeoff: an operator on a later page is returned to page 0 rather than reloaded in place) |
-| Populated     | Retry/Disable/Deactivate/Restore succeeds | Loading    | Reset to page 0 and reload for the same reason                                                           |
-| Any           | Sort, filter, or page changes             | Loading    | Selection clears; pagination-adapter cache for stale pages is dropped                                   |
+| Populated     | Retry/Disable/Deactivate/Restore succeeds | Loading    | Reset to page 0 and reload for the same reason                                                                                                                                                                  |
+| Any           | Sort, filter, or page changes             | Loading    | Selection clears; pagination-adapter cache for stale pages is dropped                                                                                                                                           |
 
 ## 9. Data Requirements
 
@@ -296,18 +296,18 @@ and introduce no new error code.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                              | Requirements |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| AC01      | The Tenants screen lists tenants with explicit loading, empty, and error states, and offers no update/suspend/archive/restore action.                                        | F0002-R001   |
-| AC02      | Creating a tenant submits code, name, and tier with an idempotency key and surfaces the server's validation and conflict responses unmodified.                               | F0002-R002   |
-| AC03      | The Cells screen lists cells with their latest provisioning operation, with explicit loading, empty, and error states.                                                       | F0002-R003   |
-| AC04      | Register and Retry fire without confirmation; Disable requires confirmation before it fires.                                                                                 | F0002-R004   |
-| AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                             | F0002-R005   |
-| AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                              | F0002-R006   |
-| AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                           | F0002-R007   |
-| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userView`, with `Cache-Control: no-store`.                                      | F0002-R008   |
+| Criterion | Required result                                                                                                                                                                                             | Requirements |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| AC01      | The Tenants screen lists tenants with explicit loading, empty, and error states, and offers no update/suspend/archive/restore action.                                                                       | F0002-R001   |
+| AC02      | Creating a tenant submits code, name, and tier with an idempotency key and surfaces the server's validation and conflict responses unmodified.                                                              | F0002-R002   |
+| AC03      | The Cells screen lists cells with their latest provisioning operation, with explicit loading, empty, and error states.                                                                                      | F0002-R003   |
+| AC04      | Register and Retry fire without confirmation; Disable requires confirmation before it fires.                                                                                                                | F0002-R004   |
+| AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                                                            | F0002-R005   |
+| AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                                                             | F0002-R006   |
+| AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                                                          | F0002-R007   |
+| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userView`, with `Cache-Control: no-store`.                                                                     | F0002-R008   |
 | AC09      | Each screen's grid computes a row-count estimate (rendered via MUI's default footer, not visually distinguished from an exact count) and correctly re-fetches when sort, filter, or tenant context changes. | F0002-R009   |
-| AC10      | Each of the three nav children appears only once both its screen is implemented and `entryPoints.tenantManagement` authorizes it; neither alone is sufficient.               | F0002-R010   |
+| AC10      | Each of the three nav children appears only once both its screen is implemented and `entryPoints.tenantManagement` authorizes it; neither alone is sufficient.                                              | F0002-R010   |
 
 ### Verification Evidence
 
