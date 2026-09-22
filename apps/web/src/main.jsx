@@ -6,10 +6,16 @@
 /** @file Browser entry point. Mounts `App` under React strict mode. */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
 import { App } from './App.jsx';
+import { ThemeModeProvider } from './theme/ThemeModeContext.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ThemeModeProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeModeProvider>
   </StrictMode>
 );

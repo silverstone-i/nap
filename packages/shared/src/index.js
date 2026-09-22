@@ -91,3 +91,48 @@ export const sessionResponseSchema = z.strictObject({
   version: z.literal(transportVersion),
   data: sessionViewSchema,
 });
+
+/**
+ * Zod schema for a tenant a caller may select — the narrow safe view
+ * `eligibleTenantView` (`apps/api` `domain/tenantAccess.js`) produces.
+ */
+export const eligibleTenantSchema = z.strictObject({
+  id: z.uuid(),
+  code: z.string(),
+  name: z.string(),
+  tier: z.string(),
+});
+
+/** Zod schema for the success envelope returned by `GET /access/tenants`. */
+export const eligibleTenantsResponseSchema = z.strictObject({
+  version: z.literal(transportVersion),
+  data: z.array(eligibleTenantSchema),
+});
+
+/**
+ * Zod schema for the browser startup context — F0001-R022. Deliberately
+ * excludes a session credential, password data, role assignment, or raw
+ * capability list; `strictObject` on every level rejects one if a later
+ * change tries to add it.
+ */
+export const accessContextSchema = z.strictObject({
+  session: sessionViewSchema,
+  user: z.strictObject({ id: z.uuid(), email: z.string() }),
+  selectedTenant: eligibleTenantSchema.nullable(),
+  operator: eligibleTenantSchema.nullable(),
+  entryPoints: z.strictObject({
+    platform: z.boolean(),
+    tenant: z.boolean(),
+    tenantManagement: z.strictObject({
+      tenants: z.boolean(),
+      cells: z.boolean(),
+      portalUsers: z.boolean(),
+    }),
+  }),
+});
+
+/** Zod schema for the success envelope returned by `GET /access/context`. */
+export const accessContextResponseSchema = z.strictObject({
+  version: z.literal(transportVersion),
+  data: accessContextSchema,
+});

@@ -15,7 +15,7 @@ docs/PRDs/
 |-- modules/
 |   `-- M0001-admin-tenancy.md
 |-- features/
-|   `-- F0001-authentication.md
+|   `-- F0001-application-entry-and-shell.md
 `-- workflows/
     `-- W0001-tenant-provisioning.md
 ```
@@ -35,7 +35,7 @@ Use these filename patterns:
 
 ```text
 M0001-admin-tenancy.md
-F0001-authentication.md
+F0001-application-entry-and-shell.md
 W0001-tenant-provisioning.md
 ```
 
