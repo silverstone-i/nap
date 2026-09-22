@@ -842,6 +842,20 @@ describe('memberships', () => {
     expect(missingUser.status).toBe(ERROR_STATUS.NOT_FOUND);
   });
 
+  it('rejects the retired vendor member type without creating records', async () => {
+    const { app, admin, cookie } = api();
+    const { body } = membershipBody(admin, { body: { memberType: 'vendor' } });
+    const response = await request(app)
+      .post(`${BASE}/memberships`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie)
+      .set('Idempotency-Key', randomUUID())
+      .send(body);
+    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
+    expect(admin.membershipStore.size).toBe(0);
+    expect(admin.jobStore.size).toBe(0);
+  });
+
   it('rejects a second membership for the same user and tenant', async () => {
     const { app, admin, cookie } = api();
     const { body } = membershipBody(admin);

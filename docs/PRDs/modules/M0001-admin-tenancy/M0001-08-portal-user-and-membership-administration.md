@@ -29,7 +29,7 @@ cell-side member provisioning.
 
 - Table definitions and migrations.
 - Root-user changes.
-- Cell-side employee, client, vendor-contact, or contact creation.
+- Cell-side employee, client, vendor contact, or contact creation.
 - Self-service profile and password changes.
 
 ## 4. Actors And Permissions

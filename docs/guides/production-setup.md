@@ -104,6 +104,9 @@ in the Render dashboard and restore API access before retrying.
 Back up the database and private state before upgrades. Update your checkout,
 run `npm ci`, apply the release's pending Admin migrations, and deploy its
 matching application version. Applied migration files must not be edited.
+If the release's changelog names a one-off script in `apps/api/src/scripts/sql/`,
+run it as `nap-admin` with the API stopped before migrating; otherwise
+`db:migrate:admin` stops with a checksum mismatch.
 Database setup and migration never seed application data or reset credentials.
 
 Provider operations have automated fixture coverage. A fresh live Render
