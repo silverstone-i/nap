@@ -21,7 +21,7 @@ import { COLLECTION_ENTITY } from './cache.js';
 export const MEMBER_TYPES = Object.freeze([
   'employee',
   'client',
-  'vendor',
+  'vendor_contact',
   'contact',
 ]);
 

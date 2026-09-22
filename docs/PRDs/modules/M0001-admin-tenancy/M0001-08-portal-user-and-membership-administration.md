@@ -10,7 +10,7 @@
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                    |
 | Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-05](M0001-05-authorization.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
 | Related decisions    | None                                                                                                                                       |
-| Last reviewed        | 2026-09-21                                                                                                                                 |
+| Last reviewed        | 2026-09-22                                                                                                                                 |
 
 ## 2. Purpose
 
@@ -29,7 +29,7 @@ cell-side member provisioning.
 
 - Table definitions and migrations.
 - Root-user changes.
-- Cell-side employee, client, vendor, or vendor-contact creation.
+- Cell-side employee, client, vendor-contact, or contact creation.
 - Self-service profile and password changes.
 
 ## 4. Actors And Permissions
@@ -71,8 +71,14 @@ characters. A new user requires a temporary password meeting WU 3 rules,
 starts `active`, and has `must_change_password = true`. An existing active user
 with the same email is reused when adding another membership.
 
-Member type is `employee`, `client`, `vendor`, or `contact`. A `vendor` member
-is a person working for a vendor, not the vendor business itself.
+Member type is `employee`, `client`, `vendor_contact`, or `contact`. A
+`vendor_contact` member is a person working for a vendor. The vendor business
+is a cell-side vendor record and is never a member.
+
+A tenant's `tenant_admin` normally manages its memberships, adding employees,
+clients, vendor contacts, and contacts. Root, `platform_admin`, and `support`
+can manage any permitted membership; their normal use is assigning a tenant's
+first `tenant_admin`.
 
 New membership and job states are `pending` and `queued`. Only one unarchived membership exists
 per user and tenant; only one queued or running job exists per membership.

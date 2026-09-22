@@ -185,7 +185,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor', 'contact')",
+          "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
           "status IN ('pending', 'active', 'suspended')",
           'revision > 0',
           "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND member_id IS NOT NULL)))",
@@ -446,7 +446,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "kind IN ('employee', 'client', 'vendor', 'contact')",
+          "kind IN ('employee', 'client', 'vendor_contact', 'contact')",
           "status IN ('queued', 'running', 'failed', 'completed')",
           'attempts >= 0',
           "(status = 'completed' AND result_member_id IS NOT NULL AND failure_code IS NULL) OR status <> 'completed'",

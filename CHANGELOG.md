@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Rename the membership and provisioning-job member type `vendor` to `vendor_contact`, edited in place in baseline migration `001-admin-tenancy`. Existing admin databases need a one-off script that rewrites both check constraints and existing rows and updates the migration ledger hash; recreate disposable databases instead.
+
 ## [v0.15.0] - 2026-09-22
 
 ### Added
