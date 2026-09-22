@@ -136,3 +136,125 @@ export const accessContextResponseSchema = z.strictObject({
   version: z.literal(transportVersion),
   data: accessContextSchema,
 });
+
+/**
+ * Build a response schema for one of this module's cursor-paginated list
+ * endpoints: `{rows: [...], nextCursor}`, never an exact total (F0002-R009).
+ * @param {import('zod').ZodType} rowSchema
+ * @returns {import('zod').ZodType}
+ */
+function cursorPageResponseSchema(rowSchema) {
+  return z.strictObject({
+    version: z.literal(transportVersion),
+    data: z.strictObject({
+      rows: z.array(rowSchema),
+      nextCursor: z.string().nullable(),
+    }),
+  });
+}
+
+/**
+ * Zod schema for the safe tenant view — `tenantView`
+ * (`apps/api` `domain/tenants.js`), reused verbatim by `GET /tenants` and
+ * `POST /tenants` (F0002-R007).
+ */
+export const tenantViewSchema = z.strictObject({
+  id: z.uuid(),
+  code: z.string(),
+  name: z.string(),
+  tier: z.string(),
+  status: z.string(),
+  cellId: z.uuid().nullable(),
+  provisioned: z.boolean(),
+  rbacReady: z.boolean(),
+});
+
+/** Zod schema for the success envelope returned by `POST /tenants`. */
+export const tenantResponseSchema = z.strictObject({
+  version: z.literal(transportVersion),
+  data: tenantViewSchema,
+});
+
+/** Zod schema for the success envelope returned by `GET /tenants`. */
+export const tenantsListResponseSchema = cursorPageResponseSchema(tenantViewSchema);
+
+/**
+ * Zod schema for the safe portal-user view — `userView`
+ * (`apps/api` `domain/accounts.js`), reused by `POST /accounts/users` and
+ * its lifecycle routes. Never a password hash or role assignment.
+ */
+export const userViewSchema = z.strictObject({
+  id: z.uuid(),
+  email: z.string(),
+  status: z.string(),
+  mustChangePassword: z.boolean(),
+  deactivatedAt: z.coerce.date().nullable(),
+});
+
+/** Zod schema for the success envelope returned by `POST /accounts/users` and its lifecycle routes. */
+export const userResponseSchema = z.strictObject({
+  version: z.literal(transportVersion),
+  data: userViewSchema,
+});
+
+/**
+ * Zod schema for one `GET /accounts/users` row — `userListView`
+ * (`apps/api` `domain/accounts.js`): `userViewSchema` plus `isRoot`, the
+ * signal the Portal Users screen uses to withhold Deactivate/Restore for
+ * the one row root ever accounts for (F0002-R008 amendment: the list
+ * includes root, read-only, for operator visibility — no other route in
+ * this module ever exposes or accepts it).
+ */
+export const userListRowSchema = z.strictObject({
+  id: z.uuid(),
+  email: z.string(),
+  status: z.string(),
+  mustChangePassword: z.boolean(),
+  deactivatedAt: z.coerce.date().nullable(),
+  isRoot: z.boolean(),
+});
+
+/** Zod schema for the success envelope returned by `GET /accounts/users`. */
+export const usersListResponseSchema = cursorPageResponseSchema(userListRowSchema);
+
+/**
+ * Zod schema for the safe cell view — `cellView` (`apps/api`
+ * `domain/cells.js`). Column names are passed through unmapped (unlike
+ * `tenantView`/`userView`), matching `GET /control/overview`'s existing,
+ * unchanged contract.
+ */
+export const cellViewSchema = z.strictObject({
+  id: z.uuid(),
+  environment: z.string(),
+  database_name: z.string(),
+  enabled: z.boolean(),
+  created_at: z.coerce.date(),
+  created_by: z.uuid().nullable(),
+  updated_at: z.coerce.date(),
+  updated_by: z.uuid().nullable(),
+  deactivated_at: z.coerce.date().nullable(),
+});
+
+/** Zod schema for the safe provisioning-operation view — `operationView` (`apps/api` `domain/cells.js`). */
+export const operationViewSchema = z.strictObject({
+  id: z.uuid(),
+  cell_id: z.uuid(),
+  operation_id: z.uuid(),
+  requested_action: z.string(),
+  stage: z.string(),
+  status: z.string(),
+  attempts: z.number(),
+  failure_code: z.string().nullable(),
+  started_at: z.coerce.date().nullable(),
+  completed_at: z.coerce.date().nullable(),
+  created_at: z.coerce.date(),
+  updated_at: z.coerce.date(),
+});
+
+/** Zod schema for the success envelope returned by `GET /control/overview`. */
+export const controlOverviewResponseSchema = cursorPageResponseSchema(
+  z.strictObject({
+    cell: cellViewSchema,
+    operation: operationViewSchema.nullable(),
+  })
+);

@@ -12,7 +12,10 @@ import {
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
-import { createTenant } from '../../src/modules/admin-tenancy/domain/tenants.js';
+import {
+  createTenant,
+  listTenants,
+} from '../../src/modules/admin-tenancy/domain/tenants.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -258,5 +261,53 @@ describe('idempotency', () => {
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
     expect(rejected[0].reason).toMatchObject({ code: 'CONFLICT' });
+  });
+});
+
+describe('reads', () => {
+  it('pages every created tenant in ascending id order', async () => {
+    const write = authority();
+    const created = [];
+    for (let index = 0; index < 3; index += 1)
+      created.push(await createTenant(db, write, body(), randomUUID()));
+    created.sort((a, b) => (a.id < b.id ? -1 : 1));
+
+    const firstPage = await listTenants(db, write, { limit: 2 });
+    expect(firstPage.rows.length).toBeGreaterThanOrEqual(2);
+    expect(firstPage.nextCursor).not.toBeNull();
+
+    const seen = [...firstPage.rows];
+    let cursor = firstPage.nextCursor;
+    while (cursor) {
+      const page = await listTenants(db, write, { cursor, limit: 2 });
+      seen.push(...page.rows);
+      cursor = page.nextCursor;
+    }
+    for (const tenant of created)
+      expect(seen).toContainEqual(expect.objectContaining({ id: tenant.id }));
+  });
+
+  it('advances the cursor to a strictly later page with no overlap', async () => {
+    const write = authority();
+    for (let index = 0; index < 3; index += 1)
+      await createTenant(db, write, body(), randomUUID());
+    const firstPage = await listTenants(db, write, { limit: 1 });
+    const secondPage = await listTenants(db, write, {
+      cursor: firstPage.nextCursor,
+      limit: 1,
+    });
+    expect(secondPage.rows[0].id).not.toBe(firstPage.rows[0].id);
+    expect(secondPage.rows[0].id > firstPage.rows[0].id).toBe(true);
+  });
+
+  it('refuses an actor with no control::read capability', async () => {
+    const denied = {
+      actorId: randomUUID(),
+      granted: false,
+      deniedTenantIds: [],
+    };
+    await expect(listTenants(db, denied)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 });

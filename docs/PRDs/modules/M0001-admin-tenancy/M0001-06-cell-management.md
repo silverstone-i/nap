@@ -61,8 +61,8 @@ database inside an HTTP request.
 - M0001-06-R006: Failure leaves the cell disabled; only a successful activation result may enable it.
 - M0001-06-R007: The central enabled flag is not proof of runtime readiness.
 
-Suffixes contain 1–32 lowercase ASCII letters, numbers, or hyphens, start with a
-letter, and end with a letter or number. Database names use
+Suffixes contain 1–32 lowercase ASCII letters, numbers, or hyphens, starting
+and ending with a letter or number (never a hyphen). Database names use
 `nap_<environment>_cell_<suffix>` and must fit PostgreSQL's 63-byte limit.
 Environment and database name are unique among unarchived cells.
 
@@ -196,6 +196,16 @@ reproduce with a correctly authenticating fixture: they were an artifact of
 that session's disposable server using `trust` authentication (which accepts
 any password, defeating the two wrong-password test cases), not a defect in
 this or any other Work Unit.
+
+**2026-09-22 rule amendment:** §7's suffix rule no longer requires the first
+character to be a letter — a digit-led suffix (`1`, `1east`) is now valid,
+so `nap_dev_cell_1` is a legitimate database name. The end-of-string
+constraint is unchanged (still a letter or digit, never a trailing hyphen).
+Prompted by F0002's Register-cell dialog rejecting `1` with a message that
+didn't explain why. `parseSuffix` (`domain/cells.js`) and its unit test
+(`tests/unit/cell-management.test.js`) were updated accordingly; `npm test`
+(533 tests across the workspace) and `npm run test:db:local` (165 tests)
+both still pass in full.
 
 ## 14. Outstanding Questions
 

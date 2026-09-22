@@ -19,6 +19,12 @@ describe('visibleTenantManagementChildren (F0001-R023)', () => {
     ]);
   });
 
+  it('every child is implemented, now that F0002 ships all three screens', () => {
+    expect(
+      TENANT_MANAGEMENT_CHILDREN.every(child => child.implemented === true)
+    ).toBe(true);
+  });
+
   it.each([
     ['no entry points at all', undefined],
     ['an anonymous-shaped value', null],
@@ -30,28 +36,39 @@ describe('visibleTenantManagementChildren (F0001-R023)', () => {
         tenantManagement: { tenants: false, cells: false, portalUsers: false },
       },
     ],
-    [
-      'a platform user authorized for all three (F0001-R024)',
-      {
-        platform: true,
-        tenant: false,
-        tenantManagement: { tenants: true, cells: true, portalUsers: true },
-      },
-    ],
   ])(
-    'returns no children for %s — none is implemented yet (F0002 not built), regardless of authorization',
+    'returns no children for %s — implemented is not sufficient alone (F0002-R010)',
     (_label, entryPoints) => {
       expect(visibleTenantManagementChildren(entryPoints)).toEqual([]);
     }
   );
 
-  it('never returns a child whose own record is not implemented, even if a caller tried to force it', () => {
-    // Guards the filter itself, independent of what entryPoints says: an
-    // unimplemented destination must never appear regardless of any future
-    // authorization signal's value.
+  it('returns all three, in order, for a platform user authorized for all three (F0001-R024, F0002-R010)', () => {
+    const entryPoints = {
+      platform: true,
+      tenant: false,
+      tenantManagement: { tenants: true, cells: true, portalUsers: true },
+    };
+    expect(visibleTenantManagementChildren(entryPoints)).toEqual([
+      { id: 'tenants', label: 'Tenants', path: '/management/tenants' },
+      { id: 'cells', label: 'Cells', path: '/management/cells' },
+      {
+        id: 'portal-users',
+        label: 'Portal Users',
+        path: '/management/portal-users',
+      },
+    ]);
+  });
+
+  it('returns only the authorized subset when authorization is partial', () => {
+    const entryPoints = {
+      platform: true,
+      tenant: false,
+      tenantManagement: { tenants: true, cells: false, portalUsers: true },
+    };
     expect(
-      TENANT_MANAGEMENT_CHILDREN.every(child => child.implemented === false)
-    ).toBe(true);
+      visibleTenantManagementChildren(entryPoints).map(child => child.id)
+    ).toEqual(['tenants', 'portal-users']);
   });
 });
 

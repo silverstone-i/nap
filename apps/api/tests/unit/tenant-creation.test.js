@@ -158,6 +158,16 @@ function fakeAdmin({ tenants = [], failInsertWith, failAdvanceWith } = {}) {
         const found = tenantStore.get(id);
         return found ? { ...found } : null;
       },
+      findAfterCursor: async (cursor, limit) => {
+        const rows = [...tenantStore.values()]
+          .sort((a, b) => (a.id < b.id ? -1 : 1))
+          .filter(row => !cursor?.id || row.id > cursor.id);
+        const page = rows.slice(0, limit);
+        return {
+          rows: page,
+          nextCursor: rows.length > limit ? { id: page.at(-1).id } : null,
+        };
+      },
     },
     managed_events: {
       // Mirrors `ManagedEvents.append`'s `ON CONFLICT DO NOTHING` then
@@ -389,5 +399,67 @@ describe('tenants route', () => {
       event_key: 'tenant.created',
       outcome: 'failed',
     });
+  });
+});
+
+describe('GET /tenants', () => {
+  function get(app, cookie, query = '') {
+    return request(app)
+      .get(`/api/admin-tenancy/v1/tenants${query}`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie);
+  }
+
+  it('requires a session', async () => {
+    const { app } = api();
+    const response = await request(app)
+      .get('/api/admin-tenancy/v1/tenants')
+      .set('Origin', ORIGIN);
+    expect(response.status).toBe(ERROR_STATUS.UNAUTHENTICATED);
+  });
+
+  it('refuses a session with no control capability', async () => {
+    const { app, cookie } = api({ root: false });
+    const response = await get(app, cookie);
+    expect(response.status).toBe(ERROR_STATUS.FORBIDDEN);
+  });
+
+  it('lists tenants as the safe tenantView shape, newest-id-last', async () => {
+    const first = tenantRow({ tenant_code: 'AAA' });
+    const second = tenantRow({ tenant_code: 'BBB' });
+    const { app, cookie } = api({ tenants: [first, second] });
+    const response = await get(app, cookie);
+    expect(response.status).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body.data.rows).toEqual(
+      [first, second]
+        .sort((a, b) => (a.id < b.id ? -1 : 1))
+        .map(row => tenantView(row))
+    );
+    expect(response.body.data.nextCursor).toBeNull();
+  });
+
+  it('paginates with cursor and limit', async () => {
+    const rows = Array.from({ length: 3 }, (_, index) =>
+      tenantRow({ tenant_code: `T${index}` })
+    );
+    const { app, cookie } = api({ tenants: rows });
+    const firstPage = await get(app, cookie, '?limit=2');
+    expect(firstPage.body.data.rows).toHaveLength(2);
+    expect(firstPage.body.data.nextCursor).not.toBeNull();
+
+    const secondPage = await get(
+      app,
+      cookie,
+      `?limit=2&cursor=${encodeURIComponent(firstPage.body.data.nextCursor)}`
+    );
+    expect(secondPage.body.data.rows).toHaveLength(1);
+    expect(secondPage.body.data.nextCursor).toBeNull();
+  });
+
+  it('rejects an out-of-range limit', async () => {
+    const { app, cookie } = api();
+    const response = await get(app, cookie, '?limit=0');
+    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
   });
 });

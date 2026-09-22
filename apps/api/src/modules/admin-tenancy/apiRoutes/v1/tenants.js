@@ -15,7 +15,7 @@ import {
   resolveAuthorization,
 } from '../../domain/authorization.js';
 import { buildControlAuthority } from '../../domain/cells.js';
-import { createTenant } from '../../domain/tenants.js';
+import { createTenant, listTenants } from '../../domain/tenants.js';
 import {
   grantEntitlement,
   listEntitlements,
@@ -97,6 +97,26 @@ export function createTenantsRouter({ admin }) {
         { requestId: request.requestId }
       );
       sendData(response, tenant, 201);
+    } catch (error) {
+      sendTenantError(response, error);
+    }
+  });
+
+  router.get('/', requireSession(), async (request, response) => {
+    try {
+      const context = await resolveAuthorization(admin.db, request.session);
+      const authority = buildControlAuthority(
+        context,
+        'admin-tenancy::control::read'
+      );
+      const result = await listTenants(admin.db, authority, {
+        cursor: request.query.cursor,
+        limit:
+          request.query.limit === undefined
+            ? undefined
+            : Number(request.query.limit),
+      });
+      sendData(response, result);
     } catch (error) {
       sendTenantError(response, error);
     }

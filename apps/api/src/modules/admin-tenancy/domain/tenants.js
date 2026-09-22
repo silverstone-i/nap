@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { AdminTenantError, withTenantErrors } from './errors.js';
 import { COLLECTION_ENTITY } from './cache.js';
+import { parseLimit } from './validation.js';
 
 /** Advisory lock key serializing concurrent tenant creation. */
 const LOCK_KEY = "hashtext('admin-tenancy:tenant-registry')";
@@ -300,4 +301,102 @@ export async function createTenant(
       );
     throw error;
   }
+}
+
+/**
+ * Raw columns `listTenants` reads before projecting through `tenantView`.
+ * Deliberately narrower than `domain/access.js`'s `TENANT_VIEW_COLUMNS`
+ * (which includes `is_napsoft`, `revision`, and audit columns) — F0002-R007
+ * requires reusing `tenantView` verbatim, never that wider shape.
+ */
+const TENANT_LIST_COLUMNS = Object.freeze([
+  'id',
+  'tenant_code',
+  'name',
+  'tier',
+  'status',
+  'cell_id',
+  'provisioned',
+  'rbac_ready',
+]);
+
+const tenantCursorSchema = z.strictObject({
+  v: z.literal(1),
+  op: z.literal('listTenants'),
+  last: z.uuid(),
+});
+
+/**
+ * Decode and validate an opaque tenant-list cursor.
+ * @param {unknown} cursor
+ * @returns {{id: string}|null}
+ * @throws {AdminTenantError} `INVALID_INPUT`
+ */
+function parseTenantCursor(cursor) {
+  if (cursor === undefined || cursor === null) return null;
+  if (typeof cursor !== 'string' || cursor.length === 0)
+    throw new AdminTenantError('INVALID_INPUT');
+  let decoded;
+  try {
+    decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw new AdminTenantError('INVALID_INPUT');
+  }
+  const result = tenantCursorSchema.safeParse(decoded);
+  if (!result.success) throw new AdminTenantError('INVALID_INPUT');
+  return { id: result.data.last };
+}
+
+/**
+ * Encode the next tenant-list page's cursor.
+ * @param {{id: string}|null} nextCursor
+ * @returns {string|null}
+ */
+function encodeTenantCursor(nextCursor) {
+  if (!nextCursor) return null;
+  const payload = { v: 1, op: 'listTenants', last: nextCursor.id };
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+/**
+ * Apply the shared 50/100 page limit, reporting the tenant error code.
+ * @param {unknown} value
+ * @returns {number}
+ * @throws {AdminTenantError} `INVALID_INPUT`
+ */
+function parseLimitOrTenant(value) {
+  try {
+    return parseLimit(value);
+  } catch {
+    throw new AdminTenantError('INVALID_INPUT');
+  }
+}
+
+/**
+ * List every central tenant record in ascending `id` order, paginated by
+ * opaque cursor (F0002-R007). Carries no Napsoft/support carve-out — like
+ * `getOverview` (domain/cells.js), reads are not scoped by
+ * `deniedTenantIds`; only write actions target a specific tenant.
+ * @param {AdminTenantsDb} db
+ * @param {unknown} authority Result of `buildControlAuthority` (domain/cells.js) for `admin-tenancy::control::read`.
+ * @param {{cursor?: unknown, limit?: unknown}} [page]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe tenant views.
+ * @throws {AdminTenantError} `INVALID_INPUT`, `FORBIDDEN`, `INTERNAL_ERROR`
+ */
+export async function listTenants(db, authority, { cursor, limit } = {}) {
+  requireGranted(authority);
+  const parsedLimit = parseLimitOrTenant(limit);
+  const resumeFrom = parseTenantCursor(cursor);
+  return withTenantErrors(async () => {
+    const page = await db.tenants.findAfterCursor(
+      resumeFrom ?? {},
+      parsedLimit,
+      ['id'],
+      { columnWhitelist: TENANT_LIST_COLUMNS }
+    );
+    return {
+      rows: page.rows.map(tenantView),
+      nextCursor: encodeTenantCursor(page.nextCursor),
+    };
+  });
 }

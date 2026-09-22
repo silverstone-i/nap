@@ -112,11 +112,11 @@ const authoritySchema = z.strictObject({
   deniedTenantIds: z.array(z.uuid()),
 });
 
-const suffixSchema = z.string().regex(/^[a-z](?:[a-z0-9-]{0,30}[a-z0-9])?$/);
+const suffixSchema = z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/);
 
 /**
  * Validate a cell suffix: 1–32 lowercase ASCII letters, digits, or hyphens,
- * starting with a letter and ending with a letter or digit.
+ * starting and ending with a letter or digit (never a hyphen).
  * @param {unknown} value
  * @returns {string}
  * @throws {AdminControlError} `INVALID_INPUT`

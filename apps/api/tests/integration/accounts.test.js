@@ -20,6 +20,7 @@ import {
   createOrReuseUser,
   getJob,
   getUser,
+  listUsers,
   reportProvisioningResult,
   restoreMembership,
   restoreUser,
@@ -100,6 +101,22 @@ async function seedUser(overrides = {}) {
     randomUUID()
   );
   return user.id;
+}
+
+/**
+ * Insert the root portal-user row directly — `createOrReuseUser` refuses to
+ * create one, and this module's own bootstrap flow (M0001-02) is out of
+ * scope here. `admin.portal_users` allows only one `is_root = true` row, so
+ * this must be called at most once per test's isolated database.
+ * @returns {Promise<string>} The root row's id.
+ */
+async function seedRoot() {
+  const root = await db.portal_users.insert({
+    email: 'root@example.com',
+    password_hash: 'unused-in-these-reads',
+    is_root: true,
+  });
+  return root.id;
 }
 
 beforeAll(async () => {
@@ -375,5 +392,83 @@ describe('memberships and provisioning jobs', () => {
     await expect(
       updateMembership(db, denied, membership.id, { status: 'active' })
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
+describe('reads', () => {
+  let rootId;
+  beforeAll(async () => {
+    rootId = await seedRoot();
+  });
+
+  it('pages every portal-user account in ascending id order, including root read-only', async () => {
+    const write = authority();
+    const created = [];
+    for (let index = 0; index < 3; index += 1) created.push(await seedUser());
+
+    const seen = [];
+    let cursor;
+    do {
+      const page = await listUsers(db, write, { cursor, limit: 2 });
+      seen.push(...page.rows);
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    const seenIds = seen.map(row => row.id);
+    for (const userId of created) expect(seenIds).toContain(userId);
+    expect(seenIds).toContain(rootId);
+    expect(seen.find(row => row.id === rootId).isRoot).toBe(true);
+    expect(
+      seen
+        .filter(row => row.id !== rootId)
+        .every(row => row.isRoot === false)
+    ).toBe(true);
+  });
+
+  it('advances the cursor to a strictly later page with no overlap', async () => {
+    const write = authority();
+    await seedUser();
+    await seedUser();
+    await seedUser();
+    const firstPage = await listUsers(db, write, { limit: 1 });
+    const secondPage = await listUsers(db, write, {
+      cursor: firstPage.nextCursor,
+      limit: 1,
+    });
+    expect(secondPage.rows[0].id).not.toBe(firstPage.rows[0].id);
+    expect(secondPage.rows[0].id > firstPage.rows[0].id).toBe(true);
+  });
+
+  it('includes an archived user, so it remains reachable for Restore', async () => {
+    const write = authority();
+    const userId = await seedUser();
+    await archiveUser(db, write, userId);
+
+    const seen = [];
+    let cursor;
+    do {
+      const page = await listUsers(db, write, { cursor, limit: 50 });
+      seen.push(...page.rows);
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    const found = seen.find(row => row.id === userId);
+    expect(found).toBeDefined();
+    expect(found.deactivatedAt).not.toBeNull();
+  });
+
+  it('refuses an actor with no accounts::read capability', async () => {
+    const denied = {
+      actorId: randomUUID(),
+      scope: {
+        platformPortalUserRead: false,
+        tenantIds: [],
+        deniedTenantIds: [],
+        archiveManagement: false,
+      },
+    };
+    await expect(listUsers(db, denied)).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
   });
 });
