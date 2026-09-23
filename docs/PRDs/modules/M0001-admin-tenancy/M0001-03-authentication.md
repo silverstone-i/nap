@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                        |
-| Type                 | Module Work Unit                                                                                                                                   |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                  |
-| Related architecture | [BFF](../../../architecture/bff.md)                                                                                                                |
-| Related PRDs         | [M0001-01](M0001-01-tenant-and-portal-user-access.md), [M0001-04](M0001-04-session-management.md), [W0005](../../workflows/W0005-portal-access.md) |
-| Related decisions    | None                                                                                                                                               |
-| Last reviewed        | 2026-09-20                                                                                                                                         |
+| Field                | Value                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| Status               | Implemented                                                                                       |
+| Type                 | Module Work Unit                                                                                  |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                 |
+| Related architecture | [BFF](../../../architecture/bff.md)                                                               |
+| Related PRDs         | [M0001-01](M0001-01-tenant-and-portal-user-access.md), [M0001-04](M0001-04-session-management.md) |
+| Related decisions    | None                                                                                              |
+| Last reviewed        | 2026-09-20                                                                                        |
 
 ## 2. Purpose
 
@@ -68,14 +68,6 @@ Login evaluates account and client-address keys. Five failures in 15 minutes
 lock that key for 15 minutes. A successful login clears the account key. Unknown
 accounts run one dummy Argon2id verification to avoid account-discovery timing.
 Expired throttle rows may be deleted after 24 hours.
-
-### Amendments From W0005
-
-These rules take effect when [W0005: Portal Access](../../workflows/W0005-portal-access.md) is implemented; until then the rules above apply.
-
-- Amended by W0005 (W0005-R004): a login's first password change moves every `pending` membership of that login to `active`.
-- Amended by W0005 (W0005-R010): a Napsoft password reset sets a temporary password and `must_change_password = true` and does not change membership status.
-- Amended by W0005 (W0005-R013): root, `platform_admin`, and `support` can unlock a `locked` login; `support` cannot unlock a Napsoft member.
 
 ## 8. Lifecycle And State Transitions
 

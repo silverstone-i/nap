@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                              |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                        |
-| Type                 | Module Work Unit                                                                                                                                                                   |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                  |
-| Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md)                                                                                       |
-| Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md), [M0001-13](M0001-13-support-access-consent.md), [W0005](../../workflows/W0005-portal-access.md) |
-| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                                                                                                 |
-| Last reviewed        | 2026-09-21                                                                                                                                                                         |
+| Field                | Value                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| Status               | Implemented                                                                                  |
+| Type                 | Module Work Unit                                                                             |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                            |
+| Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md) |
+| Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md)            |
+| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data           |
+| Last reviewed        | 2026-09-21                                                                                   |
 
 ## 2. Purpose
 
@@ -69,10 +69,6 @@ Support access lasts at most 60 minutes and cannot outlive the session. Reason
 is trimmed and contains 10–512 characters. An effective user, when supplied,
 must be active and have an active, ready membership in the target tenant.
 Support contexts cannot nest or switch tenants; exit first.
-
-[M0001-13](M0001-13-support-access-consent.md) will amend these rules: read-only
-support without an effective user, member consent before acting as a user, and
-`platform_admin` break-glass writes. Until M0001-13 is implemented, the rules above apply.
 
 ## 8. Lifecycle And State Transitions
 
@@ -175,8 +171,8 @@ tests already cover at the integration layer.
 
 As every other Work Unit in this family documents, `authorization.js`
 currently resolves only root or no platform authority (M0001-05's role-based
-`platform_admin`/`support`/`tenant_admin` remains deferred to M0003's
-access-control module). AC03's Napsoft-support denial (M0001-09-R003) is
+`platform_admin`/`support`/`tenant_admin` remains deferred until the
+tenant-local role catalogue exists in the cell). AC03's Napsoft-support denial (M0001-09-R003) is
 therefore demonstrated today by hand-building a `support`-shaped, Napsoft-
 restricted scope and calling the domain functions directly, rather than by a
 distinguishable `support` session, which has no runtime path to authenticate

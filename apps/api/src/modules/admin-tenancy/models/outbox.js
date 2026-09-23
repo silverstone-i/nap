@@ -6,7 +6,7 @@
 import { TableModel } from 'pg-schemata';
 
 /**
- * Schema object for `admin.outbox`: central changes waiting for delivery to a tenant's cell (W0003).
+ * Schema object for `admin.outbox`: central changes waiting for delivery to a tenant's cell.
  * Kept identical to the copy frozen in migration `001-admin-tenancy`.
  */
 export const outboxSchema = {

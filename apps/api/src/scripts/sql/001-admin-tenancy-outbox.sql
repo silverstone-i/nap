@@ -1,7 +1,7 @@
 -- Copyright (c) 2026–present NapSoft, LLC.
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 --
--- One-off: add admin.outbox to an existing admin database (W0003 schema).
+-- One-off: add admin.outbox to an existing admin database.
 -- Run as nap-admin with the API stopped, after 001-admin-tenancy-support-grants.sql:
 --   psql "<admin connection>" -v ON_ERROR_STOP=1 -f apps/api/src/scripts/sql/001-admin-tenancy-outbox.sql
 -- Applies to databases at 001-admin-tenancy hash 3887315b…. Fresh databases

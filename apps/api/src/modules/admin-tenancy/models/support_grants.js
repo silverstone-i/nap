@@ -6,7 +6,7 @@
 import { TableModel } from 'pg-schemata';
 
 /**
- * Schema object for `admin.support_grants`: a support operator's request to act as a tenant member, and that member's or a `tenant_admin`'s decision (M0001-13).
+ * Schema object for `admin.support_grants`: a support operator's request to act as a tenant member, and that member's or a `tenant_admin`'s decision.
  * Kept identical to the copy frozen in migration `001-admin-tenancy`.
  */
 export const supportGrantsSchema = {

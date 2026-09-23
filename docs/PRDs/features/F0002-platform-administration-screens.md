@@ -48,15 +48,13 @@ children are implemented.
 - Membership creation, suspension, or assignment UI. `Portal Users` shows
   the top-level `portal_users` list only; M0001-08's membership endpoints
   are not consumed here.
-- Role, permission, and capability administration (M0003's scope, blocked
-  on cell provisioning).
+- Role, permission, and capability administration, which depends on cell
+  provisioning.
 - Detail pages for any of the three entities. Row actions act on the row's
   already-fetched fields; no per-row read-by-id call.
 - The tenant/cell provisioning _workflow_ — creating a tenant, assigning it
-  a cell, watching it provision and activate end to end. That sequencing is
-  reserved on the roadmap as `W0001: Tenant Provisioning` and
-  `W0002: Cell Provisioning`; this PRD only exposes the individual
-  operations M0001-06/07 already implement (register, retry, disable,
+  a cell, watching it provision and activate end to end. This PRD only
+  exposes the individual operations M0001-06/07 already implement (register, retry, disable,
   create), not the cross-module sequence between them.
 - Bulk or multi-row actions beyond `StandardDataGrid`'s existing
   current-page-only checkbox selection (F0001-R016). No new bulk endpoint.
@@ -269,14 +267,11 @@ and introduce no new error code.
 - F0001 owns `GET /access/context` (extended by F0001-R024, not this PRD)
   and `StandardDataGrid` (consumed unchanged) and the Tenant Management nav
   group (F0001-R023) this feature's screens finally populate.
-- M0003 will later differentiate authorization among non-root actors; this
-  feature's capability checks are unaffected by that PRD's own scope and
-  need no change when it ships.
-- `W0001: Tenant Provisioning` and `W0002: Cell Provisioning` (roadmap-
-  reserved, not yet written) own the cross-module creation-to-activation
-  workflow; this feature's Create/Register actions are the same terminal
-  API calls those workflows would also use, but this PRD defines no
-  workflow sequencing between them.
+- Authorization among non-root actors is not yet differentiated; this
+  feature's capability checks need no change when it is.
+- The Create and Register actions call the same M0001-06/07 endpoints that
+  any later creation-to-activation sequence would use; this PRD defines no
+  sequencing between them.
 
 ## 12. Security And Audit
 
