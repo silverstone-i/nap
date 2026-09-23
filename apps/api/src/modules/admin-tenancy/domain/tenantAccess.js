@@ -54,7 +54,7 @@ export function eligibleTenantView(row) {
  * Turn a resolved authorization context into the minimal authority
  * `enterSupport` needs, mirroring `buildControlAuthority`
  * (`domain/cells.js`): whether `admin-tenancy::access::support` is granted,
- * and which tenants — Napsoft, once M0001-05 delivers role resolution — are
+ * and which tenants — Napsoft, once M0569 delivers role resolution — are
  * carved out of that grant.
  * @param {{actorId: string, platformCapabilities: string[]}} context Result of `resolveAuthorization`.
  * @returns {{actorId: string, granted: boolean, deniedTenantIds: string[]}}

@@ -41,7 +41,7 @@ function sendControlError(response, error) {
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-06-cell-management.md.
  *
  * `authorization.js` currently resolves only root or no platform authority
- * (M0001-05's role-based `platform_admin`/`support` remains deferred), so
+ * (M0569's role-based `platform_admin`/`support` remains deferred), so
  * every scope this router builds today is either full access or none — the
  * support-scoped Napsoft restriction the domain functions already enforce
  * has no caller yet, exactly as M0001-04's `sessions` router notes for

@@ -12,6 +12,7 @@ when a pull request with a release label merges into `main`.
 
 ### Changed
 
+- Narrow M0001-05 to root authority and mark it Complete, moving role seeds, assignments, non-root resolution, and wildcard capability matching to a draft M0569 PRD. Renumber the root-authority requirement to M0001-05-R001, mark Admin Tenancy complete in the roadmap, point deferred-role references in PRDs and code comments at M0569, and record that the roadmap is a checklist and each PRD must be one atomic unit.
 - Remove PRDs whose implementation has not started from the repository, and rewrite implemented PRDs and code comments so they no longer reference them. Clear PRD names from roadmap rows that have not started, and mark Access Control Not started instead of Blocked. Correct the `portal_users.status` documentation: failed-login throttling does not change `status`, and `locked` is reserved for a future operator-cleared lock.
 
 ## [v0.15.3] - 2026-09-23

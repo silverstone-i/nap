@@ -97,7 +97,7 @@ async function resolveTenant(db, tx, { tenantCode, tenantName }) {
  * configured password has since changed: M0001-02-R003 preserves it, and
  * rerunning bootstrap is never password recovery. The root account does not
  * require a password change on first login: `is_root` alone grants it
- * `platform_admin` capabilities (M0001-05-R005), so there is no restricted
+ * `platform_admin` capabilities (M0001-05-R001), so there is no restricted
  * session to clear.
  * @param {object} db
  * @param {import('pg-promise').IDatabase<unknown>} tx
