@@ -42,8 +42,8 @@ export const sessionsSchema = {
     primaryKey: ['id'],
     unique: [['token_hash']],
     checks: [
-      "access_mode IN ('normal', 'support')",
-      "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
+      "access_mode IN ('normal', 'support', 'break_glass')",
+      "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL) OR (access_mode = 'break_glass' AND tenant_id IS NOT NULL AND effective_user_id IS NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
       'idle_expires_at <= absolute_expires_at',
     ],
     foreignKeys: [

@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add the `admin.support_grants` table and a `break_glass` session access mode, edited in place in baseline migration `001-admin-tenancy`, as the schema for the postponed M0001-13 support-access-consent work unit. Before migrating, run `apps/api/src/scripts/sql/001-admin-tenancy-support-grants.sql` as `nap-admin` against each existing admin database, after `001-admin-tenancy-vendor-contact.sql`. Recreate disposable databases instead.
+
 ## [v0.15.1] - 2026-09-22
 
 ### Changed

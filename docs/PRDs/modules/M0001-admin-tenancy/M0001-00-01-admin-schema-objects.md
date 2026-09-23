@@ -2,7 +2,7 @@
 
 This chapter belongs to [M0001-00: Admin Database Foundation](M0001-00-admin-database-foundation.md)
 and inherits its Implemented status. It defines the schema objects and migration
-triggers for the 12 admin tables.
+triggers for the 13 admin tables.
 
 ## Shared Rules
 
@@ -245,6 +245,7 @@ export const portalUserTenantsSchema = {
 
 Stores hashed session credentials, expiry, selected tenant, and attributed
 support access. A null selected tenant represents a platform session.
+`break_glass` is a support mode without an effective user, defined by M0001-13.
 
 ```js
 export const sessionsSchema = {
@@ -280,8 +281,8 @@ export const sessionsSchema = {
     primaryKey: ['id'],
     unique: [['token_hash']],
     checks: [
-      "access_mode IN ('normal', 'support')",
-      "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
+      "access_mode IN ('normal', 'support', 'break_glass')",
+      "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL) OR (access_mode = 'break_glass' AND tenant_id IS NOT NULL AND effective_user_id IS NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
       'idle_expires_at <= absolute_expires_at',
     ],
     foreignKeys: [
@@ -308,6 +309,100 @@ export const sessionsSchema = {
       { columns: ['portal_user_id'] },
       { columns: ['tenant_id'] },
       { columns: ['absolute_expires_at'] },
+    ],
+  },
+};
+```
+
+## `admin.support_grants`
+
+Stores a support operator's request to act as a tenant member and the decision
+on it. The member or any `tenant_admin` of the same tenant decides. A grant
+expires 24 hours after the request and allows one support session, recorded in
+`session_id`. M0001-13 defines the behavior.
+
+```js
+export const supportGrantsSchema = {
+  dbSchema: 'admin',
+  table: 'support_grants',
+  hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+  columns: [
+    {
+      name: 'id',
+      type: 'uuid',
+      notNull: true,
+      default: 'gen_random_uuid()',
+      immutable: true,
+    },
+    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+    { name: 'operator_id', type: 'uuid', notNull: true, immutable: true },
+    {
+      name: 'effective_user_id',
+      type: 'uuid',
+      notNull: true,
+      immutable: true,
+    },
+    { name: 'reason', type: 'varchar(512)', notNull: true, immutable: true },
+    {
+      name: 'expires_at',
+      type: 'timestamptz',
+      notNull: true,
+      immutable: true,
+    },
+    { name: 'status', type: 'text', notNull: true, default: 'pending' },
+    { name: 'decided_by', type: 'uuid' },
+    { name: 'decided_at', type: 'timestamptz' },
+    { name: 'session_id', type: 'uuid' },
+  ],
+  constraints: {
+    primaryKey: ['id'],
+    checks: [
+      "status IN ('pending', 'approved', 'denied', 'expired', 'used', 'cancelled')",
+      'operator_id <> effective_user_id',
+      "(status = 'pending' AND decided_by IS NULL AND decided_at IS NULL AND session_id IS NULL) OR (status IN ('approved', 'denied') AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NULL) OR (status = 'used' AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NOT NULL) OR (status IN ('expired', 'cancelled') AND session_id IS NULL)",
+    ],
+    foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['tenant_id'],
+        references: { schema: 'admin', table: 'tenants', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['operator_id'],
+        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['effective_user_id'],
+        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['decided_by'],
+        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['session_id'],
+        references: { schema: 'admin', table: 'sessions', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+    ],
+    indexes: [
+      {
+        name: 'support_grants_open_request',
+        columns: ['operator_id', 'tenant_id', 'effective_user_id'],
+        unique: true,
+        where: "status IN ('pending', 'approved')",
+      },
+      { columns: ['effective_user_id', 'status'] },
+      { columns: ['tenant_id', 'status'] },
+      { columns: ['expires_at'] },
     ],
   },
 };

@@ -6,7 +6,7 @@
 import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
- * Baseline admin migration. It creates the twelve admin tables in dependency
+ * Baseline admin migration. It creates the thirteen admin tables in dependency
  * order, installs the protection trigger functions and triggers, disables
  * row-level security, and applies the `nap-app` grant contract.
  *
@@ -256,8 +256,8 @@ export const migration = defineMigration({
         primaryKey: ['id'],
         unique: [['token_hash']],
         checks: [
-          "access_mode IN ('normal', 'support')",
-          "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
+          "access_mode IN ('normal', 'support', 'break_glass')",
+          "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL) OR (access_mode = 'break_glass' AND tenant_id IS NOT NULL AND effective_user_id IS NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
           'idle_expires_at <= absolute_expires_at',
         ],
         foreignKeys: [
@@ -292,6 +292,107 @@ export const migration = defineMigration({
           { columns: ['portal_user_id'] },
           { columns: ['tenant_id'] },
           { columns: ['absolute_expires_at'] },
+        ],
+      },
+    };
+    const supportGrantsSchema = {
+      dbSchema: 'admin',
+      table: 'support_grants',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          notNull: true,
+          default: 'gen_random_uuid()',
+          immutable: true,
+        },
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'operator_id', type: 'uuid', notNull: true, immutable: true },
+        {
+          name: 'effective_user_id',
+          type: 'uuid',
+          notNull: true,
+          immutable: true,
+        },
+        {
+          name: 'reason',
+          type: 'varchar(512)',
+          notNull: true,
+          immutable: true,
+        },
+        {
+          name: 'expires_at',
+          type: 'timestamptz',
+          notNull: true,
+          immutable: true,
+        },
+        { name: 'status', type: 'text', notNull: true, default: 'pending' },
+        { name: 'decided_by', type: 'uuid' },
+        { name: 'decided_at', type: 'timestamptz' },
+        { name: 'session_id', type: 'uuid' },
+      ],
+      constraints: {
+        primaryKey: ['id'],
+        checks: [
+          "status IN ('pending', 'approved', 'denied', 'expired', 'used', 'cancelled')",
+          'operator_id <> effective_user_id',
+          "(status = 'pending' AND decided_by IS NULL AND decided_at IS NULL AND session_id IS NULL) OR (status IN ('approved', 'denied') AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NULL) OR (status = 'used' AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NOT NULL) OR (status IN ('expired', 'cancelled') AND session_id IS NULL)",
+        ],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id'],
+            references: { schema: 'admin', table: 'tenants', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['operator_id'],
+            references: {
+              schema: 'admin',
+              table: 'portal_users',
+              columns: ['id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['effective_user_id'],
+            references: {
+              schema: 'admin',
+              table: 'portal_users',
+              columns: ['id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['decided_by'],
+            references: {
+              schema: 'admin',
+              table: 'portal_users',
+              columns: ['id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['session_id'],
+            references: { schema: 'admin', table: 'sessions', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+        ],
+        indexes: [
+          {
+            name: 'support_grants_open_request',
+            columns: ['operator_id', 'tenant_id', 'effective_user_id'],
+            unique: true,
+            where: "status IN ('pending', 'approved')",
+          },
+          { columns: ['effective_user_id', 'status'] },
+          { columns: ['tenant_id', 'status'] },
+          { columns: ['expires_at'] },
         ],
       },
     };
@@ -595,6 +696,7 @@ export const migration = defineMigration({
       tenantsSchema,
       portalUserTenantsSchema,
       sessionsSchema,
+      supportGrantsSchema,
       loginThrottlesSchema,
       platformRolesSchema,
       cellProvisioningSchema,
