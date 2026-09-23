@@ -188,7 +188,7 @@ export class PortalUsers extends TableModel {
    * exactly what M0001-02-R006 forbids.
    *
    * `must_change_password` starts `false`: root authority comes from
-   * `is_root = true` alone (M0001-05-R005), not from a session restricted
+   * `is_root = true` alone (M0001-05-R001), not from a session restricted
    * until a password change, so there is nothing to force on first login.
    * @param {{email: string, passwordHash: string}} user
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options

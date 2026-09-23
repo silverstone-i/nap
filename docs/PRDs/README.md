@@ -169,6 +169,8 @@ The project roadmap tracks overall delivery; the mini roadmap tracks the
 module's individual Work Units.
 
 Each Work Unit PRD follows the full template and has its own acceptance status.
+Each PRD must be implementable as a single atomic unit. If it cannot be, split
+it into multiple Work Unit PRDs that each can.
 A `Draft` PRD is not permission to implement its requirements. Use stable
 identifiers such as `M0001-01` and `M0001-01-R001`; record delivery order
 separately so reordering work does not rename its PRDs.

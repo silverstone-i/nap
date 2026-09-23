@@ -201,8 +201,8 @@ membership (`member_type IS NULL`), demonstrating AC01's root-protection
 requirement.
 
 As every other Work Unit in this family documents, `authorization.js`
-currently resolves only root or no platform authority (M0001-05's role-based
-`platform_admin`/`support`/`tenant_admin` remains deferred until the
+currently resolves only root or no platform authority (role-based
+`platform_admin`/`support`/`tenant_admin` is deferred to M0569 until the
 tenant-local role catalogue exists in the cell). AC02's Napsoft-support denial (M0001-08-R007) is
 therefore demonstrated today by hand-building a `deniedTenantIds`-carrying
 scope and calling the domain functions directly (mirroring

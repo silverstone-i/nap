@@ -106,7 +106,7 @@ it does not change the central creation contract.
 WU 6 supplies eligible cells to a later assignment workflow. Cell-tenancy and
 provisioning own projection, provisioning, activation, and status synchronization.
 That later tenant-provisioning workflow runs the all-tenant `tenant_admin` seed
-from M0001-05 and the owner-only seed only for the configured owning tenant.
+from M0569 and the owner-only seed only for the configured owning tenant.
 Central tenant creation does not seed roles or claim that provisioning is complete.
 
 ## 12. Security And Audit
@@ -158,8 +158,8 @@ header, the `tenantView` camelCase mapping, and the route's session,
 capability, and error-shape gating over an in-memory admin handle.
 
 As `control.js` already notes for cell management, `authorization.js`
-currently resolves only root or no platform authority (M0001-05's
-role-based `platform_admin`/`support` remains deferred), so AC04 is
+currently resolves only root or no platform authority (role-based
+`platform_admin`/`support` is deferred to M0569), so AC04 is
 demonstrated today by `is_napsoft` never being an acceptable request field
 for any actor — root included — rather than by a distinguishable `support`
 session, which has no runtime path to authenticate as yet.

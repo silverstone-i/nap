@@ -576,7 +576,7 @@ describe('entitlements routes', () => {
 
 describe('domain-level Napsoft denial', () => {
   // `authorization.js` currently resolves only root or no platform authority
-  // (M0001-05's role-based `support` remains deferred), so there is no
+  // (M0569's role-based `support` remains deferred), so there is no
   // runtime path today to authenticate as a support actor with a populated
   // `deniedTenantIds`. This exercises the domain layer directly with a
   // hand-built scope, mirroring `tests/integration/accounts.test.js`'s

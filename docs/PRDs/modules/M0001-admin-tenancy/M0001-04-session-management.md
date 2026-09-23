@@ -170,12 +170,13 @@ transaction blocks, re-reads the committed row, and matches nothing.
 `admin.portal_users` and derives `restricted` from `must_change_password`, so
 clearing the flag in M0001-03 releases the session without a second rotation.
 
-Two parts of Section 10 are not yet reachable over HTTP. `DELETE /sessions/:id`
-passes no operator scope, so it revokes only the caller's own session;
-`revokeSession` takes the scope and enforces M0001-04-R007 against it, which
-the integration tests exercise, and M0001-05 supplies it from the caller's
-platform roles. Nothing creates a session over HTTP until M0001-03 adds login,
-which calls `createSession` inside its own transaction.
+Updated 2026-09-23: `DELETE /sessions/:id` passes no scope for the caller's
+own session. For another user's session it resolves the caller's authority
+through M0001-05 and passes the `admin-tenancy::sessions::revoke` scope to
+`revokeSession`, which enforces M0001-04-R007 against it. Today only root holds
+that capability; role-based operators wait for M0569. M0001-03's
+`POST /auth/login` creates sessions over HTTP by calling `createSession` inside
+its own transaction.
 
 ## 14. Outstanding Questions
 

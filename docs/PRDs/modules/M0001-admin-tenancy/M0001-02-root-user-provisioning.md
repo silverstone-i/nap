@@ -108,7 +108,7 @@ code for conflict or failure.
 
 ## 11. Cross-Module Interactions
 
-M0001-03 hashes the initial password. M0001-05-R005 defines the
+M0001-03 hashes the initial password. M0001-05-R001 defines the
 `platform_admin` capability set that software grants to the root user based on
 `is_root`.
 Initial cell provisioning must be available through maintenance credentials
