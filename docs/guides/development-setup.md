@@ -77,7 +77,7 @@ npm run db:migrate:admin -- --env dev
 ```
 
 Setup creates or verifies the database, ownership, role attributes, and grants.
-Migration installs the thirteen Admin tables, constraints, triggers, and migration
+Migration installs the fourteen Admin tables, constraints, triggers, and migration
 ledger, then verifies the installed contract. Repeat both commands to verify
 safe reuse: each reports `unchanged` when no work remains. A failure returns a
 nonzero exit code and a safe code; fix the configuration and retry the same target.
