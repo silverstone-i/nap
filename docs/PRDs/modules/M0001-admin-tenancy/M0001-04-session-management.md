@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                          |
-| Type                 | Module Work Unit                                                                                                                                     |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                    |
-| Related architecture | [BFF](../../../architecture/bff.md)                                                                                                                  |
-| Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md), [W0005](../../workflows/W0005-portal-access.md) |
-| Related decisions    | None                                                                                                                                                 |
-| Last reviewed        | 2026-09-20                                                                                                                                           |
+| Field                | Value                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| Status               | Implemented                                                                                         |
+| Type                 | Module Work Unit                                                                                    |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                   |
+| Related architecture | [BFF](../../../architecture/bff.md)                                                                 |
+| Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | None                                                                                                |
+| Last reviewed        | 2026-09-20                                                                                          |
 
 ## 2. Purpose
 
@@ -69,13 +69,6 @@ may have ten active sessions; creating an eleventh revokes the oldest.
 Rotation has no overlap window. The prior token fails as soon as the transaction
 commits. Login, password change, tenant selection, support entry, and support
 exit rotate the token.
-
-### Amendments From W0005
-
-These rules take effect when [W0005: Portal Access](../../workflows/W0005-portal-access.md) is implemented; until then the rules above apply.
-
-- Amended by W0005 (W0005-R005, W0005-R008): turning a user's portal access off, archiving the user, and suspending or archiving the tenant revoke the sessions that selected that tenant; other sessions of the login are unaffected.
-- Amended by W0005 (W0005-R013): Napsoft can revoke a login's sessions without changing its status.
 
 ## 8. Lifecycle And State Transitions
 

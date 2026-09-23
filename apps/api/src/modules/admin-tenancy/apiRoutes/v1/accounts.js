@@ -53,7 +53,7 @@ function sendAccountError(response, error) {
  *
  * `authorization.js` currently resolves only root or no platform authority
  * (M0001-05's role-based `platform_admin`/`support`/`tenant_admin` remains
- * deferred to M0003's access-control module), so every scope this router
+ * waits for the tenant-local role catalogue in the cell), so every scope this router
  * builds today is either full access or none — the same posture `tenants.js`
  * and `control.js` document for their own capability checks.
  * @param {object} context

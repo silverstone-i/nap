@@ -10,21 +10,25 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Remove PRDs whose implementation has not started from the repository, and rewrite implemented PRDs and code comments so they no longer reference them. Clear PRD names from roadmap rows that have not started, and mark Access Control Not started instead of Blocked. Correct the `portal_users.status` documentation: failed-login throttling does not change `status`, and `locked` is reserved for a future operator-cleared lock.
+
 ## [v0.15.3] - 2026-09-23
 
 ### Added
 
-- Add the `admin.outbox` table, edited in place in baseline migration `001-admin-tenancy`, as the central side of `W0003: Projection Synchronization`: tenant, membership, and entitlement changes are queued for delivery to their cell. Before migrating, run `apps/api/src/scripts/sql/001-admin-tenancy-outbox.sql` as `nap-admin` against each existing admin database, after `001-admin-tenancy-support-grants.sql`. Recreate disposable databases instead.
+- Add the `admin.outbox` table, edited in place in baseline migration `001-admin-tenancy`, where tenant, membership, and entitlement changes wait for delivery to their cell. Before migrating, run `apps/api/src/scripts/sql/001-admin-tenancy-outbox.sql` as `nap-admin` against each existing admin database, after `001-admin-tenancy-support-grants.sql`. Recreate disposable databases instead.
 
 ### Changed
 
-- Draft `W0005: Portal Access`, which moves portal access to the tenant's user records through an `is_portal_user` flag, and record its pending amendments in M0001-03, -04, -05, -07, -08, and -09. Add W0005 to the roadmap after Business Directory; later roadmap orders shift by one.
+- Add Portal Access to the roadmap after Business Directory; later roadmap orders shift by one.
 
 ## [v0.15.2] - 2026-09-23
 
 ### Added
 
-- Add the `admin.support_grants` table and a `break_glass` session access mode, edited in place in baseline migration `001-admin-tenancy`, as the schema for the postponed M0001-13 support-access-consent work unit. Before migrating, run `apps/api/src/scripts/sql/001-admin-tenancy-support-grants.sql` as `nap-admin` against each existing admin database, after `001-admin-tenancy-vendor-contact.sql`. Recreate disposable databases instead.
+- Add the `admin.support_grants` table and a `break_glass` session access mode, edited in place in baseline migration `001-admin-tenancy`, recording support requests to act as a tenant member and the member's or `tenant_admin`'s decision. Before migrating, run `apps/api/src/scripts/sql/001-admin-tenancy-support-grants.sql` as `nap-admin` against each existing admin database, after `001-admin-tenancy-vendor-contact.sql`. Recreate disposable databases instead.
 
 ## [v0.15.1] - 2026-09-22
 

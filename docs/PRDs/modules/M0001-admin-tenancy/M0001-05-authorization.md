@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                   |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Accepted                                                                                                                                                                                                                                |
-| Type                 | Module Work Unit                                                                                                                                                                                                                        |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                                                       |
-| Related architecture | [Module design](../../../architecture/module-design.md)                                                                                                                                                                                 |
-| Related PRDs         | [M0001-02](M0001-02-root-user-provisioning.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md), [M0003-00](../M0003-access-control/M0003-00-role-catalogue-foundation.md), [W0005](../../workflows/W0005-portal-access.md) |
-| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                                                                                                                                                      |
-| Last reviewed        | 2026-09-20                                                                                                                                                                                                                              |
+| Field                | Value                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Status               | Accepted                                                                                                    |
+| Type                 | Module Work Unit                                                                                            |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                           |
+| Related architecture | [Module design](../../../architecture/module-design.md)                                                     |
+| Related PRDs         | [M0001-02](M0001-02-root-user-provisioning.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                          |
+| Last reviewed        | 2026-09-20                                                                                                  |
 
 ## 2. Purpose
 
@@ -99,13 +99,6 @@ assignment is forbidden. The root user cannot receive a role assignment;
 Support cannot read or change a Napsoft membership, selected-tenant session,
 entitlement, event, or tenant-scoped record. A portal user and a platform
 session are platform records, even when the user has a Napsoft membership.
-
-### Amendments From W0005
-
-These rules take effect when [W0005: Portal Access](../../workflows/W0005-portal-access.md) is implemented; until then the rules above apply.
-
-- Amended by W0005 (W0005-R013): `platform_admin` and `support` gain capabilities to provision a `tenant_admin`, reset a password, unlock a login, disable or re-enable a login everywhere, change a shared login's email, view a login's memberships across tenants, suspend, archive, or reinstate a tenant, and retry failed portal-access requests. `support` remains denied any target in the Napsoft tenant. Capability identifiers are settled with W0005.
-- Amended by W0005: `tenant_admin` no longer creates memberships directly; it turns portal access on or off on its tenant's user records.
 
 ## 8. Lifecycle And State Transitions
 

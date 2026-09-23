@@ -8,7 +8,7 @@
 | Type                 | Module Work Unit                                                                                                                                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                   |
 | Related architecture | [Module design](../../../architecture/module-design.md), [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
-| Related PRDs         | M0001-01 through M0001-13, listed in the family document                                                                                                            |
+| Related PRDs         | M0001-01 through M0001-12, listed in the family document                                                                                                            |
 | Related decisions    | Decisions recorded in this PRD                                                                                                                                      |
 | Last reviewed        | 2026-09-20                                                                                                                                                          |
 
@@ -107,22 +107,22 @@ locking, checksums, and the migration ledger.
 columns, types, nullability, defaults, keys, relationships, checks, and indexes.
 It is part of M0001-00-R001, not a separate Work Unit.
 
-| Table in `admin`      | Exported schema object     | Behavior defined by |
-| --------------------- | -------------------------- | ------------------- |
-| `cells`               | `cellsSchema`              | WU 6                |
-| `tenants`             | `tenantsSchema`            | WUs 1, 2, 7         |
-| `portal_users`        | `portalUsersSchema`        | WUs 1, 2, 3, 8      |
-| `portal_user_tenants` | `portalUserTenantsSchema`  | WUs 1, 2, 8         |
-| `sessions`            | `sessionsSchema`           | WUs 4, 9, 13        |
-| `support_grants`      | `supportGrantsSchema`      | WU 13               |
-| `login_throttles`     | `loginThrottlesSchema`     | WU 3                |
-| `platform_roles`      | `platformRolesSchema`      | WU 5                |
-| `cell_provisioning`   | `cellProvisioningSchema`   | WU 6                |
-| `provisioning_jobs`   | `provisioningJobsSchema`   | WU 8                |
-| `module_entitlements` | `moduleEntitlementsSchema` | WU 10               |
-| `outbox`              | `outboxSchema`             | W0003               |
-| `cache_revisions`     | `cacheRevisionsSchema`     | WU 11               |
-| `managed_events`      | `managedEventsSchema`      | WU 12               |
+| Table in `admin`      | Exported schema object     | Behavior defined by             |
+| --------------------- | -------------------------- | ------------------------------- |
+| `cells`               | `cellsSchema`              | WU 6                            |
+| `tenants`             | `tenantsSchema`            | WUs 1, 2, 7                     |
+| `portal_users`        | `portalUsersSchema`        | WUs 1, 2, 3, 8                  |
+| `portal_user_tenants` | `portalUserTenantsSchema`  | WUs 1, 2, 8                     |
+| `sessions`            | `sessionsSchema`           | WUs 4, 9, 13                    |
+| `support_grants`      | `supportGrantsSchema`      | WU 13                           |
+| `login_throttles`     | `loginThrottlesSchema`     | WU 3                            |
+| `platform_roles`      | `platformRolesSchema`      | WU 5                            |
+| `cell_provisioning`   | `cellProvisioningSchema`   | WU 6                            |
+| `provisioning_jobs`   | `provisioningJobsSchema`   | WU 8                            |
+| `module_entitlements` | `moduleEntitlementsSchema` | WU 10                           |
+| `outbox`              | `outboxSchema`             | Delivery worker (not yet built) |
+| `cache_revisions`     | `cacheRevisionsSchema`     | WU 11                           |
+| `managed_events`      | `managedEventsSchema`      | WU 12                           |
 
 ## 10. API Requirements
 

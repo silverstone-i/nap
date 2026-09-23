@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Accepted                                                                                                                        |
-| Type                 | Module Work Unit                                                                                                                |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                               |
-| Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                         |
-| Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-06](M0001-06-cell-management.md), [W0005](../../workflows/W0005-portal-access.md) |
-| Related decisions    | Central tenant creation does not require cell assignment                                                                        |
-| Last reviewed        | 2026-09-20                                                                                                                      |
+| Field                | Value                                                                          |
+| -------------------- | ------------------------------------------------------------------------------ |
+| Status               | Accepted                                                                       |
+| Type                 | Module Work Unit                                                               |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                              |
+| Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                        |
+| Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-06](M0001-06-cell-management.md) |
+| Related decisions    | Central tenant creation does not require cell assignment                       |
+| Last reviewed        | 2026-09-20                                                                     |
 
 ## 2. Purpose
 
@@ -68,12 +68,6 @@ Every request includes `Idempotency-Key` with a UUID. Repeating the same key and
 payload returns the original `201` representation. Reusing the key with different
 input returns `409 IDEMPOTENCY_CONFLICT`. Code uniqueness resolves concurrent
 requests that use different keys.
-
-### Amendments From W0005
-
-These rules take effect when [W0005: Portal Access](../../workflows/W0005-portal-access.md) is implemented; until then the rules above apply.
-
-- Amended by W0005 (W0005-R008, W0005-R009): tenants can be suspended, archived, and reinstated by root, `platform_admin`, or `support`. Suspension or archiving turns every user's portal access off and suspends every membership; reinstatement leaves access off until Napsoft provisions a `tenant_admin`.
 
 ## 8. Lifecycle And State Transitions
 

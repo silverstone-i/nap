@@ -130,6 +130,8 @@ export const tenantsSchema = {
 ## `admin.portal_users`
 
 Stores portal accounts, password hashes, account status, and the root-user marker.
+Failed-login throttling is recorded in `admin.login_throttles` and does not
+change `status`. `locked` is reserved for a future lock that an operator must clear.
 
 ```js
 export const portalUsersSchema = {
@@ -245,7 +247,7 @@ export const portalUserTenantsSchema = {
 
 Stores hashed session credentials, expiry, selected tenant, and attributed
 support access. A null selected tenant represents a platform session.
-`break_glass` is a support mode without an effective user, defined by M0001-13.
+`break_glass` is a support mode without an effective user. Its behavior is not yet specified.
 
 ```js
 export const sessionsSchema = {
@@ -319,7 +321,7 @@ export const sessionsSchema = {
 Stores a support operator's request to act as a tenant member and the decision
 on it. The member or any `tenant_admin` of the same tenant decides. A grant
 expires 24 hours after the request and allows one support session, recorded in
-`session_id`. M0001-13 defines the behavior.
+`session_id`. Its behavior is not yet specified.
 
 ```js
 export const supportGrantsSchema = {
@@ -661,7 +663,8 @@ Stores central tenant, membership, and entitlement changes waiting for delivery
 to the tenant's cell. A row is written in the same transaction as the change it
 describes, so the central change commits even when the cell is unavailable.
 `revision` is the source record's revision; the cell applies a change only when
-it is newer than its copy. `W0003: Projection Synchronization` defines delivery.
+it is newer than its copy. A background worker delivers pending rows; it is not
+yet built.
 
 ```js
 export const outboxSchema = {

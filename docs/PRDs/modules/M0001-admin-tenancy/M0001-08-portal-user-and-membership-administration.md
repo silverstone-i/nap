@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                                 |
-| Type                 | Module Work Unit                                                                                                                                                                            |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                           |
-| Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                                                                     |
-| Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-05](M0001-05-authorization.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md), [W0005](../../workflows/W0005-portal-access.md) |
-| Related decisions    | None                                                                                                                                                                                        |
-| Last reviewed        | 2026-09-22                                                                                                                                                                                  |
+| Field                | Value                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status               | Implemented                                                                                                                                |
+| Type                 | Module Work Unit                                                                                                                           |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                          |
+| Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                    |
+| Related PRDs         | [M0001-03](M0001-03-authentication.md), [M0001-05](M0001-05-authorization.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | None                                                                                                                                       |
+| Last reviewed        | 2026-09-22                                                                                                                                 |
 
 ## 2. Purpose
 
@@ -87,15 +87,6 @@ Disabling or archiving a user revokes all sessions. Suspending or archiving a
 membership revokes sessions selecting its tenant and clears readiness. Restoring
 a user returns it as `disabled`; restoring a membership returns it as `suspended`
 with no readiness until explicitly reactivated and reprovisioned.
-
-### Amendments From W0005
-
-These rules take effect when [W0005: Portal Access](../../workflows/W0005-portal-access.md) is implemented; until then the rules above apply.
-
-- Amended by W0005 (W0005-R001–R003, W0005-R011): tenant-facing membership creation is replaced by turning portal access on for a user record; admin-side membership creation remains a Napsoft-only tool.
-- Amended by W0005: `pending` means waiting for the login's first password change, not waiting for the cell record; `member_id` is known when the membership is created, and the `ready` flag is reconsidered with W0005.
-- Amended by W0005 (W0005-R011): `provisioning_jobs` reverses direction (cell to admin) or is replaced by the W0005 request outbox.
-- Amended by W0005 (W0005-R006): a tenant cannot set a temporary password on a login that has a pending invitation.
 
 ## 8. Lifecycle And State Transitions
 
@@ -211,8 +202,8 @@ requirement.
 
 As every other Work Unit in this family documents, `authorization.js`
 currently resolves only root or no platform authority (M0001-05's role-based
-`platform_admin`/`support`/`tenant_admin` remains deferred to M0003's
-access-control module). AC02's Napsoft-support denial (M0001-08-R007) is
+`platform_admin`/`support`/`tenant_admin` waits for the tenant-local role
+catalogue in the cell). AC02's Napsoft-support denial (M0001-08-R007) is
 therefore demonstrated today by hand-building a `deniedTenantIds`-carrying
 scope and calling the domain functions directly (mirroring
 `tests/integration/entitlements.test.js`'s later precedent), rather than by a

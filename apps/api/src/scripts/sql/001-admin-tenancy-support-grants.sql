@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 --
 -- One-off: add admin.support_grants and the 'break_glass' session access mode
--- to an existing admin database (M0001-13 schema).
+-- to an existing admin database.
 -- Run as nap-admin with the API stopped, after 001-admin-tenancy-vendor-contact.sql:
 --   psql "<admin connection>" -v ON_ERROR_STOP=1 -f apps/api/src/scripts/sql/001-admin-tenancy-support-grants.sql
 -- Applies to databases at 001-admin-tenancy hash 89745665…. Fresh databases
