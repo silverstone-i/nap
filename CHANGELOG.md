@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.15.3] - 2026-09-23
+
 ### Added
 
 - Add the `admin.outbox` table, edited in place in baseline migration `001-admin-tenancy`, as the central side of `W0003: Projection Synchronization`: tenant, membership, and entitlement changes are queued for delivery to their cell. Before migrating, run `apps/api/src/scripts/sql/001-admin-tenancy-outbox.sql` as `nap-admin` against each existing admin database, after `001-admin-tenancy-support-grants.sql`. Recreate disposable databases instead.
