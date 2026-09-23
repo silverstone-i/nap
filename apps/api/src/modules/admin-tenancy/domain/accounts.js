@@ -118,7 +118,7 @@ function requireAuthority(authority) {
  *
  * `authorization.js` currently resolves only root or no platform authority
  * (M0001-05's role-based `platform_admin`/`support`/`tenant_admin` remains
- * waits for the tenant-local role catalogue in the cell), so today this is either fully
+ * deferred until the tenant-local role catalogue exists in the cell), so today this is either fully
  * granted or fully denied — the same posture `cells.js` and `tenants.js`
  * document for their own capability checks.
  * @param {unknown} authority

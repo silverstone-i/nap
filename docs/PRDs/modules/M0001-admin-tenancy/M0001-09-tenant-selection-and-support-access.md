@@ -171,8 +171,8 @@ tests already cover at the integration layer.
 
 As every other Work Unit in this family documents, `authorization.js`
 currently resolves only root or no platform authority (M0001-05's role-based
-`platform_admin`/`support`/`tenant_admin` waits for the tenant-local role
-catalogue in the cell). AC03's Napsoft-support denial (M0001-09-R003) is
+`platform_admin`/`support`/`tenant_admin` remains deferred until the
+tenant-local role catalogue exists in the cell). AC03's Napsoft-support denial (M0001-09-R003) is
 therefore demonstrated today by hand-building a `support`-shaped, Napsoft-
 restricted scope and calling the domain functions directly, rather than by a
 distinguishable `support` session, which has no runtime path to authenticate

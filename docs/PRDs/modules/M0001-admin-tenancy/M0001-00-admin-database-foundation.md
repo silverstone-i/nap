@@ -113,8 +113,8 @@ It is part of M0001-00-R001, not a separate Work Unit.
 | `tenants`             | `tenantsSchema`            | WUs 1, 2, 7                     |
 | `portal_users`        | `portalUsersSchema`        | WUs 1, 2, 3, 8                  |
 | `portal_user_tenants` | `portalUserTenantsSchema`  | WUs 1, 2, 8                     |
-| `sessions`            | `sessionsSchema`           | WUs 4, 9, 13                    |
-| `support_grants`      | `supportGrantsSchema`      | WU 13                           |
+| `sessions`            | `sessionsSchema`           | WUs 4, 9                        |
+| `support_grants`      | `supportGrantsSchema`      | Not yet specified               |
 | `login_throttles`     | `loginThrottlesSchema`     | WU 3                            |
 | `platform_roles`      | `platformRolesSchema`      | WU 5                            |
 | `cell_provisioning`   | `cellProvisioningSchema`   | WU 6                            |
