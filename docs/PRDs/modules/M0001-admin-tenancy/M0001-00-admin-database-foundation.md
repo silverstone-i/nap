@@ -8,7 +8,7 @@
 | Type                 | Module Work Unit                                                                                                                                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                   |
 | Related architecture | [Module design](../../../architecture/module-design.md), [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
-| Related PRDs         | M0001-01 through M0001-12, listed in the family document                                                                                                            |
+| Related PRDs         | M0001-01 through M0001-13, listed in the family document                                                                                                            |
 | Related decisions    | Decisions recorded in this PRD                                                                                                                                      |
 | Last reviewed        | 2026-09-20                                                                                                                                                          |
 
@@ -20,7 +20,7 @@ Define the admin database schema, models, permissions, setup, and migration.
 
 ### Included
 
-- All 12 admin tables and their `pg-schemata` schema objects.
+- All 13 admin tables and their `pg-schemata` schema objects.
 - Models, repository registration, and the admin-tenancy module descriptor.
 - Database roles, grants, constraints, and triggers.
 - Local and Render Admin database setup, deployment configuration, setup guides, and the initial admin-tenancy migration.
@@ -46,7 +46,7 @@ The two PostgreSQL roles are separate from the application roles
 ### Runtime Grant Contract
 
 Grant `nap-app` `CONNECT` on the selected database, `USAGE` on `admin`, and
-`SELECT`, `INSERT`, `UPDATE`, and `DELETE` on all 12 admin tables.
+`SELECT`, `INSERT`, `UPDATE`, and `DELETE` on all 13 admin tables.
 
 CRUD grants remain subject to database constraints and triggers.
 
@@ -113,7 +113,8 @@ It is part of M0001-00-R001, not a separate Work Unit.
 | `tenants`             | `tenantsSchema`            | WUs 1, 2, 7         |
 | `portal_users`        | `portalUsersSchema`        | WUs 1, 2, 3, 8      |
 | `portal_user_tenants` | `portalUserTenantsSchema`  | WUs 1, 2, 8         |
-| `sessions`            | `sessionsSchema`           | WUs 4, 9            |
+| `sessions`            | `sessionsSchema`           | WUs 4, 9, 13        |
+| `support_grants`      | `supportGrantsSchema`      | WU 13               |
 | `login_throttles`     | `loginThrottlesSchema`     | WU 3                |
 | `platform_roles`      | `platformRolesSchema`      | WU 5                |
 | `cell_provisioning`   | `cellProvisioningSchema`   | WU 6                |
@@ -156,14 +157,14 @@ Its frozen schema objects create tables in this order:
 
 1. `cells`, `portal_users`.
 2. `tenants`.
-3. `portal_user_tenants`, `sessions`, `login_throttles`, `platform_roles`, `cell_provisioning`.
+3. `portal_user_tenants`, `sessions`, `support_grants`, `login_throttles`, `platform_roles`, `cell_provisioning`.
 4. `provisioning_jobs`, `module_entitlements`, `cache_revisions`, `managed_events`.
 
 Install and verify the functions, triggers, and grants specified in §4 and the
 schema chapter.
 
 Model objects and the frozen migration must produce equivalent table contracts.
-The 12 tables are the initial contract; later migrations may add tables or change
+The 13 tables are the initial contract; later migrations may add tables or change
 the schema. Runtime startup must not run migrations.
 Commands return exit code zero only on success or verified no change, and a
 nonzero code on failure. Report the target, migration ID, and safe error context.
@@ -199,11 +200,11 @@ WU 12’s administrative event API.
 
 | Criterion | Required result                                                                                                                                                                                                             | Requirements                 |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | All 12 schema objects, models, and repository entries match the migrated PostgreSQL catalog; no cell connection is required.                                                                                                | M0001-00-R001, M0001-00-R002 |
+| AC01      | All 13 schema objects, models, and repository entries match the migrated PostgreSQL catalog; no cell connection is required.                                                                                                | M0001-00-R001, M0001-00-R002 |
 | AC02      | Local setup verifies existing roles; Render setup creates missing roles using provider credentials. Fresh setup produces an empty target; retries preserve existing rows and credentials and reject incompatible resources. | M0001-00-R003, M0001-00-R009 |
 | AC03      | Migration creates all tables in dependency order, records success in the library ledger, and applies nothing on a repeated run.                                                                                             | M0001-00-R004, M0001-00-R007 |
 | AC04      | Wrong-target descriptors fail before connection; migration failure leaves no falsely applied ledger entry; connections close on both paths.                                                                                 | M0001-00-R004, M0001-00-R006 |
-| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 12 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled.                                                 | M0001-00-R005, M0001-00-R012 |
+| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 13 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled.                                                 | M0001-00-R005, M0001-00-R012 |
 | AC06      | Direct SQL as `nap-app` rejects invalid foreign keys, duplicate constrained values, immutable-key changes, and event updates/deletes; valid writes maintain audit fields.                                                   | M0001-00-R007, M0001-00-R008 |
 | AC07      | Changed applied migration contents fail checksum validation; new changes use a new migration.                                                                                                                               | M0001-00-R010                |
 | AC08      | Success, repeat, partial setup, and failure output contain no credentials or secret-bearing values.                                                                                                                         | M0001-00-R006, M0001-00-R013 |

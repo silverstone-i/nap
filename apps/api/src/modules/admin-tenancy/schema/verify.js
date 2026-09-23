@@ -15,6 +15,7 @@ const order = [
   'tenants',
   'portal_user_tenants',
   'sessions',
+  'support_grants',
   'login_throttles',
   'platform_roles',
   'cell_provisioning',

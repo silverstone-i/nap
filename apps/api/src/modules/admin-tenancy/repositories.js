@@ -8,6 +8,7 @@ import { Tenants } from './models/tenants.js';
 import { PortalUsers } from './models/portal_users.js';
 import { PortalUserTenants } from './models/portal_user_tenants.js';
 import { Sessions } from './models/sessions.js';
+import { SupportGrants } from './models/support_grants.js';
 import { LoginThrottles } from './models/login_throttles.js';
 import { PlatformRoles } from './models/platform_roles.js';
 import { CellProvisioning } from './models/cell_provisioning.js';
@@ -23,6 +24,7 @@ export const repositories = {
   portal_users: PortalUsers,
   portal_user_tenants: PortalUserTenants,
   sessions: Sessions,
+  support_grants: SupportGrants,
   login_throttles: LoginThrottles,
   platform_roles: PlatformRoles,
   cell_provisioning: CellProvisioning,

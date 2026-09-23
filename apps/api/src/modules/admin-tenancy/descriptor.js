@@ -7,7 +7,7 @@ import { repositories } from './repositories.js';
 import { migration } from './schema/migrations/001-admin-tenancy.js';
 
 /**
- * Module descriptor for `admin-tenancy`. It registers the twelve admin table
+ * Module descriptor for `admin-tenancy`. It registers the thirteen admin table
  * models and the frozen baseline migration with the admin registry. See
  * docs/architecture/module-design.md for the descriptor fields.
  */

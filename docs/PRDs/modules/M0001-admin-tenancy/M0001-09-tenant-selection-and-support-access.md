@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                        |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                  |
-| Type                 | Module Work Unit                                                                             |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                            |
-| Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md) |
-| Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md)            |
-| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data           |
-| Last reviewed        | 2026-09-21                                                                                   |
+| Field                | Value                                                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Implemented                                                                                                                       |
+| Type                 | Module Work Unit                                                                                                                  |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                 |
+| Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md)                                      |
+| Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md), [M0001-13](M0001-13-support-access-consent.md) |
+| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                                                |
+| Last reviewed        | 2026-09-21                                                                                                                        |
 
 ## 2. Purpose
 
@@ -69,6 +69,10 @@ Support access lasts at most 60 minutes and cannot outlive the session. Reason
 is trimmed and contains 10–512 characters. An effective user, when supplied,
 must be active and have an active, ready membership in the target tenant.
 Support contexts cannot nest or switch tenants; exit first.
+
+[M0001-13](M0001-13-support-access-consent.md) will amend these rules: read-only
+support without an effective user, member consent before acting as a user, and
+`platform_admin` break-glass writes. Until M0001-13 is implemented, the rules above apply.
 
 ## 8. Lifecycle And State Transitions
 
