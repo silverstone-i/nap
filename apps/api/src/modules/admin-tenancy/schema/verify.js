@@ -21,6 +21,7 @@ const order = [
   'cell_provisioning',
   'provisioning_jobs',
   'module_entitlements',
+  'outbox',
   'cache_revisions',
   'managed_events',
 ];

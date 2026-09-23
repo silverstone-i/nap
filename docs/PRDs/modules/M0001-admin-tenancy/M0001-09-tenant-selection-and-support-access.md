@@ -2,15 +2,15 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                             |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                       |
-| Type                 | Module Work Unit                                                                                                                  |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                 |
-| Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md)                                      |
-| Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md), [M0001-13](M0001-13-support-access-consent.md) |
-| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                                                |
-| Last reviewed        | 2026-09-21                                                                                                                        |
+| Field                | Value                                                                                                                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Implemented                                                                                                                                                                        |
+| Type                 | Module Work Unit                                                                                                                                                                   |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                  |
+| Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [BFF](../../../architecture/bff.md)                                                                                       |
+| Related PRDs         | [M0001-04](M0001-04-session-management.md), [M0001-05](M0001-05-authorization.md), [M0001-13](M0001-13-support-access-consent.md), [W0005](../../workflows/W0005-portal-access.md) |
+| Related decisions    | Support has full platform access except access to or action on Napsoft tenant data                                                                                                 |
+| Last reviewed        | 2026-09-21                                                                                                                                                                         |
 
 ## 2. Purpose
 

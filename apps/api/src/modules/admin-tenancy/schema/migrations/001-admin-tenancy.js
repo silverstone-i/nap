@@ -6,7 +6,7 @@
 import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
- * Baseline admin migration. It creates the thirteen admin tables in dependency
+ * Baseline admin migration. It creates the fourteen admin tables in dependency
  * order, installs the protection trigger functions and triggers, disables
  * row-level security, and applies the `nap-app` grant contract.
  *
@@ -612,6 +612,68 @@ export const migration = defineMigration({
         indexes: [{ columns: ['tenant_id', 'enabled'] }],
       },
     };
+    const outboxSchema = {
+      dbSchema: 'admin',
+      table: 'outbox',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          notNull: true,
+          default: 'gen_random_uuid()',
+          immutable: true,
+        },
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'topic', type: 'text', notNull: true, immutable: true },
+        { name: 'entity_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'revision', type: 'integer', notNull: true, immutable: true },
+        {
+          name: 'payload',
+          type: 'jsonb',
+          notNull: true,
+          default: "'{}'::jsonb",
+          immutable: true,
+        },
+        { name: 'status', type: 'text', notNull: true, default: 'pending' },
+        { name: 'attempts', type: 'integer', notNull: true, default: 0 },
+        {
+          name: 'next_attempt_at',
+          type: 'timestamptz',
+          notNull: true,
+          default: 'now()',
+        },
+        { name: 'delivered_at', type: 'timestamptz' },
+        { name: 'failure_code', type: 'varchar(64)' },
+      ],
+      constraints: {
+        primaryKey: ['id'],
+        checks: [
+          "topic IN ('tenant', 'membership', 'entitlement')",
+          "status IN ('pending', 'delivered', 'failed')",
+          'revision > 0',
+          'attempts >= 0',
+          "(status = 'delivered' AND delivered_at IS NOT NULL AND failure_code IS NULL) OR (status <> 'delivered' AND delivered_at IS NULL)",
+        ],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id'],
+            references: { schema: 'admin', table: 'tenants', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+        ],
+        indexes: [
+          {
+            name: 'outbox_change',
+            columns: ['topic', 'entity_id', 'revision'],
+            unique: true,
+          },
+          { columns: ['status', 'next_attempt_at'] },
+          { columns: ['tenant_id', 'status'] },
+        ],
+      },
+    };
     const cacheRevisionsSchema = {
       dbSchema: 'admin',
       table: 'cache_revisions',
@@ -702,6 +764,7 @@ export const migration = defineMigration({
       cellProvisioningSchema,
       provisioningJobsSchema,
       moduleEntitlementsSchema,
+      outboxSchema,
       cacheRevisionsSchema,
       managedEventsSchema,
     ];

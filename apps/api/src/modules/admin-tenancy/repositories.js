@@ -14,6 +14,7 @@ import { PlatformRoles } from './models/platform_roles.js';
 import { CellProvisioning } from './models/cell_provisioning.js';
 import { ProvisioningJobs } from './models/provisioning_jobs.js';
 import { ModuleEntitlements } from './models/module_entitlements.js';
+import { Outbox } from './models/outbox.js';
 import { CacheRevisions } from './models/cache_revisions.js';
 import { ManagedEvents } from './models/managed_events.js';
 
@@ -30,6 +31,7 @@ export const repositories = {
   cell_provisioning: CellProvisioning,
   provisioning_jobs: ProvisioningJobs,
   module_entitlements: ModuleEntitlements,
+  outbox: Outbox,
   cache_revisions: CacheRevisions,
   managed_events: ManagedEvents,
 };

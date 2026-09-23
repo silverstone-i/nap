@@ -10,6 +10,14 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add the `admin.outbox` table, edited in place in baseline migration `001-admin-tenancy`, as the central side of `W0003: Projection Synchronization`: tenant, membership, and entitlement changes are queued for delivery to their cell. Before migrating, run `apps/api/src/scripts/sql/001-admin-tenancy-outbox.sql` as `nap-admin` against each existing admin database, after `001-admin-tenancy-support-grants.sql`. Recreate disposable databases instead.
+
+### Changed
+
+- Draft `W0005: Portal Access`, which moves portal access to the tenant's user records through an `is_portal_user` flag, and record its pending amendments in M0001-03, -04, -05, -07, -08, and -09. Add W0005 to the roadmap after Business Directory; later roadmap orders shift by one.
+
 ## [v0.15.2] - 2026-09-23
 
 ### Added
