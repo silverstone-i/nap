@@ -157,8 +157,8 @@ Its frozen schema objects create tables in this order:
 
 1. `cells`, `portal_users`.
 2. `tenants`.
-3. `portal_user_tenants`, `sessions`, `login_throttles`, `platform_roles`, `cell_provisioning`.
-4. `support_grants`, `provisioning_jobs`, `module_entitlements`, `cache_revisions`, `managed_events`.
+3. `portal_user_tenants`, `sessions`, `support_grants`, `login_throttles`, `platform_roles`, `cell_provisioning`.
+4. `provisioning_jobs`, `module_entitlements`, `cache_revisions`, `managed_events`.
 
 Install and verify the functions, triggers, and grants specified in §4 and the
 schema chapter.
