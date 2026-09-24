@@ -10,7 +10,7 @@
 | Related architecture | [Module design](../../../architecture/module-design.md), [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
 | Related PRDs         | [M0001-00: Admin Database Foundation](../M0001-admin-tenancy/M0001-00-admin-database-foundation.md)                                                                 |
 | Related decisions    | One migration file creates every `cell-tenancy` table                                                                                                               |
-| Last reviewed        | 2026-09-23                                                                                                                                                          |
+| Last reviewed        | 2026-09-24                                                                                                                                                          |
 
 ## 2. Purpose
 
@@ -24,8 +24,7 @@ on this.
 
 - The five `cell` tables, their `pg-schemata` schema objects, models, and the
   `cell-tenancy` module descriptor.
-- One `001-cell-tenancy` migration that creates the schema, tables, grants, and
-  RLS rules.
+- One `001-cell-tenancy` migration that creates the schema, tables, and grants.
 - A cell module registry and its validation.
 - A cell migration runner that migrates one cell database.
 - A catalog check that confirms a migrated cell database matches the contract.
@@ -34,8 +33,9 @@ on this.
 
 - Creating a cell database or its roles, and writing its identity row. Cell
   provisioning owns this; M0002-02 owns the check that reads the row.
-- Runtime connections to cells and routing requests to them (M0002-03).
-- Applying admin changes to the copied tables (M0002-05, -07, -08).
+- Runtime connections to cells and routing requests to them (W0001).
+- Applying admin changes to the copied tables (the tenant, membership, and
+  entitlement sync workflows).
 - The `reference`, `app`, and `reporting` schemas. Their modules create them;
   the runner only orders them.
 - Seeding reference data.
@@ -44,10 +44,10 @@ on this.
 
 M0001-00 setup establishes both PostgreSQL roles on the server.
 
-| Database role | Use in a cell database                  | Permissions                                                                                                                |
-| ------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `nap-admin`   | Runs migrations and writes the identity | Owns the `cell` schema and its tables. Not subject to RLS on tables it owns.                                               |
-| `nap-app`     | Serves application requests             | Reads and writes rows as granted below. Owns nothing. Cannot create or alter tables. Subject to RLS on every tenant table. |
+| Database role | Use in a cell database                  | Permissions                                                                          |
+| ------------- | --------------------------------------- | ------------------------------------------------------------------------------------ |
+| `nap-admin`   | Runs migrations and writes the identity | Owns the `cell` schema and its tables.                                               |
+| `nap-app`     | Serves application requests             | Reads and writes rows as granted below. Owns nothing. Cannot create or alter tables. |
 
 ### Runtime grant contract
 
@@ -60,15 +60,15 @@ M0001-00 setup establishes both PostgreSQL roles on the server.
 
 ## 5. Concepts And Terminology
 
-| Term                     | Meaning                                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------------- |
-| Cell                     | A separate PostgreSQL database that holds business data for one or more tenants                    |
-| Copied table             | A cell table that holds a copy of admin data, because a cell cannot query the admin database       |
-| Row-level security (RLS) | A PostgreSQL rule, checked on every query, that hides rows the current tenant does not own         |
-| Tenant setting           | The transaction setting `nap.tenant_id`, which names the tenant a request is for                   |
-| Module registry          | The list of module descriptors whose migrations a database receives                                |
-| Catalog check            | A comparison of the database's tables, columns, grants, and RLS rules against the schema objects   |
-| Migration ledger         | The `pg-schemata` table that records which migrations a database has applied, with their checksums |
+| Term                     | Meaning                                                                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Cell                     | A separate PostgreSQL database that holds business data for one or more tenants                                                          |
+| Copied table             | A cell table that holds a copy of admin data, because a cell cannot query the admin database                                             |
+| Row-level security (RLS) | A PostgreSQL rule, checked on every query, that hides rows the current tenant does not own. Business tables use it; `cell` tables do not |
+| Tenant setting           | The transaction setting `nap.tenant_id`, which names the tenant a request is for                                                         |
+| Module registry          | The list of module descriptors whose migrations a database receives                                                                      |
+| Catalog check            | A comparison of the database's tables, columns, grants, and RLS settings against the schema objects                                      |
+| Migration ledger         | The `pg-schemata` table that records which migrations a database has applied, with their checksums                                       |
 
 ## 6. Functional Requirements
 
@@ -77,7 +77,7 @@ M0001-00 setup establishes both PostgreSQL roles on the server.
 - M0002-01-R003: The cell module registry must be separate from the admin registry. Validation must run before any connection opens and reject a descriptor that targets another database, uses a schema other than `cell`, `reference`, `app`, or `reporting`, repeats a module name or migration ID, lacks a migration array, or registers a model whose schema object names another schema or table.
 - M0002-01-R004: The cell migration runner must connect to one cell database as `nap-admin`, apply pending migrations through `pg-schemata` one schema at a time in the order `cell`, `reference`, `app`, `reporting`, skip a schema with no registered module, run the catalog check, and close the connection on success and failure.
 - M0002-01-R005: The runner must report `applied` or `unchanged` with the database name, and must not report success after a failed or incomplete run.
-- M0002-01-R006: The migration must enable RLS on each tenant table with the rule `<column> = NULLIF(current_setting('nap.tenant_id', true), '')::uuid`, using the column in section 9. With no tenant setting, a query returns no rows.
+- M0002-01-R006: `cell` tables must not use RLS. Only system code (the sync workflows, `withTenantTransaction`, the identity check) reads or writes them, and it names the tenant explicitly, the same as `admin` tables. Tenant business tables in the `app` and `reporting` schemas must enable RLS with the rule `<column> = NULLIF(current_setting('nap.tenant_id', true), '')::uuid`; with no tenant setting, such a query returns no rows.
 
 ## 7. Business Rules And Invariants
 
@@ -88,13 +88,13 @@ M0001-00 setup establishes both PostgreSQL roles on the server.
 
 ## 8. Lifecycle And State Transitions
 
-| Starting state                   | Action  | Result                                                      |
-| -------------------------------- | ------- | ----------------------------------------------------------- |
-| Empty cell database              | Migrate | Create the schema, tables, grants, and RLS rules; `applied` |
-| Pending migrations               | Migrate | Apply them under the `pg-schemata` ledger and lock          |
-| No pending migrations            | Migrate | Run the catalog check; `unchanged`                          |
-| Invalid registry                 | Migrate | Fail before connecting                                      |
-| Migration or catalog check fails | Migrate | Fail; the ledger records nothing for the failed migration   |
+| Starting state                   | Action  | Result                                                    |
+| -------------------------------- | ------- | --------------------------------------------------------- |
+| Empty cell database              | Migrate | Create the schema, tables, and grants; `applied`          |
+| Pending migrations               | Migrate | Apply them under the `pg-schemata` ledger and lock        |
+| No pending migrations            | Migrate | Run the catalog check; `unchanged`                        |
+| Invalid registry                 | Migrate | Fail before connecting                                    |
+| Migration or catalog check fails | Migrate | Fail; the ledger records nothing for the failed migration |
 
 ## 9. Data Requirements
 
@@ -104,13 +104,13 @@ user IDs and may be null for background work. Soft-deleted tables add
 `deactivated_at`; ordinary reads exclude rows where it is set. UUID primary keys use
 `gen_random_uuid()` unless the value is copied from admin.
 
-| Table                 | Schema object              | RLS column  | Behavior defined by |
-| --------------------- | -------------------------- | ----------- | ------------------- |
-| `physical_identity`   | `physicalIdentitySchema`   | None        | M0002-02            |
-| `tenants`             | `tenantsSchema`            | `id`        | M0002-05, M0002-06  |
-| `tenant_members`      | `tenantMembersSchema`      | `tenant_id` | M0002-07            |
-| `module_entitlements` | `moduleEntitlementsSchema` | `tenant_id` | M0002-08            |
-| `outbox`              | `outboxSchema`             | `tenant_id` | M0002-09            |
+| Table                 | Schema object              | Behavior defined by         |
+| --------------------- | -------------------------- | --------------------------- |
+| `physical_identity`   | `physicalIdentitySchema`   | M0002-02                    |
+| `tenants`             | `tenantsSchema`            | Tenant sync, tenant context |
+| `tenant_members`      | `tenantMembersSchema`      | Membership sync             |
+| `module_entitlements` | `moduleEntitlementsSchema` | Entitlement sync            |
+| `outbox`              | `outboxSchema`             | Cell-to-admin delivery      |
 
 The migration creates `physical_identity` and `tenants` first, then the other
 three, which reference `tenants`.
@@ -212,11 +212,12 @@ Errors carry a code and the database name, never credentials.
 
 - Cell provisioning writes `cell.physical_identity` during setup. M0002-02
   reads it before a cell is used.
-- M0002-05, M0002-07, and M0002-08 write the copied tables. M0002-09 writes
+- The tenant, membership, and entitlement sync workflows write the copied
+  tables. Cell-to-admin delivery writes
   `cell.outbox`.
 - Cell provisioning calls `migrateCell` after setup and before seeding.
-- Later cell modules register descriptors in the cell registry and receive
-  their RLS rule from the same pattern.
+- Later cell modules register descriptors in the cell registry, and their
+  tenant business tables use the RLS rule in M0002-01-R006.
 
 ## 12. Security And Audit
 
@@ -225,16 +226,16 @@ Errors carry a code and the database name, never credentials.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                 | Requirements                 |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | The five schema objects, models, and repository entries match the migrated catalog of a disposable cell database.                               | M0002-01-R001, M0002-01-R002 |
-| AC02      | Invalid descriptors fail before any connection opens; the admin registry rejects a cell descriptor and the cell registry rejects an admin one.  | M0002-01-R003                |
-| AC03      | A first run reports `applied`, a second reports `unchanged`, and a failed run records nothing in the ledger; connections close on every path.   | M0002-01-R004, M0002-01-R005 |
-| AC04      | As `nap-app`, each tenant table returns no rows without a tenant setting and only that tenant's rows with one; `physical_identity` is readable. | M0002-01-R006                |
-| AC05      | As `nap-app`, creating or altering a table fails, a second `physical_identity` row fails, and an identity change fails.                         | M0002-01-R008, M0002-01-R011 |
-| AC06      | A changed applied migration fails checksum validation.                                                                                          | M0002-01-R009                |
-| AC07      | API startup runs no cell migration, and runner output on success and failure contains no credentials.                                           | M0002-01-R010, M0002-01-R012 |
-| AC08      | No foreign key in `cell` references the admin database.                                                                                         | M0002-01-R007                |
+| Criterion | Required result                                                                                                                                           | Requirements                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | The five schema objects, models, and repository entries match the migrated catalog of a disposable cell database.                                         | M0002-01-R001, M0002-01-R002 |
+| AC02      | Invalid descriptors fail before any connection opens; the admin registry rejects a cell descriptor and the cell registry rejects an admin one.            | M0002-01-R003                |
+| AC03      | A first run reports `applied`, a second reports `unchanged`, and a failed run records nothing in the ledger; connections close on every path.             | M0002-01-R004, M0002-01-R005 |
+| AC04      | No `cell` table has RLS enabled; as `nap-app`, with no tenant setting, every tenant's rows are readable and writable and `physical_identity` is readable. | M0002-01-R006                |
+| AC05      | As `nap-app`, creating or altering a table fails, a second `physical_identity` row fails, and an identity change fails.                                   | M0002-01-R008, M0002-01-R011 |
+| AC06      | A changed applied migration fails checksum validation.                                                                                                    | M0002-01-R009                |
+| AC07      | API startup runs no cell migration, and runner output on success and failure contains no credentials.                                                     | M0002-01-R010, M0002-01-R012 |
+| AC08      | No foreign key in `cell` references the admin database.                                                                                                   | M0002-01-R007                |
 
 ### Verification Evidence
 
@@ -248,9 +249,12 @@ Local validation on 2026-09-23: `npm run lint`, `npm run format:check`,
   cover every registry rejection, the split between the admin and cell
   registries, and the absence of cell migrations from runtime startup.
 - [Cell foundation tests](../../../../apps/api/tests/integration/cell-foundation.test.js)
-  cover concurrent migration, the catalog check, RLS for `nap-app` with and
-  without a tenant setting, refused DDL, the single identity row, foreign
+  cover concurrent migration, the catalog check, `nap-app` access with RLS
+  off, refused DDL, the single identity row, foreign
   keys, failed and changed migrations, and credential-free errors.
+
+RLS removed from `cell` tables on 2026-09-24, before any persistent cell ran
+`001`: `npm run test:db:local` passed all 179 tests.
 
 Final verification requires the pull request to merge with passing CI.
 

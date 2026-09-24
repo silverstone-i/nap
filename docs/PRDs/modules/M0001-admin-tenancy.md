@@ -23,7 +23,7 @@ initial central identity and establishes root authority through `is_root`. WU 5
 grants root authority; role seeds, assignment behavior, and non-root
 capability resolution are deferred to M0569. WU 6 manages
 cells independently of root authority. Tenant selection then uses sessions,
-memberships, root authority, and platform-role assignments. PRD identifiers
+memberships, root authority, and platform-role assignments (M0569). PRD identifiers
 remain fixed when work is reordered.
 
 “Napsoft” in this family means the owning tenant whose name is configured through

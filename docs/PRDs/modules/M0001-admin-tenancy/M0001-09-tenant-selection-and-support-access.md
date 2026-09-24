@@ -64,6 +64,9 @@ operator access to tenant context.
 Normal selection requires an active, ready membership; an active, provisioned,
 RBAC-ready tenant; an assigned enabled cell; and runtime readiness. An unavailable
 runtime cell returns `503 CELL_UNAVAILABLE` without changing the session.
+Runtime readiness comes from the `runtime.readiness(cellId)` collaborator that
+[W0001](../../workflows/W0001-runtime-cell-registry.md) will supply; until then, every
+selection returns `503 CELL_UNAVAILABLE`.
 
 Support access lasts at most 60 minutes and cannot outlive the session. Reason
 is trimmed and contains 10–512 characters. An effective user, when supplied,

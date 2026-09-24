@@ -92,7 +92,7 @@ lookup. Soft-deleted session records are not purged automatically.
 | ------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
 | `GET /api/admin-tenancy/v1/session/current` | Valid session                              | Safe session view                             |
 | `POST /api/admin-tenancy/v1/session/rotate` | Current session                            | Rotated cookie and safe session view          |
-| `POST /api/admin-tenancy/v1/auth/logout`    | Presented cookie, valid or expired         | Revoked reference and cleared cookie          |
+| `POST /api/admin-tenancy/v1/auth/logout`    | Presented cookie, valid or expired         | `204` and cleared cookie                      |
 | `DELETE /api/admin-tenancy/v1/sessions/:id` | Own session or permitted platform operator | `204`; repeated revocation also returns `204` |
 
 The cookie is `HttpOnly`, `SameSite=Lax`, `Path=/`, has no `Domain`, and is

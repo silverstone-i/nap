@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Status               | Accepted                                                                                                           |
+| Status               | Implemented                                                                                                        |
 | Type                 | Module Work Unit                                                                                                   |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                  |
 | Related architecture | [Module design](../../../architecture/module-design.md)                                                            |
@@ -84,8 +84,8 @@ capability set without an assignment or role seed dependency.
 Implemented in PR #11. `resolveAuthorization`
 ([authorization.js](../../../../apps/api/src/modules/admin-tenancy/domain/authorization.js))
 returns `PLATFORM_ADMIN_CAPABILITIES` only for an active `is_root` user whose
-session is unrestricted and in `normal` access mode, and an empty set
-otherwise. [authorization.test.js](../../../../apps/api/tests/unit/authorization.test.js)
+session is unrestricted and in `normal` access mode, an empty set for any
+other active user, and throws `FORBIDDEN` for an inactive or missing user. [authorization.test.js](../../../../apps/api/tests/unit/authorization.test.js)
 covers the root grant, restricted and support-mode root sessions, non-root
 users, and inactive users; 5 tests passed on 2026-09-23.
 

@@ -48,7 +48,8 @@ and MUI for the web UI.
 At startup, the API must create:
 
 - one admin database handle;
-- a UUID-keyed cell registry;
+- a UUID-keyed cell registry ([W0001](../PRDs/workflows/W0001-runtime-cell-registry.md); not yet
+  implemented);
 - an optional Redis-backed authorization cache;
 - the Express runtime.
 
@@ -58,7 +59,8 @@ routes, module routes, client-route fallback for the built web app, and a
 shared error handler.
 
 The runtime must manage process startup and shutdown. Startup requires admin
-readiness before listening. Each configured cell is checked independently; an
+readiness before listening. Once W0001 lands, each configured cell is checked
+independently; an
 unavailable cell is quarantined while admin and healthy cells can keep serving.
 Shutdown drains HTTP before closing database pools.
 
@@ -91,7 +93,7 @@ Runtime database configuration uses:
 
 - `ADMIN_DATABASE_<ENV>` for the admin database endpoint;
 - `CELL_DATABASES_<ENV>` for a JSON map of cell UUIDs to cell database
-  endpoints;
+  endpoints (read once W0001 is implemented);
 - `NAP_APP_PSWD_<ENV>` and `NAP_ADMIN_PSWD_<ENV>` for local role passwords;
 - production JSON entries that include endpoint and role passwords.
 
