@@ -66,8 +66,9 @@ letting cell-local tables enforce tenant-scoped behavior.
 ### `cell.physical_identity`
 
 Proves that a PostgreSQL connection points to the registered cell. Before
-loading a runtime cell, the API must verify the stored cell UUID, database
-name, operation ID, environment, and actual `current_database()`.
+loading a runtime cell, the API must verify that the stored cell UUID matches
+the `admin.cells` record, and that the stored database name matches both that
+record and `current_database()` (M0002-02).
 
 ### `cell.tenants`
 
@@ -77,7 +78,8 @@ database.
 
 ## Runtime Flow
 
-At startup, the API must read the admin database setting and the configured
+Specified in [W0001](../PRDs/workflows/W0001-runtime-cell-registry.md); not yet
+implemented. At startup, the API must read the admin database setting and the configured
 cell database map.
 
 The cell database map ties each cell UUID to its database connection string.
@@ -210,8 +212,9 @@ The overview reports central records and registry state. A cell is available
 only when `admin.cells.enabled` is true and the runtime registry says the cell
 is ready.
 
-The readiness endpoint checks the loaded cell's physical identity and reference
-data readiness.
+The readiness endpoint reports the runtime registry's readiness result for the
+cell (W0001). Reporting identity and migration detail is future work with no
+PRD yet.
 
 ## Business Rules
 

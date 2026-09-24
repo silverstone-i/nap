@@ -10,6 +10,12 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Remove row-level security from the `cell` tables, edited in place in baseline migration `001-cell-tenancy`, which no persistent cell has run. Only system code reads and writes these tables, as with `admin` tables; `verifyCell` now requires RLS off. Tenant business tables in the `app` and `reporting` schemas still require RLS (M0002-01-R006).
+- Narrow M0002 Cell Tenancy to M0002-01 and M0002-02 and mark it complete. Move the runtime cell registry to workflow PRD W0001 (Draft), and list tenant context, tenant, membership, and entitlement sync, cell-to-admin delivery, cell health, and cell readiness as future workflows and features.
+- Sync documentation with the code: PRD statuses, signatures, events, and routes in M0001; runtime-registry references pointing at W0001; the roadmap; and the READMEs and setup guides, which now cover `db:bootstrap`, the `ROOT_*` settings, and the shipped routes and screens.
+
 ## [v0.16.0] - 2026-09-24
 
 ### Added

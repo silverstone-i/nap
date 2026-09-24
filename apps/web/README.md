@@ -1,9 +1,9 @@
 # @nap/web
 
-React web client for NAP, built with Vite and MUI. It renders a placeholder
-shell today. The first real screens, login, session restore, and tenant
-selection, follow the accepted PRDs in the
-[roadmap](../../docs/roadmap/ROADMAP.md).
+React web client for NAP, built with Vite and MUI. It implements login, session
+restore, tenant selection, and the platform administration screens
+([F0001](../../docs/PRDs/features/F0001-application-entry-and-shell.md),
+[F0002](../../docs/PRDs/features/F0002-platform-administration-screens.md)).
 
 ## Commands
 
@@ -25,5 +25,13 @@ proxies them to the API. In production the API serves `dist/` itself. See
 
 - `index.html` is the Vite entry. It loads `src/main.jsx`.
 - `src/main.jsx` mounts `App` under strict mode.
-- `src/App.jsx` is the root component.
+- `src/App.jsx` is the root component and route table.
+- `src/api/`: the same-origin API client and endpoint list.
+- `src/auth/`: session context, route guards, and status screens.
+- `src/shell/`: the application shell, headers, and navigation.
+- `src/pages/`: login, password, tenant selection, and management pages.
+- `src/grid/`: the standard data grid and confirm dialog.
+- `src/theme/`: theme tokens and light/dark mode.
+- `src/storage/`: guarded `localStorage` access.
+- `src/spreadsheet/`: spreadsheet placeholder.
 - `tests/` holds component tests.

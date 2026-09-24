@@ -19,8 +19,8 @@ npm ci
 ```
 
 Replace `YOUR_ACCOUNT` with your GitHub account. The commands below run
-from the repository root. This guide installs the empty Admin database; it does
-not create a root user, seed data, or provide login or cell management.
+from the repository root. This guide installs the Admin database and the root
+user. It does not seed data or register cells.
 
 ## Prepare local roles
 
@@ -55,6 +55,9 @@ Edit the DEV values in this private file:
   least 32 characters. It keys the hash that stands in for an email address or
   a client address in `admin.login_throttles`, and it is separate from the
   session secret so that leaking either one does not compromise both.
+- `ROOT_TENANT_CODE_DEV`, `ROOT_COMPANY_DEV`, `ROOT_EMAIL_DEV`, and
+  `ROOT_PASSWORD_DEV`: the root tenant and root user that
+  `npm run db:bootstrap -- --env dev` creates.
 - `APP_ORIGIN_DEV`: `http://localhost:5173`, the Vite server the browser talks
   to. Every state-changing `/api` request must prove it came from this origin,
   so the API's own port is the wrong value here.
@@ -74,6 +77,7 @@ variables take precedence over file values.
 ```sh
 npm run db:setup:admin -- --env dev
 npm run db:migrate:admin -- --env dev
+npm run db:bootstrap -- --env dev
 ```
 
 Setup creates or verifies the database, ownership, role attributes, and grants.

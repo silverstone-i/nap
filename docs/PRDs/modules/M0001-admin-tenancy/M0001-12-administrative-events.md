@@ -57,18 +57,18 @@ to establish who did what and whether it succeeded.
 - M0001-12-R003: Runtime roles must not update or delete events.
 - M0001-12-R004: Authorized readers must filter events by permitted tenant scope before pagination.
 
-| Area           | Event keys                                                                                                                                                                                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Bootstrap      | `bootstrap.succeeded`, `bootstrap.failed`                                                                                                                                                                                                                                    |
-| Authentication | `auth.login.succeeded`, `auth.login.failed`, `auth.login.throttled`, `auth.password.changed`                                                                                                                                                                                 |
-| Sessions       | `session.created`, `session.rotated`, `session.revoked`, `session.expired`                                                                                                                                                                                                   |
-| Authorization  | `role.initialized`, `role.granted`, `role.revoked`                                                                                                                                                                                                                           |
-| Cells          | `cell.registered`, `cell.retry.requested`, `cell.provisioning.failed`, `cell.provisioning.completed`, `cell.disabled`                                                                                                                                                        |
-| Tenants        | `tenant.created`                                                                                                                                                                                                                                                             |
-| Accounts       | `user.created`, `user.updated`, `user.disabled`, `user.archived`, `user.restored`, `membership.created`, `membership.suspended`, `membership.activated`, `membership.archived`, `membership.restored`, `membership.provisioning.failed`, `membership.provisioning.completed` |
-| Access         | `tenant.selected`, `support.entered`, `support.exited`, `support.denied`                                                                                                                                                                                                     |
-| Entitlements   | `entitlement.granted`, `entitlement.withdrawn`                                                                                                                                                                                                                               |
-| Cache          | `cache.revision.failed`                                                                                                                                                                                                                                                      |
+| Area           | Event keys                                                                                                                                                                                                                                                                                                      |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bootstrap      | `bootstrap.succeeded`, `bootstrap.failed`                                                                                                                                                                                                                                                                       |
+| Authentication | `auth.login.succeeded`, `auth.login.failed`, `auth.login.throttled`, `auth.password.changed`                                                                                                                                                                                                                    |
+| Sessions       | `session.created`, `session.rotated`, `session.revoked`, `session.expired`                                                                                                                                                                                                                                      |
+| Authorization  | `role.initialized`, `role.granted`, `role.revoked`                                                                                                                                                                                                                                                              |
+| Cells          | `cell.registered`, `cell.retry.requested`, `cell.provisioning.failed`, `cell.provisioning.completed`, `cell.disabled`                                                                                                                                                                                           |
+| Tenants        | `tenant.created`                                                                                                                                                                                                                                                                                                |
+| Accounts       | `user.created`, `user.updated`, `user.disabled`, `user.archived`, `user.restored`, `membership.created`, `membership.suspended`, `membership.activated`, `membership.archived`, `membership.restored`, `membership.provisioning.failed`, `membership.provisioning.retried`, `membership.provisioning.completed` |
+| Access         | `tenant.selected`, `support.entered`, `support.exited`, `support.denied`                                                                                                                                                                                                                                        |
+| Entitlements   | `entitlement.granted`, `entitlement.withdrawn`                                                                                                                                                                                                                                                                  |
+| Cache          | `cache.revision.failed`                                                                                                                                                                                                                                                                                         |
 
 ## 7. Business Rules And Invariants
 
@@ -115,9 +115,8 @@ schema, indexes, and deduplication constraint.
 
 ## 10. API Requirements
 
-No HTTP route is introduced. `GET /api/admin-tenancy/v1/events` needs an
-authenticated caller to resolve a scope from, so it lands with the
-authentication and session Work Units and exposes `listEvents` below.
+No HTTP route is introduced. `listEvents` below is internal only; no Work
+Unit has added an events read route yet.
 
 | Internal operation      | Input                                                                            | Result                            |
 | ----------------------- | -------------------------------------------------------------------------------- | --------------------------------- |

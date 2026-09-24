@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                          |
 | -------------------- | ------------------------------------------------------------------------------ |
-| Status               | Accepted                                                                       |
+| Status               | Implemented                                                                    |
 | Type                 | Module Work Unit                                                               |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                              |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                        |

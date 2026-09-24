@@ -16,13 +16,6 @@ const order = [
   'module_entitlements',
   'outbox',
 ];
-/** RLS column for each tenant table; tables absent here have RLS off. */
-const tenantColumn = {
-  tenants: 'id',
-  tenant_members: 'tenant_id',
-  module_entitlements: 'tenant_id',
-  outbox: 'tenant_id',
-};
 async function catalog(db, schema) {
   const columns = await db.any(
     `SELECT c.relname AS table, a.attname AS name, format_type(a.atttypid,a.atttypmod) AS type, a.attnotnull AS required, pg_get_expr(d.adbin,d.adrelid) AS value FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum WHERE n.nspname=$1 AND c.relname=ANY($2) AND a.attnum>0 AND NOT a.attisdropped ORDER BY c.relname,a.attnum`,
@@ -46,7 +39,7 @@ async function catalog(db, schema) {
  * contract.
  *
  * Checks database and role safety, `cell` schema ownership and grants, the
- * table set, row-level security and its policy on each tenant table,
+ * table set, row-level security off on every table,
  * `nap-app` table privileges, absence of PUBLIC access, the trigger function
  * and triggers, and the `cell.schema_migrations` ledger. It then builds the
  * runtime model definitions in a scratch schema inside a rolled-back
@@ -73,32 +66,8 @@ export async function verifyCell(handle, modules) {
   requireCondition(
     JSON.stringify(tables.map(t => t.name)) ===
       JSON.stringify([...order, 'schema_migrations'].sort()) &&
-      tables.every(
-        t =>
-          t.owner === 'nap-admin' &&
-          t.rls === Boolean(tenantColumn[t.name]) &&
-          !t.force
-      ),
+      tables.every(t => t.owner === 'nap-admin' && !t.rls && !t.force),
     'TABLE_CONTRACT_MISMATCH'
-  );
-  const policies = await db.any(
-    `SELECT tablename AS table,policyname AS name,permissive,roles::text AS roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='cell' ORDER BY tablename`
-  );
-  requireCondition(
-    JSON.stringify(policies.map(p => p.table)) ===
-      JSON.stringify(Object.keys(tenantColumn).sort()) &&
-      policies.every(p => {
-        const rule = `(${tenantColumn[p.table]} = (NULLIF(current_setting('nap.tenant_id'::text, true), ''::text))::uuid)`;
-        return (
-          p.name === 'tenant_isolation' &&
-          p.permissive === 'PERMISSIVE' &&
-          p.roles === '{nap-app}' &&
-          p.cmd === 'ALL' &&
-          p.qual === rule &&
-          p.with_check === rule
-        );
-      }),
-    'POLICY_CONTRACT_MISMATCH'
   );
   for (const table of tables) {
     const granted =

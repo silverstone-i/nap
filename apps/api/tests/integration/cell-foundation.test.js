@@ -72,7 +72,7 @@ it('migrates concurrently once, passes the catalog check, and leaves every table
   await verifyCell(handle, cellModules);
   expect((await migrateCell(config)).status).toBe('unchanged');
 });
-it('hides every tenant row from nap-app until the tenant setting names its tenant', async () => {
+it('lets nap-app read the identity and read and write every tenant row with no tenant setting', async () => {
   for (const [id, code] of [
     [tenantA, 'ALPHA'],
     [tenantB, 'BETA'],
@@ -81,57 +81,40 @@ it('hides every tenant row from nap-app until the tenant setting names its tenan
       "INSERT INTO cell.tenants(id,tenant_code,status,revision) VALUES($1,$2,'active',1)",
       [id, code]
     );
-    await db.none(
-      "INSERT INTO cell.tenant_members(id,tenant_id,portal_user_id,status,revision) VALUES($1,$2,$3,'active',1)",
-      [randomUUID(), id, randomUUID()]
-    );
-    await db.none(
-      'INSERT INTO cell.module_entitlements(id,tenant_id,module,revision) VALUES($1,$2,$3,1)',
-      [randomUUID(), id, 'companies']
-    );
-    await db.none(
-      "INSERT INTO cell.outbox(tenant_id,topic,entity_id,revision) VALUES($1,'portal_access',$2,1)",
-      [id, randomUUID()]
-    );
   }
   await db.none(
     "INSERT INTO cell.physical_identity(cell_id,database_name,operation_id,environment) VALUES($1,$2,$3,'test')",
     [randomUUID(), name, randomUUID()]
   );
-  const tables = ['tenants', 'tenant_members', 'module_entitlements', 'outbox'];
+  const rls = await db.any(
+    "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='cell' AND (c.relrowsecurity OR c.relforcerowsecurity)"
+  );
+  expect(rls).toEqual([]);
   await asApp(async app => {
-    for (const table of tables)
-      expect(
-        Number(
-          (await app.one('SELECT count(*) FROM cell.$1:name', [table])).count
-        )
-      ).toBe(0);
     expect(
       (await app.one('SELECT database_name FROM cell.physical_identity'))
         .database_name
     ).toBe(name);
-    await app.tx(async tx => {
-      await tx.one("SELECT set_config('nap.tenant_id',$1,true)", [tenantA]);
-      for (const table of tables) {
-        const column = table === 'tenants' ? 'id' : 'tenant_id';
-        const rows = await tx.any(
-          'SELECT $2:name AS tenant FROM cell.$1:name',
-          [table, column]
-        );
-        expect(rows.map(r => r.tenant)).toEqual([tenantA]);
-      }
-      await expect(
-        tx.none(
-          "INSERT INTO cell.outbox(tenant_id,topic,entity_id,revision) VALUES($1,'portal_access',$2,2)",
-          [tenantB, randomUUID()]
-        )
-      ).rejects.toThrow(/row-level security/);
-    });
-    // The setting was local to the transaction; the pooled connection keeps nothing.
     expect(
-      (await app.one("SELECT current_setting('nap.tenant_id', true) AS v")).v ??
-        ''
-    ).toBe('');
+      Number((await app.one('SELECT count(*) FROM cell.tenants')).count)
+    ).toBe(2);
+    const updated = await app.result(
+      "UPDATE cell.tenants SET status='suspended', revision=2 WHERE id=$1",
+      [tenantB]
+    );
+    expect(updated.rowCount).toBe(1);
+    expect(
+      await app.one('SELECT status, revision FROM cell.tenants WHERE id=$1', [
+        tenantB,
+      ])
+    ).toEqual({ status: 'suspended', revision: 2 });
+    await app.none(
+      "INSERT INTO cell.outbox(tenant_id,topic,entity_id,revision) VALUES($1,'portal_access',$2,1),($3,'portal_access',$4,1)",
+      [tenantA, randomUUID(), tenantB, randomUUID()]
+    );
+    expect(
+      Number((await app.one('SELECT count(*) FROM cell.outbox')).count)
+    ).toBe(2);
   });
 });
 it('refuses DDL from nap-app, a second identity row, and changes to the identity', async () => {

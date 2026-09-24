@@ -114,7 +114,7 @@ the cell is enabled. Runtime readiness remains an infrastructure result.
 
 - M0001-06-R008: Responses, failures, logs, and events must omit database credentials and provider secrets.
 
-Register, retry, progress failure, completion, enable, and disable record managed
+Register, retry, progress failure, completion (which enables the cell), and disable record managed
 events. Support cannot disable a cell containing the Napsoft tenant.
 
 ## 13. Acceptance Criteria
@@ -179,9 +179,10 @@ implementation to the PRD text:
   that makes R003/AC03 demonstrable from what this Work Unit actually ships.
 - `getCellReadiness` reports runtime readiness through an optional
   collaborator that nothing yet supplies, so it honestly answers
-  `{ ready: false, checked: false }` rather than fabricating a pass. Building
-  the runtime cell connection registry is infrastructure work the PRD
-  excludes ("Physical database setup, migration, seed, and activation");
+  `{ ready: false, checked: false }` rather than fabricating a pass.
+  [W0001: Runtime Cell Registry And Routing](../../workflows/W0001-runtime-cell-registry.md)
+  (Draft) will supply the `runtime.readiness(cellId)` collaborator. Building
+  the registry is infrastructure work this PRD excludes ("Physical database setup, migration, seed, and activation");
   Cross-Module Interactions confirms "Runtime readiness remains an
   infrastructure result."
 

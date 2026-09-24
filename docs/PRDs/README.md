@@ -17,7 +17,7 @@ docs/PRDs/
 |-- features/
 |   `-- F0001-application-entry-and-shell.md
 `-- workflows/
-    `-- W0000-<workflow-name>.md
+    `-- W0001-runtime-cell-registry.md
 ```
 
 - Module PRDs define an area that owns tables and module-specific rules.
@@ -36,7 +36,7 @@ Use these filename patterns:
 ```text
 M0001-admin-tenancy.md
 F0001-application-entry-and-shell.md
-W0000-<workflow-name>.md
+W0001-runtime-cell-registry.md
 ```
 
 Use the same identifier in the document title:
@@ -94,7 +94,7 @@ Give every normative requirement a stable identifier based on its PRD:
 M0001-R001
 M0001-01-R001
 F0002-R001
-W0000-R001
+W0001-R001
 ```
 
 Do not reuse or renumber an existing identifier. Acceptance criteria should

@@ -1,28 +1,32 @@
 # @nap/api
 
 Express backend-for-frontend (BFF) for NAP. It owns the admin database
-connection, the health routes, browser sessions, and the maintenance commands
-that set up and migrate the admin database. Business routes and cell routing
-are later Work Units; see the [roadmap](../../docs/roadmap/ROADMAP.md).
+connection, the health routes, browser sessions, the admin-tenancy routes, and
+the maintenance commands that set up, migrate, and bootstrap the admin
+database. Runtime cell routing is future work; see
+[W0001](../../docs/PRDs/workflows/W0001-runtime-cell-registry.md).
 
 ## Layout
 
 `src/` follows [module design](../../docs/architecture/module-design.md).
 
-| Folder                         | Contents                                                                                                                            |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `app.js`, `server.js`          | Express app factory and the process entry point.                                                                                    |
-| `application/shared/`          | Environment loading, endpoint validation, runtime configuration, and `MaintenanceError`.                                            |
-| `application/maintenance/`     | The setup and migrate operations behind the `db:*` commands.                                                                        |
-| `application/runtime/`         | HTTP runtime: startup, readiness, and drained shutdown.                                                                             |
-| `infrastructure/provisioning/` | Local PostgreSQL setup, Render provisioning, and the private state file.                                                            |
-| `infrastructure/runtime/`      | Admin database handle and the runtime readiness check.                                                                              |
-| `modules/admin.js`             | Admin module registry and its validation.                                                                                           |
-| `modules/admin-tenancy/`       | Twelve table models, repositories, the baseline migration, trigger bodies, contract verification, domain rules, and the v1 routers. |
-| `framework/`                   | Response envelopes, session cookies, and the route registry.                                                                        |
-| `middleware/`                  | Correlation, browser request protection, JSON body typing, and session resolution.                                                  |
-| `infrastructure/cache/`        | Optional Redis-backed revision cache.                                                                                               |
-| `capability/`                  | Built-in capability catalogue used to grant root authority.                                                                         |
+| Folder                         | Contents                                                                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `app.js`, `server.js`          | Express app factory and the process entry point.                                                                                      |
+| `application/shared/`          | Environment loading, endpoint validation, runtime configuration, and `MaintenanceError`.                                              |
+| `application/maintenance/`     | Setup, migrate, bootstrap, and cell-migration operations.                                                                             |
+| `application/runtime/`         | HTTP runtime: startup, readiness, and drained shutdown.                                                                               |
+| `infrastructure/provisioning/` | Local PostgreSQL setup, Render provisioning, and the private state file.                                                              |
+| `infrastructure/runtime/`      | Admin database handle and the runtime readiness check.                                                                                |
+| `modules/admin.js`             | Admin module registry and its validation.                                                                                             |
+| `modules/admin-tenancy/`       | Fourteen table models, repositories, the baseline migration, trigger bodies, contract verification, domain rules, and the v1 routers. |
+| `modules/cell.js`              | Cell module registry and its validation.                                                                                              |
+| `modules/cell-tenancy/`        | The five `cell` table models, the baseline cell migration, contract verification, and the physical identity check.                    |
+| `modules/access-control/`      | Access-control domain, models, and schema.                                                                                            |
+| `framework/`                   | Response envelopes, session cookies, and the route registry.                                                                          |
+| `middleware/`                  | Correlation, browser request protection, JSON body typing, and session resolution.                                                    |
+| `infrastructure/cache/`        | Optional Redis-backed revision cache.                                                                                                 |
+| `capability/`                  | Built-in capability catalogue used to grant root authority.                                                                           |
 
 ## Commands
 
@@ -33,6 +37,7 @@ Run from the repository root.
 | `npm run dev:api`                       | Start the API with file watching on port 3000.                    |
 | `npm run db:setup:admin -- --env dev`   | Create or verify the admin database and roles.                    |
 | `npm run db:migrate:admin -- --env dev` | Apply pending admin migrations and verify the installed contract. |
+| `npm run db:bootstrap -- --env dev`     | Create the root tenant and root user from `ROOT_*` settings.      |
 | `npm test`                              | Unit tests. No database needed.                                   |
 | `npm run test:db`                       | PostgreSQL integration tests. Needs `FOUNDATION_TEST_URL`.        |
 
@@ -61,10 +66,19 @@ variables override the file.
 
 Module routers mount at `/api/<module>/v<version>/<router>`. Version 1 of
 `admin-tenancy` serves `auth/login`, `auth/password`, `auth/logout`,
-`session/current`, `session/rotate`, and `sessions/:id`; see
-[M0001-03](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-03-authentication.md)
-and
-[M0001-04](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-04-session-management.md).
+`session/current`, `session/rotate`, and `sessions/:id`
+([M0001-03](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-03-authentication.md),
+[M0001-04](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-04-session-management.md)).
+It also serves:
+
+- `control`: `registry`, `provision`, `overview`, `cell-readiness`
+  ([M0001-06](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-06-cell-management.md));
+- `tenants`
+  ([M0001-07](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-07-tenant-creation.md));
+- `accounts`: `users`, `memberships`, and `jobs/:id`
+  ([M0001-08](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md));
+- `access`: `context`, `tenants`, `select`, `support`
+  ([M0001-09](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md)).
 
 A login that fails for any reason returns the same `401` envelope, so the
 response cannot say whether an address holds an account. Five failures against
@@ -82,7 +96,7 @@ session resolved. Session cookies are `HttpOnly` and `SameSite=Lax`;
 ## Database roles
 
 `nap-admin` owns the database and runs setup and migrations. `nap-app` is the
-runtime role with CRUD on the twelve admin tables and nothing else. Setup and
+runtime role with CRUD on the fourteen admin tables and nothing else. Setup and
 the readiness check both verify these attributes. The contract is defined in
 [M0001-00](../../docs/PRDs/modules/M0001-admin-tenancy/M0001-00-admin-database-foundation.md).
 

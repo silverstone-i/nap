@@ -7,8 +7,8 @@ import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
  * Baseline cell migration. It creates the five `cell` tables in dependency
- * order, installs the immutable-field trigger, enables row-level security on
- * the tenant tables, and applies the `nap-app` grant contract.
+ * order, installs the immutable-field trigger, and applies the `nap-app`
+ * grant contract. `cell` tables have no row-level security (M0002-01-R006).
  *
  * Schema objects are copied here rather than imported so the migration
  * checksum covers the whole contract. Do not edit after this migration has
@@ -225,13 +225,6 @@ BEGIN
   IF to_jsonb(NEW) ? 'updated_at' THEN NEW.updated_at = clock_timestamp(); END IF;
   RETURN NEW;
 END $$;`);
-    // RLS column per tenant table; `physical_identity` holds no tenant data.
-    const tenantColumn = {
-      tenants: 'id',
-      tenant_members: 'tenant_id',
-      module_entitlements: 'tenant_id',
-      outbox: 'tenant_id',
-    };
     for (const schema of schemas) {
       const immutable = schema.columns
         .filter(c => c.immutable)
@@ -243,23 +236,12 @@ END $$;`);
       await db.none('REVOKE ALL ON cell.$1:name FROM PUBLIC, "nap-app"', [
         schema.table,
       ]);
-      const column = tenantColumn[schema.table];
-      if (!column) {
-        await db.none('GRANT SELECT ON cell.$1:name TO "nap-app"', [
-          schema.table,
-        ]);
-        continue;
-      }
+      // `physical_identity` is written once by provisioning; the runtime only reads it.
       await db.none(
-        'GRANT SELECT, INSERT, UPDATE, DELETE ON cell.$1:name TO "nap-app"',
+        schema.table === 'physical_identity'
+          ? 'GRANT SELECT ON cell.$1:name TO "nap-app"'
+          : 'GRANT SELECT, INSERT, UPDATE, DELETE ON cell.$1:name TO "nap-app"',
         [schema.table]
-      );
-      await db.none('ALTER TABLE cell.$1:name ENABLE ROW LEVEL SECURITY', [
-        schema.table,
-      ]);
-      await db.none(
-        "CREATE POLICY tenant_isolation ON cell.$1:name TO \"nap-app\" USING ($2:name = NULLIF(current_setting('nap.tenant_id', true), '')::uuid) WITH CHECK ($2:name = NULLIF(current_setting('nap.tenant_id', true), '')::uuid)",
-        [schema.table, column]
       );
     }
     await db.none(

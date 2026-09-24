@@ -62,16 +62,17 @@ Install the Node version in `.nvmrc`, then `npm ci`. The
 [development setup](docs/guides/development-setup.md) guide covers PostgreSQL,
 roles, and the private `apps/api/.env` file.
 
-| Command                                 | Purpose                                              |
-| --------------------------------------- | ---------------------------------------------------- |
-| `npm run dev:api`                       | API on port 3000 with file watching.                 |
-| `npm run dev:web`                       | Vite dev server proxying `/api` to the API.          |
-| `npm run db:setup:admin -- --env dev`   | Create or verify the admin database and roles.       |
-| `npm run db:migrate:admin -- --env dev` | Apply admin migrations and verify the contract.      |
-| `npm run test:db`                       | PostgreSQL integration tests on a disposable server. |
+| Command                                 | Purpose                                                      |
+| --------------------------------------- | ------------------------------------------------------------ |
+| `npm run dev:api`                       | API on port 3000 with file watching.                         |
+| `npm run dev:web`                       | Vite dev server proxying `/api` to the API.                  |
+| `npm run db:setup:admin -- --env dev`   | Create or verify the admin database and roles.               |
+| `npm run db:migrate:admin -- --env dev` | Apply admin migrations and verify the contract.              |
+| `npm run db:bootstrap -- --env dev`     | Create the root tenant and root user from `ROOT_*` settings. |
+| `npm run test:db`                       | PostgreSQL integration tests on a disposable server.         |
 
-Setup and migration install the empty admin foundation. Root bootstrap, login,
-and cell provisioning belong to later Work Units.
+Setup and migration install the empty admin foundation; `db:bootstrap` then
+creates the root tenant and root user.
 
 Run these checks before requesting review:
 

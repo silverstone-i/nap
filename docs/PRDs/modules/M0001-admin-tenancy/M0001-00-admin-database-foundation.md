@@ -176,18 +176,17 @@ WUs 1–12 own runtime operations that use these tables; their implementation is
 not required to verify this database foundation. The following model operations
 belong to those Work Units:
 
-| Work Unit | Model operation                             | Contract                                                                |
-| --------- | ------------------------------------------- | ----------------------------------------------------------------------- |
-| WU 1      | `portal_users.findCredentialByEmail(email)` | Select the password hash for authentication; ordinary reads exclude it. |
-| WU 3      | `login_throttles.recordFailure(key, now)`   | Update the failure window atomically.                                   |
-| WU 4      | `sessions.findByTokenHash(hash)`            | Select one active session for resolution.                               |
-| WU 11     | `cache_revisions.advance(domain, entity)`   | Increment the revision in the source transaction.                       |
-| WU 12     | `managed_events.append(event)`              | Provide the only runtime event-write method.                            |
+| Work Unit | Model operation                                          | Contract                                                                |
+| --------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| WU 1      | `findCredentialByEmail(db, authContext, email)` (domain) | Select the password hash for authentication; ordinary reads exclude it. |
+| WU 3      | `login_throttles.recordFailure(keyHash, limits, { tx })` | Update the failure window atomically.                                   |
+| WU 4      | `sessions.findByTokenHash(hash)`                         | Select one active session for resolution.                               |
+| WU 11     | `cache_revisions.advance(keys, { tx })`                  | Increment the revision in the source transaction.                       |
+| WU 12     | `managed_events.append(event)`                           | Provide the only runtime event-write method.                            |
 
-WU 2 owns root bootstrap. WU 5 derives root capabilities from `is_root` and
-defines role seeds and assignments for other users; tenant provisioning runs the
-seeds in the cell. Cell setup, projections, and RLS belong to the receiving cell
-modules. `pg-schemata` owns the migration ledger.
+WU 2 owns root bootstrap. WU 5 derives root capabilities from `is_root`; role
+seeds, assignments, and non-root resolution belong to M0569. Cell setup and
+projections belong to the receiving cell modules. `pg-schemata` owns the migration ledger.
 
 ## 12. Security And Audit
 
@@ -213,8 +212,7 @@ WU 12’s administrative event API.
 
 ### Verification Evidence
 
-Final verification requires [PR #3](https://github.com/silverstone-i/nap/pull/3)
-to be merged with passing CI.
+Merged in [PR #3](https://github.com/silverstone-i/nap/pull/3) on 2026-09-19.
 
 Local validation on 2026-09-19: `npm run lint`, `npm run format:check`, `npm test`
 (70 tests), `npm run test:db` (14 PostgreSQL 18 tests), `npm run build`,

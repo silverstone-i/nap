@@ -17,8 +17,8 @@ Render API key under your account settings. See
 
 The service runs the BFF and serves the built React app and API from the same
 origin. Startup requires the Admin schema and safe `nap-app` credentials;
-`/health/ready` checks that connection and required table access. Bootstrap,
-login, tenant provisioning, and the cell management UI remain later work.
+`/health/ready` checks that connection and required table access. Runtime cell
+routing remains later work ([W0001](../PRDs/workflows/W0001-runtime-cell-registry.md)).
 
 The first deployment cannot become ready before Admin setup and migration.
 Record the service ID, complete the commands below, then manually deploy again.
@@ -48,7 +48,11 @@ Do not discard it after a timeout or interrupted command.
 ```sh
 npm run db:setup:admin -- --env prod
 npm run db:migrate:admin -- --env prod
+npm run db:bootstrap -- --env prod
 ```
+
+Bootstrap reads `ROOT_TENANT_CODE_PROD`, `ROOT_COMPANY_PROD`,
+`ROOT_EMAIL_PROD`, and `ROOT_PASSWORD_PROD`.
 
 Setup validates the service identity, saves creation intent, creates or reconciles
 one database, and waits for availability. It discovers the operator's direct

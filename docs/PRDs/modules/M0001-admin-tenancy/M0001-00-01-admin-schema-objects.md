@@ -439,7 +439,7 @@ export const loginThrottlesSchema = {
 Stores active and archived assignments of any valid tenant-local role to a
 portal user, including seeded system roles and tenant-defined roles.
 `tenant_id` identifies the tenant whose cell contains the role; `role_id` is
-that role record's UUID. The role reference crosses databases, so WU 5 validates
+that role record's UUID. The role reference crosses databases, so M0569 validates
 it rather than using a foreign key.
 
 ```js
