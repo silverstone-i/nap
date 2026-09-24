@@ -1,6 +1,6 @@
 # M0002: Cell Tenancy
 
-Status: working notes, not started. Last updated 2026-09-23.
+Status: in progress. M0002-01 is complete. Last updated 2026-09-23.
 
 ## Purpose
 
@@ -15,7 +15,8 @@ request:
 - keep local copies of the admin facts the cell needs (tenant, members,
   entitlements), because a cell cannot query the admin database.
 
-None of this exists yet.
+M0002-01 has built the `cell` schema, its tables, and the cell migration runner.
+The rest does not exist yet.
 
 ## Tables
 
