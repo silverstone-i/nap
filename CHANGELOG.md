@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.17.0] - 2026-09-24
+
 ### Changed
 
 - Remove row-level security from the `cell` tables, edited in place in baseline migration `001-cell-tenancy`, which no persistent cell has run. Only system code reads and writes these tables, as with `admin` tables; `verifyCell` now requires RLS off. Tenant business tables in the `app` and `reporting` schemas still require RLS (M0002-01-R006).
