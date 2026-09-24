@@ -156,7 +156,14 @@ it('rejects a malformed admin.cells record before querying anything', async () =
     { id: randomUUID() },
     { database_name: name },
   ])
-    await expect(verifyPhysicalIdentity({}, bad)).rejects.toThrow(
+    await expect(verifyPhysicalIdentity({ db: {} }, bad)).rejects.toThrow(
       'INVALID_ADMIN_CELL_RECORD'
+    );
+});
+it('rejects a malformed cell handle before querying anything', async () => {
+  const validRecord = { id: randomUUID(), database_name: name };
+  for (const bad of [undefined, null, {}, { db: undefined }])
+    await expect(verifyPhysicalIdentity(bad, validRecord)).rejects.toThrow(
+      'INVALID_CELL_HANDLE'
     );
 });

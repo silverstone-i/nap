@@ -12,20 +12,22 @@ import { requireCondition } from '../../../application/shared/errors.js';
  * Unlike `verifyCell`, a mismatch here is an expected per-cell outcome, not
  * an invariant violation: the caller (the runtime cell registry) decides
  * what to do with a not-ready cell, so this never throws for a data
- * mismatch, only for a malformed `adminCellRecord`.
+ * mismatch, only for a malformed `cellHandle` or `adminCellRecord`.
  * @param {import('pg-schemata').Database} cellHandle Connected handle for the cell, at least `nap-app` privilege.
  * @param {{ id: string, database_name: string }} adminCellRecord The cell's own `admin.cells` row.
  * @returns {Promise<{ ready: true } | { ready: false, reason: 'IDENTITY_MISSING' | 'IDENTITY_MISMATCH' | 'DATABASE_MISMATCH' }>}
  */
 export async function verifyPhysicalIdentity(cellHandle, adminCellRecord) {
+  requireCondition(cellHandle?.db, 'INVALID_CELL_HANDLE');
   requireCondition(
     adminCellRecord?.id && adminCellRecord?.database_name,
     'INVALID_ADMIN_CELL_RECORD'
   );
   const { db } = cellHandle;
-  const identity = await db.physical_identity.findOneBy([], {
-    columnWhitelist: ['cell_id', 'database_name'],
-  });
+  const identity = await db.physical_identity.findOneBy(
+    {},
+    { columnWhitelist: ['cell_id', 'database_name'] }
+  );
   if (!identity) return { ready: false, reason: 'IDENTITY_MISSING' };
   if (identity.cell_id !== adminCellRecord.id) {
     return { ready: false, reason: 'IDENTITY_MISMATCH' };

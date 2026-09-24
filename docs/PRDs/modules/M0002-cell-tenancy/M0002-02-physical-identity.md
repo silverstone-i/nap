@@ -140,8 +140,8 @@ verifyPhysicalIdentity(cellHandle, adminCellRecord);
 Local validation on 2026-09-24: `npm run lint`, `npm run format:check`,
 `npm test` (552 tests across the workspace), `npm run build`,
 `npm run licenses`, and `git diff --check` passed. `npm run test:db:local`
-passed all 178 tests against a disposable local PostgreSQL 18 server,
-including the 7 new
+passed all 179 tests against a disposable local PostgreSQL 18 server,
+including the 8 new
 [cell physical identity tests](../../../../apps/api/tests/integration/cell-physical-identity.test.js).
 
 Those tests cover a matching identity row, database, and `admin.cells`
@@ -152,12 +152,20 @@ not-ready result leaves the row untouched and carries only `ready`/`reason`,
 no compared value or credential (AC05).
 
 One design point worth recording: `verifyPhysicalIdentity` throws instead of
-returning a reason code when `adminCellRecord` is missing `id` or
-`database_name`. The PRD's three reason codes describe data conditions found
-in the cell's own tables; a malformed caller argument is a contract
-violation, not one of those conditions, so it follows the same
-`requireCondition` convention `verifyCell` uses for invariant violations
-rather than being folded into the `{ ready: false, reason }` shape.
+returning a reason code when `cellHandle` is missing its `db`, or
+`adminCellRecord` is missing `id` or `database_name`. The PRD's three reason
+codes describe data conditions found in the cell's own tables; a malformed
+caller argument is a contract violation, not one of those conditions, so both
+guards follow the same `requireCondition` convention `verifyCell` uses for
+invariant violations rather than being folded into the
+`{ ready: false, reason }` shape.
+
+The identity row read uses `db.physical_identity.findOneBy({}, { columnWhitelist: [...] })`
+rather than `findOneBy([], ...)`: both produce the same query — no
+conditions means no `WHERE` clause — but every other `findOneBy` call in the
+codebase passes a plain object, and matching that convention was worth the
+one-character change (caught in review by
+[Copilot](https://github.com/silverstone-i/nap/pull/27#discussion_r4090231849)).
 
 ## 14. Outstanding Questions
 
