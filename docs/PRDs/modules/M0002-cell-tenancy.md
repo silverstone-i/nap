@@ -1,6 +1,6 @@
 # M0002: Cell Tenancy
 
-Status: in progress. M0002-01 is complete. Last updated 2026-09-23.
+Status: in progress. M0002-01 and M0002-02 are complete. Last updated 2026-09-24.
 
 ## Purpose
 
@@ -88,10 +88,12 @@ will also use them.
 
 ### M0002-02: Physical identity (small)
 
-- Setup writes the identity row into each new cell database.
-- Before the API uses a cell, it checks the row against `admin.cells` and
-  `SELECT current_database()`.
-- A mismatch marks the cell not ready. No tenant data is read or written.
+- A check that reads the `physical_identity` row and compares it against the
+  cell's `admin.cells` record and `SELECT current_database()`.
+- Cell provisioning writes the identity row during setup; this Work Unit does
+  not write it. Provisioning has no PRD yet (see Out of scope).
+- A mismatch, or no row at all, marks the cell not ready. No tenant data is
+  read or written.
 
 Proof: a database whose identity row names a different cell, or whose name
 differs from `admin.cells`, is refused before any tenant query runs.
@@ -208,18 +210,18 @@ cell.
 
 ## Work Unit status
 
-| Start order | Work Unit                                                                                     | Required work                                                                                                   | Tables                             | Status      | Blocker / evidence                                                                                   |
-| ----------: | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
-|           1 | [M0002-01: Cell database foundation](M0002-cell-tenancy/M0002-01-cell-database-foundation.md) | Create all cell tables in one migration; implement the cell module registry, migration runner, grants, and RLS. | All 5 cell tables                  | Complete    | [Verified 2026-09-23](M0002-cell-tenancy/M0002-01-cell-database-foundation.md#verification-evidence) |
-|           2 | M0002-02: Physical identity                                                                   | Write the identity row during setup and refuse a cell whose identity does not match.                            | `physical_identity`                | Not started |                                                                                                      |
-|           3 | M0002-03: Runtime cell registry and routing                                                   | Load configured cells, validate them, and route by the session's tenant.                                        | `admin.cells` (read)               | Not started |                                                                                                      |
-|           4 | M0002-04: Cell health and hot add                                                             | Health-check and quarantine cells, return recovered cells, and add cells without a restart.                     | `admin.cells` (read)               | Not started |                                                                                                      |
-|           5 | M0002-05: Tenant copy                                                                         | Apply tenant changes using the revision rule.                                                                   | `tenants`                          | Not started |                                                                                                      |
-|           6 | M0002-06: Tenant context                                                                      | Provide `withTenantTransaction` with tenant settings, checks, and read-only support sessions.                   | `tenants`                          | Not started |                                                                                                      |
-|           7 | M0002-07: Membership copy                                                                     | Apply membership changes and require an active local membership for tenant routes.                              | `tenant_members`                   | Not started |                                                                                                      |
-|           8 | M0002-08: Entitlement copy                                                                    | Apply entitlement changes and block routes for modules the tenant is not entitled to.                           | `module_entitlements`              | Not started |                                                                                                      |
-|           9 | M0002-09: Cell outbox                                                                         | Append cell-to-admin requests in the tenant transaction; provide claim, complete, and fail operations.          | `outbox`                           | Not started |                                                                                                      |
-|          10 | M0002-10: Readiness and UI context                                                            | Report cell identity and migration state; show the selected tenant and its cell.                                | `physical_identity`, `admin.cells` | Not started |                                                                                                      |
+| Start order | Work Unit                                                                                     | Required work                                                                                                              | Tables                             | Status      | Blocker / evidence                                                                                   |
+| ----------: | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
+|           1 | [M0002-01: Cell database foundation](M0002-cell-tenancy/M0002-01-cell-database-foundation.md) | Create all cell tables in one migration; implement the cell module registry, migration runner, grants, and RLS.            | All 5 cell tables                  | Complete    | [Verified 2026-09-23](M0002-cell-tenancy/M0002-01-cell-database-foundation.md#verification-evidence) |
+|           2 | [M0002-02: Physical identity](M0002-cell-tenancy/M0002-02-physical-identity.md)               | Check the identity row against `admin.cells` and refuse a cell whose identity does not match; provisioning writes the row. | `physical_identity` (read)         | Complete    | [Verified 2026-09-24](M0002-cell-tenancy/M0002-02-physical-identity.md#verification-evidence)        |
+|           3 | M0002-03: Runtime cell registry and routing                                                   | Load configured cells, validate them, and route by the session's tenant.                                                   | `admin.cells` (read)               | Not started |                                                                                                      |
+|           4 | M0002-04: Cell health and hot add                                                             | Health-check and quarantine cells, return recovered cells, and add cells without a restart.                                | `admin.cells` (read)               | Not started |                                                                                                      |
+|           5 | M0002-05: Tenant copy                                                                         | Apply tenant changes using the revision rule.                                                                              | `tenants`                          | Not started |                                                                                                      |
+|           6 | M0002-06: Tenant context                                                                      | Provide `withTenantTransaction` with tenant settings, checks, and read-only support sessions.                              | `tenants`                          | Not started |                                                                                                      |
+|           7 | M0002-07: Membership copy                                                                     | Apply membership changes and require an active local membership for tenant routes.                                         | `tenant_members`                   | Not started |                                                                                                      |
+|           8 | M0002-08: Entitlement copy                                                                    | Apply entitlement changes and block routes for modules the tenant is not entitled to.                                      | `module_entitlements`              | Not started |                                                                                                      |
+|           9 | M0002-09: Cell outbox                                                                         | Append cell-to-admin requests in the tenant transaction; provide claim, complete, and fail operations.                     | `outbox`                           | Not started |                                                                                                      |
+|          10 | M0002-10: Readiness and UI context                                                            | Report cell identity and migration state; show the selected tenant and its cell.                                           | `physical_identity`, `admin.cells` | Not started |                                                                                                      |
 
 ## Status Tracking
 

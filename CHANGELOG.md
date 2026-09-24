@@ -13,6 +13,7 @@ when a pull request with a release label merges into `main`.
 ### Added
 
 - Add the cell database foundation (M0002-01): the `cell-tenancy` module with five `cell` tables in baseline migration `001-cell-tenancy`, a cell module registry kept apart from the admin registry, and `migrateCell`, which migrates one cell database and checks its tables, grants, and row-level security. Nothing calls `migrateCell` yet; cell provisioning will.
+- Add the physical identity check (M0002-02): `verifyPhysicalIdentity`, which compares a cell's `cell.physical_identity` row against its `admin.cells` record and `current_database()` before the cell is trusted to serve tenant traffic. Nothing calls it yet; the runtime cell registry will.
 
 ### Changed
 
