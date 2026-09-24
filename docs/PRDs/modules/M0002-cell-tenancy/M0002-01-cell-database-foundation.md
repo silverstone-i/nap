@@ -33,7 +33,7 @@ on this.
 ### Excluded
 
 - Creating a cell database or its roles, and writing its identity row. Cell
-  provisioning and M0002-02 own these.
+  provisioning owns this; M0002-02 owns the check that reads the row.
 - Runtime connections to cells and routing requests to them (M0002-03).
 - Applying admin changes to the copied tables (M0002-05, -07, -08).
 - The `reference`, `app`, and `reporting` schemas. Their modules create them;
@@ -210,8 +210,8 @@ Errors carry a code and the database name, never credentials.
 
 ## 11. Cross-Module Interactions
 
-- M0002-02 writes `cell.physical_identity` during setup and reads it before a
-  cell is used.
+- Cell provisioning writes `cell.physical_identity` during setup. M0002-02
+  reads it before a cell is used.
 - M0002-05, M0002-07, and M0002-08 write the copied tables. M0002-09 writes
   `cell.outbox`.
 - Cell provisioning calls `migrateCell` after setup and before seeding.
