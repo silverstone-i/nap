@@ -10,8 +10,13 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add the cell database foundation (M0002-01): the `cell-tenancy` module with five `cell` tables in baseline migration `001-cell-tenancy`, a cell module registry kept apart from the admin registry, and `migrateCell`, which migrates one cell database and checks its tables, grants, and row-level security. Nothing calls `migrateCell` yet; cell provisioning will.
+
 ### Changed
 
+- Add the M0002 Cell Tenancy overview with its ten Work Units and status table, and number new modules' Work Units from `-01` (M0001 keeps `-00`).
 - Narrow M0001-05 to root authority and mark it Complete, moving role seeds, assignments, non-root resolution, and wildcard capability matching to a draft M0569 PRD. Renumber the root-authority requirement to M0001-05-R001, mark Admin Tenancy complete in the roadmap, point deferred-role references in PRDs and code comments at M0569, and record that the roadmap is a checklist and each PRD must be one atomic unit.
 - Remove PRDs whose implementation has not started from the repository, and rewrite implemented PRDs and code comments so they no longer reference them. Clear PRD names from roadmap rows that have not started, and mark Access Control Not started instead of Blocked. Correct the `portal_users.status` documentation: failed-login throttling does not change `status`, and `locked` is reserved for a future operator-cleared lock.
 

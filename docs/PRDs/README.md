@@ -175,6 +175,9 @@ A `Draft` PRD is not permission to implement its requirements. Use stable
 identifiers such as `M0001-01` and `M0001-01-R001`; record delivery order
 separately so reordering work does not rename its PRDs.
 
+Number a module's Work Units from `-01`. M0001 predates this rule and starts at
+`M0001-00`; its identifiers stay as they are.
+
 ## Writing And Review
 
 Prerequisite: install and configure the `human-writing` and `check-relevancy`
