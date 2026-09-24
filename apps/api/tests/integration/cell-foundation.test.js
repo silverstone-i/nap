@@ -98,6 +98,16 @@ it('lets nap-app read the identity and read and write every tenant row with no t
     expect(
       Number((await app.one('SELECT count(*) FROM cell.tenants')).count)
     ).toBe(2);
+    const updated = await app.result(
+      "UPDATE cell.tenants SET status='suspended', revision=2 WHERE id=$1",
+      [tenantB]
+    );
+    expect(updated.rowCount).toBe(1);
+    expect(
+      await app.one('SELECT status, revision FROM cell.tenants WHERE id=$1', [
+        tenantB,
+      ])
+    ).toEqual({ status: 'suspended', revision: 2 });
     await app.none(
       "INSERT INTO cell.outbox(tenant_id,topic,entity_id,revision) VALUES($1,'portal_access',$2,1),($3,'portal_access',$4,1)",
       [tenantA, randomUUID(), tenantB, randomUUID()]
