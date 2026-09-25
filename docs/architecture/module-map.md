@@ -88,7 +88,6 @@ A product area groups related features in the UI. It does not own tables.
 | Accounts receivable       | `accounts-receivable`                                                                    |
 | Reporting                 | `reporting`                                                                              |
 
-RBAC is an inter-module workflow that uses `admin-tenancy` and
-`access-control` data. Session resolution uses `admin-tenancy` data.
-Provisioning and projection synchronization are inter-module workflows. None
+RBAC, session resolution, provisioning, and projection synchronization are
+inter-module workflows that use `admin-tenancy` and other modules' data. None
 of them are modules.

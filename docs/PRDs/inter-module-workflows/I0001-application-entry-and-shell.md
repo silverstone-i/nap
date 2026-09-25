@@ -437,7 +437,7 @@ components. They are not wired into navigation, since I0001 excludes
 entity-administration screens — the first real consumers of a
 server-paginated list — and inventing a destination to display them would
 violate §7's "no placeholder or unavailable destination" rule and R014's
-"no invented metrics." Later feature PRDs that add real list screens
+"no invented metrics." Later inter-module workflow PRDs that add real list screens
 consume `StandardDataGrid` directly.
 
 ### I0001-R023 / AC16 — Tenant Management navigation group
