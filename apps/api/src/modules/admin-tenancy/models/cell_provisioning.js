@@ -129,6 +129,18 @@ export class CellProvisioning extends TableModel {
   }
 
   /**
+   * Whether any operation is `queued` or `running`, across every cell, so a
+   * paginated screen can tell whether to keep refreshing (I0003-R030).
+   * @returns {Promise<boolean>}
+   */
+  async hasActive() {
+    const row = await this.db.one(
+      `SELECT EXISTS(SELECT 1 FROM ${table(this)} WHERE status IN ('queued','running')) AS active`
+    );
+    return row.active;
+  }
+
+  /**
    * Return every `running` operation to `queued`, so a crashed or stopped
    * worker never strands a job (I0003-R002).
    * @returns {Promise<number>} Rows requeued.

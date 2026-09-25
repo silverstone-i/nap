@@ -194,8 +194,16 @@ describe('CellsPage', () => {
         },
       });
       api.listCellsOverview
-        .mockResolvedValueOnce({ rows: [overviewRow()], nextCursor: null })
-        .mockResolvedValue({ rows: [done], nextCursor: null });
+        .mockResolvedValueOnce({
+          rows: [overviewRow()],
+          nextCursor: null,
+          anyActive: true,
+        })
+        .mockResolvedValue({
+          rows: [done],
+          nextCursor: null,
+          anyActive: false,
+        });
       renderPage();
       await screen.findByText('queued');
       expect(api.listCellsOverview).toHaveBeenCalledTimes(1);
@@ -204,6 +212,33 @@ describe('CellsPage', () => {
       const calls = api.listCellsOverview.mock.calls.length;
       await vi.advanceTimersByTimeAsync(6000);
       expect(api.listCellsOverview).toHaveBeenCalledTimes(calls);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps refreshing while a job on another page is active (I0003-R030)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const done = overviewRow({
+        operation: {
+          ...overviewRow().operation,
+          stage: 'complete',
+          status: 'completed',
+        },
+      });
+      api.listCellsOverview.mockResolvedValue({
+        rows: [done],
+        nextCursor: 'next',
+        anyActive: true,
+      });
+      renderPage();
+      await screen.findByText('completed');
+      const calls = api.listCellsOverview.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.waitFor(() =>
+        expect(api.listCellsOverview.mock.calls.length).toBeGreaterThan(calls)
+      );
     } finally {
       vi.useRealTimers();
     }

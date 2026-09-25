@@ -739,6 +739,7 @@ export async function getOverview(db, authority, { cursor, limit } = {}) {
           columnWhitelist: OPERATION_VIEW_COLUMNS,
         })
       : [];
+    const anyActive = await db.cell_provisioning.hasActive();
     const byCellId = new Map(operations.map(row => [row.cell_id, row]));
     return {
       rows: page.rows.map(row => ({
@@ -748,6 +749,7 @@ export async function getOverview(db, authority, { cursor, limit } = {}) {
           : null,
       })),
       nextCursor: encodeCellCursor(page.nextCursor),
+      anyActive,
     };
   });
 }

@@ -97,8 +97,6 @@ const COLUMNS = [
   },
 ];
 
-const isActive = row => row.status === 'queued' || row.status === 'running';
-
 function describeActionError(err) {
   if (err instanceof ApiError && err.code === 'INVALID_STATE')
     return 'This cell cannot perform that action right now.';
@@ -116,14 +114,19 @@ function describeActionError(err) {
  */
 export function CellsPage() {
   const [active, setActive] = useState(false);
-  const fetchPage = useMemo(() => {
-    const fetchRows = createCursorPageAdapter(listCellsOverview, { mapRow });
-    return async page => {
-      const result = await fetchRows(page);
-      setActive(result.rows.some(isActive));
-      return result;
-    };
-  }, []);
+  // I0003-R030: `anyActive` covers every page, not just the one shown.
+  const fetchPage = useMemo(
+    () =>
+      createCursorPageAdapter(
+        async page => {
+          const result = await listCellsOverview(page);
+          setActive(result.anyActive);
+          return result;
+        },
+        { mapRow }
+      ),
+    []
+  );
   const [resetKey, setResetKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [progressRow, setProgressRow] = useState(null);

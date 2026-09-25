@@ -254,9 +254,17 @@ export const operationViewSchema = z.strictObject({
 });
 
 /** Zod schema for the success envelope returned by `GET /control/overview`. */
-export const controlOverviewResponseSchema = cursorPageResponseSchema(
-  z.strictObject({
-    cell: cellViewSchema,
-    operation: operationViewSchema.nullable(),
-  })
-);
+export const controlOverviewResponseSchema = z.strictObject({
+  version: z.literal(transportVersion),
+  data: z.strictObject({
+    rows: z.array(
+      z.strictObject({
+        cell: cellViewSchema,
+        operation: operationViewSchema.nullable(),
+      })
+    ),
+    nextCursor: z.string().nullable(),
+    // I0003-R030: whether any job is queued or running on any page.
+    anyActive: z.boolean(),
+  }),
+});

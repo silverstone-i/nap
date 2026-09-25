@@ -212,6 +212,10 @@ function fakeAdmin({ cells = [], operations = [], tenants = [] } = {}) {
       },
       findWhere: async ({ cell_id: { $in: ids } }) =>
         [...opStore.values()].filter(row => ids.includes(row.cell_id)),
+      hasActive: async () =>
+        [...opStore.values()].some(row =>
+          ['queued', 'running'].includes(row.status)
+        ),
     },
     managed_events: {
       append: async event => {
@@ -433,6 +437,7 @@ describe('control routes', () => {
         operation: expect.objectContaining({ id: operation.id }),
       },
     ]);
+    expect(overview.body.data.anyActive).toBe(true);
 
     const readiness = await request(app)
       .get(`/api/admin-tenancy/v1/control/cell-readiness?cell=${cell.id}`)
