@@ -39,11 +39,16 @@ const asApp = async operation => {
 };
 const setIdentity = row =>
   db.tx(async tx => {
-    await tx.none('DELETE FROM cell.physical_identity');
+    await db.physical_identity.deleteWhere({ cell_id: { $not: null } }, { tx });
     if (row)
-      await tx.none(
-        "INSERT INTO cell.physical_identity(cell_id,database_name,operation_id,environment) VALUES($1,$2,$3,'test')",
-        [row.cell_id, row.database_name, row.operation_id ?? randomUUID()]
+      await db.physical_identity.record(
+        {
+          cell_id: row.cell_id,
+          database_name: row.database_name,
+          operation_id: row.operation_id ?? randomUUID(),
+          environment: 'test',
+        },
+        { tx }
       );
   });
 let handle, db;
@@ -137,7 +142,7 @@ it('is not ready with DATABASE_MISMATCH when the row disagrees with the physical
 it('never writes to cell.physical_identity and reports no compared value or credential', async () => {
   const cellId = randomUUID();
   await setIdentity({ cell_id: cellId, database_name: name });
-  const before = await db.one('SELECT * FROM cell.physical_identity');
+  const before = await db.physical_identity.findOneBy({});
   await asApp(async app => {
     const mismatch = await verifyPhysicalIdentity(
       { db: app },
@@ -146,7 +151,7 @@ it('never writes to cell.physical_identity and reports no compared value or cred
     expect(Object.keys(mismatch).sort()).toEqual(['ready', 'reason']);
     expect(JSON.stringify(mismatch)).not.toMatch(/password|nap_cell_test/);
   });
-  expect(await db.one('SELECT * FROM cell.physical_identity')).toEqual(before);
+  expect(await db.physical_identity.findOneBy({})).toEqual(before);
 });
 it('rejects a malformed admin.cells record before querying anything', async () => {
   for (const bad of [

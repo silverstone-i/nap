@@ -92,10 +92,8 @@ async function register() {
   return result;
 }
 
-const job = cellId =>
-  db.one('SELECT * FROM admin.cell_provisioning WHERE cell_id=$1', [cellId]);
-const napsoft = () =>
-  db.one('SELECT * FROM admin.tenants WHERE id=$1', [napsoftId]);
+const job = cellId => db.cell_provisioning.findOneBy({ cell_id: cellId });
+const napsoft = () => db.tenants.findOneBy({ id: napsoftId });
 
 async function publishedMap() {
   const env = parseEnv(await readFile(provisioning.envFile, 'utf8'));
@@ -186,9 +184,10 @@ describe('cell provisioning (I0003)', () => {
       failure_code: null,
       attempts: 0,
     });
-    const cell = await db.one('SELECT enabled FROM admin.cells WHERE id=$1', [
-      first.cell.id,
-    ]);
+    const cell = await db.cells.findOneBy(
+      { id: first.cell.id },
+      { columnWhitelist: ['enabled'] }
+    );
     expect(cell.enabled).toBe(true);
     expect(firstSystem.registry.readiness(first.cell.id)).toEqual({
       ready: true,
@@ -290,18 +289,19 @@ describe('cell provisioning (I0003)', () => {
       ready: true,
     });
     expect((await select(firstSystem.registry)).session.tenant).toBe(napsoftId);
-    const events = await db.any(
-      "SELECT 1 FROM admin.managed_events WHERE event_key='cell.activate.requested' AND target_id=$1",
-      [first.cell.id]
-    );
-    expect(events).toHaveLength(1);
+    expect(
+      await db.managed_events.countWhere({
+        event_key: 'cell.activate.requested',
+        target_id: first.cell.id,
+      })
+    ).toBe(1);
   });
 
   it('AC04: a job left running is queued again on start and completes', async () => {
     const second = await register();
-    await db.none(
-      "UPDATE admin.cell_provisioning SET stage='setup', status='running' WHERE cell_id=$1",
-      [second.cell.id]
+    await db.cell_provisioning.updateWhere(
+      { cell_id: second.cell.id },
+      { stage: 'setup', status: 'running' }
     );
     const { worker } = system();
     await worker.start();
@@ -324,10 +324,10 @@ describe('cell provisioning (I0003)', () => {
     ]);
     expect(claims.filter(Boolean)).toHaveLength(1);
     const claimed = claims.find(Boolean);
-    await db.none(
-      "UPDATE admin.cell_provisioning SET status='failed', failure_code='SETUP_FAILED' WHERE id=$1",
-      [claimed.id]
-    );
+    await db.cell_provisioning.update(claimed.id, {
+      status: 'failed',
+      failure_code: 'SETUP_FAILED',
+    });
   });
 
   it('AC06: a failed step leaves the cell disabled; retry completes it reusing the database', async () => {
@@ -351,9 +351,10 @@ describe('cell provisioning (I0003)', () => {
       status: 'failed',
       failure_code: 'MIGRATION_FAILED',
     });
-    const cell = await db.one('SELECT enabled FROM admin.cells WHERE id=$1', [
-      third.cell.id,
-    ]);
+    const cell = await db.cells.findOneBy(
+      { id: third.cell.id },
+      { columnWhitelist: ['enabled'] }
+    );
     expect(cell.enabled).toBe(false);
     const oid = await db.one('SELECT oid FROM pg_database WHERE datname=$1', [
       third.cell.database_name,
@@ -422,10 +423,10 @@ describe('cell provisioning (I0003)', () => {
     expect((await napsoft()).cell_id).toBe(before.cell_id);
 
     // Reopen root setup and make it fail once.
-    await db.none(
-      'UPDATE admin.tenants SET provisioned=false, rbac_ready=false WHERE id=$1',
-      [napsoftId]
-    );
+    await db.tenants.update(napsoftId, {
+      provisioned: false,
+      rbac_ready: false,
+    });
     const driver = createLocalCellDriver(provisioning);
     let broken = true;
     const flaky = {
@@ -452,11 +453,15 @@ describe('cell provisioning (I0003)', () => {
   });
 
   it('AC12: no failure code, event, or published secret leaks into admin', async () => {
-    const rows = await db.any(
-      'SELECT failure_code FROM admin.cell_provisioning WHERE failure_code IS NOT NULL'
+    const rows = await db.cell_provisioning.findWhere(
+      { failure_code: { $not: null } },
+      'AND',
+      { columnWhitelist: ['failure_code'] }
     );
-    const events = await db.any(
-      "SELECT details::text AS details FROM admin.managed_events WHERE target_type='cell'"
+    const events = await db.managed_events.findWhere(
+      { target_type: 'cell' },
+      'AND',
+      { columnWhitelist: ['details'] }
     );
     const text = JSON.stringify([rows, events]);
     for (const secret of [

@@ -28,8 +28,17 @@ const config = {
   adminPassword: 'foundation-admin',
   appPassword: 'foundation-app',
 };
-const asApp = operation =>
-  using(roleUrl(config.endpoint, 'nap-app', config.appPassword), operation);
+const asApp = async operation => {
+  const app = createCellDatabase(
+    roleUrl(config.endpoint, 'nap-app', config.appPassword)
+  );
+  try {
+    await app.connect();
+    return await operation(app.db);
+  } finally {
+    await app.close();
+  }
+};
 const tenantA = randomUUID();
 const tenantB = randomUUID();
 let handle, db;
@@ -66,9 +75,7 @@ it('migrates concurrently once, passes the catalog check, and leaves every table
   expect(results.map(r => r.status).sort()).toEqual(['applied', 'unchanged']);
   expect(results[0].database).toBe(name);
   for (const table of Object.keys(cellModules[0].models))
-    expect(
-      Number((await db.one('SELECT count(*) FROM cell.$1:name', [table])).count)
-    ).toBe(0);
+    expect(await db[table].countAll({ includeDeactivated: true })).toBe(0);
   await verifyCell(handle, cellModules);
   expect((await migrateCell(config)).status).toBe('unchanged');
 });
@@ -77,44 +84,52 @@ it('lets nap-app read the identity and read and write every tenant row with no t
     [tenantA, 'ALPHA'],
     [tenantB, 'BETA'],
   ]) {
-    await db.none(
-      "INSERT INTO cell.tenants(id,tenant_code,status,revision) VALUES($1,$2,'active',1)",
-      [id, code]
-    );
+    await db.tenants.insert({
+      id,
+      tenant_code: code,
+      status: 'active',
+      revision: 1,
+    });
   }
-  await db.none(
-    "INSERT INTO cell.physical_identity(cell_id,database_name,operation_id,environment) VALUES($1,$2,$3,'test')",
-    [randomUUID(), name, randomUUID()]
-  );
+  await db.physical_identity.record({
+    cell_id: randomUUID(),
+    database_name: name,
+    operation_id: randomUUID(),
+    environment: 'test',
+  });
   const rls = await db.any(
     "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='cell' AND (c.relrowsecurity OR c.relforcerowsecurity)"
   );
   expect(rls).toEqual([]);
   await asApp(async app => {
     expect(
-      (await app.one('SELECT database_name FROM cell.physical_identity'))
-        .database_name
+      (
+        await app.physical_identity.findOneBy(
+          {},
+          { columnWhitelist: ['database_name'] }
+        )
+      ).database_name
     ).toBe(name);
-    expect(
-      Number((await app.one('SELECT count(*) FROM cell.tenants')).count)
-    ).toBe(2);
-    const updated = await app.result(
-      "UPDATE cell.tenants SET status='suspended', revision=2 WHERE id=$1",
-      [tenantB]
+    expect(await app.tenants.countAll()).toBe(2);
+    const updated = await app.tenants.updateWhere(
+      { id: tenantB },
+      { status: 'suspended', revision: 2 }
     );
-    expect(updated.rowCount).toBe(1);
+    expect(updated).toBe(1);
     expect(
-      await app.one('SELECT status, revision FROM cell.tenants WHERE id=$1', [
-        tenantB,
-      ])
+      await app.tenants.findOneBy(
+        { id: tenantB },
+        { columnWhitelist: ['status', 'revision'] }
+      )
     ).toEqual({ status: 'suspended', revision: 2 });
-    await app.none(
-      "INSERT INTO cell.outbox(tenant_id,topic,entity_id,revision) VALUES($1,'portal_access',$2,1),($3,'portal_access',$4,1)",
-      [tenantA, randomUUID(), tenantB, randomUUID()]
-    );
-    expect(
-      Number((await app.one('SELECT count(*) FROM cell.outbox')).count)
-    ).toBe(2);
+    for (const tenantId of [tenantA, tenantB])
+      await app.outbox.insert({
+        tenant_id: tenantId,
+        topic: 'portal_access',
+        entity_id: randomUUID(),
+        revision: 1,
+      });
+    expect(await app.outbox.countAll()).toBe(2);
   });
 });
 it('refuses DDL from nap-app, a second identity row, and changes to the identity', async () => {
@@ -130,10 +145,12 @@ it('refuses DDL from nap-app, a second identity row, and changes to the identity
     ).rejects.toThrow(/permission denied/);
   });
   await expect(
-    db.none(
-      "INSERT INTO cell.physical_identity(cell_id,database_name,operation_id,environment) VALUES($1,'other',$2,'test')",
-      [randomUUID(), randomUUID()]
-    )
+    db.physical_identity.record({
+      cell_id: randomUUID(),
+      database_name: 'other',
+      operation_id: randomUUID(),
+      environment: 'test',
+    })
   ).rejects.toThrow(/physical_identity_single_row/);
   await expect(
     db.none("UPDATE cell.physical_identity SET environment='prod'")

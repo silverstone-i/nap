@@ -52,11 +52,11 @@ let handle, db;
  * @returns {Promise<string>} The portal-user UUID.
  */
 async function portalUser() {
-  const row = await db.one(
-    `INSERT INTO admin.portal_users(email,password_hash,status)
-     VALUES($1,'argon2id$placeholder','active') RETURNING id`,
-    [`user-${randomUUID()}@nap.test`]
-  );
+  const row = await db.portal_users.insert({
+    email: `user-${randomUUID()}@nap.test`,
+    password_hash: 'argon2id$placeholder',
+    status: 'active',
+  });
   return row.id;
 }
 
@@ -71,11 +71,13 @@ async function eligibleTenant({
   provisioned = true,
   rbacReady = true,
 } = {}) {
-  const row = await db.one(
-    `INSERT INTO admin.tenants(tenant_code,name,status,provisioned,rbac_ready)
-     VALUES($1,'Tenant',$2,$3,$4) RETURNING id`,
-    ['T-' + randomUUID().slice(0, 8), status, provisioned, rbacReady]
-  );
+  const row = await db.tenants.insert({
+    tenant_code: 'T-' + randomUUID().slice(0, 8),
+    name: 'Tenant',
+    status,
+    provisioned,
+    rbac_ready: rbacReady,
+  });
   return row.id;
 }
 
@@ -86,11 +88,14 @@ async function eligibleTenant({
  * @returns {Promise<void>}
  */
 async function readyMembership(portalUserId, tenantId) {
-  await db.none(
-    `INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id)
-     VALUES($1,$2,'employee','active',true,gen_random_uuid())`,
-    [portalUserId, tenantId]
-  );
+  await db.portal_user_tenants.insert({
+    portal_user_id: portalUserId,
+    tenant_id: tenantId,
+    member_type: 'employee',
+    status: 'active',
+    ready: true,
+    member_id: randomUUID(),
+  });
 }
 
 /**
@@ -99,14 +104,12 @@ async function readyMembership(portalUserId, tenantId) {
  * @returns {Promise<string>} The cell UUID.
  */
 async function assignedEnabledCell(tenantId) {
-  const cell = await db.one(
-    "INSERT INTO admin.cells(environment,database_name,enabled) VALUES('test',$1,true) RETURNING id",
-    ['nap_test_cell_' + randomUUID().slice(0, 8)]
-  );
-  await db.none('UPDATE admin.tenants SET cell_id=$2 WHERE id=$1', [
-    tenantId,
-    cell.id,
-  ]);
+  const cell = await db.cells.insert({
+    environment: 'test',
+    database_name: 'nap_test_cell_' + randomUUID().slice(0, 8),
+    enabled: true,
+  });
+  await db.tenants.update(tenantId, { cell_id: cell.id });
   return cell.id;
 }
 
@@ -118,7 +121,7 @@ const readyRuntime = { readiness: () => ({ ready: true }) };
  * @returns {Promise<object>}
  */
 function stored(id) {
-  return db.one('SELECT * FROM admin.sessions WHERE id=$1', [id]);
+  return db.sessions.findOneBy({ id }, { includeDeactivated: true });
 }
 
 /**
@@ -127,10 +130,17 @@ function stored(id) {
  * @returns {Promise<object[]>}
  */
 function eventsFor(id) {
-  return db.any(
-    'SELECT event_key,outcome,actor_id,effective_user_id,tenant_id,details FROM admin.managed_events WHERE session_id=$1 ORDER BY occurred_at,id',
-    [id]
-  );
+  return db.managed_events.findWhere({ session_id: id }, 'AND', {
+    columnWhitelist: [
+      'event_key',
+      'outcome',
+      'actor_id',
+      'effective_user_id',
+      'tenant_id',
+      'details',
+    ],
+    orderBy: ['occurred_at', 'id'],
+  });
 }
 
 /**
@@ -206,11 +216,13 @@ describe('listEligibleTenants', () => {
     const eligible = await eligibleTenant();
     const notReady = await eligibleTenant();
     await readyMembership(user, eligible);
-    await db.none(
-      `INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready)
-       VALUES($1,$2,'employee','pending',false)`,
-      [user, notReady]
-    );
+    await db.portal_user_tenants.insert({
+      portal_user_id: user,
+      tenant_id: notReady,
+      member_type: 'employee',
+      status: 'pending',
+      ready: false,
+    });
     const rows = await listEligibleTenants(db, user);
     expect(rows.map(row => row.id)).toEqual([eligible]);
   });
@@ -315,13 +327,12 @@ describe('selectTenant', () => {
     await readyMembership(user, tenant);
     await assignedEnabledCell(tenant);
     const created = await createSession(db, policy, { portalUserId: user });
-    await db.none(
-      `UPDATE admin.sessions
-          SET tenant_id=$2, access_mode='support', access_reason='investigating a billing defect',
-              access_expires_at=now() + interval '30 minutes'
-        WHERE id=$1`,
-      [created.session.id, tenant]
-    );
+    await db.sessions.update(created.session.id, {
+      tenant_id: tenant,
+      access_mode: 'support',
+      access_reason: 'investigating a billing defect',
+      access_expires_at: new Date(Date.now() + 30 * 60_000),
+    });
     await expect(
       selectTenant(
         db,
@@ -463,13 +474,12 @@ describe('automatic access-expiry downgrade', () => {
     const created = await createSession(db, policy, {
       portalUserId: operator,
     });
-    await db.none(
-      `UPDATE admin.sessions
-          SET tenant_id=$2, access_mode='support', access_reason='investigating a billing defect',
-              access_expires_at=now() - interval '1 second'
-        WHERE id=$1`,
-      [created.session.id, target]
-    );
+    await db.sessions.update(created.session.id, {
+      tenant_id: target,
+      access_mode: 'support',
+      access_reason: 'investigating a billing defect',
+      access_expires_at: new Date(Date.now() - 60_000),
+    });
 
     const resolved = await resolveSession(db, policy, created.token);
     expect(resolved.accessMode).toBe('normal');
@@ -500,13 +510,12 @@ describe('automatic access-expiry downgrade', () => {
     const created = await createSession(db, policy, {
       portalUserId: operator,
     });
-    await db.none(
-      `UPDATE admin.sessions
-          SET tenant_id=$2, access_mode='support', access_reason='investigating a billing defect',
-              access_expires_at=now() - interval '1 second'
-        WHERE id=$1`,
-      [created.session.id, target]
-    );
+    await db.sessions.update(created.session.id, {
+      tenant_id: target,
+      access_mode: 'support',
+      access_reason: 'investigating a billing defect',
+      access_expires_at: new Date(Date.now() - 60_000),
+    });
 
     const attempts = await Promise.allSettled(
       Array.from({ length: 5 }, () => resolveSession(db, policy, created.token))

@@ -93,43 +93,48 @@ afterAll(async () => {
 describe('root provisioning', () => {
   it('reports conflict and rolls back when a non-napsoft tenant already holds the configured code', async () => {
     const cfg = bootstrapConfig();
-    await db.none(
-      `INSERT INTO admin.tenants(tenant_code,name,is_napsoft,status)
-       VALUES($1,$2,false,'active')`,
-      [cfg.tenantCode, 'Unrelated tenant']
-    );
+    await db.tenants.insert({
+      tenant_code: cfg.tenantCode,
+      name: 'Unrelated tenant',
+      is_napsoft: false,
+      status: 'active',
+    });
 
     const result = await bootstrapRoot(db, cfg);
 
     expect(result).toEqual({ status: 'conflict', code: 'TENANT_CONFLICT' });
-    const napsoft = await db.oneOrNone(
-      'SELECT id FROM admin.tenants WHERE is_napsoft=true'
+    const napsoft = await db.tenants.findOneBy(
+      { is_napsoft: true },
+      { columnWhitelist: ['id'], includeDeactivated: true }
     );
     expect(napsoft).toBeNull();
-    const root = await db.oneOrNone(
-      'SELECT id FROM admin.portal_users WHERE is_root=true'
+    const root = await db.portal_users.findOneBy(
+      { is_root: true },
+      { columnWhitelist: ['id'], includeDeactivated: true }
     );
     expect(root).toBeNull();
   });
 
   it('reports conflict and rolls back when a non-root user already holds the configured email', async () => {
     const cfg = bootstrapConfig();
-    await db.none(
-      `INSERT INTO admin.portal_users(email,password_hash,is_root,status)
-       VALUES($1,'not-a-real-hash',false,'active')`,
-      [cfg.rootEmail]
-    );
+    await db.portal_users.insert({
+      email: cfg.rootEmail,
+      password_hash: 'not-a-real-hash',
+      is_root: false,
+      status: 'active',
+    });
 
     const result = await bootstrapRoot(db, cfg);
 
     expect(result).toEqual({ status: 'conflict', code: 'ROOT_CONFLICT' });
-    const tenant = await db.oneOrNone(
-      'SELECT id FROM admin.tenants WHERE tenant_code=$1',
-      [cfg.tenantCode]
+    const tenant = await db.tenants.findOneBy(
+      { tenant_code: cfg.tenantCode },
+      { columnWhitelist: ['id'], includeDeactivated: true }
     );
     expect(tenant).toBeNull();
-    const root = await db.oneOrNone(
-      'SELECT id FROM admin.portal_users WHERE is_root=true'
+    const root = await db.portal_users.findOneBy(
+      { is_root: true },
+      { columnWhitelist: ['id'], includeDeactivated: true }
     );
     expect(root).toBeNull();
   });
@@ -152,10 +157,13 @@ describe('root provisioning', () => {
     expect(result.membership.status).toBe('active');
     expect(result.membership.ready).toBe(true);
 
-    const events = await db.any(
-      `SELECT event_key,outcome,details FROM admin.managed_events
-        WHERE target_id=$1 ORDER BY occurred_at`,
-      [result.tenant.id]
+    const events = await db.managed_events.findWhere(
+      { target_id: result.tenant.id },
+      'AND',
+      {
+        columnWhitelist: ['event_key', 'outcome', 'details'],
+        orderBy: 'occurred_at',
+      }
     );
     expect(events).toEqual([
       expect.objectContaining({
@@ -168,33 +176,30 @@ describe('root provisioning', () => {
         /correct-horse-battery-staple|\$argon2/
       );
 
-    const noRoleAssignment = await db.oneOrNone(
-      'SELECT id FROM admin.platform_roles WHERE portal_user_id=$1',
-      [result.rootUser.id]
+    const noRoleAssignment = await db.platform_roles.findOneBy(
+      { portal_user_id: result.rootUser.id },
+      { columnWhitelist: ['id'], includeDeactivated: true }
     );
     expect(noRoleAssignment).toBeNull();
   });
 
   it('preserves the password hash and every UUID on a repeat run, and writes no new event', async () => {
-    const before = await db.one(
-      'SELECT id,password_hash FROM admin.portal_users WHERE is_root=true'
+    const before = await db.portal_users.findOneBy(
+      { is_root: true },
+      { columnWhitelist: ['id', 'password_hash'] }
     );
-    const eventsBefore = await db.one(
-      'SELECT count(*) FROM admin.managed_events'
-    );
+    const eventsBefore = await db.managed_events.countAll();
 
     const second = await bootstrapRoot(db, MAIN);
 
     expect(second.status).toBe('existing');
     expect(second.rootUser.id).toBe(before.id);
-    const after = await db.one(
-      'SELECT password_hash FROM admin.portal_users WHERE is_root=true'
+    const after = await db.portal_users.findOneBy(
+      { is_root: true },
+      { columnWhitelist: ['password_hash'] }
     );
     expect(after.password_hash).toBe(before.password_hash);
-    const eventsAfter = await db.one(
-      'SELECT count(*) FROM admin.managed_events'
-    );
-    expect(eventsAfter.count).toBe(eventsBefore.count);
+    expect(await db.managed_events.countAll()).toBe(eventsBefore);
   });
 
   it('reports conflict when the existing owning tenant uses a different code', async () => {

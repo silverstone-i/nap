@@ -68,11 +68,13 @@ function register(
  * @returns {Promise<string>} The tenant UUID.
  */
 async function tenant({ cellId = null, napsoft = false } = {}) {
-  const row = await db.one(
-    `INSERT INTO admin.tenants(tenant_code,name,status,is_napsoft,cell_id)
-     VALUES($1,'Tenant','active',$2,$3) RETURNING id`,
-    ['T-' + randomUUID().slice(0, 8), napsoft, cellId]
-  );
+  const row = await db.tenants.insert({
+    tenant_code: 'T-' + randomUUID().slice(0, 8),
+    name: 'Tenant',
+    status: 'active',
+    is_napsoft: napsoft,
+    cell_id: cellId,
+  });
   return row.id;
 }
 
@@ -83,7 +85,7 @@ async function tenant({ cellId = null, napsoft = false } = {}) {
  * @returns {Promise<string>} The Napsoft tenant UUID.
  */
 async function napsoftTenant(cellId) {
-  await db.none('DELETE FROM admin.tenants WHERE is_napsoft');
+  await db.tenants.deleteWhere({ is_napsoft: true });
   return tenant({ cellId, napsoft: true });
 }
 
@@ -93,9 +95,13 @@ async function napsoftTenant(cellId) {
  * @returns {Promise<object[]>}
  */
 function eventsFor(cellId) {
-  return db.any(
-    "SELECT event_key,outcome,details FROM admin.managed_events WHERE target_type='cell' AND target_id=$1 ORDER BY occurred_at,id",
-    [cellId]
+  return db.managed_events.findWhere(
+    { target_type: 'cell', target_id: cellId },
+    'AND',
+    {
+      columnWhitelist: ['event_key', 'outcome', 'details'],
+      orderBy: ['occurred_at', 'id'],
+    }
   );
 }
 
@@ -448,8 +454,9 @@ describe('reads', () => {
     await register();
     const onePage = await getOverview(db, authority(), { limit: 1 });
     expect(onePage.anyActive).toBe(true);
-    await db.none(
-      "UPDATE admin.cell_provisioning SET status='failed', failure_code='SETUP_FAILED' WHERE status IN ('queued','running')"
+    await db.cell_provisioning.updateWhere(
+      { status: { $in: ['queued', 'running'] } },
+      { status: 'failed', failure_code: 'SETUP_FAILED' }
     );
     expect((await getOverview(db, authority(), { limit: 1 })).anyActive).toBe(
       false
@@ -526,10 +533,10 @@ describe('credentials', () => {
     await retryCellProvisioning(db, authority(), cell.id);
     await disableCell(db, authority(), cell.id);
     const stream = JSON.stringify(
-      await db.any(
-        "SELECT * FROM admin.managed_events WHERE target_type='cell' AND target_id=$1",
-        [cell.id]
-      )
+      await db.managed_events.findWhere({
+        target_type: 'cell',
+        target_id: cell.id,
+      })
     );
     for (const forbidden of [
       /password/i,

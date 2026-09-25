@@ -58,9 +58,13 @@ function body(overrides = {}) {
  * @returns {Promise<object[]>}
  */
 function eventsFor(actorId) {
-  return db.any(
-    "SELECT event_key,outcome,target_id,details FROM admin.managed_events WHERE event_key='tenant.created' AND actor_id=$1 ORDER BY occurred_at,id",
-    [actorId]
+  return db.managed_events.findWhere(
+    { event_key: 'tenant.created', actor_id: actorId },
+    'AND',
+    {
+      columnWhitelist: ['event_key', 'outcome', 'target_id', 'details'],
+      orderBy: ['occurred_at', 'id'],
+    }
   );
 }
 
@@ -228,10 +232,10 @@ describe('idempotency', () => {
     const request = body();
     const first = await createTenant(db, write, request, idempotencyKey);
 
-    await db.none(
-      "UPDATE admin.tenants SET name='Renamed Out Of Band', tier='growth' WHERE id=$1",
-      [first.id]
-    );
+    await db.tenants.update(first.id, {
+      name: 'Renamed Out Of Band',
+      tier: 'growth',
+    });
 
     const second = await createTenant(db, write, request, idempotencyKey);
     expect(second).toEqual(first);

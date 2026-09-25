@@ -180,9 +180,10 @@ describe('users', () => {
       { columnWhitelist: ['id'] }
     );
     expect(row).toBeTruthy();
-    const events = await db.any(
-      "SELECT outcome FROM admin.managed_events WHERE event_key='user.created' AND target_id=$1",
-      [first.id]
+    const events = await db.managed_events.findWhere(
+      { event_key: 'user.created', target_id: first.id },
+      'AND',
+      { columnWhitelist: ['outcome'] }
     );
     expect(events).toHaveLength(2);
     expect(events.every(e => e.outcome === 'succeeded')).toBe(true);

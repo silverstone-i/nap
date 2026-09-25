@@ -72,24 +72,23 @@ it('migrates concurrently once, verifies all catalog details, and leaves all mod
   ]);
   expect(results.map(r => r.status).sort()).toEqual(['applied', 'unchanged']);
   for (const table of Object.keys(adminModules[0].models))
-    expect(
-      Number(
-        (await db.one('SELECT count(*) FROM admin.$1:name', [table])).count
-      )
-    ).toBe(0);
+    expect(await db[table].countAll({ includeDeactivated: true })).toBe(0);
   await verifyAdmin(handle, adminModules);
 }, 30000);
 it('preserves existing data across setup and migration, including archived rows', async () => {
-  const row = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name,deactivated_at) VALUES('ARCHIVED','Archived',now()) RETURNING id"
-  );
+  const row = await db.tenants.insert({
+    tenant_code: 'ARCHIVED',
+    name: 'Archived',
+  });
+  await db.tenants.removeWhere({ id: row.id });
   expect((await setupLocal(config)).status).toBe('unchanged');
   expect((await migrateAdmin(config)).status).toBe('unchanged');
   expect(
     (
-      await db.one('SELECT deactivated_at FROM admin.tenants WHERE id=$1', [
-        row.id,
-      ])
+      await db.tenants.findOneBy(
+        { id: row.id },
+        { columnWhitelist: ['deactivated_at'], includeDeactivated: true }
+      )
     ).deactivated_at
   ).not.toBeNull();
 });
@@ -223,23 +222,28 @@ it('enforces immutable fields, audit timestamps, uniqueness, checks and foreign 
   );
 });
 it('protects root records while allowing their first cell assignment after bootstrap', async () => {
-  const tenant = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name,is_napsoft,status) VALUES('ROOT','Owner',true,'active') RETURNING id"
-  );
-  const user = await db.one(
-    "INSERT INTO admin.portal_users(email,password_hash,is_root) VALUES('root@test','fixture',true) RETURNING id"
-  );
-  const membership = await db.one(
-    "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,status,ready) VALUES($1,$2,'active',true) RETURNING id",
-    [user.id, tenant.id]
-  );
-  const cell = await db.one(
-    "INSERT INTO admin.cells(environment,database_name) VALUES('test','root_cell') RETURNING id"
-  );
-  await db.none('UPDATE admin.tenants SET cell_id=$1 WHERE id=$2', [
-    cell.id,
-    tenant.id,
-  ]);
+  const tenant = await db.tenants.insert({
+    tenant_code: 'ROOT',
+    name: 'Owner',
+    is_napsoft: true,
+    status: 'active',
+  });
+  const user = await db.portal_users.insert({
+    email: 'root@test.example',
+    password_hash: 'fixture',
+    is_root: true,
+  });
+  const membership = await db.portal_user_tenants.insert({
+    portal_user_id: user.id,
+    tenant_id: tenant.id,
+    status: 'active',
+    ready: true,
+  });
+  const cell = await db.cells.insert({
+    environment: 'test',
+    database_name: 'root_cell',
+  });
+  await db.tenants.update(tenant.id, { cell_id: cell.id });
   await expect(
     db.none('UPDATE admin.tenants SET cell_id=NULL WHERE id=$1', [tenant.id])
   ).rejects.toMatchObject({ code: '23514' });
@@ -262,47 +266,48 @@ it('protects root records while allowing their first cell assignment after boots
     });
 });
 it('allows eligible reassignment and blocks provisioned or archived-membership assignments', async () => {
-  const cells = await db.any(
-    "INSERT INTO admin.cells(environment,database_name) VALUES('test','cell_a'),('test','cell_b') RETURNING id"
-  );
-  const tenant = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name,cell_id) VALUES('MOVE','Move',$1) RETURNING id",
-    [cells[0].id]
-  );
-  await db.none('UPDATE admin.tenants SET cell_id=$1 WHERE id=$2', [
-    cells[1].id,
-    tenant.id,
-  ]);
-  await db.none('UPDATE admin.tenants SET cell_id=NULL WHERE id=$1', [
-    tenant.id,
-  ]);
-  await db.none(
-    'UPDATE admin.tenants SET cell_id=$1,provisioned=true WHERE id=$2',
-    [cells[0].id, tenant.id]
-  );
+  const cells = [
+    await db.cells.insert({ environment: 'test', database_name: 'cell_a' }),
+    await db.cells.insert({ environment: 'test', database_name: 'cell_b' }),
+  ];
+  const tenant = await db.tenants.insert({
+    tenant_code: 'MOVE',
+    name: 'Move',
+    cell_id: cells[0].id,
+  });
+  await db.tenants.update(tenant.id, { cell_id: cells[1].id });
+  await db.tenants.update(tenant.id, { cell_id: null });
+  await db.tenants.update(tenant.id, {
+    cell_id: cells[0].id,
+    provisioned: true,
+  });
   await expect(
     db.none(
       'UPDATE admin.tenants SET cell_id=$1,provisioned=false WHERE id=$2',
       [cells[1].id, tenant.id]
     )
   ).rejects.toMatchObject({ code: '23514' });
-  const user = await db.one(
-    "INSERT INTO admin.portal_users(email,password_hash) VALUES('member@test','fixture') RETURNING id"
-  );
-  const other = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name,cell_id) VALUES('MEMBER','Member',$1) RETURNING id",
-    [cells[0].id]
-  );
+  const user = await db.portal_users.insert({
+    email: 'member@test.example',
+    password_hash: 'fixture',
+  });
+  const other = await db.tenants.insert({
+    tenant_code: 'MEMBER',
+    name: 'Member',
+    cell_id: cells[0].id,
+  });
   await expect(
     db.none(
       "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,status,ready) VALUES($1,$2,'active',true)",
       [user.id, other.id]
     )
   ).rejects.toMatchObject({ code: '23514' });
-  await db.none(
-    "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,deactivated_at) VALUES($1,$2,'employee',now())",
-    [user.id, other.id]
-  );
+  const archivedMembership = await db.portal_user_tenants.insert({
+    portal_user_id: user.id,
+    tenant_id: other.id,
+    member_type: 'employee',
+  });
+  await db.portal_user_tenants.removeWhere({ id: archivedMembership.id });
   await expect(
     db.none('UPDATE admin.tenants SET cell_id=NULL WHERE id=$1', [other.id])
   ).rejects.toMatchObject({ code: '23514' });
@@ -327,32 +332,36 @@ it('rejects missing and unsafe runtime roles without modifying their credentials
   ).rejects.toThrow('SETUP_FAILED');
 });
 it('serializes membership creation with cell reassignment', async () => {
-  const cells = await db.any(
-    "INSERT INTO admin.cells(environment,database_name) VALUES('test','race_a'),('test','race_b') RETURNING id"
-  );
-  const tenant = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name,cell_id) VALUES('RACE','Race',$1) RETURNING id",
-    [cells[0].id]
-  );
-  const user = await db.one(
-    "INSERT INTO admin.portal_users(email,password_hash) VALUES('race@test','fixture') RETURNING id"
-  );
+  const cells = [
+    await db.cells.insert({ environment: 'test', database_name: 'race_a' }),
+    await db.cells.insert({ environment: 'test', database_name: 'race_b' }),
+  ];
+  const tenant = await db.tenants.insert({
+    tenant_code: 'RACE',
+    name: 'Race',
+    cell_id: cells[0].id,
+  });
+  const user = await db.portal_users.insert({
+    email: 'race@test.example',
+    password_hash: 'fixture',
+  });
   let release, inserted;
   const ready = new Promise(r => (inserted = r));
   const gate = new Promise(r => (release = r));
   const membership = db.tx(async tx => {
-    await tx.none(
-      "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type) VALUES($1,$2,'employee')",
-      [user.id, tenant.id]
+    await db.portal_user_tenants.insert(
+      {
+        portal_user_id: user.id,
+        tenant_id: tenant.id,
+        member_type: 'employee',
+      },
+      { tx }
     );
     inserted();
     await gate;
   });
   await ready;
-  const reassignment = db.none(
-    'UPDATE admin.tenants SET cell_id=$1 WHERE id=$2',
-    [cells[1].id, tenant.id]
-  );
+  const reassignment = db.tenants.update(tenant.id, { cell_id: cells[1].id });
   const assertion = expect(reassignment).rejects.toMatchObject({
     code: '23514',
   });

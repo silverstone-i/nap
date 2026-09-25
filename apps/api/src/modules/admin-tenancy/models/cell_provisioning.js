@@ -134,10 +134,7 @@ export class CellProvisioning extends TableModel {
    * @returns {Promise<boolean>}
    */
   async hasActive() {
-    const row = await this.db.one(
-      `SELECT EXISTS(SELECT 1 FROM ${table(this)} WHERE status IN ('queued','running')) AS active`
-    );
-    return row.active;
+    return this.exists({ status: { $in: ['queued', 'running'] } });
   }
 
   /**
@@ -146,9 +143,6 @@ export class CellProvisioning extends TableModel {
    * @returns {Promise<number>} Rows requeued.
    */
   async requeueRunning() {
-    const result = await this.db.result(
-      `UPDATE ${table(this)} SET status='queued' WHERE status='running'`
-    );
-    return result.rowCount;
+    return this.updateWhere({ status: 'running' }, { status: 'queued' });
   }
 }

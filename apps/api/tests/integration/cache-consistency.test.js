@@ -66,16 +66,7 @@ it('reads missing keys as zero without creating rows', async () => {
   expect(
     await db.cache_revisions.current([{ domain: 'user', entity }])
   ).toEqual([{ domain: 'user', entity, revision: '0' }]);
-  expect(
-    Number(
-      (
-        await db.one(
-          'SELECT count(*) FROM admin.cache_revisions WHERE entity=$1',
-          [entity]
-        )
-      ).count
-    )
-  ).toBe(0);
+  expect(await db.cache_revisions.countWhere({ entity })).toBe(0);
 });
 
 it('advances multiple keys atomically and rolls back with source work', async () => {
