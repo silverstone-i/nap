@@ -78,8 +78,7 @@ database.
 
 ## Runtime Flow
 
-Specified in [I0003](../PRDs/inter-module-workflows/I0003-cell-provisioning.md); not yet
-implemented. At startup, the API must read the admin database setting and the configured
+Implemented by [I0003](../PRDs/inter-module-workflows/I0003-cell-provisioning.md). At startup, the API must read the admin database setting and the configured
 cell database map.
 
 The cell database map ties each cell UUID to its database connection string.

@@ -4,12 +4,12 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Status               | Implemented                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Related architecture | [Admin and cells](../../architecture/admin-cells.md), [Migrations](../../architecture/migrations.md), [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Related PRDs         | [M0001-02: Root User Provisioning](../modules/M0001-admin-tenancy/M0001-02-root-user-provisioning.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-09: Tenant Selection And Support Access](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md), [M0002-01: Cell Database Foundation](../modules/M0002-cell-tenancy/M0002-01-cell-database-foundation.md), [M0002-02: Physical Identity](../modules/M0002-cell-tenancy/M0002-02-physical-identity.md), [I0002: Platform Administration Screens](I0002-platform-administration-screens.md) |
 | Related decisions    | The worker runs inside the API; a cell lives on the admin server locally and on its own Render instance in production                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Last reviewed        | 2026-09-24                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Last reviewed        | 2026-09-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ## 2. Purpose
 
@@ -256,6 +256,30 @@ public route.
 | AC12      | No response, log, event, failure code, or not-ready reason contains a secret or endpoint.                                                                                                   | I0003-R039, R040                                   |
 | AC13      | `prod` setup creates one Render instance per cell and publishes to `CELL_DATABASES_PROD`, verified against a mocked Render API.                                                             | I0003-R007, R011, R037                             |
 
-## 14. Outstanding Questions
+## 14. Implementation Notes
+
+Implemented in [silverstone-i/nap#30](https://github.com/silverstone-i/nap/pull/30).
+
+- Worker: `apps/api/src/application/provisioning/worker.js`; stages in
+  `stages.js`; root tenant setup in `rootTenantSetup.js`. Drivers:
+  `infrastructure/provisioning/localCells.js` (`dev`) and `renderCells.js`
+  (`prod`). Publishing: `cellConnections.js`. Registry:
+  `infrastructure/runtime/cellRegistry.js`.
+- Attempts follow M0001-06: retry increments them and the worker's start does
+  not, so §8's "attempts incremented" on claim is not applied.
+- Startup and shutdown requeue a `running` job with the model method
+  `requeueRunning()`, not an `advanceCellProvisioning` transition.
+- In `prod` the worker runs on Render's internal network and uses the internal
+  connection string; it adds no IP allow-list rule. The instance's database
+  user, `nap_setup_<operation id>`, is its operation marker.
+- `ROOT_SETUP_FAILED` is shown by writing it to `failure_code` on the cell's
+  completed job, and cleared when root tenant setup succeeds.
+- `GET /control/overview` also returns `anyActive`, so the Cells screen keeps
+  refreshing while a job on another page is active (R030).
+- Verified: unit, web, and database test suites, and a `dev` run in which four
+  queued cells provisioned, stayed ready after a restart, and root selected
+  Napsoft. The Render path is verified against a mocked Render API only.
+
+## 15. Outstanding Questions
 
 None.
