@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.18.1] - 2026-09-25
+
 ### Changed
 
 - Lower the minimum password length from 12 to 8 characters. A temporary password for a new portal user may now be any nonempty password up to 128 characters, since the user must replace it at first login.
