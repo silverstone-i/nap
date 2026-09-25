@@ -153,7 +153,8 @@ export function createCellRegistry({ admin, connect = createCellDatabase }) {
       { id: session.tenant },
       { columnWhitelist: ['id', 'cell_id'] }
     );
-    const entry = tenant?.cell_id && cells.get(tenant.cell_id);
+    const entry =
+      tenant?.cell_id && cells.get(String(tenant.cell_id).toLowerCase());
     if (!entry?.ready || !entry.handle)
       throw new CellRegistryError('CELL_UNAVAILABLE');
     return entry.handle.db;

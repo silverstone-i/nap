@@ -130,6 +130,20 @@ describe('runtime cell registry (I0003-R015–R022)', () => {
     expect(await registry.cellFor({ tenant: TENANT })).toHaveProperty(
       'physical_identity'
     );
+    // A tenant record whose cell ID differs only in case still resolves.
+    const upper = createCellRegistry({
+      admin: {
+        ...fakeAdmin({ [CELL]: record() }),
+        tenants: {
+          findOneBy: async () => ({ id: TENANT, cell_id: CELL.toUpperCase() }),
+        },
+      },
+      connect: fakeConnect().connect,
+    });
+    await upper.load({ [CELL]: connection });
+    expect(await upper.cellFor({ tenant: TENANT })).toHaveProperty(
+      'physical_identity'
+    );
     await expect(registry.cellFor({ tenant: OTHER })).rejects.toThrow(
       'CELL_UNAVAILABLE'
     );
