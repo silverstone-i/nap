@@ -16,7 +16,7 @@ import { useTheme } from '@mui/material/styles';
 
 /**
  * A small, representative editable grid demonstrating the interaction
- * pattern a future spreadsheet-style work area needs (F0001-R018,
+ * pattern a future spreadsheet-style work area needs (I0001-R018,
  * "space for future spreadsheet-style editors"): arrow-key navigation,
  * range selection, clipboard copy/paste, bulk cell editing, and inline
  * validation. Deliberately not a spreadsheet package or a product

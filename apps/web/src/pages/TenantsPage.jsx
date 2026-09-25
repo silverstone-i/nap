@@ -18,7 +18,7 @@ import { useSession } from '../auth/SessionContext.jsx';
 import { Wordmark } from '../shell/Wordmark.jsx';
 
 /**
- * `/tenants` — lists the caller's eligible tenants (F0001-R007) and applies
+ * `/tenants` — lists the caller's eligible tenants (I0001-R007) and applies
  * the caller's selection. `entryPoints.tenant` only signals "at least one
  * exists"; the actual list always comes from `GET /access/tenants`.
  */

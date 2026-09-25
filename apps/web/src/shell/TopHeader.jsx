@@ -17,7 +17,7 @@ import { ProfileMenu } from './ProfileMenu.jsx';
 /**
  * The shell's top header: a hamburger control that toggles navigation at
  * every width, a tenant/operator label immediately to its right, and the
- * profile menu (F0001-R009). Spans the full width, with the nav and work
+ * profile menu (I0001-R009). Spans the full width, with the nav and work
  * area sitting in the row below it — see `AppShell`.
  * @param {{onMenuClick: () => void}} props
  * @returns {JSX.Element}

@@ -7,7 +7,7 @@ import Typography from '@mui/material/Typography';
 import { useSession } from '../auth/SessionContext.jsx';
 import { usePageHeader } from '../shell/PageHeaderContext.jsx';
 
-/** Minimal tenant Home — a context label only, no invented metrics (F0001-R014). */
+/** Minimal tenant Home — a context label only, no invented metrics (I0001-R014). */
 export function TenantHome() {
   const session = useSession();
   usePageHeader({ title: 'Home' });

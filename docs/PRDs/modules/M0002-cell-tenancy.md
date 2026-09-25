@@ -16,13 +16,13 @@ with:
 - the physical identity check that proves a connection reached the right
   cell.
 
-Workflows move data in and out of these tables and serve tenant requests
+Inter-module workflows move data in and out of these tables and serve tenant requests
 through them. See Out of scope.
 
 ## Tables
 
 All tables are in the `cell` schema and are owned by the `cell-tenancy` module.
-M0002-01 creates every table in one module migration file. Workflows add
+M0002-01 creates every table in one module migration file. Inter-module workflows add
 behavior on top of those tables, never schema.
 
 | Table                      | Source                      | Holds                                                                                                                   |
@@ -63,8 +63,8 @@ Rules that apply to the copied tables (`tenants`, `tenant_members`,
 
 M0002 owns the `cell` tables and the checks on them. Work that uses those
 tables across the admin database, a worker, the registry, or tenant routes is
-a workflow, not an M0002 Work Unit: the runtime cell registry is
-[W0001](../workflows/W0001-runtime-cell-registry.md), and the rest are listed
+an inter-module workflow, not an M0002 Work Unit: the runtime cell registry is
+[I0003](../inter-module-workflows/I0003-runtime-cell-registry.md), and the rest are listed
 under Out of scope.
 
 ### M0002-01: Cell database foundation (large)
@@ -115,7 +115,7 @@ the change never waits on the other database:
   `cell.outbox`. The worker applies it to the admin login and membership and
   reports the result back to the cell.
 
-Workflows build both directions, including the code that reads and writes
+Inter-module workflows build both directions, including the code that reads and writes
 the `cell` tables. M0002 owns only the tables.
 
 ## Work Unit status
@@ -138,40 +138,40 @@ Cell Tenancy is complete when Work Units 01 and 02 are complete.
 
 ## Out of scope
 
-These build on the `cell` tables. Each needs its own PRD, other than W0001,
+These build on the `cell` tables. Each needs its own PRD, other than I0003,
 before it is built:
 
-- Runtime cell registry: [W0001](../workflows/W0001-runtime-cell-registry.md).
+- Runtime cell registry: [I0003](../inter-module-workflows/I0003-runtime-cell-registry.md).
 - Tenant context: `withTenantTransaction(request, work)`, the entry point every
-  tenant route uses. It gets the cell connection from W0001, sets
+  tenant route uses. It gets the cell connection from I0003, sets
   `nap.tenant_id`, `nap.actor_id`, and `nap.effective_user_id` for that
   transaction only, rejects a session with no tenant or a tenant missing or
   not active in `cell.tenants`, and makes support sessions that are not acting
-  as a user read-only. Needs tenant sync first; a workflow.
+  as a user read-only. Needs tenant sync first; an inter-module workflow.
 
 - Cell health and hot add: rechecking a cell's readiness after startup,
   returning a recovered cell to service, and adding a newly provisioned cell
-  without an API restart. Extends the [W0001](../workflows/W0001-runtime-cell-registry.md)
-  runtime registry; owns no cell-tenancy table, so it is a workflow, not an
+  without an API restart. Extends the [I0003](../inter-module-workflows/I0003-runtime-cell-registry.md)
+  runtime registry; owns no cell-tenancy table, so it is an inter-module workflow, not an
   M0002 Work Unit.
 - Cell readiness and shell context: reporting the physical identity check and
   migration state on M0001-06's cell-readiness route, and showing an
   operator's selected tenant and cell in the application shell. Spans an
   admin-tenancy route and the browser shell; owns no cell-tenancy table, so
-  it is a feature, not an M0002 Work Unit.
+  it is an inter-module workflow, not an M0002 Work Unit.
 - Tenant sync: the admin database writes an `admin.outbox` row for each
   tenant change, and a worker delivers it to the tenant's cell and applies it
-  to `cell.tenants` under the revision rule. Being drafted as a workflow.
+  to `cell.tenants` under the revision rule. An inter-module workflow.
 - Membership sync: the same pipeline for `cell.tenant_members`, plus requiring
   an active local membership in `withTenantTransaction` and looking up a
-  member by `member_id`. Adds a topic to the tenant sync worker; a workflow.
+  member by `member_id`. Adds a topic to the tenant sync worker; an inter-module workflow.
 - Entitlement sync: the same pipeline for `cell.module_entitlements`, plus
   blocking routes for optional modules the tenant is not entitled to.
-  Foundation modules always pass. Adds a topic to the tenant sync worker; a
-  workflow.
+  Foundation modules always pass. Adds a topic to the tenant sync worker;
+  an inter-module workflow.
 - Cell-to-admin delivery: appending a request to `cell.outbox` inside the
   tenant transaction, claiming rows so each is taken by one worker at a time,
-  and applying each request to the admin database. A workflow.
+  and applying each request to the admin database. An inter-module workflow.
 - Cell provisioning: creating, migrating, and activating a cell database.
 - Migration rollout: applying a new cell migration to every existing cell,
   with progress and failures an operator can see and retry.

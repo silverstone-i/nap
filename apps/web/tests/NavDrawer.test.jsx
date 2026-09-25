@@ -154,7 +154,7 @@ describe('NavDrawer — collapsed rail', () => {
   });
 });
 
-describe('NavDrawer — no visible children (F0001-R023 today)', () => {
+describe('NavDrawer — no visible children (I0001-R023 today)', () => {
   it('hides the group entirely when nothing is implemented and authorized', async () => {
     vi.mocked(
       (await import('../src/shell/tenantManagementNav.js'))

@@ -15,7 +15,7 @@ import { ApiError } from '../../api/client.js';
 import { registerCell } from '../../api/endpoints.js';
 
 /**
- * "Register cell" (F0002-R004): submits `{operation: 'cell', suffix}` to
+ * "Register cell" (I0002-R004): submits `{operation: 'cell', suffix}` to
  * the existing registry contract. Non-destructive — no confirmation.
  * @param {{onClose: () => void, onRegistered: () => void}} props
  * @returns {JSX.Element}

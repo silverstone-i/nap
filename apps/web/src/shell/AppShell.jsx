@@ -14,7 +14,7 @@ import { PageHeaderProvider } from './PageHeaderContext.jsx';
 import { TopHeader } from './TopHeader.jsx';
 
 /**
- * The application shell (F0001-R009): a full-width top header above a
+ * The application shell (I0001-R009): a full-width top header above a
  * left-navigation-plus-work-area row. The hamburger's effect depends on the
  * breakpoint: at phone widths it opens and closes a modal drawer (icons and
  * labels, R013); at tablet and desktop it toggles the in-flow rail between

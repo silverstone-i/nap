@@ -441,7 +441,7 @@ const USER_LIST_COLUMNS = Object.freeze([
  * plus whether the row is the root account. The root account is otherwise
  * unreachable through this module (every other route's `userView` caller
  * excludes it before it ever gets here — `userView` itself still never
- * exposes `is_root`), but F0002's Portal Users screen must still display it
+ * exposes `is_root`), but I0002's Portal Users screen must still display it
  * for operator visibility, read-only — `isRoot` is what lets the UI hide
  * Deactivate/Restore for that one row, since `archiveUser`/`restoreUser`
  * both reject `is_root` with `NOT_FOUND` regardless.
@@ -506,11 +506,11 @@ function parseLimitOrAccount(value) {
 
 /**
  * List every portal-user account — including root, for operator visibility
- * — in ascending `id` order, paginated by opaque cursor (F0002-R008).
+ * — in ascending `id` order, paginated by opaque cursor (I0002-R008).
  *
  * Reads with `includeDeactivated: true`: `admin.portal_users` is
  * soft-delete tracked, so an archived account would otherwise vanish from
- * this list entirely — and F0002-R006 requires a Restore action, which has
+ * this list entirely — and I0002-R006 requires a Restore action, which has
  * no row to act on if the archived account it targets is unreachable here.
  * `scope.archiveManagement` is granted whenever `platformPortalUserRead` is
  * (both flip together in `accessScope`), so `requirePlatformAuthority`

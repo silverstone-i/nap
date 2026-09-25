@@ -306,7 +306,7 @@ export async function createTenant(
 /**
  * Raw columns `listTenants` reads before projecting through `tenantView`.
  * Deliberately narrower than `domain/access.js`'s `TENANT_VIEW_COLUMNS`
- * (which includes `is_napsoft`, `revision`, and audit columns) — F0002-R007
+ * (which includes `is_napsoft`, `revision`, and audit columns) — I0002-R007
  * requires reusing `tenantView` verbatim, never that wider shape.
  */
 const TENANT_LIST_COLUMNS = Object.freeze([
@@ -374,7 +374,7 @@ function parseLimitOrTenant(value) {
 
 /**
  * List every central tenant record in ascending `id` order, paginated by
- * opaque cursor (F0002-R007). Carries no Napsoft/support carve-out — like
+ * opaque cursor (I0002-R007). Carries no Napsoft/support carve-out — like
  * `getOverview` (domain/cells.js), reads are not scoped by
  * `deniedTenantIds`; only write actions target a specific tenant.
  * @param {AdminTenantsDb} db

@@ -18,7 +18,7 @@ Render API key under your account settings. See
 The service runs the BFF and serves the built React app and API from the same
 origin. Startup requires the Admin schema and safe `nap-app` credentials;
 `/health/ready` checks that connection and required table access. Runtime cell
-routing remains later work ([W0001](../PRDs/workflows/W0001-runtime-cell-registry.md)).
+routing remains later work ([I0003](../PRDs/inter-module-workflows/I0003-runtime-cell-registry.md)).
 
 The first deployment cannot become ready before Admin setup and migration.
 Record the service ID, complete the commands below, then manually deploy again.

@@ -56,7 +56,7 @@ afterEach(() => {
 });
 
 describe('TenantsPage', () => {
-  it('shows a loading then populated grid (F0001-R021)', async () => {
+  it('shows a loading then populated grid (I0001-R021)', async () => {
     api.listTenantsPage.mockResolvedValue({ rows: [TENANT], nextCursor: null });
     renderPage();
     expect(await screen.findByText('ACME')).toBeTruthy();
@@ -76,7 +76,7 @@ describe('TenantsPage', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
-  it('offers no row action, per F0002-R001', async () => {
+  it('offers no row action, per I0002-R001', async () => {
     api.listTenantsPage.mockResolvedValue({ rows: [TENANT], nextCursor: null });
     renderPage();
     await screen.findByText('ACME');

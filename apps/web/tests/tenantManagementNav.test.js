@@ -10,7 +10,7 @@ import {
   visibleTenantManagementChildren,
 } from '../src/shell/tenantManagementNav.js';
 
-describe('visibleTenantManagementChildren (F0001-R023)', () => {
+describe('visibleTenantManagementChildren (I0001-R023)', () => {
   it('lists Tenants, Cells, and Portal Users as the three known children', () => {
     expect(TENANT_MANAGEMENT_CHILDREN.map(child => child.label)).toEqual([
       'Tenants',
@@ -19,7 +19,7 @@ describe('visibleTenantManagementChildren (F0001-R023)', () => {
     ]);
   });
 
-  it('every child is implemented, now that F0002 ships all three screens', () => {
+  it('every child is implemented, now that I0002 ships all three screens', () => {
     expect(
       TENANT_MANAGEMENT_CHILDREN.every(child => child.implemented === true)
     ).toBe(true);
@@ -37,13 +37,13 @@ describe('visibleTenantManagementChildren (F0001-R023)', () => {
       },
     ],
   ])(
-    'returns no children for %s — implemented is not sufficient alone (F0002-R010)',
+    'returns no children for %s — implemented is not sufficient alone (I0002-R010)',
     (_label, entryPoints) => {
       expect(visibleTenantManagementChildren(entryPoints)).toEqual([]);
     }
   );
 
-  it('returns all three, in order, for a platform user authorized for all three (F0001-R024, F0002-R010)', () => {
+  it('returns all three, in order, for a platform user authorized for all three (I0001-R024, I0002-R010)', () => {
     const entryPoints = {
       platform: true,
       tenant: false,
@@ -72,7 +72,7 @@ describe('visibleTenantManagementChildren (F0001-R023)', () => {
   });
 });
 
-describe('isChildVisible (F0001-R024 gate, F0002-R010)', () => {
+describe('isChildVisible (I0001-R024 gate, I0002-R010)', () => {
   const child = { implemented: true, authKey: 'cells' };
 
   it('is visible only when both implemented and authorized', () => {

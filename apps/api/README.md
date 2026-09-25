@@ -4,7 +4,7 @@ Express backend-for-frontend (BFF) for NAP. It owns the admin database
 connection, the health routes, browser sessions, the admin-tenancy routes, and
 the maintenance commands that set up, migrate, and bootstrap the admin
 database. Runtime cell routing is future work; see
-[W0001](../../docs/PRDs/workflows/W0001-runtime-cell-registry.md).
+[I0003](../../docs/PRDs/inter-module-workflows/I0003-runtime-cell-registry.md).
 
 ## Layout
 

@@ -21,7 +21,7 @@ import {
 import { FullPageLoader, NoAccessScreen } from '../auth/StatusScreens.jsx';
 import { Wordmark } from '../shell/Wordmark.jsx';
 
-/** F0001-R001: submit credentials, one generic message for any rejection, a throttle message with retry timing. */
+/** I0001-R001: submit credentials, one generic message for any rejection, a throttle message with retry timing. */
 export function LoginPage() {
   const session = useSession();
   const navigate = useNavigate();
@@ -60,7 +60,7 @@ export function LoginPage() {
       if (err instanceof ApiError && err.code === 'THROTTLED') {
         setRetryAfterSeconds(err.retryAfterSeconds);
       } else {
-        // F0001-R001: one generic message for every rejected credential case.
+        // I0001-R001: one generic message for every rejected credential case.
         setError('Incorrect email or password.');
       }
     } finally {

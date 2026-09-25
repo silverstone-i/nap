@@ -36,15 +36,15 @@ current_database()` on that connection.
   (M0001-06). Provisioning has no PRD yet (see the parent document's Out of
   scope section).
 - Loading cell connections, building the runtime registry, and routing
-  requests (W0001). W0001 calls this Work Unit's check for each
+  requests (I0003). I0003 calls this Work Unit's check for each
   configured cell before adding it to the registry.
-- Health checks and hot add. No workflow PRD yet (see the parent document's
+- Health checks and hot add. No PRD yet (see the parent document's
   Out of scope section).
 - Any change to `admin.cells` or `admin.cell_provisioning`.
 
 ## 4. Actors And Permissions
 
-No new actor. The runtime cell registry (W0001) calls it in-process while
+No new actor. The runtime cell registry (I0003) calls it in-process while
 loading a cell connection. It exposes no HTTP route.
 
 ## 5. Concepts And Terminology
@@ -115,10 +115,10 @@ verifyPhysicalIdentity(cellHandle, adminCellRecord);
 - Cell provisioning (future PRD, not owned by this module) writes
   `cell.physical_identity` once, during setup, before this check ever runs
   against that cell.
-- W0001 calls `verifyPhysicalIdentity` for each configured cell before
+- I0003 calls `verifyPhysicalIdentity` for each configured cell before
   adding it to the runtime registry, and treats a failed check the same as an
   unreachable cell for that cell's tenants only.
-- The future cell health and hot-add workflow (no PRD yet) will call it again
+- The future cell health and hot-add inter-module workflow (no PRD yet) will call it again
   when hot-adding a cell registered after startup.
 - Reads `admin.cells` (M0001-06); never writes to it.
 

@@ -20,7 +20,7 @@ import { createTenant } from '../../api/endpoints.js';
 const TIERS = ['starter', 'growth', 'enterprise'];
 
 /**
- * "Create tenant" (F0002-R002): submits `{code, name, tier}` with a
+ * "Create tenant" (I0002-R002): submits `{code, name, tier}` with a
  * client-generated `Idempotency-Key` and surfaces the server's validation
  * and conflict responses unmodified — no client-side uniqueness check.
  * @param {{onClose: () => void, onCreated: () => void}} props

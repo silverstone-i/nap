@@ -5,7 +5,7 @@
 
 /**
  * Derive a two-letter avatar label from an authenticated email address
- * (F0001-R009). Uses the local-part only — the domain is never shown.
+ * (I0001-R009). Uses the local-part only — the domain is never shown.
  * @param {string} email
  * @returns {string} One or two uppercase letters, or `?` for an unusable input.
  */

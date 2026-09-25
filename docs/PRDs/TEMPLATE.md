@@ -2,14 +2,14 @@
 
 ## 1. Document Control
 
-| Field                | Value                                          |
-| -------------------- | ---------------------------------------------- |
-| Status               | Draft                                          |
-| Type                 | Module, module Work Unit, feature, or workflow |
-| Related architecture | [links or `None`]                              |
-| Related PRDs         | [identifiers, titles, and links or `None`]     |
-| Related decisions    | [links or `None`]                              |
-| Last reviewed        | YYYY-MM-DD                                     |
+| Field                | Value                                              |
+| -------------------- | -------------------------------------------------- |
+| Status               | Draft                                              |
+| Type                 | Module, module Work Unit, or inter-module workflow |
+| Related architecture | [links or `None`]                                  |
+| Related PRDs         | [identifiers, titles, and links or `None`]         |
+| Related decisions    | [links or `None`]                                  |
+| Last reviewed        | YYYY-MM-DD                                         |
 
 <!-- For a Work Unit PRD, add a Family field linking to its module overview. -->
 
@@ -87,7 +87,7 @@ request, response, rules, errors, idempotency, concurrency, and audit effect.
 ## 11. Cross-Module Interactions
 
 <!--
-Identify data read from other modules, invoked workflows, projections, cache
+Identify data read from other modules, invoked inter-module workflows, projections, cache
 invalidation, events, and dependency failure behavior.
 -->
 

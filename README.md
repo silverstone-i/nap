@@ -45,7 +45,7 @@ Architecture:
 Requirements and delivery:
 
 - [PRD guide](docs/PRDs/README.md) and [template](docs/PRDs/TEMPLATE.md)
-- [Module PRDs](docs/PRDs/modules/), [feature PRDs](docs/PRDs/features/), and [workflow PRDs](docs/PRDs/workflows/)
+- [Module PRDs](docs/PRDs/modules/) and [inter-module workflow PRDs](docs/PRDs/inter-module-workflows/)
 - [Roadmap](docs/roadmap/ROADMAP.md)
 
 Setup guides:

@@ -6,7 +6,7 @@
 import Typography from '@mui/material/Typography';
 import { usePageHeader } from '../shell/PageHeaderContext.jsx';
 
-/** Minimal platform Home — a context label only, no invented metrics (F0001-R014). */
+/** Minimal platform Home — a context label only, no invented metrics (I0001-R014). */
 export function PlatformHome() {
   usePageHeader({ title: 'Home' });
   return (

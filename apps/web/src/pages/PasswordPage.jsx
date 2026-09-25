@@ -19,7 +19,7 @@ import { Wordmark } from '../shell/Wordmark.jsx';
 /**
  * `/password` — reachable both as the forced flow (a restricted session
  * must replace its password before anything else) and voluntarily from the
- * profile menu (F0001-R002).
+ * profile menu (I0001-R002).
  */
 export function PasswordPage() {
   const session = useSession();

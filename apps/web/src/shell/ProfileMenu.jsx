@@ -22,7 +22,7 @@ const MODE_LABELS = { dark: 'Dark', light: 'Light', system: 'System' };
 
 /**
  * Avatar-triggered profile menu: Change password, Logout, and a Settings
- * submenu for the display mode (F0001-R011).
+ * submenu for the display mode (I0001-R011).
  * @returns {JSX.Element}
  */
 export function ProfileMenu() {

@@ -94,7 +94,7 @@ function describeActionError(err) {
 }
 
 /**
- * `/management/cells` (F0002-R003/R004): browse the cell registry and
+ * `/management/cells` (I0002-R003/R004): browse the cell registry and
  * provisioning state; register, retry, and disable a cell.
  */
 export function CellsPage() {

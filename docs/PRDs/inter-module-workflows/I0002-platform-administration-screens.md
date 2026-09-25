@@ -1,22 +1,22 @@
-# F0002: Platform Administration Screens
+# I0002: Platform Administration Screens
 
 ## 1. Document Control
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Status               | Implemented                                                                                                                                                                                                                                                                                                                                                                                               |
-| Type                 | Feature                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                     |
 | Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                          |
-| Related PRDs         | [F0001: Application Entry and Shell](F0001-application-entry-and-shell.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-07: Tenant Creation](../modules/M0001-admin-tenancy/M0001-07-tenant-creation.md), [M0001-08: Portal-user and Membership Administration](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md) |
+| Related PRDs         | [I0001: Application Entry and Shell](I0001-application-entry-and-shell.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-07: Tenant Creation](../modules/M0001-admin-tenancy/M0001-07-tenant-creation.md), [M0001-08: Portal-user and Membership Administration](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md) |
 | Related decisions    | Reuse cursor pagination (the module's existing convention) for every new list endpoint, and bridge it to `StandardDataGrid` with a frontend adapter rather than changing the module's pagination style or the shared grid component                                                                                                                                                                       |
 | Last reviewed        | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ## 2. Purpose
 
 Give a platform operator list screens for the three record types the
-platform shell's Tenant Management navigation group (F0001-R023) names —
+platform shell's Tenant Management navigation group (I0001-R023) names —
 Tenants, Cells, and Portal Users — using only lifecycle operations
-M0001-06, M0001-07, and M0001-08 already implement. This closes F0001's own
+M0001-06, M0001-07, and M0001-08 already implement. This closes I0001's own
 flagged gap: `Tenant Management` renders hidden today because none of its
 children are implemented.
 
@@ -35,11 +35,11 @@ children are implemented.
   shape `GET /control/overview` (M0001-06) already established. Cells needs
   no new endpoint.
 - A frontend cursor-to-page pagination adapter so all three screens can use
-  `StandardDataGrid` (F0001-R015–R017) unchanged, with an explicit,
+  `StandardDataGrid` (I0001-R015–R017) unchanged, with an explicit,
   disclosed row-count estimate in place of an exact total the underlying
   API cannot provide.
-- One new field on `GET /access/context` (F0001-R024, defined in F0001, not
-  here) that this feature's nav visibility depends on.
+- One new field on `GET /access/context` (I0001-R024, defined in I0001, not
+  here) that this PRD's nav visibility depends on.
 
 ### Excluded
 
@@ -57,14 +57,14 @@ children are implemented.
   exposes the individual operations M0001-06/07 already implement (register, retry, disable,
   create), not the cross-module sequence between them.
 - Bulk or multi-row actions beyond `StandardDataGrid`'s existing
-  current-page-only checkbox selection (F0001-R016). No new bulk endpoint.
+  current-page-only checkbox selection (I0001-R016). No new bulk endpoint.
 - Changing which capabilities exist or what they grant. `entryPoints.tenantManagement`
-  (F0001-R024) only surfaces `permits()` results the server already computes.
+  (I0001-R024) only surfaces `permits()` results the server already computes.
 
 ## 4. Actors And Permissions
 
 The server remains authoritative; this table restates existing M0001-06/07/08
-authorization for the specific reads and actions this feature adds a screen
+authorization for the specific reads and actions this PRD adds a screen
 for.
 
 | Context                                                | Actor                                                           | Required capability              | Result                                                          |
@@ -80,7 +80,7 @@ for.
 Per M0569, `platform_admin`/`support` role assignment is
 blocked on cell provisioning; today only root resolves either capability
 (`resolveAuthorization`, `apps/api/src/modules/admin-tenancy/domain/authorization.js`).
-This feature does not change that — it consumes whatever `permits()` already
+This PRD does not change that — it consumes whatever `permits()` already
 returns, honestly, for whichever actor type resolves in the future.
 
 ## 5. Concepts And Terminology
@@ -94,28 +94,28 @@ returns, honestly, for whichever actor type resolves in the future.
 
 ## 6. Functional Requirements
 
-- F0002-R001: The Tenants screen must list tenants server-side via a new
+- I0002-R001: The Tenants screen must list tenants server-side via a new
   `GET /api/admin-tenancy/v1/tenants` endpoint, in a `StandardDataGrid`
   showing at minimum code, name, tier, and status, with explicit loading,
-  empty, and error states (F0001-R021). It must provide no update, suspend,
+  empty, and error states (I0001-R021). It must provide no update, suspend,
   archive, or restore action, since none exists server-side.
-- F0002-R002: The Tenants screen must provide a "Create tenant" action
+- I0002-R002: The Tenants screen must provide a "Create tenant" action
   that submits `code`, `name`, and `tier` to the existing
   `POST /api/admin-tenancy/v1/tenants` contract with a client-generated
   `Idempotency-Key`, and must surface the server's validation and conflict
   responses without inventing new client-side tenant-uniqueness rules.
-- F0002-R003: The Cells screen must list cells and their latest
+- I0002-R003: The Cells screen must list cells and their latest
   provisioning operation via the existing `GET /control/overview`, in a
   `StandardDataGrid` showing at minimum environment, database name,
   enabled state, and provisioning stage/status, with explicit loading,
   empty, and error states.
-- F0002-R004: The Cells screen must provide Register (`POST /control/registry`),
+- I0002-R004: The Cells screen must provide Register (`POST /control/registry`),
   Retry (`POST /control/provision`, `cell-retry`), and Disable
   (`POST /control/provision`, `cell-disable`) actions using the existing
   contracts. Disable must require confirmation before it fires
-  (F0001-R016's destructive-action pattern); Register and Retry, being
+  (I0001-R016's destructive-action pattern); Register and Retry, being
   non-destructive, must not.
-- F0002-R005: The Portal Users screen must list portal-user accounts
+- I0002-R005: The Portal Users screen must list portal-user accounts
   server-side via a new `GET /api/admin-tenancy/v1/accounts/users`
   endpoint, in a `StandardDataGrid` showing at minimum email, status, and
   whether a password change is required, with explicit loading, empty, and
@@ -123,30 +123,30 @@ returns, honestly, for whichever actor type resolves in the future.
   includes the root account, read-only, for operator visibility (2026-09-22
   amendment) — its row offers no Deactivate or Restore action, since
   M0001-08 refuses both against root regardless.
-- F0002-R006: The Portal Users screen must provide Create
+- I0002-R006: The Portal Users screen must provide Create
   (`POST /accounts/users`, `{email, password}`, with a client-generated
   `Idempotency-Key`), Deactivate (`DELETE /accounts/users/:id`), and
   Restore (`POST /accounts/users/:id/restore`) actions using the existing
   contracts. Deactivate must require confirmation before it fires; Create
   and Restore must not.
-- F0002-R007: `GET /api/admin-tenancy/v1/tenants` must accept `cursor` and
+- I0002-R007: `GET /api/admin-tenancy/v1/tenants` must accept `cursor` and
   `limit` (1–100, default 50, matching `parseLimit`) query parameters,
   require `admin-tenancy::control::read`, and return
   `{rows: [tenantView...], nextCursor}` in the existing versioned envelope
   with `Cache-Control: no-store` — the same shape and column safety
   `tenantView` (`domain/tenants.js`) already provides for `POST /tenants`'
   response, reused verbatim, never a new field.
-- F0002-R008: `GET /api/admin-tenancy/v1/accounts/users` must accept
+- I0002-R008: `GET /api/admin-tenancy/v1/accounts/users` must accept
   `cursor` and `limit` (1–100, default 50) query parameters, require
   `admin-tenancy::accounts::read`, and return
   `{rows: [userListView...], nextCursor}` in the existing versioned envelope
   with `Cache-Control: no-store` — `userListView` (`domain/accounts.js`) is
   `userView` plus one added field, `isRoot`, so the Portal Users screen can
-  display the root account read-only (F0002-R006 amendment, 2026-09-22) —
+  display the root account read-only (I0002-R006 amendment, 2026-09-22) —
   never a password hash or role assignment, and never a route through which
   root can be created, deactivated, or restored (M0001-08 already refuses
   all three against it).
-- F0002-R009: Each screen's pagination must be handled by one shared
+- I0002-R009: Each screen's pagination must be handled by one shared
   frontend adapter translating `StandardDataGrid`'s page-index requests into
   sequential cursor fetches, caching each visited page's cursor, and
   invalidating that cache whenever sort, filter, or the tenant/resetKey
@@ -157,33 +157,33 @@ returns, honestly, for whichever actor type resolves in the future.
   footer text (e.g. "1–25 of 42") against that estimate rather than an
   exact count the API does not provide — the estimate is not visually
   distinguished from an exact total.
-- F0002-R010: Each of the three screens must appear in the platform shell's
-  Tenant Management navigation group (F0001-R023) only when both its
+- I0002-R010: Each of the three screens must appear in the platform shell's
+  Tenant Management navigation group (I0001-R023) only when both its
   destination is implemented (this PRD) and `GET /access/context`'s
-  `entryPoints.tenantManagement` (F0001-R024) reports that specific child
+  `entryPoints.tenantManagement` (I0001-R024) reports that specific child
   as authorized. Neither condition alone is sufficient.
 
 ## 7. Business Rules And Invariants
 
 - Server session resolution and request authorization remain the source of
   truth; the pagination adapter and nav-visibility check are UI convenience
-  only, same as every other F0001 invariant already established.
+  only, same as every other I0001 invariant already established.
 - A row action never fabricates a request field this PRD did not name; the
   existing M0001-06/07/08 request/response contracts are reused exactly as
   specified in those PRDs, never redefined here.
 - The row-count estimate must never be presented as an exact total.
 - A destructive action (Disable, Deactivate) requires confirmation and
   cannot be triggered from a bulk selection wider than the current grid
-  page (F0001-R016, unchanged by this PRD).
+  page (I0001-R016, unchanged by this PRD).
 - Navigation must contain no destination this PRD's own screens do not
   implement — `Tenant Management`'s children stay hidden until both this
-  PRD's screen and F0001-R024's authorization signal exist for them.
+  PRD's screen and I0001-R024's authorization signal exist for them.
 
 ## 8. Lifecycle And State Transitions
 
 Each screen's own lifecycle is the shell's existing loading/empty/error/
-populated cycle (F0001-R021); this feature introduces no new session,
-tenant, or authentication state transition beyond what F0001 already
+populated cycle (I0001-R021); this PRD introduces no new session,
+tenant, or authentication state transition beyond what I0001 already
 defines.
 
 | Current state | Trigger                                   | Next state | Required effect                                                                                                                                                                                                 |
@@ -197,13 +197,13 @@ defines.
 
 ## 9. Data Requirements
 
-This feature owns no server-side records. It reads and mutates existing
+This PRD owns no server-side records. It reads and mutates existing
 `admin.tenants`, `admin.cells`, `admin.cell_provisioning`, and
 `admin.portal_users` rows exclusively through M0001-06/07/08's existing
-domain functions, plus the two new list reads this PRD adds (F0002-R007,
+domain functions, plus the two new list reads this PRD adds (I0002-R007,
 R008), which use the same safe-view functions those modules already export.
 
-This feature persists no new browser-local state. The pagination adapter's
+This PRD persists no new browser-local state. The pagination adapter's
 per-page cursor cache is in-memory only, scoped to one mounted grid instance,
 and never written to `localStorage` or `sessionStorage`.
 
@@ -211,7 +211,7 @@ and never written to `localStorage` or `sessionStorage`.
 
 ### Existing Contracts
 
-This feature consumes these contracts without redefining their requests,
+This PRD consumes these contracts without redefining their requests,
 responses, authorization, errors, or audit behavior:
 
 | Purpose                     | Method and route                                        | Owning contract                                                                                                      |
@@ -223,7 +223,7 @@ responses, authorization, errors, or audit behavior:
 | Create a portal user        | `POST /api/admin-tenancy/v1/accounts/users`             | [M0001-08](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md#10-api-requirements) |
 | Deactivate a portal user    | `DELETE /api/admin-tenancy/v1/accounts/users/:id`       | [M0001-08](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md#10-api-requirements) |
 | Restore a portal user       | `POST /api/admin-tenancy/v1/accounts/users/:id/restore` | [M0001-08](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md#10-api-requirements) |
-| Startup context, nav gating | `GET /api/admin-tenancy/v1/access/context`              | [F0001-R022, F0001-R024](F0001-application-entry-and-shell.md#10-api-requirements)                                   |
+| Startup context, nav gating | `GET /api/admin-tenancy/v1/access/context`              | [I0001-R022, I0001-R024](I0001-application-entry-and-shell.md#10-api-requirements)                                   |
 
 All calls use the same-origin BFF contract and its versioned success and
 error envelopes.
@@ -258,32 +258,32 @@ and introduce no new error code.
 ## 11. Cross-Module Interactions
 
 - M0001-06 owns cell data, provisioning state, and the register/retry/
-  disable operations this feature's Cells screen calls.
-- M0001-07 owns tenant data and creation; this feature adds the one list
+  disable operations this PRD's Cells screen calls.
+- M0001-07 owns tenant data and creation; this PRD adds the one list
   read M0001-07 does not yet expose, following M0001-06's existing
   pagination convention.
-- M0001-08 owns portal-user data and its lifecycle; this feature adds the
+- M0001-08 owns portal-user data and its lifecycle; this PRD adds the
   one list read M0001-08 does not yet expose.
-- F0001 owns `GET /access/context` (extended by F0001-R024, not this PRD)
+- I0001 owns `GET /access/context` (extended by I0001-R024, not this PRD)
   and `StandardDataGrid` (consumed unchanged) and the Tenant Management nav
-  group (F0001-R023) this feature's screens finally populate.
+  group (I0001-R023) this PRD's screens finally populate.
 - Authorization among non-root actors is not yet differentiated; this
-  feature's capability checks need no change when it is.
+  PRD's capability checks need no change when it is.
 - The Create and Register actions call the same M0001-06/07 endpoints that
   any later creation-to-activation sequence would use; this PRD defines no
   sequencing between them.
 
 ## 12. Security And Audit
 
-- Every action in this feature reuses an existing, already-audited
-  operation; this PRD defines no new audit event, matching F0001-R022's
+- Every action in this PRD reuses an existing, already-audited
+  operation; this PRD defines no new audit event, matching I0001-R022's
   precedent for the access-context read (a read here creates no event
   either).
 - The two new list endpoints never return a password hash, role
   assignment, or raw capability list, matching the safe-view functions
   they reuse.
-- `entryPoints.tenantManagement` (F0001-R024) reflects only capabilities
-  the server has already resolved; this feature must not derive nav
+- `entryPoints.tenantManagement` (I0001-R024) reflects only capabilities
+  the server has already resolved; this PRD must not derive nav
   visibility from any other client-held state.
 - Destructive actions (Disable, Deactivate) require confirmation and are
   otherwise subject to the same browser request protection every other
@@ -293,16 +293,16 @@ and introduce no new error code.
 
 | Criterion | Required result                                                                                                                                                                                             | Requirements |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| AC01      | The Tenants screen lists tenants with explicit loading, empty, and error states, and offers no update/suspend/archive/restore action.                                                                       | F0002-R001   |
-| AC02      | Creating a tenant submits code, name, and tier with an idempotency key and surfaces the server's validation and conflict responses unmodified.                                                              | F0002-R002   |
-| AC03      | The Cells screen lists cells with their latest provisioning operation, with explicit loading, empty, and error states.                                                                                      | F0002-R003   |
-| AC04      | Register and Retry fire without confirmation; Disable requires confirmation before it fires.                                                                                                                | F0002-R004   |
-| AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                                                            | F0002-R005   |
-| AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                                                             | F0002-R006   |
-| AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                                                          | F0002-R007   |
-| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userListView` (`userView` plus `isRoot`), with `Cache-Control: no-store`.                                      | F0002-R008   |
-| AC09      | Each screen's grid computes a row-count estimate (rendered via MUI's default footer, not visually distinguished from an exact count) and correctly re-fetches when sort, filter, or tenant context changes. | F0002-R009   |
-| AC10      | Each of the three nav children appears only once both its screen is implemented and `entryPoints.tenantManagement` authorizes it; neither alone is sufficient.                                              | F0002-R010   |
+| AC01      | The Tenants screen lists tenants with explicit loading, empty, and error states, and offers no update/suspend/archive/restore action.                                                                       | I0002-R001   |
+| AC02      | Creating a tenant submits code, name, and tier with an idempotency key and surfaces the server's validation and conflict responses unmodified.                                                              | I0002-R002   |
+| AC03      | The Cells screen lists cells with their latest provisioning operation, with explicit loading, empty, and error states.                                                                                      | I0002-R003   |
+| AC04      | Register and Retry fire without confirmation; Disable requires confirmation before it fires.                                                                                                                | I0002-R004   |
+| AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                                                            | I0002-R005   |
+| AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                                                             | I0002-R006   |
+| AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                                                          | I0002-R007   |
+| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userListView` (`userView` plus `isRoot`), with `Cache-Control: no-store`.                                      | I0002-R008   |
+| AC09      | Each screen's grid computes a row-count estimate (rendered via MUI's default footer, not visually distinguished from an exact count) and correctly re-fetches when sort, filter, or tenant context changes. | I0002-R009   |
+| AC10      | Each of the three nav children appears only once both its screen is implemented and `entryPoints.tenantManagement` authorizes it; neither alone is sufficient.                                              | I0002-R010   |
 
 ### Verification Evidence
 
@@ -324,11 +324,11 @@ API unit tests
 `userListView` shape with `Cache-Control: no-store` (AC07, AC08); session
 and capability gating (`401`/`403`); an out-of-range `limit` reporting
 `400 INVALID_INPUT`; cursor/limit pagination advancing correctly; an
-archived portal user still appearing in the list (needed for F0002-R006's
+archived portal user still appearing in the list (needed for I0002-R006's
 Restore action, since `admin.portal_users` is soft-delete tracked and
 would otherwise exclude it); and root appearing in the list with
 `isRoot: true`, distinct from every ordinary account's `isRoot: false`
-(F0002-R005/R008 amendment, 2026-09-22 — see below).
+(I0002-R005/R008 amendment, 2026-09-22 — see below).
 
 Web unit tests
 ([apps/web/tests](../../../apps/web/tests)) cover: the cursor-to-page
@@ -336,7 +336,7 @@ adapter (`cursorPageAdapter.test.js`) — sequential paging via cached
 cursors, the `page === 0` cache-reset rule, a `pageSize` change resetting
 the cache, the disclosed `rowCount` estimate for both a mid-list and a
 final page, and `mapRow` application; and all three screens
-(`tests/pages/`) — loading/empty/error states (F0001-R021); Tenants'
+(`tests/pages/`) — loading/empty/error states (I0001-R021); Tenants'
 absence of any row action (AC01) and Create tenant's idempotency-key
 submission and unmodified server-error surfacing (AC02); Cells'
 conditional Retry/Disable visibility and Disable's required confirmation
@@ -344,7 +344,7 @@ conditional Retry/Disable visibility and Disable's required confirmation
 Deactivate's required confirmation, and the absence of membership data
 (AC05, AC06). `tenantManagementNav.test.js` was updated to prove all three
 children now render together when implemented and authorized, and that
-partial authorization shows only the authorized subset (F0002-R010).
+partial authorization shows only the authorized subset (I0002-R010).
 
 A manual pass in a local browser against `npm run dev:api` / `npm run
 dev:web` (an already-provisioned local PostgreSQL 18 admin database),
@@ -355,7 +355,7 @@ second tenant while already populated confirmed the list, not an
 optimistic insert, drives the UI; registering a cell (`dev` /
 `nap_dev_cell_testcell`) showed it `registered`/`queued`, disabled, 0
 attempts, with no row action available (Retry is hidden outside `failed`,
-Disable is hidden while disabled — F0002-R004's own state, not an
+Disable is hidden while disabled — I0002-R004's own state, not an
 invented rule); creating a portal user, Deactivating it (confirmation
 required, per AC06), and Restoring it (no confirmation) all round-tripped
 correctly, including the status/`deactivatedAt` transitions M0001-08
@@ -363,8 +363,8 @@ defines (`active` → `disabled` with a `deactivatedAt` timestamp on
 Deactivate, back to `disabled` with `deactivatedAt` cleared on Restore).
 
 That manual pass, prompted by screenshot feedback on the header's visual
-layout, surfaced two defects in F0001's shared shell code — neither
-previously observable, since F0002 is the first feature to give any page a
+layout, surfaced two defects in I0001's shared shell code — neither
+previously observable, since I0002 is the first PRD to give any page a
 dynamic contextual-header action:
 
 - `ContextualActionHeader.jsx`'s `Stack` passed `alignItems`/
@@ -380,12 +380,12 @@ dynamic contextual-header action:
   the changing `header` value into one `useMemo`'d context object. Any
   `usePageHeader` caller is itself a consumer of that same context (to
   reach the setter), so every `setHeader` call re-rendered the caller too
-  — harmless while `actions` was always `null`/absent (every pre-F0002
+  — harmless while `actions` was always `null`/absent (every pre-I0002
   page), but once a page passes a non-memoized `actions` node (this
   feature's header buttons, the first anywhere in the app), each
   re-render recreated `actions`, changing `usePageHeader`'s effect
   dependency, calling `setHeader` again, forever — a `Maximum update depth
-exceeded` crash loop on every one of this feature's three screens. Fixed
+exceeded` crash loop on every one of this PRD's three screens. Fixed
   by splitting into two contexts: `PageHeaderContext` (the `header` value,
   for `usePageHeaderValue`) and `SetPageHeaderContext` (the stable setter
   alone, for `usePageHeader`), so registering an action no longer forces
@@ -416,7 +416,7 @@ feature's three screens.
 - The Portal Users screen excluded root entirely, matching M0001-08's
   "Root-user changes" exclusion — but that PRD line is about _changes_, not
   _visibility_, and an operator reasonably expects to see the root account
-  exists. Amended F0002-R005/R008: `GET /accounts/users` now includes root,
+  exists. Amended I0002-R005/R008: `GET /accounts/users` now includes root,
   via a new list-only projection, `userListView` (`userView` plus
   `isRoot`) — `userView` itself, and every other route that calls it
   (`POST /accounts/users`, `PATCH`, `DELETE`, `.../restore`), is unchanged,

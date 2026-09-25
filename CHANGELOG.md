@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Merge the feature and workflow PRD categories into one, inter-module workflow (I), for PRDs that own no tables and use several modules' data, whether a user or a background worker starts them. Move them to `docs/PRDs/inter-module-workflows/` and rename F0001 to I0001, F0002 to I0002, and W0001 to I0003, including requirement IDs in docs, code comments, and tests. Plain "workflow" and "feature" keep their English meaning.
+
 ## [v0.17.0] - 2026-09-24
 
 ### Changed
