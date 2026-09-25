@@ -73,7 +73,7 @@ describe('LoginPage', () => {
     expect(await screen.findByText(/Try again in 30 seconds/)).toBeTruthy();
   });
 
-  it('redirects to the platform shell after a successful login with platform entry', async () => {
+  it('redirects to Home after a successful login with platform entry', async () => {
     api.login.mockResolvedValue({ restricted: false });
     renderAt('/login');
     await screen.findByRole('heading', { name: 'Sign in' });
@@ -94,14 +94,58 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() =>
-      expect(screen.getByText('Platform administration.')).toBeTruthy()
+      expect(screen.getByText('No tenant selected.')).toBeTruthy()
     );
     // I0001-R023, AC16 empty-group case, exercised end to end with the real
     // (unmocked) `tenantManagementNav.js`: this fixture's `entryPoints`
     // carries no `tenantManagement` signal at all, so every child stays
     // unauthorized (I0002-R010 — implemented alone is not sufficient) and
-    // only Home appears in the platform shell's navigation.
+    // only Home appears in the navigation.
     expect(screen.getByRole('button', { name: 'Home' })).toBeTruthy();
     expect(screen.queryByText('Tenant Management')).toBeNull();
+  });
+  describe('auto-selects a single tenant after login (I0001-R003)', () => {
+    const napsoft = { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' };
+    const other = { id: 't2', code: 'ACME', name: 'Acme', tier: 'starter' };
+    const context = {
+      session: { restricted: false },
+      user: { id: 'u1', email: 'root@example.com' },
+      selectedTenant: null,
+      operator: napsoft,
+      entryPoints: { platform: true, tenant: true },
+    };
+
+    async function signIn() {
+      api.login.mockResolvedValue({ restricted: false });
+      renderAt('/login');
+      await screen.findByRole('heading', { name: 'Sign in' });
+      api.getAccessContext.mockResolvedValueOnce(context);
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText(/Email/), 'root@example.com');
+      await user.type(screen.getByLabelText(/^Password/), 'password');
+      await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    }
+
+    it('selects the only eligible tenant and lands on its Home', async () => {
+      api.listTenants.mockResolvedValue([napsoft]);
+      api.selectTenant.mockResolvedValue({ restricted: false, tenant: 't1' });
+      await signIn();
+      expect(await screen.findByText('Napsoft workspace.')).toBeTruthy();
+      expect(api.selectTenant).toHaveBeenCalledWith('t1');
+    });
+
+    it('leaves the choice to the user when several tenants are eligible', async () => {
+      api.listTenants.mockResolvedValue([napsoft, other]);
+      await signIn();
+      expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+      expect(api.selectTenant).not.toHaveBeenCalled();
+    });
+
+    it('stays unselected when the only tenant cannot be selected', async () => {
+      api.listTenants.mockResolvedValue([napsoft]);
+      api.selectTenant.mockRejectedValue(new ApiError('CELL_UNAVAILABLE', 503));
+      await signIn();
+      expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+    });
   });
 });

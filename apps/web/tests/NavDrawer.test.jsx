@@ -34,8 +34,8 @@ vi.mock('../src/api/endpoints.js', () => ({
 }));
 
 // A fixture standing in for the day Tenant Management has a real,
-// authorized child — NavDrawer's own wiring (icons, active state, area
-// gating) is what these tests exercise, not the (currently always empty)
+// authorized child — NavDrawer's own wiring (icons, active state, group
+// visibility) is what these tests exercise, not the (currently always empty)
 // production authorization decision, which `tenantManagementNav.test.js`
 // covers directly.
 vi.mock('../src/shell/tenantManagementNav.js', () => ({
@@ -47,12 +47,12 @@ vi.mock('../src/shell/tenantManagementNav.js', () => ({
   ]),
 }));
 
-function renderDrawer(props, { path = '/management' } = {}) {
+function renderDrawer(props, { path = '/home' } = {}) {
   return render(
     <ThemeModeProvider>
       <MemoryRouter initialEntries={[path]}>
         <SessionProvider>
-          <NavDrawer homePath="/management" {...props} />
+          <NavDrawer {...props} />
         </SessionProvider>
       </MemoryRouter>
     </ThemeModeProvider>
@@ -75,34 +75,41 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('NavDrawer — area gating', () => {
-  it('offers Tenant Management in the platform area', async () => {
-    renderDrawer({ area: 'platform', variant: 'rail', expanded: true });
+describe('NavDrawer — one shell', () => {
+  it('offers Tenant Management with no tenant selected', async () => {
+    renderDrawer({ variant: 'rail', expanded: true });
     expect(await screen.findByText('Home')).toBeTruthy();
     expect(screen.getByText('Tenant Management')).toBeTruthy();
     expect(screen.getByText('Tenants')).toBeTruthy();
   });
 
-  it('never offers Tenant Management in the tenant area, even with visible children available', async () => {
-    renderDrawer(
-      { area: 'tenant', variant: 'rail', expanded: true },
-      { path: '/app/tenant-1' }
-    );
-    expect(await screen.findByText('Home')).toBeTruthy();
-    expect(screen.queryByText('Tenant Management')).toBeNull();
+  it('keeps Tenant Management while a tenant is selected', async () => {
+    api.getAccessContext.mockResolvedValue({
+      session: { restricted: false },
+      user: { id: 'u1', email: 'root@example.com' },
+      selectedTenant: {
+        id: 't1',
+        code: 'NAP',
+        name: 'Napsoft',
+        tier: 'starter',
+      },
+      operator: { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' },
+      entryPoints: { platform: true, tenant: true },
+    });
+    renderDrawer({ variant: 'rail', expanded: true });
+    expect(await screen.findByText('Tenant Management')).toBeTruthy();
   });
 });
 
 describe('NavDrawer — expanded rail and phone drawer', () => {
   it('shows icons and labels with children nested under the group on the expanded rail', async () => {
-    renderDrawer({ area: 'platform', variant: 'rail', expanded: true });
+    renderDrawer({ variant: 'rail', expanded: true });
     expect(await screen.findByText('Tenant Management')).toBeTruthy();
     expect(screen.getByText('Tenants')).toBeTruthy();
   });
 
   it('shows the same icons-and-labels nesting in the phone drawer', async () => {
     renderDrawer({
-      area: 'platform',
       variant: 'temporary',
       open: true,
       onClose: vi.fn(),
@@ -126,7 +133,6 @@ describe('NavDrawer — expanded rail and phone drawer', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     renderDrawer({
-      area: 'platform',
       variant: 'temporary',
       open: true,
       onClose,
@@ -141,7 +147,7 @@ describe('NavDrawer — expanded rail and phone drawer', () => {
 describe('NavDrawer — collapsed rail', () => {
   it('keeps the group icon visible with an accessible name and opens a flyout with the child', async () => {
     const user = userEvent.setup();
-    renderDrawer({ area: 'platform', variant: 'rail', expanded: false });
+    renderDrawer({ variant: 'rail', expanded: false });
     const trigger = await screen.findByRole('button', {
       name: 'Tenant Management',
     });
@@ -160,7 +166,7 @@ describe('NavDrawer — no visible children (I0001-R023 today)', () => {
       (await import('../src/shell/tenantManagementNav.js'))
         .visibleTenantManagementChildren
     ).mockReturnValue([]);
-    renderDrawer({ area: 'platform', variant: 'rail', expanded: true });
+    renderDrawer({ variant: 'rail', expanded: true });
     expect(await screen.findByText('Home')).toBeTruthy();
     await waitFor(() =>
       expect(screen.queryByText('Tenant Management')).toBeNull()

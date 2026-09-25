@@ -82,27 +82,3 @@ export function NoAccessScreen({ onLogout }) {
     </Box>
   );
 }
-
-/** A specific tenant is no longer selectable — I0001-R008/AC04: show an actionable error, never the tenant's content. */
-export function TenantUnavailableScreen({ onChooseTenant }) {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        p: 3,
-      }}
-    >
-      <Stack spacing={2} alignItems="center" sx={{ maxWidth: 420 }}>
-        <Alert severity="warning" sx={{ width: '100%' }}>
-          This tenant is no longer available to you.
-        </Alert>
-        <Button variant="outlined" onClick={onChooseTenant}>
-          Choose a tenant
-        </Button>
-      </Stack>
-    </Box>
-  );
-}

@@ -26,6 +26,9 @@ export const NAV_WIDTH = 240;
 /** Width of the collapsed rail (icons only) at tablet and desktop. */
 export const NAV_RAIL_WIDTH = 72;
 
+/** The one Home route (I0001-R014). */
+const HOME_PATH = '/home';
+
 /** Icon for each `Tenant Management` child, by id — a display concern kept out of `tenantManagementNav.js`'s data. */
 const CHILD_ICONS = {
   tenants: <BusinessIcon fontSize="small" />,
@@ -43,35 +46,25 @@ const CHILD_ICONS = {
  * width (icons and labels) and a narrow icon-only rail, without ever fully
  * hiding navigation. At phone widths it is a modal drawer (icons and
  * labels) the hamburger opens and closes.
- * @param {{homePath: string, area: 'platform'|'tenant', variant: 'rail'|'temporary', expanded?: boolean, open?: boolean, onClose?: () => void}} props
+ * @param {{variant: 'rail'|'temporary', expanded?: boolean, open?: boolean, onClose?: () => void}} props
  * @returns {JSX.Element}
  */
-export function NavDrawer({
-  homePath,
-  area,
-  variant,
-  expanded,
-  open,
-  onClose,
-}) {
+export function NavDrawer({ variant, expanded, open, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const session = useSession();
-  const active = location.pathname === homePath;
+  const active = location.pathname === HOME_PATH;
   const showLabels = variant === 'temporary' || expanded;
 
-  // I0001-R023: only the platform shell offers Tenant Management, and only
-  // for whatever children are actually implemented and server-authorized
-  // today (see tenantManagementNav.js — that is none, so this list, and the
-  // group it renders, stay empty).
-  const tenantManagementChildren =
-    area === 'platform'
-      ? visibleTenantManagementChildren(session.entryPoints).map(child => ({
-          ...child,
-          icon: CHILD_ICONS[child.id],
-          active: location.pathname === child.path,
-        }))
-      : [];
+  // I0001-R023: Tenant Management lists the implemented children the server
+  // authorizes, whether or not a tenant is selected (one shell, R009).
+  const tenantManagementChildren = visibleTenantManagementChildren(
+    session.entryPoints
+  ).map(child => ({
+    ...child,
+    icon: CHILD_ICONS[child.id],
+    active: location.pathname === child.path,
+  }));
 
   const goTo = path => {
     navigate(path);
@@ -93,7 +86,7 @@ export function NavDrawer({
           label="Home"
           active={active}
           expanded={showLabels}
-          onClick={() => goTo(homePath)}
+          onClick={() => goTo(HOME_PATH)}
         />
         <NavGroup
           icon={<DomainIcon fontSize="small" />}

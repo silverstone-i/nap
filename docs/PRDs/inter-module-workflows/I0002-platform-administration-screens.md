@@ -14,7 +14,7 @@
 ## 2. Purpose
 
 Give a platform operator list screens for the three record types the
-platform shell's Tenant Management navigation group (I0001-R023) names —
+application shell's Tenant Management navigation group (I0001-R023) names —
 Tenants, Cells, and Portal Users — using only lifecycle operations
 M0001-06, M0001-07, and M0001-08 already implement. This closes I0001's own
 flagged gap: `Tenant Management` renders hidden today because none of its
@@ -157,7 +157,7 @@ returns, honestly, for whichever actor type resolves in the future.
   footer text (e.g. "1–25 of 42") against that estimate rather than an
   exact count the API does not provide — the estimate is not visually
   distinguished from an exact total.
-- I0002-R010: Each of the three screens must appear in the platform shell's
+- I0002-R010: Each of the three screens must appear in the application shell's
   Tenant Management navigation group (I0001-R023) only when both its
   destination is implemented (this PRD) and `GET /access/context`'s
   `entryPoints.tenantManagement` (I0001-R024) reports that specific child

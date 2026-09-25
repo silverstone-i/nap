@@ -20,10 +20,10 @@ import { TopHeader } from './TopHeader.jsx';
  * labels, R013); at tablet and desktop it toggles the in-flow rail between
  * expanded (icons and labels) and collapsed (icons only, with tooltips) —
  * navigation is never fully hidden at those widths.
- * @param {{homePath: string, area: 'platform'|'tenant', children: import('react').ReactNode}} props
+ * @param {{children: import('react').ReactNode}} props
  * @returns {JSX.Element}
  */
-export function AppShell({ homePath, area, children }) {
+export function AppShell({ children }) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
   const [phoneNavOpen, setPhoneNavOpen] = useState(false);
@@ -54,8 +54,6 @@ export function AppShell({ homePath, area, children }) {
         <TopHeader onMenuClick={toggleNav} />
         <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
           <NavDrawer
-            homePath={homePath}
-            area={area}
             variant={isPhone ? 'temporary' : 'rail'}
             expanded={navExpanded}
             open={phoneNavOpen}

@@ -8,8 +8,8 @@
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                      |
 | Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                           |
 | Related PRDs         | [M0001-03: Authentication](../modules/M0001-admin-tenancy/M0001-03-authentication.md), [M0001-04: Session Management](../modules/M0001-admin-tenancy/M0001-04-session-management.md), [M0001-05: Authorization](../modules/M0001-admin-tenancy/M0001-05-authorization.md), [M0001-09: Tenant Selection And Support Access](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md) |
-| Related decisions    | None                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Last reviewed        | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Related decisions    | One application shell for tenant work and management (2026-09-25)                                                                                                                                                                                                                                                                                                                                          |
+| Last reviewed        | 2026-09-25                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ## 2. Purpose
 
@@ -49,24 +49,24 @@ application, and control browser-local display preferences.
 The server remains authoritative. Browser route protection and destination
 visibility improve the user experience but do not grant access.
 
-| Context             | Actor                               | Required permission or state                                                           | Result                                                                                  |
-| ------------------- | ----------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `/login`            | Anonymous portal user               | None                                                                                   | May submit credentials and receive a success, generic rejection, or throttling response |
-| `/password`         | Restricted portal user              | Valid session with password change required                                            | May change the password or log out; every other protected destination is denied         |
-| `/password`         | Authenticated portal user           | Valid unrestricted session                                                             | May voluntarily change the password                                                     |
-| `/tenants`          | Authenticated portal user           | At least one eligible tenant                                                           | May view eligible tenants and select one                                                |
-| `/management`       | Authenticated platform user         | `entryPoints.platform` is true and the server authorizes each request                  | May enter the platform shell and use implemented authorized destinations                |
-| `/app/:tenantId`    | Authenticated tenant user           | The route tenant matches the selected eligible tenant and `entryPoints.tenant` is true | May enter that tenant shell and use implemented authorized destinations                 |
-| Any protected route | Anonymous user or invalid session   | None                                                                                   | Return to `/login`; preserve only a safe same-origin return path                        |
-| Any destination     | Authenticated but unauthorized user | Required server authorization is absent                                                | Keep the destination out of navigation and honor the server's denial                    |
+| Context             | Actor                               | Required permission or state                                          | Result                                                                                  |
+| ------------------- | ----------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `/login`            | Anonymous portal user               | None                                                                  | May submit credentials and receive a success, generic rejection, or throttling response |
+| `/password`         | Restricted portal user              | Valid session with password change required                           | May change the password or log out; every other protected destination is denied         |
+| `/password`         | Authenticated portal user           | Valid unrestricted session                                            | May voluntarily change the password                                                     |
+| `/tenants`          | Authenticated portal user           | At least one eligible tenant                                          | May view eligible tenants and select one                                                |
+| `/home`             | Authenticated portal user           | A selected eligible tenant, or `entryPoints.platform` is true         | May enter the application shell                                                         |
+| `/management/*`     | Authenticated portal user           | `entryPoints.platform` is true and the server authorizes each request | May use implemented authorized management destinations in the application shell         |
+| Any protected route | Anonymous user or invalid session   | None                                                                  | Return to `/login`; preserve only a safe same-origin return path                        |
+| Any destination     | Authenticated but unauthorized user | Required server authorization is absent                               | Keep the destination out of navigation and honor the server's denial                    |
 
 ## 5. Concepts And Terminology
 
 | Term                     | Meaning                                                                                                                          |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | Access context           | The safe session, portal-user identity, selected tenant, and available application entry points returned for application startup |
-| Platform shell           | The application frame entered at `/management` for authorized central administration                                             |
-| Tenant shell             | The application frame entered at `/app/:tenantId` for the selected tenant                                                        |
+| Application shell        | The one application frame for every signed-in destination; it serves the selected tenant and management alike                    |
+| Tenant context           | The selected tenant held in the server session; it never comes from the URL                                                      |
 | Contextual action header | The row above the work area where the active destination supplies its title and actions                                          |
 | Standard grid            | An ordinary list or table rendered with MUI X Community and server-side paging                                                   |
 | Spreadsheet-style editor | A future work area for dense, cell-oriented editing; its package and domain rules belong to the feature that uses it             |
@@ -82,12 +82,16 @@ visibility improve the user experience but do not grant access.
   succeeds. An unrestricted user must also be able to open `/password`
   voluntarily.
 - I0001-R003: Application startup and protected-route entry must load the access
-  context. A valid selected tenant must restore into `/app/:tenantId`; otherwise
-  an eligible tenant user must see `/tenants`. A user with platform entry may
-  enter `/management`.
+  context. After login, or after a required password change, a user with no
+  selected tenant and exactly one eligible tenant must have that tenant
+  selected through the tenant selection API; if selection fails, the user stays
+  unselected. A user with a valid selected tenant or with platform entry must
+  restore into `/home`. A user with neither, but with eligible tenants, must see
+  `/tenants`.
 - I0001-R004: The browser routes must be `/login`, `/password`, `/tenants`,
-  `/management`, and `/app/:tenantId`. A protected route must not render its
-  content until its session and entry requirements have been resolved.
+  `/home`, and the `/management/*` destinations. A protected route must not
+  render its content until its session and entry requirements have been
+  resolved.
 - I0001-R005: Session expiry must immediately remove protected content, clear
   client-held session state, and return to `/login` with a session-expired
   message. The browser may retain the requested path only when it is a safe
@@ -97,7 +101,8 @@ visibility improve the user experience but do not grant access.
 - I0001-R007: `/tenants` and the tenant control must list only eligible tenants
   returned by the server. Selecting another tenant must use the existing tenant
   selection API, accept its rotated session, clear tenant-specific UI state,
-  and enter the selected tenant shell.
+  and return to `/home`. `/tenants` must stay reachable while a tenant is
+  selected, so the tenant control can switch tenants.
 - I0001-R008: An unavailable or newly ineligible tenant must leave the prior
   session context unchanged and show an actionable error without rendering that
   tenant's protected content.
@@ -115,9 +120,9 @@ visibility improve the user experience but do not grant access.
   navigation rail between expanded (icons and labels) and collapsed (icons
   only, with a tooltip identifying each icon and the active item still
   highlighted) — navigation is never fully hidden at those widths. The
-  tenant control must show the selected tenant's name in tenant context and
-  open tenant selection when the user has eligible tenants; in platform
-  context, with no tenant selected, it shows the platform operator's own
+  tenant control must show the selected tenant's name, or `Select tenant` when
+  none is selected, and open tenant selection when the user has eligible
+  tenants. A user with no eligible tenants sees the platform operator's own
   company name instead.
 - I0001-R010: Navigation must have no more than two levels and must not use
   breadcrumbs. The NAP `nap.` wordmark must appear at the bottom of the
@@ -132,8 +137,9 @@ visibility improve the user experience but do not grant access.
   must remain keyboard and touch operable, and work areas must reflow without
   hiding required actions. Tablet and desktop layouts must use the available
   width without imposing phone behavior.
-- I0001-R014: The platform and tenant shells must each provide a minimal Home
-  work area with a clear context label and no invented metrics. Navigation must
+- I0001-R014: The application shell must provide one minimal Home work area
+  that names the selected tenant, or states that none is selected, with no
+  invented metrics. Navigation must
   show only implemented destinations confirmed by the server.
 - I0001-R015: Ordinary data grids must use MUI X Community with server-side
   pagination, 25 rows by default, and page-size choices of 25, 50, and 100. One
@@ -166,8 +172,8 @@ visibility improve the user experience but do not grant access.
   use the existing versioned envelope, set `Cache-Control: no-store`, return
   `401 UNAUTHENTICATED` for an invalid session, and exclude credentials,
   password data, role assignments, and raw capability lists.
-- I0001-R023: The platform shell must provide a two-level `Tenant Management`
-  navigation group with `Tenants`, `Cells`, and `Portal Users` as its child
+- I0001-R023: The application shell must provide a two-level `Tenant Management`
+  navigation group, whether or not a tenant is selected, with `Tenants`, `Cells`, and `Portal Users` as its child
   destinations. In the phone drawer and expanded navigation rail, the group
   and each visible child must show an icon and label, and the children must be
   visually nested under the group. In the collapsed rail, the group icon must
@@ -190,8 +196,8 @@ visibility improve the user experience but do not grant access.
   Browser state must not grant platform, tenant, route, or action access.
 - A selected tenant ID in browser storage or a URL must not select a tenant or
   cell. Tenant context changes only through the server-owned session contract.
-- `/app/:tenantId` may render only when `:tenantId` matches the selected tenant
-  returned by the access context.
+- Tenant-specific content renders only for the selected tenant returned by the
+  access context. The shell remounts when that selection changes.
 - A return path must be a normalized application path on the current origin. It
   must not contain credentials and must not accept a scheme, host, protocol-
   relative path, or non-application destination.
@@ -205,21 +211,20 @@ visibility improve the user experience but do not grant access.
 
 ## 8. Lifecycle And State Transitions
 
-| Current state           | Trigger                              | Next state                           | Required effect or failure behavior                                   |
-| ----------------------- | ------------------------------------ | ------------------------------------ | --------------------------------------------------------------------- |
-| Signed out              | Valid login                          | Restoring                            | Load access context; route after server state is known                |
-| Signed out              | Rejected login                       | Signed out                           | Show the generic authentication error                                 |
-| Signed out              | Throttled login                      | Signed out                           | Show throttling and retry information                                 |
-| Restoring               | Password change required             | Restricted                           | Route to `/password`                                                  |
-| Restoring               | Valid selected tenant                | Tenant shell                         | Route to `/app/:tenantId`                                             |
-| Restoring               | Eligible tenants, no valid selection | Tenant selection                     | Route to `/tenants`                                                   |
-| Restoring               | Platform entry only                  | Platform shell                       | Route to `/management`                                                |
-| Restricted              | Successful password change           | Restoring                            | Reload access context using the rotated session                       |
-| Tenant selection        | Successful selection                 | Tenant shell                         | Clear prior tenant UI state and route to the selected tenant          |
-| Tenant shell            | Successful tenant switch             | Tenant shell                         | Clear old tenant UI state and route to the new tenant                 |
-| Any authenticated state | Logout                               | Signed out                           | Clear protected state and route to `/login`                           |
-| Any authenticated state | Session expires or becomes invalid   | Signed out                           | Clear protected state, route to `/login`, and show the expiry message |
-| Any protected state     | Server denies destination or action  | Protected error or safe parent route | Do not render or retain denied content                                |
+| Current state           | Trigger                                   | Next state                           | Required effect or failure behavior                                   |
+| ----------------------- | ----------------------------------------- | ------------------------------------ | --------------------------------------------------------------------- |
+| Signed out              | Valid login                               | Restoring                            | Load access context; route after server state is known                |
+| Signed out              | Rejected login                            | Signed out                           | Show the generic authentication error                                 |
+| Signed out              | Throttled login                           | Signed out                           | Show throttling and retry information                                 |
+| Restoring               | Password change required                  | Restricted                           | Route to `/password`                                                  |
+| Restoring               | Valid selected tenant, or platform entry  | Application shell                    | Route to `/home`                                                      |
+| Restoring               | Eligible tenants only, no valid selection | Tenant selection                     | Route to `/tenants`                                                   |
+| Restricted              | Successful password change                | Restoring                            | Reload access context using the rotated session                       |
+| Tenant selection        | Successful selection                      | Application shell                    | Clear prior tenant UI state and route to `/home`                      |
+| Application shell       | Successful tenant switch                  | Application shell                    | Clear old tenant UI state and route to `/home`                        |
+| Any authenticated state | Logout                                    | Signed out                           | Clear protected state and route to `/login`                           |
+| Any authenticated state | Session expires or becomes invalid        | Signed out                           | Clear protected state, route to `/login`, and show the expiry message |
+| Any protected state     | Server denies destination or action       | Protected error or safe parent route | Do not render or retain denied content                                |
 
 ## 9. Data Requirements
 
@@ -318,10 +323,10 @@ closed and must not reuse a prior user's, tenant's, or route's protected data.
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | AC01      | Valid credentials enter restoration; invalid credentials receive one generic rejection; a throttled attempt shows retry information without entering the application.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | I0001-R001, I0001-R003, I0001-R021 |
 | AC02      | A required password change permits only `/password` and logout until it succeeds; an unrestricted user can voluntarily change the password.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | I0001-R002, I0001-R004             |
-| AC03      | Restoration enters the selected tenant shell when its selection remains valid, otherwise tenant selection when eligible tenants exist, or `/management` when platform entry is the available destination. Protected content does not render during restoration.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | I0001-R003, I0001-R004, I0001-R021 |
+| AC03      | Restoration enters `/home` when a tenant selection remains valid or platform entry is available, otherwise tenant selection when eligible tenants exist. Protected content does not render during restoration.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | I0001-R003, I0001-R004, I0001-R021 |
 | AC04      | Tenant selection and switching show only eligible tenants, accept the rotated session, clear tenant-specific UI state, and route to the selected tenant. An unavailable or ineligible tenant shows an error and does not expose its content.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | I0001-R007, I0001-R008             |
 | AC05      | Logout clears protected state and returns to `/login`. Expiry also shows a session-expired message and preserves only a safe same-origin return path that is reauthorized before use.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | I0001-R005, I0001-R006             |
-| AC06      | Platform and tenant Home work areas identify their context without invented metrics. Unimplemented or unauthorized destinations stay hidden, and direct browser or API access remains server-denied.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | I0001-R014                         |
+| AC06      | The one Home work area names the selected tenant, or states that none is selected, without invented metrics; Tenant Management stays available with or without a selected tenant. Unimplemented or unauthorized destinations stay hidden, and direct browser or API access remains server-denied.                                                                                                                                                                                                                                                                                                                                                                                                                                                          | I0001-R014                         |
 | AC07      | At phone, tablet, and desktop widths, the header, navigation, contextual action header, and work area remain usable. The top header spans the full width, with the hamburger at the leading edge, the tenant control immediately to its right (tenant name only, no logo), and user initials at the trailing edge. The hamburger is present at every width with a per-breakpoint effect — a modal drawer (icons and labels) on phone, an expanded/collapsed toggle for the in-flow rail at tablet and desktop, with tooltips identifying collapsed icons and the active item always highlighted; the header shows the operator's own company name in platform context and the selected tenant's name in tenant context. Required actions remain available. | I0001-R009, I0001-R010, I0001-R013 |
 | AC08      | The profile menu exposes Change password, Logout, and Settings for Dark, Light, or System. Display mode persists, and System reacts to an operating-system mode change without a reload.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | I0001-R011, I0001-R012             |
 | AC09      | A standard grid requests server pages, defaults to 25 rows, offers 25, 50, and 100, and applies a changed page size to other standard grids in the same browser.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | I0001-R015                         |
@@ -542,6 +547,39 @@ cover `isChildVisible` directly — visible only when both implemented and
 authorized, hidden when either alone is true, hidden when `entryPoints`
 carries no `tenantManagement` at all, and that a child only ever consults
 its own `authKey`, never a sibling's.
+
+### One application shell (2026-09-25)
+
+The separate platform shell (`/management`) and tenant shell
+(`/app/:tenantId`) are replaced by one application shell. The split was a
+UI concept only: the server authorizes management routes by capability,
+whether or not a tenant is selected, and finds a tenant's cell from the
+session, never from the URL.
+
+- Routes: `/home` replaces both `/management` and `/app/:tenantId`.
+  Management pages stay at `/management/tenants`, `/management/cells`, and
+  `/management/portal-users`.
+- Restoration: a selected tenant or platform entry lands on `/home`. Only a
+  user with neither, but with eligible tenants, is sent to `/tenants`.
+- `/tenants` stays reachable with a tenant selected, so the tenant control can
+  switch tenants. Before, its guard redirected a selected tenant away.
+- Navigation shows `Tenant Management` whenever its children are authorized.
+  `AppShell` and `NavDrawer` no longer take `area` or `homePath`.
+- The shell is keyed by the selected tenant's ID, so switching tenants still
+  remounts it and clears tenant-specific UI state (R007).
+- The tenant control shows `Select tenant` when no tenant is selected, not
+  the operator's company name, which read as a selected tenant.
+- `PlatformHome` and `TenantHome` are merged into `HomePage`. The
+  `RequireTenantShellAccess` guard and `TenantUnavailableScreen` are removed;
+  `RequirePlatformAccess` is renamed `RequireManagementAccess`, and a new
+  `RequireHomeAccess` guards `/home`.
+- The API's `entryPoints.platform` flag keeps its name; it now means "may use
+  management destinations".
+- After login or a required password change, `SessionProvider` selects the
+  tenant automatically when exactly one is eligible and none is selected,
+  using `GET /access/tenants` and `POST /access/select`. A failed selection
+  (for example `CELL_UNAVAILABLE`) leaves the user unselected. Restoring an
+  existing session never auto-selects.
 
 ## 14. Outstanding Questions
 

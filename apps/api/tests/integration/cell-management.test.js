@@ -444,6 +444,18 @@ describe('reads', () => {
     expect(nextPage.rows[0].cell.id).not.toBe(onePage.rows[0].cell.id);
   });
 
+  it('reports queued or running jobs on any page (I0003-R030)', async () => {
+    await register();
+    const onePage = await getOverview(db, authority(), { limit: 1 });
+    expect(onePage.anyActive).toBe(true);
+    await db.none(
+      "UPDATE admin.cell_provisioning SET status='failed', failure_code='SETUP_FAILED' WHERE status IN ('queued','running')"
+    );
+    expect((await getOverview(db, authority(), { limit: 1 })).anyActive).toBe(
+      false
+    );
+  });
+
   it('reports honest, unwired runtime readiness distinct from the central flag', async () => {
     const { cell } = await register();
     const readiness = await getCellReadiness(db, authority(), cell.id);

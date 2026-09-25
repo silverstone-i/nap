@@ -11,24 +11,25 @@ import {
 
 describe('isSafeReturnPath', () => {
   it.each([
-    '/app/11111111-1111-1111-1111-111111111111',
-    '/app/11111111-1111-1111-1111-111111111111/details',
-    '/management',
+    '/home',
+    '/management/cells',
     '/management/reports',
     '/tenants',
     '/password',
   ])('accepts %s', path => expect(isSafeReturnPath(path)).toBe(true));
 
   it.each([
-    'https://evil.example/app/1',
-    '//evil.example/app/1',
+    'https://evil.example/home',
+    '//evil.example/home',
+    '/app/1',
+    '/management',
     '/login',
     '/',
     '',
     null,
     undefined,
-    'app/1',
-    '/app/1\t/../../etc',
+    'home',
+    '/management/1\t/../../etc',
   ])('rejects %j', path => expect(isSafeReturnPath(path)).toBe(false));
 });
 
@@ -38,27 +39,40 @@ describe('reauthorizeReturnPath', () => {
     entryPoints: { platform: false, tenant: true },
   };
 
-  it('accepts a tenant path matching the current selected tenant', () => {
-    expect(reauthorizeReturnPath('/app/tenant-1', session)).toBe(
-      '/app/tenant-1'
-    );
-  });
-
-  it('rejects a tenant path for a different tenant', () => {
-    expect(reauthorizeReturnPath('/app/tenant-2', session)).toBeNull();
-  });
-
-  it('rejects /management without platform entry', () => {
-    expect(reauthorizeReturnPath('/management', session)).toBeNull();
-  });
-
-  it('accepts /management with platform entry', () => {
+  it('accepts /home with a selected tenant or management access', () => {
+    expect(reauthorizeReturnPath('/home', session)).toBe('/home');
     expect(
-      reauthorizeReturnPath('/management', {
+      reauthorizeReturnPath('/home', {
+        selectedTenant: null,
+        entryPoints: { platform: true, tenant: false },
+      })
+    ).toBe('/home');
+  });
+
+  it('rejects /home with neither', () => {
+    expect(
+      reauthorizeReturnPath('/home', {
+        selectedTenant: null,
+        entryPoints: { platform: false, tenant: true },
+      })
+    ).toBeNull();
+  });
+
+  it('rejects a management page without platform entry', () => {
+    expect(reauthorizeReturnPath('/management/cells', session)).toBeNull();
+  });
+
+  it('accepts a management page with platform entry', () => {
+    expect(
+      reauthorizeReturnPath('/management/cells', {
         ...session,
         entryPoints: { platform: true, tenant: true },
       })
-    ).toBe('/management');
+    ).toBe('/management/cells');
+  });
+
+  it('rejects removed routes', () => {
+    expect(reauthorizeReturnPath('/app/tenant-1', session)).toBeNull();
   });
 
   it('rejects an unsafe path outright', () => {

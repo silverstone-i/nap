@@ -11,6 +11,10 @@ import {
   argon2PolicyFromEnv,
 } from './configuration.js';
 import { MaintenanceError, requireCondition } from './errors.js';
+import { renderSettings } from '../../infrastructure/provisioning/render.js';
+
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function cacheConfiguration(env, suffix) {
   const enabledSetting = `REDIS_CACHE_ENABLED_${suffix}`;
@@ -194,12 +198,98 @@ function originConfiguration(env, suffix) {
 }
 
 /**
+ * Resolve the published cell connection map, `CELL_DATABASES_<ENV>`
+ * (I0003-R014).
+ *
+ * Absent or blank means no cells. Locally each entry is an endpoint string and
+ * the passwords come from `NAP_APP_PSWD_*`; in production each entry is an
+ * object carrying its own `appPassword`. The runtime registry needs only the
+ * `nap-app` credential (I0003-R038), so no admin password is returned here.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @param {string} localAppPassword `NAP_APP_PSWD_<ENV>`; unused in production.
+ * @returns {Record<string, {endpoint: string, appPassword: string}>}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming `CELL_DATABASES_<ENV>`.
+ */
+function cellDatabasesConfiguration(env, suffix, localAppPassword) {
+  const setting = `CELL_DATABASES_${suffix}`;
+  const text = env[setting]?.trim();
+  if (!text) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new MaintenanceError('INVALID_CONFIGURATION', setting);
+  }
+  requireCondition(
+    parsed && typeof parsed === 'object' && !Array.isArray(parsed),
+    'INVALID_CONFIGURATION',
+    setting
+  );
+  const cells = {};
+  for (const [id, entry] of Object.entries(parsed)) {
+    requireCondition(UUID.test(id), 'INVALID_CONFIGURATION', setting);
+    const connection =
+      suffix === 'PROD'
+        ? entry && typeof entry === 'object'
+          ? { endpoint: entry.endpoint, appPassword: entry.appPassword }
+          : {}
+        : { endpoint: entry, appPassword: localAppPassword };
+    endpoint(connection.endpoint, setting);
+    secret(connection.appPassword, setting);
+    cells[id.toLowerCase()] = connection;
+  }
+  return cells;
+}
+
+/**
+ * Resolve what the provisioning worker needs, or `null` in `test`, where the
+ * worker does not run (I0003-R001, R037).
+ *
+ * Locally the worker creates cell databases on the server named by
+ * `SETUP_DATABASE_<ENV>` and publishes to the `.env` file the API read at
+ * startup. In production it creates Render instances, so it needs the Render
+ * settings and the `nap-admin` password from `ADMIN_DATABASE_PROD`.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @param {{adminPassword?: string, appPassword: string}} adminEntry
+ * @returns {null | {adminPassword: string, appPassword: string, setup: string, stateFile: string, envFile: string} | {adminPassword: string, render: Record<string, string | undefined>}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
+function provisioningConfiguration(env, suffix, adminEntry) {
+  if (suffix === 'TEST') return null;
+  if (suffix === 'PROD')
+    return {
+      adminPassword: secret(adminEntry.adminPassword, 'ADMIN_DATABASE_PROD'),
+      render: renderSettings(env),
+    };
+  const setupSetting = `SETUP_DATABASE_${suffix}`;
+  endpoint(env[setupSetting], setupSetting);
+  return {
+    adminPassword: secret(
+      env[`NAP_ADMIN_PSWD_${suffix}`],
+      `NAP_ADMIN_PSWD_${suffix}`
+    ),
+    appPassword: adminEntry.appPassword,
+    setup: env[setupSetting],
+    stateFile:
+      env.NAP_PROVISION_STATE ||
+      fileURLToPath(
+        new URL('../../../.env.provisioning.dev.json', import.meta.url)
+      ),
+    envFile:
+      env.NAP_ENV_FILE ||
+      fileURLToPath(new URL('../../../.env', import.meta.url)),
+  };
+}
+
+/**
  * Resolve the settings the running API needs from `NODE_ENV` and its
  * `*_DEV`, `*_TEST`, or `*_PROD` variables. Production reads the JSON
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, webRoot: string | undefined}} `admin` is the `nap-app` connection string.
+ * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, cells: Record<string, {endpoint: string, appPassword: string}>, provisioning: object | null, webRoot: string | undefined}} `admin` is the `nap-app` connection string; `provisioning` is `null` in `test`.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -256,6 +346,8 @@ export function runtimeConfiguration(env) {
     authentication: authenticationConfiguration(env, suffix, session.secret),
     cookie: cookieConfiguration(env, suffix),
     applicationOrigin: originConfiguration(env, suffix),
+    cells: cellDatabasesConfiguration(env, suffix, entry.appPassword),
+    provisioning: provisioningConfiguration(env, suffix, entry),
     webRoot:
       suffix === 'PROD'
         ? fileURLToPath(new URL('../../../../web/dist/', import.meta.url))

@@ -39,6 +39,7 @@ const JSON_BODY_LIMIT = '64kb';
  * @param {object} api.authenticationPolicy Throttle secret and Argon2id parameters.
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} api.cookiePolicy
  * @param {string} api.applicationOrigin Configured public application origin.
+ * @param {{readiness: Function, markDisabled: Function}} [api.runtime] Runtime cell registry (I0003-R020).
  * @param {object[]} [api.registrations] Route registrations to mount.
  * @returns {void}
  * @throws {Error} When the application origin or a registration is invalid.
@@ -51,6 +52,7 @@ function mountApi(app, api) {
     authenticationPolicy,
     cookiePolicy,
     applicationOrigin,
+    runtime,
     registrations = [],
   } = api;
   const registry = createRouteRegistry();
@@ -74,6 +76,7 @@ function mountApi(app, api) {
     sessionPolicy,
     authenticationPolicy,
     cookiePolicy,
+    runtime,
   });
 }
 

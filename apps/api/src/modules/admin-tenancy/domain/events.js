@@ -108,6 +108,7 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['attempt'],
   },
   'cell.disabled': { outcomes: ANY_OUTCOME, details: ['code'] },
+  'cell.activate.requested': { outcomes: ANY_OUTCOME, details: [] },
 
   'tenant.created': {
     outcomes: ANY_OUTCOME,
@@ -165,6 +166,7 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['attempt'],
   },
 
+  'tenant.root_setup.completed': { outcomes: SUCCEEDED, details: [] },
   'tenant.selected': { outcomes: ANY_OUTCOME, details: [] },
   'support.entered': { outcomes: ANY_OUTCOME, details: [] },
   'support.exited': { outcomes: ANY_OUTCOME, details: [] },

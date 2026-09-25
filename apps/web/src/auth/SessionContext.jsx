@@ -89,6 +89,36 @@ export function SessionProvider({ children }) {
     await load();
   }, [load]);
 
+  /**
+   * Enter the application after login or a required password change
+   * (I0001-R003): load the access context and, when no tenant is selected
+   * and exactly one is eligible, select it. Selection goes through the
+   * normal server contract, so an unavailable cell simply leaves the user
+   * unselected, and they can pick a tenant from the tenant control.
+   */
+  const enter = useCallback(async () => {
+    setState(prev => ({ ...prev, status: 'loading' }));
+    let context;
+    try {
+      context = await api.getAccessContext();
+    } catch (error) {
+      applyContextFailure(error);
+      return;
+    }
+    if (!context.selectedTenant && context.entryPoints?.tenant) {
+      try {
+        const tenants = await api.listTenants();
+        if (tenants.length === 1) {
+          const session = await api.selectTenant(tenants[0].id);
+          context = { ...context, session, selectedTenant: tenants[0] };
+        }
+      } catch {
+        // Stay unselected; tenant selection remains available.
+      }
+    }
+    applyContext(context);
+  }, []);
+
   useEffect(() => {
     // Initial state is already `loading` — the mount-time read needs no
     // synchronous reset. The `.then(...)` callbacks below are the one
@@ -112,9 +142,9 @@ export function SessionProvider({ children }) {
         setState({ ...EMPTY, status: 'restricted', session });
         return;
       }
-      await refresh();
+      await enter();
     },
-    [refresh]
+    [enter]
   );
 
   const changePassword = useCallback(
@@ -126,9 +156,9 @@ export function SessionProvider({ children }) {
           return expire();
         throw error;
       }
-      await refresh();
+      await enter();
     },
-    [refresh, expire]
+    [enter, expire]
   );
 
   const selectTenant = useCallback(

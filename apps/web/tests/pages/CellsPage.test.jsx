@@ -18,6 +18,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   registerCell: vi.fn(),
   retryCellProvisioning: vi.fn(),
   disableCell: vi.fn(),
+  activateCell: vi.fn(),
 }));
 
 function overviewRow(overrides = {}) {
@@ -158,7 +159,157 @@ describe('CellsPage', () => {
     });
     renderPage();
     await screen.findByText('dev');
-    expect(screen.queryByRole('menuitem', { name: 'more' })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('menuitem', { name: 'more' }));
+    await screen.findByRole('menuitem', { name: 'View progress' });
+    expect(screen.queryByRole('menuitem', { name: 'Disable' })).toBeNull();
+  });
+
+  it('shows the failure code column (I0003 AC11)', async () => {
+    api.listCellsOverview.mockResolvedValue({
+      rows: [
+        overviewRow({
+          operation: {
+            ...overviewRow().operation,
+            stage: 'migration',
+            status: 'failed',
+            failure_code: 'MIGRATION_FAILED',
+          },
+        }),
+      ],
+      nextCursor: null,
+    });
+    renderPage();
+    expect(await screen.findByText('MIGRATION_FAILED')).toBeTruthy();
+  });
+
+  it('refreshes every 2 seconds while a job is active, and stops after (I0003 AC11)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const done = overviewRow({
+        operation: {
+          ...overviewRow().operation,
+          stage: 'complete',
+          status: 'completed',
+        },
+      });
+      api.listCellsOverview
+        .mockResolvedValueOnce({
+          rows: [overviewRow()],
+          nextCursor: null,
+          anyActive: true,
+        })
+        .mockResolvedValue({
+          rows: [done],
+          nextCursor: null,
+          anyActive: false,
+        });
+      renderPage();
+      await screen.findByText('queued');
+      expect(api.listCellsOverview).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(2000);
+      await screen.findByText('completed');
+      const calls = api.listCellsOverview.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(api.listCellsOverview).toHaveBeenCalledTimes(calls);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps refreshing while a job on another page is active (I0003-R030)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const done = overviewRow({
+        operation: {
+          ...overviewRow().operation,
+          stage: 'complete',
+          status: 'completed',
+        },
+      });
+      api.listCellsOverview.mockResolvedValue({
+        rows: [done],
+        nextCursor: 'next',
+        anyActive: true,
+      });
+      renderPage();
+      await screen.findByText('completed');
+      const calls = api.listCellsOverview.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.waitFor(() =>
+        expect(api.listCellsOverview.mock.calls.length).toBeGreaterThan(calls)
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens progress details with the next action (I0003 AC11)', async () => {
+    api.listCellsOverview.mockResolvedValue({
+      rows: [
+        overviewRow({
+          operation: {
+            ...overviewRow().operation,
+            stage: 'setup',
+            status: 'failed',
+            attempts: 2,
+            failure_code: 'TARGET_NOT_OWNED',
+          },
+        }),
+      ],
+      nextCursor: null,
+    });
+    renderPage();
+    await screen.findByText('dev');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('menuitem', { name: 'more' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'View progress' })
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('c1')).toBeTruthy();
+    expect(within(dialog).getByText('TARGET_NOT_OWNED')).toBeTruthy();
+    expect(within(dialog).getByText('2')).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        'Fix the cause of the failure, then choose Retry.'
+      )
+    ).toBeTruthy();
+  });
+
+  it('offers Activate only for a disabled cell whose job completed (I0003 AC11)', async () => {
+    const completed = {
+      ...overviewRow().operation,
+      stage: 'complete',
+      status: 'completed',
+    };
+    api.listCellsOverview.mockResolvedValue({
+      rows: [
+        overviewRow({
+          cell: { ...overviewRow().cell, enabled: false },
+          operation: completed,
+        }),
+      ],
+      nextCursor: null,
+    });
+    api.activateCell.mockResolvedValue({});
+    renderPage();
+    await screen.findByText('dev');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('menuitem', { name: 'more' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Activate' }));
+    expect(api.activateCell).toHaveBeenCalledWith({ cell: 'c1' });
+    cleanup();
+
+    api.listCellsOverview.mockResolvedValue({
+      rows: [overviewRow({ operation: completed })],
+      nextCursor: null,
+    });
+    renderPage();
+    await screen.findByText('dev');
+    await user.click(screen.getByRole('menuitem', { name: 'more' }));
+    await screen.findByRole('menuitem', { name: 'Disable' });
+    expect(screen.queryByRole('menuitem', { name: 'Activate' })).toBeNull();
   });
 
   it('registers a cell and reloads the grid', async () => {

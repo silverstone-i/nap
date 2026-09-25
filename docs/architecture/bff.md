@@ -48,8 +48,7 @@ and MUI for the web UI.
 At startup, the API must create:
 
 - one admin database handle;
-- a UUID-keyed cell registry ([I0003](../PRDs/inter-module-workflows/I0003-runtime-cell-registry.md); not yet
-  implemented);
+- a UUID-keyed cell registry ([I0003](../PRDs/inter-module-workflows/I0003-cell-provisioning.md));
 - an optional Redis-backed authorization cache;
 - the Express runtime.
 
@@ -59,7 +58,7 @@ routes, module routes, client-route fallback for the built web app, and a
 shared error handler.
 
 The runtime must manage process startup and shutdown. Startup requires admin
-readiness before listening. Once I0003 lands, each configured cell is checked
+readiness before listening. Each configured cell is then checked
 independently; an
 unavailable cell is quarantined while admin and healthy cells can keep serving.
 Shutdown drains HTTP before closing database pools.
@@ -93,7 +92,7 @@ Runtime database configuration uses:
 
 - `ADMIN_DATABASE_<ENV>` for the admin database endpoint;
 - `CELL_DATABASES_<ENV>` for a JSON map of cell UUIDs to cell database
-  endpoints (read once I0003 is implemented);
+  endpoints;
 - `NAP_APP_PSWD_<ENV>` and `NAP_ADMIN_PSWD_<ENV>` for local role passwords;
 - production JSON entries that include endpoint and role passwords.
 

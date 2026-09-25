@@ -43,10 +43,32 @@ export const physicalIdentitySchema = {
   },
 };
 
-/** Model for `cell.physical_identity`. Inherits the standard table operations only. */
+/** Model for `cell.physical_identity`. */
 export class PhysicalIdentity extends TableModel {
   static schema = physicalIdentitySchema;
   constructor(db, pgp, logger) {
     super(db, pgp, physicalIdentitySchema, logger);
+  }
+
+  /**
+   * Write the cell's one identity row (I0003-R008).
+   *
+   * The inherited `insert` always adds `created_by` and `updated_by`, which
+   * this audit-free table does not have, so the row is written explicitly.
+   * @param {{cell_id: string, database_name: string, operation_id: string, environment: string}} identity
+   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
+   * @returns {Promise<void>}
+   */
+  async record(identity, { tx } = {}) {
+    await (tx ?? this.db).none(
+      `INSERT INTO cell.physical_identity(cell_id,database_name,operation_id,environment)
+       VALUES($1,$2,$3,$4)`,
+      [
+        identity.cell_id,
+        identity.database_name,
+        identity.operation_id,
+        identity.environment,
+      ]
+    );
   }
 }

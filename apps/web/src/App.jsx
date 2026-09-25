@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { Navigate, Route, Routes, useParams } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 import { SessionProvider, useSession } from './auth/SessionContext.jsx';
 import {
+  RequireHomeAccess,
+  RequireManagementAccess,
   RequirePasswordAccess,
-  RequirePlatformAccess,
   RequireTenantSelectionAccess,
-  RequireTenantShellAccess,
 } from './auth/guards.jsx';
 import {
   FullPageError,
@@ -21,8 +21,7 @@ import { CellsPage } from './pages/management/CellsPage.jsx';
 import { PortalUsersPage } from './pages/management/PortalUsersPage.jsx';
 import { TenantsPage as ManagementTenantsPage } from './pages/management/TenantsPage.jsx';
 import { PasswordPage } from './pages/PasswordPage.jsx';
-import { PlatformHome } from './pages/PlatformHome.jsx';
-import { TenantHome } from './pages/TenantHome.jsx';
+import { HomePage } from './pages/HomePage.jsx';
 import { TenantsPage } from './pages/TenantsPage.jsx';
 import { AppShell } from './shell/AppShell.jsx';
 
@@ -44,61 +43,17 @@ function RootRedirect() {
 }
 
 /**
- * `/app/:tenantId` — keyed by `tenantId` so switching tenants remounts the
- * whole shell subtree, clearing tenant-specific UI state by construction
- * (I0001-R007).
+ * Every signed-in page renders inside the one application shell (I0001-R009).
+ * The shell is keyed by the selected tenant, so switching tenants remounts
+ * it and clears tenant-specific UI state by construction (I0001-R007).
+ * @param {{guard: import('react').ComponentType<{children: import('react').ReactNode}>, children: import('react').ReactNode}} props
  */
-function TenantShellRoute() {
-  const { tenantId } = useParams();
+function ShellRoute({ guard: Guard, children }) {
+  const session = useSession();
   return (
-    <RequireTenantShellAccess>
-      <AppShell key={tenantId} homePath={`/app/${tenantId}`} area="tenant">
-        <TenantHome />
-      </AppShell>
-    </RequireTenantShellAccess>
-  );
-}
-
-function PlatformShellRoute() {
-  return (
-    <RequirePlatformAccess>
-      <AppShell homePath="/management" area="platform">
-        <PlatformHome />
-      </AppShell>
-    </RequirePlatformAccess>
-  );
-}
-
-/** `/management/tenants` (I0002-R001). */
-function TenantsRoute() {
-  return (
-    <RequirePlatformAccess>
-      <AppShell homePath="/management" area="platform">
-        <ManagementTenantsPage />
-      </AppShell>
-    </RequirePlatformAccess>
-  );
-}
-
-/** `/management/cells` (I0002-R003/R004). */
-function CellsRoute() {
-  return (
-    <RequirePlatformAccess>
-      <AppShell homePath="/management" area="platform">
-        <CellsPage />
-      </AppShell>
-    </RequirePlatformAccess>
-  );
-}
-
-/** `/management/portal-users` (I0002-R005/R006). */
-function PortalUsersRoute() {
-  return (
-    <RequirePlatformAccess>
-      <AppShell homePath="/management" area="platform">
-        <PortalUsersPage />
-      </AppShell>
-    </RequirePlatformAccess>
+    <Guard>
+      <AppShell key={session.selectedTenant?.id ?? 'none'}>{children}</AppShell>
+    </Guard>
   );
 }
 
@@ -123,11 +78,38 @@ export function App() {
             </RequireTenantSelectionAccess>
           }
         />
-        <Route path="/management" element={<PlatformShellRoute />} />
-        <Route path="/management/tenants" element={<TenantsRoute />} />
-        <Route path="/management/cells" element={<CellsRoute />} />
-        <Route path="/management/portal-users" element={<PortalUsersRoute />} />
-        <Route path="/app/:tenantId" element={<TenantShellRoute />} />
+        <Route
+          path="/home"
+          element={
+            <ShellRoute guard={RequireHomeAccess}>
+              <HomePage />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/management/tenants"
+          element={
+            <ShellRoute guard={RequireManagementAccess}>
+              <ManagementTenantsPage />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/management/cells"
+          element={
+            <ShellRoute guard={RequireManagementAccess}>
+              <CellsPage />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/management/portal-users"
+          element={
+            <ShellRoute guard={RequireManagementAccess}>
+              <PortalUsersPage />
+            </ShellRoute>
+          }
+        />
         <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<RootRedirect />} />
       </Routes>

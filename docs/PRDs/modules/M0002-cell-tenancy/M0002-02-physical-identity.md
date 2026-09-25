@@ -38,8 +38,8 @@ current_database()` on that connection.
 - Loading cell connections, building the runtime registry, and routing
   requests (I0003). I0003 calls this Work Unit's check for each
   configured cell before adding it to the registry.
-- Health checks and hot add. No PRD yet (see the parent document's
-  Out of scope section).
+- Health checks after startup. No PRD yet (see the parent document's Out of
+  scope section).
 - Any change to `admin.cells` or `admin.cell_provisioning`.
 
 ## 4. Actors And Permissions
@@ -118,8 +118,8 @@ verifyPhysicalIdentity(cellHandle, adminCellRecord);
 - I0003 calls `verifyPhysicalIdentity` for each configured cell before
   adding it to the runtime registry, and treats a failed check the same as an
   unreachable cell for that cell's tenants only.
-- The future cell health and hot-add inter-module workflow (no PRD yet) will call it again
-  when hot-adding a cell registered after startup.
+- I0003 also calls it when it adds a newly provisioned cell to the running
+  registry.
 - Reads `admin.cells` (M0001-06); never writes to it.
 
 ## 12. Security And Audit

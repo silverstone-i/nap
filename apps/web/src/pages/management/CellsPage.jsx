@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import { ApiError } from '../../api/client.js';
 import {
+  activateCell,
   disableCell,
   listCellsOverview,
   retryCellProvisioning,
@@ -16,6 +17,10 @@ import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { RegisterCellDialog } from './RegisterCellDialog.jsx';
+import { CellProgressDialog } from './CellProgressDialog.jsx';
+
+/** I0003-R030: how often the list refreshes while any job is active. */
+export const REFRESH_MS = 2000;
 
 /** Flattens `GET /control/overview`'s `{cell, operation}` row into one grid row. */
 function mapRow({ cell, operation }) {
@@ -27,6 +32,7 @@ function mapRow({ cell, operation }) {
     stage: operation?.stage ?? null,
     status: operation?.status ?? null,
     attempts: operation?.attempts ?? null,
+    failureCode: operation?.failure_code ?? null,
   };
 }
 
@@ -81,6 +87,14 @@ const COLUMNS = [
     priority: 'secondary',
     type: 'number',
   },
+  {
+    field: 'failureCode',
+    headerName: 'Failure code',
+    flex: 2,
+    sortable: false,
+    filterable: false,
+    priority: 'essential',
+  },
 ];
 
 function describeActionError(err) {
@@ -95,16 +109,36 @@ function describeActionError(err) {
 
 /**
  * `/management/cells` (I0002-R003/R004): browse the cell registry and
- * provisioning state; register, retry, and disable a cell.
+ * provisioning state; register, retry, activate, and disable a cell, and
+ * view a cell's progress (I0003-R029–R033).
  */
 export function CellsPage() {
+  const [active, setActive] = useState(false);
+  // I0003-R030: `anyActive` covers every page, not just the one shown.
   const fetchPage = useMemo(
-    () => createCursorPageAdapter(listCellsOverview, { mapRow }),
+    () =>
+      createCursorPageAdapter(
+        async page => {
+          const result = await listCellsOverview(page);
+          setActive(result.anyActive);
+          return result;
+        },
+        { mapRow }
+      ),
     []
   );
   const [resetKey, setResetKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [progressRow, setProgressRow] = useState(null);
   const [actionError, setActionError] = useState(null);
+
+  // I0003-R030: refresh while any cell is queued or running, and stop when
+  // none is.
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = setInterval(() => setResetKey(key => key + 1), REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [active]);
 
   usePageHeader({
     title: 'Cells',
@@ -139,13 +173,29 @@ export function CellsPage() {
     }
   }
 
+  async function handleActivate(row) {
+    setActionError(null);
+    try {
+      await activateCell({ cell: row.id });
+      setResetKey(key => key + 1);
+    } catch (err) {
+      setActionError(describeActionError(err));
+    }
+  }
+
   function rowActions(row) {
-    const actions = [];
+    const actions = [{ label: 'View progress', onClick: setProgressRow }];
     // Retry is only meaningful from a failed operation (M0001-06 §7); the
     // server enforces this regardless, but hiding it otherwise keeps the
     // menu honest. Disable only makes sense while the cell is enabled.
     if (row.status === 'failed')
       actions.push({ label: 'Retry', onClick: handleRetry });
+    // I0003-R032: Activate re-enables a disabled cell whose last job
+    // completed; the server rejects every other state.
+    if (!row.enabled && row.status === 'completed')
+      actions.push({ label: 'Activate', onClick: handleActivate });
+    // I0003-R033: `destructive` routes Disable through the grid's
+    // confirmation dialog.
     if (row.enabled)
       actions.push({
         label: 'Disable',
@@ -173,6 +223,12 @@ export function CellsPage() {
         rowActions={rowActions}
         emptyMessage="No cells registered yet."
       />
+      {progressRow ? (
+        <CellProgressDialog
+          row={progressRow}
+          onClose={() => setProgressRow(null)}
+        />
+      ) : null}
       {dialogOpen ? (
         <RegisterCellDialog
           onClose={() => setDialogOpen(false)}

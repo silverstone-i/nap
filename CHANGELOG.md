@@ -10,7 +10,17 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add cell provisioning (I0003): a worker inside the API takes a registered cell through setup, migration, seed, and activation with no restart. Locally it creates the cell database on the admin server; in production it creates one Render Postgres instance per cell. Activation saves the cell's connection to `CELL_DATABASES_<ENV>`, and the first provisioned cell becomes the Napsoft tenant's cell, so root can select Napsoft.
+- Add the runtime cell registry: the API loads published cells at startup, checks each one (registered, enabled, reachable, physical identity), and serves tenant selection and cell readiness from it. A broken cell reports its reason without stopping startup.
+- Add `cell-activate` to `POST /control/provision`, and on the Cells screen a failure code column, auto-refresh while jobs run, a progress dialog, and an Activate action.
+- Select the tenant automatically after login when exactly one is eligible.
+
 ### Changed
+
+- Replace the separate platform (`/management`) and tenant (`/app/:tenantId`) shells with one application shell at `/home`. Tenant Management stays in the navigation whether or not a tenant is selected, the tenant control can switch tenants, and it shows `Select tenant` when none is selected.
+- Startup now requires the `nap-admin` password (`NAP_ADMIN_PSWD_DEV`, or `adminPassword` in `ADMIN_DATABASE_PROD`) and, in production, the Render API settings, because the provisioning worker needs them.
 
 - Merge the feature and workflow PRD categories into one, inter-module workflow (I), for PRDs that own no tables and use several modules' data, whether a user or a background worker starts them. Move them to `docs/PRDs/inter-module-workflows/` and rename F0001 to I0001, F0002 to I0002, and W0001 to I0003, including requirement IDs in docs, code comments, and tests. Plain "workflow" and "feature" keep their English meaning.
 

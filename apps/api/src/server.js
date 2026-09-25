@@ -14,6 +14,11 @@ import { createRuntime } from './application/runtime/createRuntime.js';
 import { createAdminDatabase } from './infrastructure/runtime/adminDatabase.js';
 import { createRevisionCache } from './infrastructure/cache/index.js';
 import { adminTenancyRoutesV1 } from './modules/admin-tenancy/apiRoutes/v1/index.js';
+import { createCellRegistry } from './infrastructure/runtime/cellRegistry.js';
+import { createLocalCellDriver } from './infrastructure/provisioning/localCells.js';
+import { createRenderCellDriver } from './infrastructure/provisioning/renderCells.js';
+import { createStages } from './application/provisioning/stages.js';
+import { createProvisioningWorker } from './application/provisioning/worker.js';
 
 let runtime;
 let admin;
@@ -29,11 +34,33 @@ try {
   const config = runtimeConfiguration(environment());
   admin = createAdminDatabase(config.admin);
   cache = createRevisionCache({ admin, ...config.cache });
+  const cells = createCellRegistry({ admin: admin.db });
+  const services = [
+    { start: () => cells.load(config.cells), stop: () => cells.close() },
+  ];
+  // I0003-R001: the worker runs in dev and prod, never in test.
+  if (config.provisioning) {
+    const driver =
+      config.environment === 'prod'
+        ? createRenderCellDriver(config.provisioning)
+        : createLocalCellDriver(config.provisioning);
+    const worker = createProvisioningWorker({
+      admin,
+      driver,
+      stages: createStages({
+        driver,
+        registry: cells,
+        environment: config.environment,
+      }),
+    });
+    services.push({ start: () => worker.start(), stop: () => worker.stop() });
+  }
   runtime = createRuntime(
     { admin, cache },
     {
       trustProxyHops: config.trustProxyHops,
       webRoot: config.webRoot,
+      services,
       api: {
         admin,
         environment: config.environment,
@@ -41,6 +68,7 @@ try {
         authenticationPolicy: config.authentication,
         cookiePolicy: config.cookie,
         applicationOrigin: config.applicationOrigin,
+        runtime: cells,
         registrations: adminTenancyRoutesV1,
       },
     }

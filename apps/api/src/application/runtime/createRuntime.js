@@ -20,13 +20,21 @@ import { checkAdminReadiness } from '../../infrastructure/runtime/adminReadiness
  * @param {number} [options.trustProxyHops=0]
  * @param {string} [options.webRoot]
  * @param {object} [options.api] API request-chain settings and route registrations; omit to serve health and static assets only.
+ * @param {{start: () => Promise<void>, stop: () => Promise<void>}[]} [options.services] Started in order after the admin database is ready and before listening; stopped in reverse after requests drain and before the pools close, each within `drainMs`.
  * @param {number} [options.drainMs=10000]
  * @param {number} [options.poolCloseMs=5000]
  * @returns {{server: import('node:http').Server, start: (port: number, host?: string) => Promise<void>, shutdown: (code?: number) => Promise<number>}}
  */
 export function createRuntime(
   handles,
-  { trustProxyHops = 0, webRoot, api, drainMs = 10000, poolCloseMs = 5000 } = {}
+  {
+    trustProxyHops = 0,
+    webRoot,
+    api,
+    services = [],
+    drainMs = 10000,
+    poolCloseMs = 5000,
+  } = {}
 ) {
   let stopped = false;
   let stopping;
@@ -60,6 +68,10 @@ export function createRuntime(
       if (!(await ready()))
         throw new Error('Admin database is unavailable or unsafe');
       if (stopped) return;
+      for (const service of services) {
+        await service.start();
+        if (stopped) return;
+      }
       await new Promise((resolve, reject) => {
         const failed = () => {
           server.removeListener('listening', opened);
@@ -97,6 +109,22 @@ export function createRuntime(
             if (error) failed = true;
             resolve();
           });
+        });
+      for (const service of [...services].reverse())
+        await new Promise(resolve => {
+          const timer = setTimeout(() => {
+            failed = true;
+            resolve();
+          }, drainMs);
+          Promise.resolve()
+            .then(() => service.stop())
+            .catch(() => {
+              failed = true;
+            })
+            .finally(() => {
+              clearTimeout(timer);
+              resolve();
+            });
         });
       await new Promise(resolve => {
         const timer = setTimeout(() => {
