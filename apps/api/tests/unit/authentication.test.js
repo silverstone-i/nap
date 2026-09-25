@@ -336,7 +336,7 @@ describe('password policy', () => {
   });
 
   it('accepts the documented bounds and nothing outside them', () => {
-    expect(parsePassword('x'.repeat(PASSWORD_MINIMUM))).toHaveLength(12);
+    expect(parsePassword('x'.repeat(PASSWORD_MINIMUM))).toHaveLength(8);
     expect(parsePassword('x'.repeat(PASSWORD_MAXIMUM))).toHaveLength(128);
     for (const value of [
       'x'.repeat(PASSWORD_MINIMUM - 1),

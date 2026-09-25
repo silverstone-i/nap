@@ -61,7 +61,10 @@ slow repeated login attacks.
 - M0001-03-R006: Password replacement and `must_change_password = false` must commit together; failure preserves the old hash and flag.
 
 Use Argon2id with at least 19 MiB memory, two iterations, one lane, and a unique
-salt. Passwords must contain 12–128 Unicode characters. Rehash after successful
+salt. Passwords must contain 8–128 Unicode characters. An operator-supplied
+temporary password for a new portal user (M0001-08) is exempt from the
+minimum: any nonempty password up to 128 characters is accepted, because the
+user must replace it at first login. Rehash after successful
 login when configured parameters increase.
 
 Login evaluates account and client-address keys. Five failures in 15 minutes
@@ -159,7 +162,7 @@ recorded across the run finds no password, hash fragment, raw email, or raw
 client address.
 
 Unit tests cover the password policy at the Unicode boundary — an emoji
-password satisfies twelve characters by code point, not by UTF-16 length — the
+password satisfies eight characters by code point, not by UTF-16 length — the
 Argon2id floor, hashing and verification including a malformed stored digest
 reported as a mismatch rather than an error, the rehash rule firing only on an
 increase, throttle-key derivation and normalization, and the routes

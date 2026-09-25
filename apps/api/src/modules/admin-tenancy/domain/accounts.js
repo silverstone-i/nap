@@ -8,7 +8,11 @@ import { z } from 'zod';
 import { AdminAccountError, withAccountErrors } from './errors.js';
 import { parseScope, isTenantPermitted } from './scope.js';
 import { parseUuid, parseNormalizedEmail, parseLimit } from './validation.js';
-import { hashPassword, parseHashingPolicy, parsePassword } from './password.js';
+import {
+  hashPassword,
+  parseHashingPolicy,
+  parseTemporaryPassword,
+} from './password.js';
 import {
   revokeSessionsForUser,
   revokeSessionsForMembership,
@@ -257,7 +261,7 @@ function parseCreateUserInput(body) {
   const email = normalizeEmail(result.data.email);
   let password;
   try {
-    password = parsePassword(result.data.password);
+    password = parseTemporaryPassword(result.data.password);
   } catch {
     throw new AdminAccountError('INVALID_INPUT');
   }

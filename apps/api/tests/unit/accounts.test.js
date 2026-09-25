@@ -469,16 +469,31 @@ describe('users', () => {
     expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
   });
 
-  it('rejects a password shorter than the WU3 minimum', async () => {
+  it('accepts any nonempty temporary password, however weak', async () => {
     const { app, cookie } = api();
     const response = await request(app)
       .post(`${BASE}/users`)
       .set('Origin', ORIGIN)
       .set('Cookie', cookie)
       .set('Idempotency-Key', randomUUID())
-      .send({ email: 'a@example.com', password: 'short' });
-    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
+      .send({ email: 'a@example.com', password: 'x' });
+    expect(response.status).toBe(201);
+    expect(response.body.data.mustChangePassword).toBe(true);
   });
+
+  it.each(['', 'x'.repeat(129)])(
+    'rejects an empty or over-long temporary password (%#)',
+    async password => {
+      const { app, cookie } = api();
+      const response = await request(app)
+        .post(`${BASE}/users`)
+        .set('Origin', ORIGIN)
+        .set('Cookie', cookie)
+        .set('Idempotency-Key', randomUUID())
+        .send({ email: 'a@example.com', password });
+      expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
+    }
+  );
 
   it('requires a well-formed Idempotency-Key header', async () => {
     const { app, cookie } = api();
