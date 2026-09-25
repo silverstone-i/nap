@@ -551,7 +551,7 @@ describe('password change', () => {
     const own = await signIn(user, '198.51.100.54');
     const cases = [
       ['not-the-password', REPLACEMENT, 'UNAUTHENTICATED'],
-      [PASSWORD, 'too-short', 'INVALID_INPUT'],
+      [PASSWORD, 'short-7', 'INVALID_INPUT'],
       [PASSWORD, PASSWORD, 'INVALID_INPUT'],
     ];
     for (const [currentPassword, newPassword, code] of cases)

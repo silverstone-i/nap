@@ -64,7 +64,7 @@ function options(policy) {
 }
 
 /** Inclusive password length bounds, counted in Unicode characters. */
-export const PASSWORD_MINIMUM = 12;
+export const PASSWORD_MINIMUM = 8;
 export const PASSWORD_MAXIMUM = 128;
 
 /**
@@ -72,7 +72,7 @@ export const PASSWORD_MAXIMUM = 128;
  *
  * Counted in code points rather than UTF-16 units, so an emoji or another
  * astral character counts once. Measuring `value.length` instead would let a
- * six-emoji password satisfy a twelve-character rule.
+ * four-emoji password satisfy an eight-character rule.
  * @param {unknown} value
  * @returns {string} The password, unchanged; never trimmed or normalized.
  * @throws {AdminAuthError} `INVALID_INPUT`
@@ -81,6 +81,26 @@ export function parsePassword(value) {
   if (typeof value !== 'string') throw new AdminAuthError('INVALID_INPUT');
   const characters = [...value].length;
   if (characters < PASSWORD_MINIMUM || characters > PASSWORD_MAXIMUM)
+    throw new AdminAuthError('INVALID_INPUT');
+  return value;
+}
+
+/**
+ * Validate an operator-supplied temporary password for a new portal user.
+ *
+ * Any nonempty password is accepted: the account is created with
+ * `must_change_password = true`, so the user replaces it with a password that
+ * meets `parsePassword` at first login, and a later invite flow will let users
+ * choose their own. The maximum still applies because login refuses a longer
+ * password, which would leave the account unable to sign in.
+ * @param {unknown} value
+ * @returns {string} The password, unchanged.
+ * @throws {AdminAuthError} `INVALID_INPUT`
+ */
+export function parseTemporaryPassword(value) {
+  if (typeof value !== 'string') throw new AdminAuthError('INVALID_INPUT');
+  const characters = [...value].length;
+  if (characters < 1 || characters > PASSWORD_MAXIMUM)
     throw new AdminAuthError('INVALID_INPUT');
   return value;
 }

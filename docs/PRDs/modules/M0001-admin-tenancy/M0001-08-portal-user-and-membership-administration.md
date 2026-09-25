@@ -67,8 +67,11 @@ Support may manage the platform-level portal-user record. Responses to support
 must omit the user's Napsoft memberships and related provisioning jobs.
 
 Email is trimmed and lowercased and must be a valid address no longer than 254
-characters. A new user requires a temporary password meeting WU 3 rules,
-starts `active`, and has `must_change_password = true`. An existing active user
+characters. A new user requires a temporary password: any nonempty password
+up to 128 characters, deliberately exempt from the WU 3 minimum. The user
+starts `active` with `must_change_password = true`, so the first login forces a
+password that meets WU 3 rules. A later invite flow will let users choose
+their own password at signup. An existing active user
 with the same email is reused when adding another membership.
 
 Member type is `employee`, `client`, `vendor_contact`, or `contact`. A
