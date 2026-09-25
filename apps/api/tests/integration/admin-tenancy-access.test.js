@@ -90,6 +90,62 @@ afterAll(async () => {
   );
 });
 
+/**
+ * Insert a tenant through its model; `archived` soft-deletes it afterwards.
+ * @param {string} code
+ * @param {string} name
+ * @param {{archived?: boolean, is_napsoft?: boolean}} [options]
+ * @returns {Promise<{id: string}>}
+ */
+async function insertTenant(code, name, { archived = false, ...fields } = {}) {
+  const row = await db.tenants.insert({
+    tenant_code: code,
+    name,
+    status: archived ? 'pending' : 'active',
+    ...fields,
+  });
+  if (archived) await db.tenants.removeWhere({ id: row.id });
+  return row;
+}
+
+/**
+ * Insert a portal user through its model; `archived` soft-deletes it.
+ * @param {string} email
+ * @param {string} passwordHash
+ * @param {{archived?: boolean, must_change_password?: boolean}} [options]
+ * @returns {Promise<{id: string}>}
+ */
+async function insertUser(
+  email,
+  passwordHash,
+  { archived = false, ...fields } = {}
+) {
+  const row = await db.portal_users.insert({
+    email,
+    password_hash: passwordHash,
+    ...fields,
+  });
+  if (archived) await db.portal_users.removeWhere({ id: row.id });
+  return row;
+}
+
+/**
+ * Insert an active, ready employee membership.
+ * @param {string} portalUserId
+ * @param {string} tenantId
+ * @returns {Promise<{id: string}>}
+ */
+function insertMembership(portalUserId, tenantId) {
+  return db.portal_user_tenants.insert({
+    portal_user_id: portalUserId,
+    tenant_id: tenantId,
+    member_type: 'employee',
+    status: 'active',
+    ready: true,
+    member_id: randomUUID(),
+  });
+}
+
 it('operates entirely under the nap-app runtime role', async () => {
   expect((await db.one('SELECT current_user AS user')).user).toBe('nap-app');
 });
@@ -97,10 +153,7 @@ it('operates entirely under the nap-app runtime role', async () => {
 describe('tenant reads', () => {
   it('reads an active tenant, and returns null for a missing or archived one', async () => {
     const code = 'ACTIVE-' + randomUUID().slice(0, 8);
-    const tenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Active Tenant','active') RETURNING id",
-      [code]
-    );
+    const tenant = await insertTenant(code, 'Active Tenant');
     const result = await findTenant(db, platformScope(), tenant.id);
     expect(result).toMatchObject({
       id: tenant.id,
@@ -113,9 +166,10 @@ describe('tenant reads', () => {
 
     expect(await findTenant(db, platformScope(), randomUUID())).toBeNull();
 
-    const archived = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,deactivated_at) VALUES($1,'Archived Tenant',now()) RETURNING id",
-      ['ARCHIVED-' + randomUUID().slice(0, 8)]
+    const archived = await insertTenant(
+      'ARCHIVED-' + randomUUID().slice(0, 8),
+      'Archived Tenant',
+      { archived: true }
     );
     expect(await findTenant(db, platformScope(), archived.id)).toBeNull();
     const restored = await findTenantIncludingArchived(
@@ -131,9 +185,10 @@ describe('tenant reads', () => {
   });
 
   it('requires archive-management authority for an archived tenant read', async () => {
-    const archived = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,deactivated_at) VALUES($1,'No Authority',now()) RETURNING id",
-      ['NOAUTH-' + randomUUID().slice(0, 8)]
+    const archived = await insertTenant(
+      'NOAUTH-' + randomUUID().slice(0, 8),
+      'No Authority',
+      { archived: true }
     );
     await expect(
       findTenantIncludingArchived(db, platformScope(), archived.id)
@@ -141,9 +196,9 @@ describe('tenant reads', () => {
   });
 
   it('rejects a tenant target outside the permitted tenant list before reading', async () => {
-    const tenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Out Of Scope','active') RETURNING id",
-      ['OUTOFSCOPE-' + randomUUID().slice(0, 8)]
+    const tenant = await insertTenant(
+      'OUTOFSCOPE-' + randomUUID().slice(0, 8),
+      'Out Of Scope'
     );
     await expect(
       findTenant(db, tenantScope([randomUUID()]), tenant.id)
@@ -156,9 +211,9 @@ describe('tenant reads', () => {
   describe("support's Napsoft restriction", () => {
     let napsoftId;
     beforeAll(async () => {
-      const row = await db.one(
-        "INSERT INTO admin.tenants(tenant_code,name,is_napsoft,status) VALUES('NAPSOFT','Napsoft',true,'active') RETURNING id"
-      );
+      const row = await insertTenant('NAPSOFT', 'Napsoft', {
+        is_napsoft: true,
+      });
       napsoftId = row.id;
     });
 
@@ -171,23 +226,20 @@ describe('tenant reads', () => {
         listMembershipsByTenant(db, support, napsoftId)
       ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
-      const other = await db.one(
-        "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Support Other','active') RETURNING id",
-        ['SUPPORTOTHER-' + randomUUID().slice(0, 8)]
+      const other = await insertTenant(
+        'SUPPORTOTHER-' + randomUUID().slice(0, 8),
+        'Support Other'
       );
       await expect(findTenant(db, support, other.id)).resolves.toMatchObject({
         id: other.id,
       });
 
-      const user = await db.one(
-        "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-        ['support-scope-' + randomUUID() + '@test.example']
+      const user = await insertUser(
+        'support-scope-' + randomUUID() + '@test.example',
+        'hash'
       );
       for (const tenantId of [napsoftId, other.id])
-        await db.none(
-          "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id) VALUES($1,$2,'employee','active',true,gen_random_uuid())",
-          [user.id, tenantId]
-        );
+        await insertMembership(user.id, tenantId);
       const memberships = await listMembershipsByUser(db, support, user.id);
       expect(memberships.rows.map(row => row.tenant_id)).toEqual([other.id]);
     });
@@ -197,10 +249,7 @@ describe('tenant reads', () => {
 describe('portal-user reads', () => {
   it('reads an active portal user, excludes password_hash, and returns null for a missing or archived one', async () => {
     const email = 'active-' + randomUUID() + '@test.example';
-    const user = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'super-secret-hash') RETURNING id",
-      [email]
-    );
+    const user = await insertUser(email, 'super-secret-hash');
     const result = await findPortalUser(db, platformScope(), user.id);
     expect(result).toMatchObject({
       id: user.id,
@@ -214,10 +263,9 @@ describe('portal-user reads', () => {
     expect(await findPortalUser(db, platformScope(), randomUUID())).toBeNull();
 
     const archivedEmail = 'archived-' + randomUUID() + '@test.example';
-    const archived = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash,deactivated_at) VALUES($1,'hash',now()) RETURNING id",
-      [archivedEmail]
-    );
+    const archived = await insertUser(archivedEmail, 'hash', {
+      archived: true,
+    });
     expect(await findPortalUser(db, platformScope(), archived.id)).toBeNull();
     const restored = await findPortalUserIncludingArchived(
       db,
@@ -229,17 +277,17 @@ describe('portal-user reads', () => {
   });
 
   it('authorizes a tenant-scoped read only through an active membership in a permitted tenant', async () => {
-    const tenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Member Tenant','active') RETURNING id",
-      ['MEMBER-' + randomUUID().slice(0, 8)]
+    const tenant = await insertTenant(
+      'MEMBER-' + randomUUID().slice(0, 8),
+      'Member Tenant'
     );
-    const otherTenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Other Tenant','active') RETURNING id",
-      ['OTHERMEMBER-' + randomUUID().slice(0, 8)]
+    const otherTenant = await insertTenant(
+      'OTHERMEMBER-' + randomUUID().slice(0, 8),
+      'Other Tenant'
     );
-    const user = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-      ['member-' + randomUUID() + '@test.example']
+    const user = await insertUser(
+      'member-' + randomUUID() + '@test.example',
+      'hash'
     );
     const scope = tenantScope([tenant.id]);
 
@@ -247,27 +295,21 @@ describe('portal-user reads', () => {
       code: 'FORBIDDEN',
     });
 
-    await db.none(
-      "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id) VALUES($1,$2,'employee','active',true,gen_random_uuid())",
-      [user.id, otherTenant.id]
-    );
+    await insertMembership(user.id, otherTenant.id);
     await expect(findPortalUser(db, scope, user.id)).rejects.toMatchObject({
       code: 'FORBIDDEN',
     });
 
-    await db.none(
-      "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id) VALUES($1,$2,'employee','active',true,gen_random_uuid())",
-      [user.id, tenant.id]
-    );
+    await insertMembership(user.id, tenant.id);
     await expect(findPortalUser(db, scope, user.id)).resolves.toMatchObject({
       id: user.id,
     });
   });
 
   it('permits a platform-scoped read regardless of tenant membership', async () => {
-    const user = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-      ['platform-' + randomUUID() + '@test.example']
+    const user = await insertUser(
+      'platform-' + randomUUID() + '@test.example',
+      'hash'
     );
     await expect(
       findPortalUser(db, platformScope(), user.id)
@@ -278,10 +320,7 @@ describe('portal-user reads', () => {
 describe('credential reader', () => {
   it('returns login fields and the password hash only for the authentication caller', async () => {
     const email = 'cred-' + randomUUID() + '@test.example';
-    await db.none(
-      "INSERT INTO admin.portal_users(email,password_hash,must_change_password) VALUES($1,'argon2-hash',true)",
-      [email]
-    );
+    await insertUser(email, 'argon2-hash', { must_change_password: true });
     const credential = await findCredentialByEmail(
       db,
       { caller: 'authentication' },
@@ -309,22 +348,19 @@ describe('credential reader', () => {
 
 describe('membership lists', () => {
   it('lists memberships by tenant, empty then populated', async () => {
-    const tenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Empty Tenant','active') RETURNING id",
-      ['EMPTYTENANT-' + randomUUID().slice(0, 8)]
+    const tenant = await insertTenant(
+      'EMPTYTENANT-' + randomUUID().slice(0, 8),
+      'Empty Tenant'
     );
     expect(
       await listMembershipsByTenant(db, platformScope(), tenant.id)
     ).toEqual({ rows: [], nextCursor: null });
 
-    const user = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-      ['tenant-list-' + randomUUID() + '@test.example']
+    const user = await insertUser(
+      'tenant-list-' + randomUUID() + '@test.example',
+      'hash'
     );
-    await db.none(
-      "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id) VALUES($1,$2,'employee','active',true,gen_random_uuid())",
-      [user.id, tenant.id]
-    );
+    await insertMembership(user.id, tenant.id);
     const page = await listMembershipsByTenant(db, platformScope(), tenant.id);
     expect(page.rows).toHaveLength(1);
     expect(page.rows[0]).toMatchObject({
@@ -337,20 +373,17 @@ describe('membership lists', () => {
   });
 
   it('paginates memberships by user in deterministic ascending order, with an exact-limit page', async () => {
-    const user = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-      ['page-user-' + randomUUID() + '@test.example']
+    const user = await insertUser(
+      'page-user-' + randomUUID() + '@test.example',
+      'hash'
     );
     const membershipIds = [];
     for (let i = 0; i < 3; i++) {
-      const tenant = await db.one(
-        "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Page Tenant','active') RETURNING id",
-        ['PAGE' + i + '-' + randomUUID().slice(0, 8)]
+      const tenant = await insertTenant(
+        'PAGE' + i + '-' + randomUUID().slice(0, 8),
+        'Page Tenant'
       );
-      const membership = await db.one(
-        "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id) VALUES($1,$2,'employee','active',true,gen_random_uuid()) RETURNING id",
-        [user.id, tenant.id]
-      );
+      const membership = await insertMembership(user.id, tenant.id);
       membershipIds.push(membership.id);
     }
     const expectedOrder = [...membershipIds].sort();
@@ -377,24 +410,21 @@ describe('membership lists', () => {
   });
 
   it('keeps a cursor stable while unrelated memberships are inserted', async () => {
-    const tenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Stable Tenant','active') RETURNING id",
-      ['STABLE-' + randomUUID().slice(0, 8)]
+    const tenant = await insertTenant(
+      'STABLE-' + randomUUID().slice(0, 8),
+      'Stable Tenant'
     );
     const users = [];
     for (let i = 0; i < 2; i++) {
-      const user = await db.one(
-        "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-        ['stable-' + i + '-' + randomUUID() + '@test.example']
+      const user = await insertUser(
+        'stable-' + i + '-' + randomUUID() + '@test.example',
+        'hash'
       );
       users.push(user.id);
     }
     const membershipIds = [];
     for (const userId of users) {
-      const membership = await db.one(
-        "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id) VALUES($1,$2,'employee','active',true,gen_random_uuid()) RETURNING id",
-        [userId, tenant.id]
-      );
+      const membership = await insertMembership(userId, tenant.id);
       membershipIds.push(membership.id);
     }
     const expectedOrder = [...membershipIds].sort();
@@ -409,18 +439,15 @@ describe('membership lists', () => {
     );
     expect(firstPage.rows.map(r => r.id)).toEqual(expectedOrder.slice(0, 1));
 
-    const unrelatedTenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Unrelated Tenant','active') RETURNING id",
-      ['UNRELATED-' + randomUUID().slice(0, 8)]
+    const unrelatedTenant = await insertTenant(
+      'UNRELATED-' + randomUUID().slice(0, 8),
+      'Unrelated Tenant'
     );
-    const unrelatedUser = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-      ['unrelated-' + randomUUID() + '@test.example']
+    const unrelatedUser = await insertUser(
+      'unrelated-' + randomUUID() + '@test.example',
+      'hash'
     );
-    await db.none(
-      "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready,member_id) VALUES($1,$2,'employee','active',true,gen_random_uuid())",
-      [unrelatedUser.id, unrelatedTenant.id]
-    );
+    await insertMembership(unrelatedUser.id, unrelatedTenant.id);
 
     const secondPage = await listMembershipsByTenant(
       db,
@@ -433,17 +460,17 @@ describe('membership lists', () => {
   });
 
   it('rejects an unauthorized list target before reading', async () => {
-    const tenant = await db.one(
-      "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Guarded Tenant','active') RETURNING id",
-      ['GUARDED-' + randomUUID().slice(0, 8)]
+    const tenant = await insertTenant(
+      'GUARDED-' + randomUUID().slice(0, 8),
+      'Guarded Tenant'
     );
     await expect(
       listMembershipsByTenant(db, tenantScope([randomUUID()]), tenant.id)
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
-    const user = await db.one(
-      "INSERT INTO admin.portal_users(email,password_hash) VALUES($1,'hash') RETURNING id",
-      ['guarded-' + randomUUID() + '@test.example']
+    const user = await insertUser(
+      'guarded-' + randomUUID() + '@test.example',
+      'hash'
     );
     await expect(
       listMembershipsByUser(db, tenantScope([tenant.id]), user.id)

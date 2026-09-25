@@ -7,6 +7,7 @@ import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { AdminSessionError, withSessionErrors } from './errors.js';
 import { isTenantPermitted, parseScope } from './scope.js';
+import { SESSION_VIEW_COLUMNS } from '../models/sessions.js';
 
 /** Bytes of entropy in a session token. 256 bits, as M0001-04 §5 requires. */
 export const SESSION_TOKEN_BYTES = 32;
@@ -480,7 +481,10 @@ export async function resolveSession(db, policy, token, { requestId } = {}) {
         // Another request already won the downgrade race; its rotation is
         // already committed, so read the current row rather than treat this
         // request as unauthenticated.
-        const current = await db.sessions.findById(row.id);
+        const current = await db.sessions.findOneBy(
+          { id: row.id },
+          { columnWhitelist: SESSION_VIEW_COLUMNS }
+        );
         if (current) Object.assign(row, current);
       }
     }

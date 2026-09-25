@@ -136,10 +136,11 @@ describe('entitlements', () => {
     // UUID (no use as a tie-breaker), and same-tick timestamps are possible
     // under fast local execution, so asserting a specific sequence would be
     // flaky. The actual invariant is call count and outcome per key.
-    const events = await db.any(
-      "SELECT event_key, outcome FROM admin.managed_events WHERE tenant_id=$1 AND details->>'module_key'='sales'",
-      [tenantId]
-    );
+    const events = (
+      await db.managed_events.findWhere({ tenant_id: tenantId }, 'AND', {
+        columnWhitelist: ['event_key', 'outcome', 'details'],
+      })
+    ).filter(e => e.details?.module_key === 'sales');
     expect(events).toHaveLength(4);
     expect(events.every(e => e.outcome === 'succeeded')).toBe(true);
     expect(
@@ -236,9 +237,10 @@ describe('entitlements', () => {
     expect(first.enabled).toBe(true);
     expect(second.enabled).toBe(true);
 
-    const rows = await db.any(
-      'SELECT revision FROM admin.module_entitlements WHERE tenant_id=$1 AND module=$2',
-      [tenantId, 'projects']
+    const rows = await db.module_entitlements.findWhere(
+      { tenant_id: tenantId, module: 'projects' },
+      'AND',
+      { columnWhitelist: ['revision'] }
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].revision).toBe(1);
@@ -254,9 +256,10 @@ describe('entitlements', () => {
       withdrawEntitlement(db, write, tenantId, 'cost-codes'),
     ]);
 
-    const row = await db.any(
-      'SELECT enabled, revision FROM admin.module_entitlements WHERE tenant_id=$1 AND module=$2',
-      [tenantId, 'cost-codes']
+    const row = await db.module_entitlements.findWhere(
+      { tenant_id: tenantId, module: 'cost-codes' },
+      'AND',
+      { columnWhitelist: ['enabled', 'revision'] }
     );
     expect(row).toHaveLength(1);
     // The lock forces one committed total order; whichever request the

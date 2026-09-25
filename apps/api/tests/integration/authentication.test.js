@@ -82,19 +82,18 @@ async function portalUser({
   hash = null,
 } = {}) {
   const email = `user-${randomUUID()}@nap.test`;
-  const row = await db.one(
-    `INSERT INTO admin.portal_users(email,password_hash,status,must_change_password)
-     VALUES($1,$2,$3,$4) RETURNING id`,
-    [email, hash ?? storedHash, status, mustChange]
-  );
+  const row = await db.portal_users.insert({
+    email,
+    password_hash: hash ?? storedHash,
+    status,
+    must_change_password: mustChange,
+  });
   return { id: row.id, email };
 }
 
 /** The stored throttle row for one key, or `null`. */
 function throttleRow(key) {
-  return db.oneOrNone('SELECT * FROM admin.login_throttles WHERE key_hash=$1', [
-    key,
-  ]);
+  return db.login_throttles.findOneBy({ key_hash: key });
 }
 
 /** The account-dimension throttle key for an address. */
@@ -119,19 +118,21 @@ async function attempt(email, password, clientAddress = ADDRESS) {
 
 /** The stored password hash for a portal user. */
 async function storedFor(id) {
-  const row = await db.one(
-    'SELECT password_hash,must_change_password FROM admin.portal_users WHERE id=$1',
-    [id]
+  return db.portal_users.findOneBy(
+    { id },
+    {
+      columnWhitelist: ['password_hash', 'must_change_password'],
+      includeDeactivated: true,
+    }
   );
-  return row;
 }
 
 /** Events recorded for one actor, oldest first. */
 function eventsFor(id) {
-  return db.any(
-    'SELECT event_key,outcome,actor_id,details FROM admin.managed_events WHERE actor_id=$1 ORDER BY occurred_at,id',
-    [id]
-  );
+  return db.managed_events.findWhere({ actor_id: id }, 'AND', {
+    columnWhitelist: ['event_key', 'outcome', 'actor_id', 'details'],
+    orderBy: ['occurred_at', 'id'],
+  });
 }
 
 beforeAll(async () => {
@@ -207,10 +208,7 @@ describe('login', () => {
     const locked = await portalUser({ status: 'locked' });
     const disabled = await portalUser({ status: 'disabled' });
     const archived = await portalUser();
-    await db.none(
-      'UPDATE admin.portal_users SET deactivated_at=now() WHERE id=$1',
-      [archived.id]
-    );
+    await db.portal_users.removeWhere({ id: archived.id });
     for (const [label, email, password] of [
       ['wrong password', active.email, 'wrong-password-here'],
       ['unknown account', `nobody-${randomUUID()}@nap.test`, PASSWORD],
@@ -224,11 +222,16 @@ describe('login', () => {
         label
       ).toBe('UNAUTHENTICATED');
     expect(
-      await db.one(
-        'SELECT count(*)::int AS n FROM admin.sessions WHERE portal_user_id = ANY($1::uuid[])',
-        [[active.id, locked.id, disabled.id, archived.id]]
+      await db.sessions.countWhere(
+        {
+          portal_user_id: {
+            $in: [active.id, locked.id, disabled.id, archived.id],
+          },
+        },
+        'AND',
+        { includeDeactivated: true }
       )
-    ).toEqual({ n: 0 });
+    ).toBe(0);
   }, 30000);
 
   it('distinguishes failure reasons in the event stream and nowhere else', async () => {
@@ -297,9 +300,13 @@ describe('throttling', () => {
     // Five failures from one address against one account lock both
     // dimensions at once, so either key may be the one the refusal names —
     // only that it names one of the two, truthfully, matters here.
-    const [denied] = await db.any(
-      "SELECT details FROM admin.managed_events WHERE event_key='auth.login.throttled' ORDER BY occurred_at DESC,id DESC LIMIT 1"
-    );
+    const denied = (
+      await db.managed_events.findWhere(
+        { event_key: 'auth.login.throttled' },
+        'AND',
+        { columnWhitelist: ['details'], orderBy: ['occurred_at', 'id'] }
+      )
+    ).at(-1);
     expect([accountKey(user.email), addressKey(address)]).toContain(
       denied.details.throttle_key
     );
@@ -493,9 +500,9 @@ describe('password change', () => {
     expect(keys).toContain('auth.password.changed');
     expect(keys).toContain('session.revoked');
     expect(keys).toContain('session.rotated');
-    const [record] = await db.any(
-      "SELECT details FROM admin.managed_events WHERE event_key='auth.password.changed' AND actor_id=$1",
-      [user.id]
+    const record = await db.managed_events.findOneBy(
+      { event_key: 'auth.password.changed', actor_id: user.id },
+      { columnWhitelist: ['details'] }
     );
     expect(record.details).toEqual({ forced: true });
 
@@ -571,10 +578,7 @@ describe('password change', () => {
   it('refuses an account disabled after its session resolved', async () => {
     const user = await portalUser();
     const own = await signIn(user, '198.51.100.55');
-    await db.none(
-      "UPDATE admin.portal_users SET status='disabled' WHERE id=$1",
-      [user.id]
-    );
+    await db.portal_users.update(user.id, { status: 'disabled' });
     await expect(
       changePassword(db, policies, {
         session: own.session,
@@ -605,7 +609,7 @@ describe('stored and recorded secrets', () => {
     });
     for (let n = 0; n < MAX_FAILURES + 1; n += 1)
       await attempt(user.email, 'wrong-password-here', ADDRESS);
-    const rows = await db.any('SELECT * FROM admin.managed_events');
+    const rows = await db.managed_events.findWhere([]);
     const dump = JSON.stringify(rows);
     for (const secret of [
       PASSWORD,

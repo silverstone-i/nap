@@ -177,7 +177,7 @@ function fakeAdmin({
             found.access_expires_at.getTime() <= Date.now(),
         };
       },
-      findById: async id => {
+      findOneBy: async ({ id }) => {
         const found = [...sessionStore.values()].find(row => row.id === id);
         return found && !found.deactivated_at ? { ...found } : null;
       },

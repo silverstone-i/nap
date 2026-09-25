@@ -53,11 +53,12 @@ let handle, db;
  * @returns {Promise<string>} The portal-user UUID.
  */
 async function portalUser({ status = 'active', mustChange = false } = {}) {
-  const row = await db.one(
-    `INSERT INTO admin.portal_users(email,password_hash,status,must_change_password)
-     VALUES($1,'argon2id$placeholder',$2,$3) RETURNING id`,
-    [`user-${randomUUID()}@nap.test`, status, mustChange]
-  );
+  const row = await db.portal_users.insert({
+    email: `user-${randomUUID()}@nap.test`,
+    password_hash: 'argon2id$placeholder',
+    status,
+    must_change_password: mustChange,
+  });
   return row.id;
 }
 
@@ -66,10 +67,11 @@ async function portalUser({ status = 'active', mustChange = false } = {}) {
  * @returns {Promise<string>} The tenant UUID.
  */
 async function tenant() {
-  const row = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name,status) VALUES($1,'Tenant','active') RETURNING id",
-    ['T-' + randomUUID().slice(0, 8)]
-  );
+  const row = await db.tenants.insert({
+    tenant_code: 'T-' + randomUUID().slice(0, 8),
+    name: 'Tenant',
+    status: 'active',
+  });
   return row.id;
 }
 
@@ -79,13 +81,17 @@ async function tenant() {
  * @returns {Promise<string>} The Napsoft tenant UUID.
  */
 async function napsoftTenant() {
-  const existing = await db.oneOrNone(
-    'SELECT id FROM admin.tenants WHERE is_napsoft'
+  const existing = await db.tenants.findOneBy(
+    { is_napsoft: true },
+    { columnWhitelist: ['id'], includeDeactivated: true }
   );
   if (existing) return existing.id;
-  const row = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name,status,is_napsoft) VALUES('NAP','Napsoft','active',true) RETURNING id"
-  );
+  const row = await db.tenants.insert({
+    tenant_code: 'NAP',
+    name: 'Napsoft',
+    status: 'active',
+    is_napsoft: true,
+  });
   return row.id;
 }
 
@@ -95,7 +101,7 @@ async function napsoftTenant() {
  * @returns {Promise<object>}
  */
 function stored(id) {
-  return db.one('SELECT * FROM admin.sessions WHERE id=$1', [id]);
+  return db.sessions.findOneBy({ id }, { includeDeactivated: true });
 }
 
 /**
@@ -104,10 +110,16 @@ function stored(id) {
  * @returns {Promise<object[]>}
  */
 function eventsFor(id) {
-  return db.any(
-    'SELECT event_key,outcome,actor_id,tenant_id,details FROM admin.managed_events WHERE session_id=$1 ORDER BY occurred_at,id',
-    [id]
-  );
+  return db.managed_events.findWhere({ session_id: id }, 'AND', {
+    columnWhitelist: [
+      'event_key',
+      'outcome',
+      'actor_id',
+      'tenant_id',
+      'details',
+    ],
+    orderBy: ['occurred_at', 'id'],
+  });
 }
 
 /**
@@ -116,11 +128,11 @@ function eventsFor(id) {
  * @returns {Promise<string>} Decimal revision, `'0'` when unstored.
  */
 async function revisionOf(id) {
-  const row = await db.oneOrNone(
-    "SELECT revision::text AS revision FROM admin.cache_revisions WHERE domain='session' AND entity=$1",
-    [id]
+  const row = await db.cache_revisions.findOneBy(
+    { domain: 'session', entity: id },
+    { columnWhitelist: ['revision'] }
   );
-  return row?.revision ?? '0';
+  return row ? String(row.revision) : '0';
 }
 
 /**
@@ -207,10 +219,9 @@ describe('creation', () => {
     for (let index = 0; index < MAX_ACTIVE_SESSIONS + 2; index += 1)
       created.push(await createSession(db, policy, { portalUserId: user }));
 
-    const live = await db.any(
-      'SELECT id FROM admin.sessions WHERE portal_user_id=$1 AND deactivated_at IS NULL',
-      [user]
-    );
+    const live = await db.sessions.findWhere({ portal_user_id: user }, 'AND', {
+      columnWhitelist: ['id'],
+    });
     expect(live).toHaveLength(MAX_ACTIVE_SESSIONS);
     for (const evicted of created.slice(0, 2)) {
       expect((await stored(evicted.session.id)).deactivated_at).not.toBeNull();
@@ -234,9 +245,9 @@ describe('creation', () => {
       abandoned.push(await createSession(db, policy, { portalUserId: user }));
     // Every session but the oldest has gone idle. The user still holds one
     // usable session, so a new login needs no room made for it.
-    await db.none(
-      "UPDATE admin.sessions SET idle_expires_at=now() - interval '1 second' WHERE id IN ($1:csv)",
-      [abandoned.map(session => session.session.id)]
+    await db.sessions.updateWhere(
+      { id: { $in: abandoned.map(session => session.session.id) } },
+      { idle_expires_at: new Date(Date.now() - 60_000) }
     );
 
     await createSession(db, policy, { portalUserId: user });
@@ -266,7 +277,10 @@ describe('creation', () => {
       })
     ).rejects.toThrow();
     expect(
-      await db.oneOrNone('SELECT id FROM admin.sessions WHERE id=$1', [id])
+      await db.sessions.findOneBy(
+        { id },
+        { columnWhitelist: ['id'], includeDeactivated: true }
+      )
     ).toBeNull();
   });
 
@@ -285,10 +299,7 @@ describe('resolution', () => {
     expect(resolved.id).toBe(created.session.id);
     expect(resolved.restricted).toBe(true);
 
-    await db.none(
-      'UPDATE admin.portal_users SET must_change_password=false WHERE id=$1',
-      [user]
-    );
+    await db.portal_users.update(user, { must_change_password: false });
     expect((await resolveSession(db, policy, created.token)).restricted).toBe(
       false
     );
@@ -312,10 +323,9 @@ describe('resolution', () => {
   it('archives and records a session past its idle limit', async () => {
     const user = await portalUser();
     const created = await createSession(db, policy, { portalUserId: user });
-    await db.none(
-      "UPDATE admin.sessions SET idle_expires_at=now() - interval '1 second' WHERE id=$1",
-      [created.session.id]
-    );
+    await db.sessions.update(created.session.id, {
+      idle_expires_at: new Date(Date.now() - 60_000),
+    });
     await expect(
       resolveSession(db, policy, created.token)
     ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
@@ -329,13 +339,10 @@ describe('resolution', () => {
   it('archives a session past its absolute limit even while recently seen', async () => {
     const user = await portalUser();
     const created = await createSession(db, policy, { portalUserId: user });
-    await db.none(
-      `UPDATE admin.sessions
-          SET absolute_expires_at=now() - interval '1 second',
-              idle_expires_at=now() - interval '1 second'
-        WHERE id=$1`,
-      [created.session.id]
-    );
+    await db.sessions.update(created.session.id, {
+      absolute_expires_at: new Date(Date.now() - 60_000),
+      idle_expires_at: new Date(Date.now() - 60_000),
+    });
     await expect(
       resolveSession(db, policy, created.token)
     ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
@@ -344,12 +351,12 @@ describe('resolution', () => {
 
   it('revokes the session of an account that is no longer eligible', async () => {
     for (const change of [
-      "UPDATE admin.portal_users SET status='disabled' WHERE id=$1",
-      'UPDATE admin.portal_users SET deactivated_at=now() WHERE id=$1',
+      user => db.portal_users.update(user, { status: 'disabled' }),
+      user => db.portal_users.removeWhere({ id: user }),
     ]) {
       const user = await portalUser();
       const created = await createSession(db, policy, { portalUserId: user });
-      await db.none(change, [user]);
+      await change(user);
       await expect(
         resolveSession(db, policy, created.token)
       ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
@@ -373,10 +380,9 @@ describe('resolution', () => {
       before.last_seen_at
     );
 
-    await db.none(
-      "UPDATE admin.sessions SET last_seen_at=now() - interval '6 minutes' WHERE id=$1",
-      [created.session.id]
-    );
+    await db.sessions.update(created.session.id, {
+      last_seen_at: new Date(Date.now() - 6 * 60_000),
+    });
     await resolveSession(db, policy, created.token);
     const after = await stored(created.session.id);
     expect(after.last_seen_at.getTime()).toBeGreaterThan(
@@ -393,14 +399,11 @@ describe('resolution', () => {
   it('never extends idle expiry past absolute expiry', async () => {
     const user = await portalUser();
     const created = await createSession(db, policy, { portalUserId: user });
-    await db.none(
-      `UPDATE admin.sessions
-          SET absolute_expires_at=now() + interval '2 minutes',
-              idle_expires_at=now() + interval '1 minute',
-              last_seen_at=now() - interval '6 minutes'
-        WHERE id=$1`,
-      [created.session.id]
-    );
+    await db.sessions.update(created.session.id, {
+      absolute_expires_at: new Date(Date.now() + 2 * 60_000),
+      idle_expires_at: new Date(Date.now() + 60_000),
+      last_seen_at: new Date(Date.now() - 6 * 60_000),
+    });
     const resolved = await resolveSession(db, policy, created.token);
     expect(new Date(resolved.idleExpiresAt).getTime()).toBeLessThanOrEqual(
       new Date(resolved.absoluteExpiresAt).getTime()
@@ -447,14 +450,13 @@ describe('rotation', () => {
     const operator = await portalUser();
     const target = await tenant();
     const created = await createSession(db, policy, { portalUserId: user });
-    await db.none(
-      `UPDATE admin.sessions
-          SET tenant_id=$2, access_mode='support', effective_user_id=$3,
-              access_reason='investigating a reported posting error',
-              access_expires_at=now() + interval '30 minutes'
-        WHERE id=$1`,
-      [created.session.id, target, operator]
-    );
+    await db.sessions.update(created.session.id, {
+      tenant_id: target,
+      access_mode: 'support',
+      effective_user_id: operator,
+      access_reason: 'investigating a reported posting error',
+      access_expires_at: new Date(Date.now() + 30 * 60_000),
+    });
     const rotated = await rotateSession(db, policy, created.token);
     expect(rotated.session).toMatchObject({
       tenant: target,
@@ -470,10 +472,9 @@ describe('rotation', () => {
   it('refuses to rotate an expired or revoked token', async () => {
     const user = await portalUser();
     const expired = await createSession(db, policy, { portalUserId: user });
-    await db.none(
-      "UPDATE admin.sessions SET idle_expires_at=now() - interval '1 second' WHERE id=$1",
-      [expired.session.id]
-    );
+    await db.sessions.update(expired.session.id, {
+      idle_expires_at: new Date(Date.now() - 60_000),
+    });
     await expect(
       rotateSession(db, policy, expired.token)
     ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
@@ -555,10 +556,7 @@ describe('revocation', () => {
     const permitted = await createSession(db, policy, {
       portalUserId: await portalUser(),
     });
-    await db.none('UPDATE admin.sessions SET tenant_id=$2 WHERE id=$1', [
-      permitted.session.id,
-      other,
-    ]);
+    await db.sessions.update(permitted.session.id, { tenant_id: other });
     expect(
       await revokeSession(
         db,
@@ -570,10 +568,7 @@ describe('revocation', () => {
     const denied = await createSession(db, policy, {
       portalUserId: await portalUser(),
     });
-    await db.none('UPDATE admin.sessions SET tenant_id=$2 WHERE id=$1', [
-      denied.session.id,
-      napsoft,
-    ]);
+    await db.sessions.update(denied.session.id, { tenant_id: napsoft });
     await expect(
       revokeSession(
         db,
@@ -597,10 +592,7 @@ describe('revocation', () => {
     const denied = await createSession(db, policy, {
       portalUserId: await portalUser(),
     });
-    await db.none('UPDATE admin.sessions SET tenant_id=$2 WHERE id=$1', [
-      denied.session.id,
-      napsoft,
-    ]);
+    await db.sessions.update(denied.session.id, { tenant_id: napsoft });
     const support = operatorScope([napsoft]);
     const missing = await revokeSession(
       db,
@@ -666,9 +658,7 @@ describe('credentials', () => {
     const rotated = await rotateSession(db, policy, created.token);
     await logoutSession(db, policy, rotated.token);
     const stream = JSON.stringify(
-      await db.any('SELECT * FROM admin.managed_events WHERE session_id=$1', [
-        created.session.id,
-      ])
+      await db.managed_events.findWhere({ session_id: created.session.id })
     );
     for (const secret of [
       created.token,

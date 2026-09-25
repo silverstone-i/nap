@@ -384,25 +384,6 @@ export class Sessions extends TableModel {
   }
 
   /**
-   * Read a live session's current safe view by identifier.
-   *
-   * Used by `resolveSession` when it loses a race to downgrade an
-   * expired-access support session to another concurrent request: that
-   * request's rotation already committed, so this reads the result by `id`
-   * rather than by a token hash that no longer matches anything.
-   * @param {string} id
-   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
-   * @returns {Promise<object|null>} Safe session view, or `null` if archived or missing.
-   */
-  async findById(id, { tx } = {}) {
-    return (tx ?? this.db).oneOrNone(
-      `SELECT ${viewColumns} FROM ${table(this)} AS s
-        WHERE s.id=$1 AND s.deactivated_at IS NULL`,
-      [id]
-    );
-  }
-
-  /**
    * Archive one session by identifier.
    * @param {string} id
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
