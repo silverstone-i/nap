@@ -39,7 +39,7 @@ const asApp = async operation => {
 };
 const setIdentity = row =>
   db.tx(async tx => {
-    await db.physical_identity.deleteWhere({ environment: 'test' }, { tx });
+    await db.physical_identity.deleteWhere({ cell_id: { $not: null } }, { tx });
     if (row)
       await db.physical_identity.record(
         {
