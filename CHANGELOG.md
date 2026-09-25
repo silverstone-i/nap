@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.18.0] - 2026-09-25
+
 ### Added
 
 - Add cell provisioning (I0003): a worker inside the API takes a registered cell through setup, migration, seed, and activation with no restart. Locally it creates the cell database on the admin server; in production it creates one Render Postgres instance per cell. Activation saves the cell's connection to `CELL_DATABASES_<ENV>`, and the first provisioned cell becomes the Napsoft tenant's cell, so root can select Napsoft.
