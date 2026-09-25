@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.18.2] - 2026-09-25
+
 ### Changed
 
 - Read and write tables through the pg-schemata models instead of raw SQL in the integration tests and three model methods (`cell_provisioning.hasActive` and `requeueRunning`, and the removed `sessions.findById`). Raw SQL remains only where no model applies: role and database setup, catalog checks, and tests that prove the database rejects invalid writes.
