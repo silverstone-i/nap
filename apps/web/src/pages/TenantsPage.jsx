@@ -62,7 +62,7 @@ export function TenantsPage() {
     setSelectingId(tenant.id);
     try {
       await session.selectTenant(tenant.id, tenant);
-      navigate(`/app/${tenant.id}`, { replace: true });
+      navigate('/home', { replace: true });
     } catch {
       setSelectError(
         'This tenant is no longer available. Choose another tenant.'

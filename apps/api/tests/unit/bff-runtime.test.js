@@ -56,7 +56,7 @@ it('fails startup when the production build is absent', () =>
   expect(() => createApp({ webRoot: '/definitely-missing-nap-build' })).toThrow(
     'Built web client is unavailable'
   ));
-it('loads production runtime credentials without requiring a maintenance password', () => {
+it('loads production runtime and provisioning credentials', () => {
   const env = {
     NODE_ENV: 'production',
     TRUST_PROXY_HOPS_PROD: '1',
@@ -66,7 +66,15 @@ it('loads production runtime credentials without requiring a maintenance passwor
     ADMIN_DATABASE_PROD: JSON.stringify({
       endpoint: 'db.example/nap_prod_admin',
       appPassword: 'runtime-secret',
+      adminPassword: 'provisioning-secret',
     }),
+    RENDER_API_KEY: 'render-key',
+    RENDER_WORKSPACE_ID: 'workspace',
+    RENDER_API_SERVICE_ID: 'service',
+    RENDER_REGION: 'oregon',
+    RENDER_POSTGRES_VERSION: '18',
+    RENDER_POSTGRES_PLAN: 'basic_256mb',
+    RENDER_DISK_GB: '5',
   };
   const c = runtimeConfiguration(env);
   expect(c.admin).toContain('nap-app:');
@@ -195,4 +203,67 @@ it('closes the pool when the listener cannot bind', async () => {
   ).rejects.toThrow('API failed to listen');
   expect(admin.close).toHaveBeenCalledOnce();
   expect(runtime.server.listening).toBe(false);
+});
+it('reads the cell connection map and provisioning settings (I0003-R014, R037)', () => {
+  const cell = '6f1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';
+  const test = {
+    NODE_ENV: 'test',
+    ADMIN_DATABASE_TEST: 'db.example/nap_test_admin',
+    NAP_APP_PSWD_TEST: 'runtime-secret',
+    SESSION_SECRET_TEST: 'test-session-secret-of-ample-length-here',
+    AUTH_THROTTLE_SECRET_TEST: 'test-throttle-secret-of-ample-length-here',
+    APP_ORIGIN_TEST: 'http://localhost:5173',
+  };
+  expect(runtimeConfiguration(test).cells).toEqual({});
+  expect(runtimeConfiguration(test).provisioning).toBeNull();
+  expect(
+    runtimeConfiguration({
+      ...test,
+      CELL_DATABASES_TEST: JSON.stringify({ [cell]: 'db.example/nap_cell_1' }),
+    }).cells
+  ).toEqual({
+    [cell]: {
+      endpoint: 'db.example/nap_cell_1',
+      appPassword: 'runtime-secret',
+    },
+  });
+  for (const value of [
+    'not-json',
+    '[]',
+    JSON.stringify({ 'not-a-uuid': 'db.example/nap_cell_1' }),
+    JSON.stringify({ [cell]: '' }),
+  ]) {
+    let error;
+    try {
+      runtimeConfiguration({ ...test, CELL_DATABASES_TEST: value });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error?.code).toBe('INVALID_CONFIGURATION');
+    expect(error?.setting).toBe('CELL_DATABASES_TEST');
+  }
+
+  const dev = {
+    ...Object.fromEntries(
+      Object.entries(test)
+        .filter(([key]) => key !== 'NODE_ENV')
+        .map(([key, value]) => [key.replace(/_TEST$/, '_DEV'), value])
+    ),
+    NODE_ENV: 'development',
+    SETUP_DATABASE_DEV: 'db.example/postgres',
+  };
+  expect(() => runtimeConfiguration(dev)).toThrow('INVALID_CONFIGURATION');
+  const provisioning = runtimeConfiguration({
+    ...dev,
+    NAP_ADMIN_PSWD_DEV: 'admin-secret',
+    NAP_PROVISION_STATE: '/private/state.json',
+    NAP_ENV_FILE: '/private/.env',
+  }).provisioning;
+  expect(provisioning).toEqual({
+    adminPassword: 'admin-secret',
+    appPassword: 'runtime-secret',
+    setup: 'db.example/postgres',
+    stateFile: '/private/state.json',
+    envFile: '/private/.env',
+  });
 });

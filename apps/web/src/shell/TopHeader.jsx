@@ -16,7 +16,7 @@ import { ProfileMenu } from './ProfileMenu.jsx';
 
 /**
  * The shell's top header: a hamburger control that toggles navigation at
- * every width, a tenant/operator label immediately to its right, and the
+ * every width, the tenant control immediately to its right, and the
  * profile menu (I0001-R009). Spans the full width, with the nav and work
  * area sitting in the row below it — see `AppShell`.
  * @param {{onMenuClick: () => void}} props
@@ -53,13 +53,13 @@ export function TopHeader({ onMenuClick }) {
           >
             {session.selectedTenant.name}
           </Button>
-        ) : session.operator && session.entryPoints?.tenant ? (
+        ) : session.entryPoints?.tenant ? (
           <Button
             variant="text"
             onClick={() => navigate('/tenants')}
-            aria-label={`${session.operator.name}. Open tenant selection.`}
+            aria-label="No tenant selected. Open tenant selection."
           >
-            {session.operator.name}
+            Select tenant
           </Button>
         ) : session.operator ? (
           <Typography variant="body2" color="text.secondary">

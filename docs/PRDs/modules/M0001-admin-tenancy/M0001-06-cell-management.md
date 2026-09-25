@@ -180,7 +180,7 @@ implementation to the PRD text:
 - `getCellReadiness` reports runtime readiness through an optional
   collaborator that nothing yet supplies, so it honestly answers
   `{ ready: false, checked: false }` rather than fabricating a pass.
-  [I0003: Runtime Cell Registry And Routing](../../inter-module-workflows/I0003-runtime-cell-registry.md)
+  [I0003: Cell Provisioning](../../inter-module-workflows/I0003-cell-provisioning.md)
   (Draft) will supply the `runtime.readiness(cellId)` collaborator. Building
   the registry is infrastructure work this PRD excludes ("Physical database setup, migration, seed, and activation");
   Cross-Module Interactions confirms "Runtime readiness remains an

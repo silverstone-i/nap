@@ -17,8 +17,10 @@ Render API key under your account settings. See
 
 The service runs the BFF and serves the built React app and API from the same
 origin. Startup requires the Admin schema and safe `nap-app` credentials;
-`/health/ready` checks that connection and required table access. Runtime cell
-routing remains later work ([I0003](../PRDs/inter-module-workflows/I0003-runtime-cell-registry.md)).
+`/health/ready` checks that connection and required table access. Cells are
+provisioned by a worker inside the API
+([I0003](../PRDs/inter-module-workflows/I0003-cell-provisioning.md)); see
+[Provision cells](#provision-cells).
 
 The first deployment cannot become ready before Admin setup and migration.
 Record the service ID, complete the commands below, then manually deploy again.
@@ -90,6 +92,29 @@ navigation to an application route must also serve the SPA. Static assets come
 from `apps/web/dist`, produced by the Blueprint's build command. A missing web
 build or unsafe/unavailable Admin database prevents startup. Runtime never runs
 setup or migrations.
+
+## Provision cells
+
+Register a cell on the Cells screen. The API's worker then creates one Render
+Postgres instance for it, named `nap-cell-<cell-id>`, migrates it, and
+activates it. The first cell becomes the Napsoft tenant's cell.
+
+The service needs `RENDER_API_KEY`, `RENDER_WORKSPACE_ID`, and
+`RENDER_API_SERVICE_ID` (declared `sync: false` in the Blueprint), the Render
+database settings above, and `adminPassword` in `ADMIN_DATABASE_PROD`. Startup
+fails with `INVALID_CONFIGURATION` when any is missing.
+
+The worker keeps each cell's instance ID and generated role passwords in the
+service variable `NAP_PROVISION_STATE_PROD`, and publishes the cell's
+connection to `CELL_DATABASES_PROD`. Back up both privately; do not edit them
+while a job runs. The running API serves a new cell at once; a later deploy
+reads it from `CELL_DATABASES_PROD`.
+
+A job that fails shows its failure code on the Cells screen; fix the cause and
+choose Retry. `CREATE_OUTCOME_UNKNOWN` means a create request got no answer:
+check the Render dashboard for `nap-cell-<cell-id>` before retrying.
+`TARGET_NOT_OWNED` means an instance with that name exists but was not created
+by this job; it is never adopted.
 
 ## Failure recovery and upgrades
 

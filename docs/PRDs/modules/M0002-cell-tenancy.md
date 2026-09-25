@@ -64,7 +64,7 @@ Rules that apply to the copied tables (`tenants`, `tenant_members`,
 M0002 owns the `cell` tables and the checks on them. Work that uses those
 tables across the admin database, a worker, the registry, or tenant routes is
 an inter-module workflow, not an M0002 Work Unit: the runtime cell registry is
-[I0003](../inter-module-workflows/I0003-runtime-cell-registry.md), and the rest are listed
+[I0003](../inter-module-workflows/I0003-cell-provisioning.md), and the rest are listed
 under Out of scope.
 
 ### M0002-01: Cell database foundation (large)
@@ -141,7 +141,7 @@ Cell Tenancy is complete when Work Units 01 and 02 are complete.
 These build on the `cell` tables. Each needs its own PRD, other than I0003,
 before it is built:
 
-- Runtime cell registry: [I0003](../inter-module-workflows/I0003-runtime-cell-registry.md).
+- Cell provisioning and the runtime cell registry: [I0003](../inter-module-workflows/I0003-cell-provisioning.md).
 - Tenant context: `withTenantTransaction(request, work)`, the entry point every
   tenant route uses. It gets the cell connection from I0003, sets
   `nap.tenant_id`, `nap.actor_id`, and `nap.effective_user_id` for that
@@ -149,9 +149,8 @@ before it is built:
   not active in `cell.tenants`, and makes support sessions that are not acting
   as a user read-only. Needs tenant sync first; an inter-module workflow.
 
-- Cell health and hot add: rechecking a cell's readiness after startup,
-  returning a recovered cell to service, and adding a newly provisioned cell
-  without an API restart. Extends the [I0003](../inter-module-workflows/I0003-runtime-cell-registry.md)
+- Cell health: rechecking a cell's readiness after startup and returning a
+  recovered cell to service. Extends the [I0003](../inter-module-workflows/I0003-cell-provisioning.md)
   runtime registry; owns no cell-tenancy table, so it is an inter-module workflow, not an
   M0002 Work Unit.
 - Cell readiness and shell context: reporting the physical identity check and

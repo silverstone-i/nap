@@ -114,4 +114,29 @@ export class CellProvisioning extends TableModel {
       [operationId]
     );
   }
+  /**
+   * Lock and return the oldest queued operation, skipping rows another
+   * transaction already holds, so two workers never claim the same job
+   * (I0003-R004).
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockNextQueued({ tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE status='queued'
+       ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`
+    );
+  }
+
+  /**
+   * Return every `running` operation to `queued`, so a crashed or stopped
+   * worker never strands a job (I0003-R002).
+   * @returns {Promise<number>} Rows requeued.
+   */
+  async requeueRunning() {
+    const result = await this.db.result(
+      `UPDATE ${table(this)} SET status='queued' WHERE status='running'`
+    );
+    return result.rowCount;
+  }
 }

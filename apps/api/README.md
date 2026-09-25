@@ -3,8 +3,9 @@
 Express backend-for-frontend (BFF) for NAP. It owns the admin database
 connection, the health routes, browser sessions, the admin-tenancy routes, and
 the maintenance commands that set up, migrate, and bootstrap the admin
-database. Runtime cell routing is future work; see
-[I0003](../../docs/PRDs/inter-module-workflows/I0003-runtime-cell-registry.md).
+database. In `dev` and `prod` it also runs the cell provisioning worker and
+holds the runtime cell registry; see
+[I0003](../../docs/PRDs/inter-module-workflows/I0003-cell-provisioning.md).
 
 ## Layout
 
@@ -15,9 +16,10 @@ database. Runtime cell routing is future work; see
 | `app.js`, `server.js`          | Express app factory and the process entry point.                                                                                      |
 | `application/shared/`          | Environment loading, endpoint validation, runtime configuration, and `MaintenanceError`.                                              |
 | `application/maintenance/`     | Setup, migrate, bootstrap, and cell-migration operations.                                                                             |
-| `application/runtime/`         | HTTP runtime: startup, readiness, and drained shutdown.                                                                               |
-| `infrastructure/provisioning/` | Local PostgreSQL setup, Render provisioning, and the private state file.                                                              |
-| `infrastructure/runtime/`      | Admin database handle and the runtime readiness check.                                                                                |
+| `application/runtime/`         | HTTP runtime: startup, readiness, background services, and drained shutdown.                                                          |
+| `application/provisioning/`    | Cell provisioning worker, its four stages, and root tenant setup.                                                                     |
+| `infrastructure/provisioning/` | Local PostgreSQL setup, Render provisioning, cell drivers, connection publishing, and the private state file.                         |
+| `infrastructure/runtime/`      | Admin and cell database handles, the runtime readiness check, and the runtime cell registry.                                          |
 | `modules/admin.js`             | Admin module registry and its validation.                                                                                             |
 | `modules/admin-tenancy/`       | Fourteen table models, repositories, the baseline migration, trigger bodies, contract verification, domain rules, and the v1 routers. |
 | `modules/cell.js`              | Cell module registry and its validation.                                                                                              |

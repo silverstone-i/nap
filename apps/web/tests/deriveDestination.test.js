@@ -17,14 +17,14 @@ describe('deriveDestination', () => {
     ).toBe('/password');
   });
 
-  it('routes a valid selected tenant to its shell', () => {
+  it('routes a valid selected tenant to Home', () => {
     expect(
       deriveDestination({
         status: 'ready',
         selectedTenant: { id: 'tenant-1' },
         entryPoints: { platform: false, tenant: true },
       })
-    ).toBe('/app/tenant-1');
+    ).toBe('/home');
   });
 
   it('routes to tenant selection when eligible tenants exist and none is selected', () => {
@@ -37,24 +37,24 @@ describe('deriveDestination', () => {
     ).toBe('/tenants');
   });
 
-  it('routes to the platform shell when only platform entry is available', () => {
+  it('routes management access to Home with no tenant selected', () => {
     expect(
       deriveDestination({
         status: 'ready',
         selectedTenant: null,
         entryPoints: { platform: true, tenant: false },
       })
-    ).toBe('/management');
+    ).toBe('/home');
   });
 
-  it('prefers a selected tenant over platform entry', () => {
+  it('sends management access to Home rather than tenant selection', () => {
     expect(
       deriveDestination({
         status: 'ready',
-        selectedTenant: { id: 'tenant-1' },
+        selectedTenant: null,
         entryPoints: { platform: true, tenant: true },
       })
-    ).toBe('/app/tenant-1');
+    ).toBe('/home');
   });
 
   it('returns null when nothing is available', () => {

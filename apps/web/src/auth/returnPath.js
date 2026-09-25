@@ -18,8 +18,7 @@ const STORAGE_KEY = 'nap.returnPath';
  * routes. Anything else (a scheme, a host, `//evil.example`, an unknown
  * path) is rejected outright.
  */
-const SAFE_PATH_PATTERN =
-  /^\/(app\/[^/]+(?:\/.*)?|management(?:\/.*)?|tenants|password)$/;
+const SAFE_PATH_PATTERN = /^\/(home|management\/.+|tenants|password)$/;
 
 /**
  * Whether `path` is a safe, normalized, same-origin application path.
@@ -68,8 +67,8 @@ export function consumeReturnPath() {
 /**
  * Re-authorize a consumed return path against the freshly loaded access
  * context before navigating there (I0001-R005: "must authorize it again
- * before returning"). A path for a tenant shell or platform area the
- * caller no longer has is discarded, never trusted at face value.
+ * before returning"). A path to Home or a management page the caller no
+ * longer has access to is discarded, never trusted at face value.
  * @param {string|null} path
  * @param {{selectedTenant?: {id: string}|null, entryPoints?: {platform?: boolean, tenant?: boolean}|null}} session
  * @returns {string|null}
@@ -78,12 +77,12 @@ export function reauthorizeReturnPath(path, session) {
   if (!isSafeReturnPath(path)) return null;
   if (path === '/tenants') return session.entryPoints?.tenant ? path : null;
   if (path === '/password') return path;
-  if (path.startsWith('/management'))
+  if (path === '/home')
+    return session.selectedTenant || session.entryPoints?.platform
+      ? path
+      : null;
+  if (path.startsWith('/management/'))
     return session.entryPoints?.platform ? path : null;
-  if (path.startsWith('/app/')) {
-    const [, , tenantId] = path.split('/');
-    return session.selectedTenant?.id === tenantId ? path : null;
-  }
   return null;
 }
 

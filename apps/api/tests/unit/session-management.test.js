@@ -687,7 +687,15 @@ describe('session configuration', () => {
       ADMIN_DATABASE_PROD: JSON.stringify({
         endpoint: 'db.example/nap_prod_admin',
         appPassword: 'runtime-secret',
+        adminPassword: 'provisioning-secret',
       }),
+      RENDER_API_KEY: 'render-key',
+      RENDER_WORKSPACE_ID: 'workspace',
+      RENDER_API_SERVICE_ID: 'service',
+      RENDER_REGION: 'oregon',
+      RENDER_POSTGRES_VERSION: '18',
+      RENDER_POSTGRES_PLAN: 'basic_256mb',
+      RENDER_DISK_GB: '5',
     };
     expect(runtimeConfiguration(production).cookie).toEqual({
       secure: true,

@@ -385,18 +385,77 @@ export async function disableCell(
   );
 }
 
+/**
+ * Queue re-activation of a disabled, fully provisioned cell.
+ *
+ * I0003-R027/R028. Only a disabled cell whose last job is `completed` can be
+ * activated; the worker then runs the activation stage alone, reusing the
+ * saved connection.
+ * @param {AdminCellsDb} db
+ * @param {unknown} authority
+ * @param {unknown} cellId
+ * @param {{requestId?: string|null}} [context]
+ * @returns {Promise<object>} Safe operation view.
+ * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function activateCell(
+  db,
+  authority,
+  cellId,
+  { requestId = null } = {}
+) {
+  const granted = requireGranted(authority);
+  const id = parseUuidOrControl(cellId);
+  return withControlErrors(() =>
+    db.tx(async tx => {
+      const operation = await db.cell_provisioning.lockByCellId(id, { tx });
+      if (!operation) throw new AdminControlError('NOT_FOUND');
+      if (await affectsDeniedTenant(db, granted.deniedTenantIds, id))
+        throw new AdminControlError('FORBIDDEN');
+      const cell = await db.cells.findOneBy({ id }, { tx });
+      if (!cell || cell.enabled || operation.status !== 'completed')
+        throw new AdminControlError('INVALID_STATE');
+      const updated = await db.cell_provisioning.update(
+        operation.id,
+        {
+          requested_action: 'activate',
+          stage: 'activation',
+          status: 'queued',
+          failure_code: null,
+          started_at: null,
+          completed_at: null,
+        },
+        { tx }
+      );
+      await appendCellEvent(
+        db,
+        {
+          event_key: 'cell.activate.requested',
+          outcome: 'succeeded',
+          request_id: requestId,
+          actor_id: granted.actorId,
+          target_id: id,
+        },
+        tx
+      );
+      return operationView(updated);
+    })
+  );
+}
+
 const provisionCommandSchema = z.discriminatedUnion('operation', [
   z.strictObject({ operation: z.literal('cell-retry'), cell: z.uuid() }),
   z.strictObject({ operation: z.literal('cell-disable'), cell: z.uuid() }),
+  z.strictObject({ operation: z.literal('cell-activate'), cell: z.uuid() }),
 ]);
 
 /**
  * Validate and dispatch a `POST /control/provision` command.
  * @param {AdminCellsDb} db
  * @param {unknown} authority
- * @param {unknown} body `{operation: 'cell-retry'|'cell-disable', cell}`
+ * @param {unknown} body `{operation: 'cell-retry'|'cell-disable'|'cell-activate', cell}`
  * @param {{requestId?: string|null}} [context]
- * @returns {Promise<object>} A safe operation view for `cell-retry`, a safe cell view for `cell-disable`.
+ * @returns {Promise<object>} A safe operation view for `cell-retry` and `cell-activate`, a safe cell view for `cell-disable`.
  * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function executeProvisionCommand(
@@ -410,7 +469,60 @@ export async function executeProvisionCommand(
   const command = result.data;
   if (command.operation === 'cell-retry')
     return retryCellProvisioning(db, authority, command.cell, { requestId });
+  if (command.operation === 'cell-activate')
+    return activateCell(db, authority, command.cell, { requestId });
   return disableCell(db, authority, command.cell, { requestId });
+}
+
+/**
+ * Move a locked, queued operation to `running` (I0003 §8).
+ *
+ * A `provision` job starts at `setup`; an `activate` job starts at
+ * `activation`. Attempts are counted by retry, not here (M0001-06 §13). A job returned to
+ * `queued` mid-stage by a stopped worker restarts from `setup`, because every
+ * stage reuses work it already did.
+ * @param {AdminCellsDb} db
+ * @param {object} operation Row locked in `tx`.
+ * @param {import('pg-promise').IDatabase<unknown>} tx
+ * @returns {Promise<object>} The updated row.
+ * @throws {AdminControlError} `INVALID_STATE`
+ */
+async function startOperation(db, operation, tx) {
+  if (operation.status !== 'queued')
+    throw new AdminControlError('INVALID_STATE');
+  if (operation.requested_action === 'activate') {
+    if (operation.stage !== 'activation')
+      throw new AdminControlError('INVALID_STATE');
+    return db.cell_provisioning.update(
+      operation.id,
+      { status: 'running', started_at: new Date() },
+      { tx }
+    );
+  }
+  return db.cell_provisioning.update(
+    operation.id,
+    { stage: 'setup', status: 'running', started_at: new Date() },
+    { tx }
+  );
+}
+
+/**
+ * Claim the next queued job for the in-process worker (I0003-R004).
+ *
+ * The claim and the move to `running` share one transaction, and the lock
+ * skips rows another worker holds, so two API instances never run the same
+ * job.
+ * @param {AdminCellsDb} db
+ * @returns {Promise<object|null>} Safe operation view, or null when none is queued.
+ */
+export async function claimCellProvisioning(db) {
+  return withControlErrors(() =>
+    db.tx(async tx => {
+      const operation = await db.cell_provisioning.lockNextQueued({ tx });
+      if (!operation) return null;
+      return operationView(await startOperation(db, operation, tx));
+    })
+  );
 }
 
 const transitionSchema = z.discriminatedUnion('kind', [
@@ -437,10 +549,18 @@ const transitionSchema = z.discriminatedUnion('kind', [
  * @param {AdminCellsDb} db
  * @param {unknown} operationId
  * @param {unknown} transition One of the shapes `transitionSchema` accepts.
+ * @param {{onCompleted?: (tx: object, operation: object) => Promise<void>}} [hooks]
+ *   `onCompleted` runs inside the transaction that completes the job, so a
+ *   caller's write commits or rolls back with the completion (I0003-R024.1).
  * @returns {Promise<object>} Safe operation view.
  * @throws {AdminControlError} `INVALID_INPUT`, `NOT_FOUND`, `INVALID_STATE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
-export async function advanceCellProvisioning(db, operationId, transition) {
+export async function advanceCellProvisioning(
+  db,
+  operationId,
+  transition,
+  { onCompleted } = {}
+) {
   const id = parseUuidOrControl(operationId);
   const result = transitionSchema.safeParse(transition);
   if (!result.success) throw new AdminControlError('INVALID_INPUT');
@@ -452,16 +572,8 @@ export async function advanceCellProvisioning(db, operationId, transition) {
       });
       if (!operation) throw new AdminControlError('NOT_FOUND');
 
-      if (parsed.kind === 'started') {
-        if (operation.status !== 'queued' || operation.stage !== 'registered')
-          throw new AdminControlError('INVALID_STATE');
-        const updated = await db.cell_provisioning.update(
-          operation.id,
-          { stage: 'setup', status: 'running', started_at: new Date() },
-          { tx }
-        );
-        return operationView(updated);
-      }
+      if (parsed.kind === 'started')
+        return operationView(await startOperation(db, operation, tx));
 
       if (operation.status !== 'running')
         throw new AdminControlError('INVALID_STATE');
@@ -510,6 +622,7 @@ export async function advanceCellProvisioning(db, operationId, transition) {
         { tx }
       );
       await db.cells.update(operation.cell_id, { enabled: true }, { tx });
+      if (onCompleted) await onCompleted(tx, operation);
       await appendCellEvent(
         db,
         {

@@ -49,9 +49,10 @@ function sendControlError(response, error) {
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {'dev'|'test'|'prod'} context.environment The running API's own configured environment.
+ * @param {{readiness: Function, markDisabled: Function}} [context.runtime] Runtime cell registry (I0003-R020, R021).
  * @returns {import('express').Router}
  */
-export function createControlRouter({ admin, environment }) {
+export function createControlRouter({ admin, environment, runtime }) {
   const router = Router();
 
   router.post('/registry', requireSession(), async (request, response) => {
@@ -87,6 +88,9 @@ export function createControlRouter({ admin, environment }) {
         request.body,
         { requestId: request.requestId }
       );
+      // I0003-R021: a disabled cell stops serving at once, not at restart.
+      if (request.body?.operation === 'cell-disable')
+        runtime?.markDisabled(request.body.cell);
       sendData(response, result);
     } catch (error) {
       sendControlError(response, error);
@@ -123,7 +127,8 @@ export function createControlRouter({ admin, environment }) {
       const result = await getCellReadiness(
         admin.db,
         authority,
-        request.query.cell
+        request.query.cell,
+        { runtime }
       );
       sendData(response, result);
     } catch (error) {

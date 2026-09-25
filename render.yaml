@@ -26,3 +26,10 @@ services:
         value: basic_256mb
       - key: RENDER_DISK_GB
         value: '1'
+      # The in-API cell provisioning worker (I0003-R037). Set privately.
+      - key: RENDER_API_KEY
+        sync: false
+      - key: RENDER_WORKSPACE_ID
+        sync: false
+      - key: RENDER_API_SERVICE_ID
+        sync: false

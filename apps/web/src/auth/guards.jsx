@@ -3,13 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { Navigate, useNavigate, useParams } from 'react-router';
+import { Navigate } from 'react-router';
 import { useSession } from './SessionContext.jsx';
-import {
-  FullPageError,
-  FullPageLoader,
-  TenantUnavailableScreen,
-} from './StatusScreens.jsx';
+import { FullPageError, FullPageLoader } from './StatusScreens.jsx';
 
 /**
  * Loading and error states shared by every guard below — a protected
@@ -43,15 +39,28 @@ export function RequireTenantSelectionAccess({ children }) {
   if (session.status === 'anonymous') return <Navigate to="/login" replace />;
   if (session.status === 'restricted')
     return <Navigate to="/password" replace />;
-  if (session.selectedTenant)
-    return <Navigate to={`/app/${session.selectedTenant.id}`} replace />;
+  // Reachable with a tenant already selected: this is how the tenant
+  // control switches tenants.
   if (!session.entryPoints?.tenant)
     return <Navigate to={session.destination ?? '/login'} replace />;
   return children;
 }
 
-/** Guards `/management`. */
-export function RequirePlatformAccess({ children }) {
+/** Guards `/home`: open to a selected tenant or management access. */
+export function RequireHomeAccess({ children }) {
+  const session = useSession();
+  const gate = commonGate(session);
+  if (gate) return gate;
+  if (session.status === 'anonymous') return <Navigate to="/login" replace />;
+  if (session.status === 'restricted')
+    return <Navigate to="/password" replace />;
+  if (!session.selectedTenant && !session.entryPoints?.platform)
+    return <Navigate to={session.destination ?? '/login'} replace />;
+  return children;
+}
+
+/** Guards `/management/*`. */
+export function RequireManagementAccess({ children }) {
   const session = useSession();
   const gate = commonGate(session);
   if (gate) return gate;
@@ -60,26 +69,5 @@ export function RequirePlatformAccess({ children }) {
     return <Navigate to="/password" replace />;
   if (!session.entryPoints?.platform)
     return <Navigate to={session.destination ?? '/login'} replace />;
-  return children;
-}
-
-/**
- * Guards `/app/:tenantId`. A mismatch (stale link, a tenant that just
- * became ineligible) renders an inline error instead of redirecting or
- * mutating session state — I0001-R008/AC04.
- */
-export function RequireTenantShellAccess({ children }) {
-  const session = useSession();
-  const { tenantId } = useParams();
-  const navigate = useNavigate();
-  const gate = commonGate(session);
-  if (gate) return gate;
-  if (session.status === 'anonymous') return <Navigate to="/login" replace />;
-  if (session.status === 'restricted')
-    return <Navigate to="/password" replace />;
-  if (!session.selectedTenant || session.selectedTenant.id !== tenantId)
-    return (
-      <TenantUnavailableScreen onChooseTenant={() => navigate('/tenants')} />
-    );
   return children;
 }

@@ -48,7 +48,7 @@ and MUI for the web UI.
 At startup, the API must create:
 
 - one admin database handle;
-- a UUID-keyed cell registry ([I0003](../PRDs/inter-module-workflows/I0003-runtime-cell-registry.md); not yet
+- a UUID-keyed cell registry ([I0003](../PRDs/inter-module-workflows/I0003-cell-provisioning.md); not yet
   implemented);
 - an optional Redis-backed authorization cache;
 - the Express runtime.

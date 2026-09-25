@@ -78,7 +78,7 @@ database.
 
 ## Runtime Flow
 
-Specified in [I0003](../PRDs/inter-module-workflows/I0003-runtime-cell-registry.md); not yet
+Specified in [I0003](../PRDs/inter-module-workflows/I0003-cell-provisioning.md); not yet
 implemented. At startup, the API must read the admin database setting and the configured
 cell database map.
 

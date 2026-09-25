@@ -35,9 +35,15 @@ import {
  * @param {import('pg-schemata').Database} context.admin
  * @param {object} context.sessionPolicy
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} context.cookiePolicy
+ * @param {{readiness: Function}} [context.runtime] Runtime cell registry (I0003-R020).
  * @returns {import('express').Router}
  */
-export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
+export function createAccessRouter({
+  admin,
+  sessionPolicy,
+  cookiePolicy,
+  runtime,
+}) {
   const router = Router();
 
   // I0001-R022. Same guard convention as `GET /session/current`: no
@@ -80,8 +86,7 @@ export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
           : null,
         // The platform operator's own company — a fixed, single record
         // (`is_napsoft` is unique) rather than a caller-eligible tenant.
-        // Shown by the shell in platform context, where there is no
-        // selected tenant to display instead.
+        // Shown by the tenant control to a user with no eligible tenant.
         operator: operator ? eligibleTenantView(operator) : null,
         entryPoints: {
           platform: authorization.platform !== null,
@@ -124,7 +129,7 @@ export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
         request.sessionToken,
         request.session,
         request.body,
-        { requestId: request.requestId }
+        { requestId: request.requestId, runtime }
       );
       issueSessionCookie(response, cookiePolicy, result.token, result.session);
       sendData(response, result.session);
@@ -145,7 +150,7 @@ export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
         request.session,
         context,
         request.body,
-        { requestId: request.requestId }
+        { requestId: request.requestId, runtime }
       );
       issueSessionCookie(response, cookiePolicy, result.token, result.session);
       sendData(response, result.session);

@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/app.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
@@ -228,10 +228,10 @@ const ROOT_ID = randomUUID();
 /**
  * Build the API with a fake admin handle and the real route table, and a
  * live session cookie for a root or ordinary actor.
- * @param {{cells?: object[], operations?: object[], tenants?: object[], root?: boolean}} [options]
+ * @param {{cells?: object[], operations?: object[], tenants?: object[], root?: boolean, runtime?: object}} [options]
  * @returns {{app: import('express').Express, admin: object, cookie: string}}
  */
-function api({ cells, operations, tenants, root = true } = {}) {
+function api({ cells, operations, tenants, root = true, runtime } = {}) {
   const admin = fakeAdmin({ cells, operations, tenants });
   const token = createSessionToken();
   const actorId = root ? ROOT_ID : randomUUID();
@@ -262,6 +262,7 @@ function api({ cells, operations, tenants, root = true } = {}) {
       sessionPolicy: policy,
       cookiePolicy,
       applicationOrigin: ORIGIN,
+      runtime,
       registrations: adminTenancyRoutesV1,
     },
   });
@@ -354,6 +355,51 @@ describe('control routes', () => {
       .send({ operation: 'cell-disable', cell: cell.id });
     expect(disabled.status).toBe(200);
     expect(disabled.body.data.enabled).toBe(false);
+  });
+
+  it('queues activation for a disabled, completed cell only (I0003-R027, AC09)', async () => {
+    const cell = cellRow({ enabled: false });
+    const completed = operationRow(cell.id, {
+      stage: 'complete',
+      status: 'completed',
+    });
+    const runtime = {
+      readiness: vi.fn(() => ({ ready: false, reason: 'CELL_DISABLED' })),
+      markDisabled: vi.fn(),
+    };
+    const { app, admin, cookie } = api({
+      cells: [cell],
+      operations: [completed],
+      runtime,
+    });
+    const send = body =>
+      request(app)
+        .post('/api/admin-tenancy/v1/control/provision')
+        .set('Origin', ORIGIN)
+        .set('Cookie', cookie)
+        .send(body);
+
+    const activated = await send({ operation: 'cell-activate', cell: cell.id });
+    expect(activated.status).toBe(200);
+    expect(activated.body.data).toMatchObject({
+      requested_action: 'activate',
+      stage: 'activation',
+      status: 'queued',
+    });
+    expect(admin.events.map(e => e.event_key)).toContain(
+      'cell.activate.requested'
+    );
+    const again = await send({ operation: 'cell-activate', cell: cell.id });
+    expect(again.status).toBe(ERROR_STATUS.INVALID_STATE);
+
+    await send({ operation: 'cell-disable', cell: cell.id });
+    expect(runtime.markDisabled).toHaveBeenCalledWith(cell.id);
+
+    const readiness = await request(app)
+      .get('/api/admin-tenancy/v1/control/cell-readiness')
+      .query({ cell: cell.id })
+      .set('Cookie', cookie);
+    expect(JSON.stringify(readiness.body)).toContain('CELL_DISABLED');
   });
 
   it('refuses to retry a completed operation', async () => {

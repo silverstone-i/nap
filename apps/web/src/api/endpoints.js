@@ -145,6 +145,18 @@ export async function disableCell({ cell }) {
 }
 
 /**
+ * I0003-R027: queue re-activation of a disabled, fully provisioned cell.
+ * @param {{cell: string}} input Cell UUID.
+ * @returns {Promise<object>} The queued activation operation.
+ */
+export async function activateCell({ cell }) {
+  return apiPost(`${BASE}/control/provision`, {
+    operation: 'cell-activate',
+    cell,
+  });
+}
+
+/**
  * @param {{cursor?: string, limit?: number}} [page]
  * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe portal-user views (I0002-R008).
  */
