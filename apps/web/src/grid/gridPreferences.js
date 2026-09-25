@@ -9,7 +9,7 @@ import {
   writeStorage,
 } from '../storage/localStorage.js';
 
-/** The only page sizes a standard grid may offer (F0001-R015). */
+/** The only page sizes a standard grid may offer (I0001-R015). */
 export const GRID_PAGE_SIZE_OPTIONS = Object.freeze([25, 50, 100]);
 
 export const DEFAULT_GRID_PAGE_SIZE = 25;

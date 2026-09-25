@@ -10,7 +10,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 
-/** Full-page loading state shown while the access context resolves (F0001-R004, R021). */
+/** Full-page loading state shown while the access context resolves (I0001-R004, R021). */
 export function FullPageLoader() {
   return (
     <Box
@@ -83,7 +83,7 @@ export function NoAccessScreen({ onLogout }) {
   );
 }
 
-/** A specific tenant is no longer selectable — F0001-R008/AC04: show an actionable error, never the tenant's content. */
+/** A specific tenant is no longer selectable — I0001-R008/AC04: show an actionable error, never the tenant's content. */
 export function TenantUnavailableScreen({ onChooseTenant }) {
   return (
     <Box

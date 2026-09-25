@@ -21,15 +21,15 @@ import {
 const EMPTY_SELECTION = { type: 'include', ids: new Set() };
 
 /**
- * Shared behavior for ordinary data grids (F0001-R015–R017): server-side
+ * Shared behavior for ordinary data grids (I0001-R015–R017): server-side
  * pagination with one browser-local page-size preference shared across
  * every grid instance, a leading checkbox column whose selection clears on
  * page/sort/filter/tenant change, and a trailing row-action menu that
  * routes a destructive action through a confirmation dialog.
  *
  * There is no real server-paginated list to back this component within
- * F0001's own scope (entity administration screens are excluded); it is
- * infrastructure for the feature PRDs that add those screens, exercised
+ * I0001's own scope (entity administration screens are excluded); it is
+ * infrastructure for the inter-module workflow PRDs that add those screens, exercised
  * here by its own test's mock `fetchPage`.
  * @param {{
  *   columns: Array<import('@mui/x-data-grid').GridColDef & {priority?: 'essential'|'secondary'}>,
@@ -77,7 +77,7 @@ export function StandardDataGrid({
       setPaginationModel(prev => ({ ...prev, page: 0 }));
   }
 
-  // F0001-R016: page, filter, sort, or tenant context change all clear
+  // I0001-R016: page, filter, sort, or tenant context change all clear
   // selection — it applies only to the current grid page. Same
   // render-time-adjustment pattern as above.
   const requestSignature = JSON.stringify([

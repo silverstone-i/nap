@@ -36,7 +36,7 @@ const CHILD_ICONS = {
 /**
  * The left navigation area: implemented destinations only (Business Rules
  * §7 — "no placeholder or unavailable destination"), capped at two levels
- * (no breadcrumbs, F0001-R010, F0001-R023), with the `nap.` wordmark pinned
+ * (no breadcrumbs, I0001-R010, I0001-R023), with the `nap.` wordmark pinned
  * to the bottom.
  *
  * At tablet and desktop the hamburger toggles `expanded` between the full
@@ -60,7 +60,7 @@ export function NavDrawer({
   const active = location.pathname === homePath;
   const showLabels = variant === 'temporary' || expanded;
 
-  // F0001-R023: only the platform shell offers Tenant Management, and only
+  // I0001-R023: only the platform shell offers Tenant Management, and only
   // for whatever children are actually implemented and server-authorized
   // today (see tenantManagementNav.js — that is none, so this list, and the
   // group it renders, stay empty).

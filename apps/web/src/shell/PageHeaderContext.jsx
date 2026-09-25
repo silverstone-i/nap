@@ -13,7 +13,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 // changing `header` value (the earlier single-context shape) forced every
 // `usePageHeader` caller — a context consumer through `SetPageHeaderContext`
 // alone — to also re-render whenever `header` changed. A page passing a
-// fresh `actions` node each render (any dynamic header action, e.g. F0002's
+// fresh `actions` node each render (any dynamic header action, e.g. I0002's
 // "Create tenant" button) would then recreate that node on the resulting
 // re-render, changing `usePageHeader`'s effect dependency, calling
 // `setHeader` again, and looping forever. Splitting the setter out means
@@ -21,7 +21,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const PageHeaderContext = createContext(null);
 const SetPageHeaderContext = createContext(null);
 
-/** Holds whatever the active page has registered for the contextual action header (F0001 §5). */
+/** Holds whatever the active page has registered for the contextual action header (I0001 §5). */
 export function PageHeaderProvider({ children }) {
   const [header, setHeader] = useState({ title: '', actions: null });
   return (

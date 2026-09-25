@@ -33,9 +33,9 @@ on this.
 
 - Creating a cell database or its roles, and writing its identity row. Cell
   provisioning owns this; M0002-02 owns the check that reads the row.
-- Runtime connections to cells and routing requests to them (W0001).
+- Runtime connections to cells and routing requests to them (I0003).
 - Applying admin changes to the copied tables (the tenant, membership, and
-  entitlement sync workflows).
+  entitlement sync inter-module workflows).
 - The `reference`, `app`, and `reporting` schemas. Their modules create them;
   the runner only orders them.
 - Seeding reference data.
@@ -77,7 +77,7 @@ M0001-00 setup establishes both PostgreSQL roles on the server.
 - M0002-01-R003: The cell module registry must be separate from the admin registry. Validation must run before any connection opens and reject a descriptor that targets another database, uses a schema other than `cell`, `reference`, `app`, or `reporting`, repeats a module name or migration ID, lacks a migration array, or registers a model whose schema object names another schema or table.
 - M0002-01-R004: The cell migration runner must connect to one cell database as `nap-admin`, apply pending migrations through `pg-schemata` one schema at a time in the order `cell`, `reference`, `app`, `reporting`, skip a schema with no registered module, run the catalog check, and close the connection on success and failure.
 - M0002-01-R005: The runner must report `applied` or `unchanged` with the database name, and must not report success after a failed or incomplete run.
-- M0002-01-R006: `cell` tables must not use RLS. Only system code (the sync workflows, `withTenantTransaction`, the identity check) reads or writes them, and it names the tenant explicitly, the same as `admin` tables. Tenant business tables in the `app` and `reporting` schemas must enable RLS with the rule `<column> = NULLIF(current_setting('nap.tenant_id', true), '')::uuid`; with no tenant setting, such a query returns no rows.
+- M0002-01-R006: `cell` tables must not use RLS. Only system code (the sync inter-module workflows, `withTenantTransaction`, the identity check) reads or writes them, and it names the tenant explicitly, the same as `admin` tables. Tenant business tables in the `app` and `reporting` schemas must enable RLS with the rule `<column> = NULLIF(current_setting('nap.tenant_id', true), '')::uuid`; with no tenant setting, such a query returns no rows.
 
 ## 7. Business Rules And Invariants
 
@@ -212,7 +212,7 @@ Errors carry a code and the database name, never credentials.
 
 - Cell provisioning writes `cell.physical_identity` during setup. M0002-02
   reads it before a cell is used.
-- The tenant, membership, and entitlement sync workflows write the copied
+- The tenant, membership, and entitlement sync inter-module workflows write the copied
   tables. Cell-to-admin delivery writes
   `cell.outbox`.
 - Cell provisioning calls `migrateCell` after setup and before seeding.

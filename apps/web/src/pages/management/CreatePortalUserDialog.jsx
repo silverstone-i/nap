@@ -16,7 +16,7 @@ import { ApiError } from '../../api/client.js';
 import { createPortalUser } from '../../api/endpoints.js';
 
 /**
- * "Create portal user" (F0002-R006): submits `{email, password}` with a
+ * "Create portal user" (I0002-R006): submits `{email, password}` with a
  * client-generated `Idempotency-Key`. The password is a temporary one the
  * new account must replace at next login (M0001-08 §7).
  * @param {{onClose: () => void, onCreated: () => void}} props

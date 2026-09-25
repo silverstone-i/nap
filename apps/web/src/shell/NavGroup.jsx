@@ -18,7 +18,7 @@ import { useTheme } from '@mui/material/styles';
 import { activeIndicatorSx } from './navStyles.js';
 
 /**
- * A two-level nav group (F0001-R023). Hidden entirely when it has no
+ * A two-level nav group (I0001-R023). Hidden entirely when it has no
  * visible children — the caller is responsible for filtering `children` to
  * ones whose destination is implemented and server-authorized; this
  * component never decides that on its own.

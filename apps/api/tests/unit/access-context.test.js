@@ -311,7 +311,7 @@ describe('GET /access/context', () => {
     expect(response.body.data.entryPoints.platform).toBe(true);
   });
 
-  it("derives tenantManagement from root's actual resolved capabilities (F0001-R024)", async () => {
+  it("derives tenantManagement from root's actual resolved capabilities (I0001-R024)", async () => {
     const actorId = randomUUID();
     const { app, admin } = api({
       users: [{ id: actorId, email: 'root@example.com', is_root: true }],

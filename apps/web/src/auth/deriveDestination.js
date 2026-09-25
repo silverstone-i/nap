@@ -4,7 +4,7 @@
  */
 
 /**
- * @file The restoration decision (F0001-R003 and the PRD §8 lifecycle
+ * @file The restoration decision (I0001-R003 and the PRD §8 lifecycle
  * table), factored out as a pure function so it can be tested against every
  * lifecycle row without mounting the app.
  */

@@ -40,7 +40,7 @@ import {
 export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
   const router = Router();
 
-  // F0001-R022. Same guard convention as `GET /session/current`: no
+  // I0001-R022. Same guard convention as `GET /session/current`: no
   // `allowRestricted`, so a restricted session gets
   // `403 PASSWORD_CHANGE_REQUIRED` and the browser client treats that code
   // as "go to /password" the same way it already does for every other
@@ -86,8 +86,8 @@ export function createAccessRouter({ admin, sessionPolicy, cookiePolicy }) {
         entryPoints: {
           platform: authorization.platform !== null,
           tenant: tenants.length > 0,
-          // F0001-R024: a real, per-destination signal for the platform
-          // shell's Tenant Management nav group (F0001-R023), derived from
+          // I0001-R024: a real, per-destination signal for the platform
+          // shell's Tenant Management nav group (I0001-R023), derived from
           // the same resolved capabilities the server already enforces on
           // each underlying route — never a stand-in built from the
           // coarser `platform` flag above, and never the raw capability

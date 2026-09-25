@@ -2,8 +2,8 @@
 
 React web client for NAP, built with Vite and MUI. It implements login, session
 restore, tenant selection, and the platform administration screens
-([F0001](../../docs/PRDs/features/F0001-application-entry-and-shell.md),
-[F0002](../../docs/PRDs/features/F0002-platform-administration-screens.md)).
+([I0001](../../docs/PRDs/inter-module-workflows/I0001-application-entry-and-shell.md),
+[I0002](../../docs/PRDs/inter-module-workflows/I0002-platform-administration-screens.md)).
 
 ## Commands
 

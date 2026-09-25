@@ -110,7 +110,7 @@ export const eligibleTenantsResponseSchema = z.strictObject({
 });
 
 /**
- * Zod schema for the browser startup context — F0001-R022. Deliberately
+ * Zod schema for the browser startup context — I0001-R022. Deliberately
  * excludes a session credential, password data, role assignment, or raw
  * capability list; `strictObject` on every level rejects one if a later
  * change tries to add it.
@@ -139,7 +139,7 @@ export const accessContextResponseSchema = z.strictObject({
 
 /**
  * Build a response schema for one of this module's cursor-paginated list
- * endpoints: `{rows: [...], nextCursor}`, never an exact total (F0002-R009).
+ * endpoints: `{rows: [...], nextCursor}`, never an exact total (I0002-R009).
  * @param {import('zod').ZodType} rowSchema
  * @returns {import('zod').ZodType}
  */
@@ -156,7 +156,7 @@ function cursorPageResponseSchema(rowSchema) {
 /**
  * Zod schema for the safe tenant view — `tenantView`
  * (`apps/api` `domain/tenants.js`), reused verbatim by `GET /tenants` and
- * `POST /tenants` (F0002-R007).
+ * `POST /tenants` (I0002-R007).
  */
 export const tenantViewSchema = z.strictObject({
   id: z.uuid(),
@@ -202,7 +202,7 @@ export const userResponseSchema = z.strictObject({
  * Zod schema for one `GET /accounts/users` row — `userListView`
  * (`apps/api` `domain/accounts.js`): `userViewSchema` plus `isRoot`, the
  * signal the Portal Users screen uses to withhold Deactivate/Restore for
- * the one row root ever accounts for (F0002-R008 amendment: the list
+ * the one row root ever accounts for (I0002-R008 amendment: the list
  * includes root, read-only, for operator visibility — no other route in
  * this module ever exposes or accepts it).
  */

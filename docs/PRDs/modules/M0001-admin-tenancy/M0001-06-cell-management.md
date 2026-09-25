@@ -180,7 +180,7 @@ implementation to the PRD text:
 - `getCellReadiness` reports runtime readiness through an optional
   collaborator that nothing yet supplies, so it honestly answers
   `{ ready: false, checked: false }` rather than fabricating a pass.
-  [W0001: Runtime Cell Registry And Routing](../../workflows/W0001-runtime-cell-registry.md)
+  [I0003: Runtime Cell Registry And Routing](../../inter-module-workflows/I0003-runtime-cell-registry.md)
   (Draft) will supply the `runtime.readiness(cellId)` collaborator. Building
   the registry is infrastructure work this PRD excludes ("Physical database setup, migration, seed, and activation");
   Cross-Module Interactions confirms "Runtime readiness remains an
@@ -202,7 +202,7 @@ this or any other Work Unit.
 character to be a letter — a digit-led suffix (`1`, `1east`) is now valid,
 so `nap_dev_cell_1` is a legitimate database name. The end-of-string
 constraint is unchanged (still a letter or digit, never a trailing hyphen).
-Prompted by F0002's Register-cell dialog rejecting `1` with a message that
+Prompted by I0002's Register-cell dialog rejecting `1` with a message that
 didn't explain why. `parseSuffix` (`domain/cells.js`) and its unit test
 (`tests/unit/cell-management.test.js`) were updated accordingly; `npm test`
 (533 tests across the workspace) and `npm run test:db:local` (165 tests)

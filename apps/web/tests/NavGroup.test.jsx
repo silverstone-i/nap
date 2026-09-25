@@ -51,7 +51,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('NavGroup — empty group (F0001-R023, AC16)', () => {
+describe('NavGroup — empty group (I0001-R023, AC16)', () => {
   it('renders nothing when there are no visible children', () => {
     renderGroup({ children: [] });
     expect(screen.queryByText('Tenant Management')).toBeNull();

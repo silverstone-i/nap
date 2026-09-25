@@ -73,7 +73,7 @@ const COLUMNS = [
 ];
 
 /**
- * `/management/tenants` (F0002-R001): browse central tenant records and
+ * `/management/tenants` (I0002-R001): browse central tenant records and
  * create one. No update, suspend, archive, or restore action — none exists
  * server-side.
  */

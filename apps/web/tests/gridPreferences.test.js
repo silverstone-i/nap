@@ -22,7 +22,7 @@ describe('grid page-size preference', () => {
     expect(GRID_PAGE_SIZE_OPTIONS).toEqual([25, 50, 100]);
   });
 
-  it('persists a valid choice and applies it to a later read — the one shared preference (F0001-R015)', () => {
+  it('persists a valid choice and applies it to a later read — the one shared preference (I0001-R015)', () => {
     writeGridPageSize(50);
     expect(readGridPageSize()).toBe(50);
   });

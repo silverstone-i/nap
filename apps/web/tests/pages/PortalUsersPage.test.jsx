@@ -72,7 +72,7 @@ afterEach(() => {
 });
 
 describe('PortalUsersPage', () => {
-  it('lists portal-user accounts (loading -> populated, F0001-R021)', async () => {
+  it('lists portal-user accounts (loading -> populated, I0001-R021)', async () => {
     api.listUsersPage.mockResolvedValue({
       rows: [ACTIVE_USER],
       nextCursor: null,
@@ -188,7 +188,7 @@ describe('PortalUsersPage', () => {
     ).toBeTruthy();
   });
 
-  it('shows no membership data on the grid, per F0002-R005', async () => {
+  it('shows no membership data on the grid, per I0002-R005', async () => {
     api.listUsersPage.mockResolvedValue({
       rows: [ACTIVE_USER],
       nextCursor: null,

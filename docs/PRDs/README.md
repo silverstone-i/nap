@@ -14,15 +14,16 @@ PRDs are grouped by what they describe:
 docs/PRDs/
 |-- modules/
 |   `-- M0001-admin-tenancy.md
-|-- features/
-|   `-- F0001-application-entry-and-shell.md
-`-- workflows/
-    `-- W0001-runtime-cell-registry.md
+`-- inter-module-workflows/
+    `-- I0001-application-entry-and-shell.md
 ```
 
 - Module PRDs define an area that owns tables and module-specific rules.
-- Feature PRDs define application behavior that may use several modules.
-- Workflow PRDs define sequencing across modules or infrastructure.
+- Inter-module workflow PRDs own no tables. They define behavior that uses
+  several modules' data, whether a user or a background worker starts it.
+
+Elsewhere, "workflow" and "feature" keep their plain English meaning, such as
+the steps a user takes to sign in.
 
 "Capability" is reserved for authorization identifiers in `module::router::action` form.
 
@@ -35,8 +36,7 @@ Use these filename patterns:
 
 ```text
 M0001-admin-tenancy.md
-F0001-application-entry-and-shell.md
-W0001-runtime-cell-registry.md
+I0001-application-entry-and-shell.md
 ```
 
 Use the same identifier in the document title:
@@ -45,7 +45,7 @@ Use the same identifier in the document title:
 # M0001: Admin Tenancy
 ```
 
-Refer to another PRD by identifier and title, such as `F0001: Application Entry and Shell`.
+Refer to another PRD by identifier and title, such as `I0001: Application Entry and Shell`.
 
 ## Status
 
@@ -93,8 +93,8 @@ Give every normative requirement a stable identifier based on its PRD:
 ```text
 M0001-R001
 M0001-01-R001
-F0002-R001
-W0001-R001
+I0002-R001
+I0003-R001
 ```
 
 Do not reuse or renumber an existing identifier. Acceptance criteria should
@@ -119,8 +119,8 @@ requirement instead of restating it.
 For example:
 
 - a module PRD owns its stored data and module invariants;
-- a feature PRD owns behavior that uses module data;
-- a workflow PRD owns cross-module sequencing, retry, and failure recovery.
+- an inter-module workflow PRD owns behavior that uses module data, including
+  cross-module sequencing, retry, and failure recovery.
 
 Large PRDs may use supporting chapters:
 

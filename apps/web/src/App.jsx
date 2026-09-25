@@ -46,7 +46,7 @@ function RootRedirect() {
 /**
  * `/app/:tenantId` — keyed by `tenantId` so switching tenants remounts the
  * whole shell subtree, clearing tenant-specific UI state by construction
- * (F0001-R007).
+ * (I0001-R007).
  */
 function TenantShellRoute() {
   const { tenantId } = useParams();
@@ -69,7 +69,7 @@ function PlatformShellRoute() {
   );
 }
 
-/** `/management/tenants` (F0002-R001). */
+/** `/management/tenants` (I0002-R001). */
 function TenantsRoute() {
   return (
     <RequirePlatformAccess>
@@ -80,7 +80,7 @@ function TenantsRoute() {
   );
 }
 
-/** `/management/cells` (F0002-R003/R004). */
+/** `/management/cells` (I0002-R003/R004). */
 function CellsRoute() {
   return (
     <RequirePlatformAccess>
@@ -91,7 +91,7 @@ function CellsRoute() {
   );
 }
 
-/** `/management/portal-users` (F0002-R005/R006). */
+/** `/management/portal-users` (I0002-R005/R006). */
 function PortalUsersRoute() {
   return (
     <RequirePlatformAccess>

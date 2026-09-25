@@ -78,7 +78,7 @@ database.
 
 ## Runtime Flow
 
-Specified in [W0001](../PRDs/workflows/W0001-runtime-cell-registry.md); not yet
+Specified in [I0003](../PRDs/inter-module-workflows/I0003-runtime-cell-registry.md); not yet
 implemented. At startup, the API must read the admin database setting and the configured
 cell database map.
 
@@ -213,7 +213,7 @@ only when `admin.cells.enabled` is true and the runtime registry says the cell
 is ready.
 
 The readiness endpoint reports the runtime registry's readiness result for the
-cell (W0001). Reporting identity and migration detail is future work with no
+cell (I0003). Reporting identity and migration detail is future work with no
 PRD yet.
 
 ## Business Rules

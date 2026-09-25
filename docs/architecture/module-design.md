@@ -101,7 +101,7 @@ The API mounts routers at:
 
 A capability identifies an authorization in `module::router::action` form.
 Roles group capabilities; capability evaluation determines whether the supplied
-capabilities authorize an action. Use "feature" for application behavior such as
+capabilities authorize an action. Use "inter-module workflow" for application behavior such as
 authentication or session management, and "rules" for other constraints.
 
 ## Code Outside Modules

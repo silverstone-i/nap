@@ -5,7 +5,7 @@
 
 /**
  * @file Browser-local preference storage. Every key here is one the PRD
- * explicitly allows to survive logout (F0001 §9): display mode and the
+ * explicitly allows to survive logout (I0001 §9): display mode and the
  * standard-grid page size. Never store session, credential, tenant, or
  * role data through this module.
  */
@@ -41,6 +41,6 @@ export function writeStorage(key, value) {
     window.localStorage.setItem(key, value);
   } catch {
     // Best-effort only: a preference that fails to persist still works for
-    // the current page load, which is all this feature promises.
+    // the current page load, which is all I0001 promises.
   }
 }

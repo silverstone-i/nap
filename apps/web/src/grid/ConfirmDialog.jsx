@@ -12,7 +12,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 
 /**
  * Confirmation required before a destructive lifecycle action runs
- * (F0001-R016). BRAND.md: destructive actions keep the primary navy
+ * (I0001-R016). BRAND.md: destructive actions keep the primary navy
  * button with a clear label — never a red fill.
  * @param {{open: boolean, title: string, description: string, confirmLabel?: string, onConfirm: () => void, onCancel: () => void}} props
  * @returns {JSX.Element}

@@ -36,7 +36,7 @@ function systemPrefersDark() {
 const ThemeModeContext = createContext(null);
 
 /**
- * Owns the browser-local display-mode preference (F0001-R011, R012) and
+ * Owns the browser-local display-mode preference (I0001-R011, R012) and
  * applies the resolved MUI theme. `System` tracks OS appearance changes
  * live, with no reload required.
  * @param {{children: import('react').ReactNode}} props

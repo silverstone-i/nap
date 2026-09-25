@@ -4,20 +4,20 @@
  */
 
 /**
- * @file The `Tenant Management` navigation group's data (F0001-R023).
+ * @file The `Tenant Management` navigation group's data (I0001-R023).
  *
  * A child is visible only when both are true: its own `implemented` flag
  * (a real UI destination exists) and the server's per-destination
- * authorization signal, `entryPoints.tenantManagement` (F0001-R024) —
+ * authorization signal, `entryPoints.tenantManagement` (I0001-R024) —
  * `{tenants, cells, portalUsers}`, each derived server-side from the
  * caller's actual resolved capabilities
  * (`apps/api/src/modules/admin-tenancy/apiRoutes/v1/access.js`). Neither
- * condition alone is sufficient (F0002-R010).
+ * condition alone is sufficient (I0002-R010).
  *
- * [F0002](../../../../../docs/PRDs/features/F0002-platform-administration-screens.md)
+ * [I0002](../../../../../docs/PRDs/inter-module-workflows/I0002-platform-administration-screens.md)
  * implements all three destinations (`apps/web/src/pages/management/`), so
  * every child below is now `implemented: true` — the authorization gate
- * below was already real (F0001-R024).
+ * below was already real (I0001-R024).
  */
 
 export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
@@ -46,7 +46,7 @@ export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
 
 /**
  * Whether one child should be visible: implemented *and* authorized.
- * Neither condition alone is sufficient (F0002-R010).
+ * Neither condition alone is sufficient (I0002-R010).
  * @param {{implemented: boolean, authKey: string}} child
  * @param {{tenantManagement?: {tenants?: boolean, cells?: boolean, portalUsers?: boolean}}|null} [entryPoints]
  * @returns {boolean}

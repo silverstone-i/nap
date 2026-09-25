@@ -10,7 +10,7 @@ import { usePageHeaderValue } from './PageHeaderContext.jsx';
 
 /**
  * The row above the work area where the active destination supplies its
- * title and actions (F0001 §5, R009).
+ * title and actions (I0001 §5, R009).
  * @param {{headingRef: import('react').Ref<HTMLHeadingElement>}} props
  * @returns {JSX.Element}
  */

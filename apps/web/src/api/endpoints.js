@@ -4,7 +4,7 @@
  */
 
 /**
- * @file One function per API contract F0001 consumes (PRD §10). Every
+ * @file One function per API contract I0001 consumes (PRD §10). Every
  * response is validated against the shared transport schema before it
  * reaches application state.
  */
@@ -60,7 +60,7 @@ export async function logout() {
   await apiPost(`${BASE}/auth/logout`);
 }
 
-/** @returns {Promise<object>} The browser startup context (F0001-R022). */
+/** @returns {Promise<object>} The browser startup context (I0001-R022). */
 export async function getAccessContext() {
   const data = await apiGet(`${BASE}/access/context`);
   return accessContextResponseSchema.parse({ version: 1, data }).data;
@@ -82,12 +82,12 @@ export async function selectTenant(tenantId) {
 }
 
 // ---------------------------------------------------------------------------
-// Platform administration (F0002)
+// Platform administration (I0002)
 // ---------------------------------------------------------------------------
 
 /**
  * @param {{cursor?: string, limit?: number}} [page]
- * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe tenant views (F0002-R007).
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe tenant views (I0002-R007).
  */
 export async function listTenantsPage(page) {
   const data = await apiGet(`${BASE}/tenants${pageQuery(page)}`);
@@ -96,7 +96,7 @@ export async function listTenantsPage(page) {
 
 /**
  * @param {{code: string, name: string, tier: string}} input
- * @returns {Promise<object>} Safe tenant view (F0002-R002).
+ * @returns {Promise<object>} Safe tenant view (I0002-R002).
  */
 export async function createTenant(input) {
   const data = await apiPost(`${BASE}/tenants`, input, {
@@ -146,7 +146,7 @@ export async function disableCell({ cell }) {
 
 /**
  * @param {{cursor?: string, limit?: number}} [page]
- * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe portal-user views (F0002-R008).
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe portal-user views (I0002-R008).
  */
 export async function listUsersPage(page) {
   const data = await apiGet(`${BASE}/accounts/users${pageQuery(page)}`);
@@ -155,7 +155,7 @@ export async function listUsersPage(page) {
 
 /**
  * @param {{email: string, password: string}} input
- * @returns {Promise<object>} Safe user view (F0002-R006).
+ * @returns {Promise<object>} Safe user view (I0002-R006).
  */
 export async function createPortalUser(input) {
   const data = await apiPost(`${BASE}/accounts/users`, input, {

@@ -14,7 +14,7 @@ import {
 /**
  * Loading and error states shared by every guard below — a protected
  * route's content never renders until its session requirement is resolved
- * (F0001-R004), and a failed resolution shows an explicit, retryable error
+ * (I0001-R004), and a failed resolution shows an explicit, retryable error
  * rather than a silent fallback (R021).
  * @param {ReturnType<typeof useSession>} session
  * @returns {JSX.Element|null}
@@ -66,7 +66,7 @@ export function RequirePlatformAccess({ children }) {
 /**
  * Guards `/app/:tenantId`. A mismatch (stale link, a tenant that just
  * became ineligible) renders an inline error instead of redirecting or
- * mutating session state — F0001-R008/AC04.
+ * mutating session state — I0001-R008/AC04.
  */
 export function RequireTenantShellAccess({ children }) {
   const session = useSession();

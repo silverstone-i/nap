@@ -7,13 +7,13 @@
  * @file Bridges `StandardDataGrid`'s `fetchPage({page, pageSize, sortModel,
  * filterModel}) -> {rows, rowCount}` contract to one of this module's
  * cursor-paginated list endpoints, `{cursor, limit} -> {rows, nextCursor}`
- * (F0002-R009). `rowCount` is always an estimate — rows already fetched,
+ * (I0002-R009). `rowCount` is always an estimate — rows already fetched,
  * plus one page's worth if the server reports more — never a claim of an
  * exact total the API does not provide. It is not visually distinguished
  * from an exact count; `StandardDataGrid` renders it through MUI's default
  * footer text.
  *
- * None of this feature's three screens expose sortable or filterable
+ * None of I0002's three screens expose sortable or filterable
  * columns (the underlying endpoints define no sort/filter query
  * parameters), so `sortModel`/`filterModel` never actually change in
  * practice; they're folded into the cache signature anyway, defensively,
@@ -21,7 +21,7 @@
  * trigger is `StandardDataGrid`'s `resetKey`, which the component always
  * forces `page` back to `0` for internally — so `page === 0` is already the
  * correct, sufficient signal to drop the cursor cache; a post-mutation
- * reload (this feature's own lifecycle table) is driven by bumping a
+ * reload (I0002's own lifecycle table) is driven by bumping a
  * screen-local `resetKey`, which necessarily also returns the grid to page
  * 0 — an accepted consequence of reusing `StandardDataGrid` unchanged,
  * since it exposes no other public refetch hook.

@@ -4,7 +4,7 @@
  */
 
 /**
- * @file The one piece of routing state F0001 allows to survive a trip
+ * @file The one piece of routing state I0001 allows to survive a trip
  * through `/login`: a temporary, same-origin return path. Business rule
  * (§7): "A return path must be a normalized application path on the current
  * origin. It must not contain credentials and must not accept a scheme,
@@ -52,7 +52,7 @@ export function storeReturnPath(path) {
 /**
  * Read and clear the stored return path, re-validating it before handing it
  * back — the caller must still authorize it against the fresh access
- * context before navigating there (F0001-R005).
+ * context before navigating there (I0001-R005).
  * @returns {string|null}
  */
 export function consumeReturnPath() {
@@ -67,7 +67,7 @@ export function consumeReturnPath() {
 
 /**
  * Re-authorize a consumed return path against the freshly loaded access
- * context before navigating there (F0001-R005: "must authorize it again
+ * context before navigating there (I0001-R005: "must authorize it again
  * before returning"). A path for a tenant shell or platform area the
  * caller no longer has is discarded, never trusted at face value.
  * @param {string|null} path
