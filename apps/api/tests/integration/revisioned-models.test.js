@@ -12,6 +12,7 @@ import {
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
+import { upsertLockText } from '../../src/modules/admin-tenancy/models/revisionedTableModel.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -275,16 +276,24 @@ describe('revisioned table models (I0004-R010, R012)', () => {
         secondDone = true;
         return row;
       });
+    const lockText = upsertLockText('admin.module_entitlements', conflict, {
+      tenant_id: tenant.id,
+      module: 'sales',
+    });
     // Wait until the second upsert is blocked on an advisory lock, rather
     // than sleeping and hoping it got there.
     const deadline = Date.now() + 5000;
     let waiting = false;
     while (!waiting && Date.now() < deadline) {
+      // A bigint advisory key shows in pg_locks split into its high 32 bits
+      // (classid) and low 32 bits (objid), with objsubid = 1.
       const row = await db.one(
-        `SELECT count(*)::int AS n FROM pg_locks
-          WHERE locktype = 'advisory' AND NOT granted AND database = (
-            SELECT oid FROM pg_database WHERE datname = current_database()
-          )`
+        `WITH k AS (SELECT hashtextextended($1, 0) AS v)
+         SELECT count(*)::int AS n FROM pg_locks, k
+          WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1
+            AND classid::bigint = (k.v >> 32) & 4294967295
+            AND objid::bigint = k.v & 4294967295`,
+        [lockText]
       );
       waiting = row.n > 0;
       if (!waiting) await new Promise(resolve => setTimeout(resolve, 20));

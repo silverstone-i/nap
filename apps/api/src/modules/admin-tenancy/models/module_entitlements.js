@@ -42,7 +42,11 @@ export const moduleEntitlementsSchema = {
   },
 };
 
-/** Model for `admin.module_entitlements`. Increments `revision` when `enabled` changes. */
+/**
+ * Model for `admin.module_entitlements`. `revisionedColumns` lists the fields
+ * copied to cells; `module` is immutable, so only an `enabled` change
+ * increments `revision`.
+ */
 export class ModuleEntitlements extends RevisionedTableModel {
   static schema = moduleEntitlementsSchema;
   static revisionedColumns = ['module', 'enabled'];

@@ -34,6 +34,18 @@ function withoutRevision(dto) {
 }
 
 /**
+ * The text an upsert hashes into its advisory-lock key: the table name and
+ * the record's conflict values. Exported so tests can find the lock.
+ * @param {string} table Qualified table name, such as `admin.tenants`.
+ * @param {string[]} conflictColumns
+ * @param {object} record
+ * @returns {string}
+ */
+export function upsertLockText(table, conflictColumns, record) {
+  return `${table}|${JSON.stringify(conflictColumns.map(column => String(record[column])))}`;
+}
+
+/**
  * Add `revision` to an upsert's explicit update columns, once. `null` means
  * "every column" to `TableModel`, which already includes `revision`.
  * @param {string[]|null} updateColumns
@@ -133,11 +145,21 @@ export class RevisionedTableModel extends TableModel {
     // A row that does not exist yet cannot be row-locked, so lock its
     // conflict key instead: a second upsert of the same key waits here until
     // the first commits, then finds and row-locks the first one's row. Keys
-    // are taken in sorted order so two bulk upserts cannot deadlock.
+    // are taken in sorted order so two bulk upserts cannot deadlock. The
+    // key is a 64-bit hash, so unrelated keys practically never share a lock.
+    // `any`, not `none`: the SELECT returns one row per key.
     await t.any(
-      `SELECT pg_advisory_xact_lock(hashtext($1), hashtext(k))
-         FROM (SELECT DISTINCT k FROM unnest($2::text[]) AS k ORDER BY k) AS keys`,
-      [this._table(), records.map(key)]
+      `SELECT pg_advisory_xact_lock(hashtextextended(k, 0))
+         FROM (SELECT DISTINCT k FROM unnest($1::text[]) AS k ORDER BY k) AS keys`,
+      [
+        records.map(record =>
+          upsertLockText(
+            `${this._schema.dbSchema}.${this._schema.table}`,
+            conflictColumns,
+            record
+          )
+        ),
+      ]
     );
     const tuples = records.map(record =>
       this.pgp.as.format('($1:csv)', [
