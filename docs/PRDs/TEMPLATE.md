@@ -47,8 +47,8 @@ context. A decision table is required for authorization decisions.
 ## 6. Functional Requirements
 
 <!--
-Use stable identifiers derived from the PRD identifier. Do not renumber an
-existing requirement.
+Use stable identifiers derived from the PRD identifier. If one is out of
+order or wrong, ask the developer whether to renumber it.
 
 - M0001-R001: The system must ...
 -->

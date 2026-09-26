@@ -123,7 +123,10 @@ function fakeAdmin({
         const existing = [...entitlementStore.values()].find(
           row => row.id === id
         );
+        // Mirrors RevisionedTableModel: a change to `enabled` increments `revision`.
         const updated = { ...existing, ...dto };
+        if ('enabled' in dto && dto.enabled !== existing.enabled)
+          updated.revision = existing.revision + 1;
         entitlementStore.set(`${updated.tenant_id}:${updated.module}`, updated);
         return updated;
       },

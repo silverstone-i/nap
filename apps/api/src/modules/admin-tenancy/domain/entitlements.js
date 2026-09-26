@@ -382,7 +382,7 @@ async function setEntitlement(
 
         const updated = await db.module_entitlements.update(
           row.id,
-          { enabled: targetEnabled, revision: row.revision + 1 },
+          { enabled: targetEnabled },
           { tx }
         );
         await db.managed_events.append(

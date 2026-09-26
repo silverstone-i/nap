@@ -10,6 +10,11 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Every write to a tenant, membership, or module entitlement row that changes a field copied to cells, or archives or restores the row, now increments its `revision`. Membership suspend, activate, archive, restore, and provisioning results previously left `revision` unchanged, so a cell comparing revisions would have ignored them. The rule lives in a shared `RevisionedTableModel` that covers single, `Where`, bulk, and upsert writes; upserts of the same new row wait on an advisory lock so the second sees the first's revision.
+- PRD identifiers that are out of order or wrong may be renumbered after asking the developer, instead of never.
+
 ## [v0.18.2] - 2026-09-25
 
 ### Changed

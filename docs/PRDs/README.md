@@ -97,7 +97,9 @@ I0002-R001
 I0003-R001
 ```
 
-Do not reuse or renumber an existing identifier. Acceptance criteria should
+If an identifier is out of order, duplicated, or otherwise wrong, ask the
+developer whether to fix it before renumbering. When fixing, update every
+reference to it. Acceptance criteria should
 reference the requirements they verify.
 
 Use normative terms consistently:

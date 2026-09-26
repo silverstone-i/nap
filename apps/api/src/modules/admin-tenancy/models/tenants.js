@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { TableModel } from 'pg-schemata';
+import { RevisionedTableModel } from './revisionedTableModel.js';
 
 /**
  * Schema object for `admin.tenants`: tenant registration, lifecycle, cell assignment, and readiness. `is_napsoft` marks the owning tenant.
@@ -85,8 +85,9 @@ function table(model) {
 }
 
 /** Model for `admin.tenants`. Adds the locked reads bootstrap needs. */
-export class Tenants extends TableModel {
+export class Tenants extends RevisionedTableModel {
   static schema = tenantsSchema;
+  static revisionedColumns = ['tenant_code', 'status'];
   constructor(db, pgp, logger) {
     super(db, pgp, tenantsSchema, logger);
   }
