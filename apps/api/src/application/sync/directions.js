@@ -50,18 +50,21 @@ export function adminToCell({ admin, registry, tenantId }) {
     }
     const { valid, failed } = parseRows(rows);
     await cell.tx(async tx => {
+      // The copy cannot disappear inside this transaction, so check once.
+      let tenantSynced = false;
       for (const { row, snapshot } of valid) {
-        if (
-          row.topic !== 'tenant' &&
-          !(await cell.tenants.exists(tenantId, { tx }))
-        )
-          throw new SyncFailure('TENANT_NOT_SYNCED');
+        if (row.topic !== 'tenant' && !tenantSynced) {
+          if (!(await cell.tenants.exists(tenantId, { tx })))
+            throw new SyncFailure('TENANT_NOT_SYNCED');
+          tenantSynced = true;
+        }
         await cell[COPIES[row.topic]].applySnapshot(
           snapshot,
           row.revision,
           row.created_by ?? null,
           { tx }
         );
+        if (row.topic === 'tenant') tenantSynced = true;
       }
     });
     return { delivered: valid.map(({ row }) => row.id), failed };

@@ -25,11 +25,13 @@ export class OutboxTableModel extends TableModel {
    */
   async dueTenants(limit, { tx } = {}) {
     const rows = await (tx ?? this.db).any(
-      `SELECT DISTINCT tenant_id FROM (
-         SELECT tenant_id FROM ${this._table()}
+      `SELECT tenant_id FROM (
+         SELECT tenant_id, next_attempt_at FROM ${this._table()}
           WHERE status='pending' AND next_attempt_at <= now()
           ORDER BY next_attempt_at
-          LIMIT $1) AS due`,
+          LIMIT $1) AS due
+        GROUP BY tenant_id
+        ORDER BY min(next_attempt_at)`,
       [limit]
     );
     return rows.map(row => String(row.tenant_id));
