@@ -10,6 +10,12 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add admin-cell sync (I0004). A sync worker inside the API, started in dev and prod, delivers tenant, membership, and module entitlement changes from `admin.outbox` to each tenant's cell, and portal-access requests from each ready cell's `cell.outbox` to the admin database. Each admin write that increments a synced row's `revision` writes its outbox row in the same transaction. Delivery is per tenant under an advisory lock, applies only the highest pending revision per entity, and retries with backoff up to 5 minutes. The worker backfills every assigned tenant's current rows at start, and the Napsoft tenant's rows when it is first assigned a cell.
+- Add `requestPortalAccess`, which cell-side code calls inside its own transaction to turn a tenant user's portal access on or off. The admin side creates, reuses, or suspends the login and membership, and the membership change reaches `cell.tenant_members`. Temporary passwords are hashed before they are written; only the hash is stored.
+- Add managed event keys `sync.delivery.failed`, `sync.delivery.recovered`, `portal_access.applied`, and `portal_access.failed`.
+
 ## [v0.18.3] - 2026-09-26
 
 ### Changed

@@ -161,6 +161,30 @@ export function createCellRegistry({ admin, connect = createCellDatabase }) {
   }
 
   /**
+   * The ready cells and their repository handles, for the sync worker
+   * (I0004-R002).
+   * @returns {{id: string, db: object}[]}
+   */
+  function readyCells() {
+    return [...cells.entries()]
+      .filter(([, entry]) => entry.ready && entry.handle)
+      .map(([id, entry]) => ({ id, db: entry.handle.db }));
+  }
+
+  /**
+   * Return the ready connection for a cell ID (I0004-R014).
+   * @param {string} cellId
+   * @returns {object} The cell's repository handle (`handle.db`).
+   * @throws {CellRegistryError} `CELL_UNAVAILABLE`
+   */
+  function dbFor(cellId) {
+    const entry = cells.get(String(cellId).toLowerCase());
+    if (!entry?.ready || !entry.handle)
+      throw new CellRegistryError('CELL_UNAVAILABLE');
+    return entry.handle.db;
+  }
+
+  /**
    * Close every cell connection (I0003-R022).
    * @returns {Promise<void>}
    */
@@ -170,5 +194,15 @@ export function createCellRegistry({ admin, connect = createCellDatabase }) {
     await Promise.allSettled(handles.filter(Boolean).map(h => h.close()));
   }
 
-  return { load, add, readiness, markDisabled, recheck, cellFor, close };
+  return {
+    load,
+    add,
+    readiness,
+    markDisabled,
+    recheck,
+    cellFor,
+    readyCells,
+    dbFor,
+    close,
+  };
 }

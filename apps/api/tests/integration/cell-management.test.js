@@ -85,6 +85,10 @@ async function tenant({ cellId = null, napsoft = false } = {}) {
  * @returns {Promise<string>} The Napsoft tenant UUID.
  */
 async function napsoftTenant(cellId) {
+  // The tenant's admin.outbox rows (I0004-R011) reference it.
+  await db.none(
+    'DELETE FROM admin.outbox WHERE tenant_id IN (SELECT id FROM admin.tenants WHERE is_napsoft)'
+  );
   await db.tenants.deleteWhere({ is_napsoft: true });
   return tenant({ cellId, napsoft: true });
 }

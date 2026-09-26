@@ -19,6 +19,7 @@ import { createLocalCellDriver } from './infrastructure/provisioning/localCells.
 import { createRenderCellDriver } from './infrastructure/provisioning/renderCells.js';
 import { createStages } from './application/provisioning/stages.js';
 import { createProvisioningWorker } from './application/provisioning/worker.js';
+import { createSyncWorker } from './application/sync/worker.js';
 
 let runtime;
 let admin;
@@ -54,6 +55,12 @@ try {
       }),
     });
     services.push({ start: () => worker.start(), stop: () => worker.stop() });
+  }
+  // I0004-R001: the sync worker starts after the cell registry has loaded,
+  // in dev and prod, never in test.
+  if (config.environment !== 'test') {
+    const sync = createSyncWorker({ admin, registry: cells });
+    services.push({ start: () => sync.start(), stop: () => sync.stop() });
   }
   runtime = createRuntime(
     { admin, cache },

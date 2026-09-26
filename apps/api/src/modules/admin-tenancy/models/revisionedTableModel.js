@@ -58,6 +58,45 @@ function withRevisionColumn(updateColumns) {
 }
 
 /**
+ * Revisions of `rows`, keyed by ID.
+ * @param {object[]} rows
+ * @returns {Map<string, number>}
+ */
+function revisionsOf(rows) {
+  return new Map(rows.map(row => [String(row.id), row.revision]));
+}
+
+/**
+ * The `returning` list a bulk write runs with, so the outbox can find the
+ * written rows by `id`.
+ * @param {string[]|null} returning
+ * @returns {string[]}
+ */
+function withId(returning) {
+  if (!Array.isArray(returning) || returning.length === 0) return ['id'];
+  return returning.includes('id') || returning.includes('*')
+    ? returning
+    : [...returning, 'id'];
+}
+
+/**
+ * Give a bulk write's result the shape the caller asked for: a row count
+ * without `returning`, else the rows with only the requested columns.
+ * @param {object[]} rows
+ * @param {string[]|null} returning
+ * @returns {number|object[]}
+ */
+function shaped(rows, returning) {
+  if (!Array.isArray(returning) || returning.length === 0) return rows.length;
+  if (returning.includes('id') || returning.includes('*')) return rows;
+  return rows.map(row => {
+    const copy = { ...row };
+    delete copy.id;
+    return copy;
+  });
+}
+
+/**
  * Table model for an admin row copied into cells (I0004-R010, R012).
  *
  * Every write that changes a copied column, or soft-deletes or restores the
@@ -70,6 +109,10 @@ function withRevisionColumn(updateColumns) {
  * values, and then delegates to `TableModel`. Without `tx`, each runs in its
  * own transaction.
  *
+ * Each write whose `revision` changes also inserts one `admin.outbox` row
+ * per changed row, holding `static snapshot(row)` (I0004-R011). Callers pass
+ * `actorId` for the outbox row's `created_by`; system writes leave it null.
+ *
  * The upserts first take a transaction-scoped advisory lock on each conflict
  * key, so two upserts of the same new row run one after the other and the
  * second sees the first one's row and revision.
@@ -77,6 +120,97 @@ function withRevisionColumn(updateColumns) {
 export class RevisionedTableModel extends TableModel {
   /** @type {readonly string[]} */
   static revisionedColumns = [];
+
+  /** The `admin.outbox` topic for this table's rows (I0004-R011). */
+  static outboxTopic = null;
+
+  /**
+   * The snapshot a cell copy is built from (I0004-R013).
+   * @returns {object}
+   */
+  static snapshot() {
+    throw new Error('snapshot must be overridden');
+  }
+
+  /**
+   * The tenant a row belongs to.
+   * @param {object} row
+   * @returns {string}
+   */
+  static tenantIdOf(row) {
+    return row[this.tenantColumn];
+  }
+
+  /** The column holding a row's tenant. */
+  static tenantColumn = 'tenant_id';
+
+  /**
+   * The current snapshot of every row, archived or not, of the given
+   * tenants, as `admin.outbox` rows for the backfill (I0004-R019).
+   * @param {string[]} tenantIds
+   * @param {{tx: object}} options
+   * @returns {Promise<object[]>}
+   */
+  async currentSnapshots(tenantIds, { tx }) {
+    if (tenantIds.length === 0) return [];
+    const model = this.constructor;
+    const rows = await tx.any(
+      `SELECT * FROM ${this._table()} WHERE ${model.tenantColumn} = ANY($1::uuid[])`,
+      [tenantIds]
+    );
+    return rows.map(row => ({
+      tenant_id: model.tenantIdOf(row),
+      topic: model.outboxTopic,
+      entity_id: row.id,
+      revision: row.revision,
+      payload: model.snapshot(row),
+    }));
+  }
+
+  /**
+   * Write one `admin.outbox` row for each of the given rows whose revision
+   * differs from `before` (absent means a new row), in the caller's
+   * transaction (I0004-R011). A failed insert fails the write.
+   * @param {object} t
+   * @param {string[]} ids
+   * @param {Map<string, number>} before
+   * @param {string|null|undefined} actorId
+   * @returns {Promise<void>}
+   */
+  async _emit(t, ids, before, actorId) {
+    const unique = [...new Set(ids.map(String))];
+    if (unique.length === 0) return;
+    const rows = await t.any(
+      `SELECT * FROM ${this._table()} WHERE id = ANY($1::uuid[])`,
+      [unique]
+    );
+    const model = this.constructor;
+    const changes = rows
+      .filter(row => before.get(String(row.id)) !== row.revision)
+      .map(row => ({
+        tenant_id: model.tenantIdOf(row),
+        topic: model.outboxTopic,
+        entity_id: row.id,
+        revision: row.revision,
+        payload: JSON.stringify(model.snapshot(row)),
+        created_by: actorId ?? null,
+        updated_by: actorId ?? null,
+      }));
+    if (changes.length === 0) return;
+    const columns = new this.pgp.helpers.ColumnSet(
+      [
+        'tenant_id',
+        'topic',
+        'entity_id',
+        'revision',
+        { name: 'payload', cast: 'jsonb' },
+        'created_by',
+        'updated_by',
+      ],
+      { table: { schema: 'admin', table: 'outbox' } }
+    );
+    await t.none(this.pgp.helpers.insert(changes, columns));
+  }
 
   /**
    * Run `work` on the caller's transaction, or in a new one.
@@ -204,47 +338,64 @@ export class RevisionedTableModel extends TableModel {
   }
 
   /**
-   * Insert a row at revision 1, whatever `revision` the caller supplies.
+   * Insert a row at revision 1, whatever `revision` the caller supplies,
+   * and its outbox row.
    * @param {object} dto
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<object>}
    */
-  async insert(dto, { tx } = {}) {
+  async insert(dto, { tx, actorId } = {}) {
     if (dto === null || typeof dto !== 'object' || Array.isArray(dto))
       return super.insert(dto, { tx });
-    return super.insert({ ...dto, revision: 1 }, { tx });
+    return this._withTx(tx, async t => {
+      const row = await super.insert({ ...dto, revision: 1 }, { tx: t });
+      await this._emit(t, [row.id], new Map(), actorId);
+      return row;
+    });
   }
 
   /**
-   * Insert rows at revision 1, whatever `revision` the caller supplies.
-   * `importFromSpreadsheet` inserts through this method.
+   * Insert rows at revision 1, whatever `revision` the caller supplies, and
+   * their outbox rows. `importFromSpreadsheet` inserts through this method.
    * @param {object[]} records
    * @param {string[]|null} [returning]
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<unknown>}
    */
-  async bulkInsert(records, returning = null, { tx = null } = {}) {
-    if (!Array.isArray(records))
+  async bulkInsert(records, returning = null, { tx = null, actorId } = {}) {
+    if (!Array.isArray(records) || records.length === 0)
       return super.bulkInsert(records, returning, { tx });
-    return super.bulkInsert(
-      records.map(record =>
-        record !== null && typeof record === 'object' && !Array.isArray(record)
-          ? { ...record, revision: 1 }
-          : record
-      ),
-      returning,
-      { tx }
-    );
+    return this._withTx(tx, async t => {
+      const rows = await super.bulkInsert(
+        records.map(record =>
+          record !== null &&
+          typeof record === 'object' &&
+          !Array.isArray(record)
+            ? { ...record, revision: 1 }
+            : record
+        ),
+        withId(returning),
+        { tx: t }
+      );
+      await this._emit(
+        t,
+        rows.map(row => row.id),
+        new Map(),
+        actorId
+      );
+      return shaped(rows, returning);
+    });
   }
 
   /**
-   * Update a row, incrementing `revision` when a copied column changes.
+   * Update a row, incrementing `revision` and writing an outbox row when a
+   * copied column changes.
    * @param {string} id
    * @param {object} dto
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<object|null>}
    */
-  async update(id, dto, { tx } = {}) {
+  async update(id, dto, { tx, actorId } = {}) {
     if (dto === null || typeof dto !== 'object' || Array.isArray(dto))
       return super.update(id, dto, { tx });
     const rest = withoutRevision(dto);
@@ -254,19 +405,26 @@ export class RevisionedTableModel extends TableModel {
         [id]
       );
       if (!current) return null;
-      const next = this._changes(rest, current)
-        ? { ...rest, revision: current.revision + 1 }
-        : rest;
-      return super.update(id, next, { tx: t });
+      const changed = this._changes(rest, current);
+      const next = changed ? { ...rest, revision: current.revision + 1 } : rest;
+      const row = await super.update(id, next, { tx: t });
+      if (changed)
+        await this._emit(
+          t,
+          [current.id],
+          new Map([[String(current.id), current.revision]]),
+          actorId
+        );
+      return row;
     });
   }
 
   /**
-   * Update matching rows, incrementing `revision` on each row whose copied
-   * columns change.
+   * Update matching rows, incrementing `revision` and writing an outbox row
+   * for each row whose copied columns change.
    * @param {object|object[]} where
    * @param {object} updates
-   * @param {{includeDeactivated?: boolean, tx?: object}} [options]
+   * @param {{includeDeactivated?: boolean, tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<number>}
    */
   async updateWhere(where, updates, options = {}) {
@@ -276,7 +434,7 @@ export class RevisionedTableModel extends TableModel {
       Array.isArray(updates)
     )
       return super.updateWhere(where, updates, options);
-    const { includeDeactivated = false, tx = null } = options;
+    const { includeDeactivated = false, tx = null, actorId } = options;
     const rest = withoutRevision(updates);
     return this._withTx(tx, async t => {
       const { clause, values } = this.buildWhereClause(
@@ -290,24 +448,28 @@ export class RevisionedTableModel extends TableModel {
         `SELECT * FROM ${this._table()} WHERE ${clause} FOR UPDATE`,
         values
       );
-      const count = await super.updateWhere(where, rest, { ...options, tx: t });
-      await this._increment(
-        t,
-        rows.filter(row => this._changes(rest, row)).map(row => row.id)
-      );
+      const count = await super.updateWhere(where, rest, {
+        includeDeactivated,
+        tx: t,
+      });
+      const changed = rows
+        .filter(row => this._changes(rest, row))
+        .map(row => row.id);
+      await this._increment(t, changed);
+      await this._emit(t, changed, revisionsOf(rows), actorId);
       return count;
     });
   }
 
   /**
-   * Update rows by ID, incrementing `revision` on each row whose copied
-   * columns change.
+   * Update rows by ID, incrementing `revision` and writing an outbox row for
+   * each row whose copied columns change.
    * @param {object[]} records Each includes `id`.
    * @param {string[]|null} [returning]
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<unknown[]>}
    */
-  async bulkUpdate(records, returning = null, { tx = null } = {}) {
+  async bulkUpdate(records, returning = null, { tx = null, actorId } = {}) {
     if (!Array.isArray(records) || records.length === 0)
       return super.bulkUpdate(records, returning, { tx });
     return this._withTx(tx, async t => {
@@ -316,27 +478,35 @@ export class RevisionedTableModel extends TableModel {
         [records.map(record => record.id)]
       );
       const byId = new Map(rows.map(row => [String(row.id), row]));
+      const changed = [];
       const next = records.map(record => {
         const rest = withoutRevision(record);
         const row = byId.get(String(record.id));
-        return row && this._changes(rest, row)
-          ? { ...rest, revision: row.revision + 1 }
-          : rest;
+        if (!row || !this._changes(rest, row)) return rest;
+        changed.push(row.id);
+        return { ...rest, revision: row.revision + 1 };
       });
-      return super.bulkUpdate(next, returning, { tx: t });
+      const result = await super.bulkUpdate(next, returning, { tx: t });
+      await this._emit(t, changed, revisionsOf(rows), actorId);
+      return result;
     });
   }
 
   /**
    * Insert a row, or update the conflicting one, setting `revision` as
-   * `_upsertRevisions` describes.
+   * `_upsertRevisions` describes and writing an outbox row when it changes.
    * @param {object} dto
    * @param {string[]} conflictColumns
    * @param {string[]|null} [updateColumns]
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<object>}
    */
-  async upsert(dto, conflictColumns, updateColumns = null, { tx } = {}) {
+  async upsert(
+    dto,
+    conflictColumns,
+    updateColumns = null,
+    { tx, actorId } = {}
+  ) {
     if (
       dto === null ||
       typeof dto !== 'object' ||
@@ -354,23 +524,30 @@ export class RevisionedTableModel extends TableModel {
         conflictColumns,
         updateColumns
       );
-      return super.upsert(
+      const row = await super.upsert(
         next,
         conflictColumns,
         withRevisionColumn(updateColumns),
         { tx: t }
       );
+      await this._emit(
+        t,
+        [row.id],
+        revisionsOf([...existing.values()].filter(Boolean)),
+        actorId
+      );
+      return row;
     });
   }
 
   /**
    * Insert rows, or update the conflicting ones, setting each `revision` as
-   * `_upsertRevisions` describes.
+   * `_upsertRevisions` describes and writing an outbox row for each change.
    * @param {object[]} records
    * @param {string[]} conflictColumns
    * @param {string[]|null} [updateColumns]
    * @param {string[]|null} [returning]
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<unknown>}
    */
   async bulkUpsert(
@@ -378,7 +555,7 @@ export class RevisionedTableModel extends TableModel {
     conflictColumns,
     updateColumns = null,
     returning = null,
-    { tx } = {}
+    { tx, actorId } = {}
   ) {
     if (
       !Array.isArray(records) ||
@@ -402,40 +579,60 @@ export class RevisionedTableModel extends TableModel {
         conflictColumns,
         updateColumns
       );
-      return super.bulkUpsert(
+      const rows = await super.bulkUpsert(
         next,
         conflictColumns,
         withRevisionColumn(updateColumns),
-        returning,
+        withId(returning),
         { tx: t }
       );
+      await this._emit(
+        t,
+        rows.map(row => row.id),
+        revisionsOf([...existing.values()].filter(Boolean)),
+        actorId
+      );
+      return shaped(rows, returning);
     });
   }
 
   /**
-   * Soft-delete matching active rows, incrementing each one's `revision`.
+   * Soft-delete matching active rows, incrementing each one's `revision`
+   * and writing its outbox row.
    * @param {object|object[]} where
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<number>}
    */
-  async removeWhere(where, { tx } = {}) {
+  async removeWhere(where, { tx, actorId } = {}) {
     return this._withTx(tx, async t => {
       const { clause, values } = this.buildWhereClause(where);
-      await t.none(
-        `UPDATE ${this._table()} SET revision = revision + 1 WHERE ${clause}`,
+      const rows = await t.any(
+        `SELECT id, revision FROM ${this._table()} WHERE ${clause} FOR UPDATE`,
         values
       );
-      return super.removeWhere(where, { tx: t });
+      await this._increment(
+        t,
+        rows.map(row => row.id)
+      );
+      const count = await super.removeWhere(where, { tx: t });
+      await this._emit(
+        t,
+        rows.map(row => row.id),
+        revisionsOf(rows),
+        actorId
+      );
+      return count;
     });
   }
 
   /**
-   * Restore matching soft-deleted rows, incrementing each one's `revision`.
+   * Restore matching soft-deleted rows, incrementing each one's `revision`
+   * and writing its outbox row.
    * @param {object|object[]} where
-   * @param {{tx?: object}} [options]
+   * @param {{tx?: object, actorId?: string|null}} [options]
    * @returns {Promise<number>}
    */
-  async restoreWhere(where, { tx } = {}) {
+  async restoreWhere(where, { tx, actorId } = {}) {
     return this._withTx(tx, async t => {
       const { clause, values } = this.buildWhereClause(
         where,
@@ -444,12 +641,23 @@ export class RevisionedTableModel extends TableModel {
         'AND',
         true
       );
-      await t.none(
-        `UPDATE ${this._table()} SET revision = revision + 1
-          WHERE (${clause}) AND deactivated_at IS NOT NULL`,
+      const rows = await t.any(
+        `SELECT id, revision FROM ${this._table()}
+          WHERE (${clause}) AND deactivated_at IS NOT NULL FOR UPDATE`,
         values
       );
-      return super.restoreWhere(where, { tx: t });
+      await this._increment(
+        t,
+        rows.map(row => row.id)
+      );
+      const count = await super.restoreWhere(where, { tx: t });
+      await this._emit(
+        t,
+        rows.map(row => row.id),
+        revisionsOf(rows),
+        actorId
+      );
+      return count;
     });
   }
 }

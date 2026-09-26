@@ -115,8 +115,8 @@ the change never waits on the other database:
   `cell.outbox`. The worker applies it to the admin login and membership and
   reports the result back to the cell.
 
-Inter-module workflows build both directions, including the code that reads and writes
-the `cell` tables. M0002 owns only the tables.
+[I0004](../inter-module-workflows/I0004-admin-cell-sync.md) builds both directions, including the code that reads and
+writes the `cell` tables. M0002 owns only the tables.
 
 ## Work Unit status
 
@@ -138,7 +138,7 @@ Cell Tenancy is complete when Work Units 01 and 02 are complete.
 
 ## Out of scope
 
-These build on the `cell` tables. Each needs its own PRD, other than I0003,
+These build on the `cell` tables. Each needs its own PRD, other than I0003 and I0004,
 before it is built:
 
 - Cell provisioning and the runtime cell registry: [I0003](../inter-module-workflows/I0003-cell-provisioning.md).
@@ -158,19 +158,13 @@ before it is built:
   operator's selected tenant and cell in the application shell. Spans an
   admin-tenancy route and the browser shell; owns no cell-tenancy table, so
   it is an inter-module workflow, not an M0002 Work Unit.
-- Tenant sync: the admin database writes an `admin.outbox` row for each
-  tenant change, and a worker delivers it to the tenant's cell and applies it
-  to `cell.tenants` under the revision rule. An inter-module workflow.
-- Membership sync: the same pipeline for `cell.tenant_members`, plus requiring
-  an active local membership in `withTenantTransaction` and looking up a
-  member by `member_id`. Adds a topic to the tenant sync worker; an inter-module workflow.
-- Entitlement sync: the same pipeline for `cell.module_entitlements`, plus
-  blocking routes for optional modules the tenant is not entitled to.
-  Foundation modules always pass. Adds a topic to the tenant sync worker;
-  an inter-module workflow.
-- Cell-to-admin delivery: appending a request to `cell.outbox` inside the
-  tenant transaction, claiming rows so each is taken by one worker at a time,
-  and applying each request to the admin database. An inter-module workflow.
+- Admin-cell sync in both directions: tenant, membership, and entitlement
+  copies from admin, and portal-access requests from `cell.outbox`:
+  [I0004](../inter-module-workflows/I0004-admin-cell-sync.md).
+- Requiring an active local membership in `withTenantTransaction`, and
+  looking up a member by `member_id`. Part of tenant context.
+- Entitlement checks: blocking routes for optional modules the tenant is not
+  entitled to. Foundation modules always pass. An inter-module workflow.
 - Cell provisioning: creating, migrating, and activating a cell database.
 - Migration rollout: applying a new cell migration to every existing cell,
   with progress and failures an operator can see and retry.

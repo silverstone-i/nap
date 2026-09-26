@@ -75,7 +75,7 @@ function model({ inserted = null, existing = null, failure } = {}) {
 
 describe('catalogue', () => {
   it('names every key in the PRD areas with permitted outcomes', () => {
-    expect(Object.keys(EVENT_CATALOGUE)).toHaveLength(41);
+    expect(Object.keys(EVENT_CATALOGUE)).toHaveLength(45);
     for (const [key, entry] of Object.entries(EVENT_CATALOGUE)) {
       expect(entry.outcomes.length, key).toBeGreaterThan(0);
       for (const outcome of entry.outcomes)

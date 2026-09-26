@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { TableModel } from 'pg-schemata';
+import { CopyTableModel } from './copyTableModel.js';
 
 /**
  * Schema object for `cell.tenant_members`: a copy of `admin.portal_user_tenants` for the tenants in this cell.
@@ -49,9 +49,16 @@ export const tenantMembersSchema = {
   },
 };
 
-/** Model for `cell.tenant_members`. Inherits the standard table operations only. */
-export class TenantMembers extends TableModel {
+/** Model for `cell.tenant_members`: a copy kept in step by the sync worker (I0004). */
+export class TenantMembers extends CopyTableModel {
   static schema = tenantMembersSchema;
+  static copyColumns = [
+    'tenant_id',
+    'portal_user_id',
+    'member_type',
+    'member_id',
+    'status',
+  ];
   constructor(db, pgp, logger) {
     super(db, pgp, tenantMembersSchema, logger);
   }

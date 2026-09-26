@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { TableModel } from 'pg-schemata';
+import { CopyTableModel } from './copyTableModel.js';
 
 /**
  * Schema object for `cell.module_entitlements`: a copy of `admin.module_entitlements` for the tenants in this cell.
@@ -35,9 +35,10 @@ export const moduleEntitlementsSchema = {
   },
 };
 
-/** Model for `cell.module_entitlements`. Inherits the standard table operations only. */
-export class ModuleEntitlements extends TableModel {
+/** Model for `cell.module_entitlements`: a copy kept in step by the sync worker (I0004). */
+export class ModuleEntitlements extends CopyTableModel {
   static schema = moduleEntitlementsSchema;
+  static copyColumns = ['tenant_id', 'module', 'enabled'];
   constructor(db, pgp, logger) {
     super(db, pgp, moduleEntitlementsSchema, logger);
   }

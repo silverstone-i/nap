@@ -83,6 +83,18 @@ export class PortalUserTenants extends RevisionedTableModel {
     'member_id',
     'status',
   ];
+  static outboxTopic = 'membership';
+  static snapshot(row) {
+    return {
+      id: row.id,
+      tenant_id: row.tenant_id,
+      portal_user_id: row.portal_user_id,
+      member_type: row.member_type,
+      member_id: row.member_id,
+      status: row.status,
+      deactivated_at: row.deactivated_at ?? null,
+    };
+  }
   constructor(db, pgp, logger) {
     super(db, pgp, portalUserTenantsSchema, logger);
   }

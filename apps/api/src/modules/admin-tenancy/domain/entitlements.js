@@ -327,7 +327,7 @@ async function setEntitlement(
           }
           const inserted = await db.module_entitlements.insert(
             { tenant_id: id, module, enabled: true },
-            { tx }
+            { tx, actorId: granted.actorId }
           );
           await db.managed_events.append(
             {
@@ -383,7 +383,7 @@ async function setEntitlement(
         const updated = await db.module_entitlements.update(
           row.id,
           { enabled: targetEnabled },
-          { tx }
+          { tx, actorId: granted.actorId }
         );
         await db.managed_events.append(
           {
