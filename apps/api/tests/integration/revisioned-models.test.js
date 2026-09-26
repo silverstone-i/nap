@@ -275,7 +275,21 @@ describe('revisioned table models (I0004-R010, R012)', () => {
         secondDone = true;
         return row;
       });
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Wait until the second upsert is blocked on an advisory lock, rather
+    // than sleeping and hoping it got there.
+    const deadline = Date.now() + 5000;
+    let waiting = false;
+    while (!waiting && Date.now() < deadline) {
+      const row = await db.one(
+        `SELECT count(*)::int AS n FROM pg_locks
+          WHERE locktype = 'advisory' AND NOT granted AND database = (
+            SELECT oid FROM pg_database WHERE datname = current_database()
+          )`
+      );
+      waiting = row.n > 0;
+      if (!waiting) await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    expect(waiting).toBe(true);
     expect(secondDone).toBe(false);
     release();
     await first;

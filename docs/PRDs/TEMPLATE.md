@@ -48,7 +48,8 @@ context. A decision table is required for authorization decisions.
 
 <!--
 Use stable identifiers derived from the PRD identifier. If one is out of
-order or wrong, ask the developer whether to renumber it.
+order or wrong, ask the developer whether to renumber it, and update every
+reference when you do.
 
 - M0001-R001: The system must ...
 -->
