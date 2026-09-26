@@ -326,7 +326,7 @@ async function setEntitlement(
             return entitlementView(module, null);
           }
           const inserted = await db.module_entitlements.insert(
-            { tenant_id: id, module, enabled: true, revision: 1 },
+            { tenant_id: id, module, enabled: true },
             { tx }
           );
           await db.managed_events.append(

@@ -261,6 +261,30 @@ describe('revisioned table models (I0004-R010, R012)', () => {
     expect(row).toMatchObject({ enabled: false, revision: 2 });
   });
 
+  it('insert and bulkInsert start every row at 1, ignoring a supplied revision', async () => {
+    const { tenant } = await seedMembership();
+    const one = await db.module_entitlements.insert({
+      tenant_id: tenant.id,
+      module: 'sales',
+      enabled: true,
+      revision: 7,
+    });
+    expect(one.revision).toBe(1);
+    const rows = await db.module_entitlements.bulkInsert(
+      [
+        {
+          tenant_id: tenant.id,
+          module: 'projects',
+          enabled: true,
+          revision: 4,
+        },
+        { tenant_id: tenant.id, module: 'accounting', enabled: true },
+      ],
+      ['revision']
+    );
+    expect(rows.map(row => row.revision)).toEqual([1, 1]);
+  });
+
   it('rolls the revision back with the caller transaction', async () => {
     const { membership } = await seedMembership();
     await expect(

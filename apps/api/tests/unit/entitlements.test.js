@@ -114,7 +114,8 @@ function fakeAdmin({
           .map(row => ({ ...row })),
       insert: async dto => {
         if (failInsertWith) throw failInsertWith;
-        const row = { id: randomUUID(), ...dto };
+        // Mirrors RevisionedTableModel: a new row starts at revision 1.
+        const row = { id: randomUUID(), ...dto, revision: 1 };
         entitlementStore.set(`${row.tenant_id}:${row.module}`, row);
         return row;
       },

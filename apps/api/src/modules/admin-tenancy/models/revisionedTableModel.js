@@ -170,6 +170,40 @@ export class RevisionedTableModel extends TableModel {
   }
 
   /**
+   * Insert a row at revision 1, whatever `revision` the caller supplies.
+   * @param {object} dto
+   * @param {{tx?: object}} [options]
+   * @returns {Promise<object>}
+   */
+  async insert(dto, { tx } = {}) {
+    if (dto === null || typeof dto !== 'object' || Array.isArray(dto))
+      return super.insert(dto, { tx });
+    return super.insert({ ...dto, revision: 1 }, { tx });
+  }
+
+  /**
+   * Insert rows at revision 1, whatever `revision` the caller supplies.
+   * `importFromSpreadsheet` inserts through this method.
+   * @param {object[]} records
+   * @param {string[]|null} [returning]
+   * @param {{tx?: object}} [options]
+   * @returns {Promise<unknown>}
+   */
+  async bulkInsert(records, returning = null, { tx = null } = {}) {
+    if (!Array.isArray(records))
+      return super.bulkInsert(records, returning, { tx });
+    return super.bulkInsert(
+      records.map(record =>
+        record !== null && typeof record === 'object' && !Array.isArray(record)
+          ? { ...record, revision: 1 }
+          : record
+      ),
+      returning,
+      { tx }
+    );
+  }
+
+  /**
    * Update a row, incrementing `revision` when a copied column changes.
    * @param {string} id
    * @param {object} dto
