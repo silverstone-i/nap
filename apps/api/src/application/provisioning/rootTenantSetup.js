@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { roleUrl } from '../shared/configuration.js';
 import { createCellDatabase } from '../../infrastructure/runtime/cellDatabase.js';
 import { COLLECTION_ENTITY } from '../../modules/admin-tenancy/domain/cache.js';
+import { enqueueTenantSnapshots } from '../sync/backfill.js';
 
 /** Thrown when root tenant setup cannot finish; the worker retries it. */
 export class RootSetupError extends Error {
@@ -20,7 +21,8 @@ export class RootSetupError extends Error {
  * Assign the completed cell to the Napsoft tenant when it has none
  * (I0003-R023, R024 step 1). Runs inside the transaction that completes the
  * job, through `advanceCellProvisioning`'s `onCompleted` hook, so a later
- * cell never changes the Napsoft tenant's cell.
+ * cell never changes the Napsoft tenant's cell. Also enqueues the tenant's
+ * synced rows for its new cell (I0004-R019).
  * @param {object} db Admin repository handle.
  * @param {object} tx The completing transaction.
  * @param {{cell_id: string}} operation The completed job.
@@ -30,6 +32,8 @@ export async function assignNapsoftCell(db, tx, operation) {
   const napsoft = await db.tenants.lockNapsoft({ tx });
   if (!napsoft || napsoft.cell_id) return;
   await db.tenants.update(napsoft.id, { cell_id: operation.cell_id }, { tx });
+  // I0004-R019: deliver the tenant's synced rows to its new cell.
+  await enqueueTenantSnapshots(db, { tx, tenantIds: [napsoft.id] });
   await db.cache_revisions.advance(
     [
       { domain: 'tenant', entity: napsoft.id },

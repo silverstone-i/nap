@@ -26,7 +26,9 @@ function fakeAdmin(tenant) {
       lockNapsoft: vi.fn(async () => db.tenant),
       findOneBy: vi.fn(async () => db.tenant),
       update: vi.fn(async (id, change) => Object.assign(db.tenant, change)),
+      currentSnapshots: vi.fn(async () => []),
     },
+    outbox: { enqueueMissing: vi.fn(async () => 0) },
     cache_revisions: { advance: vi.fn(async () => {}) },
     portal_users: { findOneBy: vi.fn(async () => ({ id: ROOT })) },
     portal_user_tenants: {
@@ -37,7 +39,9 @@ function fakeAdmin(tenant) {
         status: 'active',
         revision: 1,
       })),
+      currentSnapshots: vi.fn(async () => []),
     },
+    module_entitlements: { currentSnapshots: vi.fn(async () => []) },
     cells: {
       findOneBy: vi.fn(async () => ({ id: CELL, database_name: 'nap_cell' })),
     },
@@ -95,6 +99,9 @@ describe('root tenant setup (I0003-R023–R026)', () => {
     expect(db.tenant.cell_id).toBe(CELL);
     await assignNapsoftCell(db, {}, { cell_id: TENANT });
     expect(db.tenant.cell_id).toBe(CELL);
+    // I0004-R019: only the first assignment enqueues the tenant's rows.
+    expect(db.tenants.currentSnapshots).toHaveBeenCalledTimes(1);
+    expect(db.tenants.currentSnapshots.mock.calls[0][0]).toEqual([TENANT]);
   });
 
   it('writes the cell rows, confirms them, and marks the tenant ready (R024, R026)', async () => {

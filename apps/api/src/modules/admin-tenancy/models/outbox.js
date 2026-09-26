@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { TableModel } from 'pg-schemata';
+import { OutboxTableModel } from '../../../infrastructure/models/outboxTableModel.js';
 
 /**
  * Schema object for `admin.outbox`: central changes waiting for delivery to a tenant's cell.
@@ -72,8 +72,8 @@ export const outboxSchema = {
   },
 };
 
-/** Model for `admin.outbox`. Inherits the standard table operations only. */
-export class Outbox extends TableModel {
+/** Model for `admin.outbox`, with the sync worker's reads and state changes. */
+export class Outbox extends OutboxTableModel {
   static schema = outboxSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, outboxSchema, logger);

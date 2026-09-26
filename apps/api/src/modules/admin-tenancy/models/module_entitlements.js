@@ -50,6 +50,15 @@ export const moduleEntitlementsSchema = {
 export class ModuleEntitlements extends RevisionedTableModel {
   static schema = moduleEntitlementsSchema;
   static revisionedColumns = ['module', 'enabled'];
+  static outboxTopic = 'entitlement';
+  static snapshot(row) {
+    return {
+      id: row.id,
+      tenant_id: row.tenant_id,
+      module: row.module,
+      enabled: row.enabled,
+    };
+  }
   constructor(db, pgp, logger) {
     super(db, pgp, moduleEntitlementsSchema, logger);
   }

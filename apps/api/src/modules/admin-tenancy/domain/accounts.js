@@ -386,14 +386,9 @@ export async function createOrReuseUser(
 
         const policy = parseHashingPolicy(hashingPolicy);
         const digest = await hashPassword(policy, normalized.password);
-        const user = await db.portal_users.insert(
-          {
-            email: normalized.email,
-            password_hash: digest,
-            must_change_password: true,
-            status: 'active',
-            is_root: false,
-          },
+        const user = await createLoginFromHash(
+          db,
+          { email: normalized.email, passwordHash: digest },
           { tx }
         );
         await appendAccountEvent(
@@ -1009,7 +1004,7 @@ export async function createMembership(
             member_id: null,
             ready: false,
           },
-          { tx }
+          { tx, actorId: resolvedActorId }
         );
         const job = await db.provisioning_jobs.insert(
           {
@@ -1120,7 +1115,7 @@ export async function updateMembership(
           const updated = await db.portal_user_tenants.update(
             id,
             { status: 'suspended', ready: false },
-            { tx }
+            { tx, actorId: resolvedActorId }
           );
           await revokeSessionsForMembership(
             db,
@@ -1163,7 +1158,7 @@ export async function updateMembership(
         const updated = await db.portal_user_tenants.update(
           id,
           { status: 'active' },
-          { tx }
+          { tx, actorId: resolvedActorId }
         );
         await appendAccountEvent(
           db,
@@ -1232,10 +1227,14 @@ export async function archiveMembership(
         requireTenantAuthority(scope, membership.tenant_id);
         if (membership.deactivated_at) return { archived: true };
 
-        await db.portal_user_tenants.update(id, { ready: false }, { tx });
+        await db.portal_user_tenants.update(
+          id,
+          { ready: false },
+          { tx, actorId: resolvedActorId }
+        );
         const removed = await db.portal_user_tenants.removeWhere(
           { id },
-          { tx }
+          { tx, actorId: resolvedActorId }
         );
         if (!removed) throw new AdminAccountError('NOT_FOUND');
         await revokeSessionsForMembership(
@@ -1314,11 +1313,14 @@ export async function restoreMembership(
         if (!membership.deactivated_at)
           throw new AdminAccountError('INVALID_STATE');
 
-        await db.portal_user_tenants.restoreWhere({ id }, { tx });
+        await db.portal_user_tenants.restoreWhere(
+          { id },
+          { tx, actorId: resolvedActorId }
+        );
         const updated = await db.portal_user_tenants.update(
           id,
           { status: 'suspended', ready: false },
-          { tx }
+          { tx, actorId: resolvedActorId }
         );
         await appendAccountEvent(
           db,
@@ -1560,4 +1562,161 @@ export async function reportProvisioningResult(db, jobId, result) {
       return jobView(updatedJob);
     })
   );
+}
+
+/**
+ * Insert a login that must change its password at first sign-in, from an
+ * already-hashed temporary password. The caller holds the user-registry
+ * lock and has checked that no unarchived login uses the email.
+ * @param {AdminAccountsDb} db
+ * @param {{email: string, passwordHash: string}} login
+ * @param {{tx: object}} options
+ * @returns {Promise<object>} The new row.
+ */
+export async function createLoginFromHash(db, { email, passwordHash }, { tx }) {
+  return db.portal_users.insert(
+    {
+      email,
+      password_hash: passwordHash,
+      must_change_password: true,
+      status: 'active',
+      is_root: false,
+    },
+    { tx }
+  );
+}
+
+/**
+ * Apply a tenant's portal-access request to the login and membership
+ * (I0004-R024–R029), in the caller's admin transaction. The tenant comes
+ * from the cell the request was read from, never from the payload.
+ *
+ * Row failures return a `failureCode` and change nothing; the caller marks
+ * that request `failed`. Membership writes go through the revisioned model,
+ * so each change writes its own `admin.outbox` row (R030).
+ * @param {AdminAccountsDb} db
+ * @param {{tenantId: string, payload: {member_id: string, member_type: string, email: string, enabled: boolean, password_hash?: string}}} request
+ * @param {{tx: object}} options
+ * @returns {Promise<{failureCode: string} | {failureCode: null, invitationPending: boolean}>}
+ */
+export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
+  await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY_USERS})`);
+  await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY_MEMBERSHIPS})`);
+  const email = payload.email.trim().toLowerCase();
+  const login = await db.portal_users.lockActiveByEmail(email, { tx });
+
+  if (!payload.enabled) {
+    if (!login) return { failureCode: null, invitationPending: false };
+    const membership = await db.portal_user_tenants.lockByUserAndTenant(
+      login.id,
+      tenantId,
+      { tx }
+    );
+    if (!membership || membership.status === 'suspended')
+      return { failureCode: null, invitationPending: false };
+    if (membership.member_id !== payload.member_id)
+      return { failureCode: 'MEMBER_CONFLICT' };
+    await db.portal_user_tenants.update(
+      membership.id,
+      { status: 'suspended', ready: false },
+      { tx }
+    );
+    await revokeSessionsForMembership(
+      db,
+      {
+        portalUserId: login.id,
+        tenantId,
+        code: REVOCATION_CODES.accountIneligible,
+      },
+      { tx }
+    );
+    await db.cache_revisions.advance(
+      [{ domain: 'membership', entity: membership.id }],
+      { tx }
+    );
+    return { failureCode: null, invitationPending: false };
+  }
+
+  if (!login) {
+    const created = await createLoginFromHash(
+      db,
+      { email, passwordHash: payload.password_hash },
+      { tx }
+    );
+    await db.portal_user_tenants.insert(
+      {
+        portal_user_id: created.id,
+        tenant_id: tenantId,
+        member_type: payload.member_type,
+        member_id: payload.member_id,
+        status: 'pending',
+        ready: false,
+      },
+      { tx }
+    );
+    await db.cache_revisions.advance(
+      [
+        { domain: 'user', entity: COLLECTION_ENTITY },
+        { domain: 'membership', entity: COLLECTION_ENTITY },
+      ],
+      { tx }
+    );
+    return { failureCode: null, invitationPending: false };
+  }
+
+  if (login.is_root || login.status === 'disabled')
+    return { failureCode: 'LOGIN_UNAVAILABLE' };
+
+  const membership = await db.portal_user_tenants.lockByUserAndTenant(
+    login.id,
+    tenantId,
+    { tx }
+  );
+  if (membership && membership.member_id !== payload.member_id)
+    return { failureCode: 'MEMBER_CONFLICT' };
+
+  const activeElsewhere = await tx.oneOrNone(
+    `SELECT id FROM admin.portal_user_tenants
+      WHERE portal_user_id=$1 AND tenant_id<>$2 AND status='active'
+        AND deactivated_at IS NULL
+      LIMIT 1`,
+    [login.id, tenantId]
+  );
+  const status = activeElsewhere ? 'active' : 'pending';
+
+  let invitationPending = false;
+  if (!activeElsewhere) {
+    if (login.must_change_password) invitationPending = true;
+    else
+      await db.portal_users.update(
+        login.id,
+        { password_hash: payload.password_hash, must_change_password: true },
+        { tx }
+      );
+  }
+
+  if (!membership)
+    await db.portal_user_tenants.insert(
+      {
+        portal_user_id: login.id,
+        tenant_id: tenantId,
+        member_type: payload.member_type,
+        member_id: payload.member_id,
+        status,
+        ready: false,
+      },
+      { tx }
+    );
+  else if (membership.status === 'suspended')
+    await db.portal_user_tenants.update(
+      membership.id,
+      { status, member_type: payload.member_type },
+      { tx }
+    );
+  if (!membership || membership.status === 'suspended')
+    await db.cache_revisions.advance(
+      [{ domain: 'membership', entity: membership?.id ?? COLLECTION_ENTITY }],
+      { tx }
+    );
+  return { failureCode: null, invitationPending };
 }

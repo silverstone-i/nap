@@ -33,13 +33,17 @@ const DENIED = Object.freeze(['denied']);
  */
 export const EVENT_DETAIL_KEYS = Object.freeze([
   'attempt',
+  'attempts',
   'cell_code',
   'changed_fields',
   'code',
+  'direction',
   'email',
+  'failure_code',
   'forced',
   'from_enabled',
   'from_status',
+  'invitation_pending',
   'job_id',
   'member_type',
   'method',
@@ -167,6 +171,24 @@ export const EVENT_CATALOGUE = Object.freeze({
   },
 
   'tenant.root_setup.completed': { outcomes: SUCCEEDED, details: [] },
+
+  // I0004-R034: sync delivery and portal-access results.
+  'sync.delivery.failed': {
+    outcomes: FAILED,
+    details: ['direction', 'failure_code', 'attempts'],
+  },
+  'sync.delivery.recovered': {
+    outcomes: SUCCEEDED,
+    details: ['direction', 'attempts'],
+  },
+  'portal_access.applied': {
+    outcomes: SUCCEEDED,
+    details: ['direction', 'invitation_pending'],
+  },
+  'portal_access.failed': {
+    outcomes: FAILED,
+    details: ['direction', 'failure_code'],
+  },
   'tenant.selected': { outcomes: ANY_OUTCOME, details: [] },
   'support.entered': { outcomes: ANY_OUTCOME, details: [] },
   'support.exited': { outcomes: ANY_OUTCOME, details: [] },

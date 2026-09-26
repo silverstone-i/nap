@@ -88,6 +88,16 @@ function table(model) {
 export class Tenants extends RevisionedTableModel {
   static schema = tenantsSchema;
   static revisionedColumns = ['tenant_code', 'status'];
+  static outboxTopic = 'tenant';
+  static snapshot(row) {
+    return {
+      id: row.id,
+      tenant_code: row.tenant_code,
+      status: row.status,
+      deactivated_at: row.deactivated_at ?? null,
+    };
+  }
+  static tenantColumn = 'id';
   constructor(db, pgp, logger) {
     super(db, pgp, tenantsSchema, logger);
   }
@@ -114,5 +124,31 @@ export class Tenants extends RevisionedTableModel {
       `SELECT * FROM ${table(this)} WHERE lower(tenant_code)=lower($1) AND deactivated_at IS NULL FOR UPDATE`,
       [tenantCode]
     );
+  }
+
+  /**
+   * The tenant's `cell_id`, archived or not, or `undefined` when there is
+   * no such tenant (I0004-R014).
+   * @param {string} id
+   * @returns {Promise<string|null|undefined>}
+   */
+  async cellOf(id) {
+    const row = await this.db.oneOrNone(
+      `SELECT cell_id FROM ${table(this)} WHERE id=$1`,
+      [id]
+    );
+    return row ? row.cell_id : undefined;
+  }
+
+  /**
+   * IDs of every tenant assigned to a cell (I0004-R019).
+   * @param {{tx: object}} options
+   * @returns {Promise<string[]>}
+   */
+  async assignedIds({ tx }) {
+    const rows = await tx.any(
+      `SELECT id FROM ${table(this)} WHERE cell_id IS NOT NULL`
+    );
+    return rows.map(row => String(row.id));
   }
 }

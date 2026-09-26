@@ -264,7 +264,7 @@ export async function createTenant(
             rbac_ready: false,
             is_napsoft: false,
           },
-          { tx }
+          { tx, actorId: granted.actorId }
         );
         await db.managed_events.append(
           {

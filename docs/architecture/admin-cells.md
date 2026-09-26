@@ -228,6 +228,29 @@ PRD yet.
   replacement cell.
 - A provisioned tenant cannot move cells through a simple `cell_id` edit.
 
+## Admin-Cell Sync
+
+Implemented by [I0004](../PRDs/inter-module-workflows/I0004-admin-cell-sync.md).
+The admin database and a cell never query each other. Each side writes changes
+to its own outbox in the same transaction as the change, and one sync worker
+inside the API delivers them:
+
+- **Admin to cell.** Any write that increments the `revision` of a tenant,
+  membership, or module entitlement writes an `admin.outbox` row holding the
+  row's full snapshot. The worker finds the tenant's cell from
+  `admin.tenants.cell_id` at delivery time and updates `cell.tenants`,
+  `cell.tenant_members`, or `cell.module_entitlements`. A copy only moves
+  forward: a snapshot at or below the copy's revision changes nothing.
+- **Cell to admin.** Cell-side code calls `requestPortalAccess` inside its own
+  transaction to turn a user's portal access on or off. The worker applies the
+  request to the admin login and membership, and the resulting membership
+  change flows back to the cell as an admin-to-cell row.
+
+The worker delivers one tenant and direction at a time under an advisory lock
+on the admin database. Only the highest pending revision per entity is
+applied. A cell that is down leaves rows pending; they retry with backoff up
+to 5 minutes and catch up when the cell returns.
+
 ## What This Document Does Not Cover
 
 This document explains the admin-to-cell relationship. Separate documents
