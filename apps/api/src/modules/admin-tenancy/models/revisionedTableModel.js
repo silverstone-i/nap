@@ -96,7 +96,7 @@ export class RevisionedTableModel extends TableModel {
 
   /** @returns {string} */
   _activeCheck() {
-    return this._schema.softDelete ? ' AND deactivated_at IS NULL' : '';
+    return this.schema.softDelete ? ' AND deactivated_at IS NULL' : '';
   }
 
   /**
@@ -154,7 +154,7 @@ export class RevisionedTableModel extends TableModel {
       [
         records.map(record =>
           upsertLockText(
-            `${this._schema.dbSchema}.${this._schema.table}`,
+            `${this.schema.dbSchema}.${this.schema.table}`,
             conflictColumns,
             record
           )
@@ -167,7 +167,7 @@ export class RevisionedTableModel extends TableModel {
       ])
     );
     const columns = this._columns(conflictColumns).join(', ');
-    const order = this._schema.softDelete
+    const order = this.schema.softDelete
       ? ' ORDER BY deactivated_at IS NOT NULL'
       : '';
     const rows = await t.any(
