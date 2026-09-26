@@ -77,7 +77,7 @@ for.
 | `/management/portal-users` (create/deactivate/restore) | Root or `platform_admin`, `support` per M0001-08-R007           | `admin-tenancy::accounts::write` | Create, deactivate, or restore a portal-user account            |
 | Any of the above                                       | Authenticated user without the capability                       | None                             | Destination hidden from navigation; direct access server-denied |
 
-Per M0569, `platform_admin`/`support` role assignment is
+Per I0005, `platform_admin`/`support` role assignment is
 blocked on cell provisioning; today only root resolves either capability
 (`resolveAuthorization`, `apps/api/src/modules/admin-tenancy/domain/authorization.js`).
 This PRD does not change that — it consumes whatever `permits()` already

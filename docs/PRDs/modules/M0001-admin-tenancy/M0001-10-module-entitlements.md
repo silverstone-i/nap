@@ -141,7 +141,7 @@ recorded for every call (AC02, §12); withdrawing an absent module creating
 no row (§8); the entitlement cache revision — keyed by tenant UUID —
 advancing only on a genuine `enabled` change, never on a no-op (§7, §11); a
 Napsoft-denied tenant (a hand-built `deniedTenantIds` scope, since role-based
-`support` resolution is deferred to M0569) reporting `FORBIDDEN` on
+`support` resolution is deferred to I0005) reporting `FORBIDDEN` on
 both read and write (AC05); an unknown tenant and an unknown module each
 reporting `NOT_FOUND` (AC01); the real foreign key to `admin.tenants`; and
 two concurrency cases under real advisory locks — two concurrent grants of
@@ -164,7 +164,7 @@ permission, by construction rather than by a runtime check.
 As `accounts.js` and `control.js` already note for their own domains,
 `authorization.js` currently resolves only root or no platform authority
 (role-based `platform_admin`/`support`/`tenant_admin` is deferred to
-M0569), so AC05 is demonstrated today by directly constructing a
+I0005), so AC05 is demonstrated today by directly constructing a
 `support`-shaped scope with the tenant in `deniedTenantIds` and calling the
 domain functions directly, rather than by a distinguishable `support`
 session, which has no runtime path to authenticate as yet.

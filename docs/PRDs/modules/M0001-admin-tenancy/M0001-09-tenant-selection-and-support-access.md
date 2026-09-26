@@ -174,7 +174,7 @@ tests already cover at the integration layer.
 
 As every other Work Unit in this family documents, `authorization.js`
 currently resolves only root or no platform authority (role-based
-`platform_admin`/`support`/`tenant_admin` is deferred to M0569 until the
+`platform_admin`/`support`/`tenant_admin` is deferred to I0005 until the
 tenant-local role catalogue exists in the cell). AC03's Napsoft-support denial (M0001-09-R003) is
 therefore demonstrated today by hand-building a `support`-shaped, Napsoft-
 restricted scope and calling the domain functions directly, rather than by a

@@ -57,9 +57,9 @@ function sendTenantError(response, error) {
  * entitlement routes instead build an `{actorId, scope}` authority via
  * `accessScope`, since entitlements are tenant-scoped like accounts
  * (domain/accounts.js), not registry-shaped like cells/tenant-creation. Both
- * share the same M0569 caveat: `authorization.js` currently resolves only
+ * share the same I0005 caveat: `authorization.js` currently resolves only
  * root or no platform authority (role-based `platform_admin`/`support`/
- * `tenant_admin` is deferred to M0569), exactly as `control.js` and `accounts.js`
+ * `tenant_admin` is deferred to I0005), exactly as `control.js` and `accounts.js`
  * already note.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin

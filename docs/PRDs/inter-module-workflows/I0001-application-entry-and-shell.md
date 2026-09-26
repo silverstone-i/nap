@@ -488,7 +488,7 @@ signal (for example `entryPoints.tenantManagement: { tenants, cells,
 portalUsers }`) before any child here can move to `implemented: true`; until
 then, `entryPoints.platform` must not be used as a stand-in, since a
 non-root platform operator with only some of those capabilities (once
-M0569 ships non-root roles) must not see a destination it cannot use.
+I0005 ships non-root roles) must not see a destination it cannot use.
 
 Verified with 24 new web tests: `NavGroup.test.jsx` (10 tests) covers the
 component in isolation — the empty-group case; expanded nesting with icons
