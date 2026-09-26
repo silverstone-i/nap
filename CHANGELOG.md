@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.18.3] - 2026-09-26
+
 ### Changed
 
 - Every write to a tenant, membership, or module entitlement row that changes a field copied to cells, or archives or restores the row, now increments its `revision`. Membership suspend, activate, archive, restore, and provisioning results previously left `revision` unchanged, so a cell comparing revisions would have ignored them. The rule lives in a shared `RevisionedTableModel` that covers single, `Where`, bulk, and upsert writes; upserts of the same new row wait on an advisory lock so the second sees the first's revision.
