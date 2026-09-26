@@ -112,7 +112,8 @@ export class RevisionedTableModel extends TableModel {
    * @param {object} t
    * @param {object[]} records
    * @param {string[]} conflictColumns
-   * @returns {Promise<Map<string, object>>}
+   * @returns {Promise<Map<object, object|null>>} Each input record mapped
+   *   to its conflicting row, or `null`.
    */
   async _lockConflicts(t, records, conflictColumns) {
     const key = row =>
@@ -201,7 +202,11 @@ export class RevisionedTableModel extends TableModel {
    * @returns {Promise<number>}
    */
   async updateWhere(where, updates, options = {}) {
-    if (updates === null || typeof updates !== 'object')
+    if (
+      updates === null ||
+      typeof updates !== 'object' ||
+      Array.isArray(updates)
+    )
       return super.updateWhere(where, updates, options);
     const { includeDeactivated = false, tx = null } = options;
     const rest = withoutRevision(updates);
@@ -267,6 +272,7 @@ export class RevisionedTableModel extends TableModel {
     if (
       dto === null ||
       typeof dto !== 'object' ||
+      Array.isArray(dto) ||
       !Array.isArray(conflictColumns) ||
       conflictColumns.length === 0
     )
