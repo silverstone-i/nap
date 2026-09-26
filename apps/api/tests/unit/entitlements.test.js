@@ -114,7 +114,8 @@ function fakeAdmin({
           .map(row => ({ ...row })),
       insert: async dto => {
         if (failInsertWith) throw failInsertWith;
-        const row = { id: randomUUID(), ...dto };
+        // Mirrors RevisionedTableModel: a new row starts at revision 1.
+        const row = { id: randomUUID(), ...dto, revision: 1 };
         entitlementStore.set(`${row.tenant_id}:${row.module}`, row);
         return row;
       },
@@ -123,7 +124,13 @@ function fakeAdmin({
         const existing = [...entitlementStore.values()].find(
           row => row.id === id
         );
-        const updated = { ...existing, ...dto };
+        // Mirrors RevisionedTableModel: a supplied `revision` is ignored, and
+        // a change to `enabled` increments `revision`.
+        const rest = { ...dto };
+        delete rest.revision;
+        const updated = { ...existing, ...rest };
+        if ('enabled' in dto && dto.enabled !== existing.enabled)
+          updated.revision = existing.revision + 1;
         entitlementStore.set(`${updated.tenant_id}:${updated.module}`, updated);
         return updated;
       },

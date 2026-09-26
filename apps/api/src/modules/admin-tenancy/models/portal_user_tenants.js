@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { TableModel } from 'pg-schemata';
+import { RevisionedTableModel } from './revisionedTableModel.js';
 
 /**
  * Schema object for `admin.portal_user_tenants`: portal-user to tenant memberships. `member_id` holds the member's UUID in the tenant's cell and is not a foreign key.
@@ -74,8 +74,15 @@ function table(model) {
 }
 
 /** Model for `admin.portal_user_tenants`. Adds the locked read bootstrap needs. */
-export class PortalUserTenants extends TableModel {
+export class PortalUserTenants extends RevisionedTableModel {
   static schema = portalUserTenantsSchema;
+  static revisionedColumns = [
+    'portal_user_id',
+    'tenant_id',
+    'member_type',
+    'member_id',
+    'status',
+  ];
   constructor(db, pgp, logger) {
     super(db, pgp, portalUserTenantsSchema, logger);
   }

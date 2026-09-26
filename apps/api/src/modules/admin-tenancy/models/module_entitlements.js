@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { TableModel } from 'pg-schemata';
+import { RevisionedTableModel } from './revisionedTableModel.js';
 
 /**
  * Schema object for `admin.module_entitlements`: the current central decision for one tenant and optional module.
@@ -42,9 +42,14 @@ export const moduleEntitlementsSchema = {
   },
 };
 
-/** Model for `admin.module_entitlements`. Inherits the standard table operations only. */
-export class ModuleEntitlements extends TableModel {
+/**
+ * Model for `admin.module_entitlements`. `revisionedColumns` lists the fields
+ * copied to cells; `module` is immutable, so only an `enabled` change
+ * increments `revision`.
+ */
+export class ModuleEntitlements extends RevisionedTableModel {
   static schema = moduleEntitlementsSchema;
+  static revisionedColumns = ['module', 'enabled'];
   constructor(db, pgp, logger) {
     super(db, pgp, moduleEntitlementsSchema, logger);
   }

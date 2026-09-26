@@ -262,7 +262,6 @@ export async function createTenant(
             cell_id: null,
             provisioned: false,
             rbac_ready: false,
-            revision: 1,
             is_napsoft: false,
           },
           { tx }
