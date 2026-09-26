@@ -41,7 +41,7 @@ reads `admin.platform_roles` and the tenant's M0003 roles.
 
 ### Dependencies
 
-End-to-end completion needs cell and tenant provisioning (roadmap 5 and 6) and
+End-to-end completion needs cell and tenant provisioning (roadmap 6 and 7) and
 M0003 (roadmap 9). Pattern matching (R003), the Napsoft support denial (R017),
 and the assignment audit event shape do not depend on cells and may be built
 first.

@@ -221,5 +221,6 @@ plan, pull request, test output, or release evidence when available.
 
 ## Current Blockers
 
-- M0003 role seeds and I0005 role assignments and non-root authorization require cell
-  provisioning (6), tenant provisioning (7), and tenant access-control data (9).
+- M0003 role seeds require cell provisioning (6) and tenant provisioning (7).
+- I0005 role assignments and non-root authorization require cell provisioning
+  (6), tenant provisioning (7), and M0003 tenant access-control data (9).
