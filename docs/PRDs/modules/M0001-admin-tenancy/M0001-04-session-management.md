@@ -174,7 +174,7 @@ Updated 2026-09-23: `DELETE /sessions/:id` passes no scope for the caller's
 own session. For another user's session it resolves the caller's authority
 through M0001-05 and passes the `admin-tenancy::sessions::revoke` scope to
 `revokeSession`, which enforces M0001-04-R007 against it. Today only root holds
-that capability; role-based operators wait for M0569. M0001-03's
+that capability; role-based operators wait for I0005. M0001-03's
 `POST /auth/login` creates sessions over HTTP by calling `createSession` inside
 its own transaction.
 

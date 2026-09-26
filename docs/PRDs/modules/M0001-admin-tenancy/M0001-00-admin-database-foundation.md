@@ -185,7 +185,7 @@ belong to those Work Units:
 | WU 12     | `managed_events.append(event)`                           | Provide the only runtime event-write method.                            |
 
 WU 2 owns root bootstrap. WU 5 derives root capabilities from `is_root`; role
-seeds, assignments, and non-root resolution belong to M0569. Cell setup and
+seeds, assignments, and non-root resolution belong to M0003 (seeds) and I0005. Cell setup and
 projections belong to the receiving cell modules. `pg-schemata` owns the migration ledger.
 
 ## 12. Security And Audit

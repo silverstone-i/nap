@@ -26,7 +26,7 @@ import {
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md.
  *
  * `authorization.js` currently resolves only root or no platform authority
- * (M0569's role-based `platform_admin`/`support` remains deferred), so
+ * (I0005's role-based `platform_admin`/`support` remains deferred), so
  * `POST /support` is reachable only by root today — the same caveat
  * `tenants.js`, `control.js`, and M0001-04's `sessions` router already
  * document. `POST /select` needs no capability at all: it operates purely on

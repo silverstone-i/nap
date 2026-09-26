@@ -147,7 +147,7 @@ before activation.
 The reference-data seed must load the committed country and currency snapshot,
 then record the applied seed version in `reference.seed_versions`.
 
-Tenant provisioning runs the system-role seeds defined by M0569.
+Tenant provisioning runs the system-role seeds defined by M0003.
 These seeds are separate from Admin bootstrap.
 
 Changing the reference seed version requires a seed rollout for existing cells.

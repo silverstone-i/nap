@@ -2,19 +2,19 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Status               | Implemented                                                                                                        |
-| Type                 | Module Work Unit                                                                                                   |
-| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                  |
-| Related architecture | [Module design](../../../architecture/module-design.md)                                                            |
-| Related PRDs         | [M0001-02](M0001-02-root-user-provisioning.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md), M0569 |
-| Last reviewed        | 2026-09-23                                                                                                         |
+| Field                | Value                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Implemented                                                                                                               |
+| Type                 | Module Work Unit                                                                                                          |
+| Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                         |
+| Related architecture | [Module design](../../../architecture/module-design.md)                                                                   |
+| Related PRDs         | [M0001-02](M0001-02-root-user-provisioning.md), [M0001-09](M0001-09-tenant-selection-and-support-access.md), M0003, I0005 |
+| Last reviewed        | 2026-09-23                                                                                                                |
 
 ## 2. Purpose
 
 Grant root authority from the portal user’s `is_root` flag. Role seeds,
-assignments, and non-root authority moved to M0569.
+assignments, and non-root authority moved to M0003 (seeds) and I0005.
 
 ## 3. Scope
 
@@ -28,14 +28,14 @@ assignments, and non-root authority moved to M0569.
 
 - Table definitions and migrations.
 - System-role seeds, role assignments, non-root resolution, wildcard
-  capability matching, and the Napsoft support restriction, owned by M0569.
+  capability matching, and the Napsoft support restriction, owned by M0003 (seeds) and I0005 (the rest).
 
 ## 4. Actors And Permissions
 
 | Actor     | Target             | Result                                        |
 | --------- | ------------------ | --------------------------------------------- |
 | Root user | Any central record | Permit the `platform_admin` capability set    |
-| Non-root  | Any central record | Deny every capability until M0569 is complete |
+| Non-root  | Any central record | Deny every capability until I0005 is complete |
 
 ## 5. Concepts And Terminology
 

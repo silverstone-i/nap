@@ -19,7 +19,7 @@ import { discardSessionCookie, sendSessionError } from './shared.js';
  * Self-revocation passes no platform scope. Revoking another user's session
  * derives the caller's root authority and passes its scope to `revokeSession`,
  * which enforces M0001-04-R007. Role-based operator authority is deferred to
- * M0569.
+ * I0005.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} context.cookiePolicy
