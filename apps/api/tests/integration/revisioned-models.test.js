@@ -193,6 +193,28 @@ describe('revisioned table models (I0004-R010, R012)', () => {
     expect(changed.revision).toBe(2);
   });
 
+  it('upsert accepts revision already listed in its update columns', async () => {
+    const { tenant } = await seedMembership();
+    await db.module_entitlements.insert({
+      tenant_id: tenant.id,
+      module: 'sales',
+      enabled: true,
+    });
+    const row = await db.module_entitlements.upsert(
+      { tenant_id: tenant.id, module: 'sales', enabled: false },
+      ['tenant_id', 'module'],
+      ['enabled', 'revision']
+    );
+    expect(row).toMatchObject({ enabled: false, revision: 2 });
+    const rows = await db.module_entitlements.bulkUpsert(
+      [{ tenant_id: tenant.id, module: 'sales', enabled: true }],
+      ['tenant_id', 'module'],
+      ['enabled', 'revision'],
+      ['enabled', 'revision']
+    );
+    expect(rows).toEqual([{ enabled: true, revision: 3 }]);
+  });
+
   it('bulkUpsert sets each row revision from its own conflict', async () => {
     const { tenant } = await seedMembership();
     await db.module_entitlements.insert({

@@ -34,6 +34,18 @@ function withoutRevision(dto) {
 }
 
 /**
+ * Add `revision` to an upsert's explicit update columns, once. `null` means
+ * "every column" to `TableModel`, which already includes `revision`.
+ * @param {string[]|null} updateColumns
+ * @returns {string[]|null}
+ */
+function withRevisionColumn(updateColumns) {
+  if (!updateColumns || updateColumns.includes('revision'))
+    return updateColumns;
+  return [...updateColumns, 'revision'];
+}
+
+/**
  * Table model for an admin row copied into cells (I0004-R010, R012).
  *
  * Every write that changes a copied column, or soft-deletes or restores the
@@ -323,7 +335,7 @@ export class RevisionedTableModel extends TableModel {
       return super.upsert(
         next,
         conflictColumns,
-        updateColumns && [...updateColumns, 'revision'],
+        withRevisionColumn(updateColumns),
         { tx: t }
       );
     });
@@ -371,7 +383,7 @@ export class RevisionedTableModel extends TableModel {
       return super.bulkUpsert(
         next,
         conflictColumns,
-        updateColumns && [...updateColumns, 'revision'],
+        withRevisionColumn(updateColumns),
         returning,
         { tx: t }
       );
