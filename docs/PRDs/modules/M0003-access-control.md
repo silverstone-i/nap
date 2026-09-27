@@ -80,7 +80,7 @@ what these capabilities allow.
 `NAP` is the Napsoft tenant's code, from `ROOT_TENANT_CODE_<ENV>`. `<CODE>` is
 the seeded tenant's own code.
 
-- M0003-R008: The Napsoft seed must create all three immutable roles in the Napsoft cell and assign `platform_admin` to the login created by Napsoft bootstrap (M0001-02). It runs during bootstrap.
+- M0003-R008: The Napsoft seed must create all three immutable roles in the Napsoft cell and assign `platform_admin` to the login created by Napsoft bootstrap (M0001-02). It runs during Napsoft tenant setup (I0003-R024).
 - M0003-R009: The customer-tenant seed must create `tenant_admin` for the tenant. Tenant provisioning runs it.
 - M0003-R010: Seeds are idempotent by role `code`: a matching role is left unchanged and a role whose grants differ fails the seed. Changing an immutable role requires a reviewed migration.
 - M0003-R011: A caller may assign, remove, create, or edit a role only if every pattern in the target role, including new grants, is covered by one of the caller's own patterns. Pattern A covers pattern B when each part of A equals B's or is `*`.
@@ -149,7 +149,7 @@ the tenant (`cell.tenant_members`).
 ## 11. Cross-Module Interactions
 
 - I0005 reads roles, grants, and assignments from the user's own tenant's cell.
-- Napsoft bootstrap (M0001-02) runs the Napsoft seed (R008).
+- Napsoft tenant setup (I0003) runs the Napsoft seed (R008) for the login created by Napsoft bootstrap (M0001-02).
 - Tenant provisioning runs the customer-tenant seed (R009).
 - Module descriptors supply the catalogue (R005).
 - Administrative events and cache revisions follow M0001-12 and M0001-11.
@@ -161,18 +161,18 @@ the tenant (`cell.tenant_members`).
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                      | Requirements                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
-| AC01      | The cell migration creates the three tables; reruns are no-ops.                                                                      | M0003-R001, M0003-R002, M0003-R006 |
-| AC02      | Invalid patterns and unknown catalogue names are rejected.                                                                           | M0003-R003, M0003-R004             |
-| AC03      | The catalogue lists every declared capability; a data-changing capability named `read` fails registration.                           | M0003-R005                         |
-| AC04      | Bootstrap seeds the three Napsoft roles and assigns `platform_admin` to the bootstrap login; reseeding changes nothing; drift fails. | M0003-R007, M0003-R008, M0003-R010 |
-| AC05      | The customer-tenant seed creates only `tenant_admin`.                                                                                | M0003-R009                         |
-| AC06      | Assigning, removing, creating, or editing a role beyond the caller's patterns fails; covered cases succeed.                          | M0003-R011                         |
-| AC07      | Removing the last `tenant_admin`, or the last Napsoft `platform_admin`, fails.                                                       | M0003-R012                         |
-| AC08      | Immutable roles cannot be edited or archived; archive and restore preserve grants and assignments.                                   | M0003-R013, M0003-R014             |
-| AC09      | Each change writes an event and advances the role cache revision.                                                                    | M0003-R015                         |
-| AC10      | The Roles screen supports list, detail, create, edit, archive, restore, and assignments, hiding disallowed actions.                  | M0003-R016                         |
+| Criterion | Required result                                                                                                                                 | Requirements                       |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| AC01      | The cell migration creates the three tables; reruns are no-ops.                                                                                 | M0003-R001, M0003-R002, M0003-R006 |
+| AC02      | Invalid patterns and unknown catalogue names are rejected.                                                                                      | M0003-R003, M0003-R004             |
+| AC03      | The catalogue lists every declared capability; a data-changing capability named `read` fails registration.                                      | M0003-R005                         |
+| AC04      | Napsoft tenant setup seeds the three Napsoft roles and assigns `platform_admin` to the bootstrap login; reseeding changes nothing; drift fails. | M0003-R007, M0003-R008, M0003-R010 |
+| AC05      | The customer-tenant seed creates only `tenant_admin`.                                                                                           | M0003-R009                         |
+| AC06      | Assigning, removing, creating, or editing a role beyond the caller's patterns fails; covered cases succeed.                                     | M0003-R011                         |
+| AC07      | Removing the last `tenant_admin`, or the last Napsoft `platform_admin`, fails.                                                                  | M0003-R012                         |
+| AC08      | Immutable roles cannot be edited or archived; archive and restore preserve grants and assignments.                                              | M0003-R013, M0003-R014             |
+| AC09      | Each change writes an event and advances the role cache revision.                                                                               | M0003-R015                         |
+| AC10      | The Roles screen supports list, detail, create, edit, archive, restore, and assignments, hiding disallowed actions.                             | M0003-R016                         |
 
 ## 14. Outstanding Questions
 

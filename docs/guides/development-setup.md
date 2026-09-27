@@ -57,8 +57,9 @@ Edit the DEV values in this private file:
   a client address in `admin.login_throttles`, and it is separate from the
   session secret so that leaking either one does not compromise both.
 - `ROOT_TENANT_CODE_DEV`, `ROOT_COMPANY_DEV`, `ROOT_EMAIL_DEV`, and
-  `ROOT_PASSWORD_DEV`: the Napsoft tenant and its first `platform_admin` login
-  that `npm run db:bootstrap -- --env dev` creates.
+  `ROOT_PASSWORD_DEV`: the Napsoft tenant and its first login
+  that `npm run db:bootstrap -- --env dev` creates. The login gets `platform_admin` when Napsoft tenant setup seeds
+  the Napsoft cell.
 - `APP_ORIGIN_DEV`: `http://localhost:5173`, the Vite server the browser talks
   to. Every state-changing `/api` request must prove it came from this origin,
   so the API's own port is the wrong value here.

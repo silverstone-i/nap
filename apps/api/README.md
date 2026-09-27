@@ -34,14 +34,14 @@ holds the runtime cell registry; see
 
 Run from the repository root.
 
-| Command                                 | Purpose                                                                                |
-| --------------------------------------- | -------------------------------------------------------------------------------------- |
-| `npm run dev:api`                       | Start the API with file watching on port 3000.                                         |
-| `npm run db:setup:admin -- --env dev`   | Create or verify the admin database and roles.                                         |
-| `npm run db:migrate:admin -- --env dev` | Apply pending admin migrations and verify the installed contract.                      |
-| `npm run db:bootstrap -- --env dev`     | Create the Napsoft tenant and its first `platform_admin` login from `ROOT_*` settings. |
-| `npm test`                              | Unit tests. No database needed.                                                        |
-| `npm run test:db`                       | PostgreSQL integration tests. Needs `FOUNDATION_TEST_URL`.                             |
+| Command                                 | Purpose                                                                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev:api`                       | Start the API with file watching on port 3000.                                                                                               |
+| `npm run db:setup:admin -- --env dev`   | Create or verify the admin database and roles.                                                                                               |
+| `npm run db:migrate:admin -- --env dev` | Apply pending admin migrations and verify the installed contract.                                                                            |
+| `npm run db:bootstrap -- --env dev`     | Create the Napsoft tenant and its first login, which gets `platform_admin` when Napsoft tenant setup seeds its cell, from `ROOT_*` settings. |
+| `npm test`                              | Unit tests. No database needed.                                                                                                              |
+| `npm run test:db`                       | PostgreSQL integration tests. Needs `FOUNDATION_TEST_URL`.                                                                                   |
 
 `--env` accepts `dev`, `test`, or `prod`. Each command prints one JSON line and
 exits nonzero on failure. Output never contains credentials.

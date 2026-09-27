@@ -134,7 +134,7 @@ the first cell is registered through maintenance credentials (M0001-02).
   5. read the rows back and confirm they match admin;
   6. set the Napsoft tenant's `provisioned` and `rbac_ready` to true;
   7. record a managed event.
-- I0003-R025: If steps 2–6 fail, the cell stays enabled and assigned, the Napsoft tenant stays not provisioned, and the worker retries on its next check until setup succeeds. The Cells screen shows `ROOT_SETUP_FAILED` for that cell until then.
+- I0003-R025: If steps 2–6 fail, the cell stays enabled and assigned, the Napsoft tenant stays not provisioned, and the worker retries on its next check until setup succeeds. The Cells screen shows `NAPSOFT_SETUP_FAILED` for that cell until then.
 - I0003-R026: `rbac_ready` becomes true for the Napsoft tenant only after the Napsoft seed has run in its cell.
 
 ### Operations
@@ -184,7 +184,7 @@ Stages and statuses are M0001-06's. This PRD adds the worker transitions,
 
 Failure codes: `SETUP_FAILED`, `TARGET_NOT_OWNED`, `CREATE_OUTCOME_UNKNOWN`,
 `MIGRATION_FAILED`, `SEED_FAILED`, `PUBLISH_CONFLICT`, `PUBLISH_FAILED`,
-`CONFIGURATION_MISSING`, `ROOT_SETUP_FAILED`, and the not-ready reasons in
+`CONFIGURATION_MISSING`, `NAPSOFT_SETUP_FAILED`, and the not-ready reasons in
 R015.
 
 ## 9. Data Requirements
@@ -273,7 +273,7 @@ Implemented in [silverstone-i/nap#30](https://github.com/silverstone-i/nap/pull/
 - In `prod` the worker runs on Render's internal network and uses the internal
   connection string; it adds no IP allow-list rule. The instance's database
   user, `nap_setup_<operation id>`, is its operation marker.
-- `ROOT_SETUP_FAILED` is shown by writing it to `failure_code` on the cell's
+- `NAPSOFT_SETUP_FAILED` is shown by writing it to `failure_code` on the cell's
   completed job, and cleared when root tenant setup succeeds.
 - `GET /control/overview` also returns `anyActive`, so the Cells screen keeps
   refreshing while a job on another page is active (R030).

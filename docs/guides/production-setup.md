@@ -53,9 +53,10 @@ npm run db:migrate:admin -- --env prod
 npm run db:bootstrap -- --env prod
 ```
 
-Bootstrap creates the Napsoft tenant and its first `platform_admin` login from
+Bootstrap creates the Napsoft tenant and its first login from
 `ROOT_TENANT_CODE_PROD`, `ROOT_COMPANY_PROD`, `ROOT_EMAIL_PROD`, and
-`ROOT_PASSWORD_PROD`.
+`ROOT_PASSWORD_PROD`. The login gets `platform_admin` when Napsoft tenant setup
+seeds the Napsoft cell.
 
 Setup validates the service identity, saves creation intent, creates or reconciles
 one database, and waits for availability. It discovers the operator's direct
