@@ -18,8 +18,9 @@ restart. Today an operator can register a cell from the Cells screen, but
 nothing runs the queued job, the API has no connection to any cell, and every
 tenant selection returns `503 CELL_UNAVAILABLE`.
 
-After this PRD, the bootstrap login on a new install registers one cell, watches
-it provision on the Cells screen, and then selects the Napsoft tenant.
+After this PRD, a new install registers its first cell with maintenance
+credentials, watches it provision, and the bootstrap login then selects the
+Napsoft tenant.
 
 ## 3. Scope
 
@@ -274,7 +275,7 @@ Implemented in [silverstone-i/nap#30](https://github.com/silverstone-i/nap/pull/
   connection string; it adds no IP allow-list rule. The instance's database
   user, `nap_setup_<operation id>`, is its operation marker.
 - `NAPSOFT_SETUP_FAILED` is shown by writing it to `failure_code` on the cell's
-  completed job, and cleared when root tenant setup succeeds.
+  completed job, and cleared when Napsoft tenant setup succeeds.
 - `GET /control/overview` also returns `anyActive`, so the Cells screen keeps
   refreshing while a job on another page is active (R030).
 - Verified: unit, web, and database test suites, and a `dev` run in which four

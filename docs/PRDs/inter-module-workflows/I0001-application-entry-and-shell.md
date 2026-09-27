@@ -478,8 +478,8 @@ records all three children as `implemented: false` and documents both gaps
 in its file comment; `visibleTenantManagementChildren` therefore returns no
 children today, which is what correctly keeps the whole group hidden — the
 empty-group case AC16 requires — rather than a group rendered with
-everything filtered out. `GET /access/context` needed a per-destination authorization signal before
-any child here could move to `implemented: true`.
+everything filtered out. The children stay hidden until I0005's session capabilities endpoint provides
+per-destination visibility.
 
 Verified with 24 new web tests: `NavGroup.test.jsx` (10 tests) covers the
 component in isolation — the empty-group case; expanded nesting with icons
