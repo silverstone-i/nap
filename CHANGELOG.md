@@ -13,6 +13,7 @@ when a pull request with a release label merges into `main`.
 ### Changed
 
 - Add PRDs for role-based access control (RBAC): M0003 Access Control (per-cell role and grant tables, capability catalogue, system-role seeds, custom roles and the Roles screen) and I0005 RBAC Decision Model (role assignment, capability resolution, one `authorize` check per route, and permission-aware UI). The draft M0569 is folded into them and removed, and every M0569 reference in PRDs, architecture docs, the roadmap, and code comments now points to M0003 or I0005.
+- Add a support access design guide in `docs/design-guides/` (staff roles, impersonation, tickets and consent as support rules, and the tenant support log). Design guides are reference only; the README now lists them and spells out acronyms at first use.
 
 ## [v0.19.0] - 2026-09-26
 
