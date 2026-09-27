@@ -7,6 +7,10 @@ that module can be built to it.
 
 ## Capabilities this guide relies on
 
+This guide assumes the planned four-part capability model below. It differs
+from the current M0003 and I0005, which use `module::router::action`; those PRDs
+will be rewritten to this model.
+
 Role-based access control (RBAC) checks every request against a capability in
 `TENANT::module::router::action` form:
 
@@ -24,7 +28,7 @@ Both roles are seeded into the Napsoft cell and cannot be edited.
 
 | Role             | Grants                                                                              |
 | ---------------- | ----------------------------------------------------------------------------------- |
-| `platform-admin` | `*::*::*::*`, `NAP::*::*::*`                                                        |
+| `platform_admin` | `*::*::*::*`, `NAP::*::*::*`                                                        |
 | `support`        | `*::*::*::read`, `*::admin-tenancy::users::impersonate`, `NAP::support::tickets::*` |
 
 The `support` module, `tickets` router, and `impersonate` action are placeholder
@@ -32,7 +36,7 @@ names until the support module exists.
 
 ## What each role may do
 
-`platform-admin`:
+`platform_admin`:
 
 - Reads every tenant, including Napsoft.
 - Writes to another tenant only with a support ticket.
@@ -42,21 +46,23 @@ names until the support module exists.
 `support`:
 
 - Reads every tenant except Napsoft.
-- Writes to a tenant only while impersonating one of its users.
-- Needs a support ticket and consent from that user or one of the tenant's
-  `tenant-admin` users before impersonating.
-- Escalates the ticket to a `platform-admin` when the fix needs more than the
-  impersonated user can do.
+- Never writes to a customer tenant, even while impersonating.
+- Needs a support ticket and consent from the user or one of the tenant's
+  `tenant_admin` users before impersonating.
+- Escalates the ticket to a `platform_admin` when the fix needs a write.
 
 ## Impersonation
 
 While Sam impersonates Dana, a request is allowed only if both Sam's and
-Dana's capabilities allow it. Because Sam's grants cover every customer tenant,
-in practice Sam sees and does exactly what Dana can. Sam gains no privileges
+Dana's capabilities allow it. For a `support` user this means reading what Dana
+can read and nothing else, because `support` holds only `read` grants. A
+`platform_admin` holds every customer-tenant capability, so while impersonating
+it can do exactly what Dana can, writes included. Nobody gains privileges
 through impersonation.
 
 Many support calls are user errors that a short walkthrough fixes. Impersonation
-lets the support user see the problem as the user sees it.
+lets support see the problem as the user sees it. Anything that needs a write
+goes to a `platform_admin`.
 
 ## Tickets and consent
 
@@ -64,16 +70,16 @@ Tickets and consent are enforced by the support module, not by the capability
 check. The capability says a user may provide support. The support rules say
 how:
 
-- Starting an impersonation session requires an open ticket and recorded
-  consent.
-- A `platform-admin` write to another tenant requires an open ticket.
+- A `support` user starting an impersonation session needs an open ticket and
+  recorded consent.
+- A `platform_admin` write to another tenant requires an open ticket.
 - Tickets are Napsoft records, stored in the Napsoft cell.
 
 ## Support log
 
-Each tenant's cell keeps a support log that the tenant's `tenant-admin` users
+Each tenant's cell keeps a support log that the tenant's `tenant_admin` users
 can read, for example with `ACME::support::log::read`. The log covers
-impersonation sessions and direct `platform-admin` writes. Business records get
+impersonation sessions and direct `platform_admin` writes. Business records get
 no extra column; the log is the only record of support activity.
 
 `support_sessions` holds one row per session:
@@ -82,10 +88,10 @@ no extra column; the log is the only record of support activity.
 | -------------------- | ------------------------------------------------------------- |
 | `id`                 | Support session ID                                            |
 | `staff_user_id`      | Napsoft user doing the work                                   |
-| `effective_user_id`  | Impersonated user; empty for a direct `platform-admin` write  |
+| `effective_user_id`  | Impersonated user; empty for a direct `platform_admin` write  |
 | `ticket_ref`         | Ticket ID in the Napsoft cell                                 |
 | `ticket_description` | Copy of the customer-facing ticket text only                  |
-| `consent_by`         | User or `tenant-admin` who consented; empty when not required |
+| `consent_by`         | User or `tenant_admin` who consented; empty when not required |
 | `started_at`         | Session start                                                 |
 | `ended_at`           | Session end                                                   |
 
@@ -103,6 +109,6 @@ logged.
 | `before`       | Row values before the write                                    |
 | `after`        | Row values after the write                                     |
 
-Copying the ticket text into the tenant's cell lets `tenant-admin` users read
+Copying the ticket text into the tenant's cell lets `tenant_admin` users read
 the log without any lookup in the Napsoft cell. Napsoft's internal ticket notes
 are never copied.
