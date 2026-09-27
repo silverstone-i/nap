@@ -106,8 +106,8 @@ nonzero exit code for conflict or failure.
 
 M0001-03 hashes the initial password. M0003 seeds the Napsoft cell with
 `platform_admin`, `support`, and `tenant_admin` and assigns the bootstrap login
-`platform_admin`. Initial cell provisioning of the Napsoft cell runs through
-maintenance credentials without requiring a role.
+`platform_admin`. The `db:provision:napsoft` maintenance command (I0003-R042) provisions the
+Napsoft cell without requiring a role.
 
 ## 12. Security And Audit
 

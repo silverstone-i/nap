@@ -128,9 +128,9 @@ the seeded tenant's own code.
 
 ## 10. API Requirements
 
-Base: `/api/access-control/v1`. Capabilities below omit the tenant part, which I0005 adds.
+Base: `/api/access-control/v1`. Route capabilities omit the tenant part, which I0005 adds.
 
-| Method and route                      | Capability                           | Request                                      | Errors                                                    |
+| Method and route                      | Route capability                     | Request                                      | Errors                                                    |
 | ------------------------------------- | ------------------------------------ | -------------------------------------------- | --------------------------------------------------------- |
 | `GET /capabilities`                   | `access-control::roles::read`        | —                                            | —                                                         |
 | `GET /roles`                          | `access-control::roles::read`        | `?includeArchived`                           | —                                                         |

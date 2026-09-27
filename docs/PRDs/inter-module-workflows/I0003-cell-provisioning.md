@@ -18,9 +18,9 @@ restart. Today an operator can register a cell from the Cells screen, but
 nothing runs the queued job, the API has no connection to any cell, and every
 tenant selection returns `503 CELL_UNAVAILABLE`.
 
-After this PRD, a new install registers its first cell with maintenance
-credentials, watches it provision, and the bootstrap login then selects the
-Napsoft tenant.
+After this PRD, a new install provisions its first cell with the
+`db:provision:napsoft` maintenance command, and the bootstrap login then
+selects the Napsoft tenant.
 
 ## 3. Scope
 
@@ -56,7 +56,8 @@ Napsoft tenant.
 | Provisioning worker | Trusted in-process runner context    | Claim a queued job and advance it (M0001-06 §4) |
 
 Before the Napsoft cell exists, the bootstrap login holds no capabilities, so
-the first cell is registered through maintenance credentials (M0001-02).
+the first cell is registered and provisioned by the `db:provision:napsoft`
+maintenance command (I0003-R042), not through the API.
 
 ## 5. Concepts And Terminology
 
@@ -212,12 +213,12 @@ never in admin tables:
 
 ## 10. API Requirements
 
-| Method and route                                              | Change                                                                                                         |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `POST /api/admin-tenancy/v1/control/provision`                | Adds `cell-activate` (R027). Requires `NAP::admin-tenancy::control::write`. Returns `200` with the queued job. |
-| `POST /api/admin-tenancy/v1/access/select` (M0001-09)         | Succeeds for a tenant whose cell is ready; `503 CELL_UNAVAILABLE` otherwise. Today it always returns `503`.    |
-| `GET /api/admin-tenancy/v1/control/cell-readiness` (M0001-06) | `runtime` reports the registry's `readiness(cellId)`. Today it reports `{ ready: false, checked: false }`.     |
-| `GET /api/admin-tenancy/v1/control/overview`                  | No change; the screen already receives `failure_code`.                                                         |
+| Method and route                                              | Change                                                                                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /api/admin-tenancy/v1/control/provision`                | Adds `cell-activate` (R027). Requires `NAP::admin-tenancy::control::write`; the first cell uses R042 instead. Returns `200` with the queued job. |
+| `POST /api/admin-tenancy/v1/access/select` (M0001-09)         | Succeeds for a tenant whose cell is ready; `503 CELL_UNAVAILABLE` otherwise. Today it always returns `503`.                                      |
+| `GET /api/admin-tenancy/v1/control/cell-readiness` (M0001-06) | `runtime` reports the registry's `readiness(cellId)`. Today it reports `{ ready: false, checked: false }`.                                       |
+| `GET /api/admin-tenancy/v1/control/overview`                  | No change; the screen already receives `failure_code`.                                                                                           |
 
 The worker calls M0001-06's internal `advanceCellProvisioning`; it adds no
 public route.
@@ -239,6 +240,7 @@ public route.
 - I0003-R039: Failure codes, not-ready reasons, logs, events, and API responses must not contain passwords, connection strings, endpoints, or Render API keys (M0001-06-R008).
 - I0003-R040: The `dev` state file and `.env` must stay mode `0600`; a file readable by others fails with `UNSAFE_STATE_FILE`.
 - I0003-R041: `cell-activate` and Napsoft tenant setup must each record a managed event.
+- I0003-R042: `npm run db:provision:napsoft -- --env <env>` must, when the Napsoft tenant has no cell, register and provision the first cell with maintenance credentials, then run Napsoft tenant setup (R024). It must refuse to run once the Napsoft tenant has a cell. Every later cell uses the API.
 
 ## 13. Acceptance Criteria
 
@@ -257,6 +259,7 @@ public route.
 | AC11      | The Cells screen shows failure codes, refreshes while jobs run, opens progress details, confirms Disable, and offers Activate only when allowed.                                                                       | I0003-R029–R033                                    |
 | AC12      | No response, log, event, failure code, or not-ready reason contains a secret or endpoint.                                                                                                                              | I0003-R039, R040                                   |
 | AC13      | `prod` setup creates one Render instance per cell and publishes to `CELL_DATABASES_PROD`, verified against a mocked Render API.                                                                                        | I0003-R007, R011, R037                             |
+| AC14      | `db:provision:napsoft` provisions the first cell and runs Napsoft tenant setup on a new install, and refuses once the Napsoft tenant has a cell.                                                                       | I0003-R042                                         |
 
 ## 14. Implementation Notes
 
