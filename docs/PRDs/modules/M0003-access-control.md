@@ -144,7 +144,7 @@ Base: `/api/access-control/v1`. Route capabilities omit the tenant part, which I
 | `PUT /users/:userId/roles/:roleId`    | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `NOT_MEMBER`, `GRANT_EXCEEDS_ACTOR`          |
 | `DELETE /users/:userId/roles/:roleId` | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `GRANT_EXCEEDS_ACTOR`, `LAST_ADMIN`          |
 
-`grants` replaces the full set. The assigned user must be an active member of
+Writes use optimistic concurrency on `revision`. `grants` replaces the full set. The assigned user must be an active member of
 the tenant (`cell.tenant_members`).
 
 ## 11. Cross-Module Interactions
