@@ -71,13 +71,14 @@ what these capabilities allow.
 - M0003-R006: The cell must store assignments in `app.role_assignments` with `portal_user_id` and `role_id`, unique per active pair, with soft delete and audit fields. A user may hold several roles.
 - M0003-R007: The immutable roles and their grants are:
 
-| Role             | Seeded into         | Grants                                                                              |
-| ---------------- | ------------------- | ----------------------------------------------------------------------------------- |
-| `platform_admin` | Napsoft tenant only | `*::*::*::*`, `NAP::*::*::*`                                                        |
-| `support`        | Napsoft tenant only | `*::*::*::read`, `*::admin-tenancy::users::impersonate`, `NAP::support::tickets::*` |
-| `tenant_admin`   | Every tenant        | `<CODE>::*::*::*`                                                                   |
+| Role             | Seeded into         | Grants                       |
+| ---------------- | ------------------- | ---------------------------- |
+| `platform_admin` | Napsoft tenant only | `*::*::*::*`, `NAP::*::*::*` |
+| `support`        | Napsoft tenant only | `*::*::*::read`              |
+| `tenant_admin`   | Every tenant        | `<CODE>::*::*::*`            |
 
-`NAP` is the Napsoft tenant's code, from `ROOT_TENANT_CODE_<ENV>`. `<CODE>` is
+The support module will add `support`'s impersonation and ticket grants by a
+reviewed migration (R010) once it declares those capabilities. `NAP` is the Napsoft tenant's code, from `ROOT_TENANT_CODE_<ENV>`. `<CODE>` is
 the seeded tenant's own code.
 
 - M0003-R008: The Napsoft seed must create all three immutable roles in the Napsoft cell and assign `platform_admin` to the login created by Napsoft bootstrap (M0001-02). It runs during Napsoft tenant setup (I0003-R024).
