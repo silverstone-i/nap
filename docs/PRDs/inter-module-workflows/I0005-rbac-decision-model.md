@@ -63,7 +63,7 @@ same request for `NAP` does not match, because a tenant `*` excludes Napsoft.
 
 - I0005-R001: Every protected route must declare its route capability with `requireCapability('module::router::action')` at registration. Routes must not check roles directly.
 - I0005-R002: At startup, the API must refuse to start if a protected route declares no capability, declares one missing from its module descriptor, or uses `read` on a route that is not `GET`.
-- I0005-R003: The required capability is the target tenant's code followed by the route capability. Records Napsoft manages about tenants (tenants, cells, entitlements, provisioning, and platform-level logins) use the target `NAP`.
+- I0005-R003: The required capability is the target tenant's code followed by the route capability. Records Napsoft manages about tenants (tenants, cells, entitlements, provisioning, and platform-level logins) use the Napsoft tenant's code as the target. That code comes from `ROOT_TENANT_CODE_<ENV>`; `NAP` in these documents is its example value.
 - I0005-R004: The resolved set is read from the user's home tenant's cell (M0003). Archived roles, archived assignments, inactive users, and inactive memberships contribute nothing.
 - I0005-R005: A pattern matches a required capability when each part is equal or `*`, with two rules:
   - a tenant `*` never matches the tenant with `is_napsoft = true`;
