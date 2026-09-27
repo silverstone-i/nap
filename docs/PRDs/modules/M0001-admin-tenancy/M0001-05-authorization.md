@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                               |
+| Status               | Superseded                                                                                                                |
 | Type                 | Module Work Unit                                                                                                          |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                         |
 | Related architecture | [Module design](../../../architecture/module-design.md)                                                                   |
@@ -12,6 +12,8 @@
 | Last reviewed        | 2026-09-23                                                                                                                |
 
 ## 2. Purpose
+
+Superseded by [I0005: RBAC Decision Model](../../inter-module-workflows/I0005-rbac-decision-model.md).
 
 Grant root authority from the portal user’s `is_root` flag. Role seeds,
 assignments, and non-root authority moved to M0003 (seeds) and I0005.

@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                         |
+| Status               | Accepted                                                                                                                                                            |
 | Type                 | Module Work Unit                                                                                                                                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                   |
 | Related architecture | [Module design](../../../architecture/module-design.md), [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
@@ -20,7 +20,7 @@ Define the admin database schema, models, permissions, setup, and migration.
 
 ### Included
 
-- All 14 admin tables and their `pg-schemata` schema objects.
+- All 12 admin tables and their `pg-schemata` schema objects.
 - Models, repository registration, and the admin-tenancy module descriptor.
 - Database roles, grants, constraints, and triggers.
 - Local and Render Admin database setup, deployment configuration, setup guides, and the initial admin-tenancy migration.
@@ -29,7 +29,7 @@ Define the admin database schema, models, permissions, setup, and migration.
 ### Excluded
 
 - HTTP APIs, authentication, authorization decisions, and business workflows.
-- All data seeding, including system roles and root-user bootstrap data.
+- All data seeding, including Napsoft bootstrap data. Roles and role assignments live in tenant cells ([M0003](../M0003-access-control.md)).
 - Creating, migrating, seeding, or activating physical cell databases.
 - Data migration from or compatibility with the previous project.
 
@@ -46,7 +46,7 @@ The two PostgreSQL roles are separate from the application roles
 ### Runtime Grant Contract
 
 Grant `nap-app` `CONNECT` on the selected database, `USAGE` on `admin`, and
-`SELECT`, `INSERT`, `UPDATE`, and `DELETE` on all 14 admin tables.
+`SELECT`, `INSERT`, `UPDATE`, and `DELETE` on all 12 admin tables.
 
 CRUD grants remain subject to database constraints and triggers.
 
@@ -114,9 +114,7 @@ It is part of M0001-00-R001, not a separate Work Unit.
 | `portal_users`        | `portalUsersSchema`        | WUs 1, 2, 3, 8                  |
 | `portal_user_tenants` | `portalUserTenantsSchema`  | WUs 1, 2, 8                     |
 | `sessions`            | `sessionsSchema`           | WUs 4, 9                        |
-| `support_grants`      | `supportGrantsSchema`      | Not yet specified               |
 | `login_throttles`     | `loginThrottlesSchema`     | WU 3                            |
-| `platform_roles`      | `platformRolesSchema`      | WU 5                            |
 | `cell_provisioning`   | `cellProvisioningSchema`   | WU 6                            |
 | `provisioning_jobs`   | `provisioningJobsSchema`   | WU 8                            |
 | `module_entitlements` | `moduleEntitlementsSchema` | WU 10                           |
@@ -158,14 +156,14 @@ Its frozen schema objects create tables in this order:
 
 1. `cells`, `portal_users`.
 2. `tenants`.
-3. `portal_user_tenants`, `sessions`, `support_grants`, `login_throttles`, `platform_roles`, `cell_provisioning`.
+3. `portal_user_tenants`, `sessions`, `login_throttles`, `cell_provisioning`.
 4. `provisioning_jobs`, `module_entitlements`, `outbox`, `cache_revisions`, `managed_events`.
 
 Install and verify the functions, triggers, and grants specified in §4 and the
 schema chapter.
 
 Model objects and the frozen migration must produce equivalent table contracts.
-The 14 tables are the initial contract; later migrations may add tables or change
+The 12 tables are the initial contract; later migrations may add tables or change
 the schema. Runtime startup must not run migrations.
 Commands return exit code zero only on success or verified no change, and a
 nonzero code on failure. Report the target, migration ID, and safe error context.
@@ -184,8 +182,8 @@ belong to those Work Units:
 | WU 11     | `cache_revisions.advance(keys, { tx })`                  | Increment the revision in the source transaction.                       |
 | WU 12     | `managed_events.append(event)`                           | Provide the only runtime event-write method.                            |
 
-WU 2 owns root bootstrap. WU 5 derives root capabilities from `is_root`; role
-seeds, assignments, and non-root resolution belong to M0003 (seeds) and I0005. Cell setup and
+WU 2 owns Napsoft bootstrap. Roles, role grants, and role assignments belong to
+M0003 in tenant cells; authorization decisions belong to I0005. Cell setup and
 projections belong to the receiving cell modules. `pg-schemata` owns the migration ledger.
 
 ## 12. Security And Audit
@@ -200,11 +198,11 @@ WU 12’s administrative event API.
 
 | Criterion | Required result                                                                                                                                                                                                             | Requirements                 |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | All 14 schema objects, models, and repository entries match the migrated PostgreSQL catalog; no cell connection is required.                                                                                                | M0001-00-R001, M0001-00-R002 |
+| AC01      | All 12 schema objects, models, and repository entries match the migrated PostgreSQL catalog; no cell connection is required.                                                                                                | M0001-00-R001, M0001-00-R002 |
 | AC02      | Local setup verifies existing roles; Render setup creates missing roles using provider credentials. Fresh setup produces an empty target; retries preserve existing rows and credentials and reject incompatible resources. | M0001-00-R003, M0001-00-R009 |
 | AC03      | Migration creates all tables in dependency order, records success in the library ledger, and applies nothing on a repeated run.                                                                                             | M0001-00-R004, M0001-00-R007 |
 | AC04      | Wrong-target descriptors fail before connection; migration failure leaves no falsely applied ledger entry; connections close on both paths.                                                                                 | M0001-00-R004, M0001-00-R006 |
-| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 14 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled.                                                 | M0001-00-R005, M0001-00-R012 |
+| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 12 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled.                                                 | M0001-00-R005, M0001-00-R012 |
 | AC06      | Direct SQL as `nap-app` rejects invalid foreign keys, duplicate constrained values, immutable-key changes, and event updates/deletes; valid writes maintain audit fields.                                                   | M0001-00-R007, M0001-00-R008 |
 | AC07      | Changed applied migration contents fail checksum validation; new changes use a new migration.                                                                                                                               | M0001-00-R010                |
 | AC08      | Success, repeat, partial setup, and failure output contain no credentials or secret-bearing values.                                                                                                                         | M0001-00-R006, M0001-00-R013 |

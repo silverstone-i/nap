@@ -1,8 +1,8 @@
 # M0001-00-01: Admin Schema Objects
 
 This chapter belongs to [M0001-00: Admin Database Foundation](M0001-00-admin-database-foundation.md)
-and inherits its Implemented status. It defines the schema objects and migration
-triggers for the 14 admin tables.
+and inherits its Accepted status. It defines the schema objects and migration
+triggers for the 12 admin tables.
 
 ## Shared Rules
 
@@ -59,7 +59,7 @@ export const cellsSchema = {
 ## `admin.tenants`
 
 Stores tenant registration, lifecycle, cell assignment, and readiness. The
-immutable `is_napsoft` flag identifies the owning tenant. Its name comes from
+immutable `is_napsoft` flag identifies the Napsoft tenant. Its name comes from
 environment configuration. A null `cell_id` permits registration before cell
 assignment.
 
@@ -129,7 +129,7 @@ export const tenantsSchema = {
 
 ## `admin.portal_users`
 
-Stores portal accounts, password hashes, account status, and the root-user marker.
+Stores portal accounts, password hashes, and account status.
 Failed-login throttling is recorded in `admin.login_throttles` and does not
 change `status`. `locked` is reserved for a future lock that an operator must clear.
 
@@ -156,13 +156,6 @@ export const portalUsersSchema = {
       default: true,
     },
     { name: 'status', type: 'text', notNull: true, default: 'active' },
-    {
-      name: 'is_root',
-      type: 'boolean',
-      notNull: true,
-      default: false,
-      immutable: true,
-    },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -174,7 +167,6 @@ export const portalUsersSchema = {
         unique: true,
         where: 'deactivated_at IS NULL',
       },
-      { columns: ['is_root'], unique: true, where: 'is_root = true' },
     ],
   },
 };
@@ -245,9 +237,8 @@ export const portalUserTenantsSchema = {
 
 ## `admin.sessions`
 
-Stores hashed session credentials, expiry, selected tenant, and attributed
-support access. A null selected tenant represents a platform session.
-`break_glass` is a support mode without an effective user. Its behavior is not yet specified.
+Stores hashed session credentials, expiry, and selected tenant. A null
+selected tenant means no tenant is selected.
 
 ```js
 export const sessionsSchema = {
@@ -266,10 +257,6 @@ export const sessionsSchema = {
     { name: 'portal_user_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'token_hash', type: 'text', notNull: true },
     { name: 'tenant_id', type: 'uuid' },
-    { name: 'access_mode', type: 'text', notNull: true, default: 'normal' },
-    { name: 'effective_user_id', type: 'uuid' },
-    { name: 'access_reason', type: 'varchar(512)' },
-    { name: 'access_expires_at', type: 'timestamptz' },
     {
       name: 'last_seen_at',
       type: 'timestamptz',
@@ -282,21 +269,11 @@ export const sessionsSchema = {
   constraints: {
     primaryKey: ['id'],
     unique: [['token_hash']],
-    checks: [
-      "access_mode IN ('normal', 'support', 'break_glass')",
-      "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL) OR (access_mode = 'break_glass' AND tenant_id IS NOT NULL AND effective_user_id IS NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
-      'idle_expires_at <= absolute_expires_at',
-    ],
+    checks: ['idle_expires_at <= absolute_expires_at'],
     foreignKeys: [
       {
         type: 'ForeignKey',
         columns: ['portal_user_id'],
-        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['effective_user_id'],
         references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
@@ -311,100 +288,6 @@ export const sessionsSchema = {
       { columns: ['portal_user_id'] },
       { columns: ['tenant_id'] },
       { columns: ['absolute_expires_at'] },
-    ],
-  },
-};
-```
-
-## `admin.support_grants`
-
-Stores a support operator's request to act as a tenant member and the decision
-on it. The member or any `tenant_admin` of the same tenant decides. A grant
-expires 24 hours after the request and allows one support session, recorded in
-`session_id`. Its behavior is not yet specified.
-
-```js
-export const supportGrantsSchema = {
-  dbSchema: 'admin',
-  table: 'support_grants',
-  hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
-  columns: [
-    {
-      name: 'id',
-      type: 'uuid',
-      notNull: true,
-      default: 'gen_random_uuid()',
-      immutable: true,
-    },
-    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-    { name: 'operator_id', type: 'uuid', notNull: true, immutable: true },
-    {
-      name: 'effective_user_id',
-      type: 'uuid',
-      notNull: true,
-      immutable: true,
-    },
-    { name: 'reason', type: 'varchar(512)', notNull: true, immutable: true },
-    {
-      name: 'expires_at',
-      type: 'timestamptz',
-      notNull: true,
-      immutable: true,
-    },
-    { name: 'status', type: 'text', notNull: true, default: 'pending' },
-    { name: 'decided_by', type: 'uuid' },
-    { name: 'decided_at', type: 'timestamptz' },
-    { name: 'session_id', type: 'uuid' },
-  ],
-  constraints: {
-    primaryKey: ['id'],
-    checks: [
-      "status IN ('pending', 'approved', 'denied', 'expired', 'used', 'cancelled')",
-      'operator_id <> effective_user_id',
-      "(status = 'pending' AND decided_by IS NULL AND decided_at IS NULL AND session_id IS NULL) OR (status IN ('approved', 'denied') AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NULL) OR (status = 'used' AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NOT NULL) OR (status IN ('expired', 'cancelled') AND session_id IS NULL)",
-    ],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['tenant_id'],
-        references: { schema: 'admin', table: 'tenants', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['operator_id'],
-        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['effective_user_id'],
-        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['decided_by'],
-        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['session_id'],
-        references: { schema: 'admin', table: 'sessions', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-    ],
-    indexes: [
-      {
-        name: 'support_grants_open_request',
-        columns: ['operator_id', 'tenant_id', 'effective_user_id'],
-        unique: true,
-        where: "status IN ('pending', 'approved')",
-      },
-      { columns: ['effective_user_id', 'status'] },
-      { columns: ['tenant_id', 'status'] },
-      { columns: ['expires_at'] },
     ],
   },
 };
@@ -430,63 +313,6 @@ export const loginThrottlesSchema = {
     primaryKey: ['key_hash'],
     checks: ['failures >= 0'],
     indexes: [{ columns: ['locked_until'] }, { columns: ['last_failed_at'] }],
-  },
-};
-```
-
-## `admin.platform_roles`
-
-Stores active and archived assignments of any valid tenant-local role to a
-portal user, including seeded system roles and tenant-defined roles.
-`tenant_id` identifies the tenant whose cell contains the role; `role_id` is
-that role record's UUID. The role reference crosses databases, so I0005 validates
-it rather than using a foreign key.
-
-```js
-export const platformRolesSchema = {
-  dbSchema: 'admin',
-  table: 'platform_roles',
-  hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
-  softDelete: true,
-  columns: [
-    {
-      name: 'id',
-      type: 'uuid',
-      notNull: true,
-      default: 'gen_random_uuid()',
-      immutable: true,
-    },
-    { name: 'portal_user_id', type: 'uuid', notNull: true, immutable: true },
-    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-    { name: 'role_id', type: 'uuid', notNull: true, immutable: true },
-  ],
-  constraints: {
-    primaryKey: ['id'],
-    foreignKeys: [
-      {
-        type: 'ForeignKey',
-        columns: ['portal_user_id'],
-        references: { schema: 'admin', table: 'portal_users', columns: ['id'] },
-        onDelete: 'RESTRICT',
-      },
-      {
-        type: 'ForeignKey',
-        columns: ['tenant_id'],
-        references: {
-          schema: 'admin',
-          table: 'tenants',
-          columns: ['id'],
-        },
-        onDelete: 'RESTRICT',
-      },
-    ],
-    indexes: [
-      {
-        columns: ['portal_user_id', 'tenant_id', 'role_id'],
-        unique: true,
-        where: 'deactivated_at IS NULL',
-      },
-    ],
   },
 };
 ```
@@ -786,7 +612,6 @@ export const managedEventsSchema = {
     { name: 'event_key', type: 'varchar(128)', notNull: true, immutable: true },
     { name: 'outcome', type: 'text', notNull: true, immutable: true },
     { name: 'actor_id', type: 'uuid', immutable: true },
-    { name: 'effective_user_id', type: 'uuid', immutable: true },
     { name: 'tenant_id', type: 'uuid', immutable: true },
     { name: 'target_type', type: 'varchar(64)', immutable: true },
     { name: 'target_id', type: 'uuid', immutable: true },
@@ -821,10 +646,8 @@ The migration adds database triggers that:
 - reject primary-key changes;
 - maintain `updated_at` on audit-enabled tables;
 - reject updates and deletes on `managed_events`;
-- reject changes to the root user's `email`, `status`, `is_root`, and archive state;
 - reject a null membership `member_type` unless the membership belongs to the
-  root user and Napsoft tenant;
-- reject removal, suspension, reassignment, or archival of the root membership;
+  Napsoft tenant;
 - allow the initial `tenants.cell_id` assignment from null, including for the
-  owning tenant after root bootstrap; reject later reassignment or clearing when
+  Napsoft tenant after bootstrap; reject later reassignment or clearing when
   `provisioned = true` or any membership exists, including archived memberships.

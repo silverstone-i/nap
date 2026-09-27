@@ -195,7 +195,7 @@ with:
 ```
 
 A tenant may receive its first cell assignment when `cell_id` is null, including
-the owning tenant after root bootstrap. Later reassignment or clearing is allowed only while
+the Napsoft tenant after bootstrap. Later reassignment or clearing is allowed only while
 `provisioned = false` and no membership exists, including archived memberships.
 
 ## Readiness And Overview

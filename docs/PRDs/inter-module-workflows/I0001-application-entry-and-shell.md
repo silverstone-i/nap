@@ -2,14 +2,14 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                      |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                                                                                                                                                                                                                                                |
-| Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                      |
-| Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                           |
-| Related PRDs         | [M0001-03: Authentication](../modules/M0001-admin-tenancy/M0001-03-authentication.md), [M0001-04: Session Management](../modules/M0001-admin-tenancy/M0001-04-session-management.md), [M0001-05: Authorization](../modules/M0001-admin-tenancy/M0001-05-authorization.md), [M0001-09: Tenant Selection And Support Access](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md) |
-| Related decisions    | One application shell for tenant work and management (2026-09-25)                                                                                                                                                                                                                                                                                                                                          |
-| Last reviewed        | 2026-09-25                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Field                | Value                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Accepted                                                                                                                                                                                                                                                                                                                                                       |
+| Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                          |
+| Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                               |
+| Related PRDs         | [M0001-03: Authentication](../modules/M0001-admin-tenancy/M0001-03-authentication.md), [M0001-04: Session Management](../modules/M0001-admin-tenancy/M0001-04-session-management.md), [I0005: RBAC Decision Model](I0005-rbac-decision-model.md), [M0001-09: Tenant Selection](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md) |
+| Related decisions    | One application shell for tenant work and management (2026-09-25)                                                                                                                                                                                                                                                                                              |
+| Last reviewed        | 2026-09-25                                                                                                                                                                                                                                                                                                                                                     |
 
 ## 2. Purpose
 
@@ -38,7 +38,8 @@ application, and control browser-local display preferences.
 
 - Tenant, cell, portal-user, membership, role, and entitlement administration
   screens.
-- The authorization decision model and server-side capability enforcement.
+- The authorization decision model, server-side capability enforcement, and the
+  capabilities endpoint, owned by [I0005](I0005-rbac-decision-model.md).
 - Tenant-logo and profile-image storage or delivery.
 - Server-synchronized user preferences.
 - Spreadsheet package selection and budgeting or estimating behavior.
@@ -49,28 +50,29 @@ application, and control browser-local display preferences.
 The server remains authoritative. Browser route protection and destination
 visibility improve the user experience but do not grant access.
 
-| Context             | Actor                               | Required permission or state                                          | Result                                                                                  |
-| ------------------- | ----------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `/login`            | Anonymous portal user               | None                                                                  | May submit credentials and receive a success, generic rejection, or throttling response |
-| `/password`         | Restricted portal user              | Valid session with password change required                           | May change the password or log out; every other protected destination is denied         |
-| `/password`         | Authenticated portal user           | Valid unrestricted session                                            | May voluntarily change the password                                                     |
-| `/tenants`          | Authenticated portal user           | At least one eligible tenant                                          | May view eligible tenants and select one                                                |
-| `/home`             | Authenticated portal user           | A selected eligible tenant, or `entryPoints.platform` is true         | May enter the application shell                                                         |
-| `/management/*`     | Authenticated portal user           | `entryPoints.platform` is true and the server authorizes each request | May use implemented authorized management destinations in the application shell         |
-| Any protected route | Anonymous user or invalid session   | None                                                                  | Return to `/login`; preserve only a safe same-origin return path                        |
-| Any destination     | Authenticated but unauthorized user | Required server authorization is absent                               | Keep the destination out of navigation and honor the server's denial                    |
+| Context             | Actor                               | Required permission or state                                               | Result                                                                                  |
+| ------------------- | ----------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `/login`            | Anonymous portal user               | None                                                                       | May submit credentials and receive a success, generic rejection, or throttling response |
+| `/password`         | Restricted portal user              | Valid session with password change required                                | May change the password or log out; every other protected destination is denied         |
+| `/password`         | Authenticated portal user           | Valid unrestricted session                                                 | May voluntarily change the password                                                     |
+| `/tenants`          | Authenticated portal user           | At least one eligible tenant                                               | May view eligible tenants and select one                                                |
+| `/home`             | Authenticated portal user           | A selected eligible tenant                                                 | May enter the application shell                                                         |
+| `/management/*`     | Authenticated portal user           | Session capabilities match the destination; server authorizes each request | May use implemented authorized management destinations in the application shell         |
+| Any protected route | Anonymous user or invalid session   | None                                                                       | Return to `/login`; preserve only a safe same-origin return path                        |
+| Any destination     | Authenticated but unauthorized user | Required server authorization is absent                                    | Keep the destination out of navigation and honor the server's denial                    |
 
 ## 5. Concepts And Terminology
 
-| Term                     | Meaning                                                                                                                          |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| Access context           | The safe session, portal-user identity, selected tenant, and available application entry points returned for application startup |
-| Application shell        | The one application frame for every signed-in destination; it serves the selected tenant and management alike                    |
-| Tenant context           | The selected tenant held in the server session; it never comes from the URL                                                      |
-| Contextual action header | The row above the work area where the active destination supplies its title and actions                                          |
-| Standard grid            | An ordinary list or table rendered with MUI X Community and server-side paging                                                   |
-| Spreadsheet-style editor | A future work area for dense, cell-oriented editing; its package and domain rules belong to the feature that uses it             |
-| Display mode             | The browser-local Dark, Light, or System appearance preference                                                                   |
+| Term                     | Meaning                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Access context           | The safe session, portal-user identity, selected tenant, and tenant entry flag returned for application startup          |
+| Session capabilities     | The capability patterns returned by I0005's capabilities endpoint; the shell uses them only to show or hide destinations |
+| Application shell        | The one application frame for every signed-in destination; it serves the selected tenant and management alike            |
+| Tenant context           | The selected tenant held in the server session; it never comes from the URL                                              |
+| Contextual action header | The row above the work area where the active destination supplies its title and actions                                  |
+| Standard grid            | An ordinary list or table rendered with MUI X Community and server-side paging                                           |
+| Spreadsheet-style editor | A future work area for dense, cell-oriented editing; its package and domain rules belong to the feature that uses it     |
+| Display mode             | The browser-local Dark, Light, or System appearance preference                                                           |
 
 ## 6. Functional Requirements
 
@@ -85,9 +87,8 @@ visibility improve the user experience but do not grant access.
   context. After login, or after a required password change, a user with no
   selected tenant and exactly one eligible tenant must have that tenant
   selected through the tenant selection API; if selection fails, the user stays
-  unselected. A user with a valid selected tenant or with platform entry must
-  restore into `/home`. A user with neither, but with eligible tenants, must see
-  `/tenants`.
+  unselected. A user with a valid selected tenant must restore into `/home`. A
+  user without one, but with eligible tenants, must see `/tenants`.
 - I0001-R004: The browser routes must be `/login`, `/password`, `/tenants`,
   `/home`, and the `/management/*` destinations. A protected route must not
   render its content until its session and entry requirements have been
@@ -168,10 +169,10 @@ visibility improve the user experience but do not grant access.
   safe session view, `{ id, email }` for the portal user, the selected tenant's
   `{ id, code, name, tier }` or `null`, the platform operator's own company in
   the same shape (a fixed record, independent of the caller's own tenant
-  context), and the server-resolved platform and tenant entry flags. It must
-  use the existing versioned envelope, set `Cache-Control: no-store`, return
+  context), and the server-resolved tenant entry flag. It must use the existing
+  versioned envelope, set `Cache-Control: no-store`, return
   `401 UNAUTHENTICATED` for an invalid session, and exclude credentials,
-  password data, role assignments, and raw capability lists.
+  password data, role assignments, and capability patterns.
 - I0001-R023: The application shell must provide a two-level `Tenant Management`
   navigation group, whether or not a tenant is selected, with `Tenants`, `Cells`, and `Portal Users` as its child
   destinations. In the phone drawer and expanded navigation rail, the group
@@ -179,16 +180,15 @@ visibility improve the user experience but do not grant access.
   visually nested under the group. In the collapsed rail, the group icon must
   remain visible with a tooltip and must open an accessible flyout containing
   the visible child icons and labels. The group must be hidden when none of its
-  children is implemented and server-authorized; an unavailable child must not
-  appear as a placeholder.
-- I0001-R024: `GET /api/admin-tenancy/v1/access/context` must return an
-  `entryPoints.tenantManagement` object with `tenants`, `cells`, and
-  `portalUsers` boolean fields, each derived from the caller's actual
-  resolved capabilities (`admin-tenancy::control::read` for `tenants` and
-  `cells`; `admin-tenancy::accounts::read` for `portalUsers`) and never from
-  `entryPoints.platform` or any other coarser stand-in. This is the
-  per-destination signal I0001-R023's `Tenant Management` group needs to
-  gate its children individually; it must not expose a raw capability list.
+  children is implemented and allowed by the session capabilities; an
+  unavailable child must not appear as a placeholder.
+- I0001-R024: The shell must show each `Tenant Management` child only when the
+  session capabilities from I0005's
+  `GET /api/admin-tenancy/v1/session/capabilities` match its capability under
+  I0005's matching rules: `NAP::admin-tenancy::tenants::read` for `Tenants`,
+  `NAP::admin-tenancy::control::read` for `Cells`, and
+  `NAP::admin-tenancy::accounts::read` for `Portal Users`. Every other
+  destination and action is gated the same way.
 
 ## 7. Business Rules And Invariants
 
@@ -217,7 +217,7 @@ visibility improve the user experience but do not grant access.
 | Signed out              | Rejected login                            | Signed out                           | Show the generic authentication error                                 |
 | Signed out              | Throttled login                           | Signed out                           | Show throttling and retry information                                 |
 | Restoring               | Password change required                  | Restricted                           | Route to `/password`                                                  |
-| Restoring               | Valid selected tenant, or platform entry  | Application shell                    | Route to `/home`                                                      |
+| Restoring               | Valid selected tenant                     | Application shell                    | Route to `/home`                                                      |
 | Restoring               | Eligible tenants only, no valid selection | Tenant selection                     | Route to `/tenants`                                                   |
 | Restricted              | Successful password change                | Restoring                            | Reload access context using the rotated session                       |
 | Tenant selection        | Successful selection                      | Application shell                    | Clear prior tenant UI state and route to `/home`                      |
@@ -267,21 +267,17 @@ envelopes.
 context in the existing versioned success envelope and with
 `Cache-Control: no-store`.
 
-| Response field                             | Required value                                                                                                                                   |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `session`                                  | The existing safe session view from M0001-04                                                                                                     |
-| `user`                                     | `{ id, email }` for the authenticated portal user                                                                                                |
-| `selectedTenant`                           | `{ id, code, name, tier }` for the selected eligible tenant, or `null`                                                                           |
-| `operator`                                 | `{ id, code, name, tier }` for the platform operator's own tenant record — a fixed, single record independent of the caller's own tenant context |
-| `entryPoints.platform`                     | `true` only when resolved server authorization permits platform entry                                                                            |
-| `entryPoints.tenant`                       | `true` when at least one eligible tenant is available                                                                                            |
-| `entryPoints.tenantManagement.tenants`     | `true` when the caller's resolved capabilities include `admin-tenancy::control::read` (I0001-R024)                                               |
-| `entryPoints.tenantManagement.cells`       | `true` when the caller's resolved capabilities include `admin-tenancy::control::read` (I0001-R024)                                               |
-| `entryPoints.tenantManagement.portalUsers` | `true` when the caller's resolved capabilities include `admin-tenancy::accounts::read` (I0001-R024)                                              |
+| Response field       | Required value                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `session`            | The existing safe session view from M0001-04                                                                                                     |
+| `user`               | `{ id, email }` for the authenticated portal user                                                                                                |
+| `selectedTenant`     | `{ id, code, name, tier }` for the selected eligible tenant, or `null`                                                                           |
+| `operator`           | `{ id, code, name, tier }` for the platform operator's own tenant record — a fixed, single record independent of the caller's own tenant context |
+| `entryPoints.tenant` | `true` when at least one eligible tenant is available                                                                                            |
 
 The endpoint must resolve all fields for one authenticated request. It must not
-return a session credential, password data, role assignment, or raw capability
-list. An invalid session must return `401 UNAUTHENTICATED`. Other failures must
+return a session credential, password data, role assignment, or capability
+pattern. An invalid session must return `401 UNAUTHENTICATED`. Other failures must
 use the existing versioned error envelope. This read does not change tenant
 selection and does not replace server authorization on later requests.
 
@@ -290,8 +286,8 @@ selection and does not replace server authorization on later requests.
 - M0001-03 authenticates credentials, enforces throttling, and changes
   passwords.
 - M0001-04 owns session creation, resolution, rotation, expiry, and revocation.
-- M0001-05 supplies resolved authorization for platform entry and every
-  protected API operation.
+- I0005 decides every protected API operation and returns the session
+  capabilities the shell uses to show destinations and actions.
 - M0001-09 lists eligible tenants and changes the selected tenant in the
   server-owned session.
 - The BFF owns the cookie, same-origin browser request protection, API
@@ -323,7 +319,7 @@ closed and must not reuse a prior user's, tenant's, or route's protected data.
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | AC01      | Valid credentials enter restoration; invalid credentials receive one generic rejection; a throttled attempt shows retry information without entering the application.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | I0001-R001, I0001-R003, I0001-R021 |
 | AC02      | A required password change permits only `/password` and logout until it succeeds; an unrestricted user can voluntarily change the password.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | I0001-R002, I0001-R004             |
-| AC03      | Restoration enters `/home` when a tenant selection remains valid or platform entry is available, otherwise tenant selection when eligible tenants exist. Protected content does not render during restoration.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | I0001-R003, I0001-R004, I0001-R021 |
+| AC03      | Restoration enters `/home` when a tenant selection remains valid, otherwise tenant selection when eligible tenants exist. Protected content does not render during restoration.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | I0001-R003, I0001-R004, I0001-R021 |
 | AC04      | Tenant selection and switching show only eligible tenants, accept the rotated session, clear tenant-specific UI state, and route to the selected tenant. An unavailable or ineligible tenant shows an error and does not expose its content.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | I0001-R007, I0001-R008             |
 | AC05      | Logout clears protected state and returns to `/login`. Expiry also shows a session-expired message and preserves only a safe same-origin return path that is reauthorized before use.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | I0001-R005, I0001-R006             |
 | AC06      | The one Home work area names the selected tenant, or states that none is selected, without invented metrics; Tenant Management stays available with or without a selected tenant. Unimplemented or unauthorized destinations stay hidden, and direct browser or API access remains server-denied.                                                                                                                                                                                                                                                                                                                                                                                                                                                          | I0001-R014                         |
@@ -335,9 +331,9 @@ closed and must not reuse a prior user's, tenant's, or route's protected data.
 | AC12      | A representative spreadsheet-style work area fits in the shell and can provide keyboard navigation, copy and paste, bulk cell editing, validation feedback, and a large dataset without a shell redesign.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | I0001-R018                         |
 | AC13      | Login, menus, modal navigation, dialogs, tenant selection, grids, and route changes are operable by keyboard; controls have accessible names; focus remains visible and moves predictably.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | I0001-R020                         |
 | AC14      | Light and dark presentations use BRAND.md tokens, typography, contrast, status, focus, and `nap.` wordmark rules.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | I0001-R019                         |
-| AC15      | The access-context endpoint returns the safe session, `{ id, email }` user, nullable safe selected tenant, the platform operator's own tenant record, and correct platform and tenant entry flags in the versioned envelope with `Cache-Control: no-store`; an invalid session returns `401`, and no forbidden security data is exposed.                                                                                                                                                                                                                                                                                                                                                                                                                   | I0001-R003, I0001-R014, I0001-R022 |
+| AC15      | The access-context endpoint returns the safe session, `{ id, email }` user, nullable safe selected tenant, the platform operator's own tenant record, and the correct tenant entry flag in the versioned envelope with `Cache-Control: no-store`; an invalid session returns `401`, and no forbidden security data is exposed.                                                                                                                                                                                                                                                                                                                                                                                                                             | I0001-R003, I0001-R014, I0001-R022 |
 | AC16      | Platform navigation presents `Tenant Management` as a two-level group. The expanded rail and phone drawer show icons and labels with visible children nested under the group; the collapsed rail keeps the group icon visible with a tooltip and opens a keyboard-accessible child flyout. `Tenants`, `Cells`, and `Portal Users` appear only when their destinations are implemented and server-authorized, and the empty group remains hidden.                                                                                                                                                                                                                                                                                                           | I0001-R010, I0001-R014, I0001-R023 |
-| AC17      | The access-context endpoint returns `entryPoints.tenantManagement.{tenants, cells, portalUsers}`, each derived from the caller's actual resolved capabilities and never from `entryPoints.platform` or a raw capability list.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | I0001-R024                         |
+| AC17      | The shell shows each `Tenant Management` child only when the session capabilities from I0005's endpoint match its capability; a partial capability set shows only the matching children.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | I0001-R024                         |
 
 ## Verification Evidence
 
@@ -482,13 +478,8 @@ records all three children as `implemented: false` and documents both gaps
 in its file comment; `visibleTenantManagementChildren` therefore returns no
 children today, which is what correctly keeps the whole group hidden — the
 empty-group case AC16 requires — rather than a group rendered with
-everything filtered out. **Missing contract, flagged for a follow-up PRD or
-API change:** `GET /access/context` needs a per-destination authorization
-signal (for example `entryPoints.tenantManagement: { tenants, cells,
-portalUsers }`) before any child here can move to `implemented: true`; until
-then, `entryPoints.platform` must not be used as a stand-in, since a
-non-root platform operator with only some of those capabilities (once
-I0005 ships non-root roles) must not see a destination it cannot use.
+everything filtered out. The children stay hidden until I0005's session capabilities endpoint provides
+per-destination visibility.
 
 Verified with 24 new web tests: `NavGroup.test.jsx` (10 tests) covers the
 component in isolation — the empty-group case; expanded nesting with icons

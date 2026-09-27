@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                          |
 | -------------------- | ------------------------------------------------------------------------------ |
-| Status               | Implemented                                                                    |
+| Status               | Accepted                                                                       |
 | Type                 | Module Work Unit                                                               |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                              |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                        |
@@ -32,11 +32,10 @@ Create a central tenant before cell assignment and provisioning.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Authority                       | Result                      |
-| ----------------------------- | ------------------------------- | --------------------------- |
-| Root user or `platform_admin` | `admin-tenancy::control::write` | Create a tenant             |
-| `support`                     | Same capability                 | Create a non-Napsoft tenant |
-| Other caller                  | None                            | Deny                        |
+| Actor               | Authority                            | Result          |
+| ------------------- | ------------------------------------ | --------------- |
+| Authorized operator | `NAP::admin-tenancy::tenants::write` | Create a tenant |
+| Other caller        | None                                 | Deny            |
 
 Only bootstrap may create a tenant with `is_napsoft = true`.
 
@@ -105,13 +104,13 @@ it does not change the central creation contract.
 
 WU 6 supplies eligible cells to a later assignment workflow. Cell-tenancy and
 provisioning own projection, provisioning, activation, and status synchronization.
-That later tenant-provisioning workflow runs the all-tenant `tenant_admin` seed
-from M0003 and the owner-only seed only for the configured owning tenant.
+That later tenant-provisioning workflow runs M0003's customer-tenant seed
+(`tenant_admin`); the Napsoft seed runs at bootstrap.
 Central tenant creation does not seed roles or claim that provisioning is complete.
 
 ## 12. Security And Audit
 
-- M0001-07-R005: Creation must require the control-write capability and must return only safe central metadata.
+- M0001-07-R005: Creation must require `NAP::admin-tenancy::tenants::write` and must return only safe central metadata.
 
 Success, denial, validation failure, and conflict record managed events without
 request headers or secrets. Success advances the tenant-list cache revision.
@@ -123,7 +122,7 @@ request headers or secrets. Success advances the tenant-list cache revision.
 | AC01      | Valid authorized input creates the normalized pending tenant and returns its UUID.                   | M0001-07-R001, M0001-07-R005 |
 | AC02      | Creation succeeds without a cell and reports no provisioning or readiness.                           | M0001-07-R002, M0001-07-R003 |
 | AC03      | Invalid, duplicate, repeated, and concurrent requests follow the stated outcomes without duplicates. | M0001-07-R004                |
-| AC04      | Support cannot create or designate the Napsoft tenant.                                               | M0001-07-R005                |
+| AC04      | No caller can create or designate the Napsoft tenant.                                                | M0001-07-R005                |
 
 ### Verification Evidence
 
@@ -156,13 +155,6 @@ to exactly one success and one conflict (AC03). Unit tests cover
 code/name/tier normalization and rejection, the required `Idempotency-Key`
 header, the `tenantView` camelCase mapping, and the route's session,
 capability, and error-shape gating over an in-memory admin handle.
-
-As `control.js` already notes for cell management, `authorization.js`
-currently resolves only root or no platform authority (role-based
-`platform_admin`/`support` is deferred to I0005), so AC04 is
-demonstrated today by `is_napsoft` never being an acceptable request field
-for any actor — root included — rather than by a distinguishable `support`
-session, which has no runtime path to authenticate as yet.
 
 ## 14. Outstanding Questions
 

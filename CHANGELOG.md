@@ -12,7 +12,7 @@ when a pull request with a release label merges into `main`.
 
 ### Changed
 
-- Add PRDs for role-based access control (RBAC): M0003 Access Control (per-cell role and grant tables, capability catalogue, system-role seeds, custom roles and the Roles screen) and I0005 RBAC Decision Model (role assignment, capability resolution, one `authorize` check per route, and permission-aware UI). The draft M0569 is folded into them and removed, and every M0569 reference in PRDs, architecture docs, the roadmap, and code comments now points to M0003 or I0005.
+- Rewrite M0003 and I0005 for the simplified RBAC model: roles, grants, and role assignments live only in tenant cells; capabilities are `TENANT::module::router::action`, where tenant `*` excludes Napsoft and entitlements always apply; immutable `platform_admin`, `support`, and `tenant_admin` roles are seeded (Napsoft at bootstrap); one `requireCapability` check decides every route, with a no-escalation rule for role changes. The M0001 family, I0001–I0004, architecture docs, guides, and READMEs now describe this model: no root user, no `admin.platform_roles`, and no support mode. M0001-02 becomes Napsoft bootstrap, M0001-09 becomes tenant selection, and M0001-05 is superseded by I0005.
 - Add a support access design guide in `docs/design-guides/` (staff roles, impersonation, tickets and consent as support rules, and the tenant support log). Design guides are reference only; the README now lists them and spells out acronyms at first use.
 
 ## [v0.19.0] - 2026-09-26

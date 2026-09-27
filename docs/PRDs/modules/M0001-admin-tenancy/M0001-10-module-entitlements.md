@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                            |
 | -------------------- | -------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                      |
+| Status               | Accepted                                                                         |
 | Type                 | Module Work Unit                                                                 |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                |
 | Related architecture | [Module map](../../../architecture/module-map.md)                                |
@@ -28,16 +28,16 @@ Control which optional product modules each tenant may use.
 
 - Table definitions and migrations.
 - Cell projection delivery and cell-side enforcement.
-- Platform roles and tenant role assignments.
+- Roles and role assignments.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Target             | Result                      |
-| ----------------------------- | ------------------ | --------------------------- |
-| Root user or `platform_admin` | Any tenant         | Read or change entitlements |
-| `support`                     | Non-Napsoft tenant | Read or change entitlements |
-| `tenant_admin`                | Own tenant         | Read entitlements only      |
-| Any actor                     | Unknown module     | Reject                      |
+| Actor                                               | Target         | Result                 |
+| --------------------------------------------------- | -------------- | ---------------------- |
+| Holder of `NAP::admin-tenancy::entitlements::write` | Any tenant     | Change entitlements    |
+| Holder of `NAP::admin-tenancy::entitlements::read`  | Any tenant     | Read entitlements      |
+| `tenant_admin`                                      | Own tenant     | Read entitlements only |
+| Any actor                                           | Unknown module | Reject                 |
 
 ## 5. Concepts And Terminology
 
@@ -87,14 +87,13 @@ tenant/module uniqueness.
 
 ## 10. API Requirements
 
-| Method and route                                                    | Capability                           | Result                                               |
-| ------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------- |
-| `GET /api/admin-tenancy/v1/tenants/:tenant/entitlements`            | `admin-tenancy::entitlements::read`  | Full catalogue with effective booleans and revisions |
-| `PUT /api/admin-tenancy/v1/tenants/:tenant/entitlements/:module`    | `admin-tenancy::entitlements::write` | Enabled state                                        |
-| `DELETE /api/admin-tenancy/v1/tenants/:tenant/entitlements/:module` | `admin-tenancy::entitlements::write` | Disabled state                                       |
+| Method and route                                                    | Required capability                       | Result                                               |
+| ------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------- |
+| `GET /api/admin-tenancy/v1/tenants/:tenant/entitlements`            | `NAP::admin-tenancy::entitlements::read`  | Full catalogue with effective booleans and revisions |
+| `PUT /api/admin-tenancy/v1/tenants/:tenant/entitlements/:module`    | `NAP::admin-tenancy::entitlements::write` | Enabled state                                        |
+| `DELETE /api/admin-tenancy/v1/tenants/:tenant/entitlements/:module` | `NAP::admin-tenancy::entitlements::write` | Disabled state                                       |
 
-Unknown tenants or modules return `404`; unauthorized or Napsoft support targets
-return `403`. Grant and withdrawal return `200`, including repeated requests.
+Unknown tenants or modules return `404`; unauthorized callers receive `403`. Grant and withdrawal return `200`, including repeated requests.
 
 ## 11. Cross-Module Interactions
 
@@ -116,7 +115,6 @@ one transaction.
 | AC02      | Grant, withdrawal, repeats, and competing updates follow the revision rules.           | M0001-10-R003, M0001-10-R005 |
 | AC03      | Central changes work without a cell and do not claim projection success.               | M0001-10-R004                |
 | AC04      | Entitlement changes grant no role or permission.                                       | M0001-10-R006                |
-| AC05      | Support cannot read or change Napsoft entitlements.                                    | M0001-10-R002, M0001-10-R003 |
 
 ### Verification Evidence
 
@@ -139,10 +137,7 @@ rejected on read (AC01); grant, no-op re-grant, withdrawal, and no-op
 re-withdrawal following the stated revision rule, with a `succeeded` event
 recorded for every call (AC02, §12); withdrawing an absent module creating
 no row (§8); the entitlement cache revision — keyed by tenant UUID —
-advancing only on a genuine `enabled` change, never on a no-op (§7, §11); a
-Napsoft-denied tenant (a hand-built `deniedTenantIds` scope, since role-based
-`support` resolution is deferred to I0005) reporting `FORBIDDEN` on
-both read and write (AC05); an unknown tenant and an unknown module each
+advancing only on a genuine `enabled` change, never on a no-op (§7, §11); an unknown tenant and an unknown module each
 reporting `NOT_FOUND` (AC01); the real foreign key to `admin.tenants`; and
 two concurrency cases under real advisory locks — two concurrent grants of
 the same tenant and module resolving to exactly one row at revision 1, and a
@@ -150,24 +145,14 @@ concurrent grant and withdraw of the same pair resolving to exactly one
 committed final state (AC02, §7's "last committed request determines
 state"). Central changes never call a cell or claim a projection result
 (AC03) — the domain layer has no cell dependency to begin with. Unit tests
-cover session/capability/404/403 gating over an in-memory admin handle
-(including the resolved 403-for-Napsoft ambiguity, confirmed at both the
-HTTP and domain layers), the `entitlementView` mapping, the full-catalogue
+cover session/capability/404/403 gating over an in-memory admin handle, the `entitlementView` mapping, the full-catalogue
 overlay, and an unavailable cache-revision store surfacing `503`.
 
 Entitlement changes touch only `admin.module_entitlements`,
 `admin.managed_events`, and `admin.cache_revisions` — never
-`admin.platform_roles` or `admin.portal_user_tenants` — which is what AC04
+`admin.portal_user_tenants` or any role table — which is what AC04
 demonstrates: nothing in this Work Unit's code path can grant a role or
 permission, by construction rather than by a runtime check.
-
-As `accounts.js` and `control.js` already note for their own domains,
-`authorization.js` currently resolves only root or no platform authority
-(role-based `platform_admin`/`support`/`tenant_admin` is deferred to
-I0005), so AC05 is demonstrated today by directly constructing a
-`support`-shaped scope with the tenant in `deniedTenantIds` and calling the
-domain functions directly, rather than by a distinguishable `support`
-session, which has no runtime path to authenticate as yet.
 
 ## 14. Outstanding Questions
 

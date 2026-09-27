@@ -2,14 +2,14 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Related architecture | [Admin and cells](../../architecture/admin-cells.md), [Migrations](../../architecture/migrations.md), [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Related PRDs         | [M0001-02: Root User Provisioning](../modules/M0001-admin-tenancy/M0001-02-root-user-provisioning.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-09: Tenant Selection And Support Access](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md), [M0002-01: Cell Database Foundation](../modules/M0002-cell-tenancy/M0002-01-cell-database-foundation.md), [M0002-02: Physical Identity](../modules/M0002-cell-tenancy/M0002-02-physical-identity.md), [I0002: Platform Administration Screens](I0002-platform-administration-screens.md) |
-| Related decisions    | The worker runs inside the API; a cell lives on the admin server locally and on its own Render instance in production                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Last reviewed        | 2026-09-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Accepted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Related architecture | [Admin and cells](../../architecture/admin-cells.md), [Migrations](../../architecture/migrations.md), [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Related PRDs         | [M0001-02: Napsoft Bootstrap](../modules/M0001-admin-tenancy/M0001-02-root-user-provisioning.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-09: Tenant Selection](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md), [M0002-01: Cell Database Foundation](../modules/M0002-cell-tenancy/M0002-01-cell-database-foundation.md), [M0002-02: Physical Identity](../modules/M0002-cell-tenancy/M0002-02-physical-identity.md), [I0002: Platform Administration Screens](I0002-platform-administration-screens.md) |
+| Related decisions    | The worker runs inside the API; a cell lives on the admin server locally and on its own Render instance in production                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Last reviewed        | 2026-09-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## 2. Purpose
 
@@ -18,8 +18,9 @@ restart. Today an operator can register a cell from the Cells screen, but
 nothing runs the queued job, the API has no connection to any cell, and every
 tenant selection returns `503 CELL_UNAVAILABLE`.
 
-After this PRD, a root operator on a new install registers one cell, watches
-it provision on the Cells screen, and then selects the Napsoft tenant.
+After this PRD, a new install provisions its first cell with the
+`db:provision:napsoft` maintenance command, and the bootstrap login then
+selects the Napsoft tenant.
 
 ## 3. Scope
 
@@ -30,8 +31,8 @@ it provision on the Cells screen, and then selects the Napsoft tenant.
 - Saving and publishing each cell's connection.
 - The runtime cell registry: loading published cells at startup, adding newly
   activated cells while the API runs, readiness, and finding a tenant's cell.
-- Root tenant setup: the first provisioned cell becomes the Napsoft tenant's
-  cell, and the Napsoft tenant becomes selectable.
+- Napsoft tenant setup: the first provisioned cell becomes the Napsoft tenant's
+  cell, receives M0003's Napsoft seed, and the Napsoft tenant becomes selectable.
 - A `cell-activate` operation that re-enables a disabled cell.
 - Cells screen changes: failure code, progress refresh, progress details,
   Activate, and a Disable confirmation.
@@ -48,14 +49,15 @@ it provision on the Cells screen, and then selects the Napsoft tenant.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Permission                        | Can do                                            |
-| ----------------------------- | --------------------------------- | ------------------------------------------------- |
-| Root user or `platform_admin` | `admin-tenancy::control::read`    | See cells, progress, and failure codes            |
-| Root user or `platform_admin` | `admin-tenancy::control::write`   | Register, retry, activate, or disable a cell      |
-| `support`                     | `admin-tenancy::control::write`   | Same, except on a cell holding the Napsoft tenant |
-| Provisioning worker           | Trusted in-process runner context | Claim a queued job and advance it (M0001-06 §4)   |
+| Actor               | Permission                           | Can do                                          |
+| ------------------- | ------------------------------------ | ----------------------------------------------- |
+| Authorized operator | `NAP::admin-tenancy::control::read`  | See cells, progress, and failure codes          |
+| Authorized operator | `NAP::admin-tenancy::control::write` | Register, retry, activate, or disable a cell    |
+| Provisioning worker | Trusted in-process runner context    | Claim a queued job and advance it (M0001-06 §4) |
 
-Only root holds these capabilities today (M0001-05).
+Before the Napsoft cell exists, the bootstrap login holds no capabilities, so
+the first cell is registered and provisioned by the `db:provision:napsoft`
+maintenance command (I0003-R042), not through the API.
 
 ## 5. Concepts And Terminology
 
@@ -91,7 +93,7 @@ Only root holds these capabilities today (M0001-05).
   1. save and publish the cell's connection (R011);
   2. add the cell to the runtime cell registry (R018), which runs the readiness checks;
   3. complete the job through `advanceCellProvisioning`, which enables the cell;
-  4. run root tenant setup when it applies (R024).
+  4. run Napsoft tenant setup when it applies (R024).
 
   If step 1, 2, or 3 fails, the job fails with that step's code and the cell stays disabled.
 
@@ -123,18 +125,19 @@ Only root holds these capabilities today (M0001-05).
 - I0003-R021: Disabling a cell must mark it not ready (`CELL_DISABLED`) in the registry at once. Activating it again must make it ready.
 - I0003-R022: Shutdown must close every cell connection.
 
-### Root tenant setup
+### Napsoft tenant setup
 
-- I0003-R023: Root tenant setup applies when a job completes and the Napsoft tenant (`is_napsoft`) has no `cell_id`, and is retried until it finishes. Later cells never change the Napsoft tenant's cell.
-- I0003-R024: Root tenant setup must:
+- I0003-R023: Napsoft tenant setup applies when a job completes and the Napsoft tenant (`is_napsoft`) has no `cell_id`, and is retried until it finishes. Later cells never change the Napsoft tenant's cell.
+- I0003-R024: Napsoft tenant setup must:
   1. set the Napsoft tenant's `cell_id` to the completed cell, in the transaction that completes the job;
   2. write the Napsoft tenant into the cell's `cell.tenants` (ID, code, status, revision);
-  3. write the root user's Napsoft membership into `cell.tenant_members` (membership ID, tenant ID, `portal_user_id`, status, revision; `member_type` and `member_id` null);
-  4. read both rows back and confirm they match admin;
-  5. set the Napsoft tenant's `provisioned` and `rbac_ready` to true;
-  6. record a managed event.
-- I0003-R025: If steps 2–5 fail, the cell stays enabled and assigned, the Napsoft tenant stays not provisioned, and the worker retries on its next check until setup succeeds. The Cells screen shows `ROOT_SETUP_FAILED` for that cell until then.
-- I0003-R026: `rbac_ready` is true for the Napsoft tenant because root needs no cell-side roles: its authority comes from `is_root` (M0001-05).
+  3. write the bootstrap login's Napsoft membership into `cell.tenant_members` (membership ID, tenant ID, `portal_user_id`, status, revision; `member_type` and `member_id` null);
+  4. run M0003's Napsoft seed: the `platform_admin`, `support`, and `tenant_admin` roles and the bootstrap login's `platform_admin` assignment;
+  5. read the rows back and confirm they match admin;
+  6. set the Napsoft tenant's `provisioned` and `rbac_ready` to true;
+  7. record a managed event.
+- I0003-R025: If steps 2–6 fail, the cell stays enabled and assigned, the Napsoft tenant stays not provisioned, and the worker retries on its next check until setup succeeds. The Cells screen shows `NAPSOFT_SETUP_FAILED` for that cell until then.
+- I0003-R026: `rbac_ready` becomes true for the Napsoft tenant only after the Napsoft seed has run in its cell.
 
 ### Operations
 
@@ -160,7 +163,7 @@ Only root holds these capabilities today (M0001-05).
 ## 8. Lifecycle And State Transitions
 
 Stages and statuses are M0001-06's. This PRD adds the worker transitions,
-`cell-activate`, and root tenant setup.
+`cell-activate`, and Napsoft tenant setup.
 
 | Starting state                      | Trigger                   | Result                                                         |
 | ----------------------------------- | ------------------------- | -------------------------------------------------------------- |
@@ -175,15 +178,15 @@ Stages and statuses are M0001-06's. This PRD adds the worker transitions,
 | `complete/completed`, cell disabled | `cell-activate`           | `activation/queued` with `requested_action = activate`         |
 | `activation/queued` (`activate`)    | Worker claims the job     | `activation/running`, then `complete/completed`; cell enabled  |
 
-| Napsoft tenant state           | Trigger                  | Result                                          |
-| ------------------------------ | ------------------------ | ----------------------------------------------- |
-| No cell                        | First job completes      | Cell assigned; root tenant setup runs           |
-| Cell assigned, not provisioned | Root tenant setup passes | `provisioned` and `rbac_ready` true; selectable |
-| Cell assigned, not provisioned | Root tenant setup fails  | Unchanged; retried on the worker's next check   |
+| Napsoft tenant state           | Trigger                     | Result                                          |
+| ------------------------------ | --------------------------- | ----------------------------------------------- |
+| No cell                        | First job completes         | Cell assigned; Napsoft tenant setup runs        |
+| Cell assigned, not provisioned | Napsoft tenant setup passes | `provisioned` and `rbac_ready` true; selectable |
+| Cell assigned, not provisioned | Napsoft tenant setup fails  | Unchanged; retried on the worker's next check   |
 
 Failure codes: `SETUP_FAILED`, `TARGET_NOT_OWNED`, `CREATE_OUTCOME_UNKNOWN`,
 `MIGRATION_FAILED`, `SEED_FAILED`, `PUBLISH_CONFLICT`, `PUBLISH_FAILED`,
-`CONFIGURATION_MISSING`, `ROOT_SETUP_FAILED`, and the not-ready reasons in
+`CONFIGURATION_MISSING`, `NAPSOFT_SETUP_FAILED`, and the not-ready reasons in
 R015.
 
 ## 9. Data Requirements
@@ -210,12 +213,12 @@ never in admin tables:
 
 ## 10. API Requirements
 
-| Method and route                                              | Change                                                                                                      |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `POST /api/admin-tenancy/v1/control/provision`                | Adds `cell-activate` (R027). Requires `admin-tenancy::control::write`. Returns `200` with the queued job.   |
-| `POST /api/admin-tenancy/v1/access/select` (M0001-09)         | Succeeds for a tenant whose cell is ready; `503 CELL_UNAVAILABLE` otherwise. Today it always returns `503`. |
-| `GET /api/admin-tenancy/v1/control/cell-readiness` (M0001-06) | `runtime` reports the registry's `readiness(cellId)`. Today it reports `{ ready: false, checked: false }`.  |
-| `GET /api/admin-tenancy/v1/control/overview`                  | No change; the screen already receives `failure_code`.                                                      |
+| Method and route                                              | Change                                                                                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /api/admin-tenancy/v1/control/provision`                | Adds `cell-activate` (R027). Requires `NAP::admin-tenancy::control::write`; the first cell uses R042 instead. Returns `200` with the queued job. |
+| `POST /api/admin-tenancy/v1/access/select` (M0001-09)         | Succeeds for a tenant whose cell is ready; `503 CELL_UNAVAILABLE` otherwise. Today it always returns `503`.                                      |
+| `GET /api/admin-tenancy/v1/control/cell-readiness` (M0001-06) | `runtime` reports the registry's `readiness(cellId)`. Today it reports `{ ready: false, checked: false }`.                                       |
+| `GET /api/admin-tenancy/v1/control/overview`                  | No change; the screen already receives `failure_code`.                                                                                           |
 
 The worker calls M0001-06's internal `advanceCellProvisioning`; it adds no
 public route.
@@ -236,25 +239,27 @@ public route.
 
 - I0003-R039: Failure codes, not-ready reasons, logs, events, and API responses must not contain passwords, connection strings, endpoints, or Render API keys (M0001-06-R008).
 - I0003-R040: The `dev` state file and `.env` must stay mode `0600`; a file readable by others fails with `UNSAFE_STATE_FILE`.
-- I0003-R041: `cell-activate` and root tenant setup must each record a managed event.
+- I0003-R041: `cell-activate` and Napsoft tenant setup must each record a managed event.
+- I0003-R042: `npm run db:provision:napsoft -- --env <env>` must, when the Napsoft tenant has no cell, register and provision the first cell with maintenance credentials, then run Napsoft tenant setup (R024). It must refuse to run once the Napsoft tenant has a cell. Every later cell uses the API.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                             | Requirements                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| AC01      | On a new `dev` install with a bootstrapped root user, registering one cell leads, with no other action and no restart, to an enabled, ready cell and a Napsoft tenant that root can select. | I0003-R001, R003, R007–R011, R018, R020, R023–R026 |
-| AC02      | After a restart, the API loads the published cell from `CELL_DATABASES_DEV` and root can still select the Napsoft tenant.                                                                   | I0003-R014, R015, R017, R019                       |
-| AC03      | Each row of the R015 table produces its reason from `readiness`; a cell that fails to load leaves admin routes and other cells serving.                                                     | I0003-R015–R017                                    |
-| AC04      | A job left `running` by a killed API is queued again and completes on the next start.                                                                                                       | I0003-R002, R005                                   |
-| AC05      | Two workers against one admin database never run the same job.                                                                                                                              | I0003-R004                                         |
-| AC06      | A failed step leaves the cell disabled with its failure code; retry completes it, reusing the database it created.                                                                          | I0003-R006, R013, R034                             |
-| AC07      | An existing database without this job's marker, or an unknown create outcome, fails without creating anything.                                                                              | I0003-R035, R036                                   |
-| AC08      | A conflicting entry in the cell connection map fails activation with `PUBLISH_CONFLICT`.                                                                                                    | I0003-R012                                         |
-| AC09      | Disabling a cell makes it not ready at once; activating it makes it ready again without rerunning setup, migration, or seed.                                                                | I0003-R021, R027, R028, R041                       |
-| AC10      | A second provisioned cell does not change the Napsoft tenant's cell. A failed root tenant setup is retried and then succeeds.                                                               | I0003-R023, R025                                   |
-| AC11      | The Cells screen shows failure codes, refreshes while jobs run, opens progress details, confirms Disable, and offers Activate only when allowed.                                            | I0003-R029–R033                                    |
-| AC12      | No response, log, event, failure code, or not-ready reason contains a secret or endpoint.                                                                                                   | I0003-R039, R040                                   |
-| AC13      | `prod` setup creates one Render instance per cell and publishes to `CELL_DATABASES_PROD`, verified against a mocked Render API.                                                             | I0003-R007, R011, R037                             |
+| Criterion | Required result                                                                                                                                                                                                        | Requirements                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| AC01      | On a new `dev` install with a bootstrapped Napsoft login, registering one cell leads, with no other action and no restart, to an enabled, ready cell and a Napsoft tenant that login can select with `platform_admin`. | I0003-R001, R003, R007–R011, R018, R020, R023–R026 |
+| AC02      | After a restart, the API loads the published cell from `CELL_DATABASES_DEV` and the bootstrap login can still select the Napsoft tenant.                                                                               | I0003-R014, R015, R017, R019                       |
+| AC03      | Each row of the R015 table produces its reason from `readiness`; a cell that fails to load leaves admin routes and other cells serving.                                                                                | I0003-R015–R017                                    |
+| AC04      | A job left `running` by a killed API is queued again and completes on the next start.                                                                                                                                  | I0003-R002, R005                                   |
+| AC05      | Two workers against one admin database never run the same job.                                                                                                                                                         | I0003-R004                                         |
+| AC06      | A failed step leaves the cell disabled with its failure code; retry completes it, reusing the database it created.                                                                                                     | I0003-R006, R013, R034                             |
+| AC07      | An existing database without this job's marker, or an unknown create outcome, fails without creating anything.                                                                                                         | I0003-R035, R036                                   |
+| AC08      | A conflicting entry in the cell connection map fails activation with `PUBLISH_CONFLICT`.                                                                                                                               | I0003-R012                                         |
+| AC09      | Disabling a cell makes it not ready at once; activating it makes it ready again without rerunning setup, migration, or seed.                                                                                           | I0003-R021, R027, R028, R041                       |
+| AC10      | A second provisioned cell does not change the Napsoft tenant's cell. A failed Napsoft tenant setup is retried and then succeeds.                                                                                       | I0003-R023, R025                                   |
+| AC11      | The Cells screen shows failure codes, refreshes while jobs run, opens progress details, confirms Disable, and offers Activate only when allowed.                                                                       | I0003-R029–R033                                    |
+| AC12      | No response, log, event, failure code, or not-ready reason contains a secret or endpoint.                                                                                                                              | I0003-R039, R040                                   |
+| AC13      | `prod` setup creates one Render instance per cell and publishes to `CELL_DATABASES_PROD`, verified against a mocked Render API.                                                                                        | I0003-R007, R011, R037                             |
+| AC14      | `db:provision:napsoft` provisions the first cell and runs Napsoft tenant setup on a new install, and refuses once the Napsoft tenant has a cell.                                                                       | I0003-R042                                         |
 
 ## 14. Implementation Notes
 
@@ -272,8 +277,8 @@ Implemented in [silverstone-i/nap#30](https://github.com/silverstone-i/nap/pull/
 - In `prod` the worker runs on Render's internal network and uses the internal
   connection string; it adds no IP allow-list rule. The instance's database
   user, `nap_setup_<operation id>`, is its operation marker.
-- `ROOT_SETUP_FAILED` is shown by writing it to `failure_code` on the cell's
-  completed job, and cleared when root tenant setup succeeds.
+- `NAPSOFT_SETUP_FAILED` is shown by writing it to `failure_code` on the cell's
+  completed job, and cleared when Napsoft tenant setup succeeds.
 - `GET /control/overview` also returns `anyActive`, so the Cells screen keeps
   refreshing while a job on another page is active (R030).
 - Verified: unit, web, and database test suites, and a `dev` run in which four

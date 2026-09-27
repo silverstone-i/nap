@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                               |
 | -------------------- | --------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                         |
+| Status               | Accepted                                                                                            |
 | Type                 | Module Work Unit                                                                                    |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                   |
 | Related architecture | [BFF](../../../architecture/bff.md)                                                                 |
@@ -27,18 +27,16 @@ Create, resolve, rotate, expire, and revoke browser sessions.
 ### Excluded
 
 - Password verification.
-- Tenant selection and support-access rules.
+- Tenant selection rules.
 - Persistent browser tokens outside the session cookie.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Operation                                                       | Result                             |
-| ----------------------------- | --------------------------------------------------------------- | ---------------------------------- |
-| Authenticated user            | Read, rotate, or end own session                                | Apply operation to current session |
-| Root user or `platform_admin` | Revoke any user's session                                       | Revoke target session              |
-| `support`                     | Revoke a platform session or one targeting a non-Napsoft tenant | Revoke target session              |
-| `support`                     | Revoke a session targeting the Napsoft tenant                   | Deny                               |
-| Anonymous caller              | Present cookie                                                  | Resolve or reject it               |
+| Actor                                            | Operation                        | Result                             |
+| ------------------------------------------------ | -------------------------------- | ---------------------------------- |
+| Authenticated user                               | Read, rotate, or end own session | Apply operation to current session |
+| Holder of `NAP::admin-tenancy::sessions::revoke` | Revoke another user's session    | Revoke target session              |
+| Anonymous caller                                 | Present cookie                   | Resolve or reject it               |
 
 ## 5. Concepts And Terminology
 
@@ -55,20 +53,18 @@ Create, resolve, rotate, expire, and revoke browser sessions.
 - M0001-04-R002: Resolution must verify the token hash, account eligibility, expiry, and revocation before returning context.
 - M0001-04-R003: Sessions must support immediate rotation, idle expiry, absolute expiry, and explicit revocation.
 - M0001-04-R004: Unknown, tampered, expired, archived, or revoked sessions must not authenticate.
-- M0001-04-R005: Session operations must preserve tenant and support context established by WU 9.
+- M0001-04-R005: Session operations must preserve the selected tenant established by WU 9.
 
 ## 7. Business Rules And Invariants
 
 - M0001-04-R006: Concurrent rotation or revocation must permit at most one successful state change for the same current token.
-- M0001-04-R007: Support may revoke platform sessions and sessions targeting non-Napsoft tenants, but must not read or revoke a session targeting the Napsoft tenant.
 
 The idle timeout is 30 minutes and the absolute lifetime is 12 hours. Resolution
 updates `last_seen_at` and idle expiry at most once every five minutes. Each user
 may have ten active sessions; creating an eleventh revokes the oldest.
 
 Rotation has no overlap window. The prior token fails as soon as the transaction
-commits. Login, password change, tenant selection, support entry, and support
-exit rotate the token.
+commits. Login, password change, and tenant selection rotate the token.
 
 ## 8. Lifecycle And State Transitions
 
@@ -104,18 +100,17 @@ contract. Responses never contain the token or token hash.
 
 ## 11. Cross-Module Interactions
 
-WU 3 supplies authentication and password changes. WU 9 owns selected-tenant
-and support context. Account disable or archive revokes all sessions. Membership
-removal revokes sessions currently selecting that tenant. Platform-role removal
-invalidates cached authority immediately and ends affected support sessions.
+WU 3 supplies authentication and password changes. WU 9 owns the selected
+tenant. Account disable or archive revokes all sessions. Membership removal
+revokes sessions currently selecting that tenant. Role changes in a tenant cell
+invalidate cached capabilities through I0005.
 
 ## 12. Security And Audit
 
 - M0001-04-R008: Session tokens and token hashes must not appear in responses, logs, or events.
 - M0001-04-R009: State-changing session routes must enforce BFF browser request protection; production configuration must reject `SameSite=None` and insecure session cookies.
 
-Creation, rotation, revocation, expiry detected during resolution, and support
-context changes create managed events with session UUIDs only.
+Creation, rotation, revocation, and expiry detected during resolution create managed events with session UUIDs only.
 
 ## 13. Acceptance Criteria
 
@@ -127,7 +122,6 @@ context changes create managed events with session UUIDs only.
 | AC04      | Idle and absolute limits, ten-session cap, logout, and repeated revocation follow this contract.                                                                                                          | M0001-04-R003                |
 | AC05      | WU 9 context survives ordinary resolution and changes only through its operations.                                                                                                                        | M0001-04-R005                |
 | AC06      | No response, log, or event exposes session credentials.                                                                                                                                                   | M0001-04-R008                |
-| AC07      | Support can revoke platform and non-Napsoft sessions but cannot access Napsoft tenant sessions.                                                                                                           | M0001-04-R007                |
 | AC08      | Same-origin session changes pass request protection; foreign or unproven origins cannot rotate or revoke sessions, including through bodyless logout; unsafe production cookie configuration is rejected. | M0001-04-R009                |
 
 ### Verification Evidence
@@ -148,9 +142,8 @@ transaction, the ten-session cap and its exclusion of idle-expired sessions,
 resolution of live and restricted sessions,
 rejection of unknown, tampered, expired, archived, and revoked tokens, the
 idle and absolute limits, bounded `last_seen_at` refresh, rotation with a
-single winner among five concurrent attempts, preserved tenant and support
-context, logout idempotence, self and operator revocation including the
-Napsoft denial, bulk revocation for a password change, and an event stream
+single winner among five concurrent attempts, preserved tenant
+context, logout idempotence, self and operator revocation, bulk revocation for a password change, and an event stream
 holding no token or token hash.
 
 Unit tests cover token shape and hashing, policy and authority validation, the
@@ -171,10 +164,8 @@ transaction blocks, re-reads the committed row, and matches nothing.
 clearing the flag in M0001-03 releases the session without a second rotation.
 
 Updated 2026-09-23: `DELETE /sessions/:id` passes no scope for the caller's
-own session. For another user's session it resolves the caller's authority
-through M0001-05 and passes the `admin-tenancy::sessions::revoke` scope to
-`revokeSession`, which enforces M0001-04-R007 against it. Today only root holds
-that capability; role-based operators wait for I0005. M0001-03's
+own session. For another user's session it requires the
+`NAP::admin-tenancy::sessions::revoke` capability through I0005. M0001-03's
 `POST /auth/login` creates sessions over HTTP by calling `createSession` inside
 its own transaction.
 

@@ -99,7 +99,11 @@ The API mounts routers at:
 
 ## Capability Terminology
 
-A capability identifies an authorization in `module::router::action` form.
+A capability identifies an authorization in `TENANT::module::router::action`
+form. `TENANT` is the uppercase `tenant_code`; each part of a pattern is a name
+or `*`, and a tenant `*` never matches the Napsoft tenant. Read-only routes use
+action `read`. [I0005](../PRDs/inter-module-workflows/I0005-rbac-decision-model.md)
+defines matching.
 Roles group capabilities; capability evaluation determines whether the supplied
 capabilities authorize an action. Use "inter-module workflow" for application behavior such as
 authentication or session management, and "rules" for other constraints.
@@ -122,7 +126,7 @@ module is classified by when it runs and what it does.
 | Responsibility   | Meaning                                                                  |
 | ---------------- | ------------------------------------------------------------------------ |
 | Application      | Performs an operation using one or more module repositories.             |
-| Capability       | Evaluates authorization using `module::router::action` identifiers.      |
+| Capability       | Matches `TENANT::module::router::action` capabilities per I0005.         |
 | Infrastructure   | Communicates with PostgreSQL, Redis, Render, or another external system. |
 | Runtime registry | Maintains runtime connections or health state.                           |
 
