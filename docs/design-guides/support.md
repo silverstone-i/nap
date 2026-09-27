@@ -46,23 +46,21 @@ names until the support module exists.
 `support`:
 
 - Reads every tenant except Napsoft.
-- Never writes to a customer tenant, even while impersonating.
+- Writes to a customer tenant only while impersonating one of its users.
 - Needs a support ticket and consent from the user or one of the tenant's
   `tenant_admin` users before impersonating.
-- Escalates the ticket to a `platform_admin` when the fix needs a write.
+- Escalates the ticket to a `platform_admin` when the fix needs more than the
+  impersonated user can do.
 
 ## Impersonation
 
-While Sam impersonates Dana, a request is allowed only if both Sam's and
-Dana's capabilities allow it. For a `support` user this means reading what Dana
-can read and nothing else, because `support` holds only `read` grants. A
-`platform_admin` holds every customer-tenant capability, so while impersonating
-it can do exactly what Dana can, writes included. Nobody gains privileges
-through impersonation.
+While Sam impersonates Dana, the capability check uses Dana's capabilities
+only. Sam sees what Dana sees and can do anything Dana can do, writes included.
+Sam's own grants are not used during impersonation, so Sam gains nothing beyond
+Dana's access.
 
 Many support calls are user errors that a short walkthrough fixes. Impersonation
-lets support see the problem as the user sees it. Anything that needs a write
-goes to a `platform_admin`.
+lets support see the problem as the user sees it and fix it as the user would.
 
 ## Tickets and consent
 
