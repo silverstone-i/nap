@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                      |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status               | Implemented                                                                                                                                |
+| Status               | Accepted                                                                                                                                   |
 | Type                 | Module Work Unit                                                                                                                           |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                          |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                                                                                    |
@@ -28,19 +28,16 @@ cell-side member provisioning.
 ### Excluded
 
 - Table definitions and migrations.
-- Root-user changes.
 - Cell-side employee, client, vendor contact, or contact creation.
 - Self-service profile and password changes.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Target                                           | Result                                                                                  |
-| ----------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Root user or `platform_admin` | Any ordinary user or membership                  | Permit matching accounts capability                                                     |
-| `support`                     | Any ordinary user; non-Napsoft membership or job | Permit matching accounts capability                                                     |
-| `support`                     | Napsoft membership or provisioning job           | Deny                                                                                    |
-| `tenant_admin`                | Memberships and users within own tenant          | Read users and manage own-tenant memberships; cannot disable or archive shared accounts |
-| Trusted provisioning workflow | Existing queued or running job                   | Report progress or result                                                               |
+| Actor                                       | Target                                  | Result                                                                                  |
+| ------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Holder of `NAP::admin-tenancy::accounts::*` | Any user, membership, or job            | Permit the matching action                                                              |
+| `tenant_admin`                              | Memberships and users within own tenant | Read users and manage own-tenant memberships; cannot disable or archive shared accounts |
+| Trusted provisioning workflow               | Existing queued or running job          | Report progress or result                                                               |
 
 ## 5. Concepts And Terminology
 
@@ -52,7 +49,7 @@ cell-side member provisioning.
 
 ## 6. Functional Requirements
 
-- M0001-08-R001: Authorized operations must create and maintain ordinary portal users without changing root records.
+- M0001-08-R001: Authorized operations must create and maintain portal users.
 - M0001-08-R002: Authorized operations must create and maintain one active membership per portal-user/tenant pair.
 - M0001-08-R003: Creating a membership must queue one provisioning job and expose its current result.
 - M0001-08-R004: Central operations must commit without requiring a cell to be available.
@@ -61,10 +58,6 @@ cell-side member provisioning.
 ## 7. Business Rules And Invariants
 
 - M0001-08-R006: Every operation must authorize the target tenant independently of user-supplied user, membership, job, or entity UUIDs.
-- M0001-08-R007: Support may manage platform-level portal-user records but must not read or change Napsoft memberships or their provisioning jobs.
-
-Support may manage the platform-level portal-user record. Responses to support
-must omit the user's Napsoft memberships and related provisioning jobs.
 
 Email is trimmed and lowercased and must be a valid address no longer than 254
 characters. A new user requires a temporary password: any nonempty password
@@ -79,9 +72,9 @@ Member type is `employee`, `client`, `vendor_contact`, or `contact`. A
 is a cell-side vendor record and is never a member.
 
 A tenant's `tenant_admin` normally manages its memberships, adding employees,
-clients, vendor contacts, and contacts. Root, `platform_admin`, and `support`
-can manage any permitted membership; their normal use is assigning a tenant's
-first `tenant_admin`.
+clients, vendor contacts, and contacts. Holders of `NAP::admin-tenancy::accounts::write`
+can manage any membership; their normal use is assigning a tenant's first
+`tenant_admin`.
 
 New membership and job states are `pending` and `queued`. Only one unarchived membership exists
 per user and tenant; only one queued or running job exists per membership.
@@ -145,13 +138,13 @@ failure detail that contains secrets.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                              | Requirements                                |
-| --------- | -------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| AC01      | Authorized account operations follow normalization, root protection, and lifecycle rules.    | M0001-08-R001                               |
-| AC02      | Membership operations enforce tenant scope, one active pair, and the Napsoft support denial. | M0001-08-R002, M0001-08-R006, M0001-08-R007 |
-| AC03      | Creation atomically records the membership and one queued job without a cell connection.     | M0001-08-R003, M0001-08-R004                |
-| AC04      | Mismatched, repeated, stale, failed, and successful job results follow the stated contract.  | M0001-08-R005                               |
-| AC05      | User and membership restrictions revoke affected sessions and never expose credentials.      | M0001-08-R001, M0001-08-R002                |
+| Criterion | Required result                                                                             | Requirements                 |
+| --------- | ------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Authorized account operations follow normalization and lifecycle rules.                     | M0001-08-R001                |
+| AC02      | Membership operations enforce tenant scope and one active pair.                             | M0001-08-R002, M0001-08-R006 |
+| AC03      | Creation atomically records the membership and one queued job without a cell connection.    | M0001-08-R003, M0001-08-R004 |
+| AC04      | Mismatched, repeated, stale, failed, and successful job results follow the stated contract. | M0001-08-R005                |
+| AC05      | User and membership restrictions revoke affected sessions and never expose credentials.     | M0001-08-R001, M0001-08-R002 |
 
 ### Verification Evidence
 
@@ -182,8 +175,7 @@ and payload replaying the original membership and job; a membership's full
 lifecycle — provisioned, suspended (revoking tenant sessions), reactivated
 without restoring readiness, archived, restored as `suspended` and not ready
 (AC02, AC05); a failed provisioning report leaving the membership pending and
-never ready (AC04); and a Napsoft-denied tenant reporting identically to a
-missing membership, never distinguishing the two (AC02).
+never ready (AC04).
 
 Unit tests cover: camelCase view mapping for users, memberships, and jobs,
 none exposing `password_hash` or a temporary password; session, capability,
@@ -198,20 +190,7 @@ already-`queued`/`running` no-op and the refusal to retry a `completed` job),
 and the trusted provisioning-result path (a completed report activating the
 membership and stamping its member ID, a failed report leaving it pending, a
 result rejected for an already-completed job, and a late report on a
-membership archived mid-flight rejected without resurrecting it); and that no
-route or provisioning path can ever touch the root portal user or root
-membership (`member_type IS NULL`), demonstrating AC01's root-protection
-requirement.
-
-As every other Work Unit in this family documents, `authorization.js`
-currently resolves only root or no platform authority (role-based
-`platform_admin`/`support`/`tenant_admin` is deferred to I0005 until the
-tenant-local role catalogue exists in the cell). AC02's Napsoft-support denial (M0001-08-R007) is
-therefore demonstrated today by hand-building a `deniedTenantIds`-carrying
-scope and calling the domain functions directly (mirroring
-`tests/integration/entitlements.test.js`'s later precedent), rather than by a
-distinguishable `support` session, which has no runtime path to authenticate
-as yet.
+membership archived mid-flight rejected without resurrecting it).
 
 ## 14. Outstanding Questions
 

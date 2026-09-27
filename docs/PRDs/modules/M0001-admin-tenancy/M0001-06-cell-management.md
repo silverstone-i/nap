@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                      |
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                |
+| Status               | Accepted                                                                                                   |
 | Type                 | Module Work Unit                                                                                           |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                          |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md), [Migrations](../../../architecture/migrations.md) |
@@ -33,12 +33,11 @@ database inside an HTTP request.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Authority                         | Result                                                          |
-| ----------------------------- | --------------------------------- | --------------------------------------------------------------- |
-| Root user or `platform_admin` | `admin-tenancy::control::write`   | Register, retry, or disable any cell                            |
-| `support`                     | Same capability                   | Perform the operation unless it would affect the Napsoft tenant |
-| Provisioning runner           | Trusted in-process runner context | Update the current operation's stage and outcome                |
-| Authorized operator           | `admin-tenancy::control::read`    | Read overview and readiness                                     |
+| Actor               | Authority                            | Result                                           |
+| ------------------- | ------------------------------------ | ------------------------------------------------ |
+| Authorized operator | `NAP::admin-tenancy::control::write` | Register, retry, or disable any cell             |
+| Provisioning runner | Trusted in-process runner context    | Update the current operation's stage and outcome |
+| Authorized operator | `NAP::admin-tenancy::control::read`  | Read overview and readiness                      |
 
 ## 5. Concepts And Terminology
 
@@ -115,7 +114,7 @@ the cell is enabled. Runtime readiness remains an infrastructure result.
 - M0001-06-R008: Responses, failures, logs, and events must omit database credentials and provider secrets.
 
 Register, retry, progress failure, completion (which enables the cell), and disable record managed
-events. Support cannot disable a cell containing the Napsoft tenant.
+events.
 
 ## 13. Acceptance Criteria
 
@@ -150,8 +149,7 @@ state), its idempotent no-op while `queued` or `running`, its refusal once
 lifecycle (`started` → `advanced` × 3 → `completed`, enabling the cell only
 at the end) and a `failed` transition recording a safe failure code without
 enabling the cell, plus rejection of an out-of-order transition
-(`INVALID_STATE`); support's Napsoft restriction on retry and disable, and
-its absence from registration, which has no tenant yet; overview pagination
+(`INVALID_STATE`); overview pagination
 pairing each cell with its own operation and advancing the cursor; readiness
 distinguishing the central `enabled` flag from an honestly-unwired runtime
 result; and that no cell event carries a credential, connection, or secret

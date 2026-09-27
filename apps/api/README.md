@@ -17,7 +17,7 @@ holds the runtime cell registry; see
 | `application/shared/`          | Environment loading, endpoint validation, runtime configuration, and `MaintenanceError`.                                              |
 | `application/maintenance/`     | Setup, migrate, bootstrap, and cell-migration operations.                                                                             |
 | `application/runtime/`         | HTTP runtime: startup, readiness, background services, and drained shutdown.                                                          |
-| `application/provisioning/`    | Cell provisioning worker, its four stages, and root tenant setup.                                                                     |
+| `application/provisioning/`    | Cell provisioning worker, its four stages, and Napsoft tenant setup.                                                                  |
 | `infrastructure/provisioning/` | Local PostgreSQL setup, Render provisioning, cell drivers, connection publishing, and the private state file.                         |
 | `infrastructure/runtime/`      | Admin and cell database handles, the runtime readiness check, and the runtime cell registry.                                          |
 | `modules/admin.js`             | Admin module registry and its validation.                                                                                             |
@@ -28,20 +28,20 @@ holds the runtime cell registry; see
 | `framework/`                   | Response envelopes, session cookies, and the route registry.                                                                          |
 | `middleware/`                  | Correlation, browser request protection, JSON body typing, and session resolution.                                                    |
 | `infrastructure/cache/`        | Optional Redis-backed revision cache.                                                                                                 |
-| `capability/`                  | Built-in capability catalogue used to grant root authority.                                                                           |
+| `capability/`                  | Capability matching per I0005 (RBAC Decision Model).                                                                                  |
 
 ## Commands
 
 Run from the repository root.
 
-| Command                                 | Purpose                                                           |
-| --------------------------------------- | ----------------------------------------------------------------- |
-| `npm run dev:api`                       | Start the API with file watching on port 3000.                    |
-| `npm run db:setup:admin -- --env dev`   | Create or verify the admin database and roles.                    |
-| `npm run db:migrate:admin -- --env dev` | Apply pending admin migrations and verify the installed contract. |
-| `npm run db:bootstrap -- --env dev`     | Create the root tenant and root user from `ROOT_*` settings.      |
-| `npm test`                              | Unit tests. No database needed.                                   |
-| `npm run test:db`                       | PostgreSQL integration tests. Needs `FOUNDATION_TEST_URL`.        |
+| Command                                 | Purpose                                                                                |
+| --------------------------------------- | -------------------------------------------------------------------------------------- |
+| `npm run dev:api`                       | Start the API with file watching on port 3000.                                         |
+| `npm run db:setup:admin -- --env dev`   | Create or verify the admin database and roles.                                         |
+| `npm run db:migrate:admin -- --env dev` | Apply pending admin migrations and verify the installed contract.                      |
+| `npm run db:bootstrap -- --env dev`     | Create the Napsoft tenant and its first `platform_admin` login from `ROOT_*` settings. |
+| `npm test`                              | Unit tests. No database needed.                                                        |
+| `npm run test:db`                       | PostgreSQL integration tests. Needs `FOUNDATION_TEST_URL`.                             |
 
 `--env` accepts `dev`, `test`, or `prod`. Each command prints one JSON line and
 exits nonzero on failure. Output never contains credentials.

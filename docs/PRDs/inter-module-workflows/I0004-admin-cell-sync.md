@@ -212,7 +212,7 @@ enabled, temporaryPassword }`, and an optional `{ hashingPolicy }` that
   | No active membership, pending invitation    | Unchanged; `portal_access.applied` records `invitation_pending: true` |
   | No active membership, no pending invitation | Set to `password_hash`; `must_change_password = true`                 |
 
-- I0004-R027: Access on, login disabled or root: fail the row with
+- I0004-R027: Access on, login disabled: fail the row with
   `LOGIN_UNAVAILABLE` and change nothing.
 - I0004-R028: Access off: suspend the membership and revoke only the sessions
   that selected this tenant (M0001-04). With no membership, succeed and
@@ -342,7 +342,7 @@ module code.
 | AC10      | With a seeded tenant user, a portal-access-on request for a new email creates a login that signs in with the temporary password and must change it. Its `pending` membership, with `portal_user_id` and `member_id`, reaches `cell.tenant_members`.       | I0004-R020, R025, R030, R022 |
 | AC11      | An on request for an email with an active membership in another tenant creates an `active` membership and leaves the password unchanged; one for a login with a pending invitation leaves that password unchanged and records `invitation_pending: true`. | I0004-R026                   |
 | AC12      | An off request suspends the membership and revokes only this tenant's sessions.                                                                                                                                                                           | I0004-R028                   |
-| AC13      | Requests for a disabled login, the root login, a conflicting `member_id`, or a mismatched tenant fail only that row, with its code.                                                                                                                       | I0004-R024, R027, R029, R032 |
+| AC13      | Requests for a disabled login, a conflicting `member_id`, or a mismatched tenant fail only that row, with its code.                                                                                                                                       | I0004-R024, R027, R029, R032 |
 | AC14      | An on request followed by an off request for the same user before delivery applies only the off request.                                                                                                                                                  | I0004-R004                   |
 | AC15      | Failures and recoveries record their events; no event, log, or snapshot contains a plaintext password, connection string, or endpoint.                                                                                                                    | I0004-R034, R035             |
 | AC16      | Every write method on the three synced tables increments `revision` exactly when a copied column or soft-delete state changes, ignores a supplied `revision`, and serializes concurrent upserts of one new row.                                           | I0004-R010, R012             |

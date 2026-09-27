@@ -2,169 +2,177 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Type                 | Module                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Related architecture | [Module map](../../architecture/module-map.md), [Migrations](../../architecture/migrations.md), [Admin and cells](../../architecture/admin-cells.md)                                                                                                                                                                                                                                                             |
-| Related PRDs         | [I0005: RBAC Decision Model](../inter-module-workflows/I0005-rbac-decision-model.md), [M0001-05: Authorization](M0001-admin-tenancy/M0001-05-authorization.md), [M0001-09: Tenant Selection and Support Access](M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md), [M0002: Cell Tenancy](M0002-cell-tenancy.md), [I0004: Admin-Cell Sync](../inter-module-workflows/I0004-admin-cell-sync.md) |
-| Related decisions    | System roles live in the same role table as tenant-defined roles; role assignments live in `admin.platform_roles`                                                                                                                                                                                                                                                                                                |
-| Last reviewed        | 2026-09-26                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Field                | Value                                                                                                                                                                                                                                                                                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Draft                                                                                                                                                                                                                                                                                                       |
+| Type                 | Module                                                                                                                                                                                                                                                                                                      |
+| Related architecture | [Module map](../../architecture/module-map.md), [Migrations](../../architecture/migrations.md), [Admin and cells](../../architecture/admin-cells.md)                                                                                                                                                        |
+| Related PRDs         | [I0005: RBAC Decision Model](../inter-module-workflows/I0005-rbac-decision-model.md), [M0001-02: Napsoft bootstrap](M0001-admin-tenancy/M0001-02-root-user-provisioning.md), [M0002: Cell Tenancy](M0002-cell-tenancy.md), [I0003: Cell Provisioning](../inter-module-workflows/I0003-cell-provisioning.md) |
+| Related decisions    | Roles and role assignments live only in tenant cells; the admin database stores neither                                                                                                                                                                                                                     |
+| Last reviewed        | 2026-09-27                                                                                                                                                                                                                                                                                                  |
 
 ## 2. Purpose
 
-Each tenant needs its own roles: named sets of capabilities that decide what a
-member may do. `access-control` owns those role definitions, their capability
-grants, and their access scopes in the tenant's cell (`cell/app` schema). It
-seeds the system roles every tenant starts with and lets a tenant
-administrator manage the rest.
-
-This module owns data only. How a request turns roles into a permit or deny
-is defined by [I0005: RBAC Decision Model](../inter-module-workflows/I0005-rbac-decision-model.md).
+Each tenant needs roles: named sets of capability patterns that decide what a
+user may do. `access-control` owns role definitions, their grants, and which
+users hold which roles, all in the tenant's cell. It seeds the immutable roles
+and lets a tenant manage custom roles and assignments. Deciding a request is
+[I0005: RBAC Decision Model](../inter-module-workflows/I0005-rbac-decision-model.md).
 
 ## 3. Scope
 
 ### Included
 
-- Role definitions, both system and tenant-defined, in one table.
-- Capability grants on a role, in exact or wildcard form.
-- Access scopes on a role grant.
-- System-role seeds run by tenant provisioning.
-- The capability catalogue: every capability a registered module declares.
-- API and UI to list, create, edit, archive, and restore tenant-defined roles
-  and to view system roles.
+- Roles, grants, and role assignments in the tenant's cell.
+- The capability pattern grammar.
+- The capability catalogue declared by module descriptors.
+- Seeds for the immutable roles `platform_admin`, `support`, and `tenant_admin`.
+- Custom role create, edit, archive, and restore, and a Roles screen.
+- Assigning and removing roles, with the no-escalation and last-admin rules.
 
 ### Excluded
 
-- Role assignments to portal users: stored in `admin.platform_roles`
-  (M0001-00-01); assignment rules and validation are in I0005.
-- Resolving a session's capabilities and deciding a request: I0005.
-- Root authority from `is_root`: M0001-05.
-- Support-context entry and expiry: M0001-09.
+- Authentication, logins, sessions, and memberships: M0001.
+- The customer-tenant seed run: tenant provisioning (roadmap 7). This module
+  defines the seed; only the Napsoft seed runs in this version.
+- Support impersonation, tickets, and support logging: the future support module.
 
 ## 4. Actors And Permissions
 
-| Context        | Actor                                  | Required capability            | Required state         | Result                                      |
-| -------------- | -------------------------------------- | ------------------------------ | ---------------------- | ------------------------------------------- |
-| Tenant session | Member                                 | `access-control::roles::read`  | Tenant active          | List roles, grants, and the catalogue       |
-| Tenant session | Member                                 | `access-control::roles::write` | Tenant active          | Create, edit, archive, restore custom roles |
-| Tenant session | Member with `roles::write`             | `access-control::roles::write` | Target is system role  | Deny edit and archive; read allowed         |
-| Tenant session | Member with `roles::write`             | `access-control::roles::write` | Grant exceeds own set  | Deny (I0005-R009)                           |
-| Support (read) | `support`, root, or `platform_admin`   | `access-control::roles::read`  | Support session active | Read only                                   |
-| Any            | Member without the required capability | —                              | —                      | Deny                                        |
+| Capability                                     | Allows                                          |
+| ---------------------------------------------- | ----------------------------------------------- |
+| `<TENANT>::access-control::roles::read`        | List roles, grants, assignments, and catalogue  |
+| `<TENANT>::access-control::roles::write`       | Create, edit, archive, and restore custom roles |
+| `<TENANT>::access-control::assignments::write` | Assign and remove roles                         |
+
+`<TENANT>` is the target tenant's code, supplied by I0005. R011 and R013 limit
+what these capabilities allow.
 
 ## 5. Concepts And Terminology
 
-| Term               | Meaning                                                                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Role               | Named, tenant-local set of capability grants                                                                                       |
-| System role        | Role seeded by software, identified by a fixed `code`; its grants change only through a migration                                  |
-| Custom role        | Role created by a tenant administrator                                                                                             |
-| Grant              | One capability pattern on a role, with an optional access scope                                                                    |
-| Capability pattern | An exact capability `module::router::action`, or a wildcard in the router or action position (`module::*::*`, `module::router::*`) |
-| Access scope       | Restriction on which records a grant applies to; `tenant` (all records) is the only accepted value in this version                 |
-| Owning tenant      | The configured Napsoft tenant that holds the `platform_admin` and `support` roles                                                  |
+| Term               | Meaning                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Capability         | Exact identifier `TENANT::module::router::action` that a route requires                                     |
+| Capability pattern | Grant value in the same four-part form where any part may be `*`                                            |
+| Role               | Named set of grants in one tenant                                                                           |
+| Immutable role     | Seeded role (`platform_admin`, `support`, `tenant_admin`) whose grants and identity never change at runtime |
+| Custom role        | Role created by a tenant                                                                                    |
+| Grant              | One capability pattern on a role                                                                            |
+| Assignment         | A portal user holding a role in the tenant                                                                  |
+| Catalogue          | Every capability declared by registered module descriptors, without the tenant part                         |
 
 ## 6. Functional Requirements
 
-- M0003-R001: The module must store roles in one table per cell, with `id`, `tenant_id`, unique `code` per tenant, `name`, `description`, `is_system`, and soft-delete and audit fields.
-- M0003-R002: The module must store grants with `role_id`, a capability pattern, and an access scope, unique per role and pattern. The access scope must be `tenant`; any other value is rejected. The column exists so the Companies and Projects PRDs can add scope values without a table change.
-- M0003-R003: A capability pattern must match `^[a-z0-9-]+::([a-z0-9-]+|\*)::([a-z0-9-]+|\*)$`, and a wildcard router must be followed by a wildcard action. The module must reject any other pattern, including a module wildcard such as `*::*::*`, so a new module is never granted without a reviewed change.
-- M0003-R004: An exact pattern must name a capability in the catalogue; a wildcard pattern must name a module in the catalogue.
-- M0003-R005: Each module must declare its capabilities in its module descriptor; the catalogue is the union of registered descriptors, served read-only.
-- M0003-R006: Tenant provisioning must run two seed scripts: an all-tenant script that seeds `tenant_admin` for every tenant, including the owning tenant, and an owner-only script that seeds `platform_admin` and `support` only for the owning tenant. The owning tenant is identified by the `is_napsoft` marker set by bootstrap, never by name. Seeds must be keyed by `code`, preserve role UUIDs on rerun, make no change when the stored definition matches, and fail when an existing role has a different grant set or system identity.
-- M0003-R007: System-role grants must be:
+- M0003-R001: The cell must store roles in `app.roles` with `id`, `code` unique per tenant, `name`, `description`, `is_immutable`, `revision`, soft delete, and audit fields.
+- M0003-R002: The cell must store grants in `app.role_grants` with `role_id` and `pattern`, unique per role and pattern.
+- M0003-R003: A pattern has exactly four parts separated by `::`. The tenant part is an uppercase tenant code or `*`. Each other part is a lowercase identifier (`[a-z0-9-]+`) or `*`. Any other value is rejected.
+- M0003-R004: An exact module, router, or action in a pattern must exist in the catalogue.
+- M0003-R005: Each module must declare its capabilities as `module::router::action` in its descriptor. Read-only capabilities use the action `read`, and no capability that changes data uses `read`. The catalogue is the union of registered descriptors.
+- M0003-R006: The cell must store assignments in `app.role_assignments` with `portal_user_id` and `role_id`, unique per active pair, with soft delete and audit fields. A user may hold several roles.
+- M0003-R007: The immutable roles and their grants are:
 
-| Role             | Grants                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenant_admin`   | `module::*::*` for every module the tenant uses other than `admin-tenancy`, plus exact `admin-tenancy::accounts::read`, `admin-tenancy::accounts::write`, `admin-tenancy::entitlements::read`, `admin-tenancy::events::read`, `admin-tenancy::roles::read`, and `admin-tenancy::roles::write`; all within its own tenant (M0001-08, M0001-12, I0005-R015) |
-| `platform_admin` | The M0001-05 `platform_admin` capability set, as exact patterns                                                                                                                                                                                                                                                                                           |
-| `support`        | The same set as `platform_admin`; I0005-R017 denies it Napsoft data (M0001-08-R007)                                                                                                                                                                                                                                                                       |
+| Role             | Seeded into         | Grants                                                                              |
+| ---------------- | ------------------- | ----------------------------------------------------------------------------------- |
+| `platform_admin` | Napsoft tenant only | `*::*::*::*`, `NAP::*::*::*`                                                        |
+| `support`        | Napsoft tenant only | `*::*::*::read`, `*::admin-tenancy::users::impersonate`, `NAP::support::tickets::*` |
+| `tenant_admin`   | Every tenant        | `<CODE>::*::*::*`                                                                   |
 
-- M0003-R008: System roles must not be edited, archived, or deleted through the API.
-- M0003-R009: A custom role must be archived, not hard-deleted; archiving must not delete its grants, and restoring must return them unchanged.
-- M0003-R010: `GET` routes must return roles with their grants, and the catalogue grouped by module.
-- M0003-R011: Every role or grant change must write an administrative event (M0001-12 shape) with actor, tenant, role, and before and after grant sets, and must invalidate cached decisions for that role (I0005-R011).
-- M0003-R012: The UI must provide a Roles screen: a list with system and custom badges, a role detail view with grants grouped by module, a create and edit form that picks capabilities from the catalogue, and archive and restore actions. Actions the caller cannot perform must be hidden or disabled per I0005-R013.
-- M0003-R013: The seed files are the version-controlled source of system-role grants. Changing a system role requires a reviewed migration for existing tenants and updated seeds for new tenants.
+`NAP` is the Napsoft tenant's code, from `ROOT_TENANT_CODE_<ENV>`. `<CODE>` is
+the seeded tenant's own code.
+
+- M0003-R008: The Napsoft seed must create all three immutable roles in the Napsoft cell and assign `platform_admin` to the login created by Napsoft bootstrap (M0001-02). It runs during bootstrap.
+- M0003-R009: The customer-tenant seed must create `tenant_admin` for the tenant. Tenant provisioning runs it.
+- M0003-R010: Seeds are idempotent by role `code`: a matching role is left unchanged and a role whose grants differ fails the seed. Changing an immutable role requires a reviewed migration.
+- M0003-R011: A caller may assign, remove, create, or edit a role only if every pattern in the target role, including new grants, is covered by one of the caller's own patterns. Pattern A covers pattern B when each part of A equals B's or is `*`.
+- M0003-R012: Removing the last active `tenant_admin` assignment in a tenant, or the last active `platform_admin` assignment in the Napsoft tenant, must be rejected with `LAST_ADMIN`.
+- M0003-R013: Immutable roles must not be edited, archived, or deleted through the API. A custom role cannot use an immutable role's `code`.
+- M0003-R014: Archiving a custom role keeps its grants and assignments; restoring returns them unchanged. An archived role grants nothing.
+- M0003-R015: Every role, grant, or assignment change must write an administrative event with actor, tenant, role, and before and after values, and advance the cache revision I0005 uses for that tenant's roles.
+- M0003-R016: The web app must provide a Roles screen: role list with immutable and custom badges, role detail with grants grouped by module, a create and edit form that picks capabilities from the catalogue, archive and restore, and a user's role assignments. Actions the session cannot perform are hidden (I0005).
 
 ## 7. Business Rules And Invariants
 
-- A role belongs to exactly one tenant; RLS on `nap.tenant_id` enforces it (database).
-- `(tenant_id, code)` is unique, including archived rows (database).
-- `is_system` is immutable (database).
-- A grant's pattern satisfies R003 (domain; also a database check constraint).
-- No custom role may be named with a system `code` (domain).
-- A role's `code` or `name` alone never confers system-role authority; only `is_system` rows created by the R006 seed do (domain).
-- Wildcard grants have no deny or exception form. A role that needs every capability of a module except one must list the allowed capabilities explicitly (domain).
+- A role, grant, or assignment belongs to exactly one tenant (database).
+- `(tenant, code)` is unique, including archived roles (database).
+- `is_immutable` never changes after insert (database).
+- A stored pattern satisfies R003 (database check).
+- A wildcard has no exclusion form; a role that needs all but one capability lists the allowed ones.
 
 ## 8. Lifecycle And State Transitions
 
-| State    | Action        | Actor                          | Result                                           |
-| -------- | ------------- | ------------------------------ | ------------------------------------------------ |
-| —        | Seed          | Tenant provisioning            | Active system role                               |
-| System   | Reseed, same  | Tenant provisioning            | No change                                        |
-| System   | Reseed, drift | Tenant provisioning            | Fail; change needs a reviewed migration (R013)   |
-| —        | Create        | `access-control::roles::write` | Active custom role                               |
-| Active   | Edit          | `access-control::roles::write` | Active; grants replaced; event written           |
-| Active   | Archive       | `access-control::roles::write` | Archived; assignments stop granting (I0005-R004) |
-| Archived | Restore       | `access-control::roles::write` | Active                                           |
-| System   | Edit, archive | Any                            | Reject `ROLE_IMMUTABLE`                          |
+| State      | Action          | Result                                      |
+| ---------- | --------------- | ------------------------------------------- |
+| —          | Seed            | Active immutable role                       |
+| Immutable  | Reseed, same    | No change                                   |
+| Immutable  | Reseed, differs | Seed fails                                  |
+| —          | Create          | Active custom role                          |
+| Active     | Edit            | Grants replaced; event written              |
+| Active     | Archive         | Archived; grants nothing                    |
+| Archived   | Restore         | Active                                      |
+| Immutable  | Edit or archive | Reject `ROLE_IMMUTABLE`                     |
+| Unassigned | Assign          | Active assignment; repeat assign returns it |
+| Assigned   | Remove          | Archived; rejected when R012 applies        |
 
 ## 9. Data Requirements
 
-| Table             | Holds                                        | Tenant boundary |
-| ----------------- | -------------------------------------------- | --------------- |
-| `app.roles`       | Role definitions (R001)                      | RLS on tenant   |
-| `app.role_grants` | Capability pattern and scope per role (R002) | RLS on tenant   |
+| Table                  | Holds                                     |
+| ---------------------- | ----------------------------------------- |
+| `app.roles`            | Role definitions (R001)                   |
+| `app.role_grants`      | Patterns per role (R002)                  |
+| `app.role_assignments` | Which portal user holds which role (R006) |
 
-- Audit fields hold the portal user ID (M0002 rule).
-- `app.role_grants.role_id` references `app.roles.id` with cascade on hard delete only.
-- Retention: archived roles are kept indefinitely so past assignments remain explainable.
-- `access-control` is registered in the cell module registry (M0002-01); its migration runs in the `app` schema step.
+- Tables live in each tenant's cell in the `app` schema and follow the cell rules for tenant business tables (M0002-01-R006).
+- `role_grants.role_id` and `role_assignments.role_id` reference `app.roles.id`.
+- `portal_user_id` holds the admin portal user ID; `cell.tenant_members` maps it to the person. There is no cross-database foreign key.
+- Archived roles and assignments are kept so past events stay explainable.
 
 ## 10. API Requirements
 
-Base: `/api/access-control/v1`. All routes run in `withTenantTransaction`.
+Base: `/api/access-control/v1`. Capabilities below omit the tenant part, which I0005 adds.
 
-| Method and route          | Capability                     | Request                                      | Response            | Errors                                                    |
-| ------------------------- | ------------------------------ | -------------------------------------------- | ------------------- | --------------------------------------------------------- |
-| `GET /capabilities`       | `access-control::roles::read`  | —                                            | Catalogue by module | —                                                         |
-| `GET /roles`              | `access-control::roles::read`  | `?includeArchived`                           | Roles with grants   | —                                                         |
-| `GET /roles/:id`          | `access-control::roles::read`  | —                                            | Role with grants    | `NOT_FOUND`                                               |
-| `POST /roles`             | `access-control::roles::write` | `{ code, name, description?, grants[] }`     | Created role        | `VALIDATION`, `CONFLICT`, `GRANT_EXCEEDS_ACTOR`           |
-| `PATCH /roles/:id`        | `access-control::roles::write` | `{ name?, description?, grants?, revision }` | Updated role        | `ROLE_IMMUTABLE`, `STALE_REVISION`, `GRANT_EXCEEDS_ACTOR` |
-| `POST /roles/:id/archive` | `access-control::roles::write` | `{ revision }`                               | Archived role       | `ROLE_IMMUTABLE`, `STALE_REVISION`                        |
-| `POST /roles/:id/restore` | `access-control::roles::write` | `{ revision }`                               | Active role         | `STALE_REVISION`                                          |
+| Method and route                      | Capability                           | Request                                      | Errors                                                    |
+| ------------------------------------- | ------------------------------------ | -------------------------------------------- | --------------------------------------------------------- |
+| `GET /capabilities`                   | `access-control::roles::read`        | —                                            | —                                                         |
+| `GET /roles`                          | `access-control::roles::read`        | `?includeArchived`                           | —                                                         |
+| `GET /roles/:id`                      | `access-control::roles::read`        | —                                            | `NOT_FOUND`                                               |
+| `POST /roles`                         | `access-control::roles::write`       | `{ code, name, description?, grants[] }`     | `VALIDATION`, `CONFLICT`, `GRANT_EXCEEDS_ACTOR`           |
+| `PATCH /roles/:id`                    | `access-control::roles::write`       | `{ name?, description?, grants?, revision }` | `ROLE_IMMUTABLE`, `STALE_REVISION`, `GRANT_EXCEEDS_ACTOR` |
+| `POST /roles/:id/archive`             | `access-control::roles::write`       | `{ revision }`                               | `ROLE_IMMUTABLE`, `STALE_REVISION`                        |
+| `POST /roles/:id/restore`             | `access-control::roles::write`       | `{ revision }`                               | `STALE_REVISION`                                          |
+| `GET /users/:userId/roles`            | `access-control::roles::read`        | —                                            | `NOT_FOUND`                                               |
+| `PUT /users/:userId/roles/:roleId`    | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `NOT_MEMBER`, `GRANT_EXCEEDS_ACTOR`          |
+| `DELETE /users/:userId/roles/:roleId` | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `GRANT_EXCEEDS_ACTOR`, `LAST_ADMIN`          |
 
-Writes use optimistic concurrency on `revision`. `grants` replaces the full set.
+`grants` replaces the full set. The assigned user must be an active member of
+the tenant (`cell.tenant_members`).
 
 ## 11. Cross-Module Interactions
 
-- Tenant provisioning (roadmap item 7) calls the R006 seed.
-- `admin-tenancy` validates an assignment's `role_id` against this table via I0005.
-- I0005 reads roles and grants to resolve capabilities.
-- Module descriptors of every module supply the catalogue (R005).
+- I0005 reads roles, grants, and assignments from the user's own tenant's cell.
+- Napsoft bootstrap (M0001-02) runs the Napsoft seed (R008).
+- Tenant provisioning runs the customer-tenant seed (R009).
+- Module descriptors supply the catalogue (R005).
+- Administrative events and cache revisions follow M0001-12 and M0001-11.
 
 ## 12. Security And Audit
 
-- RLS isolates roles per tenant; `nap-app` cannot bypass it.
-- Support sessions are read-only (M0002 tenant context).
-- A member cannot grant capabilities they do not hold (I0005-R009), preventing self-escalation.
-- Every change writes an administrative event (R011).
+- No escalation (R011), no lost last administrator (R012), and an event for
+  every change (R015).
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                                | Requirements                       |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| AC01      | Migration creates both tables with RLS; the cell catalog check passes; reruns are no-ops.                                                                                                      | M0003-R001, M0003-R002             |
-| AC02      | Invalid patterns and unknown capabilities or modules are rejected.                                                                                                                             | M0003-R003, M0003-R004             |
-| AC03      | The catalogue lists every declared capability of registered modules.                                                                                                                           | M0003-R005, M0003-R010             |
-| AC04      | Provisioning seeds the correct roles and grants; rerunning preserves UUIDs and changes nothing; a drifted definition fails the seed; non-owning tenants have no `platform_admin` or `support`. | M0003-R006, M0003-R007, M0003-R013 |
-| AC05      | System roles cannot be edited or archived through the API.                                                                                                                                     | M0003-R008                         |
-| AC06      | Archive and restore preserve grants; stale revisions are rejected.                                                                                                                             | M0003-R009                         |
-| AC07      | Each change writes an event and invalidates cached decisions.                                                                                                                                  | M0003-R011                         |
-| AC08      | The Roles screen supports list, detail, create, edit, archive, and restore, with permission-aware actions.                                                                                     | M0003-R012                         |
+| Criterion | Required result                                                                                                                      | Requirements                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| AC01      | The cell migration creates the three tables; reruns are no-ops.                                                                      | M0003-R001, M0003-R002, M0003-R006 |
+| AC02      | Invalid patterns and unknown catalogue names are rejected.                                                                           | M0003-R003, M0003-R004             |
+| AC03      | The catalogue lists every declared capability; a data-changing capability named `read` fails registration.                           | M0003-R005                         |
+| AC04      | Bootstrap seeds the three Napsoft roles and assigns `platform_admin` to the bootstrap login; reseeding changes nothing; drift fails. | M0003-R007, M0003-R008, M0003-R010 |
+| AC05      | The customer-tenant seed creates only `tenant_admin`.                                                                                | M0003-R009                         |
+| AC06      | Assigning, removing, creating, or editing a role beyond the caller's patterns fails; covered cases succeed.                          | M0003-R011                         |
+| AC07      | Removing the last `tenant_admin`, or the last Napsoft `platform_admin`, fails.                                                       | M0003-R012                         |
+| AC08      | Immutable roles cannot be edited or archived; archive and restore preserve grants and assignments.                                   | M0003-R013, M0003-R014             |
+| AC09      | Each change writes an event and advances the role cache revision.                                                                    | M0003-R015                         |
+| AC10      | The Roles screen supports list, detail, create, edit, archive, restore, and assignments, hiding disallowed actions.                  | M0003-R016                         |
 
 ## 14. Outstanding Questions
 

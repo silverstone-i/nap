@@ -144,10 +144,8 @@ before it is built:
 - Cell provisioning and the runtime cell registry: [I0003](../inter-module-workflows/I0003-cell-provisioning.md).
 - Tenant context: `withTenantTransaction(request, work)`, the entry point every
   tenant route uses. It gets the cell connection from I0003, sets
-  `nap.tenant_id`, `nap.actor_id`, and `nap.effective_user_id` for that
-  transaction only, rejects a session with no tenant or a tenant missing or
-  not active in `cell.tenants`, and makes support sessions that are not acting
-  as a user read-only. Needs tenant sync first; an inter-module workflow.
+  `nap.tenant_id` and `nap.actor_id` for that transaction only, and rejects a
+  session with no tenant or a tenant missing or not active in `cell.tenants`. Needs tenant sync first; an inter-module workflow.
 
 - Cell health: rechecking a cell's readiness after startup and returning a
   recovered cell to service. Extends the [I0003](../inter-module-workflows/I0003-cell-provisioning.md)
@@ -168,5 +166,4 @@ before it is built:
 - Cell provisioning: creating, migrating, and activating a cell database.
 - Migration rollout: applying a new cell migration to every existing cell,
   with progress and failures an operator can see and retry.
-- Access control: tenant role definitions stored in each cell.
-- Support access consent: what a read-only support session may see and do.
+- Access control: roles, role grants, and user-role assignments stored in each cell ([M0003](M0003-access-control.md)).

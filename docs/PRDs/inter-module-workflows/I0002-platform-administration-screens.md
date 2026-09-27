@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                                                                                                                                                                                                                                               |
+| Status               | Accepted                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                     |
 | Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                          |
 | Related PRDs         | [I0001: Application Entry and Shell](I0001-application-entry-and-shell.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-07: Tenant Creation](../modules/M0001-admin-tenancy/M0001-07-tenant-creation.md), [M0001-08: Portal-user and Membership Administration](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md) |
@@ -38,8 +38,8 @@ children are implemented.
   `StandardDataGrid` (I0001-R015–R017) unchanged, with an explicit,
   disclosed row-count estimate in place of an exact total the underlying
   API cannot provide.
-- One new field on `GET /access/context` (I0001-R024, defined in I0001, not
-  here) that this PRD's nav visibility depends on.
+- Navigation visibility from the session capabilities returned by I0005's
+  capabilities endpoint (I0001-R024).
 
 ### Excluded
 
@@ -58,8 +58,8 @@ children are implemented.
   create), not the cross-module sequence between them.
 - Bulk or multi-row actions beyond `StandardDataGrid`'s existing
   current-page-only checkbox selection (I0001-R016). No new bulk endpoint.
-- Changing which capabilities exist or what they grant. `entryPoints.tenantManagement`
-  (I0001-R024) only surfaces `permits()` results the server already computes.
+- Changing which capabilities exist or what they grant, owned by
+  [I0005](I0005-rbac-decision-model.md) and [M0003](../modules/M0003-access-control.md).
 
 ## 4. Actors And Permissions
 
@@ -67,21 +67,18 @@ The server remains authoritative; this table restates existing M0001-06/07/08
 authorization for the specific reads and actions this PRD adds a screen
 for.
 
-| Context                                                | Actor                                                           | Required capability              | Result                                                          |
-| ------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------- |
-| `/management/tenants`                                  | Root or `platform_admin`                                        | `admin-tenancy::control::read`   | List tenants                                                    |
-| `/management/tenants` (create)                         | Root or `platform_admin`, or `support` for a non-Napsoft tenant | `admin-tenancy::control::write`  | Create a tenant                                                 |
-| `/management/cells`                                    | Root or `platform_admin`                                        | `admin-tenancy::control::read`   | List cells and their provisioning state                         |
-| `/management/cells` (register/retry/disable)           | Root or `platform_admin`                                        | `admin-tenancy::control::write`  | Register, retry, or disable a cell                              |
-| `/management/portal-users`                             | Root or `platform_admin`, or `support` per M0001-08-R007        | `admin-tenancy::accounts::read`  | List portal-user accounts                                       |
-| `/management/portal-users` (create/deactivate/restore) | Root or `platform_admin`, `support` per M0001-08-R007           | `admin-tenancy::accounts::write` | Create, deactivate, or restore a portal-user account            |
-| Any of the above                                       | Authenticated user without the capability                       | None                             | Destination hidden from navigation; direct access server-denied |
+| Context                                                | Required capability                   | Result                                                          |
+| ------------------------------------------------------ | ------------------------------------- | --------------------------------------------------------------- |
+| `/management/tenants`                                  | `NAP::admin-tenancy::tenants::read`   | List tenants                                                    |
+| `/management/tenants` (create)                         | `NAP::admin-tenancy::tenants::write`  | Create a tenant                                                 |
+| `/management/cells`                                    | `NAP::admin-tenancy::control::read`   | List cells and their provisioning state                         |
+| `/management/cells` (register/retry/disable)           | `NAP::admin-tenancy::control::write`  | Register, retry, or disable a cell                              |
+| `/management/portal-users`                             | `NAP::admin-tenancy::accounts::read`  | List portal-user accounts                                       |
+| `/management/portal-users` (create/deactivate/restore) | `NAP::admin-tenancy::accounts::write` | Create, deactivate, or restore a portal-user account            |
+| Any of the above, without the capability               | None                                  | Destination hidden from navigation; direct access server-denied |
 
-Per I0005, `platform_admin`/`support` role assignment is
-blocked on cell provisioning; today only root resolves either capability
-(`resolveAuthorization`, `apps/api/src/modules/admin-tenancy/domain/authorization.js`).
-This PRD does not change that — it consumes whatever `permits()` already
-returns, honestly, for whichever actor type resolves in the future.
+Any role whose capabilities match gets the destination; the screens do not
+check role names.
 
 ## 5. Concepts And Terminology
 
@@ -119,10 +116,7 @@ returns, honestly, for whichever actor type resolves in the future.
   server-side via a new `GET /api/admin-tenancy/v1/accounts/users`
   endpoint, in a `StandardDataGrid` showing at minimum email, status, and
   whether a password change is required, with explicit loading, empty, and
-  error states. It must not show or manage tenant memberships. The list
-  includes the root account, read-only, for operator visibility (2026-09-22
-  amendment) — its row offers no Deactivate or Restore action, since
-  M0001-08 refuses both against root regardless.
+  error states. It must not show or manage tenant memberships.
 - I0002-R006: The Portal Users screen must provide Create
   (`POST /accounts/users`, `{email, password}`, with a client-generated
   `Idempotency-Key`), Deactivate (`DELETE /accounts/users/:id`), and
@@ -131,21 +125,16 @@ returns, honestly, for whichever actor type resolves in the future.
   and Restore must not.
 - I0002-R007: `GET /api/admin-tenancy/v1/tenants` must accept `cursor` and
   `limit` (1–100, default 50, matching `parseLimit`) query parameters,
-  require `admin-tenancy::control::read`, and return
+  require `NAP::admin-tenancy::tenants::read`, and return
   `{rows: [tenantView...], nextCursor}` in the existing versioned envelope
   with `Cache-Control: no-store` — the same shape and column safety
   `tenantView` (`domain/tenants.js`) already provides for `POST /tenants`'
   response, reused verbatim, never a new field.
 - I0002-R008: `GET /api/admin-tenancy/v1/accounts/users` must accept
   `cursor` and `limit` (1–100, default 50) query parameters, require
-  `admin-tenancy::accounts::read`, and return
-  `{rows: [userListView...], nextCursor}` in the existing versioned envelope
-  with `Cache-Control: no-store` — `userListView` (`domain/accounts.js`) is
-  `userView` plus one added field, `isRoot`, so the Portal Users screen can
-  display the root account read-only (I0002-R006 amendment, 2026-09-22) —
-  never a password hash or role assignment, and never a route through which
-  root can be created, deactivated, or restored (M0001-08 already refuses
-  all three against it).
+  `NAP::admin-tenancy::accounts::read`, and return
+  `{rows: [userView...], nextCursor}` in the existing versioned envelope
+  with `Cache-Control: no-store` — never a password hash or role assignment.
 - I0002-R009: Each screen's pagination must be handled by one shared
   frontend adapter translating `StandardDataGrid`'s page-index requests into
   sequential cursor fetches, caching each visited page's cursor, and
@@ -159,9 +148,9 @@ returns, honestly, for whichever actor type resolves in the future.
   distinguished from an exact total.
 - I0002-R010: Each of the three screens must appear in the application shell's
   Tenant Management navigation group (I0001-R023) only when both its
-  destination is implemented (this PRD) and `GET /access/context`'s
-  `entryPoints.tenantManagement` (I0001-R024) reports that specific child
-  as authorized. Neither condition alone is sufficient.
+  destination is implemented (this PRD) and the session capabilities
+  (I0001-R024) match that child's read capability. Neither condition alone
+  is sufficient.
 
 ## 7. Business Rules And Invariants
 
@@ -177,7 +166,7 @@ returns, honestly, for whichever actor type resolves in the future.
   page (I0001-R016, unchanged by this PRD).
 - Navigation must contain no destination this PRD's own screens do not
   implement — `Tenant Management`'s children stay hidden until both this
-  PRD's screen and I0001-R024's authorization signal exist for them.
+  PRD's screen and a matching session capability exist for them.
 
 ## 8. Lifecycle And State Transitions
 
@@ -223,7 +212,7 @@ responses, authorization, errors, or audit behavior:
 | Create a portal user        | `POST /api/admin-tenancy/v1/accounts/users`             | [M0001-08](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md#10-api-requirements) |
 | Deactivate a portal user    | `DELETE /api/admin-tenancy/v1/accounts/users/:id`       | [M0001-08](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md#10-api-requirements) |
 | Restore a portal user       | `POST /api/admin-tenancy/v1/accounts/users/:id/restore` | [M0001-08](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md#10-api-requirements) |
-| Startup context, nav gating | `GET /api/admin-tenancy/v1/access/context`              | [I0001-R022, I0001-R024](I0001-application-entry-and-shell.md#10-api-requirements)                                   |
+| Session capabilities        | `GET /api/admin-tenancy/v1/session/capabilities`        | [I0005](I0005-rbac-decision-model.md)                                                                                |
 
 All calls use the same-origin BFF contract and its versioned success and
 error envelopes.
@@ -235,7 +224,7 @@ error envelopes.
 | Field           | Required value                                                                                                  |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | Query           | `cursor` (opaque, optional), `limit` (1–100, default 50)                                                        |
-| Capability      | `admin-tenancy::control::read`                                                                                  |
+| Capability      | `NAP::admin-tenancy::tenants::read`                                                                             |
 | Response `data` | `{ rows: [{id, code, name, tier, status, cellId, provisioned, rbacReady}], nextCursor }` (reusing `tenantView`) |
 | Errors          | `401 UNAUTHENTICATED`, `403 FORBIDDEN`, `400 INVALID_INPUT` (bad `limit`)                                       |
 | Cache           | `Cache-Control: no-store`                                                                                       |
@@ -245,14 +234,12 @@ error envelopes.
 | Field           | Required value                                                                                        |
 | --------------- | ----------------------------------------------------------------------------------------------------- |
 | Query           | `cursor` (opaque, optional), `limit` (1–100, default 50)                                              |
-| Capability      | `admin-tenancy::accounts::read`                                                                       |
+| Capability      | `NAP::admin-tenancy::accounts::read`                                                                  |
 | Response `data` | `{ rows: [{id, email, status, mustChangePassword, deactivatedAt}], nextCursor }` (reusing `userView`) |
 | Errors          | `401 UNAUTHENTICATED`, `403 FORBIDDEN`, `400 INVALID_INPUT` (bad `limit`)                             |
 | Cache           | `Cache-Control: no-store`                                                                             |
 
-Both endpoints resolve `admin-tenancy::control::read`/`accounts::read`
-exactly as `GET /control/overview` and the existing `accounts.js` routes
-already do (`buildControlAuthority`/`accessScope` via `resolveAuthorization`),
+Both endpoints declare their capability with `requireCapability` per I0005
 and introduce no new error code.
 
 ## 11. Cross-Module Interactions
@@ -264,11 +251,9 @@ and introduce no new error code.
   pagination convention.
 - M0001-08 owns portal-user data and its lifecycle; this PRD adds the
   one list read M0001-08 does not yet expose.
-- I0001 owns `GET /access/context` (extended by I0001-R024, not this PRD)
-  and `StandardDataGrid` (consumed unchanged) and the Tenant Management nav
-  group (I0001-R023) this PRD's screens finally populate.
-- Authorization among non-root actors is not yet differentiated; this
-  PRD's capability checks need no change when it is.
+- I0001 owns `StandardDataGrid` (consumed unchanged) and the Tenant
+  Management nav group (I0001-R023) this PRD's screens populate.
+- I0005 owns capability decisions and the session capabilities endpoint.
 - The Create and Register actions call the same M0001-06/07 endpoints that
   any later creation-to-activation sequence would use; this PRD defines no
   sequencing between them.
@@ -282,9 +267,8 @@ and introduce no new error code.
 - The two new list endpoints never return a password hash, role
   assignment, or raw capability list, matching the safe-view functions
   they reuse.
-- `entryPoints.tenantManagement` (I0001-R024) reflects only capabilities
-  the server has already resolved; this PRD must not derive nav
-  visibility from any other client-held state.
+- Nav visibility comes only from the session capabilities I0005 returns;
+  this PRD must not derive it from any other client-held state.
 - Destructive actions (Disable, Deactivate) require confirmation and are
   otherwise subject to the same browser request protection every other
   state-changing call already uses.
@@ -300,9 +284,9 @@ and introduce no new error code.
 | AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                                                            | I0002-R005   |
 | AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                                                             | I0002-R006   |
 | AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                                                          | I0002-R007   |
-| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userListView` (`userView` plus `isRoot`), with `Cache-Control: no-store`.                                      | I0002-R008   |
+| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userView`, with `Cache-Control: no-store`.                                                                     | I0002-R008   |
 | AC09      | Each screen's grid computes a row-count estimate (rendered via MUI's default footer, not visually distinguished from an exact count) and correctly re-fetches when sort, filter, or tenant context changes. | I0002-R009   |
-| AC10      | Each of the three nav children appears only once both its screen is implemented and `entryPoints.tenantManagement` authorizes it; neither alone is sufficient.                                              | I0002-R010   |
+| AC10      | Each of the three nav children appears only once both its screen is implemented and the session capabilities match it; neither alone is sufficient.                                                         | I0002-R010   |
 
 ### Verification Evidence
 
@@ -314,21 +298,18 @@ no whitespace errors.
 `npm run test:db:local` passed all 165 tests against a disposable local
 PostgreSQL 18 server, including new integration tests for `listTenants`
 and `listUsers` (pagination and cursor-advance correctness, capability
-denial, and — for users — an archived row surviving into the list, and
-root appearing with `isRoot: true`).
+denial, and — for users — an archived row surviving into the list).
 
 API unit tests
 ([tenant-creation.test.js](../../../apps/api/tests/unit/tenant-creation.test.js),
 [accounts.test.js](../../../apps/api/tests/unit/accounts.test.js)) cover:
 `GET /tenants` and `GET /accounts/users` returning the safe `tenantView`/
-`userListView` shape with `Cache-Control: no-store` (AC07, AC08); session
+`userView` shape with `Cache-Control: no-store` (AC07, AC08); session
 and capability gating (`401`/`403`); an out-of-range `limit` reporting
 `400 INVALID_INPUT`; cursor/limit pagination advancing correctly; an
 archived portal user still appearing in the list (needed for I0002-R006's
 Restore action, since `admin.portal_users` is soft-delete tracked and
-would otherwise exclude it); and root appearing in the list with
-`isRoot: true`, distinct from every ordinary account's `isRoot: false`
-(I0002-R005/R008 amendment, 2026-09-22 — see below).
+would otherwise exclude it).
 
 Web unit tests
 ([apps/web/tests](../../../apps/web/tests)) cover: the cursor-to-page
@@ -402,7 +383,7 @@ uses `size="small"` with a new `MuiButton` `sizeSmall` style override
 changes, so they apply to every page's contextual header, not only this
 feature's three screens.
 
-**2026-09-22, same-day follow-up — two amendments from manual use:**
+**2026-09-22, same-day follow-up — one amendment from manual use:**
 
 - Register cell's error and helper text said "lowercase letters, digits,
   and hyphens" without mentioning that M0001-06's suffix rule also required
@@ -413,22 +394,8 @@ feature's three screens.
   database name (`parseSuffix`, `domain/cells.js`; see M0001-06's own
   Verification Evidence for the full amendment note). `RegisterCellDialog`'s
   copy was updated to match, and verified live by registering `nap_dev_cell_1`.
-- The Portal Users screen excluded root entirely, matching M0001-08's
-  "Root-user changes" exclusion — but that PRD line is about _changes_, not
-  _visibility_, and an operator reasonably expects to see the root account
-  exists. Amended I0002-R005/R008: `GET /accounts/users` now includes root,
-  via a new list-only projection, `userListView` (`userView` plus
-  `isRoot`) — `userView` itself, and every other route that calls it
-  (`POST /accounts/users`, `PATCH`, `DELETE`, `.../restore`), is unchanged,
-  so root stays exactly as unreachable through every write path as before
-  (`createOrReuseUser`/`archiveUser`/`restoreUser` all still refuse it).
-  `PortalUsersPage`'s `rowActions` returns no actions for `isRoot: true`,
-  since Deactivate/Restore would just fail against it server-side anyway.
-  Verified live: `root@napsoft.io` now appears in the list with no row
-  action, alongside an ordinary account that still has one.
-
-`npm test` (509 tests) and `npm run test:db:local` (165 tests) both still
-pass in full after these two amendments.
+  `npm test` (509 tests) and `npm run test:db:local` (165 tests) both still
+  pass in full after this amendment.
 
 ## 14. Outstanding Questions
 

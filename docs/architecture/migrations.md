@@ -23,7 +23,7 @@ Each step has one job:
 - setup creates or finds the database and roles;
 - migration creates schema objects and grants;
 - seed inserts required starting data;
-- bootstrap creates the first admin tenant and root portal user.
+- bootstrap creates the Napsoft tenant and its first portal login.
 
 This avoids hidden setup work inside runtime startup.
 
@@ -75,14 +75,12 @@ The commands do this:
 
 - `db:setup:admin`: create or find the admin database and roles.
 - `db:migrate:admin`: apply admin migrations.
-- `db:bootstrap`: create or verify the owning tenant, root portal user, and
-  root membership under [M0001-02](../PRDs/modules/M0001-admin-tenancy/M0001-02-root-user-provisioning.md).
+- `db:bootstrap`: create or verify the Napsoft tenant, its first portal login,
+  and that login's membership under [M0001-02](../PRDs/modules/M0001-admin-tenancy/M0001-02-root-user-provisioning.md).
 
 Bootstrap requires the admin schema. It creates operational data, not schema.
-It does not create ordinary tenants or seed platform capability definitions.
-Authorization grants the root user `platform_admin` capabilities from
-`is_root = true`; bootstrap does not create a role assignment or depend on the
-owning tenant's role seeds.
+It does not create ordinary tenants, roles, or role assignments. The admin
+database stores no roles; they live in tenant cells.
 
 ### Local And Render Setup
 
@@ -147,8 +145,10 @@ before activation.
 The reference-data seed must load the committed country and currency snapshot,
 then record the applied seed version in `reference.seed_versions`.
 
-Tenant provisioning runs the system-role seeds defined by M0003.
-These seeds are separate from Admin bootstrap.
+M0003 defines the immutable-role seeds. The Napsoft seed (`platform_admin`,
+`support`, `tenant_admin`, and the bootstrap login's `platform_admin`
+assignment) runs at bootstrap, when the first cell becomes the Napsoft cell.
+The customer-tenant seed (`tenant_admin`) runs with tenant provisioning.
 
 Changing the reference seed version requires a seed rollout for existing cells.
 New cells receive the required seed version during provisioning. Existing cells

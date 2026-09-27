@@ -25,7 +25,7 @@ docs/PRDs/
 Elsewhere, "workflow" and "feature" keep their plain English meaning, such as
 the steps a user takes to sign in.
 
-"Capability" is reserved for authorization identifiers in `module::router::action` form.
+"Capability" is reserved for authorization identifiers in `TENANT::module::router::action` form.
 
 Each category has its own four-digit sequence. Numbers identify documents; they
 do not set implementation order.

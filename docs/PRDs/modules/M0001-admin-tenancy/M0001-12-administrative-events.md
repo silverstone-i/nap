@@ -4,7 +4,7 @@
 
 | Field                | Value                                                   |
 | -------------------- | ------------------------------------------------------- |
-| Status               | Implemented                                             |
+| Status               | Accepted                                                |
 | Type                 | Module Work Unit                                        |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)       |
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md) |
@@ -33,22 +33,21 @@ to establish who did what and whether it succeeded.
 
 ## 4. Actors And Permissions
 
-| Actor                         | Target                                        | Result                     |
-| ----------------------------- | --------------------------------------------- | -------------------------- |
-| Originating operation         | Valid catalogue event                         | Append event               |
-| Root user or `platform_admin` | Any central event                             | Read event                 |
-| `support`                     | Event not associated with Napsoft tenant data | Read event                 |
-| `tenant_admin`                | Event associated with own tenant              | Read tenant event          |
-| Any runtime actor             | Existing event                                | Cannot update or delete it |
+| Actor                                        | Target                           | Result                     |
+| -------------------------------------------- | -------------------------------- | -------------------------- |
+| Originating operation                        | Valid catalogue event            | Append event               |
+| Holder of `NAP::admin-tenancy::events::read` | Any central event                | Read event                 |
+| Holder of `*::admin-tenancy::events::read`   | Event for any non-Napsoft tenant | Read event                 |
+| `tenant_admin`                               | Event associated with own tenant | Read tenant event          |
+| Any runtime actor                            | Existing event                   | Cannot update or delete it |
 
 ## 5. Concepts And Terminology
 
-| Term              | Meaning                                                  |
-| ----------------- | -------------------------------------------------------- |
-| Event key         | Stable dotted name for an administrative action          |
-| Deduplication key | UUID identifying one logical event across retries        |
-| Real actor        | Portal user who initiated the action                     |
-| Effective user    | Tenant user whose context was used during support access |
+| Term              | Meaning                                           |
+| ----------------- | ------------------------------------------------- |
+| Event key         | Stable dotted name for an administrative action   |
+| Deduplication key | UUID identifying one logical event across retries |
+| Real actor        | Portal user who initiated the action              |
 
 ## 6. Functional Requirements
 
@@ -62,18 +61,16 @@ to establish who did what and whether it succeeded.
 | Bootstrap      | `bootstrap.succeeded`, `bootstrap.failed`                                                                                                                                                                                                                                                                       |
 | Authentication | `auth.login.succeeded`, `auth.login.failed`, `auth.login.throttled`, `auth.password.changed`                                                                                                                                                                                                                    |
 | Sessions       | `session.created`, `session.rotated`, `session.revoked`, `session.expired`                                                                                                                                                                                                                                      |
-| Authorization  | `role.initialized`, `role.granted`, `role.revoked`                                                                                                                                                                                                                                                              |
 | Cells          | `cell.registered`, `cell.retry.requested`, `cell.provisioning.failed`, `cell.provisioning.completed`, `cell.disabled`                                                                                                                                                                                           |
 | Tenants        | `tenant.created`                                                                                                                                                                                                                                                                                                |
 | Accounts       | `user.created`, `user.updated`, `user.disabled`, `user.archived`, `user.restored`, `membership.created`, `membership.suspended`, `membership.activated`, `membership.archived`, `membership.restored`, `membership.provisioning.failed`, `membership.provisioning.retried`, `membership.provisioning.completed` |
-| Access         | `tenant.selected`, `support.entered`, `support.exited`, `support.denied`                                                                                                                                                                                                                                        |
+| Access         | `tenant.selected`, `access.denied`                                                                                                                                                                                                                                                                              |
 | Entitlements   | `entitlement.granted`, `entitlement.withdrawn`                                                                                                                                                                                                                                                                  |
 | Cache          | `cache.revision.failed`                                                                                                                                                                                                                                                                                         |
 
 ## 7. Business Rules And Invariants
 
 - M0001-12-R005: An event outcome must match the originating operation and must never claim success for a rolled-back action.
-- M0001-12-R006: Support events and actions in support context must retain the real actor and any effective user.
 - M0001-12-R007: Event fields and details must not contain passwords, password hashes, session tokens, connection strings, raw throttle inputs, or provider secrets.
 
 Successful mutation events append in the source transaction. Denied and failed
@@ -88,16 +85,16 @@ indefinitely and have no update, archive, delete, or purge API.
 Many events have no tenant: bootstrap, cell registration, and a session created
 before tenant selection all store a null tenant.
 
-| Reader scope                      | Tenant events           | Null-tenant events |
-| --------------------------------- | ----------------------- | ------------------ |
-| Every tenant                      | All                     | Readable           |
-| Every tenant, with denied tenants | All but the denied ones | Readable           |
-| Named tenants                     | Only the named ones     | Not readable       |
-| No tenant                         | None                    | Not readable       |
+| Reader capability                     | Tenant events              | Null-tenant events |
+| ------------------------------------- | -------------------------- | ------------------ |
+| `NAP::admin-tenancy::events::read`    | All                        | Readable           |
+| `*::admin-tenancy::events::read`      | All but the Napsoft tenant | Not readable       |
+| `TENANT::admin-tenancy::events::read` | Only that tenant           | Not readable       |
+| None                                  | None                       | Not readable       |
 
-A named-tenant reader is fail-closed, so `tenant_admin` reads its own tenant's
-events and nothing else. `support` keeps platform visibility because its scope
-covers every tenant apart from the Napsoft tenants it is denied.
+Readers are fail-closed, so `tenant_admin` reads its own tenant's events and
+nothing else. Tenant `*` never matches the Napsoft tenant, so `support` reads
+every other tenant's events.
 
 ## 8. Lifecycle And State Transitions
 
@@ -154,7 +151,6 @@ errors are redacted before any failure event is attempted.
 | AC02      | Invalid keys, outcomes, attribution, or detail fields are rejected.                                                                               | M0001-12-R002                |
 | AC03      | Runtime update and delete attempts fail and no purge path exists.                                                                                 | M0001-12-R003                |
 | AC04      | Readers receive only permitted events with stable filtering and pagination.                                                                       | M0001-12-R004                |
-| AC05      | Support activity retains real and effective actors and support cannot infer Napsoft events.                                                       | M0001-12-R006                |
 | AC06      | Events contain none of the prohibited secrets or raw identifiers.                                                                                 | M0001-12-R007                |
 | AC07      | Transaction failure, event-storage failure, and operation retry follow the atomicity and deduplication rules.                                     | M0001-12-R005                |
 
@@ -174,7 +170,7 @@ server has no `postgres` superuser role. They do not touch `managed_events`.
 Integration tests cover append inside and outside a transaction, rollback with
 the source transaction, deduplication-key reuse, update and delete rejection,
 pagination across pages, every filter, the reader-scope table including
-null-tenant events, support attribution, and rejection storing nothing. Unit
+null-tenant events, and rejection storing nothing. Unit
 tests cover the catalogue, the detail allowlist and its secret denylist,
 attribution and target validation, scope-to-filter translation, cursor binding,
 and error-code translation without database detail.
