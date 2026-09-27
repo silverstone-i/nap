@@ -87,7 +87,7 @@ tenant/module uniqueness.
 
 ## 10. API Requirements
 
-| Method and route                                                    | Capability                                | Result                                               |
+| Method and route                                                    | Required capability                       | Result                                               |
 | ------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------- |
 | `GET /api/admin-tenancy/v1/tenants/:tenant/entitlements`            | `NAP::admin-tenancy::entitlements::read`  | Full catalogue with effective booleans and revisions |
 | `PUT /api/admin-tenancy/v1/tenants/:tenant/entitlements/:module`    | `NAP::admin-tenancy::entitlements::write` | Enabled state                                        |

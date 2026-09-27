@@ -39,7 +39,7 @@ and lets a tenant manage custom roles and assignments. Deciding a request is
 
 ## 4. Actors And Permissions
 
-| Capability                                     | Allows                                          |
+| Required capability                            | Allows                                          |
 | ---------------------------------------------- | ----------------------------------------------- |
 | `<TENANT>::access-control::roles::read`        | List roles, grants, assignments, and catalogue  |
 | `<TENANT>::access-control::roles::write`       | Create, edit, archive, and restore custom roles |
