@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.20.1] - 2026-09-28
+
 ### Fixed
 
 - Protect the bootstrap Napsoft login: account routes can no longer update, disable, or archive it, removing its Napsoft `platform_admin` assignment is refused, and an `admin.protect_root_user` trigger blocks changes other than password resets. Edits the admin migration in place, so recreate existing databases.
