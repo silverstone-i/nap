@@ -12,8 +12,7 @@ import {
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
-import { bootstrapRoot } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
-import { resolveAuthorization } from '../../src/modules/admin-tenancy/domain/authorization.js';
+import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
@@ -102,7 +101,7 @@ describe('root provisioning', () => {
       status: 'active',
     });
 
-    const result = await bootstrapRoot(db, cfg);
+    const result = await bootstrapNapsoft(db, cfg);
 
     expect(result).toEqual({ status: 'conflict', code: 'TENANT_CONFLICT' });
     const napsoft = await db.tenants.findOneBy(
@@ -121,9 +120,9 @@ describe('root provisioning', () => {
       status: 'active',
     });
 
-    const result = await bootstrapRoot(db, cfg);
+    const result = await bootstrapNapsoft(db, cfg);
 
-    expect(result).toEqual({ status: 'conflict', code: 'ROOT_CONFLICT' });
+    expect(result).toEqual({ status: 'conflict', code: 'LOGIN_CONFLICT' });
     const tenant = await db.tenants.findOneBy(
       { tenant_code: cfg.tenantCode },
       { columnWhitelist: ['id'], includeDeactivated: true }
@@ -135,18 +134,18 @@ describe('root provisioning', () => {
   const MAIN = bootstrapConfig();
 
   it('creates the tenant, bootstrap login, and membership, granting platform authority without a role assignment', async () => {
-    const result = await bootstrapRoot(db, MAIN);
+    const result = await bootstrapNapsoft(db, MAIN);
 
     expect(result.status).toBe('created');
     expect(result.tenant.is_napsoft).toBe(true);
     expect(result.tenant.tenant_code).toBe(MAIN.tenantCode);
     expect((await db.portal_users.findBootstrapLogin()).id).toBe(
-      result.rootUser.id
+      result.login.id
     );
-    expect(result.rootUser.email).toBe(MAIN.rootEmail);
-    expect(result.rootUser.must_change_password).toBe(false);
-    expect(result.rootUser.password_hash).toBeUndefined();
-    expect(result.membership.portal_user_id).toBe(result.rootUser.id);
+    expect(result.login.email).toBe(MAIN.rootEmail);
+    expect(result.login.must_change_password).toBe(false);
+    expect(result.login.password_hash).toBeUndefined();
+    expect(result.membership.portal_user_id).toBe(result.login.id);
     expect(result.membership.tenant_id).toBe(result.tenant.id);
     expect(result.membership.member_type).toBeNull();
     expect(result.membership.status).toBe('active');
@@ -171,15 +170,11 @@ describe('root provisioning', () => {
         /correct-horse-battery-staple|\$argon2/
       );
 
-    expect(
-      await resolveAuthorization(db, {
-        user: result.rootUser.id,
-        restricted: false,
-      })
-    ).toMatchObject({
-      actorId: result.rootUser.id,
-      platform: 'platform_admin',
-    });
+    // Capabilities come later, from the Napsoft seed's `platform_admin`
+    // assignment (M0003-R008); bootstrap only makes the login.
+    expect((await db.portal_users.findBootstrapLogin()).id).toBe(
+      result.login.id
+    );
   });
 
   it('preserves the password hash and every UUID on a repeat run, and writes no new event', async () => {
@@ -190,10 +185,10 @@ describe('root provisioning', () => {
     );
     const eventsBefore = await db.managed_events.countAll();
 
-    const second = await bootstrapRoot(db, MAIN);
+    const second = await bootstrapNapsoft(db, MAIN);
 
     expect(second.status).toBe('existing');
-    expect(second.rootUser.id).toBe(before.id);
+    expect(second.login.id).toBe(before.id);
     const after = await db.portal_users.findOneBy(
       { id: login.id },
       { columnWhitelist: ['password_hash'] }
@@ -203,7 +198,7 @@ describe('root provisioning', () => {
   });
 
   it('reports conflict when the existing owning tenant uses a different code', async () => {
-    const result = await bootstrapRoot(
+    const result = await bootstrapNapsoft(
       db,
       bootstrapConfig({ tenantCode: `OTHER-${randomUUID().slice(0, 8)}` })
     );
@@ -212,7 +207,7 @@ describe('root provisioning', () => {
   });
 
   it('reports conflict when the existing bootstrap login uses a different email', async () => {
-    const result = await bootstrapRoot(
+    const result = await bootstrapNapsoft(
       db,
       bootstrapConfig({
         tenantCode: MAIN.tenantCode,
@@ -220,19 +215,19 @@ describe('root provisioning', () => {
       })
     );
 
-    expect(result).toEqual({ status: 'conflict', code: 'ROOT_CONFLICT' });
+    expect(result).toEqual({ status: 'conflict', code: 'LOGIN_CONFLICT' });
   });
 
   it('serializes concurrent bootstrap attempts on the advisory lock and agrees on the result', async () => {
     const [first, second] = await Promise.all([
-      bootstrapRoot(db, MAIN),
-      bootstrapRoot(db, MAIN),
+      bootstrapNapsoft(db, MAIN),
+      bootstrapNapsoft(db, MAIN),
     ]);
 
     expect(first.status).toBe('existing');
     expect(second.status).toBe('existing');
     expect(second.tenant.id).toBe(first.tenant.id);
-    expect(second.rootUser.id).toBe(first.rootUser.id);
+    expect(second.login.id).toBe(first.login.id);
     expect(second.membership.id).toBe(first.membership.id);
   });
 });

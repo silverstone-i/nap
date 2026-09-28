@@ -9,6 +9,7 @@
  */
 
 import { ApiError } from '../../api/client.js';
+import { denialMessage } from '../../auth/capabilities.js';
 
 const MESSAGES = {
   ROLE_IMMUTABLE: 'This role is immutable and cannot be changed.',
@@ -23,7 +24,6 @@ const MESSAGES = {
   VALIDATION: 'Check the fields and grant patterns.',
   INVALID_STATE: 'Select a tenant first.',
   NOT_FOUND: 'This role or user no longer exists.',
-  FORBIDDEN: 'You are not authorized to perform that action.',
 };
 
 /**
@@ -31,6 +31,8 @@ const MESSAGES = {
  * @returns {string}
  */
 export function describeRoleError(err) {
+  if (err instanceof ApiError && err.code === 'FORBIDDEN')
+    return denialMessage(err);
   if (err instanceof ApiError && MESSAGES[err.code]) return MESSAGES[err.code];
   return 'Something went wrong. Please try again.';
 }

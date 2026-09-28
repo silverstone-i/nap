@@ -7,6 +7,8 @@ import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import { ApiError } from '../../api/client.js';
+import { denialMessage } from '../../auth/capabilities.js';
+import { useCapabilities } from '../../auth/useCapabilities.js';
 import {
   deactivatePortalUser,
   listUsersPage,
@@ -58,7 +60,7 @@ function describeActionError(err) {
   if (err instanceof ApiError && err.code === 'INVALID_STATE')
     return 'This account cannot perform that action right now.';
   if (err instanceof ApiError && err.code === 'FORBIDDEN')
-    return 'You are not authorized to perform that action.';
+    return denialMessage(err);
   if (err instanceof ApiError && err.code === 'NOT_FOUND')
     return 'This account no longer exists.';
   return 'Something went wrong. Please try again.';
@@ -73,10 +75,12 @@ export function PortalUsersPage() {
   const [resetKey, setResetKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionError, setActionError] = useState(null);
+  const { can, onError } = useCapabilities();
+  const canWrite = can('admin-tenancy::accounts::write', 'napsoft');
 
   usePageHeader({
     title: 'Portal Users',
-    actions: (
+    actions: canWrite ? (
       <Button
         variant="contained"
         size="small"
@@ -84,7 +88,7 @@ export function PortalUsersPage() {
       >
         Create portal user
       </Button>
-    ),
+    ) : null,
   });
 
   async function handleDeactivate(row) {
@@ -93,6 +97,7 @@ export function PortalUsersPage() {
       await deactivatePortalUser(row.id);
       setResetKey(key => key + 1);
     } catch (err) {
+      onError(err);
       setActionError(describeActionError(err));
     }
   }
@@ -103,6 +108,7 @@ export function PortalUsersPage() {
       await restorePortalUser(row.id);
       setResetKey(key => key + 1);
     } catch (err) {
+      onError(err);
       setActionError(describeActionError(err));
     }
   }
@@ -110,6 +116,7 @@ export function PortalUsersPage() {
   // Mutually exclusive by construction: an archived account can only be
   // restored, an active one only deactivated (I0002-R006).
   function rowActions(row) {
+    if (!canWrite) return [];
     return row.deactivatedAt
       ? [{ label: 'Restore', onClick: handleRestore }]
       : [{ label: 'Deactivate', destructive: true, onClick: handleDeactivate }];

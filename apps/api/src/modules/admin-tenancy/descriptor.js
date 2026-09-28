@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { PLATFORM_ADMIN_CAPABILITIES } from '../../capability/systemRoles.js';
 import { repositories } from './repositories.js';
 import { migration } from './schema/migrations/001-admin-tenancy.js';
 
@@ -19,8 +18,15 @@ export const descriptor = {
   entitlementType: 'infrastructure',
   models: repositories,
   migrations: [migration],
-  // M0003-R005: the capabilities its routes check today.
-  capabilities: PLATFORM_ADMIN_CAPABILITIES.filter(capability =>
-    capability.startsWith('admin-tenancy::')
-  ),
+  // M0003-R005: the route capabilities it declares.
+  capabilities: [
+    'admin-tenancy::control::read',
+    'admin-tenancy::control::write',
+    'admin-tenancy::accounts::read',
+    'admin-tenancy::accounts::write',
+    'admin-tenancy::sessions::revoke',
+    'admin-tenancy::entitlements::read',
+    'admin-tenancy::entitlements::write',
+    'admin-tenancy::events::read',
+  ],
 };

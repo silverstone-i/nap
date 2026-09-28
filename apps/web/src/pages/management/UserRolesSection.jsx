@@ -17,6 +17,7 @@ import {
   removeUserRole,
 } from '../../api/endpoints.js';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
+import { useCapabilities } from '../../auth/useCapabilities.js';
 import { describeRoleError } from './roleErrors.js';
 
 /** One page is enough for the picker; the portal-user listing is not tenant-filtered. */
@@ -35,6 +36,8 @@ export function UserRolesSection({ roles }) {
   const [roleToAssign, setRoleToAssign] = useState('');
   const [pendingRemove, setPendingRemove] = useState(null);
   const [error, setError] = useState(null);
+  const { can, onError } = useCapabilities();
+  const canAssign = can('access-control::assignments::write');
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +75,7 @@ export function UserRolesSection({ roles }) {
       setAssigned(result.roles);
       setRoleToAssign('');
     } catch (err) {
+      onError(err);
       setError(describeRoleError(err));
     }
   }
@@ -84,6 +88,7 @@ export function UserRolesSection({ roles }) {
       const result = await removeUserRole(userId, role.id);
       setAssigned(result.roles);
     } catch (err) {
+      onError(err);
       setError(describeRoleError(err));
     }
   }
@@ -139,40 +144,44 @@ export function UserRolesSection({ roles }) {
                 <Chip
                   key={role.id}
                   label={role.name}
-                  onDelete={() => setPendingRemove(role)}
+                  onDelete={
+                    canAssign ? () => setPendingRemove(role) : undefined
+                  }
                 />
               ))}
             </Stack>
           )}
-          <Stack direction="row" spacing={1}>
-            <TextField
-              select
-              label="Role to assign"
-              value={roleToAssign}
-              onChange={event => setRoleToAssign(event.target.value)}
-              slotProps={{
-                select: { native: true },
-                inputLabel: { shrink: true },
-              }}
-              size="small"
-              sx={{ minWidth: 240 }}
-            >
-              <option value="">Choose a role</option>
-              {assignable.map(role => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </TextField>
-            <Button
-              variant="outlined"
-              size="small"
-              disabled={!roleToAssign}
-              onClick={handleAssign}
-            >
-              Assign role
-            </Button>
-          </Stack>
+          {canAssign ? (
+            <Stack direction="row" spacing={1}>
+              <TextField
+                select
+                label="Role to assign"
+                value={roleToAssign}
+                onChange={event => setRoleToAssign(event.target.value)}
+                slotProps={{
+                  select: { native: true },
+                  inputLabel: { shrink: true },
+                }}
+                size="small"
+                sx={{ minWidth: 240 }}
+              >
+                <option value="">Choose a role</option>
+                {assignable.map(role => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </TextField>
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={!roleToAssign}
+                onClick={handleAssign}
+              >
+                Assign role
+              </Button>
+            </Stack>
+          ) : null}
         </>
       ) : null}
       <ConfirmDialog

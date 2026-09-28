@@ -10,13 +10,14 @@ import { MemoryRouter } from 'react-router';
 import { App } from '../src/App.jsx';
 import { ThemeModeProvider } from '../src/theme/ThemeModeContext.jsx';
 import * as api from '../src/api/endpoints.js';
-import { installMatchMedia } from './testUtils.jsx';
+import { NO_CAPABILITIES, installMatchMedia } from './testUtils.jsx';
 
 vi.mock('../src/api/endpoints.js', () => ({
   login: vi.fn(),
   changePassword: vi.fn(),
   logout: vi.fn(),
   getAccessContext: vi.fn(),
+  getSessionCapabilities: vi.fn(),
   listTenants: vi.fn(),
   selectTenant: vi.fn(),
 }));
@@ -25,7 +26,7 @@ const READY_MULTI_TENANT = {
   session: { restricted: false },
   user: { id: 'u1', email: 'user@example.com' },
   selectedTenant: null,
-  entryPoints: { platform: false, tenant: true },
+  entryPoints: { tenant: true },
 };
 
 function renderAt(path) {
@@ -41,6 +42,7 @@ function renderAt(path) {
 beforeEach(() => {
   installMatchMedia();
   api.getAccessContext.mockResolvedValue(READY_MULTI_TENANT);
+  api.getSessionCapabilities.mockResolvedValue(NO_CAPABILITIES);
 });
 
 afterEach(() => {

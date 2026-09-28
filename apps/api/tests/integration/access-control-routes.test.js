@@ -18,7 +18,7 @@ import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
 import { registerCell } from '../../src/modules/admin-tenancy/domain/cells.js';
-import { bootstrapRoot } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
+import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 import { createSession } from '../../src/modules/admin-tenancy/domain/session.js';
 import { selectTenant } from '../../src/modules/admin-tenancy/domain/tenantAccess.js';
@@ -122,6 +122,58 @@ async function rolesRevision() {
   return Number(row.revision);
 }
 
+/**
+ * Create an active Napsoft employee, admin and cell side, holding `roleCode`
+ * (or no role), with a session that has selected Napsoft.
+ * @param {string|null} roleCode
+ * @returns {Promise<{id: string, cookie: string}>}
+ */
+async function staff(roleCode) {
+  const memberId = randomUUID();
+  const user = await db.tx(tx =>
+    db.portal_users.insertBootstrapLogin(
+      { email: `staff-${randomUUID()}@nap.test`, passwordHash: 'unused' },
+      { tx }
+    )
+  );
+  await db.portal_user_tenants.insert({
+    portal_user_id: user.id,
+    tenant_id: napsoft.id,
+    member_type: 'employee',
+    member_id: memberId,
+    status: 'active',
+    ready: true,
+  });
+  await cell.tenant_members.insert({
+    id: randomUUID(),
+    tenant_id: napsoft.id,
+    portal_user_id: user.id,
+    member_type: 'employee',
+    member_id: memberId,
+    status: 'active',
+    revision: 1,
+  });
+  if (roleCode) {
+    const roles = (await call('get', '/roles')).body.data;
+    const role = roles.find(r => r.code === roleCode);
+    expect(
+      (await call('put', `/users/${user.id}/roles/${role.id}`)).status
+    ).toBe(200);
+  }
+  const session = await createSession(db, sessionPolicy, {
+    portalUserId: user.id,
+  });
+  const selected = await selectTenant(
+    db,
+    sessionPolicy,
+    session.token,
+    { user: user.id },
+    { tenant: napsoft.id },
+    { runtime: registry }
+  );
+  return { id: user.id, cookie: `nap_session=${selected.token}` };
+}
+
 beforeAll(async () => {
   await using(fixture, async tx => {
     for (const [role, password, attrs] of [
@@ -146,14 +198,14 @@ beforeAll(async () => {
   db = handle.db;
 
   const unique = randomUUID().slice(0, 8);
-  const boot = await bootstrapRoot(db, {
+  const boot = await bootstrapNapsoft(db, {
     tenantCode: `NAP-${unique.toUpperCase()}`,
     tenantName: `Test Napsoft ${unique}`,
     rootEmail: `bootstrap-${unique}@nap.test`,
     rootPassword: 'correct-horse-battery-staple',
     hashingPolicy: ARGON2_MINIMUM,
   });
-  rootId = boot.rootUser.id;
+  rootId = boot.login.id;
 
   dir = await mkdtemp(join(tmpdir(), 'nap-acl-routes-'));
   const envFile = join(dir, '.env');
@@ -249,6 +301,70 @@ describe('caller pattern set (I0005-R004)', () => {
         portalUserId: randomUUID(),
       })
     ).toEqual([]);
+  });
+});
+
+describe('capability decisions (I0005)', () => {
+  // Deliver the assignments these tests make, so later tests see only
+  // their own role changes.
+  afterAll(() => sync.tick());
+
+  it('denies support in Napsoft, where tenant * never matches (R005, R007)', async () => {
+    const support = await staff('support');
+    const read = await call('get', '/roles', undefined, support.cookie);
+    expect(read.status).toBe(403);
+    expect(read.body.error).toMatchObject({
+      code: 'FORBIDDEN',
+      capability: `${napsoft.tenant_code}::access-control::roles::read`,
+      reason: 'NO_CAPABILITY',
+    });
+
+    const write = await call(
+      'post',
+      '/roles',
+      { code: 'nope', name: 'Nope', grants: [] },
+      support.cookie
+    );
+    expect(write.status).toBe(403);
+    const denied = await db.managed_events.findWhere(
+      { actor_id: support.id, event_key: 'access.denied' },
+      'AND',
+      { columnWhitelist: ['outcome', 'reason', 'tenant_id', 'details'] }
+    );
+    expect(denied).toEqual([
+      {
+        outcome: 'denied',
+        reason: 'NO_CAPABILITY',
+        tenant_id: napsoft.id,
+        details: {
+          capability: `${napsoft.tenant_code}::access-control::roles::write`,
+          method: 'POST',
+        },
+      },
+    ]);
+  });
+
+  it('permits a Napsoft tenant_admin and denies a member with no role', async () => {
+    const admin = await staff('tenant_admin');
+    expect((await call('get', '/roles', undefined, admin.cookie)).status).toBe(
+      200
+    );
+    const none = await staff(null);
+    const response = await call('get', '/roles', undefined, none.cookie);
+    expect(response.body.error.reason).toBe('NO_CAPABILITY');
+  });
+
+  it('takes a new assignment into account on the next request (R008)', async () => {
+    const later = await staff(null);
+    expect((await call('get', '/roles', undefined, later.cookie)).status).toBe(
+      403
+    );
+    const roles = (await call('get', '/roles')).body.data;
+    const role = roles.find(r => r.code === 'tenant_admin');
+    await call('put', `/users/${later.id}/roles/${role.id}`);
+    expect((await call('get', '/roles', undefined, later.cookie)).status).toBe(
+      200
+    );
   });
 });
 

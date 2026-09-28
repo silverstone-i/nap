@@ -15,7 +15,7 @@ import { hashPassword, parsePassword } from './password.js';
  */
 export const CONFLICT_CODES = Object.freeze({
   tenant: 'TENANT_CONFLICT',
-  root: 'ROOT_CONFLICT',
+  login: 'LOGIN_CONFLICT',
   membership: 'MEMBERSHIP_CONFLICT',
 });
 
@@ -101,9 +101,9 @@ async function resolveTenant(db, tx, { tenantCode, tenantName }) {
  * @param {import('pg-promise').IDatabase<unknown>} tx
  * @param {{rootEmail: string, rootPassword: string, hashingPolicy: import('./password.js').HashingPolicy}} config
  * @returns {Promise<{row: object, created: boolean}>}
- * @throws {AdminBootstrapError} `ROOT_CONFLICT`
+ * @throws {AdminBootstrapError} `LOGIN_CONFLICT`
  */
-async function resolveRootUser(
+async function resolveBootstrapLogin(
   db,
   tx,
   { rootEmail, rootPassword, hashingPolicy }
@@ -111,11 +111,11 @@ async function resolveRootUser(
   const existing = await db.portal_users.lockBootstrapLogin({ tx });
   if (existing) {
     if (existing.email.toLowerCase() !== rootEmail)
-      throw new AdminBootstrapError(CONFLICT_CODES.root);
+      throw new AdminBootstrapError(CONFLICT_CODES.login);
     return { row: existing, created: false };
   }
   const taken = await db.portal_users.lockActiveByEmail(rootEmail, { tx });
-  if (taken) throw new AdminBootstrapError(CONFLICT_CODES.root);
+  if (taken) throw new AdminBootstrapError(CONFLICT_CODES.login);
   const passwordHash = await hashPassword(hashingPolicy, rootPassword);
   const row = await db.portal_users.insertBootstrapLogin(
     { email: rootEmail, passwordHash },
@@ -190,10 +190,10 @@ async function appendBootstrapEvent(db, event, options = {}) {
  * Napsoft cell during Napsoft tenant setup (I0003-R024).
  * @param {object} db Admin database handle with `tenants`, `portal_users`, `portal_user_tenants`, `managed_events`, and `tx`.
  * @param {unknown} config `{tenantCode, tenantName, rootEmail, rootPassword, hashingPolicy}`.
- * @returns {Promise<{status: 'created'|'existing', tenant: object, rootUser: object, membership: object}|{status: 'conflict', code: string}>}
+ * @returns {Promise<{status: 'created'|'existing', tenant: object, login: object, membership: object}|{status: 'conflict', code: string}>}
  * @throws {AdminBootstrapError} `INVALID_INPUT`, `AUDIT_UNAVAILABLE`, or `INTERNAL_ERROR`
  */
-export async function bootstrapRoot(db, config) {
+export async function bootstrapNapsoft(db, config) {
   const parsed = parseBootstrapConfig(config);
   const requestId = randomUUID();
   return withBootstrapErrors(async () => {
@@ -201,15 +201,14 @@ export async function bootstrapRoot(db, config) {
       return await db.tx(async tx => {
         await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY})`);
         const tenant = await resolveTenant(db, tx, parsed);
-        const rootUser = await resolveRootUser(db, tx, parsed);
+        const login = await resolveBootstrapLogin(db, tx, parsed);
         const membership = await resolveMembership(
           db,
           tx,
           tenant.row.id,
-          rootUser.row.id
+          login.row.id
         );
-        const created =
-          tenant.created || rootUser.created || membership.created;
+        const created = tenant.created || login.created || membership.created;
         // A pure verify-only run — everything already matched the
         // configuration — writes no event. Logging "succeeded" on every
         // repeat invocation would make a health-check-style rerun grow the
@@ -229,7 +228,7 @@ export async function bootstrapRoot(db, config) {
         return {
           status: created ? 'created' : 'existing',
           tenant: tenant.row,
-          rootUser: rootUser.row,
+          login: login.row,
           membership: membership.row,
         };
       });

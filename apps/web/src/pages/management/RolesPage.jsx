@@ -23,6 +23,7 @@ import {
   restoreRole,
 } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
+import { useCapabilities } from '../../auth/useCapabilities.js';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { RoleBadges } from './RoleBadges.jsx';
@@ -46,18 +47,21 @@ export function RolesPage() {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const { can, onError } = useCapabilities();
+  const canWrite = can('access-control::roles::write');
 
   usePageHeader({
     title: 'Roles',
-    actions: tenant ? (
-      <Button
-        variant="contained"
-        size="small"
-        onClick={() => setForm({ role: null })}
-      >
-        Create role
-      </Button>
-    ) : null,
+    actions:
+      tenant && canWrite ? (
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => setForm({ role: null })}
+        >
+          Create role
+        </Button>
+      ) : null,
   });
 
   const [reloadKey, setReloadKey] = useState(0);
@@ -86,6 +90,7 @@ export function RolesPage() {
       setSelected(await action(selected.id, selected.revision));
       reload();
     } catch (err) {
+      onError(err);
       setActionError(describeRoleError(err));
       if (isStaleRevision(err)) {
         try {
@@ -168,6 +173,7 @@ export function RolesPage() {
       {selected && !form ? (
         <RoleDetailDialog
           role={selected}
+          canWrite={canWrite}
           onClose={() => setSelected(null)}
           onEdit={() => setForm({ role: selected })}
           onArchive={() => setConfirmArchive(true)}

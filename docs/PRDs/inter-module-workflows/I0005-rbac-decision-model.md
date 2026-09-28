@@ -69,10 +69,10 @@ same request for `NAP` does not match, because a tenant `*` excludes Napsoft.
   - a tenant `*` never matches the tenant with `is_napsoft = true`;
   - the target tenant must be entitled to the module (M0001-10), whatever the pattern says.
 - I0005-R006: A decision returns `permit` or `deny` with a reason: `ROLE`, `NO_CAPABILITY`, `NOT_ENTITLED`, `INACTIVE`, or `RESTRICTED`.
-- I0005-R007: A denied request returns HTTP 403 `{ error: 'FORBIDDEN', capability, reason }`. A denied write also writes a denial event (M0001-12); a denied read is logged only.
+- I0005-R007: A denied request returns HTTP 403 with the error envelope's `error` set to `{ code: 'FORBIDDEN', message, capability, reason }`. A denied write also writes an `access.denied` event (M0001-12); a denied read is logged only.
 - I0005-R008: Resolved sets may be cached per user and home tenant. An assignment, role, or grant change (M0003-R015), a membership change, or an entitlement change must invalidate affected entries using M0001-11 revisions.
 - I0005-R009: If the home tenant's cell cannot be reached, the request is denied. The decision never falls back to a cached set whose revisions cannot be checked.
-- I0005-R010: `GET /api/admin-tenancy/v1/session/capabilities` must return the resolved set, the home tenant, and the target tenant, computed by the same code as R004–R005.
+- I0005-R010: `GET /api/admin-tenancy/v1/session/capabilities` must return the resolved set, the home tenant, the target tenant, and the Napsoft tenant, computed by the same code as R004–R005. The Napsoft tenant lets the web app apply the R005 tenant `*` rule and build `NAP` capabilities.
 - I0005-R011: The web app must load R010 at shell entry and after tenant selection, and must:
   - hide navigation entries and routes whose capability does not match;
   - hide or disable actions whose capability does not match;
@@ -103,9 +103,9 @@ entitlements.
 
 ## 10. API Requirements
 
-| Method and route                                 | Capability            | Response                                   |
-| ------------------------------------------------ | --------------------- | ------------------------------------------ |
-| `GET /api/admin-tenancy/v1/session/capabilities` | Authenticated session | `{ patterns[], homeTenant, targetTenant }` |
+| Method and route                                 | Capability            | Response                                                  |
+| ------------------------------------------------ | --------------------- | --------------------------------------------------------- |
+| `GET /api/admin-tenancy/v1/session/capabilities` | Authenticated session | `{ patterns[], homeTenant, targetTenant, napsoftTenant }` |
 
 Every other route's capability is declared by its module (R001).
 

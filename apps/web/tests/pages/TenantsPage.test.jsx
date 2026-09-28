@@ -8,15 +8,24 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/api/client.js';
 import * as api from '../../src/api/endpoints.js';
+import { useSession } from '../../src/auth/SessionContext.jsx';
 import { TenantsPage } from '../../src/pages/management/TenantsPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
-import { installMatchMedia, installResizeObserver } from '../testUtils.jsx';
+import {
+  capabilitiesFixture,
+  installMatchMedia,
+  installResizeObserver,
+} from '../testUtils.jsx';
 
 vi.mock('../../src/api/endpoints.js', () => ({
   listTenantsPage: vi.fn(),
   createTenant: vi.fn(),
+}));
+
+vi.mock('../../src/auth/SessionContext.jsx', () => ({
+  useSession: vi.fn(),
 }));
 
 const TENANT = {
@@ -48,6 +57,10 @@ function renderPage() {
 beforeEach(() => {
   installMatchMedia();
   installResizeObserver();
+  useSession.mockReturnValue({
+    capabilities: capabilitiesFixture(),
+    refreshCapabilities: vi.fn(),
+  });
 });
 
 afterEach(() => {

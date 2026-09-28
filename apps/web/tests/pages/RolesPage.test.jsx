@@ -13,7 +13,7 @@ import { RolesPage } from '../../src/pages/management/RolesPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
-import { installMatchMedia } from '../testUtils.jsx';
+import { capabilitiesFixture, installMatchMedia } from '../testUtils.jsx';
 
 vi.mock('../../src/api/endpoints.js', () => ({
   listCapabilities: vi.fn(),
@@ -34,6 +34,15 @@ vi.mock('../../src/auth/SessionContext.jsx', () => ({
 }));
 
 const TENANT = { id: 't1', code: 'ACME', name: 'Acme', tier: 'standard' };
+
+/** A session on ACME whose capabilities are `patterns`. */
+function sessionFor(patterns = ['ACME::*::*::*']) {
+  return {
+    selectedTenant: TENANT,
+    capabilities: capabilitiesFixture({ patterns, targetTenant: TENANT }),
+    refreshCapabilities: vi.fn(),
+  };
+}
 
 const ADMIN = {
   id: 'r1',
@@ -97,7 +106,7 @@ function renderPage() {
 
 beforeEach(() => {
   installMatchMedia();
-  useSession.mockReturnValue({ selectedTenant: TENANT });
+  useSession.mockReturnValue(sessionFor());
   api.listRoles.mockResolvedValue([ADMIN, CUSTOM]);
   api.listCapabilities.mockResolvedValue(CATALOGUE);
   api.listUsersPage.mockResolvedValue({
@@ -118,7 +127,7 @@ async function openRole(user, name) {
 
 describe('RolesPage (M0003-R016)', () => {
   it('asks for a tenant when none is selected', () => {
-    useSession.mockReturnValue({ selectedTenant: null });
+    useSession.mockReturnValue({ ...sessionFor(), selectedTenant: null });
     renderPage();
     expect(
       screen.getByText('Select a tenant to manage its roles.')
@@ -316,5 +325,29 @@ describe('RolesPage (M0003-R016)', () => {
     expect(
       await screen.findByText('This would remove the last administrator.')
     ).toBeTruthy();
+  });
+
+  describe('without access-control::roles::write (I0005-R011)', () => {
+    beforeEach(() => {
+      useSession.mockReturnValue(
+        sessionFor(['ACME::access-control::roles::read'])
+      );
+    });
+
+    it('hides Create role', async () => {
+      renderPage();
+      await screen.findByText('Auditor');
+      expect(screen.queryByRole('button', { name: 'Create role' })).toBeNull();
+    });
+
+    it('hides Edit and Archive for a custom role', async () => {
+      renderPage();
+      const user = userEvent.setup();
+      const dialog = await openRole(user, 'Auditor');
+      expect(within(dialog).queryByRole('button', { name: 'Edit' })).toBeNull();
+      expect(
+        within(dialog).queryByRole('button', { name: 'Archive' })
+      ).toBeNull();
+    });
   });
 });

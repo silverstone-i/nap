@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { sendData } from '../../../../framework/envelope.js';
+import { requireCapability } from '../../../../capability/requireCapability.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import {
   archiveRole,
@@ -25,8 +26,8 @@ const WRITE = 'access-control::roles::write';
 const ASSIGN = 'access-control::assignments::write';
 
 /**
- * Wrap a handler: require a session, build the access-control context for
- * `capability`, and report failures through the error envelope.
+ * Wrap a handler: require a session and `capability` (I0005-R001), build the
+ * access-control context, and report failures through the error envelope.
  * @param {object} deps Route context (`admin`, `runtime`).
  * @param {string} capability
  * @param {(context: object, request: import('express').Request, response: import('express').Response) => Promise<void>} handler
@@ -35,9 +36,10 @@ const ASSIGN = 'access-control::assignments::write';
 function route(deps, capability, handler) {
   return [
     requireSession(),
+    requireCapability(capability),
     async (request, response) => {
       try {
-        const context = await accessControlContext(request, deps, capability);
+        const context = await accessControlContext(request, deps);
         await handler(context, request, response);
       } catch (error) {
         sendAccessControlError(response, error);

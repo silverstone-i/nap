@@ -11,7 +11,7 @@ import { NavDrawer } from '../src/shell/NavDrawer.jsx';
 import { SessionProvider } from '../src/auth/SessionContext.jsx';
 import { ThemeModeProvider } from '../src/theme/ThemeModeContext.jsx';
 import * as api from '../src/api/endpoints.js';
-import { installMatchMedia } from './testUtils.jsx';
+import { capabilitiesFixture, installMatchMedia } from './testUtils.jsx';
 
 // A real `navigate()` call re-renders the whole router context with no
 // `<Routes>` present in this isolated unit test to resolve it against,
@@ -29,6 +29,7 @@ vi.mock('../src/api/endpoints.js', () => ({
   changePassword: vi.fn(),
   logout: vi.fn(),
   getAccessContext: vi.fn(),
+  getSessionCapabilities: vi.fn(),
   listTenants: vi.fn(),
   selectTenant: vi.fn(),
 }));
@@ -66,8 +67,9 @@ beforeEach(() => {
     user: { id: 'u1', email: 'root@example.com' },
     selectedTenant: null,
     operator: { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' },
-    entryPoints: { platform: true, tenant: false },
+    entryPoints: { tenant: false },
   });
+  api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
 });
 
 afterEach(() => {
@@ -94,7 +96,7 @@ describe('NavDrawer — one shell', () => {
         tier: 'starter',
       },
       operator: { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' },
-      entryPoints: { platform: true, tenant: true },
+      entryPoints: { tenant: true },
     });
     renderDrawer({ variant: 'rail', expanded: true });
     expect(await screen.findByText('Tenant Management')).toBeTruthy();

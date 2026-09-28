@@ -5,6 +5,11 @@
 
 import { Router } from 'express';
 import { sendData } from '../../../../framework/envelope.js';
+import {
+  resolveCaller,
+  resolveTenants,
+} from '../../../../capability/authorize.js';
+import { sessionOnly } from '../../../../capability/requireCapability.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import { rotateSession } from '../../domain/session.js';
 import {
@@ -28,39 +33,73 @@ import {
 export function createSessionRouter({ admin, sessionPolicy, cookiePolicy }) {
   const router = Router();
 
-  router.get('/current', requireSession(), (request, response) =>
+  router.get('/current', requireSession(), sessionOnly, (request, response) =>
     sendData(response, request.session)
   );
 
-  router.post('/rotate', requireSession(), async (request, response) => {
-    try {
-      const rotated = await rotateSession(
-        admin.db,
-        sessionPolicy,
-        request.sessionToken,
-        { requestId: request.requestId }
-      );
-      issueSessionCookie(
-        response,
-        cookiePolicy,
-        rotated.token,
-        rotated.session
-      );
-      // Rotation reads only `admin.sessions`, so the rotated row carries no
-      // account flags. The restriction was already decided during resolution;
-      // carrying it across keeps one response shape for both routes.
-      sendData(response, {
-        ...rotated.session,
-        restricted: request.session.restricted,
-      });
-    } catch (error) {
-      // The token lost a rotation race, expired between resolution and this
-      // statement, or was revoked. The browser's copy is useless either way.
-      if (error?.code === 'UNAUTHENTICATED')
-        discardSessionCookie(response, cookiePolicy);
-      sendSessionError(response, error);
+  router.post(
+    '/rotate',
+    requireSession(),
+    sessionOnly,
+    async (request, response) => {
+      try {
+        const rotated = await rotateSession(
+          admin.db,
+          sessionPolicy,
+          request.sessionToken,
+          { requestId: request.requestId }
+        );
+        issueSessionCookie(
+          response,
+          cookiePolicy,
+          rotated.token,
+          rotated.session
+        );
+        // Rotation reads only `admin.sessions`, so the rotated row carries no
+        // account flags. The restriction was already decided during resolution;
+        // carrying it across keeps one response shape for both routes.
+        sendData(response, {
+          ...rotated.session,
+          restricted: request.session.restricted,
+        });
+      } catch (error) {
+        // The token lost a rotation race, expired between resolution and this
+        // statement, or was revoked. The browser's copy is useless either way.
+        if (error?.code === 'UNAUTHENTICATED')
+          discardSessionCookie(response, cookiePolicy);
+        sendSessionError(response, error);
+      }
     }
-  });
+  );
+
+  // I0005-R010: the resolved set, computed by the same code the decision
+  // uses. The web app gates navigation and actions on it (R011).
+  router.get(
+    '/capabilities',
+    requireSession(),
+    sessionOnly,
+    async (request, response) => {
+      try {
+        const deps = request.app.locals.authorization;
+        const { napsoft, targetTenant } = await resolveTenants(
+          deps.admin.db,
+          request.session,
+          'session'
+        );
+        const caller = await resolveCaller(deps, request.session, targetTenant);
+        const view = tenant =>
+          tenant ? { id: tenant.id, code: tenant.tenant_code } : null;
+        sendData(response, {
+          patterns: caller.patterns,
+          homeTenant: view(caller.homeTenant),
+          targetTenant: view(targetTenant),
+          napsoftTenant: view(napsoft),
+        });
+      } catch (error) {
+        sendSessionError(response, error);
+      }
+    }
+  );
 
   return router;
 }

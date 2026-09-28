@@ -6,19 +6,13 @@
 /**
  * @file The `Tenant Management` navigation group's data (I0001-R023).
  *
- * A child is visible only when both are true: its own `implemented` flag
- * (a real UI destination exists) and the server's per-destination
- * authorization signal, `entryPoints.tenantManagement` (I0001-R024) —
- * `{tenants, cells, portalUsers, accessControl}`, each derived server-side from the
- * caller's actual resolved capabilities
- * (`apps/api/src/modules/admin-tenancy/apiRoutes/v1/access.js`). Neither
- * condition alone is sufficient (I0002-R010).
- *
- * [I0002](../../../../../docs/PRDs/inter-module-workflows/I0002-platform-administration-screens.md)
- * implements the first three destinations and M0003-R016 adds Roles
- * (`apps/web/src/pages/management/`), so every child below is now `implemented: true` — the authorization gate
- * below was already real (I0001-R024).
+ * A child is visible only when it is implemented and the session's resolved
+ * capabilities match its route capability (I0005-R011). Tenants, cells, and
+ * portal users are records Napsoft manages, so they target the Napsoft
+ * tenant; Roles targets the selected tenant (M0003-R016).
  */
+
+import { can } from '../auth/capabilities.js';
 
 export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
   Object.freeze({
@@ -26,53 +20,52 @@ export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
     label: 'Tenants',
     path: '/management/tenants',
     implemented: true,
-    authKey: 'tenants',
+    capability: 'admin-tenancy::control::read',
+    target: 'napsoft',
   }),
   Object.freeze({
     id: 'cells',
     label: 'Cells',
     path: '/management/cells',
     implemented: true,
-    authKey: 'cells',
+    capability: 'admin-tenancy::control::read',
+    target: 'napsoft',
   }),
   Object.freeze({
     id: 'portal-users',
     label: 'Portal Users',
     path: '/management/portal-users',
     implemented: true,
-    authKey: 'portalUsers',
+    capability: 'admin-tenancy::accounts::read',
+    target: 'napsoft',
   }),
-  // M0003-R016: `accessControl` is true when the session may read roles.
   Object.freeze({
     id: 'roles',
     label: 'Roles',
     path: '/management/roles',
     implemented: true,
-    authKey: 'accessControl',
+    capability: 'access-control::roles::read',
+    target: 'session',
   }),
 ]);
 
 /**
- * Whether one child should be visible: implemented *and* authorized.
- * Neither condition alone is sufficient (I0002-R010).
- * @param {{implemented: boolean, authKey: string}} child
- * @param {{tenantManagement?: {tenants?: boolean, cells?: boolean, portalUsers?: boolean, accessControl?: boolean}}|null} [entryPoints]
+ * Whether one child should be visible: implemented *and* matched.
+ * @param {{implemented: boolean, capability: string, target: 'session'|'napsoft'}} child
+ * @param {object|null} capabilities `GET /session/capabilities` data.
  * @returns {boolean}
  */
-export function isChildVisible(child, entryPoints) {
-  return Boolean(
-    child.implemented && entryPoints?.tenantManagement?.[child.authKey]
-  );
+export function isChildVisible(child, capabilities) {
+  return child.implemented && can(capabilities, child.capability, child.target);
 }
 
 /**
- * The `Tenant Management` children visible for the caller's current
- * `entryPoints` (from the access context).
- * @param {{tenantManagement?: {tenants?: boolean, cells?: boolean, portalUsers?: boolean, accessControl?: boolean}}|null} [entryPoints]
+ * The `Tenant Management` children visible for the session's capabilities.
+ * @param {object|null} capabilities `GET /session/capabilities` data.
  * @returns {Array<{id: string, label: string, path: string}>}
  */
-export function visibleTenantManagementChildren(entryPoints) {
+export function visibleTenantManagementChildren(capabilities) {
   return TENANT_MANAGEMENT_CHILDREN.filter(child =>
-    isChildVisible(child, entryPoints)
+    isChildVisible(child, capabilities)
   ).map(({ id, label, path }) => ({ id, label, path }));
 }

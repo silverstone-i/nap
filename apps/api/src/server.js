@@ -77,6 +77,7 @@ try {
         cookiePolicy: config.cookie,
         applicationOrigin: config.applicationOrigin,
         runtime: cells,
+        cache,
         registrations: [...adminTenancyRoutesV1, ...accessControlRoutesV1],
       },
     }

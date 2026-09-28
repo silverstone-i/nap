@@ -13,6 +13,7 @@ import {
   accessContextResponseSchema,
   controlOverviewResponseSchema,
   eligibleTenantsResponseSchema,
+  sessionCapabilitiesSchema,
   sessionResponseSchema,
   tenantResponseSchema,
   tenantsListResponseSchema,
@@ -58,6 +59,12 @@ export async function changePassword(currentPassword, newPassword) {
 /** @returns {Promise<void>} */
 export async function logout() {
   await apiPost(`${BASE}/auth/logout`);
+}
+
+/** @returns {Promise<object>} The session's resolved capabilities (I0005-R010). */
+export async function getSessionCapabilities() {
+  const data = await apiGet(`${BASE}/session/capabilities`);
+  return sessionCapabilitiesSchema.parse(data);
 }
 
 /** @returns {Promise<object>} The browser startup context (I0001-R022). */

@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -133,7 +134,6 @@ function fakeAdmin({ tenants = [], failInsertWith, failAdvanceWith } = {}) {
     tx: operation => operation({ one: async () => ({}) }),
     portal_users: {
       findOneBy: async ({ id }) => ({ id }),
-      findBootstrapLogin: async () => ({ id: ROOT_ID }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -231,9 +231,11 @@ function api({ tenants, root = true, failInsertWith, failAdvanceWith } = {}) {
     expired: false,
     stale: false,
   });
+  const cache = authorizeActor(admin.db, ROOT_ID);
   const app = createApp({
     api: {
       admin,
+      cache,
       environment: 'test',
       sessionPolicy: policy,
       cookiePolicy,

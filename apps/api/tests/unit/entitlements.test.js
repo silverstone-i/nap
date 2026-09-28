@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -87,7 +88,6 @@ function fakeAdmin({
     tx: operation => operation({ one: async () => ({}) }),
     portal_users: {
       findOneBy: async ({ id }) => ({ id }),
-      findBootstrapLogin: async () => ({ id: ROOT_ID }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -210,9 +210,11 @@ function api({
     expired: false,
     stale: false,
   });
+  const cache = authorizeActor(admin.db, ROOT_ID);
   const app = createApp({
     api: {
       admin,
+      cache,
       environment: 'test',
       sessionPolicy: policy,
       cookiePolicy,
@@ -559,7 +561,7 @@ describe('entitlements routes', () => {
     });
   });
 
-  it('records the required failure event for a denied grant', async () => {
+  it('records access.denied for a grant the capability check refuses (I0005-R007)', async () => {
     const tenant = tenantRow();
     const { app, admin, cookie } = api({ tenants: [tenant], root: false });
     const response = await put(
@@ -569,9 +571,19 @@ describe('entitlements routes', () => {
     );
     expect(response.status).toBe(ERROR_STATUS.FORBIDDEN);
     expect(admin.appended).toHaveLength(1);
+    expect(response.body.error).toMatchObject({
+      code: 'FORBIDDEN',
+      capability: 'NAP::admin-tenancy::entitlements::write',
+      reason: 'INACTIVE',
+    });
     expect(admin.appended[0]).toMatchObject({
-      event_key: 'entitlement.granted',
+      event_key: 'access.denied',
       outcome: 'denied',
+      reason: 'INACTIVE',
+      details: {
+        capability: 'NAP::admin-tenancy::entitlements::write',
+        method: 'PUT',
+      },
     });
   });
 });

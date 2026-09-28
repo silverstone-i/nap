@@ -66,10 +66,13 @@ export function sessionContext({ admin, sessionPolicy, cookiePolicy }) {
  * @returns {import('express').RequestHandler}
  */
 export function requireSession({ allowRestricted = false } = {}) {
-  return (request, response, next) => {
+  const guard = (request, response, next) => {
     if (!request.session) return sendError(response, 'UNAUTHENTICATED');
     if (request.session.restricted && !allowRestricted)
       return sendError(response, 'PASSWORD_CHANGE_REQUIRED');
     next();
   };
+  // Marks the route protected for the I0005-R002 startup check.
+  guard.requiresSession = true;
+  return guard;
 }

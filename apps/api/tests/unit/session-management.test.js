@@ -8,6 +8,7 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { sessionViewSchema } from '@nap/shared';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { runtimeConfiguration } from '../../src/application/shared/runtimeConfiguration.js';
 import {
   createRouteRegistry,
@@ -75,10 +76,9 @@ function row(overrides = {}) {
  * concurrency are decided by SQL in the real model, so they are verified in
  * the database integration test rather than here.
  * @param {object[]} rows Session rows, keyed on their token hash.
- * @param {{bootstrapLoginId?: string}} [options]
  * @returns {{db: object, events: object[], revisions: object[]}}
  */
-function fakeAdmin(rows, { bootstrapLoginId = null } = {}) {
+function fakeAdmin(rows) {
   const events = [];
   const revisions = [];
   const store = new Map(rows.map(entry => [entry.token_hash, entry]));
@@ -99,8 +99,6 @@ function fakeAdmin(rows, { bootstrapLoginId = null } = {}) {
     },
     portal_users: {
       findOneBy: async ({ id }) => ({ id }),
-      findBootstrapLogin: async () =>
-        bootstrapLoginId ? { id: bootstrapLoginId } : null,
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -155,10 +153,14 @@ function fakeAdmin(rows, { bootstrapLoginId = null } = {}) {
  * @returns {{app: import('express').Express, admin: object}}
  */
 function api(rows = [], options) {
-  const admin = fakeAdmin(rows, options);
+  const admin = fakeAdmin(rows);
+  const cache = options?.bootstrapLoginId
+    ? authorizeActor(admin.db, options.bootstrapLoginId)
+    : authorizeActor(admin.db, randomUUID(), []);
   const app = createApp({
     api: {
       admin,
+      cache,
       sessionPolicy: policy,
       cookiePolicy,
       applicationOrigin: ORIGIN,

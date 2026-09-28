@@ -16,7 +16,7 @@ import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
 import { registerCell } from '../../src/modules/admin-tenancy/domain/cells.js';
-import { bootstrapRoot } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
+import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import {
   ARGON2_MINIMUM,
   verifyPassword,
@@ -141,7 +141,7 @@ beforeAll(async () => {
   db = handle.db;
 
   const unique = randomUUID().slice(0, 8);
-  const boot = await bootstrapRoot(db, {
+  const boot = await bootstrapNapsoft(db, {
     tenantCode: `NAP-${unique.toUpperCase()}`,
     tenantName: `Test Napsoft ${unique}`,
     rootEmail: `bootstrap-${unique}@nap.test`,

@@ -11,10 +11,8 @@ import {
   sendError,
 } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
-import {
-  accessScope,
-  resolveAuthorization,
-} from '../../domain/authorization.js';
+import { requireCapability } from '../../../../capability/requireCapability.js';
+import { requestAuthority } from '../../domain/authorization.js';
 import {
   archiveMembership,
   archiveUser,
@@ -29,6 +27,9 @@ import {
   updateMembership,
   updateUser,
 } from '../../domain/accounts.js';
+
+/** Admin-tenancy routes target the Napsoft tenant (I0005-R003). */
+const NAPSOFT = { target: 'napsoft' };
 
 /**
  * Report an accounts failure through the shared error envelope.
@@ -51,10 +52,8 @@ function sendAccountError(response, error) {
  * administration, and provisioning-job status. See
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md.
  *
- * `authorization.js` currently grants platform authority only to the
- * bootstrap login (I0005's role-based resolution remains deferred), so every
- * scope this router builds today is either full access or none — the same posture `tenants.js`
- * and `control.js` document for their own capability checks.
+ * Portal users are platform-level logins, so every route requires a `NAP`
+ * capability (I0005-R003).
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {{throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}} context.authenticationPolicy
@@ -68,100 +67,109 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
     parallelism: authenticationPolicy?.parallelism,
   };
 
-  /**
-   * Build an `{actorId, scope}` authority for one `admin-tenancy::accounts::*` capability.
-   * @param {import('express').Request} request
-   * @param {'admin-tenancy::accounts::read'|'admin-tenancy::accounts::write'} capability
-   * @returns {Promise<{actorId: string, scope: import('../../domain/scope.js').AdminAccessScope}>}
-   */
-  async function authority(request, capability) {
-    const context = await resolveAuthorization(admin.db, request.session);
-    return {
-      actorId: context.actorId,
-      scope: accessScope(context, capability),
-    };
-  }
-
-  router.post('/users', requireSession(), async (request, response) => {
-    try {
-      const write = await authority(request, 'admin-tenancy::accounts::write');
-      const user = await createOrReuseUser(
-        admin.db,
-        write,
-        hashingPolicy,
-        request.body,
-        request.get('Idempotency-Key'),
-        { requestId: request.requestId }
-      );
-      sendData(response, user, 201);
-    } catch (error) {
-      sendAccountError(response, error);
+  router.post(
+    '/users',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        const user = await createOrReuseUser(
+          admin.db,
+          write,
+          hashingPolicy,
+          request.body,
+          request.get('Idempotency-Key'),
+          { requestId: request.requestId }
+        );
+        sendData(response, user, 201);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
     }
-  });
+  );
 
-  router.get('/users', requireSession(), async (request, response) => {
-    try {
-      const read = await authority(request, 'admin-tenancy::accounts::read');
-      const result = await listUsers(admin.db, read, {
-        cursor: request.query.cursor,
-        limit:
-          request.query.limit === undefined
-            ? undefined
-            : Number(request.query.limit),
-      });
-      sendData(response, result);
-    } catch (error) {
-      sendAccountError(response, error);
+  router.get(
+    '/users',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        const read = requestAuthority(request);
+        const result = await listUsers(admin.db, read, {
+          cursor: request.query.cursor,
+          limit:
+            request.query.limit === undefined
+              ? undefined
+              : Number(request.query.limit),
+        });
+        sendData(response, result);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
     }
-  });
+  );
 
-  router.get('/users/:id', requireSession(), async (request, response) => {
-    try {
-      const read = await authority(request, 'admin-tenancy::accounts::read');
-      const user = await getUser(admin.db, read.scope, request.params.id);
-      sendData(response, user);
-    } catch (error) {
-      sendAccountError(response, error);
+  router.get(
+    '/users/:id',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        const read = requestAuthority(request);
+        const user = await getUser(admin.db, read.scope, request.params.id);
+        sendData(response, user);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
     }
-  });
+  );
 
-  router.patch('/users/:id', requireSession(), async (request, response) => {
-    try {
-      const write = await authority(request, 'admin-tenancy::accounts::write');
-      const user = await updateUser(
-        admin.db,
-        write,
-        request.params.id,
-        request.body,
-        { requestId: request.requestId }
-      );
-      sendData(response, user);
-    } catch (error) {
-      sendAccountError(response, error);
+  router.patch(
+    '/users/:id',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        const user = await updateUser(
+          admin.db,
+          write,
+          request.params.id,
+          request.body,
+          { requestId: request.requestId }
+        );
+        sendData(response, user);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
     }
-  });
+  );
 
-  router.delete('/users/:id', requireSession(), async (request, response) => {
-    try {
-      const write = await authority(request, 'admin-tenancy::accounts::write');
-      await archiveUser(admin.db, write, request.params.id, {
-        requestId: request.requestId,
-      });
-      sendNoContent(response);
-    } catch (error) {
-      sendAccountError(response, error);
+  router.delete(
+    '/users/:id',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        await archiveUser(admin.db, write, request.params.id, {
+          requestId: request.requestId,
+        });
+        sendNoContent(response);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
     }
-  });
+  );
 
   router.post(
     '/users/:id/restore',
     requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
     async (request, response) => {
       try {
-        const write = await authority(
-          request,
-          'admin-tenancy::accounts::write'
-        );
+        const write = requestAuthority(request);
         const user = await restoreUser(admin.db, write, request.params.id, {
           requestId: request.requestId,
         });
@@ -172,31 +180,34 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
     }
   );
 
-  router.post('/memberships', requireSession(), async (request, response) => {
-    try {
-      const write = await authority(request, 'admin-tenancy::accounts::write');
-      const result = await createMembership(
-        admin.db,
-        write,
-        request.body,
-        request.get('Idempotency-Key'),
-        { requestId: request.requestId }
-      );
-      sendData(response, result, 201);
-    } catch (error) {
-      sendAccountError(response, error);
+  router.post(
+    '/memberships',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        const result = await createMembership(
+          admin.db,
+          write,
+          request.body,
+          request.get('Idempotency-Key'),
+          { requestId: request.requestId }
+        );
+        sendData(response, result, 201);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
     }
-  });
+  );
 
   router.patch(
     '/memberships/:id',
     requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
     async (request, response) => {
       try {
-        const write = await authority(
-          request,
-          'admin-tenancy::accounts::write'
-        );
+        const write = requestAuthority(request);
         const membership = await updateMembership(
           admin.db,
           write,
@@ -214,12 +225,10 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
   router.delete(
     '/memberships/:id',
     requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
     async (request, response) => {
       try {
-        const write = await authority(
-          request,
-          'admin-tenancy::accounts::write'
-        );
+        const write = requestAuthority(request);
         await archiveMembership(admin.db, write, request.params.id, {
           requestId: request.requestId,
         });
@@ -233,12 +242,10 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
   router.post(
     '/memberships/:id/restore',
     requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
     async (request, response) => {
       try {
-        const write = await authority(
-          request,
-          'admin-tenancy::accounts::write'
-        );
+        const write = requestAuthority(request);
         const membership = await restoreMembership(
           admin.db,
           write,
@@ -252,25 +259,28 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
     }
   );
 
-  router.get('/jobs/:id', requireSession(), async (request, response) => {
-    try {
-      const read = await authority(request, 'admin-tenancy::accounts::read');
-      const job = await getJob(admin.db, read.scope, request.params.id);
-      sendData(response, job);
-    } catch (error) {
-      sendAccountError(response, error);
+  router.get(
+    '/jobs/:id',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        const read = requestAuthority(request);
+        const job = await getJob(admin.db, read.scope, request.params.id);
+        sendData(response, job);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
     }
-  });
+  );
 
   router.post(
     '/jobs/:id/retry',
     requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
     async (request, response) => {
       try {
-        const write = await authority(
-          request,
-          'admin-tenancy::accounts::write'
-        );
+        const write = requestAuthority(request);
         const job = await retryJob(admin.db, write, request.params.id, {
           requestId: request.requestId,
         });

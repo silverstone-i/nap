@@ -60,6 +60,9 @@ export const apiErrorResponseSchema = z.strictObject({
   error: z.strictObject({
     code: z.enum(apiErrorCodes),
     message: z.string().min(1),
+    // I0005-R007: present on a capability denial.
+    capability: z.string().optional(),
+    reason: z.string().optional(),
   }),
 });
 
@@ -116,16 +119,9 @@ export const accessContextSchema = z.strictObject({
   user: z.strictObject({ id: z.uuid(), email: z.string() }),
   selectedTenant: eligibleTenantSchema.nullable(),
   operator: eligibleTenantSchema.nullable(),
-  entryPoints: z.strictObject({
-    platform: z.boolean(),
-    tenant: z.boolean(),
-    tenantManagement: z.strictObject({
-      tenants: z.boolean(),
-      cells: z.boolean(),
-      portalUsers: z.boolean(),
-      accessControl: z.boolean(),
-    }),
-  }),
+  // Whether the user has an eligible tenant to select. What the user may
+  // do comes from `GET /session/capabilities` (I0005-R010).
+  entryPoints: z.strictObject({ tenant: z.boolean() }),
 });
 
 /** Zod schema for the success envelope returned by `GET /access/context`. */
@@ -260,3 +256,36 @@ export const controlOverviewResponseSchema = z.strictObject({
     anyActive: z.boolean(),
   }),
 });
+
+const capabilityTenantSchema = z.strictObject({
+  id: z.uuid(),
+  code: z.string(),
+});
+
+/** Zod schema for `GET /session/capabilities` data (I0005-R010). */
+export const sessionCapabilitiesSchema = z.strictObject({
+  patterns: z.array(z.string()),
+  homeTenant: capabilityTenantSchema.nullable(),
+  targetTenant: capabilityTenantSchema.nullable(),
+  napsoftTenant: capabilityTenantSchema.nullable(),
+});
+
+/**
+ * Whether a pattern matches a required capability (I0005-R005): each of the
+ * four `::` parts is equal or `*`, and a tenant `*` never matches the
+ * Napsoft tenant. Entitlements are the server's to check.
+ * @param {string} pattern `TENANT::module::router::action`, parts may be `*`.
+ * @param {string} required `TENANT::module::router::action`, no `*`.
+ * @param {string|null} napsoftCode
+ * @returns {boolean}
+ */
+export function patternMatches(pattern, required, napsoftCode) {
+  const have = pattern.split('::');
+  const need = required.split('::');
+  if (have.length !== 4 || need.length !== 4) return false;
+  if (have[0] === '*' ? need[0] === napsoftCode : have[0] !== need[0])
+    return false;
+  return [1, 2, 3].every(
+    index => have[index] === '*' || have[index] === need[index]
+  );
+}

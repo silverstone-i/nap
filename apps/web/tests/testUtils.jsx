@@ -44,3 +44,29 @@ export function installResizeObserver() {
     disconnect() {}
   };
 }
+
+/** The Napsoft tenant as `GET /session/capabilities` reports it. */
+export const NAPSOFT_TENANT = Object.freeze({ id: 'napsoft', code: 'NAP' });
+
+/**
+ * A `GET /session/capabilities` fixture (I0005-R011). The default is a
+ * platform admin: every capability on every tenant, Napsoft included.
+ * @param {{patterns?: string[], targetTenant?: {id: string, code: string}|null}} [overrides]
+ * @returns {{patterns: string[], homeTenant: object, targetTenant: object|null, napsoftTenant: object}}
+ */
+export function capabilitiesFixture({
+  patterns = ['*::*::*::*', 'NAP::*::*::*'],
+  targetTenant = NAPSOFT_TENANT,
+} = {}) {
+  return {
+    patterns,
+    homeTenant: NAPSOFT_TENANT,
+    targetTenant,
+    napsoftTenant: NAPSOFT_TENANT,
+  };
+}
+
+/** A session with no capabilities at all (a tenant-only user). */
+export const NO_CAPABILITIES = Object.freeze(
+  capabilitiesFixture({ patterns: [], targetTenant: null })
+);
