@@ -28,14 +28,11 @@ const AUDITED_FAILURE_CODES = new Set([
 const authoritySchema = z.strictObject({
   actorId: z.uuid(),
   granted: z.boolean(),
-  deniedTenantIds: z.array(z.uuid()),
 });
 
 /**
- * Require write authority. A create has no existing target tenant, so
- * (unlike retry or disable in domain/cells.js) `deniedTenantIds` is never
- * consulted here — support's Napsoft restriction on this route comes
- * entirely from `is_napsoft` never being an acceptable request field.
+ * Require write authority. `is_napsoft` is never an acceptable request
+ * field, so no create can make a Napsoft tenant.
  * @param {unknown} authority Result of `buildControlAuthority` (domain/cells.js).
  * @returns {{actorId: string}}
  * @throws {AdminTenantError} `INVALID_INPUT`, `FORBIDDEN`
@@ -373,9 +370,7 @@ function parseLimitOrTenant(value) {
 
 /**
  * List every central tenant record in ascending `id` order, paginated by
- * opaque cursor (I0002-R007). Carries no Napsoft/support carve-out — like
- * `getOverview` (domain/cells.js), reads are not scoped by
- * `deniedTenantIds`; only write actions target a specific tenant.
+ * opaque cursor (I0002-R007).
  * @param {AdminTenantsDb} db
  * @param {unknown} authority Result of `buildControlAuthority` (domain/cells.js) for `admin-tenancy::control::read`.
  * @param {{cursor?: unknown, limit?: unknown}} [page]

@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -16,9 +17,7 @@ import {
 import {
   OPTIONAL_MODULES,
   entitlementView,
-  grantEntitlement,
   listEntitlements,
-  withdrawEntitlement,
 } from '../../src/modules/admin-tenancy/domain/entitlements.js';
 
 const ORIGIN = 'http://localhost:5173';
@@ -88,7 +87,7 @@ function fakeAdmin({
   const db = {
     tx: operation => operation({ one: async () => ({}) }),
     portal_users: {
-      findOneBy: async ({ id }) => ({ id, is_root: id === ROOT_ID }),
+      findOneBy: async ({ id }) => ({ id }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -199,10 +198,6 @@ function api({
     id: randomUUID(),
     portal_user_id: actorId,
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: new Date(),
     idle_expires_at: new Date(Date.now() + 30 * 60_000),
     absolute_expires_at: new Date(Date.now() + 12 * 3_600_000),
@@ -215,9 +210,11 @@ function api({
     expired: false,
     stale: false,
   });
+  const cache = authorizeActor(admin.db, ROOT_ID);
   const app = createApp({
     api: {
       admin,
+      cache,
       environment: 'test',
       sessionPolicy: policy,
       cookiePolicy,
@@ -564,7 +561,7 @@ describe('entitlements routes', () => {
     });
   });
 
-  it('records the required failure event for a denied grant', async () => {
+  it('records access.denied for a grant the capability check refuses (I0005-R007)', async () => {
     const tenant = tenantRow();
     const { app, admin, cookie } = api({ tenants: [tenant], root: false });
     const response = await put(
@@ -574,48 +571,34 @@ describe('entitlements routes', () => {
     );
     expect(response.status).toBe(ERROR_STATUS.FORBIDDEN);
     expect(admin.appended).toHaveLength(1);
+    expect(response.body.error).toMatchObject({
+      code: 'FORBIDDEN',
+      capability: 'NAP::admin-tenancy::entitlements::write',
+      reason: 'INACTIVE',
+    });
     expect(admin.appended[0]).toMatchObject({
-      event_key: 'entitlement.granted',
+      event_key: 'access.denied',
       outcome: 'denied',
+      reason: 'INACTIVE',
+      details: {
+        capability: 'NAP::admin-tenancy::entitlements::write',
+        method: 'PUT',
+      },
     });
   });
 });
 
-describe('domain-level Napsoft denial', () => {
-  // `authorization.js` currently resolves only root or no platform authority
-  // (I0005's role-based `support` remains deferred), so there is no
-  // runtime path today to authenticate as a support actor with a populated
-  // `deniedTenantIds`. This exercises the domain layer directly with a
-  // hand-built scope, mirroring `tests/integration/accounts.test.js`'s
-  // `authority(deniedTenantIds)` helper.
-  function scope(deniedTenantIds) {
-    return {
-      platformPortalUserRead: true,
-      tenantIds: '*',
-      deniedTenantIds,
-      archiveManagement: true,
-    };
-  }
-
-  it('reports FORBIDDEN, not NOT_FOUND, for a Napsoft-denied tenant', async () => {
-    const napsoft = tenantRow({ is_napsoft: true });
-    const { db } = fakeAdmin({ tenants: [napsoft] });
-    const authority = { actorId: randomUUID(), scope: scope([napsoft.id]) };
-
-    await expect(
-      listEntitlements(db, authority, napsoft.id)
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await expect(
-      grantEntitlement(db, authority, napsoft.id, 'sales')
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await expect(
-      withdrawEntitlement(db, authority, napsoft.id, 'sales')
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-  });
-
-  it('still reports NOT_FOUND for a tenant that genuinely does not exist', async () => {
+describe('domain-level tenant lookup', () => {
+  it('reports NOT_FOUND for a tenant that does not exist', async () => {
     const { db } = fakeAdmin();
-    const authority = { actorId: randomUUID(), scope: scope([]) };
+    const authority = {
+      actorId: randomUUID(),
+      scope: {
+        platformPortalUserRead: true,
+        tenantIds: '*',
+        archiveManagement: true,
+      },
+    };
     await expect(
       listEntitlements(db, authority, randomUUID())
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });

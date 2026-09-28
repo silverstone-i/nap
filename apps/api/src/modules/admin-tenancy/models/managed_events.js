@@ -38,7 +38,6 @@ export const managedEventsSchema = {
     { name: 'event_key', type: 'varchar(128)', notNull: true, immutable: true },
     { name: 'outcome', type: 'text', notNull: true, immutable: true },
     { name: 'actor_id', type: 'uuid', immutable: true },
-    { name: 'effective_user_id', type: 'uuid', immutable: true },
     { name: 'tenant_id', type: 'uuid', immutable: true },
     { name: 'target_type', type: 'varchar(64)', immutable: true },
     { name: 'target_id', type: 'uuid', immutable: true },
@@ -128,6 +127,21 @@ export class ManagedEvents extends TableModel {
       ),
       nextCursor: last ? { occurred_at: last.cursor_at, id: last.id } : null,
     };
+  }
+
+  /**
+   * Whether an event with this deduplication key is already stored.
+   * @param {string} deduplicationKey
+   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
+   * @returns {Promise<boolean>}
+   */
+  async hasDeduplicationKey(deduplicationKey, { tx } = {}) {
+    const row = await (tx ?? this.db).one(
+      `SELECT EXISTS (SELECT 1 FROM ${this.schemaName}.${this.tableName}
+        WHERE deduplication_key=$1) AS "exists"`,
+      [deduplicationKey]
+    );
+    return row.exists;
   }
 
   /**

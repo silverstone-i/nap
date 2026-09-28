@@ -6,7 +6,10 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it, afterEach, vi } from 'vitest';
-import { accessContextResponseSchema } from '@nap/shared';
+import {
+  accessContextResponseSchema,
+  sessionCapabilitiesSchema,
+} from '@nap/shared';
 import { createApp } from '../../src/app.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -44,10 +47,6 @@ function sessionRow(overrides = {}) {
     id: randomUUID(),
     portal_user_id: randomUUID(),
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: created,
     idle_expires_at: new Date(created.getTime() + 30 * 60_000),
     absolute_expires_at: new Date(created.getTime() + 12 * 3_600_000),
@@ -100,7 +99,7 @@ function fakeAdmin({ users = [], tenants = [], memberships = [] } = {}) {
   const userStore = new Map(
     users.map(row => [
       row.id,
-      { status: 'active', is_root: false, deactivated_at: null, ...row },
+      { status: 'active', deactivated_at: null, ...row },
     ])
   );
   const tenantStore = new Map(tenants.map(row => [row.id, { ...row }]));
@@ -169,15 +168,18 @@ function live(admin, overrides = {}) {
 }
 
 /**
- * Build the API with a fake admin handle and the real route table.
+ * Build the API with a fake admin handle and the real route table. The
+ * revision-cache stub serves `patterns` as every caller's resolved set.
  * @param {object} [seed]
+ * @param {string[]} [patterns]
  * @returns {{app: import('express').Express, admin: object}}
  */
-function api(seed) {
+function api(seed, patterns = []) {
   const admin = fakeAdmin(seed);
   const app = createApp({
     api: {
       admin,
+      cache: { getOrLoad: async () => [...patterns] },
       sessionPolicy: policy,
       cookiePolicy,
       applicationOrigin: ORIGIN,
@@ -235,11 +237,7 @@ describe('GET /access/context', () => {
       user: { id: actorId, email: 'user@example.com' },
       selectedTenant: null,
       operator: null,
-      entryPoints: {
-        platform: false,
-        tenant: false,
-        tenantManagement: { tenants: false, cells: false, portalUsers: false },
-      },
+      entryPoints: { tenant: false },
     });
   });
 
@@ -251,7 +249,7 @@ describe('GET /access/context', () => {
       is_napsoft: true,
     });
     const { app, admin } = api({
-      users: [{ id: actorId, email: 'root@example.com', is_root: true }],
+      users: [{ id: actorId, email: 'root@example.com' }],
       tenants: [operatorTenant],
     });
     const { token } = live(admin, { portal_user_id: actorId });
@@ -285,62 +283,12 @@ describe('GET /access/context', () => {
       .get('/api/admin-tenancy/v1/access/context')
       .set('Cookie', `nap_session=${token}`);
     expect(response.status).toBe(200);
-    expect(response.body.data.entryPoints).toEqual({
-      platform: false,
-      tenant: true,
-      tenantManagement: { tenants: false, cells: false, portalUsers: false },
-    });
+    expect(response.body.data.entryPoints).toEqual({ tenant: true });
     expect(response.body.data.selectedTenant).toEqual({
       id: tenant.id,
       code: tenant.tenant_code,
       name: tenant.name,
       tier: tenant.tier,
-    });
-  });
-
-  it('reports platform entry for root', async () => {
-    const actorId = randomUUID();
-    const { app, admin } = api({
-      users: [{ id: actorId, email: 'root@example.com', is_root: true }],
-    });
-    const { token } = live(admin, { portal_user_id: actorId });
-    const response = await request(app)
-      .get('/api/admin-tenancy/v1/access/context')
-      .set('Cookie', `nap_session=${token}`);
-    expect(response.status).toBe(200);
-    expect(response.body.data.entryPoints.platform).toBe(true);
-  });
-
-  it("derives tenantManagement from root's actual resolved capabilities (I0001-R024)", async () => {
-    const actorId = randomUUID();
-    const { app, admin } = api({
-      users: [{ id: actorId, email: 'root@example.com', is_root: true }],
-    });
-    const { token } = live(admin, { portal_user_id: actorId });
-    const response = await request(app)
-      .get('/api/admin-tenancy/v1/access/context')
-      .set('Cookie', `nap_session=${token}`);
-    expect(response.status).toBe(200);
-    expect(response.body.data.entryPoints.tenantManagement).toEqual({
-      tenants: true,
-      cells: true,
-      portalUsers: true,
-    });
-  });
-
-  it('never derives tenantManagement from the coarser platform flag for a non-platform user', async () => {
-    const actorId = randomUUID();
-    const { app, admin } = api({
-      users: [{ id: actorId, email: 'user@example.com' }],
-    });
-    const { token } = live(admin, { portal_user_id: actorId });
-    const response = await request(app)
-      .get('/api/admin-tenancy/v1/access/context')
-      .set('Cookie', `nap_session=${token}`);
-    expect(response.status).toBe(200);
-    expect(response.body.data.entryPoints).toMatchObject({
-      platform: false,
-      tenantManagement: { tenants: false, cells: false, portalUsers: false },
     });
   });
 
@@ -356,5 +304,85 @@ describe('GET /access/context', () => {
     const serialized = JSON.stringify(response.body);
     for (const forbidden of ['password', 'token', 'role', 'capabilit'])
       expect(serialized.toLowerCase()).not.toContain(forbidden);
+  });
+});
+
+describe('GET /session/capabilities (I0005-R010)', () => {
+  const napsoft = tenantRow({
+    tenant_code: 'NAP',
+    is_napsoft: true,
+    cell_id: randomUUID(),
+  });
+
+  async function capabilities(seed, patterns, session = {}) {
+    const actorId = seed.users[0].id;
+    const { app, admin } = api(seed, patterns);
+    const { token } = live(admin, { portal_user_id: actorId, ...session });
+    const response = await request(app)
+      .get('/api/admin-tenancy/v1/session/capabilities')
+      .set('Cookie', `nap_session=${token}`);
+    expect(response.status).toBe(200);
+    expect(() =>
+      sessionCapabilitiesSchema.parse(response.body.data)
+    ).not.toThrow();
+    return response.body.data;
+  }
+
+  it("reads a Napsoft member's patterns from Napsoft, whatever the target", async () => {
+    const actorId = randomUUID();
+    const acme = tenantRow({ cell_id: randomUUID() });
+    const data = await capabilities(
+      {
+        users: [{ id: actorId, email: 'staff@example.com' }],
+        tenants: [napsoft, acme],
+        memberships: [
+          membershipRow({ portal_user_id: actorId, tenant_id: napsoft.id }),
+          membershipRow({ portal_user_id: actorId, tenant_id: acme.id }),
+        ],
+      },
+      ['*::*::*::read'],
+      { tenant_id: acme.id }
+    );
+    expect(data).toEqual({
+      patterns: ['*::*::*::read'],
+      homeTenant: { id: napsoft.id, code: 'NAP' },
+      targetTenant: { id: acme.id, code: 'ACME' },
+      napsoftTenant: { id: napsoft.id, code: 'NAP' },
+    });
+  });
+
+  it('uses the target tenant as home for a customer member', async () => {
+    const actorId = randomUUID();
+    const acme = tenantRow({ cell_id: randomUUID() });
+    const data = await capabilities(
+      {
+        users: [{ id: actorId, email: 'user@example.com' }],
+        tenants: [napsoft, acme],
+        memberships: [
+          membershipRow({ portal_user_id: actorId, tenant_id: acme.id }),
+        ],
+      },
+      ['ACME::*::*::*'],
+      { tenant_id: acme.id }
+    );
+    expect(data.homeTenant).toEqual({ id: acme.id, code: 'ACME' });
+    expect(data.patterns).toEqual(['ACME::*::*::*']);
+  });
+
+  it('resolves nothing for a user with no active membership', async () => {
+    const actorId = randomUUID();
+    const data = await capabilities(
+      {
+        users: [{ id: actorId, email: 'user@example.com' }],
+        tenants: [napsoft],
+      },
+      ['*::*::*::*']
+    );
+    expect(data).toEqual({
+      patterns: [],
+      homeTenant: null,
+      targetTenant: null,
+      napsoftTenant: { id: napsoft.id, code: 'NAP' },
+    });
   });
 });

@@ -8,11 +8,16 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/api/client.js';
 import * as api from '../../src/api/endpoints.js';
+import { useSession } from '../../src/auth/SessionContext.jsx';
 import { PortalUsersPage } from '../../src/pages/management/PortalUsersPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
-import { installMatchMedia, installResizeObserver } from '../testUtils.jsx';
+import {
+  capabilitiesFixture,
+  installMatchMedia,
+  installResizeObserver,
+} from '../testUtils.jsx';
 
 vi.mock('../../src/api/endpoints.js', () => ({
   listUsersPage: vi.fn(),
@@ -21,13 +26,16 @@ vi.mock('../../src/api/endpoints.js', () => ({
   restorePortalUser: vi.fn(),
 }));
 
+vi.mock('../../src/auth/SessionContext.jsx', () => ({
+  useSession: vi.fn(),
+}));
+
 const ACTIVE_USER = {
   id: 'u1',
   email: 'a@example.com',
   status: 'active',
   mustChangePassword: true,
   deactivatedAt: null,
-  isRoot: false,
 };
 
 const ARCHIVED_USER = {
@@ -39,15 +47,6 @@ const ARCHIVED_USER = {
   // parsing the server's ISO string through `usersListResponseSchema`'s
   // `z.coerce.date()` — the grid's `dateTime` column type requires this.
   deactivatedAt: new Date('2026-01-01T00:00:00Z'),
-};
-
-const ROOT_USER = {
-  id: 'u3',
-  email: 'root@example.com',
-  status: 'active',
-  mustChangePassword: false,
-  deactivatedAt: null,
-  isRoot: true,
 };
 
 function renderPage() {
@@ -64,6 +63,10 @@ function renderPage() {
 beforeEach(() => {
   installMatchMedia();
   installResizeObserver();
+  useSession.mockReturnValue({
+    capabilities: capabilitiesFixture(),
+    refreshCapabilities: vi.fn(),
+  });
 });
 
 afterEach(() => {
@@ -196,16 +199,5 @@ describe('PortalUsersPage', () => {
     renderPage();
     await screen.findByText('a@example.com');
     expect(screen.queryByText(/membership/i)).toBeNull();
-  });
-
-  it('shows root for visibility but offers no action, since M0001-08 refuses both against it', async () => {
-    api.listUsersPage.mockResolvedValue({
-      rows: [ACTIVE_USER, ROOT_USER],
-      nextCursor: null,
-    });
-    renderPage();
-    await screen.findByText('root@example.com');
-    // Only the ordinary user's row gets a "more" action trigger.
-    expect(screen.getAllByRole('menuitem', { name: 'more' })).toHaveLength(1);
   });
 });

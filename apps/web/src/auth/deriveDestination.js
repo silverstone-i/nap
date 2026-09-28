@@ -10,7 +10,7 @@
  */
 
 /**
- * @param {{status: string, session?: {restricted?: boolean}|null, selectedTenant?: object|null, entryPoints?: {platform?: boolean, tenant?: boolean}|null}} state
+ * @param {{status: string, session?: {restricted?: boolean}|null, selectedTenant?: object|null, entryPoints?: {tenant?: boolean}|null, management?: boolean}} state
  * @returns {string|null} The route to enter, or `null` when nothing is
  *   available (the "no access" case: an authenticated user with neither a
  *   tenant nor platform entry).
@@ -21,7 +21,7 @@ export function deriveDestination(state) {
   // One shell (I0001-R003): Home serves a selected tenant and management
   // alike. Only a user with no management access and no tenant selected
   // must pick a tenant first.
-  if (state.selectedTenant || state.entryPoints?.platform) return '/home';
+  if (state.selectedTenant || state.management) return '/home';
   if (state.entryPoints?.tenant) return '/tenants';
   return null;
 }

@@ -24,8 +24,8 @@ function nextAction(row) {
     return 'Wait. Provisioning is in progress.';
   if (row.status === 'failed')
     return 'Fix the cause of the failure, then choose Retry.';
-  if (row.status === 'completed' && row.failureCode === 'ROOT_SETUP_FAILED')
-    return 'Wait. Root tenant setup is retried automatically.';
+  if (row.status === 'completed' && row.failureCode === 'NAPSOFT_SETUP_FAILED')
+    return 'Wait. Napsoft tenant setup is retried automatically.';
   if (row.status === 'completed' && !row.enabled) return 'Choose Activate.';
   if (row.status === 'completed') return 'None. The cell is serving.';
   return 'None.';

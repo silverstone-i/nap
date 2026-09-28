@@ -7,7 +7,6 @@ import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { AdminSessionError, withSessionErrors } from './errors.js';
 import { isTenantPermitted, parseScope } from './scope.js';
-import { SESSION_VIEW_COLUMNS } from '../models/sessions.js';
 
 /** Bytes of entropy in a session token. 256 bits, as M0001-04 §5 requires. */
 export const SESSION_TOKEN_BYTES = 32;
@@ -28,16 +27,6 @@ const policySchema = z.strictObject({
   idleMinutes: z.number().int().min(1).max(1440),
   absoluteHours: z.number().int().min(1).max(168),
 });
-
-/**
- * Marks a rotated token on the session view `resolveSession` returns, when
- * an automatic support-access-expiry downgrade (M0001-09) replaced it. A
- * `Symbol` key rather than a plain property: `JSON.stringify` — and so every
- * JSON response envelope — silently omits symbol-keyed properties, which is
- * what keeps this from ever leaking into an HTTP response the way a plain
- * `rotatedToken` field would. Only `middleware/sessionContext.js` reads it.
- */
-export const ROTATED_TOKEN = Symbol('rotatedToken');
 
 /**
  * Reasons recorded on `session.revoked`. Each is a stable code, never a
@@ -129,8 +118,7 @@ const authoritySchema = z.strictObject({
  * @typedef {object} SessionAuthority
  * @property {string} actorId The real operator, who may always act on their own session.
  * @property {import('./scope.js').AdminAccessScope|null} scope Platform revocation
- *   scope, or `null` for a caller with no platform authority. `deniedTenantIds`
- *   carries support's Napsoft restriction.
+ *   scope, or `null` for a caller with no platform authority.
  */
 
 /**
@@ -154,11 +142,9 @@ export function parseSessionAuthority(authority) {
 /**
  * Whether an authority may act on a session belonging to `tenantId`.
  *
- * A platform session has no tenant. Only an all-tenant scope reaches one,
- * which is what lets `support` revoke platform sessions while a scope naming
- * individual tenants cannot. A tenant-bearing session goes through the shared
- * tenant rule, so a Napsoft tenant listed in `deniedTenantIds` is refused —
- * M0001-04-R007.
+ * A platform session has no tenant. Only an all-tenant scope reaches one; a
+ * scope naming individual tenants cannot. A tenant-bearing session goes
+ * through the shared tenant rule — M0001-04-R007.
  * @param {import('./scope.js').AdminAccessScope} scope
  * @param {string|null} tenantId
  * @returns {boolean}
@@ -184,10 +170,6 @@ export function sessionView(row) {
     id: row.id,
     user: row.portal_user_id,
     tenant: row.tenant_id ?? null,
-    accessMode: row.access_mode,
-    effectiveUser: row.effective_user_id ?? null,
-    accessReason: row.access_reason ?? null,
-    accessExpiresAt: row.access_expires_at ?? null,
     restricted: row.must_change_password === true,
     lastSeenAt: row.last_seen_at,
     idleExpiresAt: row.idle_expires_at,
@@ -263,56 +245,6 @@ async function archiveSessions(db, sessions, context, tx) {
   }
   await advanceSessionRevisions(db, archived, tx);
   return archived;
-}
-
-/**
- * Downgrade a support session whose access window has passed, replacing its
- * token in the same transaction.
- *
- * M0001-09 §12: "expiry ... retain[s] the real operator", so a
- * `support.exited` event is recorded even though nothing the operator did
- * triggered this — the passive read that discovered the expiry attributes
- * it. Returns `null`, appending nothing, when a concurrent request already
- * won the race (`Sessions.downgradeExpiredAccess`'s `id`-keyed precondition
- * no longer matches); the caller re-reads the row itself in that case
- * rather than treating it as a failure.
- * @param {AdminSessionDb} db
- * @param {object} row Pre-downgrade session row, from `findByTokenHash`.
- * @param {string} nextHash Hash of the freshly generated replacement token.
- * @param {{requestId: string|null, tx: object}} context
- * @returns {Promise<object|null>} The downgraded row (view columns only), or `null`.
- */
-async function downgradeExpiredSupportAccess(
-  db,
-  row,
-  nextHash,
-  { requestId, tx }
-) {
-  const downgraded = await db.sessions.downgradeExpiredAccess(
-    row.id,
-    nextHash,
-    {
-      tx,
-    }
-  );
-  if (!downgraded) return null;
-  await appendSessionEvent(
-    db,
-    {
-      event_key: 'support.exited',
-      outcome: 'succeeded',
-      request_id: requestId,
-      actor_id: row.portal_user_id,
-      effective_user_id: row.effective_user_id ?? null,
-      tenant_id: row.tenant_id,
-      target_id: row.id,
-      session_id: row.id,
-      details: {},
-    },
-    tx
-  );
-  await advanceSessionRevisions(db, [row.id], tx);
-  return downgraded;
 }
 
 /**
@@ -405,20 +337,12 @@ export async function createSession(
  * row from being resurrected by a clock change. Bookkeeping writes happen at
  * most once every `TOUCH_INTERVAL_MINUTES`, so an idle-but-live session costs
  * one indexed read per request.
- *
- * A support session whose `access_expires_at` has passed (M0001-09) is
- * downgraded to a normal session here too, with its token rotated in the
- * same transaction — the PRD's lifecycle table treats access expiry the same
- * as an explicit exit. The rotated token is attached to the returned view
- * under the `ROTATED_TOKEN` symbol, never as an enumerable field, so
- * `middleware/sessionContext.js` can set a fresh cookie without the token
- * ever reaching a JSON response.
+
  * @param {AdminSessionDb} db
  * @param {unknown} policy
  * @param {unknown} token Value read from the session cookie.
  * @param {{requestId?: string|null}} [context]
- * @returns {Promise<object>} Safe session view; carries a rotated token under
- *   `ROTATED_TOKEN` only when a support-access downgrade just happened.
+ * @returns {Promise<object>} Safe session view.
  * @throws {AdminSessionError} `UNAUTHENTICATED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function resolveSession(db, policy, token, { requestId } = {}) {
@@ -465,29 +389,6 @@ export async function resolveSession(db, policy, token, { requestId } = {}) {
       );
       throw new AdminSessionError('UNAUTHENTICATED');
     }
-    let rotatedToken = null;
-    if (row.access_mode === 'support' && row.access_expired) {
-      const next = createSessionToken();
-      const downgraded = await db.tx(tx =>
-        downgradeExpiredSupportAccess(db, row, hashSessionToken(parsed, next), {
-          requestId: requestId ?? null,
-          tx,
-        })
-      );
-      if (downgraded) {
-        Object.assign(row, downgraded);
-        rotatedToken = next;
-      } else {
-        // Another request already won the downgrade race; its rotation is
-        // already committed, so read the current row rather than treat this
-        // request as unauthenticated.
-        const current = await db.sessions.findOneBy(
-          { id: row.id },
-          { columnWhitelist: SESSION_VIEW_COLUMNS }
-        );
-        if (current) Object.assign(row, current);
-      }
-    }
     if (row.stale) {
       const touched = await db.tx(tx =>
         db.sessions.touch(row.id, parsed.idleMinutes, TOUCH_INTERVAL_MINUTES, {
@@ -496,9 +397,7 @@ export async function resolveSession(db, policy, token, { requestId } = {}) {
       );
       if (touched) Object.assign(row, touched);
     }
-    const view = sessionView(row);
-    if (rotatedToken) view[ROTATED_TOKEN] = rotatedToken;
-    return view;
+    return sessionView(row);
   });
 }
 
@@ -512,7 +411,7 @@ export async function resolveSession(db, policy, token, { requestId } = {}) {
  * is told its token is gone.
  *
  * The session keeps its identifier, so its events, revision key, and any
- * tenant or support context set by M0001-09 survive the rotation, which is
+ * tenant context set by M0001-09 survive the rotation, which is
  * M0001-04-R005.
  * @param {AdminSessionDb} db
  * @param {unknown} policy
@@ -541,7 +440,6 @@ export async function rotateSession(db, policy, token, { requestId, tx } = {}) {
           outcome: 'succeeded',
           request_id: requestId ?? null,
           actor_id: row.portal_user_id,
-          effective_user_id: row.effective_user_id ?? null,
           tenant_id: row.tenant_id ?? null,
           target_id: row.id,
           session_id: row.id,
@@ -560,12 +458,8 @@ export async function rotateSession(db, policy, token, { requestId, tx } = {}) {
  * Select a tenant for normal work, replacing the session's token in the
  * same transaction.
  *
- * M0001-09-R001, M0001-09-R005. `Sessions.selectTenant` is a single
- * conditional `UPDATE` keyed on the current token hash and requiring
- * `access_mode='normal'`, so a session already in a support context is
- * refused by that precondition rather than by a separate read-then-write
- * check — "Support contexts cannot nest or switch tenants; exit first."
- * Membership and tenant eligibility are `domain/tenantAccess.js`'s
+ * M0001-09-R001. `Sessions.selectTenant` is a single conditional `UPDATE`
+ * keyed on the current token hash. Membership and tenant eligibility are `domain/tenantAccess.js`'s
  * responsibility; this function only performs the write once they have
  * already been confirmed.
  * @param {AdminSessionDb} db
@@ -608,130 +502,6 @@ export async function selectSessionTenant(
           request_id: requestId,
           actor_id: row.portal_user_id,
           tenant_id: row.tenant_id,
-          target_id: row.id,
-          session_id: row.id,
-          details: {},
-        },
-        transaction
-      );
-      await advanceSessionRevisions(db, [row.id], transaction);
-      return { token: next, session: sessionView(row) };
-    };
-    return tx ? run(tx) : db.tx(run);
-  });
-}
-
-/**
- * Enter a time-limited support context, replacing the session's token in
- * the same transaction.
- *
- * M0001-09-R003, M0001-09-R004, M0001-09-R005. `Sessions.enterSupport`
- * requires `access_mode='normal'`, ruling out nesting; capability, reason,
- * tenant, and effective-user validity are all `domain/tenantAccess.js`'s
- * responsibility.
- * @param {AdminSessionDb} db
- * @param {unknown} policy
- * @param {unknown} token Current token.
- * @param {object} request
- * @param {string} request.tenantId
- * @param {string|null} [request.effectiveUserId]
- * @param {string} request.reason
- * @param {string|null} [request.requestId]
- * @param {{tx?: object}} [context]
- * @returns {Promise<{token: string, session: object}>}
- * @throws {AdminSessionError} `INVALID_INPUT`, `UNAUTHENTICATED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
- */
-export async function enterSessionSupport(
-  db,
-  policy,
-  token,
-  { tenantId, effectiveUserId = null, reason, requestId = null },
-  { tx } = {}
-) {
-  const parsed = parseSessionPolicy(policy);
-  const presented = parseSessionToken(token);
-  if (!z.uuid().safeParse(tenantId).success)
-    throw new AdminSessionError('INVALID_INPUT');
-  return withSessionErrors(async () => {
-    const run = async transaction => {
-      const next = createSessionToken();
-      const row = await db.sessions.enterSupport(
-        hashSessionToken(parsed, presented),
-        hashSessionToken(parsed, next),
-        { tenantId, effectiveUserId, reason },
-        parsed.idleMinutes,
-        { tx: transaction }
-      );
-      if (!row) throw new AdminSessionError('UNAUTHENTICATED');
-      await appendSessionEvent(
-        db,
-        {
-          event_key: 'support.entered',
-          outcome: 'succeeded',
-          request_id: requestId,
-          actor_id: row.portal_user_id,
-          effective_user_id: row.effective_user_id ?? null,
-          tenant_id: row.tenant_id,
-          target_id: row.id,
-          session_id: row.id,
-          details: {},
-        },
-        transaction
-      );
-      await advanceSessionRevisions(db, [row.id], transaction);
-      return { token: next, session: sessionView(row) };
-    };
-    return tx ? run(tx) : db.tx(run);
-  });
-}
-
-/**
- * Exit a support context, replacing the session's token in the same
- * transaction.
- *
- * M0001-09-R005. `Sessions.exitSupport` requires `access_mode='support'`.
- * The pre-exit `tenantId`/`effectiveUserId` are supplied by the caller
- * (already known from the resolved session) because the `RETURNING` row has
- * already cleared them by the time this function's event is recorded.
- * @param {AdminSessionDb} db
- * @param {unknown} policy
- * @param {unknown} token Current token.
- * @param {object} request
- * @param {string|null} request.tenantId Pre-exit tenant, for the event.
- * @param {string|null} [request.effectiveUserId] Pre-exit effective user, for the event.
- * @param {string|null} [request.requestId]
- * @param {{tx?: object}} [context]
- * @returns {Promise<{token: string, session: object}>}
- * @throws {AdminSessionError} `UNAUTHENTICATED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
- */
-export async function exitSessionSupport(
-  db,
-  policy,
-  token,
-  { tenantId = null, effectiveUserId = null, requestId = null },
-  { tx } = {}
-) {
-  const parsed = parseSessionPolicy(policy);
-  const presented = parseSessionToken(token);
-  return withSessionErrors(async () => {
-    const run = async transaction => {
-      const next = createSessionToken();
-      const row = await db.sessions.exitSupport(
-        hashSessionToken(parsed, presented),
-        hashSessionToken(parsed, next),
-        parsed.idleMinutes,
-        { tx: transaction }
-      );
-      if (!row) throw new AdminSessionError('UNAUTHENTICATED');
-      await appendSessionEvent(
-        db,
-        {
-          event_key: 'support.exited',
-          outcome: 'succeeded',
-          request_id: requestId,
-          actor_id: row.portal_user_id,
-          effective_user_id: effectiveUserId,
-          tenant_id: tenantId,
           target_id: row.id,
           session_id: row.id,
           details: {},
@@ -800,10 +570,7 @@ export async function logoutSession(db, policy, token, { requestId } = {}) {
  * M0001-04-R003 and M0001-04-R007. Authority is decided from the session's
  * owner and tenant before anything else happens: a caller revoking its own
  * session needs no scope, and any other caller needs a scope that permits the
- * session's tenant. A `support` scope carries the Napsoft tenants in
- * `deniedTenantIds`, so a session targeting one is refused — and refused
- * identically to a session that does not exist, so the refusal does not
- * reveal which tenant UUIDs are Napsoft's.
+ * session's tenant.
  *
  * Revoking an already-revoked session succeeds without recording a second
  * event, so a retried request is idempotent.

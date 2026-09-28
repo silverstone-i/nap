@@ -39,19 +39,17 @@ let handle, db;
 
 /**
  * Build an `{actorId, scope}` authority granting every entitlements
- * capability, mirroring root's fully-resolved scope from
+ * capability, mirroring the bootstrap login's fully-resolved scope from
  * `domain/authorization.js`. Mirrors `tests/integration/accounts.test.js`'s
- * `authority(deniedTenantIds)`.
- * @param {string[]} [deniedTenantIds]
+ * `authority()`.
  * @returns {{actorId: string, scope: object}}
  */
-function authority(deniedTenantIds = []) {
+function authority() {
   return {
     actorId: randomUUID(),
     scope: {
       platformPortalUserRead: true,
       tenantIds: '*',
-      deniedTenantIds,
       archiveManagement: true,
     },
   };
@@ -61,7 +59,7 @@ function authority(deniedTenantIds = []) {
 async function seedTenant() {
   const tenant = await createTenant(
     db,
-    { actorId: randomUUID(), granted: true, deniedTenantIds: [] },
+    { actorId: randomUUID(), granted: true },
     {
       code: 'T' + randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase(),
       name: 'Acme Construction',
@@ -187,17 +185,6 @@ describe('entitlements', () => {
       { domain: 'entitlement', entity: tenantId },
     ]);
     expect(afterNoop[0].revision).toBe('1');
-  });
-
-  it('reports a Napsoft-denied tenant as FORBIDDEN, not NOT_FOUND', async () => {
-    const tenantId = await seedTenant();
-    const denied = authority([tenantId]);
-    await expect(listEntitlements(db, denied, tenantId)).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-    });
-    await expect(
-      grantEntitlement(db, denied, tenantId, 'sales')
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('rejects an unknown tenant and an unknown module', async () => {

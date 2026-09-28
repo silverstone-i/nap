@@ -40,12 +40,11 @@ const config = {
 let handle, db;
 
 /**
- * Build a write authority for a root-equivalent operator.
- * @param {string[]} [deniedTenantIds]
- * @returns {{actorId: string, granted: boolean, deniedTenantIds: string[]}}
+ * Build a write authority for a platform-admin operator.
+ * @returns {{actorId: string, granted: boolean}}
  */
-function authority(deniedTenantIds = []) {
-  return { actorId: randomUUID(), granted: true, deniedTenantIds };
+function authority() {
+  return { actorId: randomUUID(), granted: true };
 }
 
 /**
@@ -60,37 +59,6 @@ function register(
     operation: 'cell',
     suffix,
   });
-}
-
-/**
- * Insert an active ordinary tenant, optionally assigned to a cell.
- * @param {{cellId?: string, napsoft?: boolean}} [options]
- * @returns {Promise<string>} The tenant UUID.
- */
-async function tenant({ cellId = null, napsoft = false } = {}) {
-  const row = await db.tenants.insert({
-    tenant_code: 'T-' + randomUUID().slice(0, 8),
-    name: 'Tenant',
-    status: 'active',
-    is_napsoft: napsoft,
-    cell_id: cellId,
-  });
-  return row.id;
-}
-
-/**
- * The owning tenant. A partial unique index permits exactly one row with
- * `is_napsoft`, so every test that needs a fresh one clears it first.
- * @param {string|null} cellId
- * @returns {Promise<string>} The Napsoft tenant UUID.
- */
-async function napsoftTenant(cellId) {
-  // The tenant's admin.outbox rows (I0004-R011) reference it.
-  await db.none(
-    'DELETE FROM admin.outbox WHERE tenant_id IN (SELECT id FROM admin.tenants WHERE is_napsoft)'
-  );
-  await db.tenants.deleteWhere({ is_napsoft: true });
-  return tenant({ cellId, napsoft: true });
 }
 
 /**
@@ -178,7 +146,6 @@ describe('registration', () => {
     const denied = {
       actorId: randomUUID(),
       granted: false,
-      deniedTenantIds: [],
     };
     await expect(
       registerCell(db, 'test', denied, { operation: 'cell', suffix: 'north' })
@@ -305,42 +272,6 @@ describe('disable', () => {
     await expect(
       disableCell(db, authority(), randomUUID())
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-  });
-});
-
-describe("support's Napsoft restriction", () => {
-  it('denies retry and disable on a cell holding the Napsoft tenant, but not other cells', async () => {
-    const { cell: napsoftCell, operation } = await register();
-    const napsoft = await napsoftTenant(napsoftCell.id);
-    const support = authority([napsoft]);
-
-    await advanceCellProvisioning(db, operation.operation_id, {
-      kind: 'started',
-    });
-    await advanceCellProvisioning(db, operation.operation_id, {
-      kind: 'failed',
-      failureCode: 'SETUP_TIMEOUT',
-    });
-    await expect(
-      retryCellProvisioning(db, support, napsoftCell.id)
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await expect(
-      disableCell(db, support, napsoftCell.id)
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-
-    const { cell: otherCell } = await register();
-    const other = await disableCell(db, support, otherCell.id);
-    expect(other.enabled).toBe(false);
-  });
-
-  it('never affects registration, which has no tenant yet', async () => {
-    const napsoft = await napsoftTenant(null);
-    const support = authority([napsoft]);
-    const { cell } = await registerCell(db, 'test', support, {
-      operation: 'cell',
-      suffix: 's' + randomUUID().replaceAll('-', '').slice(0, 12),
-    });
-    expect(cell.enabled).toBe(false);
   });
 });
 
@@ -484,7 +415,6 @@ describe('reads', () => {
     const denied = {
       actorId: randomUUID(),
       granted: false,
-      deniedTenantIds: [],
     };
     await expect(getOverview(db, denied, {})).rejects.toMatchObject({
       code: 'FORBIDDEN',

@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -28,7 +29,7 @@ const policy = {
 };
 const cookiePolicy = { secure: false, sameSite: 'lax' };
 const HASHING = { memoryKib: 19456, timeCost: 2, parallelism: 1 };
-const ROOT_ID = randomUUID();
+const BOOTSTRAP_ID = randomUUID();
 
 describe('views', () => {
   it('maps a portal-user row to the API camelCase contract', () => {
@@ -328,30 +329,26 @@ function fakeAdmin() {
 
 /**
  * Build the API with a fake admin handle and the real route table, and a
- * live session cookie for a root or ordinary actor.
- * @param {{root?: boolean}} [options]
+ * live session cookie for the bootstrap login or an ordinary actor.
+ * @param {{bootstrap?: boolean}} [options]
  * @returns {{app: import('express').Express, admin: object, cookie: string, actorId: string}}
  */
-function api({ root = true } = {}) {
+function api({ bootstrap = true } = {}) {
   const admin = fakeAdmin();
   const token = createSessionToken();
-  const actorId = root ? ROOT_ID : randomUUID();
+  const actorId = bootstrap ? BOOTSTRAP_ID : randomUUID();
   admin.userStore.set(actorId, {
     id: actorId,
-    email: root ? 'root@example.com' : 'operator@example.com',
+    email: bootstrap ? 'admin@example.com' : 'operator@example.com',
     status: 'active',
     must_change_password: false,
-    is_root: root,
+    bootstrap,
     deactivated_at: null,
   });
   admin.sessionStore.set(hashSessionToken(policy, token), {
     id: randomUUID(),
     portal_user_id: actorId,
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: new Date(),
     idle_expires_at: new Date(Date.now() + 30 * 60_000),
     absolute_expires_at: new Date(Date.now() + 12 * 3_600_000),
@@ -364,9 +361,11 @@ function api({ root = true } = {}) {
     expired: false,
     stale: false,
   });
+  const cache = authorizeActor(admin.db, BOOTSTRAP_ID);
   const app = createApp({
     api: {
       admin,
+      cache,
       environment: 'test',
       sessionPolicy: policy,
       cookiePolicy,
@@ -392,7 +391,6 @@ function seedUser(admin, overrides = {}) {
     email: `user-${randomUUID()}@example.com`,
     status: 'active',
     must_change_password: false,
-    is_root: false,
     deactivated_at: null,
     ...overrides,
   };
@@ -448,7 +446,7 @@ describe('users', () => {
   });
 
   it('refuses a session with no accounts capability', async () => {
-    const { app, cookie } = api({ root: false });
+    const { app, cookie } = api({ bootstrap: false });
     const response = await request(app)
       .post(`${BASE}/users`)
       .set('Origin', ORIGIN)
@@ -633,15 +631,6 @@ describe('users', () => {
     expect(response.status).toBe(ERROR_STATUS.NOT_FOUND);
   });
 
-  it('never exposes the root account through this module', async () => {
-    const { app, cookie, actorId } = api();
-    const response = await request(app)
-      .get(`${BASE}/users/${actorId}`)
-      .set('Origin', ORIGIN)
-      .set('Cookie', cookie);
-    expect(response.status).toBe(ERROR_STATUS.NOT_FOUND);
-  });
-
   it('changes email and status, and disabling revokes every live session', async () => {
     const { app, admin, cookie } = api();
     const user = seedUser(admin);
@@ -731,24 +720,21 @@ describe('GET /users list', () => {
   });
 
   it('refuses a session with no accounts capability', async () => {
-    const { app, cookie } = api({ root: false });
+    const { app, cookie } = api({ bootstrap: false });
     const response = await get(app, cookie);
     expect(response.status).toBe(ERROR_STATUS.FORBIDDEN);
   });
 
-  it('lists portal-user accounts as the safe userListView shape, including root read-only', async () => {
+  it('lists portal-user accounts as the safe userView shape', async () => {
     const { app, admin, cookie, actorId } = api();
     const user = seedUser(admin, { email: 'a@example.com' });
     const response = await get(app, cookie);
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.body.data.rows).toHaveLength(2);
-    expect(response.body.data.rows).toContainEqual({
-      ...userView(user),
-      isRoot: false,
-    });
+    expect(response.body.data.rows).toContainEqual(userView(user));
     expect(response.body.data.rows).toContainEqual(
-      expect.objectContaining({ id: actorId, isRoot: true })
+      expect.objectContaining({ id: actorId })
     );
   });
 
@@ -759,11 +745,10 @@ describe('GET /users list', () => {
     expect(response.body.data.rows).toContainEqual({
       ...userView(user),
       deactivatedAt: user.deactivated_at.toISOString(),
-      isRoot: false,
     });
   });
 
-  it('paginates with cursor and limit, root included in the count', async () => {
+  it('paginates with cursor and limit, the caller included in the count', async () => {
     const { app, admin, cookie, actorId } = api();
     const users = Array.from({ length: 3 }, () => seedUser(admin));
     const allIds = [...users.map(u => u.id), actorId].sort();
@@ -965,7 +950,7 @@ describe('memberships', () => {
     });
   });
 
-  it('never lets this route touch the root membership', async () => {
+  it('never lets this route touch the bootstrap membership', async () => {
     const { app, admin, cookie } = api();
     const membership = seedMembership(admin, {
       member_type: null,
@@ -1181,7 +1166,7 @@ describe('provisioning jobs', () => {
     expect(admin.jobStore.get(job.id)).toMatchObject({ status: 'queued' });
   });
 
-  it('never lets a provisioning report touch the root membership', async () => {
+  it('never lets a provisioning report touch the bootstrap membership', async () => {
     const admin = fakeAdmin();
     const membership = seedMembership(admin, {
       member_type: null,

@@ -146,7 +146,7 @@ export async function withSessionErrors(operation) {
 const BOOTSTRAP_CODES = new Set([
   'INVALID_INPUT',
   'TENANT_CONFLICT',
-  'ROOT_CONFLICT',
+  'LOGIN_CONFLICT',
   'MEMBERSHIP_CONFLICT',
   'CONFLICT',
   'AUDIT_UNAVAILABLE',
@@ -155,7 +155,7 @@ const BOOTSTRAP_CODES = new Set([
 
 /**
  * Error carrying one of the stable `admin-tenancy` bootstrap codes:
- * `INVALID_INPUT`, `TENANT_CONFLICT`, `ROOT_CONFLICT`, `MEMBERSHIP_CONFLICT`,
+ * `INVALID_INPUT`, `TENANT_CONFLICT`, `LOGIN_CONFLICT`, `MEMBERSHIP_CONFLICT`,
  * `CONFLICT`, `AUDIT_UNAVAILABLE`, or `INTERNAL_ERROR`. Never carries a
  * password, a password hash, or database detail.
  *
@@ -448,8 +448,8 @@ const TENANT_ACCESS_CODES = new Set([
  * `INTERNAL_ERROR`. Never carries database detail, a session token, or which
  * tenant UUID is Napsoft's.
  *
- * Kept separate from `AdminSessionError` because only tenant selection and
- * support access report `CELL_UNAVAILABLE`, for a tenant's assigned cell
+ * Kept separate from `AdminSessionError` because only tenant selection
+ * reports `CELL_UNAVAILABLE`, for a tenant's assigned cell
  * being unassigned, disabled, or not runtime-ready (M0001-09-R001).
  */
 export class AdminTenantAccessError extends Error {

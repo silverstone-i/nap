@@ -15,7 +15,7 @@ import { hashPassword, parsePassword } from './password.js';
  */
 export const CONFLICT_CODES = Object.freeze({
   tenant: 'TENANT_CONFLICT',
-  root: 'ROOT_CONFLICT',
+  login: 'LOGIN_CONFLICT',
   membership: 'MEMBERSHIP_CONFLICT',
 });
 
@@ -91,35 +91,33 @@ async function resolveTenant(db, tx, { tenantCode, tenantName }) {
 }
 
 /**
- * Create or verify the root portal user inside the bootstrap transaction.
+ * Create or verify the bootstrap login inside the bootstrap transaction.
  *
  * A repeat run never rewrites the stored password hash, even when the
  * configured password has since changed: M0001-02-R003 preserves it, and
- * rerunning bootstrap is never password recovery. The root account does not
- * require a password change on first login: `is_root` alone grants it
- * `platform_admin` capabilities (M0001-05-R001), so there is no restricted
- * session to clear.
+ * rerunning bootstrap is never password recovery. The bootstrap login does
+ * not require a password change on first login (M0001-02).
  * @param {object} db
  * @param {import('pg-promise').IDatabase<unknown>} tx
  * @param {{rootEmail: string, rootPassword: string, hashingPolicy: import('./password.js').HashingPolicy}} config
  * @returns {Promise<{row: object, created: boolean}>}
- * @throws {AdminBootstrapError} `ROOT_CONFLICT`
+ * @throws {AdminBootstrapError} `LOGIN_CONFLICT`
  */
-async function resolveRootUser(
+async function resolveBootstrapLogin(
   db,
   tx,
   { rootEmail, rootPassword, hashingPolicy }
 ) {
-  const existing = await db.portal_users.lockRoot({ tx });
+  const existing = await db.portal_users.lockBootstrapLogin({ tx });
   if (existing) {
     if (existing.email.toLowerCase() !== rootEmail)
-      throw new AdminBootstrapError(CONFLICT_CODES.root);
+      throw new AdminBootstrapError(CONFLICT_CODES.login);
     return { row: existing, created: false };
   }
   const taken = await db.portal_users.lockActiveByEmail(rootEmail, { tx });
-  if (taken) throw new AdminBootstrapError(CONFLICT_CODES.root);
+  if (taken) throw new AdminBootstrapError(CONFLICT_CODES.login);
   const passwordHash = await hashPassword(hashingPolicy, rootPassword);
-  const row = await db.portal_users.insertRoot(
+  const row = await db.portal_users.insertBootstrapLogin(
     { email: rootEmail, passwordHash },
     { tx }
   );
@@ -127,11 +125,12 @@ async function resolveRootUser(
 }
 
 /**
- * Create or verify the root membership inside the bootstrap transaction.
+ * Create or verify the bootstrap login's Napsoft membership inside the
+ * bootstrap transaction.
  *
- * A null `member_type` is only valid for this exact root-user/napsoft-tenant
- * pair (the `protect_membership` trigger enforces it), so no extra check is
- * needed beyond the row's existence.
+ * A null `member_type` is only valid in the Napsoft tenant (the
+ * `protect_membership` trigger enforces it), so no extra check is needed
+ * beyond the row's existence.
  * @param {object} db
  * @param {import('pg-promise').IDatabase<unknown>} tx
  * @param {string} tenantId
@@ -179,22 +178,22 @@ async function appendBootstrapEvent(db, event, options = {}) {
 }
 
 /**
- * Create or verify the owning tenant, root portal user, and root membership.
+ * Create or verify the Napsoft tenant, bootstrap login, and its Napsoft
+ * membership.
  * M0001-02-R001 through R004.
  *
  * Runs entirely under one transaction-scoped advisory lock and one
  * transaction (M0001-02-R005), so concurrent bootstrap attempts serialize
  * rather than race; the second attempt observes the first's committed rows
- * and reports the same result. Bootstrap does not create a role assignment:
- * root authority comes from `is_root = true` alone, resolved by M0001-05 at
- * authorization time, independent of cell provisioning or role seeding
- * (M0001-02-R002).
+ * and reports the same result. Bootstrap creates no role or role assignment
+ * (M0001-02-R001, R002): the Napsoft seed assigns `platform_admin` in the
+ * Napsoft cell during Napsoft tenant setup (I0003-R024).
  * @param {object} db Admin database handle with `tenants`, `portal_users`, `portal_user_tenants`, `managed_events`, and `tx`.
  * @param {unknown} config `{tenantCode, tenantName, rootEmail, rootPassword, hashingPolicy}`.
- * @returns {Promise<{status: 'created'|'existing', tenant: object, rootUser: object, membership: object}|{status: 'conflict', code: string}>}
+ * @returns {Promise<{status: 'created'|'existing', tenant: object, login: object, membership: object}|{status: 'conflict', code: string}>}
  * @throws {AdminBootstrapError} `INVALID_INPUT`, `AUDIT_UNAVAILABLE`, or `INTERNAL_ERROR`
  */
-export async function bootstrapRoot(db, config) {
+export async function bootstrapNapsoft(db, config) {
   const parsed = parseBootstrapConfig(config);
   const requestId = randomUUID();
   return withBootstrapErrors(async () => {
@@ -202,15 +201,14 @@ export async function bootstrapRoot(db, config) {
       return await db.tx(async tx => {
         await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY})`);
         const tenant = await resolveTenant(db, tx, parsed);
-        const rootUser = await resolveRootUser(db, tx, parsed);
+        const login = await resolveBootstrapLogin(db, tx, parsed);
         const membership = await resolveMembership(
           db,
           tx,
           tenant.row.id,
-          rootUser.row.id
+          login.row.id
         );
-        const created =
-          tenant.created || rootUser.created || membership.created;
+        const created = tenant.created || login.created || membership.created;
         // A pure verify-only run — everything already matched the
         // configuration — writes no event. Logging "succeeded" on every
         // repeat invocation would make a health-check-style rerun grow the
@@ -230,7 +228,7 @@ export async function bootstrapRoot(db, config) {
         return {
           status: created ? 'created' : 'existing',
           tenant: tenant.row,
-          rootUser: rootUser.row,
+          login: login.row,
           membership: membership.row,
         };
       });

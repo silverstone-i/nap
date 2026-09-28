@@ -11,13 +11,14 @@ import { App } from '../src/App.jsx';
 import { ThemeModeProvider } from '../src/theme/ThemeModeContext.jsx';
 import { ApiError } from '../src/api/client.js';
 import * as api from '../src/api/endpoints.js';
-import { installMatchMedia } from './testUtils.jsx';
+import { capabilitiesFixture, installMatchMedia } from './testUtils.jsx';
 
 vi.mock('../src/api/endpoints.js', () => ({
   login: vi.fn(),
   changePassword: vi.fn(),
   logout: vi.fn(),
   getAccessContext: vi.fn(),
+  getSessionCapabilities: vi.fn(),
   listTenants: vi.fn(),
   selectTenant: vi.fn(),
 }));
@@ -35,6 +36,7 @@ function renderAt(path) {
 beforeEach(() => {
   installMatchMedia();
   api.getAccessContext.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
+  api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
 });
 
 afterEach(() => {
@@ -73,19 +75,19 @@ describe('LoginPage', () => {
     expect(await screen.findByText(/Try again in 30 seconds/)).toBeTruthy();
   });
 
-  it('redirects to Home after a successful login with platform entry', async () => {
+  it('redirects to Home after a successful login with management access', async () => {
     api.login.mockResolvedValue({ restricted: false });
     renderAt('/login');
     await screen.findByRole('heading', { name: 'Sign in' });
 
     // The mount-time load stays anonymous (beforeEach); queue the *next*
     // call — the refresh login() triggers on success — to return a ready
-    // platform-only context.
+    // management-only context; capabilities come from beforeEach.
     api.getAccessContext.mockResolvedValueOnce({
       session: { restricted: false },
       user: { id: 'u1', email: 'root@example.com' },
       selectedTenant: null,
-      entryPoints: { platform: true, tenant: false },
+      entryPoints: { tenant: false },
     });
 
     const user = userEvent.setup();
@@ -96,13 +98,10 @@ describe('LoginPage', () => {
     await waitFor(() =>
       expect(screen.getByText('No tenant selected.')).toBeTruthy()
     );
-    // I0001-R023, AC16 empty-group case, exercised end to end with the real
-    // (unmocked) `tenantManagementNav.js`: this fixture's `entryPoints`
-    // carries no `tenantManagement` signal at all, so every child stays
-    // unauthorized (I0002-R010 — implemented alone is not sufficient) and
-    // only Home appears in the navigation.
+    // Management access is derived from the real (unmocked)
+    // `tenantManagementNav.js` matching the session's capabilities.
     expect(screen.getByRole('button', { name: 'Home' })).toBeTruthy();
-    expect(screen.queryByText('Tenant Management')).toBeNull();
+    expect(screen.getByText('Tenant Management')).toBeTruthy();
   });
   describe('auto-selects a single tenant after login (I0001-R003)', () => {
     const napsoft = { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' };
@@ -112,7 +111,7 @@ describe('LoginPage', () => {
       user: { id: 'u1', email: 'root@example.com' },
       selectedTenant: null,
       operator: napsoft,
-      entryPoints: { platform: true, tenant: true },
+      entryPoints: { tenant: true },
     };
 
     async function signIn() {

@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { sendData, sendNoContent } from '../../../../framework/envelope.js';
+import { sessionOnly } from '../../../../capability/requireCapability.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import {
   changePassword,
@@ -80,6 +81,7 @@ export function createAuthRouter({
   router.post(
     '/password',
     requireSession({ allowRestricted: true }),
+    sessionOnly,
     async (request, response) => {
       const body = passwordChangeRequestSchema.safeParse(request.body);
       if (!body.success)

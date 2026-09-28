@@ -15,9 +15,7 @@ const order = [
   'tenants',
   'portal_user_tenants',
   'sessions',
-  'support_grants',
   'login_throttles',
-  'platform_roles',
   'cell_provisioning',
   'provisioning_jobs',
   'module_entitlements',
@@ -132,7 +130,6 @@ export async function verifyAdmin(handle, modules) {
       .join(''),
   }));
   for (const [table, name, type] of [
-    ['portal_users', 'protect_root', 27],
     ['portal_user_tenants', 'protect_membership', 31],
     ['tenants', 'protect_cell_assignment', 19],
     ['managed_events', 'protect_event', 27],

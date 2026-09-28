@@ -3,56 +3,32 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { PLATFORM_ADMIN_CAPABILITIES } from '../../../capability/systemRoles.js';
-import { AdminAccessError } from './errors.js';
-
-function matches(capabilities, requested) {
-  return capabilities.includes(requested);
-}
-
-export async function resolveAuthorization(db, session) {
-  const user = await db.portal_users.findOneBy(
-    { id: session.user, status: 'active' },
-    { columnWhitelist: ['id', 'is_root'] }
-  );
-  if (!user) throw new AdminAccessError('FORBIDDEN');
-  if (
-    user.is_root &&
-    session.restricted !== true &&
-    session.accessMode === 'normal'
-  )
-    return {
-      actorId: user.id,
-      platform: 'root',
-      platformCapabilities: [...PLATFORM_ADMIN_CAPABILITIES],
-    };
+/**
+ * The admin data scope an I0005 decision grants. Admin-tenancy routes act on
+ * records Napsoft manages about tenants, so they require a `NAP` capability
+ * (I0005-R003); a permit reaches every tenant's records and a deny reaches
+ * none.
+ * @param {{decision: 'permit'|'deny'}|undefined} authorization An `authorize` result.
+ * @returns {import('./scope.js').AdminAccessScope}
+ */
+export function accessScope(authorization) {
+  const granted = authorization?.decision === 'permit';
   return {
-    actorId: user.id,
-    platform: null,
-    platformCapabilities: [],
+    platformPortalUserRead: granted,
+    tenantIds: granted ? '*' : [],
+    archiveManagement: granted,
   };
 }
 
-export function permits(context, capability) {
-  return matches(context.platformCapabilities, capability);
-}
-
-export function requireCapability(context, capability) {
-  if (!permits(context, capability)) throw new AdminAccessError('FORBIDDEN');
-}
-
-export function accessScope(context, capability) {
-  if (matches(context.platformCapabilities, capability))
-    return {
-      platformPortalUserRead: true,
-      tenantIds: '*',
-      deniedTenantIds: [],
-      archiveManagement: true,
-    };
+/**
+ * The `{actorId, scope}` authority the accounts and entitlement domains take,
+ * from a request `requireCapability` permitted.
+ * @param {import('express').Request} request
+ * @returns {{actorId: string, scope: import('./scope.js').AdminAccessScope}}
+ */
+export function requestAuthority(request) {
   return {
-    platformPortalUserRead: false,
-    tenantIds: [],
-    deniedTenantIds: [],
-    archiveManagement: false,
+    actorId: request.authorization.actorId,
+    scope: accessScope(request.authorization),
   };
 }

@@ -42,21 +42,13 @@ const membershipId = '44444444-4444-4444-8444-444444444444';
 const platformScope = {
   platformPortalUserRead: true,
   tenantIds: '*',
-  deniedTenantIds: [],
   archiveManagement: true,
 };
 const tenantScope = tenants => ({
   platformPortalUserRead: false,
   tenantIds: tenants,
-  deniedTenantIds: [],
   archiveManagement: false,
 });
-const supportScope = {
-  platformPortalUserRead: true,
-  tenantIds: '*',
-  deniedTenantIds: [tenantId],
-  archiveManagement: false,
-};
 
 function fakeDb({
   tenant = null,
@@ -83,7 +75,6 @@ describe('scope validation', () => {
       { ...platformScope, extra: true },
       { ...platformScope, tenantIds: 'not-a-uuid-list' },
       { ...platformScope, tenantIds: ['not-a-uuid'] },
-      { ...platformScope, deniedTenantIds: ['not-a-uuid'] },
       { ...platformScope, archiveManagement: 'yes' },
     ])
       expect(() => parseScope(bad)).toThrow(AdminAccessError);
@@ -96,8 +87,6 @@ describe('scope validation', () => {
     [tenantScope([tenantId]), tenantId, true],
     [tenantScope([tenantId]), otherTenantId, false],
     [tenantScope('*'), otherTenantId, true],
-    [supportScope, tenantId, false],
-    [supportScope, otherTenantId, true],
   ])('isTenantPermitted(%j, %s) -> %s', (scope, id, expected) =>
     expect(isTenantPermitted(scope, id)).toBe(expected)
   );
@@ -179,12 +168,6 @@ describe('typed error mapping', () => {
       findTenant(db, tenantScope([otherTenantId]), tenantId)
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(db.tenants.findOneBy).not.toHaveBeenCalled();
-  });
-  it("denies support's Napsoft-restricted tenant", async () => {
-    const db = fakeDb();
-    await expect(findTenant(db, supportScope, tenantId)).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-    });
   });
   it('requires archive-management authority for IncludingArchived reads', async () => {
     const db = fakeDb();
@@ -365,22 +348,6 @@ describe('list pagination', () => {
         filters: {
           portal_user_id: userId,
           tenant_id: { $in: [tenantId] },
-        },
-      }
-    );
-  });
-  it('excludes explicitly denied tenants from a user membership list', async () => {
-    const db = fakeDb();
-    await listMembershipsByUser(db, supportScope, userId);
-    expect(db.portal_user_tenants.findAfterCursor).toHaveBeenCalledWith(
-      {},
-      50,
-      ['id'],
-      {
-        columnWhitelist: MEMBERSHIP_VIEW_COLUMNS,
-        filters: {
-          portal_user_id: userId,
-          $and: [{ tenant_id: { $ne: tenantId } }],
         },
       }
     );

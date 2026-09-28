@@ -17,6 +17,7 @@ import { correlation } from './middleware/correlation.js';
 import { browserRequestProtection } from './middleware/browserRequestProtection.js';
 import { jsonBodyOnly } from './middleware/jsonBody.js';
 import { sessionContext } from './middleware/sessionContext.js';
+import { checkRouteCapabilities } from './capability/requireCapability.js';
 
 /** Largest JSON body any admin route accepts. Session routes send far less. */
 const JSON_BODY_LIMIT = '64kb';
@@ -40,9 +41,11 @@ const JSON_BODY_LIMIT = '64kb';
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} api.cookiePolicy
  * @param {string} api.applicationOrigin Configured public application origin.
  * @param {{readiness: Function, markDisabled: Function}} [api.runtime] Runtime cell registry (I0003-R020).
+ * @param {{getOrLoad: Function}} [api.cache] Revision cache for resolved patterns (I0005-R008).
  * @param {object[]} [api.registrations] Route registrations to mount.
  * @returns {void}
- * @throws {Error} When the application origin or a registration is invalid.
+ * @throws {Error} When the application origin or a registration is invalid,
+ *   or a route fails the capability check (I0005-R002).
  */
 function mountApi(app, api) {
   const {
@@ -53,6 +56,7 @@ function mountApi(app, api) {
     cookiePolicy,
     applicationOrigin,
     runtime,
+    cache,
     registrations = [],
   } = api;
   const registry = createRouteRegistry();
@@ -70,14 +74,22 @@ function mountApi(app, api) {
     next(error);
   });
   app.use('/api', sessionContext({ admin, sessionPolicy, cookiePolicy }));
-  registry.mount(app, {
-    admin,
-    environment,
-    sessionPolicy,
-    authenticationPolicy,
-    cookiePolicy,
-    runtime,
-  });
+  // Read by `requireCapability` (I0005).
+  app.locals.authorization = { admin, runtime, cache };
+  registry.mount(
+    app,
+    {
+      admin,
+      environment,
+      sessionPolicy,
+      authenticationPolicy,
+      cookiePolicy,
+      runtime,
+      // Cell routers mount only when the runtime cell registry is present.
+      cells: runtime,
+    },
+    { check: checkRouteCapabilities }
+  );
 }
 
 /**

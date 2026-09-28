@@ -18,12 +18,16 @@ export class ApiError extends Error {
    * @param {string} code One of `@nap/shared`'s `apiErrorCodes`.
    * @param {number} status HTTP status.
    * @param {number|null} [retryAfterSeconds] Present only for `THROTTLED`.
+   * @param {{capability?: string, reason?: string}} [denial] Present on a
+   *   capability denial (I0005-R007).
    */
-  constructor(code, status, retryAfterSeconds = null) {
+  constructor(code, status, retryAfterSeconds = null, denial = {}) {
     super(code);
     this.code = code;
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.capability = denial.capability ?? null;
+    this.reason = denial.reason ?? null;
   }
 }
 
@@ -62,12 +66,13 @@ async function request(method, path, body, extraHeaders = {}) {
   }
 
   if (envelope?.error) {
-    const { code } = envelope.error;
+    const { code, capability, reason } = envelope.error;
     const retryAfter = response.headers.get('Retry-After');
     throw new ApiError(
       code,
       response.status,
-      code === 'THROTTLED' && retryAfter ? Number(retryAfter) : null
+      code === 'THROTTLED' && retryAfter ? Number(retryAfter) : null,
+      { capability, reason }
     );
   }
 
@@ -79,5 +84,9 @@ export const apiGet = path => request('GET', path);
 /** POST `body` to `path` and return the envelope's `data`. @param {string} path @param {unknown} [body] @param {Record<string, string>} [extraHeaders] @returns {Promise<unknown>} */
 export const apiPost = (path, body, extraHeaders) =>
   request('POST', path, body, extraHeaders);
+/** PUT `body` to `path` and return the envelope's `data`. @param {string} path @param {unknown} [body] @returns {Promise<unknown>} */
+export const apiPut = (path, body) => request('PUT', path, body);
+/** PATCH `body` to `path` and return the envelope's `data`. @param {string} path @param {unknown} [body] @returns {Promise<unknown>} */
+export const apiPatch = (path, body) => request('PATCH', path, body);
 /** DELETE `path` and return the envelope's `data`, or `null` for a `204`. @param {string} path @returns {Promise<unknown>} */
 export const apiDelete = path => request('DELETE', path);

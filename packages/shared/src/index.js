@@ -60,6 +60,9 @@ export const apiErrorResponseSchema = z.strictObject({
   error: z.strictObject({
     code: z.enum(apiErrorCodes),
     message: z.string().min(1),
+    // I0005-R007: present on a capability denial.
+    capability: z.string().optional(),
+    reason: z.string().optional(),
   }),
 });
 
@@ -76,10 +79,6 @@ export const sessionViewSchema = z.strictObject({
   id: z.uuid(),
   user: z.uuid(),
   tenant: z.uuid().nullable(),
-  accessMode: z.enum(['normal', 'support']),
-  effectiveUser: z.uuid().nullable(),
-  accessReason: z.string().nullable(),
-  accessExpiresAt: z.coerce.date().nullable(),
   restricted: z.boolean(),
   lastSeenAt: z.coerce.date(),
   idleExpiresAt: z.coerce.date(),
@@ -120,15 +119,9 @@ export const accessContextSchema = z.strictObject({
   user: z.strictObject({ id: z.uuid(), email: z.string() }),
   selectedTenant: eligibleTenantSchema.nullable(),
   operator: eligibleTenantSchema.nullable(),
-  entryPoints: z.strictObject({
-    platform: z.boolean(),
-    tenant: z.boolean(),
-    tenantManagement: z.strictObject({
-      tenants: z.boolean(),
-      cells: z.boolean(),
-      portalUsers: z.boolean(),
-    }),
-  }),
+  // Whether the user has an eligible tenant to select. What the user may
+  // do comes from `GET /session/capabilities` (I0005-R010).
+  entryPoints: z.strictObject({ tenant: z.boolean() }),
 });
 
 /** Zod schema for the success envelope returned by `GET /access/context`. */
@@ -199,12 +192,8 @@ export const userResponseSchema = z.strictObject({
 });
 
 /**
- * Zod schema for one `GET /accounts/users` row — `userListView`
- * (`apps/api` `domain/accounts.js`): `userViewSchema` plus `isRoot`, the
- * signal the Portal Users screen uses to withhold Deactivate/Restore for
- * the one row root ever accounts for (I0002-R008 amendment: the list
- * includes root, read-only, for operator visibility — no other route in
- * this module ever exposes or accepts it).
+ * Zod schema for one `GET /accounts/users` row — `userView`
+ * (`apps/api` `domain/accounts.js`).
  */
 export const userListRowSchema = z.strictObject({
   id: z.uuid(),
@@ -212,7 +201,6 @@ export const userListRowSchema = z.strictObject({
   status: z.string(),
   mustChangePassword: z.boolean(),
   deactivatedAt: z.coerce.date().nullable(),
-  isRoot: z.boolean(),
 });
 
 /** Zod schema for the success envelope returned by `GET /accounts/users`. */
@@ -267,4 +255,63 @@ export const controlOverviewResponseSchema = z.strictObject({
     // I0003-R030: whether any job is queued or running on any page.
     anyActive: z.boolean(),
   }),
+});
+
+const capabilityTenantSchema = z.strictObject({
+  id: z.uuid(),
+  code: z.string(),
+});
+
+/** Zod schema for `GET /session/capabilities` data (I0005-R010). */
+export const sessionCapabilitiesSchema = z.strictObject({
+  patterns: z.array(z.string()),
+  homeTenant: capabilityTenantSchema.nullable(),
+  targetTenant: capabilityTenantSchema.nullable(),
+  napsoftTenant: capabilityTenantSchema.nullable(),
+});
+
+/**
+ * Whether a pattern matches a required capability (I0005-R005): each of the
+ * four `::` parts is equal or `*`, and a tenant `*` never matches the
+ * Napsoft tenant. Entitlements are the server's to check.
+ * @param {string} pattern `TENANT::module::router::action`, parts may be `*`.
+ * @param {string} required `TENANT::module::router::action`, no `*`.
+ * @param {string|null} napsoftCode
+ * @returns {boolean}
+ */
+export function patternMatches(pattern, required, napsoftCode) {
+  const have = pattern.split('::');
+  const need = required.split('::');
+  if (have.length !== 4 || need.length !== 4) return false;
+  if (have[0] === '*' ? need[0] === napsoftCode : have[0] !== need[0])
+    return false;
+  return [1, 2, 3].every(
+    index => have[index] === '*' || have[index] === need[index]
+  );
+}
+
+/** Zod schema for one access-control role view (M0003 §10). */
+export const roleViewSchema = z.strictObject({
+  id: z.uuid(),
+  code: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  isImmutable: z.boolean(),
+  archived: z.boolean(),
+  revision: z.number(),
+  grants: z.array(z.string()),
+});
+
+/** Zod schema for a user's active role assignments (M0003 §10). */
+export const userRolesSchema = z.strictObject({
+  userId: z.uuid(),
+  roles: z.array(roleViewSchema),
+});
+
+/** Zod schema for one capability catalogue entry (M0003-R005). */
+export const capabilityEntrySchema = z.strictObject({
+  capability: z.string(),
+  module: z.string(),
+  router: z.string(),
+  action: z.string(),
 });

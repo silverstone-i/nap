@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import { ApiError } from '../../api/client.js';
+import { denialMessage } from '../../auth/capabilities.js';
+import { useCapabilities } from '../../auth/useCapabilities.js';
 import {
   activateCell,
   disableCell,
@@ -101,7 +103,7 @@ function describeActionError(err) {
   if (err instanceof ApiError && err.code === 'INVALID_STATE')
     return 'This cell cannot perform that action right now.';
   if (err instanceof ApiError && err.code === 'FORBIDDEN')
-    return 'You are not authorized to perform that action.';
+    return denialMessage(err);
   if (err instanceof ApiError && err.code === 'NOT_FOUND')
     return 'This cell no longer exists.';
   return 'Something went wrong. Please try again.';
@@ -131,6 +133,8 @@ export function CellsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [progressRow, setProgressRow] = useState(null);
   const [actionError, setActionError] = useState(null);
+  const { can, onError } = useCapabilities();
+  const canWrite = can('admin-tenancy::control::write', 'napsoft');
 
   // I0003-R030: refresh while any cell is queued or running, and stop when
   // none is.
@@ -142,7 +146,7 @@ export function CellsPage() {
 
   usePageHeader({
     title: 'Cells',
-    actions: (
+    actions: canWrite ? (
       <Button
         variant="contained"
         size="small"
@@ -150,7 +154,7 @@ export function CellsPage() {
       >
         Register cell
       </Button>
-    ),
+    ) : null,
   });
 
   async function handleRetry(row) {
@@ -159,6 +163,7 @@ export function CellsPage() {
       await retryCellProvisioning({ cell: row.id });
       setResetKey(key => key + 1);
     } catch (err) {
+      onError(err);
       setActionError(describeActionError(err));
     }
   }
@@ -169,6 +174,7 @@ export function CellsPage() {
       await disableCell({ cell: row.id });
       setResetKey(key => key + 1);
     } catch (err) {
+      onError(err);
       setActionError(describeActionError(err));
     }
   }
@@ -179,12 +185,14 @@ export function CellsPage() {
       await activateCell({ cell: row.id });
       setResetKey(key => key + 1);
     } catch (err) {
+      onError(err);
       setActionError(describeActionError(err));
     }
   }
 
   function rowActions(row) {
     const actions = [{ label: 'View progress', onClick: setProgressRow }];
+    if (!canWrite) return actions;
     // Retry is only meaningful from a failed operation (M0001-06 §7); the
     // server enforces this regardless, but hiding it otherwise keeps the
     // menu honest. Disable only makes sense while the cell is enabled.

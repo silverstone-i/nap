@@ -9,47 +9,39 @@ import {
   isChildVisible,
   visibleTenantManagementChildren,
 } from '../src/shell/tenantManagementNav.js';
+import { NO_CAPABILITIES, capabilitiesFixture } from './testUtils.jsx';
 
-describe('visibleTenantManagementChildren (I0001-R023)', () => {
-  it('lists Tenants, Cells, and Portal Users as the three known children', () => {
+const ACME = { id: 'acme', code: 'ACME' };
+
+describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
+  it('lists Tenants, Cells, Portal Users, and Roles as the known children', () => {
     expect(TENANT_MANAGEMENT_CHILDREN.map(child => child.label)).toEqual([
       'Tenants',
       'Cells',
       'Portal Users',
+      'Roles',
     ]);
   });
 
-  it('every child is implemented, now that I0002 ships all three screens', () => {
+  it('every child is implemented (I0002 screens plus M0003-R016 Roles)', () => {
     expect(
       TENANT_MANAGEMENT_CHILDREN.every(child => child.implemented === true)
     ).toBe(true);
   });
 
   it.each([
-    ['no entry points at all', undefined],
+    ['no capabilities loaded', undefined],
     ['an anonymous-shaped value', null],
-    [
-      'a tenant-only user with no tenantManagement authority',
-      {
-        platform: false,
-        tenant: true,
-        tenantManagement: { tenants: false, cells: false, portalUsers: false },
-      },
-    ],
+    ['a session with no patterns', NO_CAPABILITIES],
   ])(
-    'returns no children for %s — implemented is not sufficient alone (I0002-R010)',
-    (_label, entryPoints) => {
-      expect(visibleTenantManagementChildren(entryPoints)).toEqual([]);
+    'returns no children for %s — implemented is not sufficient alone',
+    (_label, capabilities) => {
+      expect(visibleTenantManagementChildren(capabilities)).toEqual([]);
     }
   );
 
-  it('returns all three, in order, for a platform user authorized for all three (I0001-R024, I0002-R010)', () => {
-    const entryPoints = {
-      platform: true,
-      tenant: false,
-      tenantManagement: { tenants: true, cells: true, portalUsers: true },
-    };
-    expect(visibleTenantManagementChildren(entryPoints)).toEqual([
+  it('returns all four, in order, for a platform admin', () => {
+    expect(visibleTenantManagementChildren(capabilitiesFixture())).toEqual([
       { id: 'tenants', label: 'Tenants', path: '/management/tenants' },
       { id: 'cells', label: 'Cells', path: '/management/cells' },
       {
@@ -57,56 +49,69 @@ describe('visibleTenantManagementChildren (I0001-R023)', () => {
         label: 'Portal Users',
         path: '/management/portal-users',
       },
+      { id: 'roles', label: 'Roles', path: '/management/roles' },
     ]);
   });
 
-  it('returns only the authorized subset when authorization is partial', () => {
-    const entryPoints = {
-      platform: true,
-      tenant: false,
-      tenantManagement: { tenants: true, cells: false, portalUsers: true },
-    };
+  it('returns only the matched subset when capabilities are partial', () => {
+    const capabilities = capabilitiesFixture({
+      patterns: ['NAP::admin-tenancy::accounts::*'],
+    });
     expect(
-      visibleTenantManagementChildren(entryPoints).map(child => child.id)
-    ).toEqual(['tenants', 'portal-users']);
+      visibleTenantManagementChildren(capabilities).map(child => child.id)
+    ).toEqual(['portal-users']);
+  });
+
+  it('checks Tenants, Cells, and Portal Users against Napsoft, and Roles against the target tenant', () => {
+    // A tenant admin of ACME: everything on ACME, nothing on Napsoft.
+    const capabilities = capabilitiesFixture({
+      patterns: ['ACME::*::*::*'],
+      targetTenant: ACME,
+    });
+    expect(
+      visibleTenantManagementChildren(capabilities).map(child => child.id)
+    ).toEqual(['roles']);
+  });
+
+  it('never shows the Napsoft children for a tenant-wildcard pattern', () => {
+    const capabilities = capabilitiesFixture({
+      patterns: ['*::*::*::read'],
+      targetTenant: ACME,
+    });
+    expect(
+      visibleTenantManagementChildren(capabilities).map(child => child.id)
+    ).toEqual(['roles']);
   });
 });
 
-describe('isChildVisible (I0001-R024 gate, I0002-R010)', () => {
-  const child = { implemented: true, authKey: 'cells' };
+describe('isChildVisible (I0001-R024 gate, I0005-R011)', () => {
+  const child = {
+    implemented: true,
+    capability: 'admin-tenancy::control::read',
+    target: 'napsoft',
+  };
 
-  it('is visible only when both implemented and authorized', () => {
-    expect(isChildVisible(child, { tenantManagement: { cells: true } })).toBe(
-      true
-    );
+  it('is visible only when both implemented and matched', () => {
+    expect(isChildVisible(child, capabilitiesFixture())).toBe(true);
   });
 
-  it('stays hidden when authorized but not implemented', () => {
+  it('stays hidden when matched but not implemented', () => {
+    expect(
+      isChildVisible({ ...child, implemented: false }, capabilitiesFixture())
+    ).toBe(false);
+  });
+
+  it('stays hidden when implemented but not matched', () => {
     expect(
       isChildVisible(
-        { ...child, implemented: false },
-        { tenantManagement: { cells: true } }
+        child,
+        capabilitiesFixture({ patterns: ['NAP::admin-tenancy::accounts::*'] })
       )
     ).toBe(false);
   });
 
-  it('stays hidden when implemented but not authorized', () => {
-    expect(isChildVisible(child, { tenantManagement: { cells: false } })).toBe(
-      false
-    );
-  });
-
-  it('stays hidden when entryPoints carries no tenantManagement signal at all', () => {
-    expect(isChildVisible(child, {})).toBe(false);
+  it('stays hidden when no capabilities are loaded', () => {
     expect(isChildVisible(child, null)).toBe(false);
     expect(isChildVisible(child, undefined)).toBe(false);
-  });
-
-  it("only consults its own authKey, not a sibling's", () => {
-    expect(
-      isChildVisible(child, {
-        tenantManagement: { cells: false, tenants: true, portalUsers: true },
-      })
-    ).toBe(false);
   });
 });

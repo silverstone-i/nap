@@ -32,9 +32,13 @@ const DENIED = Object.freeze(['denied']);
  * a later Work Unit cannot widen it into a leak.
  */
 export const EVENT_DETAIL_KEYS = Object.freeze([
+  'after',
   'attempt',
   'attempts',
+  'before',
+  'capability',
   'cell_code',
+  'changed_at',
   'changed_fields',
   'code',
   'direction',
@@ -95,8 +99,46 @@ export const EVENT_CATALOGUE = Object.freeze({
   'session.expired': { outcomes: SUCCEEDED, details: [] },
 
   'role.initialized': { outcomes: ANY_OUTCOME, details: ['role'] },
-  'role.granted': { outcomes: ANY_OUTCOME, details: ['role'] },
-  'role.revoked': { outcomes: ANY_OUTCOME, details: ['role'] },
+  // M0003-R015. `role.granted` and `role.revoked` record a role assignment
+  // added to or removed from `portal_user_id`; the role keys record changes
+  // to a role itself, with `before` and `after` as JSON snapshots of its
+  // name, description, archived state, and grants.
+  'role.granted': {
+    outcomes: ANY_OUTCOME,
+    details: [
+      'role',
+      'portal_user_id',
+      'from_status',
+      'to_status',
+      'changed_at',
+    ],
+  },
+  'role.revoked': {
+    outcomes: ANY_OUTCOME,
+    details: [
+      'role',
+      'portal_user_id',
+      'from_status',
+      'to_status',
+      'changed_at',
+    ],
+  },
+  'role.created': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'after', 'changed_at'],
+  },
+  'role.updated': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'before', 'after', 'changed_at'],
+  },
+  'role.archived': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'before', 'after', 'changed_at'],
+  },
+  'role.restored': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'before', 'after', 'changed_at'],
+  },
 
   'cell.registered': {
     outcomes: ANY_OUTCOME,
@@ -170,7 +212,7 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['attempt'],
   },
 
-  'tenant.root_setup.completed': { outcomes: SUCCEEDED, details: [] },
+  'tenant.napsoft_setup.completed': { outcomes: SUCCEEDED, details: [] },
 
   // I0004-R034: sync delivery and portal-access results.
   'sync.delivery.failed': {
@@ -190,9 +232,8 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['direction', 'failure_code'],
   },
   'tenant.selected': { outcomes: ANY_OUTCOME, details: [] },
-  'support.entered': { outcomes: ANY_OUTCOME, details: [] },
-  'support.exited': { outcomes: ANY_OUTCOME, details: [] },
-  'support.denied': { outcomes: DENIED, details: ['code'] },
+  // I0005-R007: a write refused by the capability check.
+  'access.denied': { outcomes: DENIED, details: ['capability', 'method'] },
 
   'entitlement.granted': {
     outcomes: ANY_OUTCOME,
@@ -223,7 +264,6 @@ export const EVENT_VIEW_COLUMNS = Object.freeze([
   'event_key',
   'outcome',
   'actor_id',
-  'effective_user_id',
   'tenant_id',
   'target_type',
   'target_id',
@@ -239,7 +279,6 @@ export const EVENT_INSERT_COLUMNS = Object.freeze([
   'event_key',
   'outcome',
   'actor_id',
-  'effective_user_id',
   'tenant_id',
   'target_type',
   'target_id',
@@ -248,6 +287,14 @@ export const EVENT_INSERT_COLUMNS = Object.freeze([
   'details',
 ]);
 
+/**
+ * Detail keys whose string values may run to `LONG_DETAIL_LENGTH`: the
+ * `before` and `after` role snapshots, whose grant lists outgrow the usual
+ * 256 characters.
+ */
+const LONG_DETAIL_KEYS = new Set(['before', 'after']);
+const LONG_DETAIL_LENGTH = 8192;
+
 const optionalUuid = z.uuid().nullish().transform(withNull);
 const eventSchema = z.strictObject({
   deduplication_key: z.uuid(),
@@ -255,7 +302,6 @@ const eventSchema = z.strictObject({
   outcome: z.enum(EVENT_OUTCOMES),
   request_id: optionalUuid,
   actor_id: optionalUuid,
-  effective_user_id: optionalUuid,
   tenant_id: optionalUuid,
   target_id: optionalUuid,
   session_id: optionalUuid,
@@ -271,7 +317,9 @@ function withNull(value) {
 /**
  * Validate an event's detail object against its key's allowlist.
  *
- * Values are restricted to strings, finite numbers, booleans, and null.
+ * Values are restricted to strings (256 characters, or
+ * `LONG_DETAIL_LENGTH` for `before` and `after`), finite numbers, booleans,
+ * and null.
  * Rejecting objects and arrays is what makes the allowlist total: a nested
  * value could otherwise carry an unlisted key past the check and into the
  * stored `details` column.
@@ -292,7 +340,8 @@ export function parseDetails(eventKey, details) {
       value === null ||
       typeof value === 'boolean' ||
       (typeof value === 'number' && Number.isFinite(value)) ||
-      (typeof value === 'string' && value.length <= 256);
+      (typeof value === 'string' &&
+        value.length <= (LONG_DETAIL_KEYS.has(key) ? LONG_DETAIL_LENGTH : 256));
     if (!acceptable) throw new AdminEventError('INVALID_INPUT');
     parsed[key] = value;
   }
@@ -332,33 +381,15 @@ export function parseEvent(event) {
  * A scope covering every tenant also reads events with no tenant — bootstrap,
  * cell registration, and a session created before tenant selection. A scope
  * naming its tenants does not: `$in` never matches NULL, which is the
- * fail-closed half of the PRD's reader-scope table. The denial branch needs
- * its NULL case spelled out for the opposite reason: `tenant_id <> $1` is
- * NULL, not true, when `tenant_id` is NULL, so support would otherwise lose
- * every platform event.
+ * fail-closed half of the PRD's reader-scope table.
  * @param {import('./scope.js').AdminAccessScope} scope
  * @returns {object[]|null}
  */
 export function eventScopeFilter(scope) {
-  if (scope.tenantIds === '*') {
-    if (!scope.deniedTenantIds.length) return [];
-    return [
-      {
-        $or: [
-          { tenant_id: { $is: null } },
-          {
-            $and: scope.deniedTenantIds.map(id => ({
-              tenant_id: { $ne: id },
-            })),
-          },
-        ],
-      },
-    ];
-  }
-  const permitted = scope.tenantIds.filter(
-    id => !scope.deniedTenantIds.includes(id)
-  );
-  return permitted.length ? [{ tenant_id: { $in: permitted } }] : null;
+  if (scope.tenantIds === '*') return [];
+  return scope.tenantIds.length
+    ? [{ tenant_id: { $in: scope.tenantIds } }]
+    : null;
 }
 
 const filterSchema = z.strictObject({
@@ -386,9 +417,8 @@ function fingerprint(conditions) {
  * Read an authorized, filtered, paginated page of administrative events.
  *
  * A tenant filter naming a tenant the scope does not permit returns an empty
- * page rather than `FORBIDDEN`. Distinguishing the two would tell a support
- * caller that a given tenant UUID is one of the Napsoft tenants it is denied,
- * which is the inference M0001-12-R004 and AC05 rule out.
+ * page rather than `FORBIDDEN`, so a caller cannot probe which tenant UUIDs
+ * exist outside its scope (M0001-12-R004, AC05).
  * @param {{managed_events: import('../models/managed_events.js').ManagedEvents}} db
  * @param {unknown} scope
  * @param {{tenant?: string, actor?: string, event?: string, outcome?: string, from?: string, to?: string, cursor?: string, limit?: number}} [filters]

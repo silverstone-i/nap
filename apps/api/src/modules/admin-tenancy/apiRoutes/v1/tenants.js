@@ -10,10 +10,8 @@ import {
   sendError,
 } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
-import {
-  accessScope,
-  resolveAuthorization,
-} from '../../domain/authorization.js';
+import { requireCapability } from '../../../../capability/requireCapability.js';
+import { requestAuthority } from '../../domain/authorization.js';
 import { buildControlAuthority } from '../../domain/cells.js';
 import { createTenant, listTenants } from '../../domain/tenants.js';
 import {
@@ -21,6 +19,9 @@ import {
   listEntitlements,
   withdrawEntitlement,
 } from '../../domain/entitlements.js';
+
+/** Admin-tenancy routes target the Napsoft tenant (I0005-R003). */
+const NAPSOFT = { target: 'napsoft' };
 
 /**
  * Report a tenant-creation or entitlement failure through the shared error
@@ -55,12 +56,9 @@ function sendTenantError(response, error) {
  * Tenant creation reuses the `admin-tenancy::control::write` capability and
  * `buildControlAuthority` from cell-management (domain/cells.js); the
  * entitlement routes instead build an `{actorId, scope}` authority via
- * `accessScope`, since entitlements are tenant-scoped like accounts
- * (domain/accounts.js), not registry-shaped like cells/tenant-creation. Both
- * share the same I0005 caveat: `authorization.js` currently resolves only
- * root or no platform authority (role-based `platform_admin`/`support`/
- * `tenant_admin` is deferred to I0005), exactly as `control.js` and `accounts.js`
- * already note.
+ * `requestAuthority`, since entitlements are tenant-scoped like accounts
+ * (domain/accounts.js). Every route requires a `NAP` capability
+ * (I0005-R003).
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @returns {import('express').Router}
@@ -68,69 +66,55 @@ function sendTenantError(response, error) {
 export function createTenantsRouter({ admin }) {
   const router = Router();
 
-  /**
-   * Build an `{actorId, scope}` authority for one `admin-tenancy::entitlements::*` capability.
-   * @param {import('express').Request} request
-   * @param {'admin-tenancy::entitlements::read'|'admin-tenancy::entitlements::write'} capability
-   * @returns {Promise<{actorId: string, scope: import('../../domain/scope.js').AdminAccessScope}>}
-   */
-  async function entitlementAuthority(request, capability) {
-    const context = await resolveAuthorization(admin.db, request.session);
-    return {
-      actorId: context.actorId,
-      scope: accessScope(context, capability),
-    };
-  }
-
-  router.post('/', requireSession(), async (request, response) => {
-    try {
-      const context = await resolveAuthorization(admin.db, request.session);
-      const authority = buildControlAuthority(
-        context,
-        'admin-tenancy::control::write'
-      );
-      const tenant = await createTenant(
-        admin.db,
-        authority,
-        request.body,
-        request.get('Idempotency-Key'),
-        { requestId: request.requestId }
-      );
-      sendData(response, tenant, 201);
-    } catch (error) {
-      sendTenantError(response, error);
+  router.post(
+    '/',
+    requireSession(),
+    requireCapability('admin-tenancy::control::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const authority = buildControlAuthority(request.authorization);
+        const tenant = await createTenant(
+          admin.db,
+          authority,
+          request.body,
+          request.get('Idempotency-Key'),
+          { requestId: request.requestId }
+        );
+        sendData(response, tenant, 201);
+      } catch (error) {
+        sendTenantError(response, error);
+      }
     }
-  });
+  );
 
-  router.get('/', requireSession(), async (request, response) => {
-    try {
-      const context = await resolveAuthorization(admin.db, request.session);
-      const authority = buildControlAuthority(
-        context,
-        'admin-tenancy::control::read'
-      );
-      const result = await listTenants(admin.db, authority, {
-        cursor: request.query.cursor,
-        limit:
-          request.query.limit === undefined
-            ? undefined
-            : Number(request.query.limit),
-      });
-      sendData(response, result);
-    } catch (error) {
-      sendTenantError(response, error);
+  router.get(
+    '/',
+    requireSession(),
+    requireCapability('admin-tenancy::control::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        const authority = buildControlAuthority(request.authorization);
+        const result = await listTenants(admin.db, authority, {
+          cursor: request.query.cursor,
+          limit:
+            request.query.limit === undefined
+              ? undefined
+              : Number(request.query.limit),
+        });
+        sendData(response, result);
+      } catch (error) {
+        sendTenantError(response, error);
+      }
     }
-  });
+  );
 
   router.get(
     '/:tenant/entitlements',
     requireSession(),
+    requireCapability('admin-tenancy::entitlements::read', NAPSOFT),
     async (request, response) => {
       try {
-        const read = await entitlementAuthority(
-          request,
-          'admin-tenancy::entitlements::read'
-        );
+        const read = requestAuthority(request);
         const entitlements = await listEntitlements(
           admin.db,
           read,
@@ -146,12 +130,10 @@ export function createTenantsRouter({ admin }) {
   router.put(
     '/:tenant/entitlements/:module',
     requireSession(),
+    requireCapability('admin-tenancy::entitlements::write', NAPSOFT),
     async (request, response) => {
       try {
-        const write = await entitlementAuthority(
-          request,
-          'admin-tenancy::entitlements::write'
-        );
+        const write = requestAuthority(request);
         const entitlement = await grantEntitlement(
           admin.db,
           write,
@@ -172,12 +154,10 @@ export function createTenantsRouter({ admin }) {
   router.delete(
     '/:tenant/entitlements/:module',
     requireSession(),
+    requireCapability('admin-tenancy::entitlements::write', NAPSOFT),
     async (request, response) => {
       try {
-        const write = await entitlementAuthority(
-          request,
-          'admin-tenancy::entitlements::write'
-        );
+        const write = requestAuthority(request);
         const entitlement = await withdrawEntitlement(
           admin.db,
           write,

@@ -12,7 +12,6 @@ import {
   createSessionToken,
   hashSessionToken,
 } from '../../src/modules/admin-tenancy/domain/session.js';
-import * as authorizationModule from '../../src/modules/admin-tenancy/domain/authorization.js';
 import {
   eligibleTenantView,
   selectTenant,
@@ -25,7 +24,6 @@ const policy = {
   absoluteHours: 12,
 };
 const cookiePolicy = { secure: false, sameSite: 'lax' };
-const ROOT_ID = randomUUID();
 
 describe('validation', () => {
   it('maps a tenant row to the narrow eligible-tenant contract', () => {
@@ -72,10 +70,6 @@ function sessionRow(overrides = {}) {
     id: randomUUID(),
     portal_user_id: randomUUID(),
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: created,
     idle_expires_at: new Date(created.getTime() + 30 * 60_000),
     absolute_expires_at: new Date(created.getTime() + 12 * 3_600_000),
@@ -108,9 +102,10 @@ function fakeAdmin({
   const tenantStore = new Map(tenants.map(row => [row.id, { ...row }]));
   const cellStore = new Map(cells.map(row => [row.id, { ...row }]));
   const userStore = new Map(
-    [...users, { id: ROOT_ID, email: 'root@example.com', is_root: true }].map(
-      row => [row.id, { status: 'active', deactivated_at: null, ...row }]
-    )
+    users.map(row => [
+      row.id,
+      { status: 'active', deactivated_at: null, ...row },
+    ])
   );
   const membershipStore = memberships.map(row => ({ ...row }));
   const events = [];
@@ -169,13 +164,7 @@ function fakeAdmin({
       findByTokenHash: async hash => {
         const found = sessionStore.get(hash);
         if (!found || found.deactivated_at) return null;
-        return {
-          ...found,
-          access_expired:
-            found.access_mode === 'support' &&
-            found.access_expires_at !== null &&
-            found.access_expires_at.getTime() <= Date.now(),
-        };
+        return { ...found };
       },
       findOneBy: async ({ id }) => {
         const found = [...sessionStore.values()].find(row => row.id === id);
@@ -186,67 +175,9 @@ function fakeAdmin({
         rotateStored(
           currentHash,
           nextHash,
-          {
-            tenant_id: tenantId,
-            access_mode: 'normal',
-            effective_user_id: null,
-            access_reason: null,
-            access_expires_at: null,
-          },
-          found => found.access_mode === 'normal'
+          { tenant_id: tenantId },
+          () => true
         ),
-      enterSupport: async (
-        currentHash,
-        nextHash,
-        { tenantId, effectiveUserId, reason }
-      ) =>
-        rotateStored(
-          currentHash,
-          nextHash,
-          {
-            tenant_id: tenantId,
-            access_mode: 'support',
-            effective_user_id: effectiveUserId,
-            access_reason: reason,
-            access_expires_at: new Date(Date.now() + 60 * 60_000),
-          },
-          found => found.access_mode === 'normal'
-        ),
-      exitSupport: async (currentHash, nextHash) =>
-        rotateStored(
-          currentHash,
-          nextHash,
-          {
-            tenant_id: null,
-            access_mode: 'normal',
-            effective_user_id: null,
-            access_reason: null,
-            access_expires_at: null,
-          },
-          found => found.access_mode === 'support'
-        ),
-      downgradeExpiredAccess: async (id, nextHash) => {
-        const found = [...sessionStore.values()].find(row => row.id === id);
-        if (
-          !found ||
-          found.deactivated_at ||
-          found.access_mode !== 'support' ||
-          !found.access_expires_at ||
-          found.access_expires_at.getTime() > Date.now()
-        )
-          return null;
-        sessionStore.delete(found.token_hash);
-        Object.assign(found, {
-          token_hash: nextHash,
-          tenant_id: null,
-          access_mode: 'normal',
-          effective_user_id: null,
-          access_reason: null,
-          access_expires_at: null,
-        });
-        sessionStore.set(nextHash, found);
-        return { ...found };
-      },
     },
     managed_events: {
       append: async event => {
@@ -409,12 +340,11 @@ describe('POST /access/select', () => {
       admin.db,
       policy,
       token,
-      { user: session.portal_user_id, accessMode: 'normal' },
+      { user: session.portal_user_id },
       { tenant: tenant.id },
       { runtime: { readiness: () => ({ ready: true }) } }
     );
     expect(result.session.tenant).toBe(tenant.id);
-    expect(result.session.accessMode).toBe('normal');
     expect(result.token).not.toBe(token);
     expect(admin.events).toContainEqual(
       expect.objectContaining({
@@ -480,250 +410,9 @@ describe('POST /access/select', () => {
       .set('Cookie', `nap_session=${token}`)
       .send({ tenant: tenant.id });
     expect(session.tenant_id).toBeNull();
-    expect(session.access_mode).toBe('normal');
     const current = await request(app)
       .get('/api/admin-tenancy/v1/session/current')
       .set('Cookie', `nap_session=${token}`);
     expect(current.status).toBe(200);
-  });
-
-  it('rejects selection while already in a support session', async () => {
-    const actorId = randomUUID();
-    const tenant = tenantRow();
-    const { app, admin } = api({ tenants: [tenant] });
-    const { token } = live(admin, {
-      portal_user_id: actorId,
-      tenant_id: randomUUID(),
-      access_mode: 'support',
-      access_reason: 'investigating a billing defect',
-      access_expires_at: new Date(Date.now() + 60_000),
-    });
-    const response = await request(app)
-      .post('/api/admin-tenancy/v1/access/select')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: tenant.id });
-    expect(response.status).toBe(409);
-  });
-});
-
-describe('POST /access/support', () => {
-  it('denies a caller with no support capability', async () => {
-    const actorId = randomUUID();
-    const tenant = tenantRow();
-    const { app, admin } = api({
-      tenants: [tenant],
-      users: [{ id: actorId, is_root: false }],
-    });
-    const { token } = live(admin, { portal_user_id: actorId });
-    const response = await request(app)
-      .post('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: tenant.id, reason: 'investigating a billing defect' });
-    expect(response.status).toBe(403);
-    expect(admin.events).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.denied',
-        outcome: 'denied',
-        details: { code: 'capability' },
-      })
-    );
-  });
-
-  it('grants root a time-limited support context, attributed to the real operator', async () => {
-    const tenant = tenantRow();
-    const { app, admin } = api({ tenants: [tenant] });
-    const { token } = live(admin, { portal_user_id: ROOT_ID });
-    const response = await request(app)
-      .post('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: tenant.id, reason: 'investigating a billing defect' });
-    expect(response.status).toBe(200);
-    expect(response.body.data.accessMode).toBe('support');
-    expect(response.body.data.tenant).toBe(tenant.id);
-    expect(
-      new Date(response.body.data.accessExpiresAt).getTime()
-    ).toBeLessThanOrEqual(Date.now() + 60 * 60_000 + 1000);
-    expect(admin.events).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.entered',
-        outcome: 'succeeded',
-        actor_id: ROOT_ID,
-        tenant_id: tenant.id,
-      })
-    );
-  });
-
-  it('denies the Napsoft tenant without exposing that it exists, once a scope carries the restriction', async () => {
-    const napsoft = tenantRow();
-    const { app, admin } = api({ tenants: [napsoft] });
-    const { token } = live(admin, { portal_user_id: ROOT_ID });
-    vi.spyOn(authorizationModule, 'accessScope').mockReturnValue({
-      platformPortalUserRead: true,
-      tenantIds: '*',
-      deniedTenantIds: [napsoft.id],
-      archiveManagement: true,
-    });
-    const response = await request(app)
-      .post('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: napsoft.id, reason: 'investigating a billing defect' });
-    expect(response.status).toBe(404);
-    expect(admin.events).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.denied',
-        outcome: 'denied',
-        details: { code: 'napsoft' },
-      })
-    );
-  });
-
-  it('rejects a reason outside the 10-512 character bound', async () => {
-    const tenant = tenantRow();
-    const { app, admin } = api({ tenants: [tenant] });
-    const { token } = live(admin, { portal_user_id: ROOT_ID });
-    for (const reason of ['too short', 'x'.repeat(513)]) {
-      const response = await request(app)
-        .post('/api/admin-tenancy/v1/access/support')
-        .set('Origin', ORIGIN)
-        .set('Cookie', `nap_session=${token}`)
-        .send({ tenant: tenant.id, reason });
-      expect(response.status).toBe(400);
-    }
-  });
-
-  it('requires the effective user to exist and hold an active, ready membership', async () => {
-    const tenant = tenantRow();
-    const otherTenant = tenantRow();
-    const effectiveUser = randomUUID();
-    const { app, admin } = api({
-      tenants: [tenant, otherTenant],
-      users: [{ id: effectiveUser, is_root: false }],
-      memberships: [
-        membershipRow({
-          portal_user_id: effectiveUser,
-          tenant_id: otherTenant.id,
-        }),
-      ],
-    });
-    const { token } = live(admin, { portal_user_id: ROOT_ID });
-
-    const missing = await request(app)
-      .post('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({
-        tenant: tenant.id,
-        reason: 'investigating a billing defect',
-        effectiveUser: randomUUID(),
-      });
-    expect(missing.status).toBe(404);
-
-    const ineligible = await request(app)
-      .post('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({
-        tenant: tenant.id,
-        reason: 'investigating a billing defect',
-        effectiveUser,
-      });
-    expect(ineligible.status).toBe(403);
-  });
-
-  it('rejects entry while already in a support session', async () => {
-    const tenant = tenantRow();
-    const { app, admin } = api({ tenants: [tenant] });
-    const { token } = live(admin, {
-      portal_user_id: ROOT_ID,
-      tenant_id: randomUUID(),
-      access_mode: 'support',
-      access_reason: 'investigating a billing defect',
-      access_expires_at: new Date(Date.now() + 60_000),
-    });
-    const response = await request(app)
-      .post('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: tenant.id, reason: 'investigating a billing defect' });
-    expect(response.status).toBe(409);
-  });
-});
-
-describe('DELETE /access/support', () => {
-  it('exits a support session, clearing context and rotating the token', async () => {
-    const tenantId = randomUUID();
-    const { app, admin } = api();
-    const { token } = live(admin, {
-      portal_user_id: ROOT_ID,
-      tenant_id: tenantId,
-      access_mode: 'support',
-      access_reason: 'investigating a billing defect',
-      access_expires_at: new Date(Date.now() + 60_000),
-    });
-    const response = await request(app)
-      .delete('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`);
-    expect(response.status).toBe(200);
-    expect(response.body.data.accessMode).toBe('normal');
-    expect(response.body.data.tenant).toBeNull();
-    expect(admin.events).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.exited',
-        outcome: 'succeeded',
-        tenant_id: tenantId,
-      })
-    );
-  });
-
-  it('refuses exit from a normal session', async () => {
-    const { app, admin } = api();
-    const { token } = live(admin, { portal_user_id: ROOT_ID });
-    const response = await request(app)
-      .delete('/api/admin-tenancy/v1/access/support')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`);
-    expect(response.status).toBe(409);
-  });
-});
-
-describe('automatic access-expiry downgrade', () => {
-  it('downgrades an expired support session and rotates its token on the next read', async () => {
-    const tenantId = randomUUID();
-    const { app, admin } = api();
-    const { token } = live(admin, {
-      portal_user_id: ROOT_ID,
-      tenant_id: tenantId,
-      access_mode: 'support',
-      access_reason: 'investigating a billing defect',
-      access_expires_at: new Date(Date.now() - 1000),
-    });
-    const response = await request(app)
-      .get('/api/admin-tenancy/v1/session/current')
-      .set('Cookie', `nap_session=${token}`);
-    expect(response.status).toBe(200);
-    expect(response.body.data.accessMode).toBe('normal');
-    expect(response.body.data.tenant).toBeNull();
-    const cookieHeader = (response.headers['set-cookie'] ?? []).find(entry =>
-      entry.startsWith('nap_session=')
-    );
-    expect(cookieHeader).toBeDefined();
-    expect(admin.events).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.exited',
-        outcome: 'succeeded',
-        actor_id: ROOT_ID,
-        tenant_id: tenantId,
-      })
-    );
-
-    const replay = await request(app)
-      .get('/api/admin-tenancy/v1/session/current')
-      .set('Cookie', `nap_session=${token}`);
-    expect(replay.status).toBe(401);
   });
 });

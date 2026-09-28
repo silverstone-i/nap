@@ -221,17 +221,20 @@ it('enforces immutable fields, audit timestamps, uniqueness, checks and foreign 
     row.updated_at.getTime()
   );
 });
-it('protects root records while allowing their first cell assignment after bootstrap', async () => {
+it('protects the Napsoft bootstrap membership while allowing its first cell assignment', async () => {
   const tenant = await db.tenants.insert({
-    tenant_code: 'ROOT',
+    tenant_code: 'NAPSOFT',
     name: 'Owner',
     is_napsoft: true,
     status: 'active',
   });
+  const other = await db.tenants.insert({
+    tenant_code: 'CUSTOMER',
+    name: 'Customer',
+  });
   const user = await db.portal_users.insert({
-    email: 'root@test.example',
+    email: 'bootstrap@test.example',
     password_hash: 'fixture',
-    is_root: true,
   });
   const membership = await db.portal_user_tenants.insert({
     portal_user_id: user.id,
@@ -239,31 +242,45 @@ it('protects root records while allowing their first cell assignment after boots
     status: 'active',
     ready: true,
   });
+  await expect(
+    db.portal_user_tenants.insert({
+      portal_user_id: user.id,
+      tenant_id: other.id,
+      status: 'active',
+    })
+  ).rejects.toMatchObject({ code: '23514' });
   const cell = await db.cells.insert({
     environment: 'test',
-    database_name: 'root_cell',
+    database_name: 'napsoft_cell',
   });
   await db.tenants.update(tenant.id, { cell_id: cell.id });
   await expect(
     db.none('UPDATE admin.tenants SET cell_id=NULL WHERE id=$1', [tenant.id])
   ).rejects.toMatchObject({ code: '23514' });
   for (const sql of [
-    "UPDATE admin.portal_users SET email='other@test' WHERE id=$1",
-    "UPDATE admin.portal_users SET status='disabled' WHERE id=$1",
-    'UPDATE admin.portal_users SET deactivated_at=now() WHERE id=$1',
-    'DELETE FROM admin.portal_users WHERE id=$1',
-  ])
-    await expect(db.none(sql, [user.id])).rejects.toMatchObject({
-      code: '23514',
-    });
-  for (const sql of [
     "UPDATE admin.portal_user_tenants SET status='suspended' WHERE id=$1",
+    'UPDATE admin.portal_user_tenants SET ready=false WHERE id=$1',
+    "UPDATE admin.portal_user_tenants SET member_type='employee' WHERE id=$1",
     'UPDATE admin.portal_user_tenants SET deactivated_at=now() WHERE id=$1',
     'DELETE FROM admin.portal_user_tenants WHERE id=$1',
   ])
     await expect(db.none(sql, [membership.id])).rejects.toMatchObject({
       code: '23514',
     });
+  const second = await db.portal_users.insert({
+    email: 'second@test.example',
+    password_hash: 'fixture',
+  });
+  await db.portal_user_tenants.insert({
+    portal_user_id: second.id,
+    tenant_id: tenant.id,
+    status: 'active',
+    ready: true,
+  });
+  await db.none(
+    "UPDATE admin.portal_users SET email='renamed@test.example' WHERE id=$1",
+    [user.id]
+  );
 });
 it('allows eligible reassignment and blocks provisioned or archived-membership assignments', async () => {
   const cells = [

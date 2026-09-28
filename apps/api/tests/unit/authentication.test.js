@@ -82,7 +82,6 @@ function user(overrides = {}) {
     password_hash: storedHash,
     must_change_password: false,
     status: 'active',
-    is_root: false,
     ...overrides,
   };
 }
@@ -99,10 +98,6 @@ function sessionRow(overrides = {}) {
     portal_user_id: randomUUID(),
     token_hash: null,
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: created,
     idle_expires_at: new Date(created.getTime() + 30 * 60_000),
     absolute_expires_at: new Date(created.getTime() + 12 * 3_600_000),

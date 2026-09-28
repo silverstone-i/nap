@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -132,7 +133,7 @@ function fakeAdmin({ tenants = [], failInsertWith, failAdvanceWith } = {}) {
     // against the transaction handle.
     tx: operation => operation({ one: async () => ({}) }),
     portal_users: {
-      findOneBy: async ({ id }) => ({ id, is_root: id === ROOT_ID }),
+      findOneBy: async ({ id }) => ({ id }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -218,10 +219,6 @@ function api({ tenants, root = true, failInsertWith, failAdvanceWith } = {}) {
     id: randomUUID(),
     portal_user_id: actorId,
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: new Date(),
     idle_expires_at: new Date(Date.now() + 30 * 60_000),
     absolute_expires_at: new Date(Date.now() + 12 * 3_600_000),
@@ -234,9 +231,11 @@ function api({ tenants, root = true, failInsertWith, failAdvanceWith } = {}) {
     expired: false,
     stale: false,
   });
+  const cache = authorizeActor(admin.db, ROOT_ID);
   const app = createApp({
     api: {
       admin,
+      cache,
       environment: 'test',
       sessionPolicy: policy,
       cookiePolicy,

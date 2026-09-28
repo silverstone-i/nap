@@ -21,6 +21,16 @@ import { ApiError } from '../api/client.js';
 import * as api from '../api/endpoints.js';
 import { clearReturnPath, storeReturnPath } from './returnPath.js';
 import { deriveDestination } from './deriveDestination.js';
+import { visibleTenantManagementChildren } from '../shell/tenantManagementNav.js';
+
+/**
+ * The access context and the resolved capabilities (I0005-R011), loaded
+ * together at shell entry.
+ * @returns {Promise<[object, object]>}
+ */
+function loadContext() {
+  return Promise.all([api.getAccessContext(), api.getSessionCapabilities()]);
+}
 
 const EMPTY = {
   status: 'loading',
@@ -29,6 +39,7 @@ const EMPTY = {
   selectedTenant: null,
   operator: null,
   entryPoints: null,
+  capabilities: null,
   notice: null,
   error: null,
 };
@@ -37,7 +48,7 @@ const SessionContext = createContext(null);
 
 /**
  * The application's one piece of authenticated state, loaded from
- * `GET /access/context` and kept in sync with every mutation the PRD's
+ * `GET /access/context` and `GET /session/capabilities` and kept in sync with every mutation the PRD's
  * lifecycle table describes. Server session resolution remains the source
  * of truth (§7); this context only mirrors it for routing and display —
  * every actual data request is still authorized by the server itself.
@@ -53,7 +64,7 @@ export function SessionProvider({ children }) {
     locationRef.current = location;
   }, [location]);
 
-  const applyContext = context =>
+  const applyContext = ([context, capabilities]) =>
     setState({
       status: 'ready',
       session: context.session,
@@ -61,6 +72,7 @@ export function SessionProvider({ children }) {
       selectedTenant: context.selectedTenant,
       operator: context.operator,
       entryPoints: context.entryPoints,
+      capabilities,
       notice: null,
       error: null,
     });
@@ -80,7 +92,7 @@ export function SessionProvider({ children }) {
 
   /** Load the access context, for an explicit retry or after a mutation the lifecycle table says should reload context. */
   const load = useCallback(
-    () => api.getAccessContext().then(applyContext, applyContextFailure),
+    () => loadContext().then(applyContext, applyContextFailure),
     []
   );
 
@@ -99,8 +111,9 @@ export function SessionProvider({ children }) {
   const enter = useCallback(async () => {
     setState(prev => ({ ...prev, status: 'loading' }));
     let context;
+    let capabilities;
     try {
-      context = await api.getAccessContext();
+      [context, capabilities] = await loadContext();
     } catch (error) {
       applyContextFailure(error);
       return;
@@ -111,12 +124,13 @@ export function SessionProvider({ children }) {
         if (tenants.length === 1) {
           const session = await api.selectTenant(tenants[0].id);
           context = { ...context, session, selectedTenant: tenants[0] };
+          capabilities = await api.getSessionCapabilities();
         }
       } catch {
         // Stay unselected; tenant selection remains available.
       }
     }
-    applyContext(context);
+    applyContext([context, capabilities]);
   }, []);
 
   useEffect(() => {
@@ -125,7 +139,7 @@ export function SessionProvider({ children }) {
     // effect in this file that genuinely synchronizes with an external
     // system (the server), so their state updates run in a callback, never
     // synchronously in the effect body itself.
-    api.getAccessContext().then(applyContext, applyContextFailure);
+    loadContext().then(applyContext, applyContextFailure);
   }, []);
 
   /** Mid-use expiry: clear state, remember where we were, and bounce to `/login`. */
@@ -165,11 +179,14 @@ export function SessionProvider({ children }) {
     async (tenantId, tenantSummary) => {
       try {
         const session = await api.selectTenant(tenantId);
+        // I0005 §8: a new target tenant means new capabilities.
+        const capabilities = await api.getSessionCapabilities();
         setState(prev => ({
           ...prev,
           status: 'ready',
           session,
           selectedTenant: tenantSummary,
+          capabilities,
         }));
       } catch (error) {
         if (error instanceof ApiError && error.code === 'UNAUTHENTICATED')
@@ -179,6 +196,19 @@ export function SessionProvider({ children }) {
     },
     [expire]
   );
+
+  /**
+   * Reload the resolved capabilities, after the server denies an action the
+   * web app offered (I0005-R011).
+   */
+  const refreshCapabilities = useCallback(async () => {
+    try {
+      const capabilities = await api.getSessionCapabilities();
+      setState(prev => ({ ...prev, capabilities }));
+    } catch {
+      // Keep the current set; the server still decides every request.
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -192,18 +222,30 @@ export function SessionProvider({ children }) {
     navigate('/login', { replace: true });
   }, [navigate]);
 
-  const value = useMemo(
-    () => ({
+  const value = useMemo(() => {
+    // Whether any Tenant Management destination is open to this session.
+    const management =
+      visibleTenantManagementChildren(state.capabilities).length > 0;
+    return {
       ...state,
-      destination: deriveDestination(state),
+      management,
+      destination: deriveDestination({ ...state, management }),
       refresh,
+      refreshCapabilities,
       login,
       changePassword,
       selectTenant,
       logout,
-    }),
-    [state, refresh, login, changePassword, selectTenant, logout]
-  );
+    };
+  }, [
+    state,
+    refresh,
+    refreshCapabilities,
+    login,
+    changePassword,
+    selectTenant,
+    logout,
+  ]);
 
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

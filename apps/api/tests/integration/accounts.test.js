@@ -50,17 +50,16 @@ const HASHING = { memoryKib: 19456, timeCost: 2, parallelism: 1 };
 
 /**
  * Build an `{actorId, scope}` authority granting every accounts capability,
- * mirroring root's fully-resolved scope from `domain/authorization.js`.
- * @param {string[]} [deniedTenantIds]
+ * mirroring the bootstrap login's fully-resolved scope from
+ * `domain/authorization.js`.
  * @returns {{actorId: string, scope: object}}
  */
-function authority(deniedTenantIds = []) {
+function authority() {
   return {
     actorId: randomUUID(),
     scope: {
       platformPortalUserRead: true,
       tenantIds: '*',
-      deniedTenantIds,
       archiveManagement: true,
     },
   };
@@ -80,7 +79,7 @@ function tenantBody(overrides = {}) {
 async function seedTenant() {
   const tenant = await createTenant(
     db,
-    { actorId: randomUUID(), granted: true, deniedTenantIds: [] },
+    { actorId: randomUUID(), granted: true },
     tenantBody(),
     randomUUID()
   );
@@ -101,22 +100,6 @@ async function seedUser(overrides = {}) {
     randomUUID()
   );
   return user.id;
-}
-
-/**
- * Insert the root portal-user row directly — `createOrReuseUser` refuses to
- * create one, and this module's own bootstrap flow (M0001-02) is out of
- * scope here. `admin.portal_users` allows only one `is_root = true` row, so
- * this must be called at most once per test's isolated database.
- * @returns {Promise<string>} The root row's id.
- */
-async function seedRoot() {
-  const root = await db.portal_users.insert({
-    email: 'root@example.com',
-    password_hash: 'unused-in-these-reads',
-    is_root: true,
-  });
-  return root.id;
 }
 
 beforeAll(async () => {
@@ -377,32 +360,10 @@ describe('memberships and provisioning jobs', () => {
     expect(membershipRow.status).toBe('active');
     expect(membershipRow.ready).toBe(true);
   });
-
-  it('reports a Napsoft-denied tenant identically to a missing membership', async () => {
-    const tenantId = await seedTenant();
-    const userId = await seedUser();
-    const write = authority();
-    const { membership } = await createMembership(
-      db,
-      write,
-      { portalUserId: userId, tenantId, memberType: 'employee' },
-      randomUUID()
-    );
-
-    const denied = authority([tenantId]);
-    await expect(
-      updateMembership(db, denied, membership.id, { status: 'active' })
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-  });
 });
 
 describe('reads', () => {
-  let rootId;
-  beforeAll(async () => {
-    rootId = await seedRoot();
-  });
-
-  it('pages every portal-user account in ascending id order, including root read-only', async () => {
+  it('pages every portal-user account in ascending id order', async () => {
     const write = authority();
     const created = [];
     for (let index = 0; index < 3; index += 1) created.push(await seedUser());
@@ -417,11 +378,6 @@ describe('reads', () => {
 
     const seenIds = seen.map(row => row.id);
     for (const userId of created) expect(seenIds).toContain(userId);
-    expect(seenIds).toContain(rootId);
-    expect(seen.find(row => row.id === rootId).isRoot).toBe(true);
-    expect(
-      seen.filter(row => row.id !== rootId).every(row => row.isRoot === false)
-    ).toBe(true);
   });
 
   it('advances the cursor to a strictly later page with no overlap', async () => {
@@ -462,7 +418,6 @@ describe('reads', () => {
       scope: {
         platformPortalUserRead: false,
         tenantIds: [],
-        deniedTenantIds: [],
         archiveManagement: false,
       },
     };

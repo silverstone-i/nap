@@ -68,28 +68,22 @@ export const OPERATION_VIEW_COLUMNS = Object.freeze([
  * @property {string} actorId
  * @property {boolean} granted Whether the requested `admin-tenancy::control::*`
  *   capability is present at all.
- * @property {string[]} deniedTenantIds Tenants excluded even though the
- *   capability is granted — carries support's Napsoft restriction.
  */
 
 /**
- * Turn a resolved authorization context into a `ControlAuthority`.
+ * Turn an I0005 decision into a `ControlAuthority`.
  *
  * `admin.cells` has no tenant of its own, so the general-purpose
  * `AdminAccessScope` (built for tenant-scoped reads) does not fit cleanly;
  * this is the minimal shape cell control actually needs: whether the
- * capability is present, and which tenants — Napsoft, once support exists —
- * are carved out of it.
- * @param {{actorId: string, platformCapabilities: string[]}} context Result of `resolveAuthorization`.
- * @param {string} capability `admin-tenancy::control::read` or `::write`.
+ * capability was permitted.
+ * @param {{actorId: string, decision: 'permit'|'deny'}} authorization An `authorize` result.
  * @returns {ControlAuthority}
  */
-export function buildControlAuthority(context, capability) {
-  const scope = accessScope(context, capability);
+export function buildControlAuthority(authorization) {
   return {
-    actorId: context.actorId,
-    granted: scope.tenantIds === '*',
-    deniedTenantIds: scope.deniedTenantIds,
+    actorId: authorization.actorId,
+    granted: accessScope(authorization).tenantIds === '*',
   };
 }
 
@@ -109,7 +103,6 @@ function requireGranted(authority) {
 const authoritySchema = z.strictObject({
   actorId: z.uuid(),
   granted: z.boolean(),
-  deniedTenantIds: z.array(z.uuid()),
 });
 
 const suffixSchema = z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/);
@@ -186,27 +179,6 @@ async function appendCellEvent(db, event, tx) {
     { deduplication_key: randomUUID(), target_type: 'cell', ...event },
     { tx }
   );
-}
-
-/**
- * Whether `deniedTenantIds` names a tenant currently assigned to this cell —
- * the check that carries support's Napsoft restriction onto retry and
- * disable (§4 and §12: "Support cannot disable a cell containing the Napsoft
- * tenant"). A brand-new cell from registration is never assigned a tenant, so
- * registration never needs this check.
- * @param {AdminCellsDb} db
- * @param {string[]} deniedTenantIds
- * @param {string} cellId
- * @returns {Promise<boolean>}
- */
-async function affectsDeniedTenant(db, deniedTenantIds, cellId) {
-  if (!deniedTenantIds.length) return false;
-  const hit = await db.tenants.findWhere(
-    { cell_id: cellId, id: { $in: deniedTenantIds } },
-    'AND',
-    { columnWhitelist: ['id'], limit: 1 }
-  );
-  return hit.length > 0;
 }
 
 /**
@@ -308,8 +280,6 @@ export async function retryCellProvisioning(
     db.tx(async tx => {
       const operation = await db.cell_provisioning.lockByCellId(id, { tx });
       if (!operation) throw new AdminControlError('NOT_FOUND');
-      if (await affectsDeniedTenant(db, granted.deniedTenantIds, id))
-        throw new AdminControlError('FORBIDDEN');
       if (operation.status === 'queued' || operation.status === 'running')
         return operationView(operation);
       if (operation.status !== 'failed')
@@ -365,8 +335,6 @@ export async function disableCell(
   const id = parseUuidOrControl(cellId);
   return withControlErrors(() =>
     db.tx(async tx => {
-      if (await affectsDeniedTenant(db, granted.deniedTenantIds, id))
-        throw new AdminControlError('FORBIDDEN');
       const row = await db.cells.update(id, { enabled: false }, { tx });
       if (!row) throw new AdminControlError('NOT_FOUND');
       await appendCellEvent(
@@ -410,8 +378,6 @@ export async function activateCell(
     db.tx(async tx => {
       const operation = await db.cell_provisioning.lockByCellId(id, { tx });
       if (!operation) throw new AdminControlError('NOT_FOUND');
-      if (await affectsDeniedTenant(db, granted.deniedTenantIds, id))
-        throw new AdminControlError('FORBIDDEN');
       const cell = await db.cells.findOneBy({ id }, { tx });
       if (!cell || cell.enabled || operation.status !== 'completed')
         throw new AdminControlError('INVALID_STATE');

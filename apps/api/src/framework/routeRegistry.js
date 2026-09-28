@@ -72,13 +72,17 @@ export function createRouteRegistry() {
      * has no database behind it.
      * @param {import('express').Express} app
      * @param {object} context Handles and settings passed to each factory.
+     * @param {{check?: (router: import('express').Router, path: string) => void}} [options]
+     *   `check` inspects each built router before it is mounted and throws to
+     *   refuse startup.
      * @returns {void}
      */
-    mount(app, context) {
+    mount(app, context, { check } = {}) {
       for (const entry of entries) {
         if (entry.database === 'cell' && !context?.cells) continue;
         const built = entry.factory(context);
         if (!built) continue;
+        check?.(built, routePath(entry));
         const scoped = Router();
         scoped.use(built);
         app.use(routePath(entry), scoped);
