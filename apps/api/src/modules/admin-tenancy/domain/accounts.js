@@ -319,7 +319,7 @@ async function resolveUserReplay(db, idempotencyKey, normalized) {
  * @param {unknown} hashingPolicy Argon2id parameters, validated only on the create branch.
  * @param {unknown} body `{email, password}`.
  * @param {unknown} idempotencyKeyHeader The raw `Idempotency-Key` header value.
- * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>}} [options]
+ * @param {{requestId?: string|null}} [options]
  * @returns {Promise<object>} Safe user view.
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
  */

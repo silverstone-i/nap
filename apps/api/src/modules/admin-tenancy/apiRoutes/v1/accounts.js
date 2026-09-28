@@ -84,15 +84,7 @@ export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
           hashingPolicy,
           request.body,
           request.get('Idempotency-Key'),
-          {
-            requestId: request.requestId,
-            assertDeactivationAllowed: membership =>
-              assertMembershipDeactivationAllowed(
-                admin.db,
-                runtime,
-                membership
-              ),
-          }
+          { requestId: request.requestId }
         );
         sendData(response, user, 201);
       } catch (error) {
