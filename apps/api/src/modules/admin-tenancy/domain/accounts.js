@@ -571,7 +571,7 @@ const updateUserBodySchema = z
  * @param {unknown} body `{email?, status?}`, at least one present.
  * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>}} [options]
  * @returns {Promise<object>} Safe user view.
- * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `ADMIN_ASSIGNED`, `ROOT_IMMUTABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `ADMIN_ASSIGNED`, `ROOT_IMMUTABLE`, `CELL_UNAVAILABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function updateUser(
   db,
@@ -696,7 +696,7 @@ export async function updateUser(
  * @param {unknown} userId
  * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>}} [options]
  * @returns {Promise<{archived: boolean}>}
- * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `ADMIN_ASSIGNED`, `ROOT_IMMUTABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `ADMIN_ASSIGNED`, `ROOT_IMMUTABLE`, `CELL_UNAVAILABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function archiveUser(
   db,
@@ -1054,7 +1054,7 @@ const updateMembershipBodySchema = z.strictObject({
  * @param {unknown} body `{status: 'active'|'suspended'}`.
  * @param {{requestId?: string|null, assertDeactivationAllowed?: (membership: object) => Promise<void>}} [options]
  * @returns {Promise<object>} Safe membership view.
- * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `ADMIN_ASSIGNED`, `CELL_UNAVAILABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function updateMembership(
   db,
@@ -1187,7 +1187,7 @@ export async function updateMembership(
  * @param {unknown} membershipId
  * @param {{requestId?: string|null, assertDeactivationAllowed?: (membership: object) => Promise<void>}} [options]
  * @returns {Promise<{archived: boolean}>}
- * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `ADMIN_ASSIGNED`, `CELL_UNAVAILABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function archiveMembership(
   db,
