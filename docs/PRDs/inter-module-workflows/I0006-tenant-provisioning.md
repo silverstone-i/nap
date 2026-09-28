@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Status               | Implemented                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Related architecture | [Admin and cells](../../architecture/admin-cells.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Related PRDs         | [M0001-07: Tenant Creation](../modules/M0001-admin-tenancy/M0001-07-tenant-creation.md), [M0001-08: Portal User And Membership Administration](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md), [M0001-09: Tenant Selection](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md), [M0003: Access Control](../modules/M0003-access-control.md), [I0002: Platform Administration Screens](I0002-platform-administration-screens.md), [I0003: Cell Provisioning](I0003-cell-provisioning.md), [I0004: Admin-Cell Sync](I0004-admin-cell-sync.md) |
@@ -237,6 +237,23 @@ ready customer membership is `active`.
 | AC08      | An existing active login with the same email is reused rather than duplicated.                                                                                                                        | I0006-R002                        |
 | AC09      | The Tenants screen offers Provision and Retry only when allowed, shows stage and failure code, and refreshes while jobs run.                                                                          | I0006-R010–R012                   |
 | AC10      | No response, log, event, or failure code contains the temporary password or a connection detail.                                                                                                      | I0006-R017, R018                  |
+
+### Verification Evidence
+
+Implemented in [silverstone-i/nap#44](https://github.com/silverstone-i/nap/pull/44).
+On 2026-09-28, lint, formatting, `npm test` (520 API, 148 web), `npm run build`,
+and `npm run test:db:local` (231 tests) passed.
+
+[tenant-provisioning.test.js](../../../apps/api/tests/integration/tenant-provisioning.test.js)
+runs against a real cell. It covers queueing, the first administrator's
+blocked selection before activation, and key replay, including a different
+temporary password (AC03, AC07). It provisions the tenant end to end and
+selects it holding one immutable `tenant_admin` (AC01, AC02), and rejects the
+Napsoft tenant, a provisioned tenant, and a cell that is not ready (AC06). It
+also retries a failed seed stage without duplicates while reusing the login
+(AC04, AC08) and requeues a job left running (AC05).
+[TenantsPage.test.jsx](../../../apps/web/tests/pages/TenantsPage.test.jsx)
+covers Provision, Retry, and refresh (AC09).
 
 ## 14. Outstanding Questions
 
