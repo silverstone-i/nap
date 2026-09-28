@@ -70,9 +70,13 @@ const SAFE_COLUMNS = 'id,email,must_change_password,status';
  * @returns {string}
  */
 function bootstrapLoginQuery(model, lock) {
-  const columns = SAFE_COLUMNS.split(',')
-    .map(column => `u.${column}`)
-    .join(',');
+  // The locked read feeds bootstrap's conflict check; the unlocked read only
+  // needs the identity.
+  const columns = lock
+    ? SAFE_COLUMNS.split(',')
+        .map(column => `u.${column}`)
+        .join(',')
+    : 'u.id';
   return `SELECT ${columns} FROM ${table(model)} AS u
       JOIN ${model.schemaName}.portal_user_tenants AS m ON m.portal_user_id=u.id
       JOIN ${model.schemaName}.tenants AS t ON t.id=m.tenant_id
