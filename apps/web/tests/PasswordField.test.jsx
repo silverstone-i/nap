@@ -25,4 +25,23 @@ describe('PasswordField', () => {
     await user.click(screen.getByRole('button', { name: 'Hide password' }));
     expect(input.getAttribute('type')).toBe('password');
   });
+
+  it("keeps the caller's input slot props and end adornment", () => {
+    render(
+      <PasswordField
+        label="Password"
+        value=""
+        onChange={() => {}}
+        slotProps={{
+          input: {
+            endAdornment: <span>caller</span>,
+            inputProps: { 'data-testid': 'field' },
+          },
+        }}
+      />
+    );
+    expect(screen.getByText('caller')).toBeTruthy();
+    expect(screen.getByTestId('field')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show password' })).toBeTruthy();
+  });
 });

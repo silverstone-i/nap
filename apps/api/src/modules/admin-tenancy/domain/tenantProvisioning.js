@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { AdminControlError, withControlErrors } from './errors.js';
 import { createFirstAdministrator } from './accounts.js';
 import { COLLECTION_ENTITY } from './cache.js';
+import { verifyPassword } from './password.js';
 
 /** Stages a tenant provisioning job passes through, in order (I0006 §8). */
 export const TENANT_STAGES = Object.freeze([
@@ -87,19 +88,26 @@ const idempotencyKeySchema = z.uuid();
 
 /**
  * Resolve an earlier `tenant-provision` success recorded under this key
- * (I0006-R003). The password is never stored, so it is not compared.
+ * (I0006-R003). When that request created the login and its temporary
+ * password is still unchanged, the password is checked against the stored
+ * hash, so a different password is a conflict rather than a silent replay.
+ * No password or hash is stored on the event.
  * @param {object} db
  * @param {string} key
- * @param {{tenant: string, cell: string, email: string}} request
+ * @param {{tenant: string, cell: string, email: string, password: unknown}} request
+ * @param {{tx?: object}} [options] Reads run on `tx` when called inside a transaction.
  * @returns {Promise<object|null>} The tenant's job view, or null.
  * @throws {AdminControlError} `IDEMPOTENCY_CONFLICT`
  */
-async function resolveReplay(db, key, request) {
-  const existing = await db.managed_events.findOneBy({
-    deduplication_key: key,
-    event_key: 'tenant.provision.requested',
-    outcome: 'succeeded',
-  });
+async function resolveReplay(db, key, request, { tx } = {}) {
+  const existing = await db.managed_events.findOneBy(
+    {
+      deduplication_key: key,
+      event_key: 'tenant.provision.requested',
+      outcome: 'succeeded',
+    },
+    { tx }
+  );
   if (!existing) return null;
   const details = existing.details ?? {};
   if (
@@ -108,10 +116,32 @@ async function resolveReplay(db, key, request) {
     details.email !== request.email
   )
     throw new AdminControlError('IDEMPOTENCY_CONFLICT');
-  const job = await db.tenant_provisioning.findOneBy({
-    tenant_id: request.tenant,
-  });
-  return job ? tenantJobView(job) : null;
+  const job = await db.tenant_provisioning.findOneBy(
+    { tenant_id: request.tenant },
+    { tx }
+  );
+  if (!job) return null;
+  if (details.login_created) {
+    const membership = await db.portal_user_tenants.findOneBy(
+      { id: job.admin_membership_id },
+      { columnWhitelist: ['portal_user_id'], tx }
+    );
+    const login = membership
+      ? await db.portal_users.findOneBy(
+          { id: membership.portal_user_id },
+          { columnWhitelist: ['password_hash', 'must_change_password'], tx }
+        )
+      : null;
+    if (
+      login?.must_change_password &&
+      !(
+        typeof request.password === 'string' &&
+        (await verifyPassword(login.password_hash, request.password))
+      )
+    )
+      throw new AdminControlError('IDEMPOTENCY_CONFLICT');
+  }
+  return tenantJobView(job);
 }
 
 /**
@@ -139,14 +169,19 @@ export async function provisionTenant(
     typeof command.admin.email === 'string'
       ? command.admin.email.trim().toLowerCase()
       : '';
-  const request = { tenant: command.tenant, cell: command.cell, email };
+  const request = {
+    tenant: command.tenant,
+    cell: command.cell,
+    email,
+    password: command.admin.password,
+  };
   return withControlErrors(async () => {
     const replay = await resolveReplay(db, key.data, request);
     if (replay) return replay;
     return db.tx(async tx => {
       const tenant = await db.tenants.lockById(command.tenant, { tx });
       if (!tenant) throw new AdminControlError('NOT_FOUND');
-      const raced = await resolveReplay(db, key.data, request);
+      const raced = await resolveReplay(db, key.data, request, { tx });
       if (raced) return raced;
       const job = await db.tenant_provisioning.lockByTenantId(tenant.id, {
         tx,
@@ -160,12 +195,12 @@ export async function provisionTenant(
         throw new AdminControlError('INVALID_STATE');
       const cell = await db.cells.findOneBy(
         { id: command.cell },
-        { columnWhitelist: ['id', 'enabled'] }
+        { columnWhitelist: ['id', 'enabled'], tx }
       );
       if (!cell?.enabled || !runtime?.readiness(cell.id)?.ready)
         throw new AdminControlError('CELL_UNAVAILABLE');
 
-      const { membership } = await createFirstAdministrator(
+      const { membership, loginCreated } = await createFirstAdministrator(
         db,
         {
           tenantId: tenant.id,
@@ -194,7 +229,7 @@ export async function provisionTenant(
           actor_id: granted.actorId,
           tenant_id: tenant.id,
           target_id: tenant.id,
-          details: { cell_id: cell.id, email },
+          details: { cell_id: cell.id, email, login_created: loginCreated },
         },
         tx
       );

@@ -84,7 +84,13 @@ async function newTenant() {
   );
 }
 
-function provision(tenant, cell, email, key = randomUUID()) {
+function provision(
+  tenant,
+  cell,
+  email,
+  key = randomUUID(),
+  password = 'temporary-password'
+) {
   return executeProvisionCommand(
     db,
     authority(),
@@ -92,7 +98,7 @@ function provision(tenant, cell, email, key = randomUUID()) {
       operation: 'tenant-provision',
       tenant,
       cell,
-      admin: { email, password: 'temporary-password' },
+      admin: { email, password },
     },
     { idempotencyKey: key, runtime: registry, hashingPolicy: ARGON2_MINIMUM }
   );
@@ -239,6 +245,9 @@ describe('tenant provisioning (I0006)', () => {
     expect(await provision(tenant.id, cellId, email, key)).toEqual(queued);
     await expect(
       provision(tenant.id, cellId, 'other@acme.test', key)
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    await expect(
+      provision(tenant.id, cellId, email, key, 'different-password')
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
   });
 

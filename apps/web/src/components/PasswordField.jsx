@@ -18,6 +18,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
  */
 export function PasswordField(props) {
   const [visible, setVisible] = useState(false);
+  const input = props.slotProps?.input ?? {};
   return (
     <TextField
       {...props}
@@ -25,17 +26,21 @@ export function PasswordField(props) {
       slotProps={{
         ...props.slotProps,
         input: {
+          ...input,
           endAdornment: (
-            <InputAdornment position="end">
-              <IconButton
-                aria-label={visible ? 'Hide password' : 'Show password'}
-                onClick={() => setVisible(value => !value)}
-                onMouseDown={event => event.preventDefault()}
-                edge="end"
-              >
-                {visible ? <VisibilityOff /> : <Visibility />}
-              </IconButton>
-            </InputAdornment>
+            <>
+              {input.endAdornment}
+              <InputAdornment position="end">
+                <IconButton
+                  aria-label={visible ? 'Hide password' : 'Show password'}
+                  onClick={() => setVisible(value => !value)}
+                  onMouseDown={event => event.preventDefault()}
+                  edge="end"
+                >
+                  {visible ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </InputAdornment>
+            </>
           ),
         },
       }}
