@@ -8,7 +8,10 @@ import {
   advanceCellProvisioning,
   claimCellProvisioning,
 } from '../../modules/admin-tenancy/domain/cells.js';
-import { assignNapsoftCell, runRootTenantSetup } from './rootTenantSetup.js';
+import {
+  assignNapsoftCell,
+  runNapsoftTenantSetup,
+} from './napsoftTenantSetup.js';
 
 /** Stages each requested action runs, in order (I0003 §8). */
 const PLANS = Object.freeze({
@@ -20,10 +23,10 @@ const PLANS = Object.freeze({
  * Build the provisioning worker that runs inside the API (I0003-R001–R006).
  *
  * One job runs at a time per process. Each check first retries a pending
- * root tenant setup, then claims the next queued job and runs its stages,
+ * Napsoft tenant setup, then claims the next queued job and runs its stages,
  * recording every stage change through M0001-06's `advanceCellProvisioning`.
  * Stopping lets the current step finish and returns the job to `queued`.
- * @param {{admin: {db: object}, stages: Record<string, (job: object) => Promise<void>>, driver: object, intervalMs?: number, rootSetup?: typeof runRootTenantSetup}} options
+ * @param {{admin: {db: object}, stages: Record<string, (job: object) => Promise<void>>, driver: object, intervalMs?: number, napsoftSetup?: typeof runNapsoftTenantSetup}} options
  * @returns {{start: () => Promise<void>, stop: () => Promise<void>, tick: () => Promise<void>}}
  */
 export function createProvisioningWorker({
@@ -31,7 +34,7 @@ export function createProvisioningWorker({
   stages,
   driver,
   intervalMs = 1000,
-  rootSetup = runRootTenantSetup,
+  napsoftSetup = runNapsoftTenantSetup,
 }) {
   const db = admin.db;
   const controller = new AbortController();
@@ -80,12 +83,12 @@ export function createProvisioningWorker({
   }
 
   /**
-   * One check: retry root tenant setup, then run at most one queued job.
+   * One check: retry Napsoft tenant setup, then run at most one queued job.
    * Errors never escape, so a bad job cannot stop the loop.
    * @returns {Promise<void>}
    */
   async function tick() {
-    await rootSetup(db, driver).catch(() => {});
+    await napsoftSetup(db, driver).catch(() => {});
     let job;
     try {
       job = await claimCellProvisioning(db);
@@ -100,7 +103,7 @@ export function createProvisioningWorker({
       // returns it to `queued` (I0003-R002).
       return;
     }
-    await rootSetup(db, driver).catch(() => {});
+    await napsoftSetup(db, driver).catch(() => {});
   }
 
   /**

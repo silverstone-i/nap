@@ -17,7 +17,7 @@ import { validateAdminRegistry } from '../../modules/admin.js';
 import { createAdminDatabase } from '../../infrastructure/runtime/adminDatabase.js';
 import { bootstrapRoot } from '../../modules/admin-tenancy/domain/bootstrap.js';
 /**
- * Create or verify the owning tenant, root portal user, and root membership
+ * Create or verify the Napsoft tenant, bootstrap login, and its Napsoft membership
  * for one environment, connecting as `nap-admin` per M0001-00 §4.
  *
  * `dev` and `test` read the local admin connection settings; `prod` reads
@@ -65,7 +65,7 @@ export async function runBootstrap(args, rawEnv = process.env) {
  * Command-line wrapper for `runBootstrap`. Prints one JSON line to stdout
  * with the outcome and the created or verified tenant, root-user, and
  * membership records, and sets a nonzero exit code for a conflict as well
- * as a thrown failure (M0001-02 §10). `insertRoot` never returns
+ * as a thrown failure (M0001-02 §10). `insertBootstrapLogin` never returns
  * `password_hash`, so the printed root-user record already excludes it;
  * output never contains a password, hash, or connection secret
  * (M0001-02-R006).

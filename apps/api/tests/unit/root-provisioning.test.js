@@ -40,12 +40,11 @@ function fakeDb({ tenant = null, rootUser = null, membership = null } = {}) {
       insert: async dto => ({ id: 'new-tenant', ...dto }),
     },
     portal_users: {
-      lockRoot: async () => rootUser,
+      lockBootstrapLogin: async () => rootUser,
       lockActiveByEmail: async () => null,
-      insertRoot: async ({ email }) => ({
+      insertBootstrapLogin: async ({ email }) => ({
         id: 'new-root',
         email,
-        is_root: true,
       }),
     },
     portal_user_tenants: {
@@ -63,7 +62,7 @@ function fakeDb({ tenant = null, rootUser = null, membership = null } = {}) {
 
 describe('bootstrapRoot conflicts unreachable through the schema alone', () => {
   it('reports MEMBERSHIP_CONFLICT when a stored membership carries a member_type', async () => {
-    // The `protect_membership` trigger never allows this state for the root
+    // The `protect_membership` trigger never allows this state for the bootstrap login
     // and owning tenant in a real database; this test covers the branch
     // directly so it stays correct even though PostgreSQL can't produce it.
     const db = fakeDb({

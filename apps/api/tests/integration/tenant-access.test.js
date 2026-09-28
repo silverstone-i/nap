@@ -12,15 +12,8 @@ import {
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
+import { createSession } from '../../src/modules/admin-tenancy/domain/session.js';
 import {
-  ROTATED_TOKEN,
-  createSession,
-  resolveSession,
-  rotateSession,
-} from '../../src/modules/admin-tenancy/domain/session.js';
-import {
-  enterSupport,
-  exitSupport,
   listEligibleTenants,
   selectTenant,
 } from '../../src/modules/admin-tenancy/domain/tenantAccess.js';
@@ -61,7 +54,7 @@ async function portalUser() {
 }
 
 /**
- * Insert a tenant eligible for both normal selection and support entry:
+ * Insert a tenant eligible for selection:
  * active, provisioned, and RBAC-ready.
  * @param {object} [overrides]
  * @returns {Promise<string>} The tenant UUID.
@@ -135,49 +128,11 @@ function eventsFor(id) {
       'event_key',
       'outcome',
       'actor_id',
-      'effective_user_id',
       'tenant_id',
       'details',
     ],
     orderBy: ['occurred_at', 'id'],
   });
-}
-
-/**
- * A resolved-authorization-shaped context granting every platform
- * capability, the same shape `resolveAuthorization` returns for root.
- * @param {string} actorId
- * @returns {{actorId: string, platform: 'root', platformCapabilities: string[]}}
- */
-function grantedContext(actorId) {
-  return {
-    actorId,
-    platform: 'root',
-    platformCapabilities: ['admin-tenancy::access::support'],
-  };
-}
-
-/** A resolved-authorization-shaped context granting no capability. */
-function deniedContext(actorId) {
-  return { actorId, platform: null, platformCapabilities: [] };
-}
-
-/**
- * A minimal session view shaped like what `middleware/sessionContext.js`
- * would attach to `request.session`.
- * @param {object} row Stored session row.
- * @returns {object}
- */
-function sessionView(row) {
-  return {
-    id: row.id,
-    user: row.portal_user_id,
-    tenant: row.tenant_id,
-    accessMode: row.access_mode,
-    effectiveUser: row.effective_user_id,
-    accessReason: row.access_reason,
-    accessExpiresAt: row.access_expires_at,
-  };
 }
 
 beforeAll(async () => {
@@ -240,13 +195,12 @@ describe('selectTenant', () => {
       db,
       policy,
       created.token,
-      { user, accessMode: 'normal' },
+      { user },
       { tenant },
       { runtime: readyRuntime }
     );
     expect(result.token).not.toBe(created.token);
     expect(result.session.tenant).toBe(tenant);
-    expect(result.session.accessMode).toBe('normal');
 
     const row = await stored(created.session.id);
     expect(row.tenant_id).toBe(tenant);
@@ -273,7 +227,7 @@ describe('selectTenant', () => {
         db,
         policy,
         created.token,
-        { user, accessMode: 'normal' },
+        { user },
         { tenant: notMyTenant },
         { runtime: readyRuntime }
       )
@@ -284,7 +238,7 @@ describe('selectTenant', () => {
         db,
         policy,
         created.token,
-        { user, accessMode: 'normal' },
+        { user },
         { tenant: suspended },
         { runtime: readyRuntime }
       )
@@ -295,7 +249,7 @@ describe('selectTenant', () => {
         db,
         policy,
         created.token,
-        { user, accessMode: 'normal' },
+        { user },
         { tenant: noCell },
         { runtime: readyRuntime }
       )
@@ -311,38 +265,8 @@ describe('selectTenant', () => {
     await assignedEnabledCell(tenant);
     const created = await createSession(db, policy, { portalUserId: user });
     await expect(
-      selectTenant(
-        db,
-        policy,
-        created.token,
-        { user, accessMode: 'normal' },
-        { tenant }
-      )
+      selectTenant(db, policy, created.token, { user }, { tenant })
     ).rejects.toMatchObject({ code: 'CELL_UNAVAILABLE' });
-  });
-
-  it('refuses selection while already in a support session, exit first', async () => {
-    const user = await portalUser();
-    const tenant = await eligibleTenant();
-    await readyMembership(user, tenant);
-    await assignedEnabledCell(tenant);
-    const created = await createSession(db, policy, { portalUserId: user });
-    await db.sessions.update(created.session.id, {
-      tenant_id: tenant,
-      access_mode: 'support',
-      access_reason: 'investigating a billing defect',
-      access_expires_at: new Date(Date.now() + 30 * 60_000),
-    });
-    await expect(
-      selectTenant(
-        db,
-        policy,
-        created.token,
-        { user, accessMode: 'support' },
-        { tenant },
-        { runtime: readyRuntime }
-      )
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
   it('produces exactly one winner for concurrent selections of the same token', async () => {
@@ -357,7 +281,7 @@ describe('selectTenant', () => {
           db,
           policy,
           created.token,
-          { user, accessMode: 'normal' },
+          { user },
           { tenant },
           { runtime: readyRuntime }
         )
@@ -367,195 +291,5 @@ describe('selectTenant', () => {
     expect(winners).toHaveLength(1);
     for (const loser of attempts.filter(r => r.status === 'rejected'))
       expect(['UNAUTHENTICATED', 'CONFLICT']).toContain(loser.reason.code);
-  });
-});
-
-describe('enterSupport and exitSupport', () => {
-  it('enters a time-limited support context and exits it, round-tripping through real constraints', async () => {
-    const operator = await portalUser();
-    const target = await eligibleTenant();
-    const created = await createSession(db, policy, {
-      portalUserId: operator,
-    });
-
-    const entered = await enterSupport(
-      db,
-      policy,
-      created.token,
-      { user: operator, id: created.session.id, accessMode: 'normal' },
-      grantedContext(operator),
-      { tenant: target, reason: 'investigating a billing defect' }
-    );
-    expect(entered.session.accessMode).toBe('support');
-    expect(entered.session.tenant).toBe(target);
-
-    const row = await stored(created.session.id);
-    expect(row.access_mode).toBe('support');
-    expect(row.access_reason).toBe('investigating a billing defect');
-    expect(row.access_expires_at.getTime()).toBeLessThanOrEqual(
-      Date.now() + 60 * 60_000 + 1000
-    );
-    expect(row.access_expires_at.getTime()).toBeLessThanOrEqual(
-      row.absolute_expires_at.getTime()
-    );
-    expect(await eventsFor(created.session.id)).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.entered',
-        outcome: 'succeeded',
-        actor_id: operator,
-        tenant_id: target,
-      })
-    );
-
-    const exited = await exitSupport(
-      db,
-      policy,
-      entered.token,
-      sessionView(row)
-    );
-    expect(exited.session.accessMode).toBe('normal');
-    expect(exited.session.tenant).toBeNull();
-    expect(await eventsFor(created.session.id)).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.exited',
-        outcome: 'succeeded',
-        tenant_id: target,
-      })
-    );
-  });
-
-  it('denies a caller with no support capability, recording the denial', async () => {
-    const operator = await portalUser();
-    const target = await eligibleTenant();
-    const created = await createSession(db, policy, {
-      portalUserId: operator,
-    });
-    await expect(
-      enterSupport(
-        db,
-        policy,
-        created.token,
-        { user: operator, id: created.session.id, accessMode: 'normal' },
-        deniedContext(operator),
-        { tenant: target, reason: 'investigating a billing defect' }
-      )
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    expect(await eventsFor(created.session.id)).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.denied',
-        outcome: 'denied',
-        details: { code: 'capability' },
-      })
-    );
-    expect((await stored(created.session.id)).access_mode).toBe('normal');
-  });
-
-  it('refuses exit from a session that is not in support mode', async () => {
-    const operator = await portalUser();
-    const created = await createSession(db, policy, {
-      portalUserId: operator,
-    });
-    await expect(
-      exitSupport(db, policy, created.token, {
-        user: operator,
-        id: created.session.id,
-        accessMode: 'normal',
-        tenant: null,
-        effectiveUser: null,
-      })
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
-  });
-});
-
-describe('automatic access-expiry downgrade', () => {
-  it('downgrades an expired support session and rotates its token on the next read', async () => {
-    const operator = await portalUser();
-    const target = await eligibleTenant();
-    const created = await createSession(db, policy, {
-      portalUserId: operator,
-    });
-    await db.sessions.update(created.session.id, {
-      tenant_id: target,
-      access_mode: 'support',
-      access_reason: 'investigating a billing defect',
-      access_expires_at: new Date(Date.now() - 60_000),
-    });
-
-    const resolved = await resolveSession(db, policy, created.token);
-    expect(resolved.accessMode).toBe('normal');
-    expect(resolved.tenant).toBeNull();
-    const newToken = resolved[ROTATED_TOKEN];
-    expect(newToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
-
-    expect((await resolveSession(db, policy, newToken)).id).toBe(
-      created.session.id
-    );
-    await expect(
-      resolveSession(db, policy, created.token)
-    ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
-
-    expect(await eventsFor(created.session.id)).toContainEqual(
-      expect.objectContaining({
-        event_key: 'support.exited',
-        outcome: 'succeeded',
-        actor_id: operator,
-        tenant_id: target,
-      })
-    );
-  });
-
-  it('lets a concurrent request lose the downgrade race without erroring', async () => {
-    const operator = await portalUser();
-    const target = await eligibleTenant();
-    const created = await createSession(db, policy, {
-      portalUserId: operator,
-    });
-    await db.sessions.update(created.session.id, {
-      tenant_id: target,
-      access_mode: 'support',
-      access_reason: 'investigating a billing defect',
-      access_expires_at: new Date(Date.now() - 60_000),
-    });
-
-    const attempts = await Promise.allSettled(
-      Array.from({ length: 5 }, () => resolveSession(db, policy, created.token))
-    );
-    expect(attempts.every(result => result.status === 'fulfilled')).toBe(true);
-    const rotated = attempts.filter(
-      result => result.value[ROTATED_TOKEN] !== undefined
-    );
-    expect(rotated).toHaveLength(1);
-    for (const result of attempts) {
-      expect(result.value.accessMode).toBe('normal');
-      expect(result.value.tenant).toBeNull();
-    }
-    const exits = (await eventsFor(created.session.id)).filter(
-      event => event.event_key === 'support.exited'
-    );
-    expect(exits).toHaveLength(1);
-  });
-
-  it("never rotates a normal session's token on an ordinary read", async () => {
-    const operator = await portalUser();
-    const created = await createSession(db, policy, {
-      portalUserId: operator,
-    });
-    const resolved = await resolveSession(db, policy, created.token);
-    expect(resolved[ROTATED_TOKEN]).toBeUndefined();
-    expect((await resolveSession(db, policy, created.token)).id).toBe(
-      created.session.id
-    );
-  });
-
-  it("does not disturb an unrelated explicit rotation's own token", async () => {
-    const operator = await portalUser();
-    const created = await createSession(db, policy, {
-      portalUserId: operator,
-    });
-    const rotated = await rotateSession(db, policy, created.token);
-    expect(rotated.token).not.toBe(created.token);
-    expect((await resolveSession(db, policy, rotated.token)).id).toBe(
-      created.session.id
-    );
   });
 });

@@ -51,10 +51,9 @@ function sendAccountError(response, error) {
  * administration, and provisioning-job status. See
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md.
  *
- * `authorization.js` currently resolves only root or no platform authority
- * (I0005's role-based `platform_admin`/`support`/`tenant_admin` remains
- * deferred until the tenant-local role catalogue exists in the cell), so every scope this router
- * builds today is either full access or none — the same posture `tenants.js`
+ * `authorization.js` currently grants platform authority only to the
+ * bootstrap login (I0005's role-based resolution remains deferred), so every
+ * scope this router builds today is either full access or none — the same posture `tenants.js`
  * and `control.js` document for their own capability checks.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin

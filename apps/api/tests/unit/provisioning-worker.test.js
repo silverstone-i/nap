@@ -63,7 +63,7 @@ function stagesRecording(order, overrides = {}) {
   };
 }
 
-const noRootSetup = vi.fn(async () => 'none');
+const noNapsoftSetup = vi.fn(async () => 'none');
 
 describe('provisioning worker (I0003-R002–R006)', () => {
   it('runs all four stages in order and completes a provision job', async () => {
@@ -77,7 +77,7 @@ describe('provisioning worker (I0003-R002–R006)', () => {
       admin,
       driver: {},
       stages: stagesRecording(order),
-      rootSetup: noRootSetup,
+      napsoftSetup: noNapsoftSetup,
     });
     await worker.tick();
     expect(order).toEqual(['setup', 'migration', 'seed', 'activation']);
@@ -102,7 +102,7 @@ describe('provisioning worker (I0003-R002–R006)', () => {
       admin,
       driver: {},
       stages: stagesRecording(order),
-      rootSetup: noRootSetup,
+      napsoftSetup: noNapsoftSetup,
     }).tick();
     expect(order).toEqual(['activation']);
     expect(row.status).toBe('completed');
@@ -123,7 +123,7 @@ describe('provisioning worker (I0003-R002–R006)', () => {
           throw Object.assign(new Error('x'), { code: 'MIGRATION_FAILED' });
         },
       }),
-      rootSetup: noRootSetup,
+      napsoftSetup: noNapsoftSetup,
     }).tick();
     expect(order).toEqual(['setup']);
     expect(row).toMatchObject({
@@ -147,7 +147,7 @@ describe('provisioning worker (I0003-R002–R006)', () => {
       admin,
       driver: {},
       intervalMs: 5,
-      rootSetup: noRootSetup,
+      napsoftSetup: noNapsoftSetup,
       stages: stagesRecording(order, {
         setup: vi.fn(async () => {
           order.push('setup');
@@ -165,19 +165,19 @@ describe('provisioning worker (I0003-R002–R006)', () => {
     expect(admin.db.cell_provisioning.requeueRunning).toHaveBeenCalledTimes(1);
   });
 
-  it('retries root tenant setup on every check and survives its failure (R025)', async () => {
+  it('retries Napsoft tenant setup on every check and survives its failure (R025)', async () => {
     const { admin } = fakeAdmin({ status: 'completed' });
-    const rootSetup = vi.fn(async () => {
-      throw new Error('ROOT_SETUP_FAILED');
+    const napsoftSetup = vi.fn(async () => {
+      throw new Error('NAPSOFT_SETUP_FAILED');
     });
     const worker = createProvisioningWorker({
       admin,
       driver: {},
       stages: stagesRecording([]),
-      rootSetup,
+      napsoftSetup,
     });
     await worker.tick();
     await worker.tick();
-    expect(rootSetup).toHaveBeenCalledTimes(2);
+    expect(napsoftSetup).toHaveBeenCalledTimes(2);
   });
 });

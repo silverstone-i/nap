@@ -36,12 +36,11 @@ function event(overrides = {}) {
   };
 }
 
-/** Scope shorthand: platform, support, a named tenant, or nothing. */
-function scope(tenantIds, deniedTenantIds = []) {
+/** Scope shorthand: platform, a named tenant, or nothing. */
+function scope(tenantIds) {
   return {
     platformPortalUserRead: true,
     tenantIds,
-    deniedTenantIds,
     archiveManagement: false,
   };
 }
@@ -75,7 +74,7 @@ function model({ inserted = null, existing = null, failure } = {}) {
 
 describe('catalogue', () => {
   it('names every key in the PRD areas with permitted outcomes', () => {
-    expect(Object.keys(EVENT_CATALOGUE)).toHaveLength(45);
+    expect(Object.keys(EVENT_CATALOGUE)).toHaveLength(42);
     for (const [key, entry] of Object.entries(EVENT_CATALOGUE)) {
       expect(entry.outcomes.length, key).toBeGreaterThan(0);
       for (const outcome of entry.outcomes)
@@ -87,7 +86,6 @@ describe('catalogue', () => {
     ['bootstrap.succeeded', 'succeeded'],
     ['bootstrap.failed', 'failed'],
     ['auth.login.throttled', 'denied'],
-    ['support.denied', 'denied'],
     ['cell.provisioning.completed', 'succeeded'],
     ['cache.revision.failed', 'failed'],
   ])('pins %s to the outcome its name states', (key, outcome) => {
@@ -119,7 +117,6 @@ describe('parseEvent', () => {
       outcome: 'succeeded',
       request_id: null,
       actor_id: null,
-      effective_user_id: null,
       tenant_id: tenant,
       target_type: null,
       target_id: null,
@@ -127,19 +124,6 @@ describe('parseEvent', () => {
       reason: null,
       details: {},
     });
-  });
-
-  it('retains the real actor and the effective user together', () => {
-    const parsed = parseEvent(
-      event({
-        event_key: 'support.entered',
-        actor_id: actor,
-        effective_user_id: napsoft,
-        tenant_id: tenant,
-      })
-    );
-    expect(parsed.actor_id).toBe(actor);
-    expect(parsed.effective_user_id).toBe(napsoft);
   });
 
   // AC02.
@@ -195,33 +179,13 @@ describe('eventScopeFilter', () => {
     expect(eventScopeFilter(scope('*'))).toEqual([]);
   });
 
-  // The NULL branch is the point: `tenant_id <> $1` is NULL, not true, for a
-  // null tenant, so support would silently lose every platform event without it.
-  it('keeps null-tenant events readable for a scope with denied tenants', () => {
-    expect(eventScopeFilter(scope('*', [napsoft]))).toEqual([
-      {
-        $or: [
-          { tenant_id: { $is: null } },
-          { $and: [{ tenant_id: { $ne: napsoft } }] },
-        ],
-      },
-    ]);
-  });
-
   it('excludes null-tenant events from a named-tenant scope', () => {
     expect(eventScopeFilter(scope([tenant]))).toEqual([
       { tenant_id: { $in: [tenant] } },
     ]);
   });
 
-  it('drops a named tenant that is also denied', () => {
-    expect(eventScopeFilter(scope([tenant, napsoft], [napsoft]))).toEqual([
-      { tenant_id: { $in: [tenant] } },
-    ]);
-  });
-
-  it('permits nothing when every named tenant is denied', () => {
-    expect(eventScopeFilter(scope([napsoft], [napsoft]))).toBeNull();
+  it('permits nothing for an empty named-tenant scope', () => {
     expect(eventScopeFilter(scope([]))).toBeNull();
   });
 });
@@ -258,13 +222,9 @@ describe('listEvents', () => {
     ]);
   });
 
-  // AC05. An empty page rather than FORBIDDEN, so a support caller cannot use
-  // the response to confirm that a UUID names a Napsoft tenant.
+  // AC05. An empty page rather than FORBIDDEN.
   it('returns an empty page without querying for a tenant outside the scope', async () => {
     const { db, page } = reader();
-    expect(
-      await listEvents(db, scope('*', [napsoft]), { tenant: napsoft })
-    ).toEqual({ rows: [], nextCursor: null });
     expect(await listEvents(db, scope([tenant]), { tenant: napsoft })).toEqual({
       rows: [],
       nextCursor: null,

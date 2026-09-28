@@ -28,6 +28,7 @@ import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.
 import { createSession } from '../../src/modules/admin-tenancy/domain/session.js';
 import { selectTenant } from '../../src/modules/admin-tenancy/domain/tenantAccess.js';
 import { createCellRegistry } from '../../src/infrastructure/runtime/cellRegistry.js';
+import { createCellDatabase } from '../../src/infrastructure/runtime/cellDatabase.js';
 import {
   createLocalCellDriver,
   operationMarker,
@@ -56,13 +57,12 @@ const sessionPolicy = {
   absoluteHours: 12,
 };
 const created = new Set();
-let handle, db, dir, provisioning, rootUser, napsoftId;
+let handle, db, dir, provisioning, bootstrapLogin, napsoftId;
 
 const suffix = () => 'p' + randomUUID().replaceAll('-', '').slice(0, 12);
 const authority = () => ({
   actorId: randomUUID(),
   granted: true,
-  deniedTenantIds: [],
 });
 
 /**
@@ -102,7 +102,7 @@ async function publishedMap() {
 
 async function select(registry) {
   const { token, session } = await createSession(db, sessionPolicy, {
-    portalUserId: rootUser.id,
+    portalUserId: bootstrapLogin.id,
   });
   return selectTenant(
     db,
@@ -139,13 +139,13 @@ beforeAll(async () => {
 
   const unique = randomUUID().slice(0, 8);
   const boot = await bootstrapRoot(db, {
-    tenantCode: `NAP-${unique}`,
+    tenantCode: `NAP-${unique.toUpperCase()}`,
     tenantName: `Test Napsoft ${unique}`,
-    rootEmail: `root-${unique}@nap.test`,
+    rootEmail: `bootstrap-${unique}@nap.test`,
     rootPassword: 'correct-horse-battery-staple',
     hashingPolicy: ARGON2_MINIMUM,
   });
-  rootUser = boot.rootUser;
+  bootstrapLogin = boot.rootUser;
   napsoftId = boot.tenant.id;
 
   dir = await mkdtemp(join(tmpdir(), 'nap-cells-'));
@@ -206,7 +206,43 @@ describe('cell provisioning (I0003)', () => {
     const members = await cellDb.tenant_members.findWhere({
       tenant_id: napsoftId,
     });
-    expect(members.map(m => m.portal_user_id)).toEqual([rootUser.id]);
+    expect(members.map(m => m.portal_user_id)).toEqual([bootstrapLogin.id]);
+
+    // Napsoft tenant setup ran the RBAC seed in the Napsoft cell.
+    const target = await createLocalCellDriver(provisioning).connection({
+      cell: await db.cells.findOneBy(
+        { id: first.cell.id },
+        { columnWhitelist: ['id', 'database_name'] }
+      ),
+    });
+    const admin = createCellDatabase(
+      roleUrl(target.endpoint, 'nap-admin', target.adminPassword)
+    );
+    try {
+      await admin.connect();
+      const { roles, assignments } = await admin.db.tx(async tx => {
+        await tx.one("SELECT set_config('nap.tenant_id', $1, true)", [
+          napsoftId,
+        ]);
+        return {
+          roles: await tx.any('SELECT id, code FROM app.roles ORDER BY code'),
+          assignments: await tx.any(
+            'SELECT portal_user_id, role_id FROM app.role_assignments'
+          ),
+        };
+      });
+      expect(roles.map(role => role.code)).toEqual([
+        'platform_admin',
+        'support',
+        'tenant_admin',
+      ]);
+      const platformAdmin = roles.find(role => role.code === 'platform_admin');
+      expect(assignments).toEqual([
+        { portal_user_id: bootstrapLogin.id, role_id: platformAdmin.id },
+      ]);
+    } finally {
+      await admin.close();
+    }
   });
 
   it('AC02: a restarted API loads the published cell and can still select', async () => {
@@ -414,7 +450,7 @@ describe('cell provisioning (I0003)', () => {
     await registry.close();
   });
 
-  it('AC10: a later cell never changes the Napsoft cell; a failed root setup is retried', async () => {
+  it('AC10: a later cell never changes the Napsoft cell; a failed Napsoft setup is retried', async () => {
     const before = await napsoft();
     const fifth = await register();
     const { worker, registry } = system();
@@ -422,7 +458,7 @@ describe('cell provisioning (I0003)', () => {
     expect((await job(fifth.cell.id)).status).toBe('completed');
     expect((await napsoft()).cell_id).toBe(before.cell_id);
 
-    // Reopen root setup and make it fail once.
+    // Reopen Napsoft setup and make it fail once.
     await db.tenants.update(napsoftId, {
       provisioned: false,
       rbac_ready: false,
@@ -439,7 +475,9 @@ describe('cell provisioning (I0003)', () => {
     const retrying = system({ driver: flaky, registry });
     await retrying.worker.tick();
     expect((await napsoft()).provisioned).toBe(false);
-    expect((await job(before.cell_id)).failure_code).toBe('ROOT_SETUP_FAILED');
+    expect((await job(before.cell_id)).failure_code).toBe(
+      'NAPSOFT_SETUP_FAILED'
+    );
 
     broken = false;
     await retrying.worker.tick();

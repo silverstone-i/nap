@@ -40,12 +40,9 @@ function sendControlError(response, error) {
  * and readiness. See docs/architecture/admin-cells.md and
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-06-cell-management.md.
  *
- * `authorization.js` currently resolves only root or no platform authority
- * (I0005's role-based `platform_admin`/`support` remains deferred), so
- * every scope this router builds today is either full access or none — the
- * support-scoped Napsoft restriction the domain functions already enforce
- * has no caller yet, exactly as M0001-04's `sessions` router notes for
- * session revocation.
+ * `authorization.js` currently grants platform authority only to the
+ * bootstrap login (I0005's role-based resolution remains deferred), so every
+ * scope this router builds today is either full access or none.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {'dev'|'test'|'prod'} context.environment The running API's own configured environment.

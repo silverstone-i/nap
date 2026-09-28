@@ -50,7 +50,7 @@ const AUDITED_FAILURE_CODES = new Set([
  * @property {(operation: (tx: object) => Promise<unknown>) => Promise<unknown>} tx
  */
 
-/** Safe projection of `admin.portal_users` for this module's ordinary-user contract. Never `password_hash` or `is_root`. */
+/** Safe projection of `admin.portal_users` for this module's ordinary-user contract. Never `password_hash`. */
 export function userView(row) {
   return {
     id: row.id,
@@ -120,10 +120,9 @@ function requireAuthority(authority) {
  * `admin-tenancy::accounts::write`, since every write route builds its scope
  * from that capability) is the whole gate.
  *
- * `authorization.js` currently resolves only root or no platform authority
- * (I0005's role-based `platform_admin`/`support`/`tenant_admin` remains
- * deferred until the tenant-local role catalogue exists in the cell), so today this is either fully
- * granted or fully denied — the same posture `cells.js` and `tenants.js`
+ * `authorization.js` currently grants platform authority only to the
+ * bootstrap login (I0005's role-based resolution remains deferred), so today
+ * this is either fully granted or fully denied — the same posture `cells.js` and `tenants.js`
  * document for their own capability checks.
  * @param {unknown} authority
  * @returns {{actorId: string, scope: import('./scope.js').AdminAccessScope}}
@@ -141,23 +140,17 @@ function requirePlatformAuthority(authority) {
  * provisioning-job operation authorized independently of the caller-supplied
  * membership or job UUID (M0001-08-R006).
  *
- * A tenant the scope does not name at all reports `FORBIDDEN`: the caller
- * holds no accounts capability, and refusing every tenant reveals nothing
- * record-specific. A tenant explicitly carved out of a granted scope
- * (support's Napsoft restriction, §4 and §12) reports `NOT_FOUND` instead,
- * identically to a missing record, so the refusal cannot tell a denied
- * caller which tenant UUIDs are Napsoft's — mirroring
- * `domain/session.js`'s `revokeSession`.
+ * A tenant the scope does not name reports `FORBIDDEN`: the caller holds no
+ * accounts capability for it, and refusing every such tenant reveals nothing
+ * record-specific.
  * @param {import('./scope.js').AdminAccessScope} scope
  * @param {string} tenantId
  * @returns {void}
- * @throws {AdminAccountError} `FORBIDDEN`, `NOT_FOUND`
+ * @throws {AdminAccountError} `FORBIDDEN`
  */
 function requireTenantAuthority(scope, tenantId) {
   if (isTenantPermitted(scope, tenantId)) return;
-  throw new AdminAccountError(
-    scope.deniedTenantIds.includes(tenantId) ? 'NOT_FOUND' : 'FORBIDDEN'
-  );
+  throw new AdminAccountError('FORBIDDEN');
 }
 
 /**
@@ -315,8 +308,8 @@ async function resolveUserReplay(db, idempotencyKey, normalized) {
  * Create an ordinary portal user, or reuse an existing active one registered
  * under the same email.
  *
- * M0001-08-R001. A non-active portal user already holding this email (locked,
- * disabled, or the root account) is a conflict: creating a duplicate row
+ * M0001-08-R001. A non-active portal user already holding this email (locked or
+ * disabled) is a conflict: creating a duplicate row
  * would violate `portal_users_active_email`, and reuse is only ever correct
  * for an active account.
  * @param {AdminAccountsDb} db
@@ -362,7 +355,7 @@ export async function createOrReuseUser(
           { tx }
         );
         if (existing) {
-          if (existing.is_root || existing.status !== 'active')
+          if (existing.status !== 'active')
             throw new AdminAccountError('CONFLICT');
           await appendAccountEvent(
             db,
@@ -432,24 +425,7 @@ const USER_LIST_COLUMNS = Object.freeze([
   'status',
   'must_change_password',
   'deactivated_at',
-  'is_root',
 ]);
-
-/**
- * Safe projection for the platform-wide portal-user list only: `userView`
- * plus whether the row is the root account. The root account is otherwise
- * unreachable through this module (every other route's `userView` caller
- * excludes it before it ever gets here — `userView` itself still never
- * exposes `is_root`), but I0002's Portal Users screen must still display it
- * for operator visibility, read-only — `isRoot` is what lets the UI hide
- * Deactivate/Restore for that one row, since `archiveUser`/`restoreUser`
- * both reject `is_root` with `NOT_FOUND` regardless.
- * @param {object} row
- * @returns {object}
- */
-function userListView(row) {
-  return { ...userView(row), isRoot: Boolean(row.is_root) };
-}
 
 const userCursorSchema = z.strictObject({
   v: z.literal(1),
@@ -504,8 +480,7 @@ function parseLimitOrAccount(value) {
 }
 
 /**
- * List every portal-user account — including root, for operator visibility
- * — in ascending `id` order, paginated by opaque cursor (I0002-R008).
+ * List every portal-user account in ascending `id` order, paginated by opaque cursor (I0002-R008).
  *
  * Reads with `includeDeactivated: true`: `admin.portal_users` is
  * soft-delete tracked, so an archived account would otherwise vanish from
@@ -516,13 +491,6 @@ function parseLimitOrAccount(value) {
  * alone is the correct, sufficient gate — no separate archive-specific
  * check is needed the way `findPortalUserIncludingArchived`
  * (domain/access.js) requires one for its single-record read.
- *
- * No filter excludes `is_root`: root is otherwise invisible everywhere else
- * this module reads or writes (`getUser`, `createOrReuseUser`,
- * `archiveUser`, `restoreUser` all refuse to touch it), so listing it here
- * is read-only visibility, not a new way to manage it — `userListView`'s
- * `isRoot` flag is what lets the UI withhold Deactivate/Restore for that
- * one row instead.
  * @param {AdminAccountsDb} db
  * @param {unknown} authority `{actorId, scope}`; `scope` built for `admin-tenancy::accounts::read`.
  * @param {{cursor?: unknown, limit?: unknown}} [page]
@@ -541,7 +509,7 @@ export async function listUsers(db, authority, { cursor, limit } = {}) {
       { columnWhitelist: USER_LIST_COLUMNS, includeDeactivated: true }
     );
     return {
-      rows: page.rows.map(userListView),
+      rows: page.rows.map(userView),
       nextCursor: encodeUserCursor(page.nextCursor),
     };
   });
@@ -552,8 +520,7 @@ export async function listUsers(db, authority, { cursor, limit } = {}) {
  *
  * Delegates existence and authorization to `domain/access.js`'s
  * `findPortalUser`, which already grants a caller either platform-level
- * portal-user read or an active membership in a tenant the scope permits —
- * then excludes the root account, which this module never manages.
+ * portal-user read or an active membership in a tenant the scope permits.
  * @param {AdminAccountsDb} db
  * @param {unknown} scope
  * @param {unknown} userId
@@ -570,7 +537,7 @@ export async function getUser(db, scope, userId) {
   const id = parseUuidOrAccount(userId);
   return withAccountErrors(async () => {
     const row = await findPortalUser(db, parsedScope, id);
-    if (!row || row.is_root) throw new AdminAccountError('NOT_FOUND');
+    if (!row) throw new AdminAccountError('NOT_FOUND');
     const detail = await db.portal_users.findOneBy(
       { id },
       { columnWhitelist: ['must_change_password'] }
@@ -630,7 +597,7 @@ export async function updateUser(
 
       return await db.tx(async tx => {
         const current = await db.portal_users.lockById(id, { tx });
-        if (!current || current.is_root || current.deactivated_at)
+        if (!current || current.deactivated_at)
           throw new AdminAccountError('NOT_FOUND');
 
         const changedFields = [];
@@ -734,8 +701,7 @@ export async function archiveUser(
       const id = parseUuidOrAccount(userId);
       return await db.tx(async tx => {
         const current = await db.portal_users.lockById(id, { tx });
-        if (!current || current.is_root)
-          throw new AdminAccountError('NOT_FOUND');
+        if (!current) throw new AdminAccountError('NOT_FOUND');
         if (current.deactivated_at) return { archived: true };
 
         const removed = await db.portal_users.removeWhere({ id }, { tx });
@@ -809,8 +775,7 @@ export async function restoreUser(
       const id = parseUuidOrAccount(userId);
       return await db.tx(async tx => {
         const current = await db.portal_users.lockById(id, { tx });
-        if (!current || current.is_root)
-          throw new AdminAccountError('NOT_FOUND');
+        if (!current) throw new AdminAccountError('NOT_FOUND');
         if (!current.deactivated_at)
           throw new AdminAccountError('INVALID_STATE');
 
@@ -977,9 +942,9 @@ export async function createMembership(
 
         const user = await db.portal_users.findOneBy(
           { id: normalized.portalUserId },
-          { tx, columnWhitelist: ['id', 'is_root'] }
+          { tx, columnWhitelist: ['id'] }
         );
-        if (!user || user.is_root) throw new AdminAccountError('NOT_FOUND');
+        if (!user) throw new AdminAccountError('NOT_FOUND');
 
         const tenant = await db.tenants.findOneBy(
           { id: normalized.tenantId },
@@ -1067,7 +1032,7 @@ const updateMembershipBodySchema = z.strictObject({
  * `active` without restoring readiness, which requires a successful
  * provisioning result (§7: "no readiness until explicitly reactivated and
  * reprovisioned"). A value equal to the membership's current status is a
- * no-op. The root membership (`member_type IS NULL`) is never a valid target.
+ * no-op. A Napsoft membership with a null `member_type` is never a valid target.
  * @param {AdminAccountsDb} db
  * @param {unknown} authority `{actorId, scope}`.
  * @param {unknown} membershipId
@@ -1498,8 +1463,8 @@ export async function reportProvisioningResult(db, jobId, result) {
       );
       if (!membership) throw new AdminAccountError('NOT_FOUND');
       // A late report must not resurrect a membership an operator has since
-      // archived, nor ever touch the root membership (`member_type IS
-      // NULL`) — this module's own contract never manages either. Leaves
+      // archived, nor ever touch a membership with a null
+      // `member_type` — this module's own contract never manages either. Leaves
       // the job row untouched, still `queued`/`running`.
       if (membership.deactivated_at || membership.member_type === null)
         throw new AdminAccountError('INVALID_STATE');
@@ -1580,7 +1545,6 @@ export async function createLoginFromHash(db, { email, passwordHash }, { tx }) {
       password_hash: passwordHash,
       must_change_password: true,
       status: 'active',
-      is_root: false,
     },
     { tx }
   );
@@ -1664,8 +1628,7 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
     return { failureCode: null, invitationPending: false };
   }
 
-  if (login.is_root || login.status === 'disabled')
-    return { failureCode: 'LOGIN_UNAVAILABLE' };
+  if (login.status === 'disabled') return { failureCode: 'LOGIN_UNAVAILABLE' };
 
   const membership = await db.portal_user_tenants.lockByUserAndTenant(
     login.id,

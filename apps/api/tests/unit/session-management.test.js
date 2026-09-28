@@ -52,10 +52,6 @@ function row(overrides = {}) {
     id: randomUUID(),
     portal_user_id: randomUUID(),
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: created,
     idle_expires_at: new Date(created.getTime() + 30 * 60_000),
     absolute_expires_at: new Date(created.getTime() + 12 * 3_600_000),
@@ -79,10 +75,10 @@ function row(overrides = {}) {
  * concurrency are decided by SQL in the real model, so they are verified in
  * the database integration test rather than here.
  * @param {object[]} rows Session rows, keyed on their token hash.
- * @param {{rootUserIds?: string[]}} [options]
+ * @param {{bootstrapLoginId?: string}} [options]
  * @returns {{db: object, events: object[], revisions: object[]}}
  */
-function fakeAdmin(rows, { rootUserIds = [] } = {}) {
+function fakeAdmin(rows, { bootstrapLoginId = null } = {}) {
   const events = [];
   const revisions = [];
   const store = new Map(rows.map(entry => [entry.token_hash, entry]));
@@ -102,10 +98,9 @@ function fakeAdmin(rows, { rootUserIds = [] } = {}) {
       },
     },
     portal_users: {
-      findOneBy: async ({ id }) => ({
-        id,
-        is_root: rootUserIds.includes(id),
-      }),
+      findOneBy: async ({ id }) => ({ id }),
+      findBootstrapLogin: async () =>
+        bootstrapLoginId ? { id: bootstrapLoginId } : null,
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -156,7 +151,7 @@ function fakeAdmin(rows, { rootUserIds = [] } = {}) {
 /**
  * Build the API with a fake admin handle and the real route table.
  * @param {object[]} rows
- * @param {{rootUserIds?: string[]}} [options]
+ * @param {{bootstrapLoginId?: string}} [options]
  * @returns {{app: import('express').Express, admin: object}}
  */
 function api(rows = [], options) {
@@ -269,16 +264,13 @@ describe('revocation authority', () => {
   const platformAdmin = {
     platformPortalUserRead: true,
     tenantIds: '*',
-    deniedTenantIds: [],
     archiveManagement: false,
   };
-  const support = { ...platformAdmin, deniedTenantIds: [napsoft] };
   const singleTenant = { ...platformAdmin, tenantIds: [other] };
 
-  it('lets support reach platform and non-Napsoft sessions but not Napsoft ones', () => {
-    expect(isSessionPermitted(support, null)).toBe(true);
-    expect(isSessionPermitted(support, other)).toBe(true);
-    expect(isSessionPermitted(support, napsoft)).toBe(false);
+  it('lets a platform-wide authority reach every session', () => {
+    expect(isSessionPermitted(platformAdmin, null)).toBe(true);
+    expect(isSessionPermitted(platformAdmin, other)).toBe(true);
     expect(isSessionPermitted(platformAdmin, napsoft)).toBe(true);
   });
 
@@ -293,9 +285,9 @@ describe('revocation authority', () => {
       actorId,
       scope: null,
     });
-    expect(parseSessionAuthority({ actorId, scope: support })).toEqual({
+    expect(parseSessionAuthority({ actorId, scope: platformAdmin })).toEqual({
       actorId,
-      scope: support,
+      scope: platformAdmin,
     });
     for (const bad of [
       undefined,
@@ -578,16 +570,16 @@ describe('session routes', () => {
     expect(theirs.session.deactivated_at).toBeNull();
   });
 
-  it("lets an unrestricted root revoke another user's session", async () => {
-    const root = live();
+  it("lets the unrestricted bootstrap login revoke another user's session", async () => {
+    const bootstrap = live();
     const target = live();
-    const { app } = api([root.session, target.session], {
-      rootUserIds: [root.session.portal_user_id],
+    const { app } = api([bootstrap.session, target.session], {
+      bootstrapLoginId: bootstrap.session.portal_user_id,
     });
     const response = await request(app)
       .delete(`/api/admin-tenancy/v1/sessions/${target.session.id}`)
       .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${root.token}`);
+      .set('Cookie', `nap_session=${bootstrap.token}`);
     expect(response.status).toBe(204);
     expect(target.session.deactivated_at).not.toBeNull();
   });

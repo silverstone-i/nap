@@ -10,8 +10,6 @@ import { permits, resolveAuthorization } from '../../domain/authorization.js';
 import { AdminAccessError } from '../../domain/errors.js';
 import {
   eligibleTenantView,
-  enterSupport,
-  exitSupport,
   listEligibleTenants,
   selectTenant,
 } from '../../domain/tenantAccess.js';
@@ -22,15 +20,11 @@ import {
 } from './shared.js';
 
 /**
- * Build the `access` router: tenant selection and support access. See
+ * Build the `access` router: access context and tenant selection. See
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md.
  *
- * `authorization.js` currently resolves only root or no platform authority
- * (I0005's role-based `platform_admin`/`support` remains deferred), so
- * `POST /support` is reachable only by root today — the same caveat
- * `tenants.js`, `control.js`, and M0001-04's `sessions` router already
- * document. `POST /select` needs no capability at all: it operates purely on
- * the caller's own membership.
+ * `POST /select` needs no capability at all: it operates purely on the
+ * caller's own membership.
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {object} context.sessionPolicy
@@ -130,45 +124,6 @@ export function createAccessRouter({
         request.session,
         request.body,
         { requestId: request.requestId, runtime }
-      );
-      issueSessionCookie(response, cookiePolicy, result.token, result.session);
-      sendData(response, result.session);
-    } catch (error) {
-      if (error?.code === 'UNAUTHENTICATED')
-        discardSessionCookie(response, cookiePolicy);
-      sendSessionError(response, error);
-    }
-  });
-
-  router.post('/support', requireSession(), async (request, response) => {
-    try {
-      const context = await resolveAuthorization(admin.db, request.session);
-      const result = await enterSupport(
-        admin.db,
-        sessionPolicy,
-        request.sessionToken,
-        request.session,
-        context,
-        request.body,
-        { requestId: request.requestId, runtime }
-      );
-      issueSessionCookie(response, cookiePolicy, result.token, result.session);
-      sendData(response, result.session);
-    } catch (error) {
-      if (error?.code === 'UNAUTHENTICATED')
-        discardSessionCookie(response, cookiePolicy);
-      sendSessionError(response, error);
-    }
-  });
-
-  router.delete('/support', requireSession(), async (request, response) => {
-    try {
-      const result = await exitSupport(
-        admin.db,
-        sessionPolicy,
-        request.sessionToken,
-        request.session,
-        { requestId: request.requestId }
       );
       issueSessionCookie(response, cookiePolicy, result.token, result.session);
       sendData(response, result.session);

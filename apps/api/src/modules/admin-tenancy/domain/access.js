@@ -36,7 +36,6 @@ export const PORTAL_USER_VIEW_COLUMNS = [
   'id',
   'email',
   'status',
-  'is_root',
   'created_at',
   'created_by',
   'updated_at',
@@ -108,16 +107,10 @@ async function requirePortalUserTarget(db, scope, portalUserId) {
  * @returns {object|null}
  */
 function membershipTenantFilter(scope) {
-  if (scope.tenantIds !== '*') {
-    const permitted = scope.tenantIds.filter(
-      id => !scope.deniedTenantIds.includes(id)
-    );
-    return permitted.length ? { tenant_id: { $in: permitted } } : null;
-  }
-  if (scope.deniedTenantIds.length)
-    return {
-      $and: scope.deniedTenantIds.map(id => ({ tenant_id: { $ne: id } })),
-    };
+  if (scope.tenantIds !== '*')
+    return scope.tenantIds.length
+      ? { tenant_id: { $in: scope.tenantIds } }
+      : null;
   return {};
 }
 

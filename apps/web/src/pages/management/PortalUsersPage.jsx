@@ -108,12 +108,8 @@ export function PortalUsersPage() {
   }
 
   // Mutually exclusive by construction: an archived account can only be
-  // restored, an active one only deactivated (I0002-R006). Root is listed
-  // for visibility but offers neither — the server rejects both against it
-  // (`archiveUser`/`restoreUser` in domain/accounts.js), so no action menu
-  // is more honest than one that always errors.
+  // restored, an active one only deactivated (I0002-R006).
   function rowActions(row) {
-    if (row.isRoot) return [];
     return row.deactivatedAt
       ? [{ label: 'Restore', onClick: handleRestore }]
       : [{ label: 'Deactivate', destructive: true, onClick: handleDeactivate }];

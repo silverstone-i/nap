@@ -6,7 +6,7 @@
 import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
- * Baseline admin migration. It creates the fourteen admin tables in dependency
+ * Baseline admin migration. It creates the twelve admin tables in dependency
  * order, installs the protection trigger functions and triggers, disables
  * row-level security, and applies the `nap-app` grant contract.
  *
@@ -73,13 +73,6 @@ export const migration = defineMigration({
           default: true,
         },
         { name: 'status', type: 'text', notNull: true, default: 'active' },
-        {
-          name: 'is_root',
-          type: 'boolean',
-          notNull: true,
-          default: false,
-          immutable: true,
-        },
       ],
       constraints: {
         primaryKey: ['id'],
@@ -91,7 +84,6 @@ export const migration = defineMigration({
             unique: true,
             where: 'deactivated_at IS NULL',
           },
-          { columns: ['is_root'], unique: true, where: 'is_root = true' },
         ],
       },
     };
@@ -239,10 +231,6 @@ export const migration = defineMigration({
         },
         { name: 'token_hash', type: 'text', notNull: true },
         { name: 'tenant_id', type: 'uuid' },
-        { name: 'access_mode', type: 'text', notNull: true, default: 'normal' },
-        { name: 'effective_user_id', type: 'uuid' },
-        { name: 'access_reason', type: 'varchar(512)' },
-        { name: 'access_expires_at', type: 'timestamptz' },
         {
           name: 'last_seen_at',
           type: 'timestamptz',
@@ -255,25 +243,11 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         unique: [['token_hash']],
-        checks: [
-          "access_mode IN ('normal', 'support', 'break_glass')",
-          "(access_mode = 'normal' AND effective_user_id IS NULL AND access_reason IS NULL AND access_expires_at IS NULL) OR (access_mode = 'support' AND tenant_id IS NOT NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL) OR (access_mode = 'break_glass' AND tenant_id IS NOT NULL AND effective_user_id IS NULL AND access_reason IS NOT NULL AND access_expires_at IS NOT NULL)",
-          'idle_expires_at <= absolute_expires_at',
-        ],
+        checks: ['idle_expires_at <= absolute_expires_at'],
         foreignKeys: [
           {
             type: 'ForeignKey',
             columns: ['portal_user_id'],
-            references: {
-              schema: 'admin',
-              table: 'portal_users',
-              columns: ['id'],
-            },
-            onDelete: 'RESTRICT',
-          },
-          {
-            type: 'ForeignKey',
-            columns: ['effective_user_id'],
             references: {
               schema: 'admin',
               table: 'portal_users',
@@ -295,107 +269,6 @@ export const migration = defineMigration({
         ],
       },
     };
-    const supportGrantsSchema = {
-      dbSchema: 'admin',
-      table: 'support_grants',
-      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
-      columns: [
-        {
-          name: 'id',
-          type: 'uuid',
-          notNull: true,
-          default: 'gen_random_uuid()',
-          immutable: true,
-        },
-        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-        { name: 'operator_id', type: 'uuid', notNull: true, immutable: true },
-        {
-          name: 'effective_user_id',
-          type: 'uuid',
-          notNull: true,
-          immutable: true,
-        },
-        {
-          name: 'reason',
-          type: 'varchar(512)',
-          notNull: true,
-          immutable: true,
-        },
-        {
-          name: 'expires_at',
-          type: 'timestamptz',
-          notNull: true,
-          immutable: true,
-        },
-        { name: 'status', type: 'text', notNull: true, default: 'pending' },
-        { name: 'decided_by', type: 'uuid' },
-        { name: 'decided_at', type: 'timestamptz' },
-        { name: 'session_id', type: 'uuid' },
-      ],
-      constraints: {
-        primaryKey: ['id'],
-        checks: [
-          "status IN ('pending', 'approved', 'denied', 'expired', 'used', 'cancelled')",
-          'operator_id <> effective_user_id',
-          "(status = 'pending' AND decided_by IS NULL AND decided_at IS NULL AND session_id IS NULL) OR (status IN ('approved', 'denied') AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NULL) OR (status = 'used' AND decided_by IS NOT NULL AND decided_at IS NOT NULL AND session_id IS NOT NULL) OR (status IN ('expired', 'cancelled') AND session_id IS NULL)",
-        ],
-        foreignKeys: [
-          {
-            type: 'ForeignKey',
-            columns: ['tenant_id'],
-            references: { schema: 'admin', table: 'tenants', columns: ['id'] },
-            onDelete: 'RESTRICT',
-          },
-          {
-            type: 'ForeignKey',
-            columns: ['operator_id'],
-            references: {
-              schema: 'admin',
-              table: 'portal_users',
-              columns: ['id'],
-            },
-            onDelete: 'RESTRICT',
-          },
-          {
-            type: 'ForeignKey',
-            columns: ['effective_user_id'],
-            references: {
-              schema: 'admin',
-              table: 'portal_users',
-              columns: ['id'],
-            },
-            onDelete: 'RESTRICT',
-          },
-          {
-            type: 'ForeignKey',
-            columns: ['decided_by'],
-            references: {
-              schema: 'admin',
-              table: 'portal_users',
-              columns: ['id'],
-            },
-            onDelete: 'RESTRICT',
-          },
-          {
-            type: 'ForeignKey',
-            columns: ['session_id'],
-            references: { schema: 'admin', table: 'sessions', columns: ['id'] },
-            onDelete: 'RESTRICT',
-          },
-        ],
-        indexes: [
-          {
-            name: 'support_grants_open_request',
-            columns: ['operator_id', 'tenant_id', 'effective_user_id'],
-            unique: true,
-            where: "status IN ('pending', 'approved')",
-          },
-          { columns: ['effective_user_id', 'status'] },
-          { columns: ['tenant_id', 'status'] },
-          { columns: ['expires_at'] },
-        ],
-      },
-    };
     const loginThrottlesSchema = {
       dbSchema: 'admin',
       table: 'login_throttles',
@@ -412,61 +285,6 @@ export const migration = defineMigration({
         indexes: [
           { columns: ['locked_until'] },
           { columns: ['last_failed_at'] },
-        ],
-      },
-    };
-    const platformRolesSchema = {
-      dbSchema: 'admin',
-      table: 'platform_roles',
-      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
-      softDelete: true,
-      columns: [
-        {
-          name: 'id',
-          type: 'uuid',
-          notNull: true,
-          default: 'gen_random_uuid()',
-          immutable: true,
-        },
-        {
-          name: 'portal_user_id',
-          type: 'uuid',
-          notNull: true,
-          immutable: true,
-        },
-        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-        { name: 'role_id', type: 'uuid', notNull: true, immutable: true },
-      ],
-      constraints: {
-        primaryKey: ['id'],
-        foreignKeys: [
-          {
-            type: 'ForeignKey',
-            columns: ['portal_user_id'],
-            references: {
-              schema: 'admin',
-              table: 'portal_users',
-              columns: ['id'],
-            },
-            onDelete: 'RESTRICT',
-          },
-          {
-            type: 'ForeignKey',
-            columns: ['tenant_id'],
-            references: {
-              schema: 'admin',
-              table: 'tenants',
-              columns: ['id'],
-            },
-            onDelete: 'RESTRICT',
-          },
-        ],
-        indexes: [
-          {
-            columns: ['portal_user_id', 'tenant_id', 'role_id'],
-            unique: true,
-            where: 'deactivated_at IS NULL',
-          },
         ],
       },
     };
@@ -726,7 +544,6 @@ export const migration = defineMigration({
         },
         { name: 'outcome', type: 'text', notNull: true, immutable: true },
         { name: 'actor_id', type: 'uuid', immutable: true },
-        { name: 'effective_user_id', type: 'uuid', immutable: true },
         { name: 'tenant_id', type: 'uuid', immutable: true },
         { name: 'target_type', type: 'varchar(64)', immutable: true },
         { name: 'target_id', type: 'uuid', immutable: true },
@@ -758,9 +575,7 @@ export const migration = defineMigration({
       tenantsSchema,
       portalUserTenantsSchema,
       sessionsSchema,
-      supportGrantsSchema,
       loginThrottlesSchema,
-      platformRolesSchema,
       cellProvisioningSchema,
       provisioningJobsSchema,
       moduleEntitlementsSchema,
@@ -781,41 +596,27 @@ BEGIN
   IF to_jsonb(NEW) ? 'updated_at' THEN NEW.updated_at = clock_timestamp(); END IF;
   RETURN NEW;
 END $$;
-CREATE FUNCTION admin.protect_root() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF OLD.is_root AND (TG_OP='DELETE' OR NEW.email IS DISTINCT FROM OLD.email
-    OR NEW.status IS DISTINCT FROM OLD.status OR NEW.is_root IS DISTINCT FROM OLD.is_root
-    OR NEW.deactivated_at IS DISTINCT FROM OLD.deactivated_at) THEN
-    RAISE EXCEPTION 'Protected root' USING ERRCODE='23514';
-  END IF;
-  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
-  RETURN NEW;
-END $$;
 CREATE FUNCTION admin.protect_membership() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE root_user boolean; owner_tenant boolean;
+DECLARE owner_tenant boolean;
 BEGIN
   IF TG_OP='DELETE' THEN
-    SELECT is_root INTO root_user FROM admin.portal_users WHERE id=OLD.portal_user_id;
     SELECT is_napsoft INTO owner_tenant FROM admin.tenants WHERE id=OLD.tenant_id FOR UPDATE;
-    IF root_user AND owner_tenant THEN
-      RAISE EXCEPTION 'Protected root membership' USING ERRCODE='23514';
+    IF OLD.member_type IS NULL AND owner_tenant THEN
+      RAISE EXCEPTION 'Protected Napsoft membership' USING ERRCODE='23514';
     END IF;
     RETURN OLD;
   END IF;
   SELECT is_napsoft INTO owner_tenant FROM admin.tenants WHERE id=NEW.tenant_id FOR UPDATE;
-  SELECT is_root INTO root_user FROM admin.portal_users WHERE id=NEW.portal_user_id;
-  IF NEW.member_type IS NULL AND NOT (coalesce(root_user,false) AND coalesce(owner_tenant,false)) THEN
-    RAISE EXCEPTION 'Root membership required' USING ERRCODE='23514';
+  IF NEW.member_type IS NULL AND NOT coalesce(owner_tenant,false) THEN
+    RAISE EXCEPTION 'Napsoft membership required' USING ERRCODE='23514';
   END IF;
-  IF TG_OP='UPDATE' THEN
-    IF EXISTS(SELECT 1 FROM admin.portal_users u JOIN admin.tenants t ON t.id=OLD.tenant_id
-      WHERE u.id=OLD.portal_user_id AND u.is_root AND t.is_napsoft)
-      AND (NEW.portal_user_id IS DISTINCT FROM OLD.portal_user_id
-        OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.member_type IS DISTINCT FROM OLD.member_type
-        OR NEW.member_id IS DISTINCT FROM OLD.member_id OR NEW.ready IS DISTINCT FROM OLD.ready
-        OR NEW.status IS DISTINCT FROM OLD.status OR NEW.deactivated_at IS DISTINCT FROM OLD.deactivated_at) THEN
-      RAISE EXCEPTION 'Protected root membership' USING ERRCODE='23514';
-    END IF;
+  IF TG_OP='UPDATE' AND OLD.member_type IS NULL
+    AND EXISTS(SELECT 1 FROM admin.tenants WHERE id=OLD.tenant_id AND is_napsoft)
+    AND (NEW.portal_user_id IS DISTINCT FROM OLD.portal_user_id
+      OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id OR NEW.member_type IS DISTINCT FROM OLD.member_type
+      OR NEW.member_id IS DISTINCT FROM OLD.member_id OR NEW.ready IS DISTINCT FROM OLD.ready
+      OR NEW.status IS DISTINCT FROM OLD.status OR NEW.deactivated_at IS DISTINCT FROM OLD.deactivated_at) THEN
+    RAISE EXCEPTION 'Protected Napsoft membership' USING ERRCODE='23514';
   END IF;
   RETURN NEW;
 END $$;
@@ -829,7 +630,6 @@ BEGIN
 END $$;
 CREATE FUNCTION admin.protect_event() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'Append-only event' USING ERRCODE='23514'; END $$;
-CREATE TRIGGER protect_root BEFORE UPDATE OR DELETE ON admin.portal_users FOR EACH ROW EXECUTE FUNCTION admin.protect_root();
 CREATE TRIGGER protect_membership BEFORE INSERT OR UPDATE OR DELETE ON admin.portal_user_tenants FOR EACH ROW EXECUTE FUNCTION admin.protect_membership();
 CREATE TRIGGER protect_cell_assignment BEFORE UPDATE ON admin.tenants FOR EACH ROW EXECUTE FUNCTION admin.protect_cell_assignment();
 CREATE TRIGGER protect_event BEFORE UPDATE OR DELETE ON admin.managed_events FOR EACH ROW EXECUTE FUNCTION admin.protect_event();

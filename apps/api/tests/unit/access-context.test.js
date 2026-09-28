@@ -44,10 +44,6 @@ function sessionRow(overrides = {}) {
     id: randomUUID(),
     portal_user_id: randomUUID(),
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: created,
     idle_expires_at: new Date(created.getTime() + 30 * 60_000),
     absolute_expires_at: new Date(created.getTime() + 12 * 3_600_000),
@@ -100,7 +96,7 @@ function fakeAdmin({ users = [], tenants = [], memberships = [] } = {}) {
   const userStore = new Map(
     users.map(row => [
       row.id,
-      { status: 'active', is_root: false, deactivated_at: null, ...row },
+      { status: 'active', bootstrap: false, deactivated_at: null, ...row },
     ])
   );
   const tenantStore = new Map(tenants.map(row => [row.id, { ...row }]));
@@ -111,6 +107,10 @@ function fakeAdmin({ users = [], tenants = [], memberships = [] } = {}) {
       findOneBy: async filter => {
         const found = [...userStore.values()].find(row => matches(row, filter));
         return found ? { ...found } : null;
+      },
+      findBootstrapLogin: async () => {
+        const found = [...userStore.values()].find(row => row.bootstrap);
+        return found ? { id: found.id } : null;
       },
     },
     portal_user_tenants: {
@@ -251,7 +251,7 @@ describe('GET /access/context', () => {
       is_napsoft: true,
     });
     const { app, admin } = api({
-      users: [{ id: actorId, email: 'root@example.com', is_root: true }],
+      users: [{ id: actorId, email: 'root@example.com', bootstrap: true }],
       tenants: [operatorTenant],
     });
     const { token } = live(admin, { portal_user_id: actorId });
@@ -298,10 +298,10 @@ describe('GET /access/context', () => {
     });
   });
 
-  it('reports platform entry for root', async () => {
+  it('reports platform entry for the bootstrap login', async () => {
     const actorId = randomUUID();
     const { app, admin } = api({
-      users: [{ id: actorId, email: 'root@example.com', is_root: true }],
+      users: [{ id: actorId, email: 'root@example.com', bootstrap: true }],
     });
     const { token } = live(admin, { portal_user_id: actorId });
     const response = await request(app)
@@ -311,10 +311,10 @@ describe('GET /access/context', () => {
     expect(response.body.data.entryPoints.platform).toBe(true);
   });
 
-  it("derives tenantManagement from root's actual resolved capabilities (I0001-R024)", async () => {
+  it("derives tenantManagement from the bootstrap login's actual resolved capabilities (I0001-R024)", async () => {
     const actorId = randomUUID();
     const { app, admin } = api({
-      users: [{ id: actorId, email: 'root@example.com', is_root: true }],
+      users: [{ id: actorId, email: 'root@example.com', bootstrap: true }],
     });
     const { token } = live(admin, { portal_user_id: actorId });
     const response = await request(app)

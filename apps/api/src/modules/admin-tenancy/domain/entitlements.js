@@ -106,11 +106,7 @@ function requireAuthority(authority) {
 /**
  * Require that `scope` may act on `tenantId`.
  *
- * Unlike `accounts.js`'s `requireTenantAuthority`, a tenant the scope does
- * not name at all and a tenant explicitly carved out of a granted scope
- * (support's Napsoft restriction) report the same code: M0001-10 §10 states
- * "unauthorized or Napsoft support targets return 403," so both collapse to
- * `FORBIDDEN` here rather than splitting into `FORBIDDEN`/`NOT_FOUND`.
+ * A tenant the scope does not name reports `FORBIDDEN` (M0001-10 §10).
  * @param {import('./scope.js').AdminAccessScope} scope
  * @param {string} tenantId
  * @returns {void}

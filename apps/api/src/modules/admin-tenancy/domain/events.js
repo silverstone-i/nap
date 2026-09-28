@@ -170,7 +170,7 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['attempt'],
   },
 
-  'tenant.root_setup.completed': { outcomes: SUCCEEDED, details: [] },
+  'tenant.napsoft_setup.completed': { outcomes: SUCCEEDED, details: [] },
 
   // I0004-R034: sync delivery and portal-access results.
   'sync.delivery.failed': {
@@ -190,9 +190,6 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['direction', 'failure_code'],
   },
   'tenant.selected': { outcomes: ANY_OUTCOME, details: [] },
-  'support.entered': { outcomes: ANY_OUTCOME, details: [] },
-  'support.exited': { outcomes: ANY_OUTCOME, details: [] },
-  'support.denied': { outcomes: DENIED, details: ['code'] },
 
   'entitlement.granted': {
     outcomes: ANY_OUTCOME,
@@ -223,7 +220,6 @@ export const EVENT_VIEW_COLUMNS = Object.freeze([
   'event_key',
   'outcome',
   'actor_id',
-  'effective_user_id',
   'tenant_id',
   'target_type',
   'target_id',
@@ -239,7 +235,6 @@ export const EVENT_INSERT_COLUMNS = Object.freeze([
   'event_key',
   'outcome',
   'actor_id',
-  'effective_user_id',
   'tenant_id',
   'target_type',
   'target_id',
@@ -255,7 +250,6 @@ const eventSchema = z.strictObject({
   outcome: z.enum(EVENT_OUTCOMES),
   request_id: optionalUuid,
   actor_id: optionalUuid,
-  effective_user_id: optionalUuid,
   tenant_id: optionalUuid,
   target_id: optionalUuid,
   session_id: optionalUuid,
@@ -332,33 +326,15 @@ export function parseEvent(event) {
  * A scope covering every tenant also reads events with no tenant — bootstrap,
  * cell registration, and a session created before tenant selection. A scope
  * naming its tenants does not: `$in` never matches NULL, which is the
- * fail-closed half of the PRD's reader-scope table. The denial branch needs
- * its NULL case spelled out for the opposite reason: `tenant_id <> $1` is
- * NULL, not true, when `tenant_id` is NULL, so support would otherwise lose
- * every platform event.
+ * fail-closed half of the PRD's reader-scope table.
  * @param {import('./scope.js').AdminAccessScope} scope
  * @returns {object[]|null}
  */
 export function eventScopeFilter(scope) {
-  if (scope.tenantIds === '*') {
-    if (!scope.deniedTenantIds.length) return [];
-    return [
-      {
-        $or: [
-          { tenant_id: { $is: null } },
-          {
-            $and: scope.deniedTenantIds.map(id => ({
-              tenant_id: { $ne: id },
-            })),
-          },
-        ],
-      },
-    ];
-  }
-  const permitted = scope.tenantIds.filter(
-    id => !scope.deniedTenantIds.includes(id)
-  );
-  return permitted.length ? [{ tenant_id: { $in: permitted } }] : null;
+  if (scope.tenantIds === '*') return [];
+  return scope.tenantIds.length
+    ? [{ tenant_id: { $in: scope.tenantIds } }]
+    : null;
 }
 
 const filterSchema = z.strictObject({
@@ -386,9 +362,8 @@ function fingerprint(conditions) {
  * Read an authorized, filtered, paginated page of administrative events.
  *
  * A tenant filter naming a tenant the scope does not permit returns an empty
- * page rather than `FORBIDDEN`. Distinguishing the two would tell a support
- * caller that a given tenant UUID is one of the Napsoft tenants it is denied,
- * which is the inference M0001-12-R004 and AC05 rule out.
+ * page rather than `FORBIDDEN`, so a caller cannot probe which tenant UUIDs
+ * exist outside its scope (M0001-12-R004, AC05).
  * @param {{managed_events: import('../models/managed_events.js').ManagedEvents}} db
  * @param {unknown} scope
  * @param {{tenant?: string, actor?: string, event?: string, outcome?: string, from?: string, to?: string, cursor?: string, limit?: number}} [filters]

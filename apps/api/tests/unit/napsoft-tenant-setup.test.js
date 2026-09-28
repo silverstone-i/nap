@@ -3,15 +3,24 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import {
   assignNapsoftCell,
-  runRootTenantSetup,
-} from '../../src/application/provisioning/rootTenantSetup.js';
+  runNapsoftTenantSetup,
+} from '../../src/application/provisioning/napsoftTenantSetup.js';
+import {
+  napsoftSeedPresent,
+  seedNapsoft,
+} from '../../src/modules/access-control/seeds/napsoftSeed.js';
+
+vi.mock('../../src/modules/access-control/seeds/napsoftSeed.js', () => ({
+  seedNapsoft: vi.fn(async () => {}),
+  napsoftSeedPresent: vi.fn(async () => true),
+}));
 
 const CELL = '6f1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';
 const TENANT = '7a1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';
-const ROOT = '8b1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';
+const LOGIN = '8b1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';
 const MEMBERSHIP = '9c1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';
 
 function fakeAdmin(tenant) {
@@ -30,11 +39,10 @@ function fakeAdmin(tenant) {
     },
     outbox: { enqueueMissing: vi.fn(async () => 0) },
     cache_revisions: { advance: vi.fn(async () => {}) },
-    portal_users: { findOneBy: vi.fn(async () => ({ id: ROOT })) },
     portal_user_tenants: {
       findOneBy: vi.fn(async () => ({
         id: MEMBERSHIP,
-        portal_user_id: ROOT,
+        portal_user_id: LOGIN,
         tenant_id: TENANT,
         status: 'active',
         revision: 1,
@@ -63,11 +71,17 @@ function fakeCell({ corrupt = false } = {}) {
       return corrupt && row ? { ...row, revision: 99 } : (row ?? null);
     }),
   });
+  const transactions = [];
   const handle = {
+    transactions,
     connect: vi.fn(async () => {}),
     close: vi.fn(async () => {}),
     db: {
-      tx: async fn => fn({}),
+      tx: async fn => {
+        const tx = { id: transactions.length };
+        transactions.push(tx);
+        return fn(tx);
+      },
       tenants: model('tenants'),
       tenant_members: model('tenant_members'),
     },
@@ -92,7 +106,13 @@ const napsoft = extra => ({
   ...extra,
 });
 
-describe('root tenant setup (I0003-R023–R026)', () => {
+beforeEach(() => {
+  vi.mocked(seedNapsoft).mockClear();
+  vi.mocked(napsoftSeedPresent).mockReset();
+  vi.mocked(napsoftSeedPresent).mockResolvedValue(true);
+});
+
+describe('Napsoft tenant setup (I0003-R023–R026)', () => {
   it('assigns the first completed cell and never replaces it (R023)', async () => {
     const db = fakeAdmin(napsoft({ cell_id: null }));
     await assignNapsoftCell(db, {}, { cell_id: CELL });
@@ -108,7 +128,7 @@ describe('root tenant setup (I0003-R023–R026)', () => {
     const db = fakeAdmin(napsoft());
     const cell = fakeCell();
     expect(
-      await runRootTenantSetup(db, driver, { connect: cell.connect })
+      await runNapsoftTenantSetup(db, driver, { connect: cell.connect })
     ).toBe('completed');
     expect(cell.rows.tenants.get(TENANT)).toEqual({
       id: TENANT,
@@ -118,17 +138,37 @@ describe('root tenant setup (I0003-R023–R026)', () => {
     });
     expect(cell.rows.tenant_members.get(MEMBERSHIP)).toMatchObject({
       tenant_id: TENANT,
-      portal_user_id: ROOT,
+      portal_user_id: LOGIN,
       member_type: null,
       member_id: null,
     });
+    const [writeTx] = cell.handle.transactions;
+    expect(cell.handle.db.tenants.upsert.mock.calls[0][3]).toEqual({
+      tx: writeTx,
+    });
+    expect(cell.handle.db.tenant_members.upsert.mock.calls[0][3]).toEqual({
+      tx: writeTx,
+    });
+    expect(seedNapsoft).toHaveBeenCalledWith(cell.handle.db, writeTx, {
+      tenantId: TENANT,
+      tenantCode: 'NAPSOFT',
+      portalUserId: LOGIN,
+    });
+    expect(
+      cell.handle.db.tenant_members.upsert.mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(seedNapsoft).mock.invocationCallOrder[0]);
+    expect(napsoftSeedPresent).toHaveBeenCalledWith(
+      cell.handle.db,
+      cell.handle.transactions[1],
+      { tenantId: TENANT, tenantCode: 'NAPSOFT', portalUserId: LOGIN }
+    );
     expect(db.tenant).toMatchObject({ provisioned: true, rbac_ready: true });
     expect(db.events.map(e => e.event_key)).toEqual([
-      'tenant.root_setup.completed',
+      'tenant.napsoft_setup.completed',
     ]);
     expect(cell.handle.close).toHaveBeenCalled();
     expect(
-      await runRootTenantSetup(db, driver, { connect: cell.connect })
+      await runNapsoftTenantSetup(db, driver, { connect: cell.connect })
     ).toBe('none');
   });
 
@@ -136,14 +176,27 @@ describe('root tenant setup (I0003-R023–R026)', () => {
     const db = fakeAdmin(napsoft());
     const cell = fakeCell({ corrupt: true });
     await expect(
-      runRootTenantSetup(db, driver, { connect: cell.connect })
-    ).rejects.toThrow('ROOT_SETUP_FAILED');
+      runNapsoftTenantSetup(db, driver, { connect: cell.connect })
+    ).rejects.toThrow('NAPSOFT_SETUP_FAILED');
     expect(db.tenant.provisioned).toBe(false);
-    expect(db.job.failure_code).toBe('ROOT_SETUP_FAILED');
+    expect(db.job.failure_code).toBe('NAPSOFT_SETUP_FAILED');
 
     const fixed = fakeCell();
-    await runRootTenantSetup(db, driver, { connect: fixed.connect });
+    await runNapsoftTenantSetup(db, driver, { connect: fixed.connect });
     expect(db.tenant.provisioned).toBe(true);
     expect(db.job.failure_code).toBeNull();
+  });
+
+  it('fails setup when the seed read-back is missing (R026)', async () => {
+    const db = fakeAdmin(napsoft());
+    const cell = fakeCell();
+    vi.mocked(napsoftSeedPresent).mockResolvedValueOnce(false);
+    await expect(
+      runNapsoftTenantSetup(db, driver, { connect: cell.connect })
+    ).rejects.toThrow('NAPSOFT_SETUP_FAILED');
+    expect(seedNapsoft).toHaveBeenCalledTimes(1);
+    expect(db.tenant.provisioned).toBe(false);
+    expect(db.job.failure_code).toBe('NAPSOFT_SETUP_FAILED');
+    expect(db.events).toEqual([]);
   });
 });
