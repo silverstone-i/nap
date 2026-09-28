@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.20.0] - 2026-09-28
+
 ### Added
 
 - Add role-based access control. Each tenant's cell holds its roles, grants, and role assignments. Grants are capability patterns of the form `TENANT::module::router::action`, where any part may be `*`, and a tenant `*` never matches Napsoft.
