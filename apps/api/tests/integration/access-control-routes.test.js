@@ -5,6 +5,11 @@
 
 import { beforeAll, afterAll, describe, it, expect } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import {
+  capabilityEntrySchema,
+  roleViewSchema,
+  userRolesSchema,
+} from '@nap/shared';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -381,7 +386,11 @@ describe('access-control routes (M0003 §10)', () => {
     expect(capabilities.body.data.map(c => c.capability)).toContain(
       'access-control::assignments::write'
     );
+    // The web client parses these shapes (apps/web/src/api/endpoints.js).
+    for (const entry of capabilities.body.data)
+      capabilityEntrySchema.parse(entry);
     const roles = await call('get', '/roles');
+    for (const role of roles.body.data) roleViewSchema.parse(role);
     expect(
       roles.body.data.map(r => [r.code, r.isImmutable, r.archived])
     ).toEqual([
@@ -594,6 +603,7 @@ describe('access-control routes (M0003 §10)', () => {
 
     const second = await member();
     const assigned = await call('put', `/users/${second}/roles/${platform.id}`);
+    userRolesSchema.parse(assigned.body.data);
     expect(assigned.body.data.roles.map(r => r.code)).toEqual([
       'platform_admin',
     ]);

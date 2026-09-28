@@ -289,3 +289,29 @@ export function patternMatches(pattern, required, napsoftCode) {
     index => have[index] === '*' || have[index] === need[index]
   );
 }
+
+/** Zod schema for one access-control role view (M0003 §10). */
+export const roleViewSchema = z.strictObject({
+  id: z.uuid(),
+  code: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  isImmutable: z.boolean(),
+  archived: z.boolean(),
+  revision: z.number(),
+  grants: z.array(z.string()),
+});
+
+/** Zod schema for a user's active role assignments (M0003 §10). */
+export const userRolesSchema = z.strictObject({
+  userId: z.uuid(),
+  roles: z.array(roleViewSchema),
+});
+
+/** Zod schema for one capability catalogue entry (M0003-R005). */
+export const capabilityEntrySchema = z.strictObject({
+  capability: z.string(),
+  module: z.string(),
+  router: z.string(),
+  action: z.string(),
+});

@@ -11,15 +11,19 @@
 
 import {
   accessContextResponseSchema,
+  capabilityEntrySchema,
   controlOverviewResponseSchema,
   eligibleTenantsResponseSchema,
+  roleViewSchema,
   sessionCapabilitiesSchema,
   sessionResponseSchema,
   tenantResponseSchema,
   tenantsListResponseSchema,
+  userRolesSchema,
   userResponseSchema,
   usersListResponseSchema,
 } from '@nap/shared';
+import { z } from 'zod';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client.js';
 
 const BASE = '/api/admin-tenancy/v1';
@@ -220,7 +224,9 @@ const ACCESS_BASE = '/api/access-control/v1';
 
 /** @returns {Promise<Array<{capability: string, module: string, router: string, action: string}>>} The capability catalogue, sorted. */
 export async function listCapabilities() {
-  return apiGet(`${ACCESS_BASE}/capabilities`);
+  return z
+    .array(capabilityEntrySchema)
+    .parse(await apiGet(`${ACCESS_BASE}/capabilities`));
 }
 
 /**
@@ -229,12 +235,14 @@ export async function listCapabilities() {
  */
 export async function listRoles({ includeArchived = false } = {}) {
   const query = includeArchived ? '?includeArchived=true' : '';
-  return apiGet(`${ACCESS_BASE}/roles${query}`);
+  return z
+    .array(roleViewSchema)
+    .parse(await apiGet(`${ACCESS_BASE}/roles${query}`));
 }
 
 /** @param {string} id @returns {Promise<RoleView>} */
 export async function getRole(id) {
-  return apiGet(`${ACCESS_BASE}/roles/${id}`);
+  return roleViewSchema.parse(await apiGet(`${ACCESS_BASE}/roles/${id}`));
 }
 
 /**
@@ -242,7 +250,7 @@ export async function getRole(id) {
  * @returns {Promise<RoleView>}
  */
 export async function createRole(input) {
-  return apiPost(`${ACCESS_BASE}/roles`, input);
+  return roleViewSchema.parse(await apiPost(`${ACCESS_BASE}/roles`, input));
 }
 
 /**
@@ -252,30 +260,42 @@ export async function createRole(input) {
  * @returns {Promise<RoleView>}
  */
 export async function updateRole(id, input) {
-  return apiPatch(`${ACCESS_BASE}/roles/${id}`, input);
+  return roleViewSchema.parse(
+    await apiPatch(`${ACCESS_BASE}/roles/${id}`, input)
+  );
 }
 
 /** @param {string} id @param {number} revision @returns {Promise<RoleView>} */
 export async function archiveRole(id, revision) {
-  return apiPost(`${ACCESS_BASE}/roles/${id}/archive`, { revision });
+  return roleViewSchema.parse(
+    await apiPost(`${ACCESS_BASE}/roles/${id}/archive`, { revision })
+  );
 }
 
 /** @param {string} id @param {number} revision @returns {Promise<RoleView>} */
 export async function restoreRole(id, revision) {
-  return apiPost(`${ACCESS_BASE}/roles/${id}/restore`, { revision });
+  return roleViewSchema.parse(
+    await apiPost(`${ACCESS_BASE}/roles/${id}/restore`, { revision })
+  );
 }
 
 /** @param {string} userId @returns {Promise<{userId: string, roles: RoleView[]}>} Active assignments only. */
 export async function getUserRoles(userId) {
-  return apiGet(`${ACCESS_BASE}/users/${userId}/roles`);
+  return userRolesSchema.parse(
+    await apiGet(`${ACCESS_BASE}/users/${userId}/roles`)
+  );
 }
 
 /** @param {string} userId @param {string} roleId @returns {Promise<{userId: string, roles: RoleView[]}>} */
 export async function assignUserRole(userId, roleId) {
-  return apiPut(`${ACCESS_BASE}/users/${userId}/roles/${roleId}`, {});
+  return userRolesSchema.parse(
+    await apiPut(`${ACCESS_BASE}/users/${userId}/roles/${roleId}`, {})
+  );
 }
 
 /** @param {string} userId @param {string} roleId @returns {Promise<{userId: string, roles: RoleView[]}>} */
 export async function removeUserRole(userId, roleId) {
-  return apiDelete(`${ACCESS_BASE}/users/${userId}/roles/${roleId}`);
+  return userRolesSchema.parse(
+    await apiDelete(`${ACCESS_BASE}/users/${userId}/roles/${roleId}`)
+  );
 }
