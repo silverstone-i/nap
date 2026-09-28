@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.21.0] - 2026-09-28
+
 ### Added
 
 - Provision customer tenants from the Tenants screen (I0006). An operator picks a ready cell and names the first administrator with a temporary password. The provisioning worker assigns the cell, seeds the immutable `tenant_admin` role and assigns it to that administrator, then activates the tenant so they can select it. Failures show their code, with Retry, and the screen refreshes while jobs run. Adds `tenant-provision` and `tenant-retry` to `POST /control/provision`, a `job` and `anyActive` to `GET /tenants`, and `ready` to `GET /control/overview` rows. The admin migration is edited in place (new `admin.tenant_provisioning` table), so recreate existing databases.
