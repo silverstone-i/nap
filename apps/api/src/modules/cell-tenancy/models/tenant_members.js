@@ -62,4 +62,22 @@ export class TenantMembers extends CopyTableModel {
   constructor(db, pgp, logger) {
     super(db, pgp, tenantMembersSchema, logger);
   }
+
+  /**
+   * A portal user's membership status in the tenant (`pending`, `active`, or
+   * `suspended`), or `null` when there is no unarchived membership. Read
+   * inside the caller's transaction (M0003 §10).
+   * @param {string} tenantId
+   * @param {string} portalUserId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<string|null>}
+   */
+  async membershipStatus(tenantId, portalUserId, { tx }) {
+    const row = await tx.oneOrNone(
+      `SELECT status FROM ${this.schemaName}.${this.tableName}
+        WHERE tenant_id=$1 AND portal_user_id=$2 AND deactivated_at IS NULL`,
+      [tenantId, portalUserId]
+    );
+    return row?.status ?? null;
+  }
 }

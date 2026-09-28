@@ -77,6 +77,8 @@ function mountApi(app, api) {
     authenticationPolicy,
     cookiePolicy,
     runtime,
+    // Cell routers mount only when the runtime cell registry is present.
+    cells: runtime,
   });
 }
 

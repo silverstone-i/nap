@@ -47,7 +47,7 @@ export class OutboxTableModel extends TableModel {
     const rows = await tx.any(
       `SELECT * FROM ${this._table()}
         WHERE tenant_id=$1 AND status='pending'
-        ORDER BY revision FOR UPDATE`,
+        ORDER BY revision, created_at FOR UPDATE`,
       [tenantId]
     );
     const now = Date.now();

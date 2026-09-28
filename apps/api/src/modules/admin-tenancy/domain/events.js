@@ -32,9 +32,12 @@ const DENIED = Object.freeze(['denied']);
  * a later Work Unit cannot widen it into a leak.
  */
 export const EVENT_DETAIL_KEYS = Object.freeze([
+  'after',
   'attempt',
   'attempts',
+  'before',
   'cell_code',
+  'changed_at',
   'changed_fields',
   'code',
   'direction',
@@ -95,8 +98,46 @@ export const EVENT_CATALOGUE = Object.freeze({
   'session.expired': { outcomes: SUCCEEDED, details: [] },
 
   'role.initialized': { outcomes: ANY_OUTCOME, details: ['role'] },
-  'role.granted': { outcomes: ANY_OUTCOME, details: ['role'] },
-  'role.revoked': { outcomes: ANY_OUTCOME, details: ['role'] },
+  // M0003-R015. `role.granted` and `role.revoked` record a role assignment
+  // added to or removed from `portal_user_id`; the role keys record changes
+  // to a role itself, with `before` and `after` as JSON snapshots of its
+  // name, description, archived state, and grants.
+  'role.granted': {
+    outcomes: ANY_OUTCOME,
+    details: [
+      'role',
+      'portal_user_id',
+      'from_status',
+      'to_status',
+      'changed_at',
+    ],
+  },
+  'role.revoked': {
+    outcomes: ANY_OUTCOME,
+    details: [
+      'role',
+      'portal_user_id',
+      'from_status',
+      'to_status',
+      'changed_at',
+    ],
+  },
+  'role.created': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'after', 'changed_at'],
+  },
+  'role.updated': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'before', 'after', 'changed_at'],
+  },
+  'role.archived': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'before', 'after', 'changed_at'],
+  },
+  'role.restored': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'revision', 'before', 'after', 'changed_at'],
+  },
 
   'cell.registered': {
     outcomes: ANY_OUTCOME,
@@ -243,6 +284,14 @@ export const EVENT_INSERT_COLUMNS = Object.freeze([
   'details',
 ]);
 
+/**
+ * Detail keys whose string values may run to `LONG_DETAIL_LENGTH`: the
+ * `before` and `after` role snapshots, whose grant lists outgrow the usual
+ * 256 characters.
+ */
+const LONG_DETAIL_KEYS = new Set(['before', 'after']);
+const LONG_DETAIL_LENGTH = 8192;
+
 const optionalUuid = z.uuid().nullish().transform(withNull);
 const eventSchema = z.strictObject({
   deduplication_key: z.uuid(),
@@ -265,7 +314,9 @@ function withNull(value) {
 /**
  * Validate an event's detail object against its key's allowlist.
  *
- * Values are restricted to strings, finite numbers, booleans, and null.
+ * Values are restricted to strings (256 characters, or
+ * `LONG_DETAIL_LENGTH` for `before` and `after`), finite numbers, booleans,
+ * and null.
  * Rejecting objects and arrays is what makes the allowlist total: a nested
  * value could otherwise carry an unlisted key past the check and into the
  * stored `details` column.
@@ -286,7 +337,8 @@ export function parseDetails(eventKey, details) {
       value === null ||
       typeof value === 'boolean' ||
       (typeof value === 'number' && Number.isFinite(value)) ||
-      (typeof value === 'string' && value.length <= 256);
+      (typeof value === 'string' &&
+        value.length <= (LONG_DETAIL_KEYS.has(key) ? LONG_DETAIL_LENGTH : 256));
     if (!acceptable) throw new AdminEventError('INVALID_INPUT');
     parsed[key] = value;
   }

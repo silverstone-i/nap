@@ -130,6 +130,21 @@ export class ManagedEvents extends TableModel {
   }
 
   /**
+   * Whether an event with this deduplication key is already stored.
+   * @param {string} deduplicationKey
+   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
+   * @returns {Promise<boolean>}
+   */
+  async hasDeduplicationKey(deduplicationKey, { tx } = {}) {
+    const row = await (tx ?? this.db).one(
+      `SELECT EXISTS (SELECT 1 FROM ${this.schemaName}.${this.tableName}
+        WHERE deduplication_key=$1) AS "exists"`,
+      [deduplicationKey]
+    );
+    return row.exists;
+  }
+
+  /**
    * Append one catalogue event, or return the one an earlier attempt stored.
    *
    * Pass `tx` for a successful mutation so the source row and its event commit

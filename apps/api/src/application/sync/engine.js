@@ -20,6 +20,7 @@ const TOPIC_ORDER = Object.freeze({
   membership: 1,
   entitlement: 2,
   portal_access: 3,
+  role_change: 4,
 });
 
 /**

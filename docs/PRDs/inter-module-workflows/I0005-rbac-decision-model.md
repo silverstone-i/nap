@@ -51,13 +51,13 @@ same request for `NAP` does not match, because a tenant `*` excludes Napsoft.
 
 ## 5. Concepts And Terminology
 
-| Term                | Meaning                                                          |
-| ------------------- | ---------------------------------------------------------------- |
-| Home tenant         | The tenant a user belongs to; their roles are read from its cell |
-| Target tenant       | The tenant a request acts on; the session's selected tenant      |
-| Route capability    | `module::router::action` a route declares                        |
-| Required capability | Target tenant code prefixed to the route capability              |
-| Resolved set        | Union of grants from the user's active roles in the home tenant  |
+| Term                | Meaning                                                                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Home tenant         | Napsoft for an active Napsoft member; otherwise the target tenant, if the user is an active member of it; roles are read from its cell |
+| Target tenant       | The tenant a request acts on; the session's selected tenant                                                                            |
+| Route capability    | `module::router::action` a route declares                                                                                              |
+| Required capability | Target tenant code prefixed to the route capability                                                                                    |
+| Resolved set        | Union of grants from the user's active roles in the home tenant                                                                        |
 
 ## 6. Functional Requirements
 

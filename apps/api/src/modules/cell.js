@@ -7,6 +7,7 @@ import { TableModel } from 'pg-schemata';
 import { descriptor as cellTenancy } from './cell-tenancy/descriptor.js';
 import { descriptor as accessControl } from './access-control/descriptor.js';
 import { requireCondition } from '../application/shared/errors.js';
+import { parseDeclarations } from './access-control/domain/capabilities.js';
 
 /** Cell schemas in the order the runner migrates them. */
 export const cellSchemas = Object.freeze([
@@ -24,7 +25,8 @@ export const cellModules = [cellTenancy, accessControl];
  *
  * Rejects a descriptor that targets another database or an unknown cell
  * schema, repeats a module name or migration ID, lacks a migration array,
- * uses an unknown `entitlementType`, or registers a model whose schema
+ * uses an unknown `entitlementType`, declares malformed capabilities
+ * (M0003-R005), or registers a model whose schema
  * targets another PostgreSQL schema or table name.
  * @param {object[]} [modules=cellModules] Module descriptors to check.
  * @returns {object[]} The same array when valid.
@@ -62,6 +64,7 @@ export function validateCellRegistry(modules = cellModules) {
       );
       ids.add(migration.id);
     }
+    requireCondition(declaresCapabilities(m), 'INVALID_REGISTRY');
     requireCondition(
       m.models && typeof m.models === 'object',
       'INVALID_REGISTRY'
@@ -76,4 +79,18 @@ export function validateCellRegistry(modules = cellModules) {
       );
   }
   return modules;
+}
+
+/**
+ * Whether a descriptor's `capabilities` pass M0003-R005.
+ * @param {object} descriptor
+ * @returns {boolean}
+ */
+function declaresCapabilities(descriptor) {
+  try {
+    parseDeclarations(descriptor);
+    return true;
+  } catch {
+    return false;
+  }
 }

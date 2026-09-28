@@ -70,4 +70,80 @@ export class Roles extends TableModel {
       [tenantId, code]
     );
   }
+
+  /**
+   * Lock and return a role by ID, archived or not.
+   * @param {string} id
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockById(id, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${this.schemaName}.${this.tableName}
+        WHERE id=$1 FOR UPDATE`,
+      [id]
+    );
+  }
+
+  /**
+   * Return a role by ID, archived or not.
+   * @param {string} id
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async byId(id, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${this.schemaName}.${this.tableName} WHERE id=$1`,
+      [id]
+    );
+  }
+
+  /**
+   * The tenant's roles ordered by code, optionally including archived ones.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>, includeArchived?: boolean}} options
+   * @returns {Promise<object[]>}
+   */
+  async list({ tx, includeArchived = false }) {
+    return tx.any(
+      `SELECT * FROM ${this.schemaName}.${this.tableName}
+        WHERE $1 OR deactivated_at IS NULL ORDER BY code, id`,
+      [includeArchived]
+    );
+  }
+
+  /**
+   * Write a new revision of a role: optionally its name and description, and
+   * whether it is archived. `revision` advances by one. The caller has
+   * locked the row and checked the expected revision.
+   * @param {string} id
+   * @param {{name?: string, description?: string|null, archived?: boolean}} changes
+   * @param {string} actorId Portal user recorded in `updated_by`.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object>} The updated row.
+   */
+  async saveRevision(id, changes, actorId, { tx }) {
+    const has = key => Object.hasOwn(changes, key);
+    return tx.one(
+      `UPDATE ${this.schemaName}.${this.tableName}
+          SET name = CASE WHEN $2 THEN $3 ELSE name END,
+              description = CASE WHEN $4 THEN $5 ELSE description END,
+              deactivated_at = CASE WHEN NOT $6 THEN deactivated_at
+                                    WHEN $7 THEN COALESCE(deactivated_at, now())
+                                    ELSE NULL END,
+              revision = revision + 1,
+              updated_by = $8
+        WHERE id=$1
+        RETURNING *`,
+      [
+        id,
+        has('name'),
+        changes.name ?? null,
+        has('description'),
+        changes.description ?? null,
+        has('archived'),
+        changes.archived === true,
+        actorId,
+      ]
+    );
+  }
 }

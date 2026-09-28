@@ -19,6 +19,7 @@ import {
 import { LoginPage } from './pages/LoginPage.jsx';
 import { CellsPage } from './pages/management/CellsPage.jsx';
 import { PortalUsersPage } from './pages/management/PortalUsersPage.jsx';
+import { RolesPage } from './pages/management/RolesPage.jsx';
 import { TenantsPage as ManagementTenantsPage } from './pages/management/TenantsPage.jsx';
 import { PasswordPage } from './pages/PasswordPage.jsx';
 import { HomePage } from './pages/HomePage.jsx';
@@ -107,6 +108,14 @@ export function App() {
           element={
             <ShellRoute guard={RequireManagementAccess}>
               <PortalUsersPage />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/management/roles"
+          element={
+            <ShellRoute guard={RequireManagementAccess}>
+              <RolesPage />
             </ShellRoute>
           }
         />

@@ -123,6 +123,7 @@ export const accessContextSchema = z.strictObject({
       tenants: z.boolean(),
       cells: z.boolean(),
       portalUsers: z.boolean(),
+      accessControl: z.boolean(),
     }),
   }),
 });

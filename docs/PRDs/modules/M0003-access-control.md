@@ -85,10 +85,10 @@ the seeded tenant's own code.
 - M0003-R009: The customer-tenant seed must create `tenant_admin` for the tenant. Tenant provisioning runs it.
 - M0003-R010: Seeds are idempotent by role `code`: a matching role is left unchanged and a role whose grants differ fails the seed. Changing an immutable role requires a reviewed migration.
 - M0003-R011: A caller may assign, remove, create, or edit a role only if every pattern in the target role, including new grants, is covered by one of the caller's own patterns. Pattern A covers pattern B when each part of A equals B's or is `*`.
-- M0003-R012: Removing the last active `tenant_admin` assignment in a tenant, or the last active `platform_admin` assignment in the Napsoft tenant, must be rejected with `LAST_ADMIN`.
+- M0003-R012: Removing the last active `tenant_admin` assignment in a tenant, or the last active `platform_admin` assignment in the Napsoft tenant, must be rejected with `LAST_ADMIN`. Only assignments whose user is an active member of the tenant count.
 - M0003-R013: Immutable roles must not be edited, archived, or deleted through the API. A custom role cannot use an immutable role's `code`.
 - M0003-R014: Archiving a custom role keeps its grants and assignments; restoring returns them unchanged. An archived role grants nothing.
-- M0003-R015: Every role, grant, or assignment change must write an administrative event with actor, tenant, role, and before and after values, and advance the cache revision I0005 uses for that tenant's roles.
+- M0003-R015: Every role, grant, or assignment change must write a `cell.outbox` row in the same cell transaction. The sync worker (I0004) delivers it to admin, where it writes an administrative event with actor, tenant, role, and before and after values, and advances the cache revision I0005 uses for that tenant's roles.
 - M0003-R016: The web app must provide a Roles screen: role list with immutable and custom badges, role detail with grants grouped by module, a create and edit form that picks capabilities from the catalogue, archive and restore, and a user's role assignments. Actions the session cannot perform are hidden (I0005).
 
 ## 7. Business Rules And Invariants
@@ -170,9 +170,9 @@ the tenant (`cell.tenant_members`).
 | AC04      | Napsoft tenant setup seeds the three Napsoft roles and assigns `platform_admin` to the bootstrap login; reseeding changes nothing; drift fails. | M0003-R007, M0003-R008, M0003-R010 |
 | AC05      | The customer-tenant seed creates only `tenant_admin`.                                                                                           | M0003-R009                         |
 | AC06      | Assigning, removing, creating, or editing a role beyond the caller's patterns fails; covered cases succeed.                                     | M0003-R011                         |
-| AC07      | Removing the last `tenant_admin`, or the last Napsoft `platform_admin`, fails.                                                                  | M0003-R012                         |
+| AC07      | Removing the last `tenant_admin`, or the last Napsoft `platform_admin`, among active members fails.                                             | M0003-R012                         |
 | AC08      | Immutable roles cannot be edited or archived; archive and restore preserve grants and assignments.                                              | M0003-R013, M0003-R014             |
-| AC09      | Each change writes an event and advances the role cache revision.                                                                               | M0003-R015                         |
+| AC09      | Each change writes an outbox row in its transaction; delivery writes the event and advances the role cache revision.                            | M0003-R015                         |
 | AC10      | The Roles screen supports list, detail, create, edit, archive, restore, and assignments, hiding disallowed actions.                             | M0003-R016                         |
 
 ## 14. Outstanding Questions

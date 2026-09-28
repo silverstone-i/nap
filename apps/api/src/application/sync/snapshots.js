@@ -48,6 +48,24 @@ const SNAPSHOTS = Object.freeze({
       enabled: z.literal(false),
     }),
   ]),
+  // M0003-R015: one role, grant, or assignment change. `details` is checked
+  // against the event key's registered fields when the event is appended.
+  role_change: z.strictObject({
+    tenant_id: z.uuid(),
+    event_key: z.enum([
+      'role.created',
+      'role.updated',
+      'role.archived',
+      'role.restored',
+      'role.granted',
+      'role.revoked',
+    ]),
+    role_id: z.uuid(),
+    actor_id: z.uuid(),
+    session_id: z.uuid().nullable(),
+    request_id: z.uuid().nullable(),
+    details: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
+  }),
 });
 
 /**

@@ -43,7 +43,12 @@ it('sends an unauthenticated visitor to /login', async () => {
 });
 
 const napsoft = { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' };
-const allCells = { tenants: true, cells: true, portalUsers: true };
+const allCells = {
+  tenants: true,
+  cells: true,
+  portalUsers: true,
+  accessControl: true,
+};
 
 function renderAt(path) {
   return render(
