@@ -10,6 +10,11 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Protect the bootstrap Napsoft login: account routes can no longer update, disable, or archive it, removing its Napsoft `platform_admin` assignment is refused, and an `admin.protect_root_user` trigger blocks changes other than password resets. Edits the admin migration in place, so recreate existing databases.
+- Refuse to disable or archive a portal user, or suspend or archive a membership, while it holds `tenant_admin` or Napsoft `platform_admin` (`ADMIN_ASSIGNED`); the check fails closed when the tenant's cell is unavailable. M0001-08 adds R007–R008 and M0003 is updated to match.
+
 ## [v0.20.0] - 2026-09-28
 
 ### Added

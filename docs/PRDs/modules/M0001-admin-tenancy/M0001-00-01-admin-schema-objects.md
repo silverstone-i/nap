@@ -648,6 +648,8 @@ The migration adds database triggers that:
 - reject updates and deletes on `managed_events`;
 - reject a null membership `member_type` unless the membership belongs to the
   Napsoft tenant;
+- reject deletion or non-password changes to the portal user identified by the
+  protected Napsoft membership;
 - allow the initial `tenants.cell_id` assignment from null, including for the
   Napsoft tenant after bootstrap; reject later reassignment or clearing when
   `provisioned = true` or any membership exists, including archived memberships.

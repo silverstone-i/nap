@@ -221,7 +221,7 @@ it('enforces immutable fields, audit timestamps, uniqueness, checks and foreign 
     row.updated_at.getTime()
   );
 });
-it('protects the Napsoft bootstrap membership while allowing its first cell assignment', async () => {
+it('protects the Napsoft root identity and membership while allowing password maintenance and its first cell assignment', async () => {
   const tenant = await db.tenants.insert({
     tenant_code: 'NAPSOFT',
     name: 'Owner',
@@ -277,9 +277,30 @@ it('protects the Napsoft bootstrap membership while allowing its first cell assi
     status: 'active',
     ready: true,
   });
+  for (const sql of [
+    "UPDATE admin.portal_users SET email='renamed@test.example' WHERE id=$1",
+    "UPDATE admin.portal_users SET status='disabled' WHERE id=$1",
+    'UPDATE admin.portal_users SET deactivated_at=now() WHERE id=$1',
+    'DELETE FROM admin.portal_users WHERE id=$1',
+  ])
+    await expect(db.none(sql, [user.id])).rejects.toMatchObject({
+      code: '23514',
+    });
+  await db.none(
+    "UPDATE admin.portal_users SET password_hash='replacement',must_change_password=true WHERE id=$1",
+    [user.id]
+  );
+  const password = await db.one(
+    'SELECT password_hash,must_change_password FROM admin.portal_users WHERE id=$1',
+    [user.id]
+  );
+  expect(password).toEqual({
+    password_hash: 'replacement',
+    must_change_password: true,
+  });
   await db.none(
     "UPDATE admin.portal_users SET email='renamed@test.example' WHERE id=$1",
-    [user.id]
+    [second.id]
   );
 });
 it('allows eligible reassignment and blocks provisioned or archived-membership assignments', async () => {

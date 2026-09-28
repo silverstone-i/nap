@@ -620,6 +620,26 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+CREATE FUNCTION admin.protect_root_user() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.id = (
+    SELECT membership.portal_user_id FROM admin.portal_user_tenants AS membership
+    JOIN admin.tenants AS tenant ON tenant.id=membership.tenant_id
+    WHERE membership.member_type IS NULL AND membership.deactivated_at IS NULL
+      AND tenant.is_napsoft
+    ORDER BY membership.created_at,membership.id
+    LIMIT 1
+  ) THEN
+    IF TG_OP='DELETE' OR
+      (to_jsonb(NEW) - ARRAY['password_hash','must_change_password','updated_at','updated_by'])
+        IS DISTINCT FROM
+      (to_jsonb(OLD) - ARRAY['password_hash','must_change_password','updated_at','updated_by']) THEN
+      RAISE EXCEPTION 'Protected Napsoft root user' USING ERRCODE='23514';
+    END IF;
+  END IF;
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END $$;
 CREATE FUNCTION admin.protect_cell_assignment() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF OLD.cell_id IS NOT NULL AND NEW.cell_id IS DISTINCT FROM OLD.cell_id
@@ -631,6 +651,7 @@ END $$;
 CREATE FUNCTION admin.protect_event() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'Append-only event' USING ERRCODE='23514'; END $$;
 CREATE TRIGGER protect_membership BEFORE INSERT OR UPDATE OR DELETE ON admin.portal_user_tenants FOR EACH ROW EXECUTE FUNCTION admin.protect_membership();
+CREATE TRIGGER protect_root_user BEFORE UPDATE OR DELETE ON admin.portal_users FOR EACH ROW EXECUTE FUNCTION admin.protect_root_user();
 CREATE TRIGGER protect_cell_assignment BEFORE UPDATE ON admin.tenants FOR EACH ROW EXECUTE FUNCTION admin.protect_cell_assignment();
 CREATE TRIGGER protect_event BEFORE UPDATE OR DELETE ON admin.managed_events FOR EACH ROW EXECUTE FUNCTION admin.protect_event();
 `);

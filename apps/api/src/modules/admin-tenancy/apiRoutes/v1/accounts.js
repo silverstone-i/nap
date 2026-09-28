@@ -14,6 +14,10 @@ import { requireSession } from '../../../../middleware/sessionContext.js';
 import { requireCapability } from '../../../../capability/requireCapability.js';
 import { requestAuthority } from '../../domain/authorization.js';
 import {
+  assertAccountDeactivationAllowed,
+  assertMembershipDeactivationAllowed,
+} from '../../../access-control/domain/accountEligibility.js';
+import {
   archiveMembership,
   archiveUser,
   createMembership,
@@ -57,9 +61,10 @@ function sendAccountError(response, error) {
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {{throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}} context.authenticationPolicy
+ * @param {{cellFor: Function}} [context.runtime] Runtime cell registry, used by the administrator-eligibility checks (M0001-08-R008).
  * @returns {import('express').Router}
  */
-export function createAccountsRouter({ admin, authenticationPolicy }) {
+export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
   const router = Router();
   const hashingPolicy = {
     memoryKib: authenticationPolicy?.memoryKib,
@@ -137,7 +142,11 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
           write,
           request.params.id,
           request.body,
-          { requestId: request.requestId }
+          {
+            requestId: request.requestId,
+            assertDeactivationAllowed: userId =>
+              assertAccountDeactivationAllowed(admin.db, runtime, userId),
+          }
         );
         sendData(response, user);
       } catch (error) {
@@ -155,6 +164,8 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
         const write = requestAuthority(request);
         await archiveUser(admin.db, write, request.params.id, {
           requestId: request.requestId,
+          assertDeactivationAllowed: userId =>
+            assertAccountDeactivationAllowed(admin.db, runtime, userId),
         });
         sendNoContent(response);
       } catch (error) {
@@ -213,7 +224,15 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
           write,
           request.params.id,
           request.body,
-          { requestId: request.requestId }
+          {
+            requestId: request.requestId,
+            assertDeactivationAllowed: membership =>
+              assertMembershipDeactivationAllowed(
+                admin.db,
+                runtime,
+                membership
+              ),
+          }
         );
         sendData(response, membership);
       } catch (error) {
@@ -231,6 +250,8 @@ export function createAccountsRouter({ admin, authenticationPolicy }) {
         const write = requestAuthority(request);
         await archiveMembership(admin.db, write, request.params.id, {
           requestId: request.requestId,
+          assertDeactivationAllowed: membership =>
+            assertMembershipDeactivationAllowed(admin.db, runtime, membership),
         });
         sendNoContent(response);
       } catch (error) {

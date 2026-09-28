@@ -57,6 +57,10 @@ const COLUMNS = [
 ];
 
 function describeActionError(err) {
+  if (err instanceof ApiError && err.code === 'ADMIN_ASSIGNED')
+    return 'Remove this user’s administrator roles before deactivating the account.';
+  if (err instanceof ApiError && err.code === 'ROOT_IMMUTABLE')
+    return 'The initial Napsoft user cannot be changed.';
   if (err instanceof ApiError && err.code === 'INVALID_STATE')
     return 'This account cannot perform that action right now.';
   if (err instanceof ApiError && err.code === 'FORBIDDEN')
