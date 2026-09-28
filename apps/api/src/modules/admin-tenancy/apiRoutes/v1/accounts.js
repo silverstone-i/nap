@@ -61,6 +61,7 @@ function sendAccountError(response, error) {
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {{throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}} context.authenticationPolicy
+ * @param {{cellFor: Function}} [context.runtime] Runtime cell registry, used by the administrator-eligibility checks (M0001-08-R008).
  * @returns {import('express').Router}
  */
 export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
