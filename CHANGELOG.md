@@ -10,9 +10,21 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Add role-based access control. Each tenant's cell holds its roles, grants, and role assignments. Grants are capability patterns of the form `TENANT::module::router::action`, where any part may be `*`, and a tenant `*` never matches Napsoft.
+- Enforce one capability check on every protected API route. A user's patterns come from their home tenant: Napsoft for Napsoft members, otherwise the selected tenant. The target tenant must also be entitled to the module. A denial returns 403 with the required capability and a reason, and a denied write records an `access.denied` event. The API refuses to start if a route declares no capability, one no module lists, or `read` on a route that is not `GET`.
+- Add the Roles screen and the `/api/access-control/v1` routes to list, create, edit, archive, and restore roles and to assign or remove them. You can only give out access you hold yourself, and the last active administrator cannot be removed. Every role change records an administrative event.
+- Add `GET /api/admin-tenancy/v1/session/capabilities`. The web app uses it to show only the navigation entries and actions the user can use, and shows the reason when the server denies an action.
+- Add `npm run db:provision:napsoft`, which provisions the first cell and runs Napsoft tenant setup. Setup seeds the immutable `platform_admin`, `support`, and `tenant_admin` roles and gives the bootstrap login `platform_admin`.
+
+### Removed
+
+- Remove the root user, `admin.platform_roles`, `admin.support_grants`, and support mode, including its session columns and the `/access` support routes. The admin migration is edited in place, so recreate existing databases.
+
 ### Changed
 
-- Rewrite M0003 and I0005 for the simplified RBAC model: roles, grants, and role assignments live only in tenant cells; capabilities are `TENANT::module::router::action`, where tenant `*` excludes Napsoft and entitlements always apply; immutable `platform_admin`, `support`, and `tenant_admin` roles are seeded (Napsoft at bootstrap); one `requireCapability` check decides every route, with a no-escalation rule for role changes. The M0001 family, I0001–I0004, architecture docs, guides, and READMEs now describe this model: no root user, no `admin.platform_roles`, and no support mode. M0001-02 becomes Napsoft bootstrap, M0001-09 becomes tenant selection, and M0001-05 is superseded by I0005.
+- Rewrite M0003 and I0005 for the simplified RBAC model: roles, grants, and role assignments live only in tenant cells; capabilities are `TENANT::module::router::action`, where tenant `*` excludes Napsoft and entitlements always apply; immutable `platform_admin`, `support`, and `tenant_admin` roles are seeded (Napsoft during Napsoft tenant setup); one `requireCapability` check decides every route, with a no-escalation rule for role changes. The M0001 family, I0001–I0004, architecture docs, guides, and READMEs now describe this model: no root user, no `admin.platform_roles`, and no support mode. M0001-02 becomes Napsoft bootstrap, M0001-09 becomes tenant selection, and M0001-05 is superseded by I0005.
 - Add a support access design guide in `docs/design-guides/` (staff roles, impersonation, tickets and consent as support rules, and the tenant support log). Design guides are reference only; the README now lists them and spells out acronyms at first use.
 
 ## [v0.19.0] - 2026-09-26
