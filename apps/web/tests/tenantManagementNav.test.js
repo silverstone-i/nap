@@ -11,15 +11,16 @@ import {
 } from '../src/shell/tenantManagementNav.js';
 
 describe('visibleTenantManagementChildren (I0001-R023)', () => {
-  it('lists Tenants, Cells, and Portal Users as the three known children', () => {
+  it('lists Tenants, Cells, Portal Users, and Roles as the known children', () => {
     expect(TENANT_MANAGEMENT_CHILDREN.map(child => child.label)).toEqual([
       'Tenants',
       'Cells',
       'Portal Users',
+      'Roles',
     ]);
   });
 
-  it('every child is implemented, now that I0002 ships all three screens', () => {
+  it('every child is implemented (I0002 screens plus M0003-R016 Roles)', () => {
     expect(
       TENANT_MANAGEMENT_CHILDREN.every(child => child.implemented === true)
     ).toBe(true);
@@ -33,7 +34,12 @@ describe('visibleTenantManagementChildren (I0001-R023)', () => {
       {
         platform: false,
         tenant: true,
-        tenantManagement: { tenants: false, cells: false, portalUsers: false },
+        tenantManagement: {
+          tenants: false,
+          cells: false,
+          portalUsers: false,
+          accessControl: false,
+        },
       },
     ],
   ])(
@@ -43,11 +49,16 @@ describe('visibleTenantManagementChildren (I0001-R023)', () => {
     }
   );
 
-  it('returns all three, in order, for a platform user authorized for all three (I0001-R024, I0002-R010)', () => {
+  it('returns all four, in order, for a user authorized for all four (I0001-R024, I0002-R010)', () => {
     const entryPoints = {
       platform: true,
       tenant: false,
-      tenantManagement: { tenants: true, cells: true, portalUsers: true },
+      tenantManagement: {
+        tenants: true,
+        cells: true,
+        portalUsers: true,
+        accessControl: true,
+      },
     };
     expect(visibleTenantManagementChildren(entryPoints)).toEqual([
       { id: 'tenants', label: 'Tenants', path: '/management/tenants' },
@@ -57,6 +68,7 @@ describe('visibleTenantManagementChildren (I0001-R023)', () => {
         label: 'Portal Users',
         path: '/management/portal-users',
       },
+      { id: 'roles', label: 'Roles', path: '/management/roles' },
     ]);
   });
 
@@ -69,6 +81,20 @@ describe('visibleTenantManagementChildren (I0001-R023)', () => {
     expect(
       visibleTenantManagementChildren(entryPoints).map(child => child.id)
     ).toEqual(['tenants', 'portal-users']);
+  });
+
+  it('shows Roles only when entryPoints.tenantManagement.accessControl is true (M0003-R016)', () => {
+    const base = { tenants: false, cells: false, portalUsers: false };
+    expect(
+      visibleTenantManagementChildren({
+        tenantManagement: { ...base, accessControl: true },
+      }).map(child => child.id)
+    ).toEqual(['roles']);
+    expect(
+      visibleTenantManagementChildren({
+        tenantManagement: { ...base, accessControl: false },
+      })
+    ).toEqual([]);
   });
 });
 

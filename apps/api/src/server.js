@@ -14,6 +14,7 @@ import { createRuntime } from './application/runtime/createRuntime.js';
 import { createAdminDatabase } from './infrastructure/runtime/adminDatabase.js';
 import { createRevisionCache } from './infrastructure/cache/index.js';
 import { adminTenancyRoutesV1 } from './modules/admin-tenancy/apiRoutes/v1/index.js';
+import { accessControlRoutesV1 } from './modules/access-control/apiRoutes/v1/index.js';
 import { createCellRegistry } from './infrastructure/runtime/cellRegistry.js';
 import { createLocalCellDriver } from './infrastructure/provisioning/localCells.js';
 import { createRenderCellDriver } from './infrastructure/provisioning/renderCells.js';
@@ -76,7 +77,7 @@ try {
         cookiePolicy: config.cookie,
         applicationOrigin: config.applicationOrigin,
         runtime: cells,
-        registrations: adminTenancyRoutesV1,
+        registrations: [...adminTenancyRoutesV1, ...accessControlRoutesV1],
       },
     }
   );

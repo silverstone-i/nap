@@ -8,6 +8,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import DomainIcon from '@mui/icons-material/Domain';
 import HomeIcon from '@mui/icons-material/Home';
 import PeopleIcon from '@mui/icons-material/People';
+import SecurityIcon from '@mui/icons-material/Security';
 import StorageIcon from '@mui/icons-material/Storage';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
@@ -34,6 +35,7 @@ const CHILD_ICONS = {
   tenants: <BusinessIcon fontSize="small" />,
   cells: <StorageIcon fontSize="small" />,
   'portal-users': <PeopleIcon fontSize="small" />,
+  roles: <SecurityIcon fontSize="small" />,
 };
 
 /**

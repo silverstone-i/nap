@@ -238,7 +238,12 @@ describe('GET /access/context', () => {
       entryPoints: {
         platform: false,
         tenant: false,
-        tenantManagement: { tenants: false, cells: false, portalUsers: false },
+        tenantManagement: {
+          tenants: false,
+          cells: false,
+          portalUsers: false,
+          accessControl: false,
+        },
       },
     });
   });
@@ -288,7 +293,12 @@ describe('GET /access/context', () => {
     expect(response.body.data.entryPoints).toEqual({
       platform: false,
       tenant: true,
-      tenantManagement: { tenants: false, cells: false, portalUsers: false },
+      tenantManagement: {
+        tenants: false,
+        cells: false,
+        portalUsers: false,
+        accessControl: false,
+      },
     });
     expect(response.body.data.selectedTenant).toEqual({
       id: tenant.id,
@@ -325,6 +335,7 @@ describe('GET /access/context', () => {
       tenants: true,
       cells: true,
       portalUsers: true,
+      accessControl: true,
     });
   });
 
@@ -340,7 +351,12 @@ describe('GET /access/context', () => {
     expect(response.status).toBe(200);
     expect(response.body.data.entryPoints).toMatchObject({
       platform: false,
-      tenantManagement: { tenants: false, cells: false, portalUsers: false },
+      tenantManagement: {
+        tenants: false,
+        cells: false,
+        portalUsers: false,
+        accessControl: false,
+      },
     });
   });
 

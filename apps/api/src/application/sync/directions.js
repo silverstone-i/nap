@@ -72,9 +72,50 @@ export function adminToCell({ admin, registry, tenantId }) {
 }
 
 /**
- * Build the cell-to-admin apply step for one tenant's portal-access requests
- * (I0004-R024–R030). The tenant is the source row's, and it must be one the
- * source cell holds; a payload naming another tenant fails that row.
+ * Apply one `role_change` row (M0003-R015): append the role's administrative
+ * event and advance the tenant's `roles` cache revision (I0005). The row's
+ * `entity_id` is the event's deduplication key, so a redelivery after the
+ * admin commit finds the event and changes nothing.
+ * @param {object} admin Admin repository handle.
+ * @param {object} row
+ * @param {object} snapshot Parsed `role_change` payload.
+ * @param {{tx: object}} options
+ * @returns {Promise<void>}
+ */
+async function applyRoleChange(admin, row, snapshot, { tx }) {
+  if (await admin.managed_events.hasDeduplicationKey(row.entity_id, { tx }))
+    return;
+  await admin.managed_events.append(
+    {
+      deduplication_key: row.entity_id,
+      event_key: snapshot.event_key,
+      outcome: 'succeeded',
+      request_id: snapshot.request_id,
+      actor_id: snapshot.actor_id,
+      tenant_id: snapshot.tenant_id,
+      session_id: snapshot.session_id,
+      target_type: 'role',
+      target_id: snapshot.role_id,
+      // Events cannot be backdated, so the time of the cell change travels in
+      // the details; delivery time is `occurred_at`.
+      details: {
+        ...snapshot.details,
+        changed_at: new Date(row.created_at).toISOString(),
+      },
+    },
+    { tx }
+  );
+  await admin.cache_revisions.advance(
+    [{ domain: 'roles', entity: snapshot.tenant_id }],
+    { tx }
+  );
+}
+
+/**
+ * Build the cell-to-admin apply step for one tenant's requests: portal
+ * access (I0004-R024–R030) and role changes (M0003-R015). The tenant is the
+ * source row's, and it must be one the source cell holds; a payload naming
+ * another tenant fails that row.
  * @param {{admin: object, cellId: string, tenantId: string}} options
  * @returns {(rows: object[]) => Promise<{delivered: string[], failed: {id: string, code: string}[]}>}
  */
@@ -102,7 +143,13 @@ export function cellToAdmin({ admin, cellId, tenantId }) {
         );
       const fail = async (row, code) => {
         failed.push({ id: row.id, code });
-        await event(row, 'portal_access.failed', { failure_code: code });
+        if (row.topic === 'portal_access')
+          await event(row, 'portal_access.failed', { failure_code: code });
+        else
+          await event(row, 'sync.delivery.failed', {
+            failure_code: code,
+            attempts: row.attempts + 1,
+          });
       };
       for (const row of rows) {
         const snapshot = parseSnapshot(row.topic, row.payload);
@@ -112,6 +159,11 @@ export function cellToAdmin({ admin, cellId, tenantId }) {
         }
         if (!ownsTenant || snapshot.tenant_id !== tenantId) {
           await fail(row, 'TENANT_MISMATCH');
+          continue;
+        }
+        if (row.topic === 'role_change') {
+          await applyRoleChange(admin, row, snapshot, { tx });
+          delivered.push(row.id);
           continue;
         }
         const result = await applyPortalAccess(

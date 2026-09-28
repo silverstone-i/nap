@@ -75,4 +75,60 @@ export class RoleAssignments extends TableModel {
       [portalUserId, roleId]
     );
   }
+
+  /**
+   * IDs of the roles a user actively holds, archived roles included.
+   * @param {string} portalUserId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<string[]>}
+   */
+  async activeRoleIds(portalUserId, { tx }) {
+    const rows = await tx.any(
+      `SELECT role_id FROM ${this.schemaName}.${this.tableName}
+        WHERE portal_user_id=$1 AND deactivated_at IS NULL`,
+      [portalUserId]
+    );
+    return rows.map(row => row.role_id);
+  }
+
+  /**
+   * Count a role's active assignments held by active members of the tenant
+   * (M0003-R012): the member row in `cell.tenant_members` is `active` and not
+   * archived. The caller locks the role first so concurrent removals of the
+   * same role see each other.
+   * @param {string} roleId
+   * @param {string} tenantId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<number>}
+   */
+  async countActive(roleId, tenantId, { tx }) {
+    const row = await tx.one(
+      `SELECT count(*)::int AS n
+         FROM ${this.schemaName}.${this.tableName} AS assignment
+         JOIN cell.tenant_members AS member
+           ON member.tenant_id = assignment.tenant_id
+          AND member.portal_user_id = assignment.portal_user_id
+        WHERE assignment.role_id=$1 AND assignment.tenant_id=$2
+          AND assignment.deactivated_at IS NULL
+          AND member.status='active' AND member.deactivated_at IS NULL`,
+      [roleId, tenantId]
+    );
+    return row.n;
+  }
+
+  /**
+   * Archive one assignment, recording who removed it.
+   * @param {string} id
+   * @param {string} actorId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<void>}
+   */
+  async archive(id, actorId, { tx }) {
+    await tx.none(
+      `UPDATE ${this.schemaName}.${this.tableName}
+          SET deactivated_at = now(), updated_by = $2
+        WHERE id=$1 AND deactivated_at IS NULL`,
+      [id, actorId]
+    );
+  }
 }

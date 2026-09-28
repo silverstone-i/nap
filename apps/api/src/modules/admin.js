@@ -6,6 +6,7 @@
 import { TableModel } from 'pg-schemata';
 import { descriptor } from './admin-tenancy/descriptor.js';
 import { requireCondition } from '../application/shared/errors.js';
+import { parseDeclarations } from './access-control/domain/capabilities.js';
 /** Admin database module registry. Every descriptor targets the `admin` schema. */
 export const adminModules = [descriptor];
 /**
@@ -13,7 +14,7 @@ export const adminModules = [descriptor];
  *
  * Rejects a descriptor that targets another database or schema, repeats a
  * module name or migration ID, lacks a migration array, uses an unknown
- * `entitlementType`, or registers a model whose schema targets another
+ * `entitlementType`, declares malformed capabilities (M0003-R005), or registers a model whose schema targets another
  * PostgreSQL schema or table name.
  * @param {object[]} [modules=adminModules] Module descriptors to check.
  * @returns {object[]} The same array when valid.
@@ -51,6 +52,7 @@ export function validateAdminRegistry(modules = adminModules) {
       );
       ids.add(migration.id);
     }
+    requireCondition(declaresCapabilities(m), 'INVALID_REGISTRY');
     requireCondition(
       m.models && typeof m.models === 'object',
       'INVALID_REGISTRY'
@@ -65,4 +67,18 @@ export function validateAdminRegistry(modules = adminModules) {
       );
   }
   return modules;
+}
+
+/**
+ * Whether a descriptor's `capabilities` pass M0003-R005.
+ * @param {object} descriptor
+ * @returns {boolean}
+ */
+function declaresCapabilities(descriptor) {
+  try {
+    parseDeclarations(descriptor);
+    return true;
+  } catch {
+    return false;
+  }
 }

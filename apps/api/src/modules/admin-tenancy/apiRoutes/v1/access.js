@@ -98,6 +98,11 @@ export function createAccessRouter({
               authorization,
               'admin-tenancy::accounts::read'
             ),
+            // M0003-R016: the selected tenant's Roles screen.
+            accessControl: permits(
+              authorization,
+              'access-control::roles::read'
+            ),
           },
         },
       });

@@ -18,4 +18,6 @@ export const descriptor = {
   entitlementType: 'infrastructure',
   models: repositories,
   migrations: [migration],
+  // No routes, so no capabilities (M0003-R005).
+  capabilities: [],
 };

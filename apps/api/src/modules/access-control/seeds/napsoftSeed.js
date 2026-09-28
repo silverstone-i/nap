@@ -3,6 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
+
+export { setTenant };
+
 /** Thrown when a seeded role exists with different grants or identity (M0003-R010). */
 export class NapsoftSeedError extends Error {
   /**
@@ -34,17 +38,6 @@ export function napsoftRoles(napsoftCode) {
       grants: [`${napsoftCode}::*::*::*`],
     },
   ];
-}
-
-/**
- * Scope the transaction to one tenant for the `app` row-level security rule.
- * `set_config(..., true)` is `SET LOCAL` with a bind parameter.
- * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {string} tenantId
- * @returns {Promise<void>}
- */
-export async function setTenant(tx, tenantId) {
-  await tx.one("SELECT set_config('nap.tenant_id', $1, true)", [tenantId]);
 }
 
 /**

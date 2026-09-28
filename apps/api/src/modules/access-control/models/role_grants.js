@@ -68,4 +68,68 @@ export class RoleGrants extends TableModel {
     );
     return rows.map(row => row.pattern);
   }
+
+  /**
+   * Patterns for several roles, keyed by role ID, each sorted.
+   * @param {string[]} roleIds
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<Map<string, string[]>>}
+   */
+  async patternsByRole(roleIds, { tx }) {
+    const byRole = new Map(roleIds.map(id => [id, []]));
+    if (roleIds.length === 0) return byRole;
+    const rows = await tx.any(
+      `SELECT role_id, pattern FROM ${this.schemaName}.${this.tableName}
+        WHERE role_id = ANY($1::uuid[]) ORDER BY pattern`,
+      [roleIds]
+    );
+    for (const row of rows) byRole.get(row.role_id)?.push(row.pattern);
+    return byRole;
+  }
+
+  /**
+   * Replace a role's grants with `patterns` (M0003 §10: `grants` replaces the
+   * full set). Grants carry no history of their own; the administrative
+   * event records the before and after sets (M0003-R015).
+   * @param {{tenantId: string, roleId: string, actorId: string}} role
+   * @param {string[]} patterns Distinct, validated patterns.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<void>}
+   */
+  async replaceFor({ tenantId, roleId, actorId }, patterns, { tx }) {
+    await tx.none(
+      `DELETE FROM ${this.schemaName}.${this.tableName}
+        WHERE role_id=$1 AND NOT (pattern = ANY($2::text[]))`,
+      [roleId, patterns]
+    );
+    await tx.none(
+      `INSERT INTO ${this.schemaName}.${this.tableName}
+              (tenant_id, role_id, pattern, created_by, updated_by)
+       SELECT $1, $2, p, $4, $4 FROM unnest($3::text[]) AS p
+       ON CONFLICT (role_id, pattern) DO NOTHING`,
+      [tenantId, roleId, patterns, actorId]
+    );
+  }
+
+  /**
+   * A portal user's resolved pattern set in this tenant (I0005-R004): the
+   * distinct grants of the user's active assignments on active roles.
+   * Archived roles and archived assignments contribute nothing.
+   * @param {string} portalUserId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<string[]>} Sorted patterns.
+   */
+  async patternsForUser(portalUserId, { tx }) {
+    const rows = await tx.any(
+      `SELECT DISTINCT g.pattern
+         FROM ${this.schemaName}.${this.tableName} g
+         JOIN app.roles r ON r.id = g.role_id AND r.deactivated_at IS NULL
+         JOIN app.role_assignments a
+           ON a.role_id = r.id AND a.deactivated_at IS NULL
+        WHERE a.portal_user_id = $1
+        ORDER BY g.pattern`,
+      [portalUserId]
+    );
+    return rows.map(row => row.pattern);
+  }
 }
