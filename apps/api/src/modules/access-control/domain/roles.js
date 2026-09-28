@@ -439,11 +439,8 @@ async function assignedRoles(context, userId, tx) {
     tx,
   });
   const byRole = await context.cell.role_grants.patternsByRole(ids, { tx });
-  const rows = await Promise.all(
-    ids.map(roleId => context.cell.roles.byId(roleId, { tx }))
-  );
+  const rows = await context.cell.roles.byIds(ids, { tx });
   const roles = rows
-    .filter(Boolean)
     .map(row => roleView(row, byRole.get(row.id)))
     .sort((a, b) => a.code.localeCompare(b.code));
   return { userId, roles };

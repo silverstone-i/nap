@@ -78,6 +78,7 @@ export function UserRolesSection({ roles }) {
 
   async function handleRemove(role) {
     setPendingRemove(null);
+    if (!role) return;
     setError(null);
     try {
       const result = await removeUserRole(userId, role.id);

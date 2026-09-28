@@ -99,6 +99,22 @@ export class Roles extends TableModel {
   }
 
   /**
+   * Several roles by identifier in one query; missing identifiers are simply
+   * absent from the result.
+   * @param {string[]} ids
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object[]>}
+   */
+  async byIds(ids, { tx }) {
+    if (ids.length === 0) return [];
+    return tx.any(
+      `SELECT * FROM ${this.schemaName}.${this.tableName}
+        WHERE id = ANY($1::uuid[])`,
+      [ids]
+    );
+  }
+
+  /**
    * The tenant's roles ordered by code, optionally including archived ones.
    * @param {{tx: import('pg-promise').IDatabase<unknown>, includeArchived?: boolean}} options
    * @returns {Promise<object[]>}

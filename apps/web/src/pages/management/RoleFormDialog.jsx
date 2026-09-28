@@ -176,7 +176,7 @@ export function RoleFormDialog({ role = null, tenantCode, onClose, onSaved }) {
       const saved = editing
         ? await updateRole(current.id, {
             name,
-            description,
+            description: description.trim() || null,
             grants,
             revision: current.revision,
           })

@@ -58,6 +58,7 @@ function fakeCell({
     roles: {
       lockById: async id => roleRows.get(id) ?? null,
       byId: async id => roleRows.get(id) ?? null,
+      byIds: async ids => ids.map(id => roleRows.get(id)).filter(Boolean),
       list: async ({ includeArchived }) =>
         [...roleRows.values()]
           .filter(row => includeArchived || !row.deactivated_at)
