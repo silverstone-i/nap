@@ -61,7 +61,7 @@ export function NavDrawer({ variant, expanded, open, onClose }) {
   // I0001-R023: Tenant Management lists the implemented children the server
   // authorizes, whether or not a tenant is selected (one shell, R009).
   const tenantManagementChildren = visibleTenantManagementChildren(
-    session.entryPoints
+    session.capabilities
   ).map(child => ({
     ...child,
     icon: CHILD_ICONS[child.id],

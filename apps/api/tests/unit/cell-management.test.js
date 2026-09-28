@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -54,26 +55,16 @@ describe('validation', () => {
 });
 
 describe('control authority', () => {
-  it('grants access only from the matching capability', () => {
+  it('grants access only from a permitted decision', () => {
     const actorId = randomUUID();
-    expect(
-      buildControlAuthority(
-        { actorId, platformCapabilities: ['admin-tenancy::control::write'] },
-        'admin-tenancy::control::write'
-      )
-    ).toEqual({ actorId, granted: true });
-    expect(
-      buildControlAuthority(
-        { actorId, platformCapabilities: ['admin-tenancy::control::read'] },
-        'admin-tenancy::control::write'
-      )
-    ).toEqual({ actorId, granted: false });
-    expect(
-      buildControlAuthority(
-        { actorId, platformCapabilities: [] },
-        'admin-tenancy::control::write'
-      )
-    ).toEqual({ actorId, granted: false });
+    expect(buildControlAuthority({ actorId, decision: 'permit' })).toEqual({
+      actorId,
+      granted: true,
+    });
+    expect(buildControlAuthority({ actorId, decision: 'deny' })).toEqual({
+      actorId,
+      granted: false,
+    });
   });
 });
 
@@ -143,7 +134,6 @@ function fakeAdmin({ cells = [], operations = [], tenants = [] } = {}) {
     tx: operation => operation({ one: async () => ({}) }),
     portal_users: {
       findOneBy: async ({ id }) => ({ id }),
-      findBootstrapLogin: async () => ({ id: ROOT_ID }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -256,9 +246,11 @@ function api({ cells, operations, tenants, root = true, runtime } = {}) {
     expired: false,
     stale: false,
   });
+  const cache = authorizeActor(admin.db, ROOT_ID);
   const app = createApp({
     api: {
       admin,
+      cache,
       environment: 'test',
       sessionPolicy: policy,
       cookiePolicy,

@@ -70,7 +70,7 @@ export function consumeReturnPath() {
  * before returning"). A path to Home or a management page the caller no
  * longer has access to is discarded, never trusted at face value.
  * @param {string|null} path
- * @param {{selectedTenant?: {id: string}|null, entryPoints?: {platform?: boolean, tenant?: boolean}|null}} session
+ * @param {{selectedTenant?: {id: string}|null, entryPoints?: {tenant?: boolean}|null, management?: boolean}} session
  * @returns {string|null}
  */
 export function reauthorizeReturnPath(path, session) {
@@ -78,11 +78,8 @@ export function reauthorizeReturnPath(path, session) {
   if (path === '/tenants') return session.entryPoints?.tenant ? path : null;
   if (path === '/password') return path;
   if (path === '/home')
-    return session.selectedTenant || session.entryPoints?.platform
-      ? path
-      : null;
-  if (path.startsWith('/management/'))
-    return session.entryPoints?.platform ? path : null;
+    return session.selectedTenant || session.management ? path : null;
+  if (path.startsWith('/management/')) return session.management ? path : null;
   return null;
 }
 

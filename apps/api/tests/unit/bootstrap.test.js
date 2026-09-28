@@ -8,7 +8,7 @@ import {
   bootstrapSecrets,
   productionAdminConnection,
 } from '../../src/application/shared/configuration.js';
-import { bootstrapRoot } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
+import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 
 const CONFIG = {
@@ -22,12 +22,12 @@ const CONFIG = {
 /**
  * A fake admin database handle exposing only the repository methods and
  * `tx` bootstrap uses, so this test exercises its branching without a real
- * PostgreSQL server. `tenant`, `rootUser`, and `membership` seed the state
+ * PostgreSQL server. `tenant`, `login`, and `membership` seed the state
  * each lock method reports as already present.
- * @param {{tenant?: object|null, rootUser?: object|null, membership?: object|null}} state
+ * @param {{tenant?: object|null, login?: object|null, membership?: object|null}} state
  * @returns {object}
  */
-function fakeDb({ tenant = null, rootUser = null, membership = null } = {}) {
+function fakeDb({ tenant = null, login = null, membership = null } = {}) {
   const events = [];
   return {
     events,
@@ -40,7 +40,7 @@ function fakeDb({ tenant = null, rootUser = null, membership = null } = {}) {
       insert: async dto => ({ id: 'new-tenant', ...dto }),
     },
     portal_users: {
-      lockBootstrapLogin: async () => rootUser,
+      lockBootstrapLogin: async () => login,
       lockActiveByEmail: async () => null,
       insertBootstrapLogin: async ({ email }) => ({
         id: 'new-root',
@@ -60,18 +60,18 @@ function fakeDb({ tenant = null, rootUser = null, membership = null } = {}) {
   };
 }
 
-describe('bootstrapRoot conflicts unreachable through the schema alone', () => {
+describe('bootstrapNapsoft conflicts unreachable through the schema alone', () => {
   it('reports MEMBERSHIP_CONFLICT when a stored membership carries a member_type', async () => {
     // The `protect_membership` trigger never allows this state for the bootstrap login
     // and owning tenant in a real database; this test covers the branch
     // directly so it stays correct even though PostgreSQL can't produce it.
     const db = fakeDb({
       tenant: { id: 'tenant-1', tenant_code: 'NAP' },
-      rootUser: { id: 'root-1', email: 'root@nap.test' },
+      login: { id: 'root-1', email: 'root@nap.test' },
       membership: { id: 'membership-1', member_type: 'employee' },
     });
 
-    const result = await bootstrapRoot(db, CONFIG);
+    const result = await bootstrapNapsoft(db, CONFIG);
 
     expect(result).toEqual({ status: 'conflict', code: 'MEMBERSHIP_CONFLICT' });
     expect(db.events).toContainEqual(

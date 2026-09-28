@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import {
@@ -130,10 +131,6 @@ function fakeAdmin() {
           matches(row, conditions)
         );
         return found ? { ...found } : null;
-      },
-      findBootstrapLogin: async () => {
-        const found = [...userStore.values()].find(row => row.bootstrap);
-        return found ? { id: found.id } : null;
       },
       lockById: async id => {
         const found = userStore.get(id);
@@ -364,9 +361,11 @@ function api({ bootstrap = true } = {}) {
     expired: false,
     stale: false,
   });
+  const cache = authorizeActor(admin.db, BOOTSTRAP_ID);
   const app = createApp({
     api: {
       admin,
+      cache,
       environment: 'test',
       sessionPolicy: policy,
       cookiePolicy,

@@ -8,6 +8,7 @@ import Button from '@mui/material/Button';
 import { listTenantsPage } from '../../api/endpoints.js';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
+import { useCapabilities } from '../../auth/useCapabilities.js';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { CreateTenantDialog } from './CreateTenantDialog.jsx';
 
@@ -81,10 +82,12 @@ export function TenantsPage() {
   const fetchPage = useMemo(() => createCursorPageAdapter(listTenantsPage), []);
   const [resetKey, setResetKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { can } = useCapabilities();
+  const canWrite = can('admin-tenancy::control::write', 'napsoft');
 
   usePageHeader({
     title: 'Tenants',
-    actions: (
+    actions: canWrite ? (
       <Button
         variant="contained"
         size="small"
@@ -92,7 +95,7 @@ export function TenantsPage() {
       >
         Create tenant
       </Button>
-    ),
+    ) : null,
   });
 
   return (

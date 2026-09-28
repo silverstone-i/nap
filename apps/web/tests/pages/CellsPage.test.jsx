@@ -7,11 +7,16 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../src/api/endpoints.js';
+import { useSession } from '../../src/auth/SessionContext.jsx';
 import { CellsPage } from '../../src/pages/management/CellsPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
-import { installMatchMedia, installResizeObserver } from '../testUtils.jsx';
+import {
+  capabilitiesFixture,
+  installMatchMedia,
+  installResizeObserver,
+} from '../testUtils.jsx';
 
 vi.mock('../../src/api/endpoints.js', () => ({
   listCellsOverview: vi.fn(),
@@ -19,6 +24,10 @@ vi.mock('../../src/api/endpoints.js', () => ({
   retryCellProvisioning: vi.fn(),
   disableCell: vi.fn(),
   activateCell: vi.fn(),
+}));
+
+vi.mock('../../src/auth/SessionContext.jsx', () => ({
+  useSession: vi.fn(),
 }));
 
 function overviewRow(overrides = {}) {
@@ -66,6 +75,10 @@ function renderPage() {
 beforeEach(() => {
   installMatchMedia();
   installResizeObserver();
+  useSession.mockReturnValue({
+    capabilities: capabilitiesFixture(),
+    refreshCapabilities: vi.fn(),
+  });
 });
 
 afterEach(() => {
@@ -327,5 +340,30 @@ describe('CellsPage', () => {
     expect(api.registerCell).toHaveBeenCalledWith({ suffix: 'testcell' });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(api.listCellsOverview).toHaveBeenCalledTimes(2);
+  });
+
+  it('hides Register cell and write row actions without control write (I0005-R011)', async () => {
+    useSession.mockReturnValue({
+      capabilities: capabilitiesFixture({
+        patterns: ['NAP::admin-tenancy::control::read'],
+      }),
+      refreshCapabilities: vi.fn(),
+    });
+    api.listCellsOverview.mockResolvedValue({
+      rows: [
+        overviewRow({
+          operation: { ...overviewRow().operation, status: 'failed' },
+        }),
+      ],
+      nextCursor: null,
+    });
+    renderPage();
+    await screen.findByText('dev');
+    expect(screen.queryByRole('button', { name: 'Register cell' })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('menuitem', { name: 'more' }));
+    await screen.findByRole('menuitem', { name: 'View progress' });
+    expect(screen.queryByRole('menuitem', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Disable' })).toBeNull();
   });
 });

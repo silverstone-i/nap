@@ -18,12 +18,14 @@ import { groupGrantsByModule } from './roleGrants.js';
 /**
  * Role detail (M0003-R016): badges, description, and grants grouped by
  * module. Edit and archive are absent for an immutable role; archive and
- * restore are mutually exclusive by the role's state.
- * @param {{role: import('../../api/endpoints.js').RoleView, onClose: () => void, onEdit: () => void, onArchive: () => void, onRestore: () => void}} props
+ * restore are mutually exclusive by the role's state. All three are hidden
+ * without `access-control::roles::write` (I0005-R011).
+ * @param {{role: import('../../api/endpoints.js').RoleView, canWrite: boolean, onClose: () => void, onEdit: () => void, onArchive: () => void, onRestore: () => void}} props
  * @returns {JSX.Element}
  */
 export function RoleDetailDialog({
   role,
+  canWrite,
   onClose,
   onEdit,
   onArchive,
@@ -76,7 +78,7 @@ export function RoleDetailDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        {role.isImmutable ? null : role.archived ? (
+        {!canWrite || role.isImmutable ? null : role.archived ? (
           <Button variant="text" onClick={onRestore}>
             Restore
           </Button>

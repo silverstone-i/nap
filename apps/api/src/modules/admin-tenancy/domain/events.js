@@ -36,6 +36,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'attempt',
   'attempts',
   'before',
+  'capability',
   'cell_code',
   'changed_at',
   'changed_fields',
@@ -231,6 +232,8 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: ['direction', 'failure_code'],
   },
   'tenant.selected': { outcomes: ANY_OUTCOME, details: [] },
+  // I0005-R007: a write refused by the capability check.
+  'access.denied': { outcomes: DENIED, details: ['capability', 'method'] },
 
   'entitlement.granted': {
     outcomes: ANY_OUTCOME,

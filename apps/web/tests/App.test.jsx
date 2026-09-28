@@ -10,13 +10,18 @@ import { App } from '../src/App.jsx';
 import { ThemeModeProvider } from '../src/theme/ThemeModeContext.jsx';
 import { ApiError } from '../src/api/client.js';
 import * as api from '../src/api/endpoints.js';
-import { installMatchMedia } from './testUtils.jsx';
+import {
+  NO_CAPABILITIES,
+  capabilitiesFixture,
+  installMatchMedia,
+} from './testUtils.jsx';
 
 vi.mock('../src/api/endpoints.js', () => ({
   login: vi.fn(),
   changePassword: vi.fn(),
   logout: vi.fn(),
   getAccessContext: vi.fn(),
+  getSessionCapabilities: vi.fn(),
   listTenants: vi.fn(),
   selectTenant: vi.fn(),
 }));
@@ -24,6 +29,7 @@ vi.mock('../src/api/endpoints.js', () => ({
 beforeEach(() => {
   installMatchMedia();
   api.getAccessContext.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
+  api.getSessionCapabilities.mockResolvedValue(NO_CAPABILITIES);
 });
 
 afterEach(() => {
@@ -43,12 +49,6 @@ it('sends an unauthenticated visitor to /login', async () => {
 });
 
 const napsoft = { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' };
-const allCells = {
-  tenants: true,
-  cells: true,
-  portalUsers: true,
-  accessControl: true,
-};
 
 function renderAt(path) {
   return render(
@@ -66,8 +66,9 @@ it('lands management access on Home with no tenant selected (one shell)', async 
     user: { id: 'u1', email: 'root@example.com' },
     selectedTenant: null,
     operator: napsoft,
-    entryPoints: { platform: true, tenant: true, tenantManagement: allCells },
+    entryPoints: { tenant: true },
   });
+  api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
   renderAt('/');
   expect(await screen.findByText('No tenant selected.')).toBeTruthy();
   expect(screen.getByText('Tenant Management')).toBeTruthy();
@@ -82,8 +83,9 @@ it('keeps Tenant Management in the one shell with a tenant selected', async () =
     user: { id: 'u1', email: 'root@example.com' },
     selectedTenant: napsoft,
     operator: napsoft,
-    entryPoints: { platform: true, tenant: true, tenantManagement: allCells },
+    entryPoints: { tenant: true },
   });
+  api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
   renderAt('/');
   expect(await screen.findByText('Napsoft workspace.')).toBeTruthy();
   expect(screen.getByText('Tenant Management')).toBeTruthy();
@@ -95,7 +97,7 @@ it('lets a user with a tenant selected open tenant selection to switch', async (
     user: { id: 'u1', email: 'user@example.com' },
     selectedTenant: napsoft,
     operator: napsoft,
-    entryPoints: { platform: false, tenant: true },
+    entryPoints: { tenant: true },
   });
   api.listTenants.mockResolvedValue([napsoft]);
   renderAt('/tenants');
@@ -110,7 +112,7 @@ it('sends a tenant-only user with no selection to tenant selection', async () =>
     user: { id: 'u1', email: 'user@example.com' },
     selectedTenant: null,
     operator: napsoft,
-    entryPoints: { platform: false, tenant: true },
+    entryPoints: { tenant: true },
   });
   api.listTenants.mockResolvedValue([napsoft]);
   renderAt('/home');

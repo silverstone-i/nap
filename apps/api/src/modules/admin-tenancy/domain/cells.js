@@ -71,21 +71,19 @@ export const OPERATION_VIEW_COLUMNS = Object.freeze([
  */
 
 /**
- * Turn a resolved authorization context into a `ControlAuthority`.
+ * Turn an I0005 decision into a `ControlAuthority`.
  *
  * `admin.cells` has no tenant of its own, so the general-purpose
  * `AdminAccessScope` (built for tenant-scoped reads) does not fit cleanly;
  * this is the minimal shape cell control actually needs: whether the
- * capability is present.
- * @param {{actorId: string, platformCapabilities: string[]}} context Result of `resolveAuthorization`.
- * @param {string} capability `admin-tenancy::control::read` or `::write`.
+ * capability was permitted.
+ * @param {{actorId: string, decision: 'permit'|'deny'}} authorization An `authorize` result.
  * @returns {ControlAuthority}
  */
-export function buildControlAuthority(context, capability) {
-  const scope = accessScope(context, capability);
+export function buildControlAuthority(authorization) {
   return {
-    actorId: context.actorId,
-    granted: scope.tenantIds === '*',
+    actorId: authorization.actorId,
+    granted: accessScope(authorization).tenantIds === '*',
   };
 }
 

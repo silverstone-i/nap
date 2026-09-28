@@ -16,7 +16,7 @@ import { createCellDatabase } from '../../src/infrastructure/runtime/cellDatabas
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
-import { bootstrapRoot } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
+import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 import { createCellRegistry } from '../../src/infrastructure/runtime/cellRegistry.js';
 import { createLocalCellDriver } from '../../src/infrastructure/provisioning/localCells.js';
@@ -75,7 +75,7 @@ beforeAll(async () => {
   await handle.connect();
   db = handle.db;
   const unique = randomUUID().slice(0, 8);
-  boot = await bootstrapRoot(db, {
+  boot = await bootstrapNapsoft(db, {
     tenantCode: `NAP-${unique.toUpperCase()}`,
     tenantName: `Test Napsoft ${unique}`,
     rootEmail: `login-${unique}@nap.test`,
@@ -142,7 +142,7 @@ it('provisions the first cell and runs Napsoft tenant setup with the seed (I0003
       );
     });
     expect(rows).toEqual([
-      { code: 'platform_admin', portal_user_id: boot.rootUser.id },
+      { code: 'platform_admin', portal_user_id: boot.login.id },
       { code: 'support', portal_user_id: null },
       { code: 'tenant_admin', portal_user_id: null },
     ]);

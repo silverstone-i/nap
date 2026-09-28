@@ -8,6 +8,7 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { sessionViewSchema } from '@nap/shared';
 import { createApp } from '../../src/app.js';
+import { authorizeActor } from './helpers/authorization.js';
 import { runtimeConfiguration } from '../../src/application/shared/runtimeConfiguration.js';
 import {
   createRouteRegistry,
@@ -75,10 +76,9 @@ function row(overrides = {}) {
  * concurrency are decided by SQL in the real model, so they are verified in
  * the database integration test rather than here.
  * @param {object[]} rows Session rows, keyed on their token hash.
- * @param {{bootstrapLoginId?: string}} [options]
  * @returns {{db: object, events: object[], revisions: object[]}}
  */
-function fakeAdmin(rows, { bootstrapLoginId = null } = {}) {
+function fakeAdmin(rows) {
   const events = [];
   const revisions = [];
   const store = new Map(rows.map(entry => [entry.token_hash, entry]));
@@ -99,8 +99,6 @@ function fakeAdmin(rows, { bootstrapLoginId = null } = {}) {
     },
     portal_users: {
       findOneBy: async ({ id }) => ({ id }),
-      findBootstrapLogin: async () =>
-        bootstrapLoginId ? { id: bootstrapLoginId } : null,
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -155,10 +153,14 @@ function fakeAdmin(rows, { bootstrapLoginId = null } = {}) {
  * @returns {{app: import('express').Express, admin: object}}
  */
 function api(rows = [], options) {
-  const admin = fakeAdmin(rows, options);
+  const admin = fakeAdmin(rows);
+  const cache = options?.bootstrapLoginId
+    ? authorizeActor(admin.db, options.bootstrapLoginId)
+    : authorizeActor(admin.db, randomUUID(), []);
   const app = createApp({
     api: {
       admin,
+      cache,
       sessionPolicy: policy,
       cookiePolicy,
       applicationOrigin: ORIGIN,
@@ -553,7 +555,7 @@ describe('session routes', () => {
   it("revokes the caller's own session and refuses another user's", async () => {
     const mine = live();
     const theirs = live();
-    const { app } = api([mine.session, theirs.session]);
+    const { app, admin } = api([mine.session, theirs.session]);
     const own = await request(app)
       .delete(`/api/admin-tenancy/v1/sessions/${mine.session.id}`)
       .set('Origin', ORIGIN)
@@ -567,6 +569,18 @@ describe('session routes', () => {
       .set('Origin', ORIGIN)
       .set('Cookie', `nap_session=${theirs.token}`);
     expect(repeat.status).toBe(403);
+    expect(repeat.body.error).toMatchObject({
+      code: 'FORBIDDEN',
+      capability: 'NAP::admin-tenancy::sessions::revoke',
+      reason: 'INACTIVE',
+    });
+    expect(admin.events).toContainEqual(
+      expect.objectContaining({
+        event_key: 'access.denied',
+        outcome: 'denied',
+        reason: 'INACTIVE',
+      })
+    );
     expect(theirs.session.deactivated_at).toBeNull();
   });
 
@@ -585,18 +599,20 @@ describe('session routes', () => {
   });
 
   it('refuses an unknown session identifier the same way as a forbidden one', async () => {
-    const { token, session } = live();
-    const { app } = api([session]);
+    const bootstrap = live();
+    const { app } = api([bootstrap.session], {
+      bootstrapLoginId: bootstrap.session.portal_user_id,
+    });
     const missing = await request(app)
       .delete(`/api/admin-tenancy/v1/sessions/${randomUUID()}`)
       .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`);
+      .set('Cookie', `nap_session=${bootstrap.token}`);
     expect(missing.status).toBe(403);
     expect(missing.body).toEqual(errorEnvelope('FORBIDDEN'));
     const malformed = await request(app)
       .delete('/api/admin-tenancy/v1/sessions/not-a-uuid')
       .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`);
+      .set('Cookie', `nap_session=${bootstrap.token}`);
     expect(malformed.status).toBe(400);
   });
 

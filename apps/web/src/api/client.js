@@ -18,12 +18,16 @@ export class ApiError extends Error {
    * @param {string} code One of `@nap/shared`'s `apiErrorCodes`.
    * @param {number} status HTTP status.
    * @param {number|null} [retryAfterSeconds] Present only for `THROTTLED`.
+   * @param {{capability?: string, reason?: string}} [denial] Present on a
+   *   capability denial (I0005-R007).
    */
-  constructor(code, status, retryAfterSeconds = null) {
+  constructor(code, status, retryAfterSeconds = null, denial = {}) {
     super(code);
     this.code = code;
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.capability = denial.capability ?? null;
+    this.reason = denial.reason ?? null;
   }
 }
 
@@ -62,12 +66,13 @@ async function request(method, path, body, extraHeaders = {}) {
   }
 
   if (envelope?.error) {
-    const { code } = envelope.error;
+    const { code, capability, reason } = envelope.error;
     const retryAfter = response.headers.get('Retry-After');
     throw new ApiError(
       code,
       response.status,
-      code === 'THROTTLED' && retryAfter ? Number(retryAfter) : null
+      code === 'THROTTLED' && retryAfter ? Number(retryAfter) : null,
+      { capability, reason }
     );
   }
 

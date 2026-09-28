@@ -12,7 +12,8 @@ describe('deriveDestination', () => {
       deriveDestination({
         status: 'restricted',
         selectedTenant: { id: 't1' },
-        entryPoints: { platform: true, tenant: true },
+        management: true,
+        entryPoints: { tenant: true },
       })
     ).toBe('/password');
   });
@@ -22,7 +23,8 @@ describe('deriveDestination', () => {
       deriveDestination({
         status: 'ready',
         selectedTenant: { id: 'tenant-1' },
-        entryPoints: { platform: false, tenant: true },
+        management: false,
+        entryPoints: { tenant: true },
       })
     ).toBe('/home');
   });
@@ -32,7 +34,8 @@ describe('deriveDestination', () => {
       deriveDestination({
         status: 'ready',
         selectedTenant: null,
-        entryPoints: { platform: false, tenant: true },
+        management: false,
+        entryPoints: { tenant: true },
       })
     ).toBe('/tenants');
   });
@@ -42,7 +45,8 @@ describe('deriveDestination', () => {
       deriveDestination({
         status: 'ready',
         selectedTenant: null,
-        entryPoints: { platform: true, tenant: false },
+        management: true,
+        entryPoints: { tenant: false },
       })
     ).toBe('/home');
   });
@@ -52,7 +56,8 @@ describe('deriveDestination', () => {
       deriveDestination({
         status: 'ready',
         selectedTenant: null,
-        entryPoints: { platform: true, tenant: true },
+        management: true,
+        entryPoints: { tenant: true },
       })
     ).toBe('/home');
   });
@@ -62,7 +67,8 @@ describe('deriveDestination', () => {
       deriveDestination({
         status: 'ready',
         selectedTenant: null,
-        entryPoints: { platform: false, tenant: false },
+        management: false,
+        entryPoints: { tenant: false },
       })
     ).toBeNull();
   });

@@ -10,7 +10,7 @@ import {
   sendError,
 } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
-import { resolveAuthorization } from '../../domain/authorization.js';
+import { requireCapability } from '../../../../capability/requireCapability.js';
 import {
   buildControlAuthority,
   executeProvisionCommand,
@@ -18,6 +18,9 @@ import {
   getOverview,
   registerCell,
 } from '../../domain/cells.js';
+
+/** Admin-tenancy routes target the Napsoft tenant (I0005-R003). */
+const NAPSOFT = { target: 'napsoft' };
 
 /**
  * Report a control failure through the shared error envelope.
@@ -40,9 +43,8 @@ function sendControlError(response, error) {
  * and readiness. See docs/architecture/admin-cells.md and
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-06-cell-management.md.
  *
- * `authorization.js` currently grants platform authority only to the
- * bootstrap login (I0005's role-based resolution remains deferred), so every
- * scope this router builds today is either full access or none.
+ * Cells are records Napsoft manages, so every route requires a `NAP`
+ * capability (I0005-R003).
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {'dev'|'test'|'prod'} context.environment The running API's own configured environment.
@@ -52,86 +54,90 @@ function sendControlError(response, error) {
 export function createControlRouter({ admin, environment, runtime }) {
   const router = Router();
 
-  router.post('/registry', requireSession(), async (request, response) => {
-    try {
-      const context = await resolveAuthorization(admin.db, request.session);
-      const authority = buildControlAuthority(
-        context,
-        'admin-tenancy::control::write'
-      );
-      const result = await registerCell(
-        admin.db,
-        environment,
-        authority,
-        request.body,
-        { requestId: request.requestId }
-      );
-      sendData(response, result, 201);
-    } catch (error) {
-      sendControlError(response, error);
+  router.post(
+    '/registry',
+    requireSession(),
+    requireCapability('admin-tenancy::control::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const authority = buildControlAuthority(request.authorization);
+        const result = await registerCell(
+          admin.db,
+          environment,
+          authority,
+          request.body,
+          { requestId: request.requestId }
+        );
+        sendData(response, result, 201);
+      } catch (error) {
+        sendControlError(response, error);
+      }
     }
-  });
+  );
 
-  router.post('/provision', requireSession(), async (request, response) => {
-    try {
-      const context = await resolveAuthorization(admin.db, request.session);
-      const authority = buildControlAuthority(
-        context,
-        'admin-tenancy::control::write'
-      );
-      const result = await executeProvisionCommand(
-        admin.db,
-        authority,
-        request.body,
-        { requestId: request.requestId }
-      );
-      // I0003-R021: a disabled cell stops serving at once, not at restart.
-      if (request.body?.operation === 'cell-disable')
-        runtime?.markDisabled(request.body.cell);
-      sendData(response, result);
-    } catch (error) {
-      sendControlError(response, error);
+  router.post(
+    '/provision',
+    requireSession(),
+    requireCapability('admin-tenancy::control::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const authority = buildControlAuthority(request.authorization);
+        const result = await executeProvisionCommand(
+          admin.db,
+          authority,
+          request.body,
+          { requestId: request.requestId }
+        );
+        // I0003-R021: a disabled cell stops serving at once, not at restart.
+        if (request.body?.operation === 'cell-disable')
+          runtime?.markDisabled(request.body.cell);
+        sendData(response, result);
+      } catch (error) {
+        sendControlError(response, error);
+      }
     }
-  });
+  );
 
-  router.get('/overview', requireSession(), async (request, response) => {
-    try {
-      const context = await resolveAuthorization(admin.db, request.session);
-      const authority = buildControlAuthority(
-        context,
-        'admin-tenancy::control::read'
-      );
-      const result = await getOverview(admin.db, authority, {
-        cursor: request.query.cursor,
-        limit:
-          request.query.limit === undefined
-            ? undefined
-            : Number(request.query.limit),
-      });
-      sendData(response, result);
-    } catch (error) {
-      sendControlError(response, error);
+  router.get(
+    '/overview',
+    requireSession(),
+    requireCapability('admin-tenancy::control::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        const authority = buildControlAuthority(request.authorization);
+        const result = await getOverview(admin.db, authority, {
+          cursor: request.query.cursor,
+          limit:
+            request.query.limit === undefined
+              ? undefined
+              : Number(request.query.limit),
+        });
+        sendData(response, result);
+      } catch (error) {
+        sendControlError(response, error);
+      }
     }
-  });
+  );
 
-  router.get('/cell-readiness', requireSession(), async (request, response) => {
-    try {
-      const context = await resolveAuthorization(admin.db, request.session);
-      const authority = buildControlAuthority(
-        context,
-        'admin-tenancy::control::read'
-      );
-      const result = await getCellReadiness(
-        admin.db,
-        authority,
-        request.query.cell,
-        { runtime }
-      );
-      sendData(response, result);
-    } catch (error) {
-      sendControlError(response, error);
+  router.get(
+    '/cell-readiness',
+    requireSession(),
+    requireCapability('admin-tenancy::control::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        const authority = buildControlAuthority(request.authorization);
+        const result = await getCellReadiness(
+          admin.db,
+          authority,
+          request.query.cell,
+          { runtime }
+        );
+        sendData(response, result);
+      } catch (error) {
+        sendControlError(response, error);
+      }
     }
-  });
+  );
 
   return router;
 }

@@ -36,7 +36,8 @@ describe('isSafeReturnPath', () => {
 describe('reauthorizeReturnPath', () => {
   const session = {
     selectedTenant: { id: 'tenant-1' },
-    entryPoints: { platform: false, tenant: true },
+    management: false,
+    entryPoints: { tenant: true },
   };
 
   it('accepts /home with a selected tenant or management access', () => {
@@ -44,7 +45,8 @@ describe('reauthorizeReturnPath', () => {
     expect(
       reauthorizeReturnPath('/home', {
         selectedTenant: null,
-        entryPoints: { platform: true, tenant: false },
+        management: true,
+        entryPoints: { tenant: false },
       })
     ).toBe('/home');
   });
@@ -53,20 +55,22 @@ describe('reauthorizeReturnPath', () => {
     expect(
       reauthorizeReturnPath('/home', {
         selectedTenant: null,
-        entryPoints: { platform: false, tenant: true },
+        management: false,
+        entryPoints: { tenant: true },
       })
     ).toBeNull();
   });
 
-  it('rejects a management page without platform entry', () => {
+  it('rejects a management page without management access', () => {
     expect(reauthorizeReturnPath('/management/cells', session)).toBeNull();
   });
 
-  it('accepts a management page with platform entry', () => {
+  it('accepts a management page with management access', () => {
     expect(
       reauthorizeReturnPath('/management/cells', {
         ...session,
-        entryPoints: { platform: true, tenant: true },
+        management: true,
+        entryPoints: { tenant: true },
       })
     ).toBe('/management/cells');
   });

@@ -23,7 +23,7 @@ import {
   registerCell,
   retryCellProvisioning,
 } from '../../src/modules/admin-tenancy/domain/cells.js';
-import { bootstrapRoot } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
+import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 import { createSession } from '../../src/modules/admin-tenancy/domain/session.js';
 import { selectTenant } from '../../src/modules/admin-tenancy/domain/tenantAccess.js';
@@ -138,14 +138,14 @@ beforeAll(async () => {
   db = handle.db;
 
   const unique = randomUUID().slice(0, 8);
-  const boot = await bootstrapRoot(db, {
+  const boot = await bootstrapNapsoft(db, {
     tenantCode: `NAP-${unique.toUpperCase()}`,
     tenantName: `Test Napsoft ${unique}`,
     rootEmail: `bootstrap-${unique}@nap.test`,
     rootPassword: 'correct-horse-battery-staple',
     hashingPolicy: ARGON2_MINIMUM,
   });
-  bootstrapLogin = boot.rootUser;
+  bootstrapLogin = boot.login;
   napsoftId = boot.tenant.id;
 
   dir = await mkdtemp(join(tmpdir(), 'nap-cells-'));

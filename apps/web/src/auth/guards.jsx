@@ -54,7 +54,7 @@ export function RequireHomeAccess({ children }) {
   if (session.status === 'anonymous') return <Navigate to="/login" replace />;
   if (session.status === 'restricted')
     return <Navigate to="/password" replace />;
-  if (!session.selectedTenant && !session.entryPoints?.platform)
+  if (!session.selectedTenant && !session.management)
     return <Navigate to={session.destination ?? '/login'} replace />;
   return children;
 }
@@ -67,7 +67,7 @@ export function RequireManagementAccess({ children }) {
   if (session.status === 'anonymous') return <Navigate to="/login" replace />;
   if (session.status === 'restricted')
     return <Navigate to="/password" replace />;
-  if (!session.entryPoints?.platform)
+  if (!session.management)
     return <Navigate to={session.destination ?? '/login'} replace />;
   return children;
 }

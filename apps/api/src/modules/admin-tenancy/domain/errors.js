@@ -146,7 +146,7 @@ export async function withSessionErrors(operation) {
 const BOOTSTRAP_CODES = new Set([
   'INVALID_INPUT',
   'TENANT_CONFLICT',
-  'ROOT_CONFLICT',
+  'LOGIN_CONFLICT',
   'MEMBERSHIP_CONFLICT',
   'CONFLICT',
   'AUDIT_UNAVAILABLE',
@@ -155,7 +155,7 @@ const BOOTSTRAP_CODES = new Set([
 
 /**
  * Error carrying one of the stable `admin-tenancy` bootstrap codes:
- * `INVALID_INPUT`, `TENANT_CONFLICT`, `ROOT_CONFLICT`, `MEMBERSHIP_CONFLICT`,
+ * `INVALID_INPUT`, `TENANT_CONFLICT`, `LOGIN_CONFLICT`, `MEMBERSHIP_CONFLICT`,
  * `CONFLICT`, `AUDIT_UNAVAILABLE`, or `INTERNAL_ERROR`. Never carries a
  * password, a password hash, or database detail.
  *
