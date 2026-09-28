@@ -36,6 +36,8 @@ const AUDITED_FAILURE_CODES = new Set([
   'NOT_FOUND',
   'CONFLICT',
   'INVALID_STATE',
+  'ADMIN_ASSIGNED',
+  'ROOT_IMMUTABLE',
   'IDEMPOTENCY_CONFLICT',
 ]);
 
@@ -317,7 +319,7 @@ async function resolveUserReplay(db, idempotencyKey, normalized) {
  * @param {unknown} hashingPolicy Argon2id parameters, validated only on the create branch.
  * @param {unknown} body `{email, password}`.
  * @param {unknown} idempotencyKeyHeader The raw `Idempotency-Key` header value.
- * @param {{requestId?: string|null}} [options]
+ * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>}} [options]
  * @returns {Promise<object>} Safe user view.
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
  */
@@ -567,16 +569,16 @@ const updateUserBodySchema = z
  * @param {unknown} authority
  * @param {unknown} userId
  * @param {unknown} body `{email?, status?}`, at least one present.
- * @param {{requestId?: string|null}} [options]
+ * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>}} [options]
  * @returns {Promise<object>} Safe user view.
- * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `ADMIN_ASSIGNED`, `ROOT_IMMUTABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function updateUser(
   db,
   authority,
   userId,
   body,
-  { requestId = null } = {}
+  { requestId = null, assertDeactivationAllowed } = {}
 ) {
   let actorId =
     typeof authority?.actorId === 'string' ? authority.actorId : null;
@@ -600,6 +602,9 @@ export async function updateUser(
         if (!current || current.deactivated_at)
           throw new AdminAccountError('NOT_FOUND');
 
+        const bootstrap = await db.portal_users.lockBootstrapLogin({ tx });
+        if (bootstrap?.id === id) throw new AdminAccountError('ROOT_IMMUTABLE');
+
         const changedFields = [];
         const dto = {};
         if (email !== undefined && email !== current.email) {
@@ -611,6 +616,13 @@ export async function updateUser(
           changedFields.push('status');
         }
         if (changedFields.length === 0) return userView(current);
+
+        if (
+          status === 'disabled' &&
+          current.status === 'active' &&
+          assertDeactivationAllowed
+        )
+          await assertDeactivationAllowed(id);
 
         const updated = await db.portal_users.update(id, dto, { tx });
         if (!updated) throw new AdminAccountError('NOT_FOUND');
@@ -682,15 +694,15 @@ export async function updateUser(
  * @param {AdminAccountsDb} db
  * @param {unknown} authority
  * @param {unknown} userId
- * @param {{requestId?: string|null}} [options]
+ * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>}} [options]
  * @returns {Promise<{archived: boolean}>}
- * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `ADMIN_ASSIGNED`, `ROOT_IMMUTABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function archiveUser(
   db,
   authority,
   userId,
-  { requestId = null } = {}
+  { requestId = null, assertDeactivationAllowed } = {}
 ) {
   let actorId =
     typeof authority?.actorId === 'string' ? authority.actorId : null;
@@ -703,6 +715,9 @@ export async function archiveUser(
         const current = await db.portal_users.lockById(id, { tx });
         if (!current) throw new AdminAccountError('NOT_FOUND');
         if (current.deactivated_at) return { archived: true };
+        const bootstrap = await db.portal_users.lockBootstrapLogin({ tx });
+        if (bootstrap?.id === id) throw new AdminAccountError('ROOT_IMMUTABLE');
+        if (assertDeactivationAllowed) await assertDeactivationAllowed(id);
 
         const removed = await db.portal_users.removeWhere({ id }, { tx });
         if (!removed) throw new AdminAccountError('NOT_FOUND');
@@ -1037,7 +1052,7 @@ const updateMembershipBodySchema = z.strictObject({
  * @param {unknown} authority `{actorId, scope}`.
  * @param {unknown} membershipId
  * @param {unknown} body `{status: 'active'|'suspended'}`.
- * @param {{requestId?: string|null}} [options]
+ * @param {{requestId?: string|null, assertDeactivationAllowed?: (membership: object) => Promise<void>}} [options]
  * @returns {Promise<object>} Safe membership view.
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
@@ -1046,7 +1061,7 @@ export async function updateMembership(
   authority,
   membershipId,
   body,
-  { requestId = null } = {}
+  { requestId = null, assertDeactivationAllowed } = {}
 ) {
   let actorId =
     typeof authority?.actorId === 'string' ? authority.actorId : null;
@@ -1077,6 +1092,8 @@ export async function updateMembership(
         if (targetStatus === 'suspended') {
           if (membership.status !== 'active')
             throw new AdminAccountError('INVALID_STATE');
+          if (assertDeactivationAllowed)
+            await assertDeactivationAllowed(membership);
           const updated = await db.portal_user_tenants.update(
             id,
             { status: 'suspended', ready: false },
@@ -1168,7 +1185,7 @@ export async function updateMembership(
  * @param {AdminAccountsDb} db
  * @param {unknown} authority `{actorId, scope}`.
  * @param {unknown} membershipId
- * @param {{requestId?: string|null}} [options]
+ * @param {{requestId?: string|null, assertDeactivationAllowed?: (membership: object) => Promise<void>}} [options]
  * @returns {Promise<{archived: boolean}>}
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
@@ -1176,7 +1193,7 @@ export async function archiveMembership(
   db,
   authority,
   membershipId,
-  { requestId = null } = {}
+  { requestId = null, assertDeactivationAllowed } = {}
 ) {
   let actorId =
     typeof authority?.actorId === 'string' ? authority.actorId : null;
@@ -1191,6 +1208,8 @@ export async function archiveMembership(
           throw new AdminAccountError('NOT_FOUND');
         requireTenantAuthority(scope, membership.tenant_id);
         if (membership.deactivated_at) return { archived: true };
+        if (assertDeactivationAllowed)
+          await assertDeactivationAllowed(membership);
 
         await db.portal_user_tenants.update(
           id,

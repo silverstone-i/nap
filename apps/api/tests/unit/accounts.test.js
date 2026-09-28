@@ -136,6 +136,18 @@ function fakeAdmin() {
         const found = userStore.get(id);
         return found ? { ...found } : null;
       },
+      lockBootstrapLogin: async () => {
+        const found = [...userStore.values()].find(
+          row => row.bootstrap && !row.deactivated_at
+        );
+        return found ? { ...found } : null;
+      },
+      findBootstrapLogin: async () => {
+        const found = [...userStore.values()].find(
+          row => row.bootstrap && !row.deactivated_at
+        );
+        return found ? { id: found.id } : null;
+      },
       lockActiveByEmail: async email => {
         const found = [...userStore.values()].find(
           row =>
@@ -186,6 +198,10 @@ function fakeAdmin() {
       },
     },
     portal_user_tenants: {
+      findWhere: async conditions =>
+        [...membershipStore.values()]
+          .filter(row => !row.deactivated_at && matches(row, conditions))
+          .map(row => ({ ...row })),
       lockByUserAndTenant: async (portalUserId, tenantId) => {
         const found = [...membershipStore.values()].find(
           row =>
@@ -634,6 +650,7 @@ describe('users', () => {
   it('changes email and status, and disabling revokes every live session', async () => {
     const { app, admin, cookie } = api();
     const user = seedUser(admin);
+    seedUser(admin);
     admin.sessionStore.set('other-session-hash', {
       id: randomUUID(),
       portal_user_id: user.id,
@@ -656,9 +673,21 @@ describe('users', () => {
     expect(admin.appended.at(-1)).toMatchObject({ event_key: 'user.disabled' });
   });
 
+  it('refuses to disable the bootstrap user', async () => {
+    const { app, cookie, actorId } = api();
+    const response = await request(app)
+      .patch(`${BASE}/users/${actorId}`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie)
+      .send({ status: 'disabled' });
+    expect(response.status).toBe(ERROR_STATUS.ROOT_IMMUTABLE);
+    expect(response.body.error.code).toBe('ROOT_IMMUTABLE');
+  });
+
   it('archives a user and repeats as a no-op', async () => {
     const { app, admin, cookie } = api();
     const user = seedUser(admin);
+    seedUser(admin);
     const first = await request(app)
       .delete(`${BASE}/users/${user.id}`)
       .set('Origin', ORIGIN)
@@ -674,9 +703,20 @@ describe('users', () => {
     ).toHaveLength(1);
   });
 
+  it('refuses to archive the bootstrap user', async () => {
+    const { app, cookie, actorId } = api();
+    const response = await request(app)
+      .delete(`${BASE}/users/${actorId}`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie);
+    expect(response.status).toBe(ERROR_STATUS.ROOT_IMMUTABLE);
+    expect(response.body.error.code).toBe('ROOT_IMMUTABLE');
+  });
+
   it('restores an archived user as disabled', async () => {
     const { app, admin, cookie } = api();
     const user = seedUser(admin);
+    seedUser(admin);
     await request(app)
       .delete(`${BASE}/users/${user.id}`)
       .set('Origin', ORIGIN)

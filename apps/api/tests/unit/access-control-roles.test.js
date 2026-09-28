@@ -142,17 +142,23 @@ function role(overrides) {
 /**
  * Build an access-control context around `cell`.
  * @param {object} cell
- * @param {{patterns?: string[], isNapsoft?: boolean, code?: string}} [options]
+ * @param {{patterns?: string[], isNapsoft?: boolean, code?: string, bootstrapUserId?: string|null}} [options]
  */
 function context(
   cell,
-  { patterns = ['ACME::*::*::*'], isNapsoft = false, code = 'ACME' } = {}
+  {
+    patterns = ['ACME::*::*::*'],
+    isNapsoft = false,
+    code = 'ACME',
+    bootstrapUserId = null,
+  } = {}
 ) {
   return {
     cell,
     tenant: { id: TENANT, code, isNapsoft },
     napsoftCode: 'NAP',
     actorId: ACTOR,
+    bootstrapUserId,
     actorPatterns: async () => patterns,
     catalogue: capabilityCatalogue(),
     record: vi.fn(async () => {}),
@@ -462,6 +468,31 @@ describe('assignRole and removeRole', () => {
     await expect(
       removeRole(context(seed(), { patterns: own }), user, platform.id)
     ).resolves.toMatchObject({ roles: [] });
+  });
+
+  it("never removes the bootstrap user's Napsoft platform_admin assignment", async () => {
+    const platform = role({ code: 'platform_admin', is_immutable: true });
+    const root = randomUUID();
+    const other = randomUUID();
+    const cell = fakeCell({
+      roles: [platform],
+      grants: { [platform.id]: ['*::*::*::*', 'NAP::*::*::*'] },
+      members: { [root]: 'active', [other]: 'active' },
+      assignments: [root, other].map(user => ({
+        id: randomUUID(),
+        portal_user_id: user,
+        role_id: platform.id,
+      })),
+    });
+    const ctx = context(cell, {
+      patterns: ['*::*::*::*', 'NAP::*::*::*'],
+      isNapsoft: true,
+      code: 'NAP',
+      bootstrapUserId: root,
+    });
+    await expect(removeRole(ctx, root, platform.id)).rejects.toMatchObject({
+      code: 'ROOT_IMMUTABLE',
+    });
   });
 
   it('reports NOT_FOUND for an unassigned removal and a non-member read', async () => {

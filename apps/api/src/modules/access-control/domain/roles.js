@@ -552,7 +552,7 @@ export function isGuardedAdminRole(role, tenant) {
  * @param {unknown} userId
  * @param {unknown} roleId
  * @returns {Promise<{userId: string, roles: ReturnType<typeof roleView>[]}>}
- * @throws {AccessControlError} `NOT_FOUND`, `GRANT_EXCEEDS_ACTOR`, `LAST_ADMIN`
+ * @throws {AccessControlError} `NOT_FOUND`, `GRANT_EXCEEDS_ACTOR`, `LAST_ADMIN`, `ROOT_IMMUTABLE`
  */
 export function removeRole(context, userId, roleId) {
   return mutate(context, async tx => {
@@ -564,6 +564,12 @@ export function removeRole(context, userId, roleId) {
       { tx }
     );
     if (!assignment) throw new AccessControlError('NOT_FOUND');
+    if (
+      role.code === 'platform_admin' &&
+      context.tenant.isNapsoft &&
+      id === context.bootstrapUserId
+    )
+      throw new AccessControlError('ROOT_IMMUTABLE');
     await requireCovered(
       context,
       await context.cell.role_grants.patternsFor(role.id, { tx })

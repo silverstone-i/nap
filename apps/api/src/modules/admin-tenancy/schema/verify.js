@@ -131,6 +131,7 @@ export async function verifyAdmin(handle, modules) {
   }));
   for (const [table, name, type] of [
     ['portal_user_tenants', 'protect_membership', 31],
+    ['portal_users', 'protect_root_user', 27],
     ['tenants', 'protect_cell_assignment', 19],
     ['managed_events', 'protect_event', 27],
   ])

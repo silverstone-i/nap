@@ -31,15 +31,16 @@ export function sendAccessControlError(response, error) {
  * patterns, used by the no-escalation rule (M0003-R011), are the resolved
  * set the decision already read from the actor's home tenant.
  * @param {import('express').Request} request
- * @param {{runtime?: {cellFor: Function}}} deps
+ * @param {{admin: object, runtime?: {cellFor: Function}}} deps
  * @returns {Promise<import('../../domain/roles.js').AccessControlContext>}
  * @throws {AccessControlError} `CELL_UNAVAILABLE`
  */
-export async function accessControlContext(request, { runtime }) {
+export async function accessControlContext(request, { admin, runtime }) {
   const { session, authorization } = request;
   const { targetTenant: tenant, actorId, patterns } = authorization;
   if (!runtime) throw new AccessControlError('CELL_UNAVAILABLE');
   const cell = await runtime.cellFor(session);
+  const bootstrap = await admin.db.portal_users.findBootstrapLogin();
   return {
     cell,
     tenant: {
@@ -49,6 +50,7 @@ export async function accessControlContext(request, { runtime }) {
     },
     napsoftCode: authorization.napsoftCode,
     actorId,
+    bootstrapUserId: bootstrap?.id ?? null,
     catalogue: capabilityCatalogue(),
     actorPatterns: async () => patterns,
     record: roleChangeRecorder(cell, {

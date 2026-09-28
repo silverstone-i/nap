@@ -58,6 +58,8 @@ cell-side member provisioning.
 ## 7. Business Rules And Invariants
 
 - M0001-08-R006: Every operation must authorize the target tenant independently of user-supplied user, membership, job, or entity UUIDs.
+- M0001-08-R007: The bootstrap Napsoft user is immutable. Ordinary account routes must not update, disable, or archive it.
+- M0001-08-R008: A portal user holding `tenant_admin` or Napsoft `platform_admin` must not be disabled or archived, and that tenant membership must not be suspended or archived. The role must be reassigned and removed first; the eligibility change fails closed when the affected cell is unavailable.
 
 Email is trimmed and lowercased and must be a valid address no longer than 254
 characters. A new user requires a temporary password: any nonempty password
@@ -138,13 +140,15 @@ failure detail that contains secrets.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                             | Requirements                 |
-| --------- | ------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | Authorized account operations follow normalization and lifecycle rules.                     | M0001-08-R001                |
-| AC02      | Membership operations enforce tenant scope and one active pair.                             | M0001-08-R002, M0001-08-R006 |
-| AC03      | Creation atomically records the membership and one queued job without a cell connection.    | M0001-08-R003, M0001-08-R004 |
-| AC04      | Mismatched, repeated, stale, failed, and successful job results follow the stated contract. | M0001-08-R005                |
-| AC05      | User and membership restrictions revoke affected sessions and never expose credentials.     | M0001-08-R001, M0001-08-R002 |
+| Criterion | Required result                                                                                | Requirements                 |
+| --------- | ---------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | Authorized account operations follow normalization and lifecycle rules.                        | M0001-08-R001                |
+| AC02      | Membership operations enforce tenant scope and one active pair.                                | M0001-08-R002, M0001-08-R006 |
+| AC03      | Creation atomically records the membership and one queued job without a cell connection.       | M0001-08-R003, M0001-08-R004 |
+| AC04      | Mismatched, repeated, stale, failed, and successful job results follow the stated contract.    | M0001-08-R005                |
+| AC05      | User and membership restrictions revoke affected sessions and never expose credentials.        | M0001-08-R001, M0001-08-R002 |
+| AC06      | The bootstrap Napsoft user cannot be updated, disabled, or archived.                           | M0001-08-R007                |
+| AC07      | Administrator roles must be removed before their portal user or membership becomes ineligible. | M0001-08-R008, M0003-R012    |
 
 ### Verification Evidence
 
@@ -191,6 +195,9 @@ and the trusted provisioning-result path (a completed report activating the
 membership and stamping its member ID, a failed report leaving it pending, a
 result rejected for an already-completed job, and a late report on a
 membership archived mid-flight rejected without resurrecting it).
+
+Local validation on 2026-09-27 covered R007 and R008: all 520 API tests,
+all 226 PostgreSQL 18 integration tests, lint, build, and formatting passed.
 
 ## 14. Outstanding Questions
 

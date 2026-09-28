@@ -316,18 +316,21 @@ const ACCOUNT_CODES = new Set([
   'NOT_FOUND',
   'CONFLICT',
   'INVALID_STATE',
+  'ADMIN_ASSIGNED',
+  'ROOT_IMMUTABLE',
   'IDEMPOTENCY_CONFLICT',
   'AUDIT_UNAVAILABLE',
   'SERVICE_UNAVAILABLE',
+  'CELL_UNAVAILABLE',
   'INTERNAL_ERROR',
 ]);
 
 /**
  * Error carrying one of the stable `admin-tenancy` account codes:
  * `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INVALID_STATE`,
- * `IDEMPOTENCY_CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, or
- * `INTERNAL_ERROR`. Never carries a password, a password hash, or database
- * detail.
+ * `ADMIN_ASSIGNED`, `ROOT_IMMUTABLE`, `IDEMPOTENCY_CONFLICT`,
+ * `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `CELL_UNAVAILABLE`, or
+ * `INTERNAL_ERROR`. Never carries a password, a password hash, or database detail.
  *
  * Kept separate from `AdminTenantError` and `AdminControlError` because a
  * portal-user or membership operation needs both `NOT_FOUND` (control lacks)

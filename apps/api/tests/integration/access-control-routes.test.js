@@ -588,7 +588,7 @@ describe('access-control routes (M0003 §10)', () => {
     ).toBe('ROLE_IMMUTABLE');
   });
 
-  it('assigns only active members and refuses the last Napsoft platform_admin (R012, AC07)', async () => {
+  it('assigns only active members and preserves the bootstrap platform_admin (R008, R012)', async () => {
     const roles = (await call('get', '/roles')).body.data;
     const platform = roles.find(r => r.code === 'platform_admin');
     const suspended = await member('suspended');
@@ -599,7 +599,7 @@ describe('access-control routes (M0003 §10)', () => {
     expect(
       (await call('delete', `/users/${rootId}/roles/${platform.id}`)).body.error
         .code
-    ).toBe('LAST_ADMIN');
+    ).toBe('ROOT_IMMUTABLE');
 
     const second = await member();
     const assigned = await call('put', `/users/${second}/roles/${platform.id}`);
@@ -617,7 +617,7 @@ describe('access-control routes (M0003 §10)', () => {
     expect(
       (await call('delete', `/users/${rootId}/roles/${platform.id}`)).body.error
         .code
-    ).toBe('LAST_ADMIN');
+    ).toBe('ROOT_IMMUTABLE');
 
     // A suspended member's assignment does not count toward the last admin.
     const lapsed = await member();
@@ -630,7 +630,7 @@ describe('access-control routes (M0003 §10)', () => {
     expect(
       (await call('delete', `/users/${rootId}/roles/${platform.id}`)).body.error
         .code
-    ).toBe('LAST_ADMIN');
+    ).toBe('ROOT_IMMUTABLE');
     expect(
       (await call('delete', `/users/${lapsed}/roles/${platform.id}`)).status
     ).toBe(200);
