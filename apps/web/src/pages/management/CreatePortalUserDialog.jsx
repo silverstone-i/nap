@@ -12,6 +12,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import { PasswordField } from '../../components/PasswordField.jsx';
 import { ApiError } from '../../api/client.js';
 import { createPortalUser } from '../../api/endpoints.js';
 
@@ -79,9 +80,8 @@ export function CreatePortalUserDialog({ onClose, onCreated }) {
             required
             fullWidth
           />
-          <TextField
+          <PasswordField
             label="Temporary password"
-            type="password"
             value={password}
             onChange={event => setPassword(event.target.value)}
             helperText="The new account must replace this at next login."

@@ -10,6 +10,15 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Provision customer tenants from the Tenants screen (I0006). An operator picks a ready cell and names the first administrator with a temporary password. The provisioning worker assigns the cell, seeds the immutable `tenant_admin` role and assigns it to that administrator, then activates the tenant so they can select it. Failures show their code, with Retry, and the screen refreshes while jobs run. Adds `tenant-provision` and `tenant-retry` to `POST /control/provision`, a `job` and `anyActive` to `GET /tenants`, and `ready` to `GET /control/overview` rows. The admin migration is edited in place (new `admin.tenant_provisioning` table), so recreate existing databases.
+- Add a show/hide toggle to every password field.
+
+### Changed
+
+- A ready customer membership no longer needs a `member_id`; it only has to be active, since the first administrator has no employee record until the Business Directory module exists.
+
 ## [v0.20.1] - 2026-09-28
 
 ### Fixed

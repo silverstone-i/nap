@@ -11,6 +11,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import { PasswordField } from '../components/PasswordField.jsx';
 import Typography from '@mui/material/Typography';
 import { ApiError } from '../api/client.js';
 import { useSession } from '../auth/SessionContext.jsx';
@@ -122,9 +123,8 @@ export function LoginPage() {
             required
             fullWidth
           />
-          <TextField
+          <PasswordField
             label="Password"
-            type="password"
             value={password}
             onChange={event => setPassword(event.target.value)}
             autoComplete="current-password"

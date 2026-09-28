@@ -30,12 +30,12 @@ const env = {
   NAP_APP_PSWD_TEST: 'app-secret',
 };
 describe('admin registry and configuration', () => {
-  it('constructs all twelve inherited models without opening a connection', async () => {
+  it('constructs all thirteen inherited models without opening a connection', async () => {
     const db = createAdminDatabase('postgresql://invalid/unused');
     try {
       expect(
         Object.keys(db.db).filter(k => adminModules[0].models[k])
-      ).toHaveLength(12);
+      ).toHaveLength(13);
       validateAdminRegistry();
     } finally {
       await db.close();

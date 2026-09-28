@@ -48,11 +48,22 @@ function sendControlError(response, error) {
  * @param {object} context
  * @param {import('pg-schemata').Database} context.admin
  * @param {'dev'|'test'|'prod'} context.environment The running API's own configured environment.
- * @param {{readiness: Function, markDisabled: Function}} [context.runtime] Runtime cell registry (I0003-R020, R021).
+ * @param {{readiness: Function, markDisabled: Function}} [context.runtime] Runtime cell registry (I0003-R020, R021, I0006-R001).
+ * @param {{memoryKib: number, timeCost: number, parallelism: number}} [context.authenticationPolicy] Hashes the first administrator's temporary password (I0006-R002).
  * @returns {import('express').Router}
  */
-export function createControlRouter({ admin, environment, runtime }) {
+export function createControlRouter({
+  admin,
+  environment,
+  runtime,
+  authenticationPolicy,
+}) {
   const router = Router();
+  const hashingPolicy = {
+    memoryKib: authenticationPolicy?.memoryKib,
+    timeCost: authenticationPolicy?.timeCost,
+    parallelism: authenticationPolicy?.parallelism,
+  };
 
   router.post(
     '/registry',
@@ -86,7 +97,12 @@ export function createControlRouter({ admin, environment, runtime }) {
           admin.db,
           authority,
           request.body,
-          { requestId: request.requestId }
+          {
+            requestId: request.requestId,
+            idempotencyKey: request.get('Idempotency-Key'),
+            runtime,
+            hashingPolicy,
+          }
         );
         // I0003-R021: a disabled cell stops serving at once, not at restart.
         if (request.body?.operation === 'cell-disable')
@@ -111,6 +127,7 @@ export function createControlRouter({ admin, environment, runtime }) {
             request.query.limit === undefined
               ? undefined
               : Number(request.query.limit),
+          runtime,
         });
         sendData(response, result);
       } catch (error) {

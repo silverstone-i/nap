@@ -36,7 +36,7 @@ export const portalUserTenantsSchema = {
       "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
       "status IN ('pending', 'active', 'suspended')",
       'revision > 0',
-      "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND member_id IS NOT NULL)))",
+      "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR status = 'active'))",
     ],
     foreignKeys: [
       {

@@ -18,6 +18,7 @@ import { accessControlRoutesV1 } from './modules/access-control/apiRoutes/v1/ind
 import { createCellRegistry } from './infrastructure/runtime/cellRegistry.js';
 import { createLocalCellDriver } from './infrastructure/provisioning/localCells.js';
 import { createRenderCellDriver } from './infrastructure/provisioning/renderCells.js';
+import { createTenantStages } from './application/provisioning/tenantStages.js';
 import { createStages } from './application/provisioning/stages.js';
 import { createProvisioningWorker } from './application/provisioning/worker.js';
 import { createSyncWorker } from './application/sync/worker.js';
@@ -54,6 +55,8 @@ try {
         registry: cells,
         environment: config.environment,
       }),
+      // I0006-R005: the same worker runs tenant provisioning jobs.
+      tenantStages: createTenantStages({ admin, driver, registry: cells }),
     });
     services.push({ start: () => worker.start(), stop: () => worker.stop() });
   }

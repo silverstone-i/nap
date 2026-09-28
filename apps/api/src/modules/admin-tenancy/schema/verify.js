@@ -18,6 +18,7 @@ const order = [
   'login_throttles',
   'cell_provisioning',
   'provisioning_jobs',
+  'tenant_provisioning',
   'module_entitlements',
   'outbox',
   'cache_revisions',

@@ -2,7 +2,7 @@
 
 This chapter belongs to [M0001-00: Admin Database Foundation](M0001-00-admin-database-foundation.md)
 and inherits its Accepted status. It defines the schema objects and migration
-triggers for the 12 admin tables.
+triggers for the 13 admin tables.
 
 ## Shared Rules
 
@@ -207,7 +207,7 @@ export const portalUserTenantsSchema = {
       "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
       "status IN ('pending', 'active', 'suspended')",
       'revision > 0',
-      "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND member_id IS NOT NULL)))",
+      "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR status = 'active'))",
     ],
     foreignKeys: [
       {
@@ -440,6 +440,77 @@ export const provisioningJobsSchema = {
       },
       { columns: ['status'] },
     ],
+  },
+};
+```
+
+## `admin.tenant_provisioning`
+
+Tracks a customer tenant's provisioning into a cell (I0006): target cell,
+first administrator's membership, stage, status, attempts, and failure. One
+row per tenant.
+
+```js
+export const tenantProvisioningSchema = {
+  dbSchema: 'admin',
+  table: 'tenant_provisioning',
+  hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+  columns: [
+    {
+      name: 'id',
+      type: 'uuid',
+      notNull: true,
+      default: 'gen_random_uuid()',
+      immutable: true,
+    },
+    { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+    { name: 'cell_id', type: 'uuid', notNull: true, immutable: true },
+    {
+      name: 'admin_membership_id',
+      type: 'uuid',
+      notNull: true,
+      immutable: true,
+    },
+    { name: 'stage', type: 'text', notNull: true, default: 'assignment' },
+    { name: 'status', type: 'text', notNull: true, default: 'queued' },
+    { name: 'attempts', type: 'integer', notNull: true, default: 0 },
+    { name: 'failure_code', type: 'varchar(64)' },
+    { name: 'started_at', type: 'timestamptz' },
+    { name: 'completed_at', type: 'timestamptz' },
+  ],
+  constraints: {
+    primaryKey: ['id'],
+    unique: [['tenant_id']],
+    checks: [
+      "stage IN ('assignment', 'seed', 'activation', 'complete')",
+      "status IN ('queued', 'running', 'failed', 'completed')",
+      'attempts >= 0',
+    ],
+    foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['tenant_id'],
+        references: { schema: 'admin', table: 'tenants', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['cell_id'],
+        references: { schema: 'admin', table: 'cells', columns: ['id'] },
+        onDelete: 'RESTRICT',
+      },
+      {
+        type: 'ForeignKey',
+        columns: ['admin_membership_id'],
+        references: {
+          schema: 'admin',
+          table: 'portal_user_tenants',
+          columns: ['id'],
+        },
+        onDelete: 'RESTRICT',
+      },
+    ],
+    indexes: [{ columns: ['status', 'stage'] }],
   },
 };
 ```

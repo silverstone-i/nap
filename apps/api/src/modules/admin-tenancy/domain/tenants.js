@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { AdminTenantError, withTenantErrors } from './errors.js';
 import { COLLECTION_ENTITY } from './cache.js';
 import { parseLimit } from './validation.js';
+import { tenantJobView } from './tenantProvisioning.js';
 
 /** Advisory lock key serializing concurrent tenant creation. */
 const LOCK_KEY = "hashtext('admin-tenancy:tenant-registry')";
@@ -305,6 +306,16 @@ export async function createTenant(
  * (which includes `is_napsoft`, `revision`, and audit columns) — I0002-R007
  * requires reusing `tenantView` verbatim, never that wider shape.
  */
+/** Tenant job columns the list reports (I0006-R011). */
+const TENANT_JOB_COLUMNS = Object.freeze([
+  'tenant_id',
+  'cell_id',
+  'stage',
+  'status',
+  'attempts',
+  'failure_code',
+]);
+
 const TENANT_LIST_COLUMNS = Object.freeze([
   'id',
   'tenant_code',
@@ -374,7 +385,7 @@ function parseLimitOrTenant(value) {
  * @param {AdminTenantsDb} db
  * @param {unknown} authority Result of `buildControlAuthority` (domain/cells.js) for `admin-tenancy::control::read`.
  * @param {{cursor?: unknown, limit?: unknown}} [page]
- * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe tenant views.
+ * @returns {Promise<{rows: object[], nextCursor: string|null, anyActive: boolean}>} A page of safe tenant views, each with its provisioning job (I0006-R011).
  * @throws {AdminTenantError} `INVALID_INPUT`, `FORBIDDEN`, `INTERNAL_ERROR`
  */
 export async function listTenants(db, authority, { cursor, limit } = {}) {
@@ -388,9 +399,25 @@ export async function listTenants(db, authority, { cursor, limit } = {}) {
       ['id'],
       { columnWhitelist: TENANT_LIST_COLUMNS }
     );
+    const ids = page.rows.map(row => row.id);
+    const jobs = ids.length
+      ? await db.tenant_provisioning.findWhere(
+          { tenant_id: { $in: ids } },
+          'AND',
+          { columnWhitelist: TENANT_JOB_COLUMNS }
+        )
+      : [];
+    const byTenantId = new Map(jobs.map(row => [row.tenant_id, row]));
+    const anyActive = await db.tenant_provisioning.hasActive();
     return {
-      rows: page.rows.map(tenantView),
+      rows: page.rows.map(row => ({
+        ...tenantView(row),
+        job: byTenantId.has(row.id)
+          ? tenantJobView(byTenantId.get(row.id))
+          : null,
+      })),
       nextCursor: encodeTenantCursor(page.nextCursor),
+      anyActive,
     };
   });
 }

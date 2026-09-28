@@ -114,6 +114,19 @@ export class Tenants extends RevisionedTableModel {
   }
 
   /**
+   * Lock and return an unarchived tenant by ID, if any.
+   * @param {string} id
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockById(id, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE id=$1 AND deactivated_at IS NULL FOR UPDATE`,
+      [id]
+    );
+  }
+
+  /**
    * Lock and return the active tenant registered under `tenantCode`, if any.
    * @param {string} tenantCode
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options

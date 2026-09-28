@@ -1570,6 +1570,69 @@ export async function createLoginFromHash(db, { email, passwordHash }, { tx }) {
 }
 
 /**
+ * Create or reuse a tenant's first administrator's login and create their
+ * `employee` membership, `pending` and not ready, in the caller's admin
+ * transaction (I0006-R002). Follows M0001-08's rules: the email is
+ * normalized, an active login with the same email is reused, a locked or
+ * disabled one is a conflict, and a new login gets the temporary password
+ * and must change it at first sign-in. Writes no M0001-08 provisioning job:
+ * tenant provisioning activates the membership itself.
+ * @param {AdminAccountsDb} db
+ * @param {{tenantId: string, email: unknown, password: unknown, hashingPolicy: unknown}} input
+ * @param {{tx: object}} options
+ * @returns {Promise<{membership: object, loginCreated: boolean}>}
+ * @throws {AdminAccountError} `INVALID_INPUT`, `CONFLICT`
+ */
+export async function createFirstAdministrator(
+  db,
+  { tenantId, email, password, hashingPolicy },
+  { tx }
+) {
+  const normalized = parseCreateUserInput({ email, password });
+  await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY_USERS})`);
+  await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY_MEMBERSHIPS})`);
+  let login = await db.portal_users.lockActiveByEmail(normalized.email, {
+    tx,
+  });
+  if (login && login.status !== 'active')
+    throw new AdminAccountError('CONFLICT');
+  const loginCreated = !login;
+  if (!login) {
+    const policy = parseHashingPolicy(hashingPolicy);
+    const digest = await hashPassword(policy, normalized.password);
+    login = await createLoginFromHash(
+      db,
+      { email: normalized.email, passwordHash: digest },
+      { tx }
+    );
+  }
+  const existing = await db.portal_user_tenants.lockByUserAndTenant(
+    login.id,
+    tenantId,
+    { tx }
+  );
+  if (existing) throw new AdminAccountError('CONFLICT');
+  const membership = await db.portal_user_tenants.insert(
+    {
+      portal_user_id: login.id,
+      tenant_id: tenantId,
+      member_type: 'employee',
+      status: 'pending',
+      ready: false,
+    },
+    { tx }
+  );
+  await db.cache_revisions.advance(
+    [
+      ...(loginCreated ? [{ domain: 'user', entity: COLLECTION_ENTITY }] : []),
+      { domain: 'membership', entity: COLLECTION_ENTITY },
+    ],
+    { tx }
+  );
+  return { membership, loginCreated };
+}
+
+/**
  * Apply a tenant's portal-access request to the login and membership
  * (I0004-R024–R029), in the caller's admin transaction. The tenant comes
  * from the cell the request was read from, never from the payload.

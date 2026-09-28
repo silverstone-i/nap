@@ -424,6 +424,7 @@ describe('control routes', () => {
       {
         cell: expect.objectContaining({ id: cell.id }),
         operation: expect.objectContaining({ id: operation.id }),
+        ready: false,
       },
     ]);
     expect(overview.body.data.anyActive).toBe(true);
