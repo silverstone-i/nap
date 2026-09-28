@@ -4,7 +4,11 @@
  */
 
 import { createDb } from 'pg-schemata';
-import { repositories } from '../../modules/cell-tenancy/repositories.js';
+import { repositories as cellTenancy } from '../../modules/cell-tenancy/repositories.js';
+import { repositories as accessControl } from '../../modules/access-control/repositories.js';
+
+/** Every cell module's table name to model map. */
+const repositories = { ...cellTenancy, ...accessControl };
 /**
  * Create an unconnected pg-schemata handle for one cell database with a pool
  * of four connections and a 5 second connection timeout.

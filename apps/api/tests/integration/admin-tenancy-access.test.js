@@ -43,7 +43,6 @@ function platformScope(overrides = {}) {
   return {
     platformPortalUserRead: true,
     tenantIds: '*',
-    deniedTenantIds: [],
     archiveManagement: false,
     ...overrides,
   };
@@ -55,7 +54,6 @@ function tenantScope(tenantIds) {
   return {
     platformPortalUserRead: false,
     tenantIds,
-    deniedTenantIds: [],
     archiveManagement: false,
   };
 }
@@ -207,43 +205,6 @@ describe('tenant reads', () => {
       findTenant(db, tenantScope([tenant.id]), tenant.id)
     ).resolves.toMatchObject({ id: tenant.id });
   });
-
-  describe("support's Napsoft restriction", () => {
-    let napsoftId;
-    beforeAll(async () => {
-      const row = await insertTenant('NAPSOFT', 'Napsoft', {
-        is_napsoft: true,
-      });
-      napsoftId = row.id;
-    });
-
-    it('denies reading the Napsoft tenant and its membership list, but permits others', async () => {
-      const support = platformScope({ deniedTenantIds: [napsoftId] });
-      await expect(findTenant(db, support, napsoftId)).rejects.toMatchObject({
-        code: 'FORBIDDEN',
-      });
-      await expect(
-        listMembershipsByTenant(db, support, napsoftId)
-      ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-
-      const other = await insertTenant(
-        'SUPPORTOTHER-' + randomUUID().slice(0, 8),
-        'Support Other'
-      );
-      await expect(findTenant(db, support, other.id)).resolves.toMatchObject({
-        id: other.id,
-      });
-
-      const user = await insertUser(
-        'support-scope-' + randomUUID() + '@test.example',
-        'hash'
-      );
-      for (const tenantId of [napsoftId, other.id])
-        await insertMembership(user.id, tenantId);
-      const memberships = await listMembershipsByUser(db, support, user.id);
-      expect(memberships.rows.map(row => row.tenant_id)).toEqual([other.id]);
-    });
-  });
 });
 
 describe('portal-user reads', () => {
@@ -255,7 +216,6 @@ describe('portal-user reads', () => {
       id: user.id,
       email,
       status: 'active',
-      is_root: false,
     });
     expect('password_hash' in result).toBe(false);
     expect(JSON.stringify(result)).not.toContain('super-secret-hash');
@@ -331,7 +291,6 @@ describe('credential reader', () => {
       password_hash: 'argon2-hash',
       must_change_password: true,
       status: 'active',
-      is_root: false,
     });
     await expect(findCredentialByEmail(db, {}, email)).rejects.toMatchObject({
       code: 'INVALID_INPUT',

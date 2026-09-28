@@ -38,7 +38,6 @@ export const managedEventsSchema = {
     { name: 'event_key', type: 'varchar(128)', notNull: true, immutable: true },
     { name: 'outcome', type: 'text', notNull: true, immutable: true },
     { name: 'actor_id', type: 'uuid', immutable: true },
-    { name: 'effective_user_id', type: 'uuid', immutable: true },
     { name: 'tenant_id', type: 'uuid', immutable: true },
     { name: 'target_type', type: 'varchar(64)', immutable: true },
     { name: 'target_id', type: 'uuid', immutable: true },

@@ -14,9 +14,6 @@ import { AdminAccessError } from './errors.js';
  *   through an active membership in a tenant this scope permits.
  * @property {'*'|string[]} tenantIds Tenants this scope may read; `'*'` for
  *   every tenant.
- * @property {string[]} deniedTenantIds Tenants explicitly excluded from
- *   `tenantIds`, applied to the requested tenant. Carries support's Napsoft
- *   restriction.
  * @property {boolean} archiveManagement Required to call an
  *   `IncludingArchived` method.
  */
@@ -24,7 +21,6 @@ import { AdminAccessError } from './errors.js';
 const scopeSchema = z.strictObject({
   platformPortalUserRead: z.boolean(),
   tenantIds: z.union([z.literal('*'), z.array(z.uuid())]),
-  deniedTenantIds: z.array(z.uuid()),
   archiveManagement: z.boolean(),
 });
 
@@ -42,13 +38,12 @@ export function parseScope(scope) {
 
 /**
  * Whether `scope` permits reading the given tenant: named or covered by
- * `'*'`, and not explicitly denied.
+ * `'*'`.
  * @param {AdminAccessScope} scope
  * @param {string} tenantId
  * @returns {boolean}
  */
 export function isTenantPermitted(scope, tenantId) {
-  if (scope.deniedTenantIds.includes(tenantId)) return false;
   return scope.tenantIds === '*' || scope.tenantIds.includes(tenantId);
 }
 

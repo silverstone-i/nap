@@ -35,11 +35,11 @@ const config = {
 let handle, db;
 
 /**
- * Build a write authority for a root-equivalent operator.
- * @returns {{actorId: string, granted: boolean, deniedTenantIds: string[]}}
+ * Build a write authority for a platform-admin operator.
+ * @returns {{actorId: string, granted: boolean}}
  */
 function authority() {
-  return { actorId: randomUUID(), granted: true, deniedTenantIds: [] };
+  return { actorId: randomUUID(), granted: true };
 }
 
 /** A valid creation body, unique per call so tests don't collide on code. */
@@ -169,7 +169,6 @@ describe('creation', () => {
     const denied = {
       actorId: randomUUID(),
       granted: false,
-      deniedTenantIds: [],
     };
     await expect(
       createTenant(db, denied, body(), randomUUID())
@@ -308,7 +307,6 @@ describe('reads', () => {
     const denied = {
       actorId: randomUUID(),
       granted: false,
-      deniedTenantIds: [],
     };
     await expect(listTenants(db, denied)).rejects.toMatchObject({
       code: 'FORBIDDEN',

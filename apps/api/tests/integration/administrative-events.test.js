@@ -63,14 +63,12 @@ afterAll(async () => {
 });
 
 /**
- * Scope shorthand. `platform` covers every tenant, `support` covers every
- * tenant but its denied ones, and an array names tenants.
+ * Scope shorthand. `'*'` covers every tenant and an array names tenants.
  */
-function scope(tenantIds, deniedTenantIds = []) {
+function scope(tenantIds) {
   return {
     platformPortalUserRead: true,
     tenantIds,
-    deniedTenantIds,
     archiveManagement: false,
   };
 }
@@ -220,60 +218,26 @@ it('filters by tenant, event, outcome, and time range', async () => {
   expect(beforeRange.rows).toEqual([]);
 });
 
-// AC05 and the PRD's reader-scope table. The null-tenant case is the one the
-// filter shape can get wrong: `tenant_id <> $1` is NULL for a null tenant, so
-// support must carry an explicit IS NULL branch to keep platform events.
+// AC05 and the PRD's reader-scope table.
 it('applies the reader scope to tenant and null-tenant events', async () => {
   const actor = randomUUID();
   const tenant = randomUUID();
-  const napsoft = randomUUID();
+  const other = randomUUID();
   const platformEvent = await append(actor, {
     event_key: 'bootstrap.succeeded',
     details: { step: 'schema' },
   });
   const tenantEvent = await append(actor, { tenant_id: tenant });
-  const napsoftEvent = await append(actor, { tenant_id: napsoft });
+  const otherEvent = await append(actor, { tenant_id: other });
 
   const readable = async reader =>
     (await listEvents(db, reader, { actor })).rows.map(row => row.id).sort();
 
   expect(await readable(scope('*'))).toEqual(
-    [platformEvent.id, tenantEvent.id, napsoftEvent.id].sort()
-  );
-  expect(await readable(scope('*', [napsoft]))).toEqual(
-    [platformEvent.id, tenantEvent.id].sort()
+    [platformEvent.id, tenantEvent.id, otherEvent.id].sort()
   );
   expect(await readable(scope([tenant]))).toEqual([tenantEvent.id]);
   expect(await readable(scope([]))).toEqual([]);
-
-  // A denied tenant filtered explicitly answers exactly as an empty tenant
-  // does, so the response cannot confirm that the UUID is a Napsoft tenant.
-  const denied = await listEvents(db, scope('*', [napsoft]), {
-    actor,
-    tenant: napsoft,
-  });
-  const absent = await listEvents(db, scope('*', [napsoft]), {
-    actor,
-    tenant: randomUUID(),
-  });
-  expect(denied).toEqual(absent);
-});
-
-// AC05. Support activity keeps both the operator who acted and the tenant user
-// whose context was borrowed.
-it('retains the real actor and the effective user for support access', async () => {
-  const actor = randomUUID();
-  const effective = randomUUID();
-  const tenant = randomUUID();
-  await append(actor, {
-    event_key: 'support.entered',
-    effective_user_id: effective,
-    tenant_id: tenant,
-    session_id: randomUUID(),
-  });
-  const [row] = (await listEvents(db, scope('*'), { actor })).rows;
-  expect(row.actor_id).toBe(actor);
-  expect(row.effective_user_id).toBe(effective);
 });
 
 // AC02 and AC06 at the storage boundary: a rejected event writes nothing.

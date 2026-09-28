@@ -448,8 +448,8 @@ const TENANT_ACCESS_CODES = new Set([
  * `INTERNAL_ERROR`. Never carries database detail, a session token, or which
  * tenant UUID is Napsoft's.
  *
- * Kept separate from `AdminSessionError` because only tenant selection and
- * support access report `CELL_UNAVAILABLE`, for a tenant's assigned cell
+ * Kept separate from `AdminSessionError` because only tenant selection
+ * reports `CELL_UNAVAILABLE`, for a tenant's assigned cell
  * being unassigned, disabled, or not runtime-ready (M0001-09-R001).
  */
 export class AdminTenantAccessError extends Error {

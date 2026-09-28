@@ -14,5 +14,4 @@ export const PLATFORM_ADMIN_CAPABILITIES = Object.freeze([
   'admin-tenancy::entitlements::read',
   'admin-tenancy::entitlements::write',
   'admin-tenancy::events::read',
-  'admin-tenancy::access::support',
 ]);

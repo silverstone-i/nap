@@ -16,9 +16,7 @@ import {
 import {
   OPTIONAL_MODULES,
   entitlementView,
-  grantEntitlement,
   listEntitlements,
-  withdrawEntitlement,
 } from '../../src/modules/admin-tenancy/domain/entitlements.js';
 
 const ORIGIN = 'http://localhost:5173';
@@ -88,7 +86,8 @@ function fakeAdmin({
   const db = {
     tx: operation => operation({ one: async () => ({}) }),
     portal_users: {
-      findOneBy: async ({ id }) => ({ id, is_root: id === ROOT_ID }),
+      findOneBy: async ({ id }) => ({ id }),
+      findBootstrapLogin: async () => ({ id: ROOT_ID }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -199,10 +198,6 @@ function api({
     id: randomUUID(),
     portal_user_id: actorId,
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: new Date(),
     idle_expires_at: new Date(Date.now() + 30 * 60_000),
     absolute_expires_at: new Date(Date.now() + 12 * 3_600_000),
@@ -581,41 +576,17 @@ describe('entitlements routes', () => {
   });
 });
 
-describe('domain-level Napsoft denial', () => {
-  // `authorization.js` currently resolves only root or no platform authority
-  // (I0005's role-based `support` remains deferred), so there is no
-  // runtime path today to authenticate as a support actor with a populated
-  // `deniedTenantIds`. This exercises the domain layer directly with a
-  // hand-built scope, mirroring `tests/integration/accounts.test.js`'s
-  // `authority(deniedTenantIds)` helper.
-  function scope(deniedTenantIds) {
-    return {
-      platformPortalUserRead: true,
-      tenantIds: '*',
-      deniedTenantIds,
-      archiveManagement: true,
-    };
-  }
-
-  it('reports FORBIDDEN, not NOT_FOUND, for a Napsoft-denied tenant', async () => {
-    const napsoft = tenantRow({ is_napsoft: true });
-    const { db } = fakeAdmin({ tenants: [napsoft] });
-    const authority = { actorId: randomUUID(), scope: scope([napsoft.id]) };
-
-    await expect(
-      listEntitlements(db, authority, napsoft.id)
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await expect(
-      grantEntitlement(db, authority, napsoft.id, 'sales')
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await expect(
-      withdrawEntitlement(db, authority, napsoft.id, 'sales')
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-  });
-
-  it('still reports NOT_FOUND for a tenant that genuinely does not exist', async () => {
+describe('domain-level tenant lookup', () => {
+  it('reports NOT_FOUND for a tenant that does not exist', async () => {
     const { db } = fakeAdmin();
-    const authority = { actorId: randomUUID(), scope: scope([]) };
+    const authority = {
+      actorId: randomUUID(),
+      scope: {
+        platformPortalUserRead: true,
+        tenantIds: '*',
+        archiveManagement: true,
+      },
+    };
     await expect(
       listEntitlements(db, authority, randomUUID())
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });

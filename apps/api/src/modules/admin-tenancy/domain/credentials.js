@@ -17,7 +17,6 @@ export const CREDENTIAL_VIEW_COLUMNS = [
   'password_hash',
   'must_change_password',
   'status',
-  'is_root',
 ];
 
 const authenticationContextSchema = z.strictObject({

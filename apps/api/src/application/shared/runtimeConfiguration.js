@@ -256,7 +256,7 @@ function cellDatabasesConfiguration(env, suffix, localAppPassword) {
  * @returns {null | {adminPassword: string, appPassword: string, setup: string, stateFile: string, envFile: string} | {adminPassword: string, render: Record<string, string | undefined>}}
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
-function provisioningConfiguration(env, suffix, adminEntry) {
+export function provisioningConfiguration(env, suffix, adminEntry) {
   if (suffix === 'TEST') return null;
   if (suffix === 'PROD')
     return {

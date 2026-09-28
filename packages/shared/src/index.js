@@ -76,10 +76,6 @@ export const sessionViewSchema = z.strictObject({
   id: z.uuid(),
   user: z.uuid(),
   tenant: z.uuid().nullable(),
-  accessMode: z.enum(['normal', 'support']),
-  effectiveUser: z.uuid().nullable(),
-  accessReason: z.string().nullable(),
-  accessExpiresAt: z.coerce.date().nullable(),
   restricted: z.boolean(),
   lastSeenAt: z.coerce.date(),
   idleExpiresAt: z.coerce.date(),
@@ -199,12 +195,8 @@ export const userResponseSchema = z.strictObject({
 });
 
 /**
- * Zod schema for one `GET /accounts/users` row — `userListView`
- * (`apps/api` `domain/accounts.js`): `userViewSchema` plus `isRoot`, the
- * signal the Portal Users screen uses to withhold Deactivate/Restore for
- * the one row root ever accounts for (I0002-R008 amendment: the list
- * includes root, read-only, for operator visibility — no other route in
- * this module ever exposes or accepts it).
+ * Zod schema for one `GET /accounts/users` row — `userView`
+ * (`apps/api` `domain/accounts.js`).
  */
 export const userListRowSchema = z.strictObject({
   id: z.uuid(),
@@ -212,7 +204,6 @@ export const userListRowSchema = z.strictObject({
   status: z.string(),
   mustChangePassword: z.boolean(),
   deactivatedAt: z.coerce.date().nullable(),
-  isRoot: z.boolean(),
 });
 
 /** Zod schema for the success envelope returned by `GET /accounts/users`. */

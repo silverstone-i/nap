@@ -52,7 +52,7 @@ const sessionPolicy = {
 };
 const PASSWORD = 'temporary-Passw0rd-for-sync';
 const created = new Set();
-let handle, db, dir, registry, sync, cellId, cell, napsoftId, rootEmail;
+let handle, db, dir, registry, sync, cellId, cell, napsoftId;
 let otherId;
 
 /** Run enough ticks for a change to go both ways and come back. */
@@ -141,11 +141,10 @@ beforeAll(async () => {
   db = handle.db;
 
   const unique = randomUUID().slice(0, 8);
-  rootEmail = `root-${unique}@nap.test`;
   const boot = await bootstrapRoot(db, {
-    tenantCode: `NAP-${unique}`,
+    tenantCode: `NAP-${unique.toUpperCase()}`,
     tenantName: `Test Napsoft ${unique}`,
-    rootEmail,
+    rootEmail: `bootstrap-${unique}@nap.test`,
     rootPassword: 'correct-horse-battery-staple',
     hashingPolicy: ARGON2_MINIMUM,
   });
@@ -171,7 +170,7 @@ beforeAll(async () => {
   const registered = await registerCell(
     db,
     'test',
-    { actorId: randomUUID(), granted: true, deniedTenantIds: [] },
+    { actorId: randomUUID(), granted: true },
     { operation: 'cell', suffix: 's' + randomUUID().slice(0, 8) }
   );
   created.add(registered.cell.database_name);
@@ -210,17 +209,19 @@ describe('admin-cell sync (I0004)', () => {
   });
 
   it('AC04: a write that changes only ready adds no outbox row and no revision', async () => {
-    const root = await db.one(
+    const membership = await db.one(
       'SELECT * FROM admin.portal_user_tenants WHERE tenant_id=$1',
       [napsoftId]
     );
-    const rows = (await outboxRows('membership', root.id)).length;
+    const rows = (await outboxRows('membership', membership.id)).length;
     await db.tenants.update(napsoftId, { rbac_ready: true });
-    await db.portal_user_tenants.update(root.id, { ready: root.ready });
-    expect((await adminRow('portal_user_tenants', root.id)).revision).toBe(
-      root.revision
-    );
-    expect(await outboxRows('membership', root.id)).toHaveLength(rows);
+    await db.portal_user_tenants.update(membership.id, {
+      ready: membership.ready,
+    });
+    expect(
+      (await adminRow('portal_user_tenants', membership.id)).revision
+    ).toBe(membership.revision);
+    expect(await outboxRows('membership', membership.id)).toHaveLength(rows);
   });
 
   describe('portal access and memberships', () => {
@@ -357,7 +358,7 @@ describe('admin-cell sync (I0004)', () => {
       ).toBeNull();
     });
 
-    it('AC13: disabled, root, conflicting, and mismatched requests fail only their row', async () => {
+    it('AC13: disabled, conflicting, and mismatched requests fail only their row', async () => {
       const disabledEmail = `disabled-${randomUUID().slice(0, 8)}@nap.test`;
       await request(napsoftId, randomUUID(), disabledEmail, true);
       await drain();
@@ -369,7 +370,6 @@ describe('admin-cell sync (I0004)', () => {
 
       const cases = [
         [otherId, randomUUID(), disabledEmail, 'LOGIN_UNAVAILABLE'],
-        [otherId, randomUUID(), rootEmail, 'LOGIN_UNAVAILABLE'],
         [otherId, randomUUID(), email, 'MEMBER_CONFLICT'],
       ];
       for (const [tenantId, id, address] of cases)
@@ -574,7 +574,6 @@ describe('admin-cell sync (I0004)', () => {
       password_hash: 'not-a-real-digest',
       must_change_password: true,
       status: 'active',
-      is_root: false,
     });
     const member = await db.portal_user_tenants.insert({
       portal_user_id: login.id,

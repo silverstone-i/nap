@@ -160,7 +160,7 @@ export function createStages({
     /**
      * I0003-R010 steps 1 and 2: publish the connection, then add the cell to
      * the registry, which runs the readiness checks. Completing the job and
-     * root tenant setup are the worker's (steps 3 and 4).
+     * Napsoft tenant setup are the worker's (steps 3 and 4).
      * @param {{cell: {id: string}}} job
      * @returns {Promise<void>}
      * @throws {StageError} `PUBLISH_CONFLICT`, `PUBLISH_FAILED`, `CONFIGURATION_MISSING`, or the registry's not-ready reason.

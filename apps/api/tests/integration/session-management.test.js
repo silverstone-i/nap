@@ -136,15 +136,14 @@ async function revisionOf(id) {
 }
 
 /**
- * Build an authorization scope for a platform operator.
- * @param {string[]} deniedTenantIds
+ * Build an authorization scope for an operator.
+ * @param {'*'|string[]} [tenantIds]
  * @returns {object}
  */
-function operatorScope(deniedTenantIds = []) {
+function operatorScope(tenantIds = '*') {
   return {
     platformPortalUserRead: true,
-    tenantIds: '*',
-    deniedTenantIds,
+    tenantIds,
     archiveManagement: false,
   };
 }
@@ -189,7 +188,6 @@ describe('creation', () => {
     expect(created.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(created.session.user).toBe(user);
     expect(created.session.tenant).toBeNull();
-    expect(created.session.accessMode).toBe('normal');
     expect(JSON.stringify(created.session)).not.toContain(created.token);
 
     const row = await stored(created.session.id);
@@ -445,28 +443,15 @@ describe('rotation', () => {
     );
   });
 
-  it('preserves tenant and support context across a rotation', async () => {
+  it('preserves tenant context across a rotation', async () => {
     const user = await portalUser();
-    const operator = await portalUser();
     const target = await tenant();
     const created = await createSession(db, policy, { portalUserId: user });
-    await db.sessions.update(created.session.id, {
-      tenant_id: target,
-      access_mode: 'support',
-      effective_user_id: operator,
-      access_reason: 'investigating a reported posting error',
-      access_expires_at: new Date(Date.now() + 30 * 60_000),
-    });
+    await db.sessions.update(created.session.id, { tenant_id: target });
     const rotated = await rotateSession(db, policy, created.token);
-    expect(rotated.session).toMatchObject({
-      tenant: target,
-      accessMode: 'support',
-      effectiveUser: operator,
-      accessReason: 'investigating a reported posting error',
-    });
+    expect(rotated.session).toMatchObject({ tenant: target });
     const resolved = await resolveSession(db, policy, rotated.token);
     expect(resolved.tenant).toBe(target);
-    expect(resolved.accessMode).toBe('support');
   });
 
   it('refuses to rotate an expired or revoked token', async () => {
@@ -536,22 +521,11 @@ describe('revocation', () => {
     ).toEqual({ revoked: false });
   });
 
-  it('lets support revoke platform and non-Napsoft sessions but not Napsoft ones', async () => {
+  it('lets a tenant-scoped operator revoke only sessions in its tenants', async () => {
     const napsoft = await napsoftTenant();
     const other = await tenant();
     const operator = await portalUser();
-    const support = operatorScope([napsoft]);
-
-    const platform = await createSession(db, policy, {
-      portalUserId: await portalUser(),
-    });
-    expect(
-      await revokeSession(
-        db,
-        { actorId: operator, scope: support },
-        platform.session.id
-      )
-    ).toEqual({ revoked: true });
+    const scoped = operatorScope([other]);
 
     const permitted = await createSession(db, policy, {
       portalUserId: await portalUser(),
@@ -560,21 +534,28 @@ describe('revocation', () => {
     expect(
       await revokeSession(
         db,
-        { actorId: operator, scope: support },
+        { actorId: operator, scope: scoped },
         permitted.session.id
       )
     ).toEqual({ revoked: true });
+
+    const platform = await createSession(db, policy, {
+      portalUserId: await portalUser(),
+    });
+    await expect(
+      revokeSession(
+        db,
+        { actorId: operator, scope: scoped },
+        platform.session.id
+      )
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
     const denied = await createSession(db, policy, {
       portalUserId: await portalUser(),
     });
     await db.sessions.update(denied.session.id, { tenant_id: napsoft });
     await expect(
-      revokeSession(
-        db,
-        { actorId: operator, scope: support },
-        denied.session.id
-      )
+      revokeSession(db, { actorId: operator, scope: scoped }, denied.session.id)
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect((await stored(denied.session.id)).deactivated_at).toBeNull();
     expect(
@@ -589,19 +570,20 @@ describe('revocation', () => {
   it('refuses a missing session exactly as it refuses a denied one', async () => {
     const operator = await portalUser();
     const napsoft = await napsoftTenant();
+    const other = await tenant();
     const denied = await createSession(db, policy, {
       portalUserId: await portalUser(),
     });
     await db.sessions.update(denied.session.id, { tenant_id: napsoft });
-    const support = operatorScope([napsoft]);
+    const scoped = operatorScope([other]);
     const missing = await revokeSession(
       db,
-      { actorId: operator, scope: support },
+      { actorId: operator, scope: scoped },
       randomUUID()
     ).catch(error => error.code);
     const refused = await revokeSession(
       db,
-      { actorId: operator, scope: support },
+      { actorId: operator, scope: scoped },
       denied.session.id
     ).catch(error => error.code);
     expect(missing).toBe('FORBIDDEN');

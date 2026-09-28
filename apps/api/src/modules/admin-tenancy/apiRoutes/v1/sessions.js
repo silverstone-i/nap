@@ -17,7 +17,7 @@ import { discardSessionCookie, sendSessionError } from './shared.js';
  * Build the `sessions` router: revoke a session by identifier.
  *
  * Self-revocation passes no platform scope. Revoking another user's session
- * derives the caller's root authority and passes its scope to `revokeSession`,
+ * derives the caller's platform authority and passes its scope to `revokeSession`,
  * which enforces M0001-04-R007. Role-based operator authority is deferred to
  * I0005.
  * @param {object} context

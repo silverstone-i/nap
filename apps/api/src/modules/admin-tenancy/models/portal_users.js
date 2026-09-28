@@ -6,7 +6,7 @@
 import { TableModel } from 'pg-schemata';
 
 /**
- * Schema object for `admin.portal_users`: portal accounts, password hashes, account status, and the root-user marker.
+ * Schema object for `admin.portal_users`: portal accounts, password hashes, and account status.
  * Kept identical to the copy frozen in migration `001-admin-tenancy`.
  */
 export const portalUsersSchema = {
@@ -31,13 +31,6 @@ export const portalUsersSchema = {
       default: true,
     },
     { name: 'status', type: 'text', notNull: true, default: 'active' },
-    {
-      name: 'is_root',
-      type: 'boolean',
-      notNull: true,
-      default: false,
-      immutable: true,
-    },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -49,7 +42,6 @@ export const portalUsersSchema = {
         unique: true,
         where: 'deactivated_at IS NULL',
       },
-      { columns: ['is_root'], unique: true, where: 'is_root = true' },
     ],
   },
 };
@@ -68,7 +60,31 @@ function table(model) {
 }
 
 /** Columns safe to return outside the authentication-only credential lookup: every column but `password_hash`. */
-const SAFE_COLUMNS = 'id,email,must_change_password,status,is_root';
+const SAFE_COLUMNS = 'id,email,must_change_password,status';
+
+/**
+ * Select the bootstrap login: the portal user holding the earliest
+ * unarchived Napsoft membership with a null `member_type` (M0001-02).
+ * @param {PortalUsers} model
+ * @param {boolean} lock Lock the portal-user row.
+ * @returns {string}
+ */
+function bootstrapLoginQuery(model, lock) {
+  // The locked read feeds bootstrap's conflict check; the unlocked read only
+  // needs the identity.
+  const columns = lock
+    ? SAFE_COLUMNS.split(',')
+        .map(column => `u.${column}`)
+        .join(',')
+    : 'u.id';
+  return `SELECT ${columns} FROM ${table(model)} AS u
+      JOIN ${model.schemaName}.portal_user_tenants AS m ON m.portal_user_id=u.id
+      JOIN ${model.schemaName}.tenants AS t ON t.id=m.tenant_id
+     WHERE t.is_napsoft AND m.member_type IS NULL AND m.deactivated_at IS NULL
+       AND u.deactivated_at IS NULL
+     ORDER BY m.created_at,m.id
+     LIMIT 1${lock ? ' FOR UPDATE OF u' : ''}`;
+}
 
 /**
  * Model for `admin.portal_users`.
@@ -94,9 +110,7 @@ export class PortalUsers extends TableModel {
    * The eligibility predicates are the guard against a concurrent disable or
    * archive. An operator revoking an account between the caller's status check
    * and this update matches no row, and the caller reports the refusal rather
-   * than resurrecting the account's ability to log in. The `protect_root`
-   * trigger constrains `email`, `status`, `is_root`, and `deactivated_at`, not
-   * these two columns, so the root account can replace its own password.
+   * than resurrecting the account's ability to log in.
    * @param {string} id Portal user, who is also the actor.
    * @param {string} passwordHash
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
@@ -132,19 +146,28 @@ export class PortalUsers extends TableModel {
   }
 
   /**
-   * Lock and return the root portal user, if one has been bootstrapped.
+   * Lock and return the bootstrap login, if one has been bootstrapped.
    *
-   * Excludes `password_hash`: bootstrap's identity check needs only the
-   * email to detect a conflict, and M0001-01-R006 confines the hash to the
+   * The bootstrap login is the portal user holding the earliest active
+   * Napsoft membership with a null `member_type` (M0001-02). Excludes
+   * `password_hash`: bootstrap's identity check needs only the email to
+   * detect a conflict, and M0001-01-R006 confines the hash to the
    * authentication-only credential lookup.
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<object|null>}
    */
-  async lockRoot({ tx }) {
-    return tx.oneOrNone(
-      `SELECT ${SAFE_COLUMNS} FROM ${table(this)}
-        WHERE is_root=true AND deactivated_at IS NULL FOR UPDATE`
-    );
+  async lockBootstrapLogin({ tx }) {
+    return tx.oneOrNone(bootstrapLoginQuery(this, true));
+  }
+
+  /**
+   * Return the bootstrap login's `id` without locking, or `null` when none
+   * exists. Interim authorization (until I0005) keys on this row.
+   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
+   * @returns {Promise<{id: string}|null>}
+   */
+  async findBootstrapLogin({ tx } = {}) {
+    return (tx ?? this.db).oneOrNone(bootstrapLoginQuery(this, false));
   }
 
   /**
@@ -180,25 +203,24 @@ export class PortalUsers extends TableModel {
   }
 
   /**
-   * Insert the root portal user, returning every column but `password_hash`.
+   * Insert the bootstrap login, returning every column but `password_hash`.
    *
    * A bespoke insert rather than the inherited one: that method's
    * `RETURNING *` would hand the digest it just stored back to its caller,
    * and bootstrap's caller is a CLI that prints its result to stdout —
    * exactly what M0001-02-R006 forbids.
    *
-   * `must_change_password` starts `false`: root authority comes from
-   * `is_root = true` alone (M0001-05-R001), not from a session restricted
-   * until a password change, so there is nothing to force on first login.
+   * `must_change_password` starts `false`: the bootstrap login does not
+   * require a password change on first login (M0001-02).
    * @param {{email: string, passwordHash: string}} user
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<object>}
    */
-  async insertRoot({ email, passwordHash }, { tx }) {
+  async insertBootstrapLogin({ email, passwordHash }, { tx }) {
     return tx.one(
       `INSERT INTO ${table(this)}
-         (email,password_hash,must_change_password,status,is_root,created_by,updated_by)
-       VALUES ($1,$2,false,'active',true,NULL,NULL)
+         (email,password_hash,must_change_password,status,created_by,updated_by)
+       VALUES ($1,$2,false,'active',NULL,NULL)
        RETURNING ${SAFE_COLUMNS}`,
       [email, passwordHash]
     );

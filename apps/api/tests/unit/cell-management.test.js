@@ -61,19 +61,19 @@ describe('control authority', () => {
         { actorId, platformCapabilities: ['admin-tenancy::control::write'] },
         'admin-tenancy::control::write'
       )
-    ).toEqual({ actorId, granted: true, deniedTenantIds: [] });
+    ).toEqual({ actorId, granted: true });
     expect(
       buildControlAuthority(
         { actorId, platformCapabilities: ['admin-tenancy::control::read'] },
         'admin-tenancy::control::write'
       )
-    ).toEqual({ actorId, granted: false, deniedTenantIds: [] });
+    ).toEqual({ actorId, granted: false });
     expect(
       buildControlAuthority(
         { actorId, platformCapabilities: [] },
         'admin-tenancy::control::write'
       )
-    ).toEqual({ actorId, granted: false, deniedTenantIds: [] });
+    ).toEqual({ actorId, granted: false });
   });
 });
 
@@ -142,7 +142,8 @@ function fakeAdmin({ cells = [], operations = [], tenants = [] } = {}) {
     // against the transaction handle.
     tx: operation => operation({ one: async () => ({}) }),
     portal_users: {
-      findOneBy: async ({ id }) => ({ id, is_root: id === ROOT_ID }),
+      findOneBy: async ({ id }) => ({ id }),
+      findBootstrapLogin: async () => ({ id: ROOT_ID }),
     },
     sessions: {
       findByTokenHash: async hash => {
@@ -243,10 +244,6 @@ function api({ cells, operations, tenants, root = true, runtime } = {}) {
     id: randomUUID(),
     portal_user_id: actorId,
     tenant_id: null,
-    access_mode: 'normal',
-    effective_user_id: null,
-    access_reason: null,
-    access_expires_at: null,
     last_seen_at: new Date(),
     idle_expires_at: new Date(Date.now() + 30 * 60_000),
     absolute_expires_at: new Date(Date.now() + 12 * 3_600_000),

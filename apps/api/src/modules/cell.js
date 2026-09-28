@@ -4,7 +4,8 @@
  */
 
 import { TableModel } from 'pg-schemata';
-import { descriptor } from './cell-tenancy/descriptor.js';
+import { descriptor as cellTenancy } from './cell-tenancy/descriptor.js';
+import { descriptor as accessControl } from './access-control/descriptor.js';
 import { requireCondition } from '../application/shared/errors.js';
 
 /** Cell schemas in the order the runner migrates them. */
@@ -16,7 +17,7 @@ export const cellSchemas = Object.freeze([
 ]);
 
 /** Cell database module registry, kept separate from the admin registry. */
-export const cellModules = [descriptor];
+export const cellModules = [cellTenancy, accessControl];
 
 /**
  * Validate the cell module registry before any database connection opens.

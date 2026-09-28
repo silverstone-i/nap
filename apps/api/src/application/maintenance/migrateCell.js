@@ -11,6 +11,7 @@ import {
 import { createCellDatabase } from '../../infrastructure/runtime/cellDatabase.js';
 import { verifyDatabase } from '../../infrastructure/provisioning/postgres.js';
 import { verifyCell } from '../../modules/cell-tenancy/schema/verify.js';
+import { verifyAccessControl } from '../../modules/access-control/schema/verify.js';
 import { roleUrl } from '../shared/configuration.js';
 /**
  * Apply pending cell migrations to one cell database as `nap-admin`, one
@@ -38,6 +39,8 @@ export async function migrateCell(config, modules = cellModules) {
       applied += result.applied.length;
     }
     await verifyCell(handle, modules);
+    if (modules.some(m => m.name === 'access-control'))
+      await verifyAccessControl(handle, modules);
     return {
       status: applied ? 'applied' : 'unchanged',
       database: config.database,

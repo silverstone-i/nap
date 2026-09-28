@@ -8,12 +8,16 @@ import { roleUrl } from '../shared/configuration.js';
 import { createCellDatabase } from '../../infrastructure/runtime/cellDatabase.js';
 import { COLLECTION_ENTITY } from '../../modules/admin-tenancy/domain/cache.js';
 import { enqueueTenantSnapshots } from '../sync/backfill.js';
+import {
+  napsoftSeedPresent,
+  seedNapsoft,
+} from '../../modules/access-control/seeds/napsoftSeed.js';
 
-/** Thrown when root tenant setup cannot finish; the worker retries it. */
-export class RootSetupError extends Error {
+/** Thrown when Napsoft tenant setup cannot finish; the worker retries it. */
+export class NapsoftSetupError extends Error {
   constructor() {
-    super('ROOT_SETUP_FAILED');
-    this.code = 'ROOT_SETUP_FAILED';
+    super('NAPSOFT_SETUP_FAILED');
+    this.code = 'NAPSOFT_SETUP_FAILED';
   }
 }
 
@@ -44,23 +48,23 @@ export async function assignNapsoftCell(db, tx, operation) {
 }
 
 /**
- * Finish root tenant setup when the Napsoft tenant has a cell but is not yet
- * provisioned (I0003-R024 steps 2–6). Safe to call on every worker check:
- * it does nothing once the tenant is provisioned.
+ * Finish Napsoft tenant setup when the Napsoft tenant has a cell but is not
+ * yet provisioned (I0003-R024 steps 2–7). Safe to call on every worker
+ * check: it does nothing once the tenant is provisioned.
  *
- * Writes the Napsoft tenant and root's membership into the cell as
- * `nap-admin`, reads both back and compares them with admin, then marks the
- * tenant provisioned and `rbac_ready` (R026: root's authority comes from
- * `is_root`, so it needs no cell-side roles). On failure the tenant stays
- * unprovisioned and the cell's job carries `ROOT_SETUP_FAILED` until a later
- * check succeeds (R025).
+ * In one cell transaction as `nap-admin`, writes the Napsoft tenant and the
+ * bootstrap login's Napsoft membership, then runs M0003's Napsoft seed. It
+ * reads everything back and compares it with admin, then marks the tenant
+ * provisioned and `rbac_ready` (R026: only after the seed has run). On
+ * failure the tenant stays unprovisioned and the cell's job carries
+ * `NAPSOFT_SETUP_FAILED` until a later check succeeds (R025).
  * @param {object} db Admin repository handle.
  * @param {{connection: (job: {cell: object}) => Promise<{endpoint: string, adminPassword: string}>}} driver
  * @param {{connect?: typeof createCellDatabase}} [options]
  * @returns {Promise<'none'|'completed'>}
- * @throws {RootSetupError}
+ * @throws {NapsoftSetupError}
  */
-export async function runRootTenantSetup(
+export async function runNapsoftTenantSetup(
   db,
   driver,
   { connect = createCellDatabase } = {}
@@ -81,29 +85,26 @@ export async function runRootTenantSetup(
   if (!tenant?.cell_id || tenant.provisioned) return 'none';
   const cellId = tenant.cell_id;
   try {
-    const root = await db.portal_users.findOneBy(
-      { is_root: true },
-      { columnWhitelist: ['id'] }
+    // The bootstrap login is identified by its Napsoft membership with a
+    // null `member_type` (M0001-02).
+    const membership = await db.portal_user_tenants.findOneBy(
+      { tenant_id: tenant.id, member_type: { $is: null } },
+      {
+        columnWhitelist: [
+          'id',
+          'portal_user_id',
+          'tenant_id',
+          'status',
+          'revision',
+        ],
+        orderBy: ['created_at', 'id'],
+      }
     );
-    const membership =
-      root &&
-      (await db.portal_user_tenants.findOneBy(
-        { portal_user_id: root.id, tenant_id: tenant.id },
-        {
-          columnWhitelist: [
-            'id',
-            'portal_user_id',
-            'tenant_id',
-            'status',
-            'revision',
-          ],
-        }
-      ));
     const cell = await db.cells.findOneBy(
       { id: cellId },
       { columnWhitelist: ['id', 'database_name'] }
     );
-    if (!membership || !cell) throw new RootSetupError();
+    if (!membership || !cell) throw new NapsoftSetupError();
 
     const expectedTenant = {
       id: tenant.id,
@@ -121,6 +122,12 @@ export async function runRootTenantSetup(
       revision: membership.revision,
     };
 
+    const seed = {
+      tenantId: tenant.id,
+      tenantCode: tenant.tenant_code,
+      portalUserId: membership.portal_user_id,
+    };
+
     const target = await driver.connection({ cell });
     const handle = connect(
       roleUrl(target.endpoint, 'nap-admin', target.adminPassword)
@@ -132,7 +139,11 @@ export async function runRootTenantSetup(
         await handle.db.tenant_members.upsert(expectedMember, ['id'], null, {
           tx,
         });
+        await seedNapsoft(handle.db, tx, seed);
       });
+      const seeded = await handle.db.tx(tx =>
+        napsoftSeedPresent(handle.db, tx, seed)
+      );
       const [storedTenant, storedMember] = await Promise.all([
         handle.db.tenants.findOneBy(
           { id: tenant.id },
@@ -149,10 +160,11 @@ export async function runRootTenantSetup(
           ([key, value]) => (stored[key] ?? null) === value
         );
       if (
+        !seeded ||
         !matches(storedTenant, expectedTenant) ||
         !matches(storedMember, expectedMember)
       )
-        throw new RootSetupError();
+        throw new NapsoftSetupError();
     } finally {
       await handle.close();
     }
@@ -173,7 +185,7 @@ export async function runRootTenantSetup(
       await db.managed_events.append(
         {
           deduplication_key: randomUUID(),
-          event_key: 'tenant.root_setup.completed',
+          event_key: 'tenant.napsoft_setup.completed',
           outcome: 'succeeded',
           tenant_id: tenant.id,
           target_type: 'cell',
@@ -182,20 +194,20 @@ export async function runRootTenantSetup(
         },
         { tx }
       );
-      await markRootSetup(db, cellId, null, tx);
+      await markNapsoftSetup(db, cellId, null, tx);
     });
     return 'completed';
   } catch {
     await db
-      .tx(tx => markRootSetup(db, cellId, 'ROOT_SETUP_FAILED', tx))
+      .tx(tx => markNapsoftSetup(db, cellId, 'NAPSOFT_SETUP_FAILED', tx))
       .catch(() => {});
-    throw new RootSetupError();
+    throw new NapsoftSetupError();
   }
 }
 
 /**
- * Show or clear `ROOT_SETUP_FAILED` on the cell's completed job, so the Cells
- * screen reports a pending root tenant setup (I0003-R025). Touches only a
+ * Show or clear `NAPSOFT_SETUP_FAILED` on the cell's completed job, so the
+ * Cells screen reports a pending Napsoft tenant setup (I0003-R025). Touches only a
  * `completed` row; a job still in progress keeps its own failure code.
  * @param {object} db
  * @param {string} cellId
@@ -203,7 +215,7 @@ export async function runRootTenantSetup(
  * @param {object} tx
  * @returns {Promise<void>}
  */
-async function markRootSetup(db, cellId, code, tx) {
+async function markNapsoftSetup(db, cellId, code, tx) {
   const job = await db.cell_provisioning.lockByCellId(cellId, { tx });
   if (job?.status !== 'completed' || job.failure_code === code) return;
   await db.cell_provisioning.update(job.id, { failure_code: code }, { tx });
