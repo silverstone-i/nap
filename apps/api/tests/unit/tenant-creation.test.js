@@ -135,6 +135,10 @@ function fakeAdmin({ tenants = [], failInsertWith, failAdvanceWith } = {}) {
     portal_users: {
       findOneBy: async ({ id }) => ({ id }),
     },
+    tenant_provisioning: {
+      findWhere: async () => [],
+      hasActive: async () => false,
+    },
     sessions: {
       findByTokenHash: async hash => {
         const found = sessionStore.get(hash);
@@ -433,8 +437,9 @@ describe('GET /tenants', () => {
     expect(response.body.data.rows).toEqual(
       [first, second]
         .sort((a, b) => (a.id < b.id ? -1 : 1))
-        .map(row => tenantView(row))
+        .map(row => ({ ...tenantView(row), job: null }))
     );
+    expect(response.body.data.anyActive).toBe(false);
     expect(response.body.data.nextCursor).toBeNull();
   });
 

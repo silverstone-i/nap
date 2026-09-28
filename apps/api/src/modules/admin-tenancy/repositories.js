@@ -11,6 +11,7 @@ import { Sessions } from './models/sessions.js';
 import { LoginThrottles } from './models/login_throttles.js';
 import { CellProvisioning } from './models/cell_provisioning.js';
 import { ProvisioningJobs } from './models/provisioning_jobs.js';
+import { TenantProvisioning } from './models/tenant_provisioning.js';
 import { ModuleEntitlements } from './models/module_entitlements.js';
 import { Outbox } from './models/outbox.js';
 import { CacheRevisions } from './models/cache_revisions.js';
@@ -26,6 +27,7 @@ export const repositories = {
   login_throttles: LoginThrottles,
   cell_provisioning: CellProvisioning,
   provisioning_jobs: ProvisioningJobs,
+  tenant_provisioning: TenantProvisioning,
   module_entitlements: ModuleEntitlements,
   outbox: Outbox,
   cache_revisions: CacheRevisions,

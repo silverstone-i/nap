@@ -98,7 +98,7 @@ export async function selectTenant(tenantId) {
 
 /**
  * @param {{cursor?: string, limit?: number}} [page]
- * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe tenant views (I0002-R007).
+ * @returns {Promise<{rows: object[], nextCursor: string|null, anyActive: boolean}>} A page of safe tenant views with their provisioning jobs (I0002-R007, I0006-R011).
  */
 export async function listTenantsPage(page) {
   const data = await apiGet(`${BASE}/tenants${pageQuery(page)}`);
@@ -117,8 +117,39 @@ export async function createTenant(input) {
 }
 
 /**
+ * I0006-R001: queue a tenant's provisioning into a ready cell with its first
+ * administrator.
+ * @param {{tenant: string, cell: string, email: string, password: string}} input
+ * @returns {Promise<object>} The queued tenant job.
+ */
+export async function provisionTenant({ tenant, cell, email, password }) {
+  return apiPost(
+    `${BASE}/control/provision`,
+    {
+      operation: 'tenant-provision',
+      tenant,
+      cell,
+      admin: { email, password },
+    },
+    { 'Idempotency-Key': crypto.randomUUID() }
+  );
+}
+
+/**
+ * I0006-R004: requeue a failed tenant job at the stage that failed.
+ * @param {{tenant: string}} input Tenant UUID.
+ * @returns {Promise<object>} The queued tenant job.
+ */
+export async function retryTenantProvisioning({ tenant }) {
+  return apiPost(`${BASE}/control/provision`, {
+    operation: 'tenant-retry',
+    tenant,
+  });
+}
+
+/**
  * @param {{cursor?: string, limit?: number}} [page]
- * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of `{cell, operation}` overview rows.
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of `{cell, operation, ready}` overview rows.
  */
 export async function listCellsOverview(page) {
   const data = await apiGet(`${BASE}/control/overview${pageQuery(page)}`);

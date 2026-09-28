@@ -9,6 +9,11 @@ import {
   claimCellProvisioning,
 } from '../../modules/admin-tenancy/domain/cells.js';
 import {
+  advanceTenantProvisioning,
+  claimTenantProvisioning,
+  TENANT_STAGES,
+} from '../../modules/admin-tenancy/domain/tenantProvisioning.js';
+import {
   assignNapsoftCell,
   runNapsoftTenantSetup,
 } from './napsoftTenantSetup.js';
@@ -26,12 +31,16 @@ const PLANS = Object.freeze({
  * Napsoft tenant setup, then claims the next queued job and runs its stages,
  * recording every stage change through M0001-06's `advanceCellProvisioning`.
  * Stopping lets the current step finish and returns the job to `queued`.
- * @param {{admin: {db: object}, stages: Record<string, (job: object) => Promise<void>>, driver: object, intervalMs?: number, napsoftSetup?: typeof runNapsoftTenantSetup}} options
+ * Each check also runs at most one queued tenant job (I0006-R005), through
+ * `tenantStages`, recording its stage changes through
+ * `advanceTenantProvisioning`.
+ * @param {{admin: {db: object}, stages: Record<string, (job: object) => Promise<void>>, tenantStages?: ReturnType<typeof import('./tenantStages.js').createTenantStages>, driver: object, intervalMs?: number, napsoftSetup?: typeof runNapsoftTenantSetup}} options
  * @returns {{start: () => Promise<void>, stop: () => Promise<void>, tick: () => Promise<void>}}
  */
 export function createProvisioningWorker({
   admin,
   stages,
+  tenantStages,
   driver,
   intervalMs = 1000,
   napsoftSetup = runNapsoftTenantSetup,
@@ -83,6 +92,71 @@ export function createProvisioningWorker({
   }
 
   /**
+   * Run a claimed tenant job from its current stage (I0006 §8). A stop
+   * returns it to `queued` at the same stage; a failure records the code.
+   * @param {object} job
+   * @returns {Promise<void>}
+   */
+  async function runTenantJob(job) {
+    const plan = TENANT_STAGES.slice(
+      TENANT_STAGES.indexOf(job.stage),
+      TENANT_STAGES.indexOf('complete')
+    );
+    const requeueTenant = () =>
+      advanceTenantProvisioning(db, job.tenant_id, { kind: 'requeued' });
+    for (const [index, name] of plan.entries()) {
+      if (controller.signal.aborted) return requeueTenant();
+      if (index > 0)
+        await advanceTenantProvisioning(db, job.tenant_id, {
+          kind: 'advanced',
+          stage: name,
+        });
+      try {
+        await tenantStages[name](job);
+      } catch (error) {
+        if (controller.signal.aborted || error?.code === 'STOPPED')
+          return requeueTenant();
+        await advanceTenantProvisioning(db, job.tenant_id, {
+          kind: 'failed',
+          failureCode: error?.code ?? 'SEED_FAILED',
+        });
+        return;
+      }
+    }
+    try {
+      await advanceTenantProvisioning(
+        db,
+        job.tenant_id,
+        { kind: 'completed' },
+        { onCompleted: (tx, locked) => tenantStages.activate(tx, locked) }
+      );
+    } catch {
+      await advanceTenantProvisioning(db, job.tenant_id, {
+        kind: 'failed',
+        failureCode: 'ACTIVATION_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Claim and run at most one queued tenant job. Errors never escape.
+   * @returns {Promise<void>}
+   */
+  async function tenantTick() {
+    if (!tenantStages) return;
+    let job;
+    try {
+      job = await claimTenantProvisioning(db);
+    } catch {
+      return;
+    }
+    if (!job) return;
+    // A failed stage-change write leaves the job `running`; the next start
+    // returns it to `queued` (I0006-R005).
+    await runTenantJob(job).catch(() => {});
+  }
+
+  /**
    * One check: retry Napsoft tenant setup, then run at most one queued job.
    * Errors never escape, so a bad job cannot stop the loop.
    * @returns {Promise<void>}
@@ -93,17 +167,18 @@ export function createProvisioningWorker({
     try {
       job = await claimCellProvisioning(db);
     } catch {
-      return;
+      job = null;
     }
-    if (!job) return;
-    try {
-      await runJob(job);
-    } catch {
-      // A failed stage-change write leaves the job `running`; the next start
-      // returns it to `queued` (I0003-R002).
-      return;
+    if (job) {
+      try {
+        await runJob(job);
+        await napsoftSetup(db, driver).catch(() => {});
+      } catch {
+        // A failed stage-change write leaves the job `running`; the next
+        // start returns it to `queued` (I0003-R002).
+      }
     }
-    await napsoftSetup(db, driver).catch(() => {});
+    await tenantTick();
   }
 
   /**
@@ -113,6 +188,7 @@ export function createProvisioningWorker({
    */
   async function start() {
     await db.cell_provisioning.requeueRunning();
+    if (tenantStages) await db.tenant_provisioning.requeueRunning();
     loop = (async () => {
       while (!controller.signal.aborted) {
         await tick();

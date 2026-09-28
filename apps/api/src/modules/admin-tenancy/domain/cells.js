@@ -8,6 +8,10 @@ import { z } from 'zod';
 import { AdminControlError, withControlErrors } from './errors.js';
 import { accessScope } from './authorization.js';
 import { parseLimit, parseUuid } from './validation.js';
+import {
+  provisionTenant,
+  retryTenantProvisioning,
+} from './tenantProvisioning.js';
 
 /** Advisory lock key serializing concurrent cell registrations. */
 const LOCK_KEY = "hashtext('admin-tenancy:cell-registry')";
@@ -413,26 +417,43 @@ const provisionCommandSchema = z.discriminatedUnion('operation', [
   z.strictObject({ operation: z.literal('cell-retry'), cell: z.uuid() }),
   z.strictObject({ operation: z.literal('cell-disable'), cell: z.uuid() }),
   z.strictObject({ operation: z.literal('cell-activate'), cell: z.uuid() }),
+  z.strictObject({
+    operation: z.literal('tenant-provision'),
+    tenant: z.uuid(),
+    cell: z.uuid(),
+    admin: z.strictObject({ email: z.string(), password: z.string() }),
+  }),
+  z.strictObject({ operation: z.literal('tenant-retry'), tenant: z.uuid() }),
 ]);
 
 /**
  * Validate and dispatch a `POST /control/provision` command.
  * @param {AdminCellsDb} db
  * @param {unknown} authority
- * @param {unknown} body `{operation: 'cell-retry'|'cell-disable'|'cell-activate', cell}`
- * @param {{requestId?: string|null}} [context]
- * @returns {Promise<object>} A safe operation view for `cell-retry` and `cell-activate`, a safe cell view for `cell-disable`.
- * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ * @param {unknown} body A cell command `{operation, cell}`, or a tenant command (I0006-R001, R004).
+ * @param {{requestId?: string|null, idempotencyKey?: unknown, runtime?: object, hashingPolicy?: unknown}} [context]
+ * @returns {Promise<object>} A safe operation view for `cell-retry` and `cell-activate`, a safe cell view for `cell-disable`, a tenant job view for tenant commands.
+ * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `CELL_UNAVAILABLE`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function executeProvisionCommand(
   db,
   authority,
   body,
-  { requestId = null } = {}
+  { requestId = null, idempotencyKey, runtime, hashingPolicy } = {}
 ) {
   const result = provisionCommandSchema.safeParse(body);
   if (!result.success) throw new AdminControlError('INVALID_INPUT');
   const command = result.data;
+  if (command.operation === 'tenant-provision')
+    return provisionTenant(db, authority, command, idempotencyKey, {
+      requestId,
+      runtime,
+      hashingPolicy,
+    });
+  if (command.operation === 'tenant-retry')
+    return retryTenantProvisioning(db, authority, command.tenant, {
+      requestId,
+    });
   if (command.operation === 'cell-retry')
     return retryCellProvisioning(db, authority, command.cell, { requestId });
   if (command.operation === 'cell-activate')
@@ -684,11 +705,15 @@ function parseLimitOrControl(value) {
  * write actions do.
  * @param {AdminCellsDb} db
  * @param {unknown} authority
- * @param {{cursor?: unknown, limit?: unknown}} [page]
- * @returns {Promise<{rows: {cell: object, operation: object|null}[], nextCursor: string|null}>}
+ * @param {{cursor?: unknown, limit?: unknown, runtime?: {readiness: (cellId: string) => {ready: boolean}}}} [page]
+ * @returns {Promise<{rows: {cell: object, operation: object|null, ready: boolean}[], nextCursor: string|null}>}
  * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `INTERNAL_ERROR`
  */
-export async function getOverview(db, authority, { cursor, limit } = {}) {
+export async function getOverview(
+  db,
+  authority,
+  { cursor, limit, runtime } = {}
+) {
   requireGranted(authority);
   const parsedLimit = parseLimitOrControl(limit);
   const resumeFrom = parseCellCursor(cursor);
@@ -713,6 +738,8 @@ export async function getOverview(db, authority, { cursor, limit } = {}) {
         operation: byCellId.has(row.id)
           ? operationView(byCellId.get(row.id))
           : null,
+        // I0006-R010: the Tenants screen offers only ready cells.
+        ready: Boolean(runtime?.readiness(row.id)?.ready),
       })),
       nextCursor: encodeCellCursor(page.nextCursor),
       anyActive,

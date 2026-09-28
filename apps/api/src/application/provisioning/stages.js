@@ -29,6 +29,9 @@ const REPORTED = new Set([
   'IDENTITY_MISSING',
   'IDENTITY_MISMATCH',
   'DATABASE_MISMATCH',
+  'CELL_UNAVAILABLE',
+  'SEED_DRIFT',
+  'ACTIVATION_FAILED',
   'STOPPED',
 ]);
 
@@ -47,7 +50,7 @@ export class StageError extends Error {
  * @returns {Promise<T>}
  * @template T
  */
-async function stage(fallback, body) {
+export async function stage(fallback, body) {
   try {
     return await body();
   } catch (error) {
@@ -64,7 +67,7 @@ async function stage(fallback, body) {
  * @returns {Promise<T>}
  * @template T
  */
-async function withCellAdmin(target, operation, connect) {
+export async function withCellAdmin(target, operation, connect) {
   const handle = connect(
     roleUrl(target.endpoint, 'nap-admin', target.adminPassword)
   );

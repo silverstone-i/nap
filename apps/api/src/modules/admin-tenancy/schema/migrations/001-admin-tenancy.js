@@ -180,7 +180,7 @@ export const migration = defineMigration({
           "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
           "status IN ('pending', 'active', 'suspended')",
           'revision > 0',
-          "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND member_id IS NOT NULL)))",
+          "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR status = 'active'))",
         ],
         foreignKeys: [
           {
@@ -335,6 +335,68 @@ export const migration = defineMigration({
             type: 'ForeignKey',
             columns: ['cell_id'],
             references: { schema: 'admin', table: 'cells', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+        ],
+        indexes: [{ columns: ['status', 'stage'] }],
+      },
+    };
+    const tenantProvisioningSchema = {
+      dbSchema: 'admin',
+      table: 'tenant_provisioning',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          notNull: true,
+          default: 'gen_random_uuid()',
+          immutable: true,
+        },
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'cell_id', type: 'uuid', notNull: true, immutable: true },
+        {
+          name: 'admin_membership_id',
+          type: 'uuid',
+          notNull: true,
+          immutable: true,
+        },
+        { name: 'stage', type: 'text', notNull: true, default: 'assignment' },
+        { name: 'status', type: 'text', notNull: true, default: 'queued' },
+        { name: 'attempts', type: 'integer', notNull: true, default: 0 },
+        { name: 'failure_code', type: 'varchar(64)' },
+        { name: 'started_at', type: 'timestamptz' },
+        { name: 'completed_at', type: 'timestamptz' },
+      ],
+      constraints: {
+        primaryKey: ['id'],
+        unique: [['tenant_id']],
+        checks: [
+          "stage IN ('assignment', 'seed', 'activation', 'complete')",
+          "status IN ('queued', 'running', 'failed', 'completed')",
+          'attempts >= 0',
+        ],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id'],
+            references: { schema: 'admin', table: 'tenants', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['cell_id'],
+            references: { schema: 'admin', table: 'cells', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['admin_membership_id'],
+            references: {
+              schema: 'admin',
+              table: 'portal_user_tenants',
+              columns: ['id'],
+            },
             onDelete: 'RESTRICT',
           },
         ],
@@ -578,6 +640,7 @@ export const migration = defineMigration({
       loginThrottlesSchema,
       cellProvisioningSchema,
       provisioningJobsSchema,
+      tenantProvisioningSchema,
       moduleEntitlementsSchema,
       outboxSchema,
       cacheRevisionsSchema,

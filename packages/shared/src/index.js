@@ -168,9 +168,28 @@ export const tenantResponseSchema = z.strictObject({
   data: tenantViewSchema,
 });
 
+/** Zod schema for a tenant's provisioning job, `tenantJobView` (I0006-R011). */
+export const tenantJobViewSchema = z.strictObject({
+  tenantId: z.uuid(),
+  cellId: z.uuid(),
+  stage: z.string(),
+  status: z.string(),
+  attempts: z.number(),
+  failureCode: z.string().nullable(),
+});
+
 /** Zod schema for the success envelope returned by `GET /tenants`. */
-export const tenantsListResponseSchema =
-  cursorPageResponseSchema(tenantViewSchema);
+export const tenantsListResponseSchema = z.strictObject({
+  version: z.literal(transportVersion),
+  data: z.strictObject({
+    rows: z.array(
+      tenantViewSchema.extend({ job: tenantJobViewSchema.nullable() })
+    ),
+    nextCursor: z.string().nullable(),
+    // I0006-R011: whether any tenant job is queued or running on any page.
+    anyActive: z.boolean(),
+  }),
+});
 
 /**
  * Zod schema for the safe portal-user view — `userView`
@@ -249,6 +268,8 @@ export const controlOverviewResponseSchema = z.strictObject({
       z.strictObject({
         cell: cellViewSchema,
         operation: operationViewSchema.nullable(),
+        // I0006-R010: whether the runtime registry reports the cell ready.
+        ready: z.boolean(),
       })
     ),
     nextCursor: z.string().nullable(),

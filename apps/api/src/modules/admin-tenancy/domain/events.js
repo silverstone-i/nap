@@ -38,6 +38,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'before',
   'capability',
   'cell_code',
+  'cell_id',
   'changed_at',
   'changed_fields',
   'code',
@@ -60,6 +61,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'retry_after_seconds',
   'revision',
   'role',
+  'stage',
   'step',
   'tenant_code',
   'throttle_key',
@@ -213,6 +215,25 @@ export const EVENT_CATALOGUE = Object.freeze({
   },
 
   'tenant.napsoft_setup.completed': { outcomes: SUCCEEDED, details: [] },
+
+  // I0006-R018. `cell_id` and `email` are stored so a repeated
+  // `Idempotency-Key` can compare against the recorded request.
+  'tenant.provision.requested': {
+    outcomes: ANY_OUTCOME,
+    details: ['cell_id', 'email'],
+  },
+  'tenant.provision.retry.requested': {
+    outcomes: ANY_OUTCOME,
+    details: ['stage', 'attempt'],
+  },
+  'tenant.provisioning.failed': {
+    outcomes: FAILED,
+    details: ['step', 'code', 'attempt'],
+  },
+  'tenant.provisioning.completed': {
+    outcomes: SUCCEEDED,
+    details: ['cell_id', 'attempt'],
+  },
 
   // I0004-R034: sync delivery and portal-access results.
   'sync.delivery.failed': {
