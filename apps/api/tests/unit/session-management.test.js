@@ -555,7 +555,7 @@ describe('session routes', () => {
   it("revokes the caller's own session and refuses another user's", async () => {
     const mine = live();
     const theirs = live();
-    const { app } = api([mine.session, theirs.session]);
+    const { app, admin } = api([mine.session, theirs.session]);
     const own = await request(app)
       .delete(`/api/admin-tenancy/v1/sessions/${mine.session.id}`)
       .set('Origin', ORIGIN)
@@ -569,6 +569,18 @@ describe('session routes', () => {
       .set('Origin', ORIGIN)
       .set('Cookie', `nap_session=${theirs.token}`);
     expect(repeat.status).toBe(403);
+    expect(repeat.body.error).toMatchObject({
+      code: 'FORBIDDEN',
+      capability: 'NAP::admin-tenancy::sessions::revoke',
+      reason: 'INACTIVE',
+    });
+    expect(admin.events).toContainEqual(
+      expect.objectContaining({
+        event_key: 'access.denied',
+        outcome: 'denied',
+        reason: 'INACTIVE',
+      })
+    );
     expect(theirs.session.deactivated_at).toBeNull();
   });
 
@@ -587,18 +599,20 @@ describe('session routes', () => {
   });
 
   it('refuses an unknown session identifier the same way as a forbidden one', async () => {
-    const { token, session } = live();
-    const { app } = api([session]);
+    const bootstrap = live();
+    const { app } = api([bootstrap.session], {
+      bootstrapLoginId: bootstrap.session.portal_user_id,
+    });
     const missing = await request(app)
       .delete(`/api/admin-tenancy/v1/sessions/${randomUUID()}`)
       .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`);
+      .set('Cookie', `nap_session=${bootstrap.token}`);
     expect(missing.status).toBe(403);
     expect(missing.body).toEqual(errorEnvelope('FORBIDDEN'));
     const malformed = await request(app)
       .delete('/api/admin-tenancy/v1/sessions/not-a-uuid')
       .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`);
+      .set('Cookie', `nap_session=${bootstrap.token}`);
     expect(malformed.status).toBe(400);
   });
 
