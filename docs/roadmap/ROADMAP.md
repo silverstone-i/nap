@@ -100,14 +100,14 @@ same accepted decision model, while the server remains authoritative.
 
 ### Phase 3: Organization Setup
 
-| Order | Deliverable            | PRD | UI increment                                                                                                      | Status      | Evidence |
-| ----: | ---------------------- | --- | ----------------------------------------------------------------------------------------------------------------- | ----------- | -------- |
-|    11 | Reference data         |     | Reference-data lookup controls needed by setup forms                                                              | Not started |          |
-|    12 | Reference-data rollout |     | Operator rollout status, failures, and retry when required                                                        | Not started |          |
-|    13 | Business directory     |     | Employee, client, vendor, vendor contact, contact, and address management, with a portal access flag on each user | Not started |          |
-|    14 | Portal access          |     | Portal access on/off, request status, and Napsoft login recovery                                                  | Not started |          |
-|    15 | Companies              |     | Legal-entity and tax-registration management                                                                      | Not started |          |
-|    16 | Tenant settings        |     | Numbering, preference, payment-term, and approval configuration                                                   | Not started |          |
+| Order | Deliverable            | PRD                     | UI increment                                                                                                      | Status      | Evidence                |
+| ----: | ---------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------- | ----------------------- |
+|    11 | Reference data         | `M0004: Reference Data` | Reference-data lookup controls needed by setup forms                                                              | In progress | PRD accepted 2026-09-28 |
+|    12 | Reference-data rollout |                         | Operator rollout status, failures, and retry when required                                                        | Not started |                         |
+|    13 | Business directory     |                         | Employee, client, vendor, vendor contact, contact, and address management, with a portal access flag on each user | Not started |                         |
+|    14 | Portal access          |                         | Portal access on/off, request status, and Napsoft login recovery                                                  | Not started |                         |
+|    15 | Companies              |                         | Legal-entity and tax-registration management                                                                      | Not started |                         |
+|    16 | Tenant settings        |                         | Numbering, preference, payment-term, and approval configuration                                                   | Not started |                         |
 
 Phase 3 is complete when a tenant administrator can establish the organization,
 people, counterparties, legal entities, and settings required by later modules.

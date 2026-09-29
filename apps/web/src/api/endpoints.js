@@ -13,6 +13,8 @@ import {
   accessContextResponseSchema,
   capabilityEntrySchema,
   controlOverviewResponseSchema,
+  countrySchema,
+  currencySchema,
   eligibleTenantsResponseSchema,
   roleViewSchema,
   sessionCapabilitiesSchema,
@@ -329,4 +331,44 @@ export async function removeUserRole(userId, roleId) {
   return userRolesSchema.parse(
     await apiDelete(`${ACCESS_BASE}/users/${userId}/roles/${roleId}`)
   );
+}
+
+const REFERENCE_BASE = '/api/reference-data/v1';
+/** @type {Map<string, Promise<object[]>>} */
+const lookups = new Map();
+
+/**
+ * Load a lookup list once and share it for the rest of the page session
+ * (M0004-R009). A failed load is forgotten so the next call retries.
+ * @param {'countries'|'currencies'} list
+ * @param {import('zod').ZodTypeAny} schema
+ * @returns {Promise<object[]>}
+ */
+function cachedLookup(list, schema) {
+  if (!lookups.has(list))
+    lookups.set(
+      list,
+      apiGet(`${REFERENCE_BASE}/${list}`)
+        .then(data => z.array(schema).parse(data))
+        .catch(error => {
+          lookups.delete(list);
+          throw error;
+        })
+    );
+  return lookups.get(list);
+}
+
+/** @returns {Promise<{code: string, alpha3: string, numericCode: string, name: string}[]>} */
+export function listCountries() {
+  return cachedLookup('countries', countrySchema);
+}
+
+/** @returns {Promise<{code: string, numericCode: string, name: string, minorUnit: number}[]>} */
+export function listCurrencies() {
+  return cachedLookup('currencies', currencySchema);
+}
+
+/** Forget cached lookup lists; for tests. */
+export function clearLookups() {
+  lookups.clear();
 }

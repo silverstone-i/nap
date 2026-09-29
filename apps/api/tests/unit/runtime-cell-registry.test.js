@@ -22,7 +22,7 @@ function fakeAdmin(records) {
   };
 }
 
-function fakeConnect({ reachable = true, identity } = {}) {
+function fakeConnect({ reachable = true, identity, seeded = true } = {}) {
   const handles = [];
   const connect = vi.fn(() => {
     const handle = {
@@ -36,6 +36,7 @@ function fakeConnect({ reachable = true, identity } = {}) {
             ? { name: 'nap_cell_1' }
             : { '?column?': 1 }
         ),
+        oneOrNone: vi.fn(async () => (seeded ? { '?column?': 1 } : null)),
         physical_identity: {
           findOneBy: vi.fn(async () =>
             identity === undefined
@@ -64,6 +65,7 @@ describe('runtime cell registry (I0003-R015–R022)', () => {
       [{ [CELL]: record(false) }, {}, 'CELL_DISABLED'],
       [{ [CELL]: record() }, { reachable: false }, 'CELL_UNREACHABLE'],
       [{ [CELL]: record() }, { identity: null }, 'IDENTITY_MISSING'],
+      [{ [CELL]: record() }, { seeded: false }, 'SEED_MISSING'],
     ];
     for (const [records, options, reason] of cases) {
       const registry = createCellRegistry({

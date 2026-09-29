@@ -336,3 +336,19 @@ export const capabilityEntrySchema = z.strictObject({
   router: z.string(),
   action: z.string(),
 });
+
+/** Zod schema for one country lookup row (M0004-R008). */
+export const countrySchema = z.strictObject({
+  code: z.string().regex(/^[A-Z]{2}$/),
+  alpha3: z.string().regex(/^[A-Z]{3}$/),
+  numericCode: z.string().regex(/^[0-9]{3}$/),
+  name: z.string().min(1),
+});
+
+/** Zod schema for one currency lookup row (M0004-R008). */
+export const currencySchema = z.strictObject({
+  code: z.string().regex(/^[A-Z]{3}$/),
+  numericCode: z.string().regex(/^[0-9]{3}$/),
+  name: z.string().min(1),
+  minorUnit: z.number().int().min(0).max(4),
+});
