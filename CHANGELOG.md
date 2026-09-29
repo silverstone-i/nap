@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.21.1] - 2026-09-29
+
 ### Fixed
 
 - A tenant administrator can now read their own tenant's module entitlements (`GET /tenants/:tenant/entitlements`); Napsoft grants still reach every tenant, and writes stay Napsoft-only (M0001-10).
