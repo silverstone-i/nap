@@ -274,6 +274,27 @@ describe('reference-data readiness (M0004-R007)', () => {
     await asAdmin(tx => seedReferenceData(tx));
     expect(await registry.recheck(cellId)).toEqual({ ready: true });
   });
+
+  it('a cell migrated before M0004 reports SEED_MISSING, not CELL_UNREACHABLE', async () => {
+    await asAdmin(tx =>
+      tx.none(
+        'ALTER TABLE reference.seed_versions RENAME TO seed_versions_hidden'
+      )
+    );
+    try {
+      expect(await registry.recheck(cellId)).toEqual({
+        ready: false,
+        reason: 'SEED_MISSING',
+      });
+    } finally {
+      await asAdmin(tx =>
+        tx.none(
+          'ALTER TABLE reference.seed_versions_hidden RENAME TO seed_versions'
+        )
+      );
+    }
+    expect(await registry.recheck(cellId)).toEqual({ ready: true });
+  });
 });
 
 describe('reference-data routes (M0004-R008)', () => {

@@ -7,6 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import snapshot from '../../src/modules/reference-data/seeds/snapshot.json' with { type: 'json' };
 import {
   SEED_VERSION,
+  seedPresent,
   seedReferenceData,
   validateSnapshot,
 } from '../../src/modules/reference-data/seeds/referenceSeed.js';
@@ -61,5 +62,21 @@ describe('reference-data descriptor (M0004-R005)', () => {
     expect(descriptor.schema).toBe('reference');
     expect(typeof descriptor.seed).toBe('function');
     expect(descriptor.capabilities).toEqual(['reference-data::lookups::read']);
+  });
+});
+
+describe('reference-data readiness check (M0004-R007)', () => {
+  const failing = code => ({
+    oneOrNone: vi.fn(async () => {
+      throw Object.assign(new Error(code), { code });
+    }),
+  });
+
+  it('treats a missing seed table as not seeded', async () => {
+    expect(await seedPresent(failing('42P01'))).toBe(false);
+  });
+
+  it('lets other errors propagate', async () => {
+    await expect(seedPresent(failing('08006'))).rejects.toThrow('08006');
   });
 });

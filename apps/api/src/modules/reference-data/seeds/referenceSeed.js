@@ -89,15 +89,23 @@ export async function seedReferenceData(db, data = snapshot) {
 }
 
 /**
- * Whether the cell holds the required seed version (M0004-R007).
+ * Whether the cell holds the required seed version (M0004-R007). A cell
+ * migrated before this module existed has no `reference.seed_versions`
+ * table; that counts as not seeded. Other errors propagate.
  * @param {import('pg-promise').IDatabase<unknown>} db Any role that can read `reference`.
  * @param {number} [version=SEED_VERSION]
  * @returns {Promise<boolean>}
  */
 export async function seedPresent(db, version = SEED_VERSION) {
-  const row = await db.oneOrNone(
-    'SELECT 1 FROM reference.seed_versions WHERE version = $1',
-    [version]
-  );
-  return row !== null;
+  try {
+    const row = await db.oneOrNone(
+      'SELECT 1 FROM reference.seed_versions WHERE version = $1',
+      [version]
+    );
+    return row !== null;
+  } catch (error) {
+    // 42P01 undefined_table; 3F000 invalid_schema_name.
+    if (error?.code === '42P01' || error?.code === '3F000') return false;
+    throw error;
+  }
 }
