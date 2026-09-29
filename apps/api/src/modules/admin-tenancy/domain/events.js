@@ -402,13 +402,18 @@ export function parseEvent(event) {
  *
  * A scope covering every tenant also reads events with no tenant — bootstrap,
  * cell registration, and a session created before tenant selection. A scope
- * naming its tenants does not: `$in` never matches NULL, which is the
- * fail-closed half of the PRD's reader-scope table.
+ * naming its tenants, or excluding one, does not: `$in` and `<>` never match
+ * NULL, which is the fail-closed half of the PRD's reader-scope table.
  * @param {import('./scope.js').AdminAccessScope} scope
  * @returns {object[]|null}
  */
 export function eventScopeFilter(scope) {
-  if (scope.tenantIds === '*') return [];
+  if (scope.tenantIds === '*')
+    // `<>` never matches NULL, so an excluding scope also drops null-tenant
+    // events: `*` readers do not read them (M0001-12 §7).
+    return (scope.excludeTenantIds ?? []).map(id => ({
+      tenant_id: { $ne: id },
+    }));
   return scope.tenantIds.length
     ? [{ tenant_id: { $in: scope.tenantIds } }]
     : null;

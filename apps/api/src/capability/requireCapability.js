@@ -72,8 +72,10 @@ async function recordDenial(admin, request, result) {
  * Dependencies come from `request.app.locals.authorization`, set when the
  * API is mounted.
  * @param {string} routeCapability `module::router::action`
- * @param {{target?: 'session'|'napsoft'}} [options] `napsoft` for records
- *   Napsoft manages about tenants (I0005-R003).
+ * @param {{target?: 'session'|'napsoft', orTenantParam?: string}} [options]
+ *   `target: 'napsoft'` for records Napsoft manages about tenants
+ *   (I0005-R003); `orTenantParam` also permits the tenant named in that path
+ *   parameter (see `authorize`).
  * @returns {import('express').RequestHandler}
  */
 export function requireCapability(routeCapability, options = {}) {
@@ -81,7 +83,10 @@ export function requireCapability(routeCapability, options = {}) {
     const deps = request.app.locals.authorization;
     let result;
     try {
-      result = await authorize(deps, request.session, routeCapability, options);
+      result = await authorize(deps, request.session, routeCapability, {
+        ...options,
+        params: request.params,
+      });
     } catch (error) {
       const code = error?.code;
       return sendError(

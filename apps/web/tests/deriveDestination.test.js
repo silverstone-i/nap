@@ -51,7 +51,7 @@ describe('deriveDestination', () => {
     ).toBe('/home');
   });
 
-  it('sends management access to Home rather than tenant selection', () => {
+  it('sends management access with eligible tenants to tenant selection (I0001-R003)', () => {
     expect(
       deriveDestination({
         status: 'ready',
@@ -59,7 +59,7 @@ describe('deriveDestination', () => {
         management: true,
         entryPoints: { tenant: true },
       })
-    ).toBe('/home');
+    ).toBe('/tenants');
   });
 
   it('returns null when nothing is available', () => {

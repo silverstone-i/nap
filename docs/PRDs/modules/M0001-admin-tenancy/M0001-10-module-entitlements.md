@@ -118,6 +118,10 @@ one transaction.
 
 ### Verification Evidence
 
+Re-verified on 2026-09-28 against the code after the RBAC rewrite ([silverstone-i/nap#42](https://github.com/silverstone-i/nap/pull/42), [#43](https://github.com/silverstone-i/nap/pull/43), [#44](https://github.com/silverstone-i/nap/pull/44), and the capability-scoping branch): `npm run lint`, `npm run format:check`, `npm test` (530 API, 148 web), `npm run build`, and `npm run test:db:local` (231 tests) passed. Covering tests: `entitlements` (unit and integration) and `authorize-tenant-param`, which checks that a `tenant_admin` reads its own tenant's entitlements and no other tenant's (§4).
+
+The entries below predate the RBAC rewrite and are kept as history.
+
 Local validation on 2026-09-21: `npm run lint`, `npm run format:check`,
 `npm test` (382 unit tests across the workspace, including 17 new unit
 tests), `npm run build`, and `npm run licenses` passed.

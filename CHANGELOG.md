@@ -10,6 +10,16 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- A tenant administrator can now read their own tenant's module entitlements (`GET /tenants/:tenant/entitlements`); Napsoft grants still reach every tenant, and writes stay Napsoft-only (M0001-10).
+- After login, a user with more than one tenant and none selected lands on tenant selection, management access included, instead of Home (I0001-R003).
+
+### Changed
+
+- Map event-reader capabilities to the M0001-12 reader table: `NAP` reads every event, `*` reads every tenant except Napsoft and no null-tenant events, and a tenant code reads only that tenant (R004). No events route exists yet.
+- Docs: the Tenants capability is `NAP::admin-tenancy::control::read/write` in I0001, I0002, and M0001-07; M0003 and I0005 are Accepted; M0001, I0001, and I0002 verification evidence is refreshed after the RBAC rewrite; the roadmap marks admin tenancy, application entry, platform administration screens, and cell provisioning complete.
+
 ## [v0.21.0] - 2026-09-28
 
 ### Added

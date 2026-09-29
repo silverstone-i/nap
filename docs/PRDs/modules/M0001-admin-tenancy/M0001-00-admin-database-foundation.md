@@ -20,7 +20,7 @@ Define the admin database schema, models, permissions, setup, and migration.
 
 ### Included
 
-- All 12 admin tables and their `pg-schemata` schema objects.
+- All 13 admin tables and their `pg-schemata` schema objects.
 - Models, repository registration, and the admin-tenancy module descriptor.
 - Database roles, grants, constraints, and triggers.
 - Local and Render Admin database setup, deployment configuration, setup guides, and the initial admin-tenancy migration.
@@ -46,7 +46,7 @@ The two PostgreSQL roles are separate from the application roles
 ### Runtime Grant Contract
 
 Grant `nap-app` `CONNECT` on the selected database, `USAGE` on `admin`, and
-`SELECT`, `INSERT`, `UPDATE`, and `DELETE` on all 12 admin tables.
+`SELECT`, `INSERT`, `UPDATE`, and `DELETE` on all 13 admin tables.
 
 CRUD grants remain subject to database constraints and triggers.
 
@@ -202,13 +202,17 @@ WU 12’s administrative event API.
 | AC02      | Local setup verifies existing roles; Render setup creates missing roles using provider credentials. Fresh setup produces an empty target; retries preserve existing rows and credentials and reject incompatible resources. | M0001-00-R003, M0001-00-R009 |
 | AC03      | Migration creates all tables in dependency order, records success in the library ledger, and applies nothing on a repeated run.                                                                                             | M0001-00-R004, M0001-00-R007 |
 | AC04      | Wrong-target descriptors fail before connection; migration failure leaves no falsely applied ledger entry; connections close on both paths.                                                                                 | M0001-00-R004, M0001-00-R006 |
-| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 12 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled.                                                 | M0001-00-R005, M0001-00-R012 |
+| AC05      | Tests verify `nap-admin` ownership and migration access, CRUD grants for `nap-app` on all 13 tables, and rejection of DDL by `nap-app`; all admin tables have RLS disabled.                                                 | M0001-00-R005, M0001-00-R012 |
 | AC06      | Direct SQL as `nap-app` rejects invalid foreign keys, duplicate constrained values, immutable-key changes, and event updates/deletes; valid writes maintain audit fields.                                                   | M0001-00-R007, M0001-00-R008 |
 | AC07      | Changed applied migration contents fail checksum validation; new changes use a new migration.                                                                                                                               | M0001-00-R010                |
 | AC08      | Success, repeat, partial setup, and failure output contain no credentials or secret-bearing values.                                                                                                                         | M0001-00-R006, M0001-00-R013 |
 | AC09      | Archived rows remain stored after time passes, startup, setup, and migration; no automatic purge is configured or invoked.                                                                                                  | M0001-00-R011                |
 
 ### Verification Evidence
+
+Re-verified on 2026-09-28 against the code after the RBAC rewrite ([silverstone-i/nap#42](https://github.com/silverstone-i/nap/pull/42), [#43](https://github.com/silverstone-i/nap/pull/43), [#44](https://github.com/silverstone-i/nap/pull/44), and the capability-scoping branch): `npm run lint`, `npm run format:check`, `npm test` (530 API, 148 web), `npm run build`, and `npm run test:db:local` (231 tests) passed. Covering tests: `admin-foundation` (unit and integration), which checks the 13-table contract, triggers, grants, and model parity, and `revisioned-models`.
+
+The entries below predate the RBAC rewrite and are kept as history.
 
 Merged in [PR #3](https://github.com/silverstone-i/nap/pull/3) on 2026-09-19.
 

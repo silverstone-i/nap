@@ -154,38 +154,32 @@ export async function resolveTenants(admin, session, target) {
   return { napsoft, targetTenant };
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * Resolve the caller's patterns and decide one route capability (I0005).
- * @param {{admin: object, runtime?: object, cache?: object}} deps `admin` is the repository handle (`admin.db`).
- * @param {{user: string, tenant?: string|null, restricted?: boolean}} session
- * @param {string} routeCapability `module::router::action`
- * @param {{target?: 'session'|'napsoft'}} [options] `napsoft` for records
- *   Napsoft manages about tenants (I0005-R003).
- * @returns {Promise<{decision: 'permit'|'deny', reason: string, capability: string, actorId: string, patterns: string[], homeTenant: object|null, targetTenant: object, napsoftCode: string|null}>}
- * @throws {AuthorizationError} `INVALID_STATE` when a session-targeted
- *   route has no selected tenant; `CELL_UNAVAILABLE`.
+ * Decide one route capability against one target tenant.
+ * @param {{admin: object, runtime?: object, cache?: object}} deps
+ * @param {{user: string, restricted?: boolean}} session
+ * @param {string} routeCapability
+ * @param {object} targetTenant
+ * @param {string|null} napsoftCode
+ * @returns {Promise<object>} The `authorize` result.
  */
-export async function authorize(
+async function decideFor(
   deps,
   session,
   routeCapability,
-  { target = 'session' } = {}
+  targetTenant,
+  napsoftCode
 ) {
-  const admin = deps.admin.db;
-  const { napsoft, targetTenant } = await resolveTenants(
-    admin,
-    session,
-    target
-  );
-  if (!targetTenant) throw new AuthorizationError('INVALID_STATE');
-  const napsoftCode = napsoft?.tenant_code ?? null;
   const capability = requiredCapability(
     targetTenant.tenant_code,
     routeCapability
   );
   const [caller, entitled] = await Promise.all([
     resolveCaller(deps, session, targetTenant),
-    isEntitled(admin, targetTenant.id, routeCapability.split('::')[0]),
+    isEntitled(deps.admin.db, targetTenant.id, routeCapability.split('::')[0]),
   ]);
   return {
     ...decide({
@@ -203,4 +197,64 @@ export async function authorize(
     targetTenant,
     napsoftCode,
   };
+}
+
+/**
+ * Resolve the caller's patterns and decide one route capability (I0005).
+ *
+ * With `orTenantParam`, a route that targets Napsoft also permits a caller
+ * whose own grant covers the customer tenant named in that path parameter
+ * (M0001-10 §4: `tenant_admin` reads its own tenant's entitlements). The
+ * Napsoft decision is tried first; the tenant decision is used only when it
+ * permits.
+ * @param {{admin: object, runtime?: object, cache?: object}} deps `admin` is the repository handle (`admin.db`).
+ * @param {{user: string, tenant?: string|null, restricted?: boolean}} session
+ * @param {string} routeCapability `module::router::action`
+ * @param {{target?: 'session'|'napsoft', orTenantParam?: string, params?: Record<string, string>}} [options]
+ *   `target: 'napsoft'` for records Napsoft manages about tenants (I0005-R003).
+ * @returns {Promise<{decision: 'permit'|'deny', reason: string, capability: string, actorId: string, patterns: string[], homeTenant: object|null, targetTenant: object, napsoftCode: string|null}>}
+ * @throws {AuthorizationError} `INVALID_STATE` when a session-targeted
+ *   route has no selected tenant; `CELL_UNAVAILABLE`.
+ */
+export async function authorize(
+  deps,
+  session,
+  routeCapability,
+  { target = 'session', orTenantParam, params } = {}
+) {
+  const admin = deps.admin.db;
+  const { napsoft, targetTenant } = await resolveTenants(
+    admin,
+    session,
+    target
+  );
+  if (!targetTenant) throw new AuthorizationError('INVALID_STATE');
+  const napsoftCode = napsoft?.tenant_code ?? null;
+  const result = await decideFor(
+    deps,
+    session,
+    routeCapability,
+    targetTenant,
+    napsoftCode
+  );
+  const tenantId = orTenantParam ? params?.[orTenantParam] : undefined;
+  if (
+    result.decision === 'permit' ||
+    typeof tenantId !== 'string' ||
+    !UUID_PATTERN.test(tenantId)
+  )
+    return result;
+  const named = await admin.tenants.findOneBy(
+    { id: tenantId },
+    { columnWhitelist: TENANT_COLUMNS }
+  );
+  if (!named || named.is_napsoft) return result;
+  const own = await decideFor(
+    deps,
+    session,
+    routeCapability,
+    named,
+    napsoftCode
+  );
+  return own.decision === 'permit' ? own : result;
 }

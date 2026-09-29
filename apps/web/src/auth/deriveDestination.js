@@ -18,10 +18,11 @@
 export function deriveDestination(state) {
   if (state.status === 'restricted') return '/password';
   if (state.status !== 'ready') return null;
-  // One shell (I0001-R003): Home serves a selected tenant and management
-  // alike. Only a user with no management access and no tenant selected
-  // must pick a tenant first.
-  if (state.selectedTenant || state.management) return '/home';
+  // I0001-R003: a selected tenant restores into Home; otherwise a user with
+  // eligible tenants picks one first, management access included. Management
+  // alone still reaches Home, which serves it with no tenant selected.
+  if (state.selectedTenant) return '/home';
   if (state.entryPoints?.tenant) return '/tenants';
+  if (state.management) return '/home';
   return null;
 }

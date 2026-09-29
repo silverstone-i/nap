@@ -60,7 +60,7 @@ function renderAt(path) {
   );
 }
 
-it('lands management access on Home with no tenant selected (one shell)', async () => {
+it('sends management access with eligible tenants to tenant selection (I0001-R003)', async () => {
   api.getAccessContext.mockResolvedValue({
     session: { restricted: false },
     user: { id: 'u1', email: 'root@example.com' },
@@ -69,12 +69,24 @@ it('lands management access on Home with no tenant selected (one shell)', async 
     entryPoints: { tenant: true },
   });
   api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
+  api.listTenants.mockResolvedValue([napsoft]);
+  renderAt('/');
+  expect(await screen.findByText('Napsoft')).toBeTruthy();
+  expect(screen.queryByText('No tenant selected.')).toBeNull();
+});
+
+it('lands management access with no eligible tenant on Home (one shell)', async () => {
+  api.getAccessContext.mockResolvedValue({
+    session: { restricted: false },
+    user: { id: 'u1', email: 'root@example.com' },
+    selectedTenant: null,
+    operator: napsoft,
+    entryPoints: { tenant: false },
+  });
+  api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
   renderAt('/');
   expect(await screen.findByText('No tenant selected.')).toBeTruthy();
   expect(screen.getByText('Tenant Management')).toBeTruthy();
-  expect(
-    screen.getByRole('button', { name: /Open tenant selection/ })
-  ).toBeTruthy();
 });
 
 it('keeps Tenant Management in the one shell with a tenant selected', async () => {

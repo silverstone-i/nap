@@ -111,7 +111,11 @@ export function createTenantsRouter({ admin }) {
   router.get(
     '/:tenant/entitlements',
     requireSession(),
-    requireCapability('admin-tenancy::entitlements::read', NAPSOFT),
+    // M0001-10 §4: a tenant_admin also reads its own tenant's entitlements.
+    requireCapability('admin-tenancy::entitlements::read', {
+      ...NAPSOFT,
+      orTenantParam: 'tenant',
+    }),
     async (request, response) => {
       try {
         const read = requestAuthority(request);

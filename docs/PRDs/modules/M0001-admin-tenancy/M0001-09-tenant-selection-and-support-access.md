@@ -103,6 +103,10 @@ request ID without session credentials.
 
 ### Verification Evidence
 
+Re-verified on 2026-09-28 against the code after the RBAC rewrite ([silverstone-i/nap#42](https://github.com/silverstone-i/nap/pull/42), [#43](https://github.com/silverstone-i/nap/pull/43), [#44](https://github.com/silverstone-i/nap/pull/44), and the capability-scoping branch): `npm run lint`, `npm run format:check`, `npm test` (530 API, 148 web), `npm run build`, and `npm run test:db:local` (231 tests) passed. Covering tests: `tenant-access` (unit and integration), `access-context`, and `cell-provisioning` (selection with a ready cell).
+
+The entries below predate the RBAC rewrite and are kept as history.
+
 Tenant selection shipped in [#15](https://github.com/silverstone-i/nap/pull/15).
 Local validation on 2026-09-21: `npm run lint`, `npm run format:check`,
 `npm test`, `npm run build`, and `npm run licenses` passed, and `npm run test:db`
