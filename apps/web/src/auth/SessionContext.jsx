@@ -107,9 +107,12 @@ export function SessionProvider({ children }) {
    * and exactly one is eligible, select it. Selection goes through the
    * normal server contract, so an unavailable cell simply leaves the user
    * unselected, and they can pick a tenant from the tenant control.
+   * @param {{quiet?: boolean}} [options] `quiet` keeps the current status
+   *   while loading, so the calling page stays mounted (the password page
+   *   redirects itself once the status becomes `ready`).
    */
-  const enter = useCallback(async () => {
-    setState(prev => ({ ...prev, status: 'loading' }));
+  const enter = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) setState(prev => ({ ...prev, status: 'loading' }));
     let context;
     let capabilities;
     try {
@@ -170,7 +173,7 @@ export function SessionProvider({ children }) {
           return expire();
         throw error;
       }
-      await enter();
+      await enter({ quiet: true });
     },
     [enter, expire]
   );

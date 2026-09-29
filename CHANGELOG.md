@@ -10,6 +10,18 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Reference data (M0004): each new cell is seeded with ISO 3166-1 countries and ISO 4217 currencies; a cell missing the seed version is not ready (`SEED_MISSING`); `GET /api/reference-data/v1/countries` and `/currencies`; country and currency lookup controls in the web app.
+
+### Changed
+
+- Docs: M0004 is Implemented; roadmap item 11 is Complete.
+
+### Fixed
+
+- After a required password change, the web app now leaves the Change password page for the user's destination instead of showing the empty form again (I0001-R002).
+
 ## [v0.21.1] - 2026-09-29
 
 ### Fixed

@@ -5,6 +5,7 @@
 
 import { roleUrl } from '../../application/shared/configuration.js';
 import { verifyPhysicalIdentity } from '../../modules/cell-tenancy/schema/identity.js';
+import { seedPresent } from '../../modules/reference-data/seeds/referenceSeed.js';
 import { createCellDatabase } from './cellDatabase.js';
 
 /** Thrown by `cellFor` when the session's tenant has no ready cell. */
@@ -68,7 +69,11 @@ export function createCellRegistry({ admin, connect = createCellDatabase }) {
     if (!entry.handle) return set('CELL_UNREACHABLE');
     try {
       const identity = await verifyPhysicalIdentity(entry.handle, record);
-      return set(identity.ready ? undefined : identity.reason);
+      if (!identity.ready) return set(identity.reason);
+      // M0004-R007: the cell must hold the required reference seed version.
+      return set(
+        (await seedPresent(entry.handle.db)) ? undefined : 'SEED_MISSING'
+      );
     } catch {
       return set('CELL_UNREACHABLE');
     }
