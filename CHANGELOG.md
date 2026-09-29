@@ -16,7 +16,7 @@ when a pull request with a release label merges into `main`.
 
 ### Changed
 
-- Docs: M0004 is Accepted; roadmap item 11 links it.
+- Docs: M0004 is Implemented; roadmap item 11 is Complete.
 
 ### Fixed
 
