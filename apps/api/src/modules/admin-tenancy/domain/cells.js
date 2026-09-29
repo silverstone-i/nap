@@ -622,10 +622,11 @@ export async function executeProvisionCommand(
 /**
  * Move a locked, queued operation to `running` (I0003 §8).
  *
- * A `provision` job starts at `setup`; an `activate` job starts at
- * `activation`; a `seed` job starts at `seed`. Attempts are counted by retry, not here (M0001-06 §13). A job returned to
- * `queued` mid-stage by a stopped worker restarts from `setup`, because every
- * stage reuses work it already did.
+ * A `provision` job starts, and restarts after a stopped worker, at `setup`;
+ * an `activate` or `seed` job at its own first stage (`activation`, `seed`).
+ * Restarting is safe because every stage reuses work it already did, and
+ * publishing and seeding are idempotent. Attempts are counted by retry, not
+ * here (M0001-06 §13).
  * @param {AdminCellsDb} db
  * @param {object} operation Row locked in `tx`.
  * @param {import('pg-promise').IDatabase<unknown>} tx
