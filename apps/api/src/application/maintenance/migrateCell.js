@@ -11,7 +11,7 @@ import {
 import { createCellDatabase } from '../../infrastructure/runtime/cellDatabase.js';
 import { verifyDatabase } from '../../infrastructure/provisioning/postgres.js';
 import { verifyCell } from '../../modules/cell-tenancy/schema/verify.js';
-import { verifyAccessControl } from '../../modules/access-control/schema/verify.js';
+import { verifyAppSchema } from '../../modules/access-control/schema/verify.js';
 import { verifyReferenceData } from '../../modules/reference-data/schema/verify.js';
 import { roleUrl } from '../shared/configuration.js';
 /**
@@ -42,8 +42,8 @@ export async function migrateCell(config, modules = cellModules) {
     await verifyCell(handle, modules);
     if (modules.some(m => m.name === 'reference-data'))
       await verifyReferenceData(handle, modules);
-    if (modules.some(m => m.name === 'access-control'))
-      await verifyAccessControl(handle, modules);
+    if (modules.some(m => m.schema === 'app'))
+      await verifyAppSchema(handle, modules);
     return {
       status: applied ? 'applied' : 'unchanged',
       database: config.database,

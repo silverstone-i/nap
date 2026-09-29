@@ -23,7 +23,12 @@ export class PortalAccessError extends Error {
 const requestSchema = z.strictObject({
   tenantId: z.uuid(),
   memberId: z.uuid(),
-  memberType: z.enum(['employee', 'client', 'vendor_contact', 'contact']),
+  memberType: z.enum([
+    'employee',
+    'contact',
+    'vendor_contact',
+    'client_contact',
+  ]),
   email: z.email(),
   enabled: z.boolean(),
   temporaryPassword: z.unknown().optional(),

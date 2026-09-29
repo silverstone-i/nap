@@ -18,7 +18,6 @@ import { parseUuid } from './validation.js';
  * `TIERS` and `accounts.js` defines `MEMBER_TYPES`.
  */
 export const OPTIONAL_MODULES = Object.freeze([
-  'business-directory',
   'companies',
   'catalog',
   'projects',

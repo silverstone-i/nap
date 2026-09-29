@@ -26,7 +26,7 @@ function describeError(err) {
   if (!(err instanceof ApiError))
     return 'Something went wrong. Please try again.';
   if (err.code === 'INVALID_INPUT')
-    return 'Check the cell, email, and temporary password.';
+    return 'Check the cell, name, email, and temporary password.';
   if (err.code === 'CELL_UNAVAILABLE')
     return 'That cell is not ready. Pick another.';
   if (err.code === 'INVALID_STATE')
@@ -40,13 +40,16 @@ function describeError(err) {
 
 /**
  * "Provision" (I0006-R010): pick a ready cell and name the tenant's first
- * administrator with a temporary password.
+ * administrator with a temporary password. The name becomes their employee
+ * record and the tenant's first primary contact (M0005-R021).
  * @param {{tenant: {id: string, code: string}, onClose: () => void, onProvisioned: () => void}} props
  * @returns {JSX.Element}
  */
 export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
   const [cells, setCells] = useState(null);
   const [cell, setCell] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -77,7 +80,14 @@ export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
     setError(null);
     setSubmitting(true);
     try {
-      await provisionTenant({ tenant: tenant.id, cell, email, password });
+      await provisionTenant({
+        tenant: tenant.id,
+        cell,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email,
+        password,
+      });
       onProvisioned();
     } catch (err) {
       setError(describeError(err));
@@ -128,6 +138,24 @@ export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
               </MenuItem>
             ))}
           </TextField>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="First name"
+              value={firstName}
+              onChange={event => setFirstName(event.target.value)}
+              required
+              fullWidth
+              slotProps={{ htmlInput: { maxLength: 160 } }}
+            />
+            <TextField
+              label="Last name"
+              value={lastName}
+              onChange={event => setLastName(event.target.value)}
+              required
+              fullWidth
+              slotProps={{ htmlInput: { maxLength: 160 } }}
+            />
+          </Stack>
           <TextField
             label="Administrator email"
             type="email"

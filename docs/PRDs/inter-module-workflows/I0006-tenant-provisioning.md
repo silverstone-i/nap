@@ -73,7 +73,8 @@ tenant, and holds `tenant_admin`.
 ### Operations
 
 - I0006-R001: `POST /control/provision` must accept
-  `{ "operation": "tenant-provision", "tenant": "<uuid>", "cell": "<uuid>", "admin": { "email": "...", "password": "..." } }`.
+  `{ "operation": "tenant-provision", "tenant": "<uuid>", "cell": "<uuid>", "admin": { "email": "...", "password": "...", "firstName": "...", "lastName": "..." } }`
+  (names added by M0005-R021).
   It must queue a tenant job when the tenant is a `pending` customer tenant
   with no cell and no job, and the cell is ready (I0003-R017). Otherwise it
   rejects with `409 INVALID_STATE`, or `409 CELL_UNAVAILABLE` when only the
@@ -106,7 +107,10 @@ tenant, and holds `tenant_admin`.
   2. write the first administrator's membership into `cell.tenant_members`;
   3. run M0003's customer-tenant seed, creating the immutable `tenant_admin`
      role with grant `<CODE>::*::*::*`;
-  4. assign `tenant_admin` to the first administrator.
+  4. assign `tenant_admin` to the first administrator;
+  5. run M0005's directory seed: the default labels, the first administrator
+     as an employee with their login email as primary email, and their
+     `primary` tenant contact designation (M0005-R022).
 
   It must then read the rows back and confirm they match admin. A mismatch
   fails with `SEED_FAILED`; a seeded role whose grants differ fails with
@@ -168,6 +172,8 @@ M0001 admin-tenancy owns a new tenant job record, one per tenant:
 | `tenant_id`           | The tenant; unique                                |
 | `cell_id`             | Target cell chosen in `tenant-provision`          |
 | `admin_membership_id` | The first administrator's membership              |
+| `admin_first_name`    | The first administrator's first name (M0005-R021) |
+| `admin_last_name`     | The first administrator's last name (M0005-R021)  |
 | `stage`               | `assignment`, `seed`, `activation`, or `complete` |
 | `status`              | `queued`, `running`, `failed`, or `completed`     |
 | `attempts`            | Number of retries                                 |
@@ -184,10 +190,10 @@ The workflow also writes:
 The temporary password is stored only as M0001-03's password hash, never on
 the job.
 
-An active, ready customer membership no longer needs a `member_id`. The first
-administrator has no cell-side employee record until the Business Directory
-module links one, so `admin.portal_user_tenants`' check requires only that a
-ready customer membership is `active`.
+The first administrator's membership gets a generated `member_id` when it is
+created, and the seed stage creates the employee with that ID (M0005-R021,
+R022). An active, ready customer membership must have a `member_id`
+(M0005-R023).
 
 ## 10. API Requirements
 

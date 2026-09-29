@@ -9,6 +9,10 @@ import { createCellDatabase } from '../../infrastructure/runtime/cellDatabase.js
 import { COLLECTION_ENTITY } from '../../modules/admin-tenancy/domain/cache.js';
 import { enqueueTenantSnapshots } from '../sync/backfill.js';
 import {
+  directoryLabelsPresent,
+  seedDirectoryLabels,
+} from '../../modules/business-directory/seeds/tenantSeed.js';
+import {
   napsoftSeedPresent,
   seedNapsoft,
 } from '../../modules/access-control/seeds/napsoftSeed.js';
@@ -140,9 +144,13 @@ export async function runNapsoftTenantSetup(
           tx,
         });
         await seedNapsoft(handle.db, tx, seed);
+        // M0005-R017. The root membership has no employee record (R023).
+        await seedDirectoryLabels(handle.db, tx, tenant.id);
       });
-      const seeded = await handle.db.tx(tx =>
-        napsoftSeedPresent(handle.db, tx, seed)
+      const seeded = await handle.db.tx(
+        async tx =>
+          (await napsoftSeedPresent(handle.db, tx, seed)) &&
+          (await directoryLabelsPresent(handle.db, tx, tenant.id))
       );
       const [storedTenant, storedMember] = await Promise.all([
         handle.db.tenants.findOneBy(

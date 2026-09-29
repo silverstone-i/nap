@@ -96,7 +96,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
+          "member_type IS NULL OR member_type IN ('employee', 'contact', 'vendor_contact', 'client_contact')",
           "status IN ('pending', 'active', 'suspended')",
           'revision > 0',
         ],
@@ -180,7 +180,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "topic IN ('portal_access', 'role_change')",
+          "topic IN ('portal_access', 'role_change', 'directory_change')",
           "status IN ('pending', 'delivered', 'failed')",
           'revision > 0',
           'attempts >= 0',

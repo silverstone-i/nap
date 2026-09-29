@@ -178,7 +178,7 @@ enabled, temporaryPassword }`, and an optional `{ hashingPolicy }` that
   revision for that entity, and the request as the snapshot. The row commits
   or rolls back with the caller's change.
 - I0004-R021: `requestPortalAccess` must reject a `memberType` outside
-  `employee`, `client`, `vendor_contact`, `contact`, or an email that is not a
+  `employee`, `contact`, `vendor_contact`, `client_contact`, or an email that is not a
   valid address, with `INVALID_INPUT`, before inserting. When `enabled` is
   true, `temporaryPassword` is required and must pass
   `parseTemporaryPassword`; when false, it must be absent.

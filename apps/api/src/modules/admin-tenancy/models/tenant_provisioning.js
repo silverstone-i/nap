@@ -31,6 +31,19 @@ export const tenantProvisioningSchema = {
       notNull: true,
       immutable: true,
     },
+    // M0005-R021: the first administrator's name for the directory seed.
+    {
+      name: 'admin_first_name',
+      type: 'varchar(160)',
+      notNull: true,
+      immutable: true,
+    },
+    {
+      name: 'admin_last_name',
+      type: 'varchar(160)',
+      notNull: true,
+      immutable: true,
+    },
     { name: 'stage', type: 'text', notNull: true, default: 'assignment' },
     { name: 'status', type: 'text', notNull: true, default: 'queued' },
     { name: 'attempts', type: 'integer', notNull: true, default: 0 },

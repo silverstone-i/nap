@@ -5,6 +5,10 @@
 
 import { randomUUID } from 'node:crypto';
 import { applyPortalAccess } from '../../modules/admin-tenancy/domain/accounts.js';
+import {
+  EVENT_CATALOGUE,
+  parseDetails,
+} from '../../modules/admin-tenancy/domain/events.js';
 import { SyncFailure } from './engine.js';
 import { parseSnapshot } from './snapshots.js';
 
@@ -111,9 +115,73 @@ async function applyRoleChange(admin, row, snapshot, { tx }) {
   );
 }
 
+/** Managed-event target type for each directory event group. */
+const DIRECTORY_TARGETS = Object.freeze({
+  record: 'directory_record',
+  tax_id: 'directory_record',
+  contact_method: 'contact_method',
+  address: 'address',
+  label: 'contact_label',
+  tenant_contact: 'tenant_contact',
+});
+
+/**
+ * Whether a directory change names a catalogued event whose details that
+ * event accepts, so one bad row fails alone instead of aborting the batch.
+ * @param {object} snapshot Parsed `directory_change` payload.
+ * @returns {boolean}
+ */
+function directoryEventValid(snapshot) {
+  if (!Object.hasOwn(EVENT_CATALOGUE, snapshot.event_key)) return false;
+  try {
+    parseDetails(snapshot.event_key, {
+      ...snapshot.details,
+      changed_at: new Date(0).toISOString(),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Apply one `directory_change` row (M0005-R025): append its administrative
+ * event. The row's `entity_id` is the deduplication key, so a redelivery
+ * changes nothing.
+ * @param {object} admin Admin repository handle.
+ * @param {object} row
+ * @param {object} snapshot Parsed `directory_change` payload.
+ * @param {{tx: object}} options
+ * @returns {Promise<void>}
+ */
+async function applyDirectoryChange(admin, row, snapshot, { tx }) {
+  if (await admin.managed_events.hasDeduplicationKey(row.entity_id, { tx }))
+    return;
+  const group = snapshot.event_key.split('.')[1];
+  await admin.managed_events.append(
+    {
+      deduplication_key: row.entity_id,
+      event_key: snapshot.event_key,
+      outcome: 'succeeded',
+      request_id: snapshot.request_id,
+      actor_id: snapshot.actor_id,
+      tenant_id: snapshot.tenant_id,
+      session_id: snapshot.session_id,
+      target_type: DIRECTORY_TARGETS[group] ?? 'directory_record',
+      target_id: snapshot.record_id,
+      details: {
+        ...snapshot.details,
+        changed_at: new Date(row.created_at).toISOString(),
+      },
+    },
+    { tx }
+  );
+}
+
 /**
  * Build the cell-to-admin apply step for one tenant's requests: portal
- * access (I0004-R024–R030) and role changes (M0003-R015). The tenant is the
+ * access (I0004-R024–R030), role changes (M0003-R015), and directory
+ * changes (M0005-R025). The tenant is the
  * source row's, and it must be one the source cell holds; a payload naming
  * another tenant fails that row.
  * @param {{admin: object, cellId: string, tenantId: string}} options
@@ -163,6 +231,15 @@ export function cellToAdmin({ admin, cellId, tenantId }) {
         }
         if (row.topic === 'role_change') {
           await applyRoleChange(admin, row, snapshot, { tx });
+          delivered.push(row.id);
+          continue;
+        }
+        if (row.topic === 'directory_change') {
+          if (!directoryEventValid(snapshot)) {
+            await fail(row, 'INVALID_PAYLOAD');
+            continue;
+          }
+          await applyDirectoryChange(admin, row, snapshot, { tx });
           delivered.push(row.id);
           continue;
         }

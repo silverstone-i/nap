@@ -161,6 +161,46 @@ function authenticationConfiguration(env, suffix, sessionSecret) {
 }
 
 /**
+ * Resolve the tax ID keys (M0005-R011).
+ *
+ * `TAX_ID_ENCRYPTION_KEY_<ENV>` is base64 for exactly 32 random bytes, the
+ * AES-256-GCM key. `TAX_ID_HASH_KEY_<ENV>` keys the HMAC that makes tax IDs
+ * searchable; it must be at least 32 characters and differ from the session
+ * and throttle secrets, so a leak of one key exposes nothing keyed by
+ * another. Neither key rotates, and the API refuses to start without them.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @param {string[]} otherSecrets Secrets the hash key must not repeat.
+ * @returns {{encryptionKey: Buffer, hashKey: string}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
+ */
+function taxIdConfiguration(env, suffix, otherSecrets) {
+  const encryptionSetting = `TAX_ID_ENCRYPTION_KEY_${suffix}`;
+  const encoded = secret(env[encryptionSetting], encryptionSetting).trim();
+  requireCondition(
+    /^[A-Za-z0-9+/]+={0,2}$/.test(encoded),
+    'INVALID_CONFIGURATION',
+    encryptionSetting
+  );
+  const encryptionKey = Buffer.from(encoded, 'base64');
+  requireCondition(
+    encryptionKey.length === 32,
+    'INVALID_CONFIGURATION',
+    encryptionSetting
+  );
+  const hashSetting = `TAX_ID_HASH_KEY_${suffix}`;
+  const hashKey = secret(env[hashSetting], hashSetting);
+  requireCondition(
+    hashKey.length >= 32 &&
+      !otherSecrets.includes(hashKey) &&
+      hashKey !== encoded,
+    'INVALID_CONFIGURATION',
+    hashSetting
+  );
+  return { encryptionKey, hashKey };
+}
+
+/**
  * Resolve the public application origin used by browser request protection.
  *
  * It must be configured, never derived from `Host` or a forwarded header,
@@ -289,7 +329,7 @@ export function provisioningConfiguration(env, suffix, adminEntry) {
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, cells: Record<string, {endpoint: string, appPassword: string}>, provisioning: object | null, webRoot: string | undefined}} `admin` is the `nap-app` connection string; `provisioning` is `null` in `test`.
+ * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, taxIds: {encryptionKey: Buffer, hashKey: string}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, cells: Record<string, {endpoint: string, appPassword: string}>, provisioning: object | null, webRoot: string | undefined}} `admin` is the `nap-app` connection string; `provisioning` is `null` in `test`.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -336,6 +376,11 @@ export function runtimeConfiguration(env) {
   endpoint(entry.endpoint, `ADMIN_DATABASE_${suffix}`);
   secret(entry.appPassword, `ADMIN_DATABASE_${suffix}`);
   const session = sessionConfiguration(env, suffix);
+  const authentication = authenticationConfiguration(
+    env,
+    suffix,
+    session.secret
+  );
   return {
     port,
     trustProxyHops,
@@ -343,7 +388,11 @@ export function runtimeConfiguration(env) {
     admin: roleUrl(entry.endpoint, 'nap-app', entry.appPassword),
     cache: cacheConfiguration(env, suffix),
     session: session,
-    authentication: authenticationConfiguration(env, suffix, session.secret),
+    authentication,
+    taxIds: taxIdConfiguration(env, suffix, [
+      session.secret,
+      authentication.throttleSecret,
+    ]),
     cookie: cookieConfiguration(env, suffix),
     applicationOrigin: originConfiguration(env, suffix),
     cells: cellDatabasesConfiguration(env, suffix, entry.appPassword),

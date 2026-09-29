@@ -94,7 +94,7 @@ const idempotencyKeySchema = z.uuid();
  * No password or hash is stored on the event.
  * @param {object} db
  * @param {string} key
- * @param {{tenant: string, cell: string, email: string, password: unknown}} request
+ * @param {{tenant: string, cell: string, email: string, password: unknown, firstName: string, lastName: string}} request
  * @param {{tx?: object}} [options] Reads run on `tx` when called inside a transaction.
  * @returns {Promise<object|null>} The tenant's job view, or null.
  * @throws {AdminControlError} `IDEMPOTENCY_CONFLICT`
@@ -121,6 +121,11 @@ async function resolveReplay(db, key, request, { tx } = {}) {
     { tx }
   );
   if (!job) return null;
+  if (
+    job.admin_first_name !== request.firstName ||
+    job.admin_last_name !== request.lastName
+  )
+    throw new AdminControlError('IDEMPOTENCY_CONFLICT');
   if (details.login_created) {
     const membership = await db.portal_user_tenants.findOneBy(
       { id: job.admin_membership_id },
@@ -149,7 +154,7 @@ async function resolveReplay(db, key, request, { tx } = {}) {
  * administrator's login and membership (I0006-R001–R003).
  * @param {object} db Admin repository handle.
  * @param {unknown} authority
- * @param {{tenant: string, cell: string, admin: {email: string, password: string}}} command Validated command.
+ * @param {{tenant: string, cell: string, admin: {email: string, password: string, firstName: string, lastName: string}}} command Validated command.
  * @param {unknown} idempotencyKeyHeader
  * @param {{requestId?: string|null, runtime?: {readiness: (id: string) => {ready: boolean}}, hashingPolicy?: unknown}} [context]
  * @returns {Promise<object>} Job view.
@@ -174,6 +179,8 @@ export async function provisionTenant(
     cell: command.cell,
     email,
     password: command.admin.password,
+    firstName: command.admin.firstName,
+    lastName: command.admin.lastName,
   };
   return withControlErrors(async () => {
     const replay = await resolveReplay(db, key.data, request);
@@ -215,6 +222,8 @@ export async function provisionTenant(
           tenant_id: tenant.id,
           cell_id: cell.id,
           admin_membership_id: membership.id,
+          admin_first_name: command.admin.firstName,
+          admin_last_name: command.admin.lastName,
           created_by: granted.actorId,
         },
         { tx }

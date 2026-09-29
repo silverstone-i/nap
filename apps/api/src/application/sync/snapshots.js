@@ -5,7 +5,12 @@
 
 import { z } from 'zod';
 
-const MEMBER_TYPE = z.enum(['employee', 'client', 'vendor_contact', 'contact']);
+const MEMBER_TYPE = z.enum([
+  'employee',
+  'contact',
+  'vendor_contact',
+  'client_contact',
+]);
 const TIMESTAMP = z.union([z.string(), z.date()]).nullable();
 
 /** Snapshot shape per topic (I0004-R013, R023). Extra fields are rejected. */
@@ -61,6 +66,17 @@ const SNAPSHOTS = Object.freeze({
       'role.revoked',
     ]),
     role_id: z.uuid(),
+    actor_id: z.uuid(),
+    session_id: z.uuid().nullable(),
+    request_id: z.uuid().nullable(),
+    details: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
+  }),
+  // M0005-R025: one directory change. The event key and `details` are
+  // checked against the event catalogue before the event is appended.
+  directory_change: z.strictObject({
+    tenant_id: z.uuid(),
+    event_key: z.string().regex(/^directory\.[a-z_]+\.[a-z_]+$/),
+    record_id: z.uuid(),
     actor_id: z.uuid(),
     session_id: z.uuid().nullable(),
     request_id: z.uuid().nullable(),

@@ -10,6 +10,21 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Business directory (M0005): employees, contacts, vendors, clients, and their contacts, each with emails, phones, and addresses under tenant-defined labels, plus the tenant's primary and billing contacts. Routes are under `/api/business-directory/v1`, and the web app adds an **Organization Setup** group (People, Vendors & Clients, Tenant Contacts, Labels). A home buyer client takes its primary tax ID from one flagged buyer. The last primary tenant contact cannot be removed.
+- Tax IDs are encrypted with AES-256-GCM and stored with a keyed hash for search and the last four digits for display. Reading a full tax ID needs `business-directory::tax-ids::read` and is recorded; setting one needs `business-directory::tax-ids::write`. The API now requires `TAX_ID_ENCRYPTION_KEY_<ENV>` (base64 of 32 bytes) and `TAX_ID_HASH_KEY_<ENV>` (at least 32 characters, different from other secrets) and will not start without them. Neither key rotates, so keep both safe.
+- Directory changes reach admin as `directory.*` administrative events through the cell outbox; tax IDs appear only as their last four digits.
+- Provisioning a tenant now asks for the first administrator's first and last name and creates them as an employee, with their login email as primary email, as the tenant's first primary contact, and with the default labels. Napsoft setup seeds the default labels; the root login keeps no employee record.
+
+### Changed
+
+- `business-directory` is a foundation module: every tenant can use it, and it is no longer an optional entitlement.
+- Member type `client` is now `client_contact`, since a client's portal user is its buyer or contact. An active, ready membership with a member type must have a `member_id`.
+- The `app` schema verifier checks every `app` module's tables, not only access control's.
+- The admin, cell-tenancy, and new business-directory migrations are edited in place, so recreate existing databases.
+- Docs: M0005 is Implemented; roadmap item 13 is Complete; I0003, I0004, I0006, M0001-00-01, M0001-08, M0001-10, and M0002-01 are updated to match.
+
 ## [v0.23.0] - 2026-09-29
 
 ### Added

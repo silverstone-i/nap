@@ -380,3 +380,112 @@ export const currencySchema = z.strictObject({
   name: z.string().min(1),
   minorUnit: z.number().int().min(0).max(4),
 });
+
+// Business directory (M0005 §10). A tax ID only ever travels as its last
+// four digits, except from the reveal route (M0005-R012).
+const directoryRecordBase = {
+  id: z.uuid(),
+  taxIdLast4: z
+    .string()
+    .regex(/^[0-9]{4}$/)
+    .nullable(),
+  archived: z.boolean(),
+  revision: z.number().int().positive(),
+  primaryEmail: z.string().nullable(),
+  primaryPhone: z.string().nullable(),
+  duplicateTaxIds: z.array(z.uuid()).optional(),
+};
+
+/** Zod schema for an employee or contact (M0005-R002). */
+export const personViewSchema = z.strictObject({
+  ...directoryRecordBase,
+  kind: z.enum(['employee', 'contact']),
+  firstName: z.string(),
+  lastName: z.string(),
+  isPortalUser: z.boolean(),
+});
+
+/** Zod schema for a vendor or client (M0005-R003). */
+export const organizationViewSchema = z.strictObject({
+  ...directoryRecordBase,
+  kind: z.enum(['vendor', 'client']),
+  legalName: z.string(),
+  dbaName: z.string().nullable(),
+});
+
+/** Zod schema for a vendor or client contact (M0005-R004). */
+export const organizationContactViewSchema = z.strictObject({
+  ...directoryRecordBase,
+  kind: z.enum(['vendor_contact', 'client_contact']),
+  organizationId: z.uuid(),
+  fullName: z.string(),
+  isPortalUser: z.boolean(),
+  isPrimaryTaxContact: z.boolean(),
+});
+
+/** Zod schema for one email or phone (M0005-R014). */
+export const contactMethodViewSchema = z.strictObject({
+  id: z.uuid(),
+  partyId: z.uuid(),
+  type: z.enum(['email', 'phone']),
+  value: z.string(),
+  labelId: z.uuid().nullable(),
+  isPrimary: z.boolean(),
+  archived: z.boolean(),
+  revision: z.number().int().positive(),
+});
+
+/** Zod schema for one address (M0005-R015). */
+export const addressViewSchema = z.strictObject({
+  id: z.uuid(),
+  partyId: z.uuid(),
+  line1: z.string(),
+  line2: z.string().nullable(),
+  city: z.string(),
+  region: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  country: z.string().regex(/^[A-Z]{2}$/),
+  labelId: z.uuid().nullable(),
+  isPrimary: z.boolean(),
+  archived: z.boolean(),
+  revision: z.number().int().positive(),
+});
+
+const recordDetail = {
+  contactMethods: z.array(contactMethodViewSchema),
+  addresses: z.array(addressViewSchema),
+};
+
+/** Zod schema for a person with their details; an employee adds designations. */
+export const personDetailSchema = personViewSchema.extend({
+  ...recordDetail,
+  designations: z.array(z.enum(['primary', 'billing'])).optional(),
+});
+
+/** Zod schema for an organization with its details and contacts. */
+export const organizationDetailSchema = organizationViewSchema.extend({
+  ...recordDetail,
+  contacts: z.array(organizationContactViewSchema),
+});
+
+/** Zod schema for an organization contact with its details. */
+export const organizationContactDetailSchema =
+  organizationContactViewSchema.extend(recordDetail);
+
+/** Zod schema for one label (M0005-R017). */
+export const contactLabelViewSchema = z.strictObject({
+  id: z.uuid(),
+  appliesTo: z.enum(['email', 'phone', 'address']),
+  name: z.string(),
+  archived: z.boolean(),
+  revision: z.number().int().positive(),
+});
+
+/** Zod schema for one tenant contact designation (M0005-R018). */
+export const tenantContactViewSchema = z.strictObject({
+  partyId: z.uuid(),
+  designation: z.enum(['primary', 'billing']),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  primaryEmail: z.string().nullable(),
+});

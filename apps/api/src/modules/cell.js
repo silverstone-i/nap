@@ -7,6 +7,7 @@ import { TableModel } from 'pg-schemata';
 import { descriptor as cellTenancy } from './cell-tenancy/descriptor.js';
 import { descriptor as accessControl } from './access-control/descriptor.js';
 import { descriptor as referenceData } from './reference-data/descriptor.js';
+import { descriptor as businessDirectory } from './business-directory/descriptor.js';
 import { requireCondition } from '../application/shared/errors.js';
 import { parseDeclarations } from './access-control/domain/capabilities.js';
 
@@ -18,8 +19,17 @@ export const cellSchemas = Object.freeze([
   'reporting',
 ]);
 
-/** Cell database module registry, kept separate from the admin registry. */
-export const cellModules = [cellTenancy, referenceData, accessControl];
+/**
+ * Cell database module registry, kept separate from the admin registry.
+ * Within a schema, modules migrate in this order, so `access-control` (which
+ * creates `app.protect_record()`) precedes `business-directory`.
+ */
+export const cellModules = [
+  cellTenancy,
+  referenceData,
+  accessControl,
+  businessDirectory,
+];
 
 /**
  * Validate the cell module registry before any database connection opens.

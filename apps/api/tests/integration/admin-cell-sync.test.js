@@ -423,7 +423,7 @@ describe('admin-cell sync (I0004)', () => {
   it('AC02: granting and withdrawing an entitlement reach the cell', async () => {
     const row = await db.module_entitlements.insert({
       tenant_id: napsoftId,
-      module: 'business-directory',
+      module: 'companies',
       enabled: true,
     });
     await drain();
@@ -470,7 +470,7 @@ describe('admin-cell sync (I0004)', () => {
           {
             tenantId: napsoftId,
             memberId: id,
-            memberType: 'client',
+            memberType: 'client_contact',
             email: 'rollback@nap.test',
             enabled: false,
           },
@@ -538,7 +538,7 @@ describe('admin-cell sync (I0004)', () => {
       'entitlement',
       (
         await db.one(
-          `SELECT id FROM admin.module_entitlements WHERE module='business-directory'`
+          `SELECT id FROM admin.module_entitlements WHERE module='companies'`
         )
       ).id
     );

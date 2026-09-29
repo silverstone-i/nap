@@ -54,12 +54,15 @@ Control which optional product modules each tenant may use.
 - M0001-10-R003: Authorized callers must grant and withdraw optional module use idempotently.
 - M0001-10-R004: Central changes must commit without a cell connection or projection result.
 
-The optional catalogue is `business-directory`, `companies`, `catalog`,
-`projects`, `cost-codes`, `estimating`, `scheduling`, `project-costs`, `sales`,
-`contracts`, `accounting`, `accounts-payable`, and `accounts-receivable`.
+The optional catalogue is `companies`, `catalog`, `projects`, `cost-codes`,
+`estimating`, `scheduling`, `project-costs`, `sales`, `contracts`,
+`accounting`, `accounts-payable`, and `accounts-receivable`.
 
-`cell-tenancy`, `reference-data`, `access-control`, `tenant-settings`, and
-`reporting` are mandatory infrastructure modules and do not have entitlement rows.
+`cell-tenancy`, `reference-data`, `access-control`, `business-directory`,
+`tenant-settings`, and `reporting` are mandatory modules and do not have
+entitlement rows. `business-directory` is mandatory because tenant
+provisioning creates every tenant's first employee and primary contact
+(M0005-R022).
 
 ## 7. Business Rules And Invariants
 

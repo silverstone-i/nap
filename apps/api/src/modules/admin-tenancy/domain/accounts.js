@@ -24,9 +24,9 @@ import { COLLECTION_ENTITY } from './cache.js';
 /** Member types a membership or provisioning job may carry. */
 export const MEMBER_TYPES = Object.freeze([
   'employee',
-  'client',
-  'vendor_contact',
   'contact',
+  'vendor_contact',
+  'client_contact',
 ]);
 
 /** Business codes worth a recorded event when a mutation fails or is denied before completing. */
@@ -1617,6 +1617,7 @@ export async function createFirstAdministrator(
       portal_user_id: login.id,
       tenant_id: tenantId,
       member_type: 'employee',
+      member_id: randomUUID(),
       status: 'pending',
       ready: false,
     },

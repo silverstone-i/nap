@@ -151,7 +151,7 @@ soft delete.
 | `id`             | `uuid`    | Primary key; the `admin.portal_user_tenants` ID; immutable                     |
 | `tenant_id`      | `uuid`    | Not null, immutable; foreign key to `cell.tenants`                             |
 | `portal_user_id` | `uuid`    | Not null, immutable; no foreign key                                            |
-| `member_type`    | `text`    | Null or `employee`, `client`, `vendor_contact`, `contact`                      |
+| `member_type`    | `text`    | Null or `employee`, `contact`, `vendor_contact`, `client_contact`              |
 | `member_id`      | `uuid`    | The member's user record in this cell; no foreign key until that module exists |
 | `status`         | `text`    | Not null; `pending`, `active`, or `suspended`                                  |
 | `revision`       | `integer` | Not null, `> 0`                                                                |

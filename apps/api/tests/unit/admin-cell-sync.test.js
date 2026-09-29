@@ -43,7 +43,7 @@ describe('parseSnapshot (I0004-R013, R023)', () => {
     const base = {
       tenant_id: randomUUID(),
       member_id: randomUUID(),
-      member_type: 'client',
+      member_type: 'client_contact',
       email: 'a@nap.test',
       enabled: true,
       password_hash: '$argon2id$v=19$m=1,t=1,p=1$x$y',

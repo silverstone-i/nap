@@ -134,6 +134,8 @@ describe('TenantsPage', () => {
     await user.click(
       await screen.findByRole('option', { name: 'nap_dev_cell_a' })
     );
+    await user.type(within(dialog).getByLabelText(/First name/), 'Jane');
+    await user.type(within(dialog).getByLabelText(/Last name/), 'Doe');
     await user.type(
       within(dialog).getByLabelText(/Administrator email/),
       'admin@acme.test'
@@ -147,6 +149,8 @@ describe('TenantsPage', () => {
     expect(api.provisionTenant).toHaveBeenCalledWith({
       tenant: 't1',
       cell: 'c1',
+      firstName: 'Jane',
+      lastName: 'Doe',
       email: 'admin@acme.test',
       password: 'temporary',
     });

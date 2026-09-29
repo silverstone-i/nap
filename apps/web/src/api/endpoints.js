@@ -25,6 +25,16 @@ import {
   userRolesSchema,
   userResponseSchema,
   usersListResponseSchema,
+  personViewSchema,
+  personDetailSchema,
+  organizationViewSchema,
+  organizationDetailSchema,
+  organizationContactViewSchema,
+  organizationContactDetailSchema,
+  contactMethodViewSchema,
+  addressViewSchema,
+  contactLabelViewSchema,
+  tenantContactViewSchema,
 } from '@nap/shared';
 import { z } from 'zod';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client.js';
@@ -121,18 +131,25 @@ export async function createTenant(input) {
 
 /**
  * I0006-R001: queue a tenant's provisioning into a ready cell with its first
- * administrator.
- * @param {{tenant: string, cell: string, email: string, password: string}} input
+ * administrator. The name becomes their employee record (M0005-R021).
+ * @param {{tenant: string, cell: string, firstName: string, lastName: string, email: string, password: string}} input
  * @returns {Promise<object>} The queued tenant job.
  */
-export async function provisionTenant({ tenant, cell, email, password }) {
+export async function provisionTenant({
+  tenant,
+  cell,
+  firstName,
+  lastName,
+  email,
+  password,
+}) {
   return apiPost(
     `${BASE}/control/provision`,
     {
       operation: 'tenant-provision',
       tenant,
       cell,
-      admin: { email, password },
+      admin: { email, password, firstName, lastName },
     },
     { 'Idempotency-Key': crypto.randomUUID() }
   );
@@ -395,4 +412,281 @@ export function listCurrencies() {
 /** Forget cached lookup lists; for tests. */
 export function clearLookups() {
   lookups.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Business directory (M0005 §10). Every call is scoped server-side to the
+// session's selected tenant.
+// ---------------------------------------------------------------------------
+
+const DIRECTORY_BASE = '/api/business-directory/v1';
+
+/** View and detail schemas for each record collection. */
+const COLLECTION_SCHEMAS = {
+  people: { view: personViewSchema, detail: personDetailSchema },
+  organizations: {
+    view: organizationViewSchema,
+    detail: organizationDetailSchema,
+  },
+  'organization-contacts': {
+    view: organizationContactViewSchema,
+    detail: organizationContactDetailSchema,
+  },
+};
+
+/**
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {{kind?: string, q?: string, taxId?: string, organizationId?: string, includeArchived?: boolean}} [filters]
+ * @returns {Promise<object[]>} Matching records; tax IDs masked.
+ */
+export async function listDirectoryRecords(collection, filters = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters))
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== '' &&
+      value !== false
+    )
+      params.set(key, String(value));
+  const query = params.toString();
+  return z
+    .array(COLLECTION_SCHEMAS[collection].view)
+    .parse(
+      await apiGet(`${DIRECTORY_BASE}/${collection}${query ? `?${query}` : ''}`)
+    );
+}
+
+/**
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {string} id
+ * @returns {Promise<object>} The record with its emails, phones, and addresses.
+ */
+export async function getDirectoryRecord(collection, id) {
+  return COLLECTION_SCHEMAS[collection].detail.parse(
+    await apiGet(`${DIRECTORY_BASE}/${collection}/${id}`)
+  );
+}
+
+/**
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {object} input
+ * @returns {Promise<object>} The created record, with `duplicateTaxIds` when a tax ID was saved.
+ */
+export async function createDirectoryRecord(collection, input) {
+  return COLLECTION_SCHEMAS[collection].view.parse(
+    await apiPost(`${DIRECTORY_BASE}/${collection}`, input)
+  );
+}
+
+/**
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {string} id
+ * @param {object} input Changed fields and the expected `revision`.
+ * @returns {Promise<object>}
+ */
+export async function updateDirectoryRecord(collection, id, input) {
+  return COLLECTION_SCHEMAS[collection].view.parse(
+    await apiPatch(`${DIRECTORY_BASE}/${collection}/${id}`, input)
+  );
+}
+
+/**
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {string} id
+ * @param {number} revision
+ * @returns {Promise<object>}
+ */
+export async function archiveDirectoryRecord(collection, id, revision) {
+  return COLLECTION_SCHEMAS[collection].view.parse(
+    await apiPost(`${DIRECTORY_BASE}/${collection}/${id}/archive`, {
+      revision,
+    })
+  );
+}
+
+/**
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {string} id
+ * @param {number} revision
+ * @returns {Promise<object>}
+ */
+export async function restoreDirectoryRecord(collection, id, revision) {
+  return COLLECTION_SCHEMAS[collection].view.parse(
+    await apiPost(`${DIRECTORY_BASE}/${collection}/${id}/restore`, {
+      revision,
+    })
+  );
+}
+
+/**
+ * Reveal a full tax ID; the server records who read it (M0005-R012).
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {string} id
+ * @returns {Promise<string>} Nine digits.
+ */
+export async function revealTaxId(collection, id) {
+  return z
+    .strictObject({ taxId: z.string().regex(/^[0-9]{9}$/) })
+    .parse(await apiGet(`${DIRECTORY_BASE}/${collection}/${id}/tax-id`)).taxId;
+}
+
+/**
+ * @param {string} partyId
+ * @param {{type: 'email'|'phone', value: string, labelId?: string|null, isPrimary?: boolean}} input
+ * @returns {Promise<object>}
+ */
+export async function addContactMethod(partyId, input) {
+  return contactMethodViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/parties/${partyId}/contact-methods`, input)
+  );
+}
+
+/**
+ * @param {string} partyId
+ * @param {string} id
+ * @param {object} input Changed fields and the expected `revision`.
+ * @returns {Promise<object>}
+ */
+export async function updateContactMethod(partyId, id, input) {
+  return contactMethodViewSchema.parse(
+    await apiPatch(
+      `${DIRECTORY_BASE}/parties/${partyId}/contact-methods/${id}`,
+      input
+    )
+  );
+}
+
+/**
+ * @param {string} partyId
+ * @param {string} id
+ * @returns {Promise<object>}
+ */
+export async function removeContactMethod(partyId, id) {
+  return contactMethodViewSchema.parse(
+    await apiDelete(
+      `${DIRECTORY_BASE}/parties/${partyId}/contact-methods/${id}`
+    )
+  );
+}
+
+/**
+ * @param {string} partyId
+ * @param {object} input
+ * @returns {Promise<object>}
+ */
+export async function addAddress(partyId, input) {
+  return addressViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/parties/${partyId}/addresses`, input)
+  );
+}
+
+/**
+ * @param {string} partyId
+ * @param {string} id
+ * @param {object} input Changed fields and the expected `revision`.
+ * @returns {Promise<object>}
+ */
+export async function updateAddress(partyId, id, input) {
+  return addressViewSchema.parse(
+    await apiPatch(
+      `${DIRECTORY_BASE}/parties/${partyId}/addresses/${id}`,
+      input
+    )
+  );
+}
+
+/**
+ * @param {string} partyId
+ * @param {string} id
+ * @returns {Promise<object>}
+ */
+export async function removeAddress(partyId, id) {
+  return addressViewSchema.parse(
+    await apiDelete(`${DIRECTORY_BASE}/parties/${partyId}/addresses/${id}`)
+  );
+}
+
+/**
+ * @param {{appliesTo?: 'email'|'phone'|'address', includeArchived?: boolean}} [filters]
+ * @returns {Promise<object[]>}
+ */
+export async function listContactLabels({ appliesTo, includeArchived } = {}) {
+  const params = new URLSearchParams();
+  if (appliesTo) params.set('appliesTo', appliesTo);
+  if (includeArchived) params.set('includeArchived', 'true');
+  const query = params.toString();
+  return z
+    .array(contactLabelViewSchema)
+    .parse(await apiGet(`${DIRECTORY_BASE}/labels${query ? `?${query}` : ''}`));
+}
+
+/**
+ * @param {{appliesTo: 'email'|'phone'|'address', name: string}} input
+ * @returns {Promise<object>}
+ */
+export async function createContactLabel(input) {
+  return contactLabelViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/labels`, input)
+  );
+}
+
+/**
+ * @param {string} id
+ * @param {{name: string, revision: number}} input
+ * @returns {Promise<object>}
+ */
+export async function renameContactLabel(id, input) {
+  return contactLabelViewSchema.parse(
+    await apiPatch(`${DIRECTORY_BASE}/labels/${id}`, input)
+  );
+}
+
+/**
+ * @param {string} id
+ * @param {number} revision
+ * @returns {Promise<object>}
+ */
+export async function archiveContactLabel(id, revision) {
+  return contactLabelViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/labels/${id}/archive`, { revision })
+  );
+}
+
+/**
+ * @param {string} id
+ * @param {number} revision
+ * @returns {Promise<object>}
+ */
+export async function restoreContactLabel(id, revision) {
+  return contactLabelViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/labels/${id}/restore`, { revision })
+  );
+}
+
+/** @returns {Promise<object[]>} The tenant's active primary and billing contacts. */
+export async function listTenantContacts() {
+  return z
+    .array(tenantContactViewSchema)
+    .parse(await apiGet(`${DIRECTORY_BASE}/tenant-contacts`));
+}
+
+/**
+ * @param {string} partyId An active employee.
+ * @param {'primary'|'billing'} designation
+ * @returns {Promise<void>}
+ */
+export async function addTenantContact(partyId, designation) {
+  await apiPut(`${DIRECTORY_BASE}/tenant-contacts/${partyId}/${designation}`);
+}
+
+/**
+ * @param {string} partyId
+ * @param {'primary'|'billing'} designation
+ * @returns {Promise<void>}
+ */
+export async function removeTenantContact(partyId, designation) {
+  await apiDelete(
+    `${DIRECTORY_BASE}/tenant-contacts/${partyId}/${designation}`
+  );
 }

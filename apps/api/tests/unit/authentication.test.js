@@ -797,6 +797,8 @@ describe('authentication configuration', () => {
     NAP_APP_PSWD_TEST: 'runtime-secret',
     SESSION_SECRET_TEST: 'test-session-secret-of-ample-length-here',
     AUTH_THROTTLE_SECRET_TEST: 'test-throttle-secret-of-ample-length-here',
+    TAX_ID_ENCRYPTION_KEY_TEST: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
+    TAX_ID_HASH_KEY_TEST: 'test-tax-id-hash-key-of-ample-length',
     APP_ORIGIN_TEST: 'http://localhost:5173',
   };
 

@@ -340,6 +340,18 @@ it('allows eligible reassignment and blocks provisioned or archived-membership a
       [user.id, other.id]
     )
   ).rejects.toMatchObject({ code: '23514' });
+  await expect(
+    db.none(
+      "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready) VALUES($1,$2,'employee','active',true)",
+      [user.id, other.id]
+    )
+  ).rejects.toMatchObject({ code: '23514' });
+  await expect(
+    db.none(
+      "INSERT INTO admin.portal_user_tenants(portal_user_id,tenant_id,member_type,status,ready) VALUES($1,$2,'client','pending',false)",
+      [user.id, other.id]
+    )
+  ).rejects.toMatchObject({ code: '23514' });
   const archivedMembership = await db.portal_user_tenants.insert({
     portal_user_id: user.id,
     tenant_id: other.id,
