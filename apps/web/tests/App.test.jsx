@@ -4,6 +4,7 @@
  */
 
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { App } from '../src/App.jsx';
@@ -131,4 +132,42 @@ it('sends a tenant-only user with no selection to tenant selection', async () =>
   expect(
     await screen.findByRole('heading', { name: 'Choose a tenant' })
   ).toBeTruthy();
+});
+
+it('leaves /password for the destination after a required change (I0001-R002)', async () => {
+  api.getAccessContext.mockRejectedValueOnce(
+    new ApiError('PASSWORD_CHANGE_REQUIRED', 403)
+  );
+  renderAt('/password');
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText(/Current password/, { selector: 'input' }),
+    'temporary-password'
+  );
+  await user.type(
+    screen.getByLabelText(/New password/, { selector: 'input' }),
+    'a-new-long-password'
+  );
+  api.changePassword.mockResolvedValue(undefined);
+  // A real reload takes a network round trip, so the loading state renders.
+  api.getAccessContext.mockImplementation(
+    () =>
+      new Promise(resolve =>
+        setTimeout(
+          () =>
+            resolve({
+              session: { restricted: false },
+              user: { id: 'u1', email: 'root@example.com' },
+              selectedTenant: null,
+              operator: napsoft,
+              entryPoints: { tenant: false },
+            }),
+          20
+        )
+      )
+  );
+  api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
+  await user.click(screen.getByRole('button', { name: 'Change password' }));
+  expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Change password' })).toBeNull();
 });

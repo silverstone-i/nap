@@ -18,6 +18,10 @@ when a pull request with a release label merges into `main`.
 
 - Docs: M0004 is Accepted; roadmap item 11 links it.
 
+### Fixed
+
+- After a required password change, the web app now leaves the Change password page for the user's destination instead of showing the empty form again (I0001-R002).
+
 ## [v0.21.1] - 2026-09-29
 
 ### Fixed
