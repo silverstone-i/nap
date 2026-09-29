@@ -23,7 +23,7 @@ when a pull request with a release label merges into `main`.
 - Member type `client` is now `client_contact`, since a client's portal user is its buyer or contact. An active, ready membership with a member type must have a `member_id`.
 - The `app` schema verifier checks every `app` module's tables, not only access control's.
 - The admin, cell-tenancy, and new business-directory migrations are edited in place, so recreate existing databases.
-- Docs: M0005 is Accepted; I0006, I0004, M0001-00-01, M0001-08, M0001-10, and M0002-01 are updated to match.
+- Docs: M0005 is Implemented; roadmap item 13 is Complete; I0003, I0004, I0006, M0001-00-01, M0001-08, M0001-10, and M0002-01 are updated to match.
 
 ## [v0.23.0] - 2026-09-29
 
