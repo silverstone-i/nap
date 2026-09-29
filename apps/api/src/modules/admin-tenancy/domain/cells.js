@@ -413,10 +413,164 @@ export async function activateCell(
   );
 }
 
+/**
+ * A cell's reference-seed state (I0007-R010), from its job and the runtime
+ * cell registry's readiness.
+ * @param {{requested_action: string, status: string}|null|undefined} operation
+ * @param {{ready: boolean, reason?: string}|undefined} readiness
+ * @returns {'current'|'missing'|'queued'|'running'|'failed'|'unknown'}
+ */
+export function seedStateOf(operation, readiness) {
+  if (
+    operation?.requested_action === 'seed' &&
+    operation.status !== 'completed'
+  )
+    return operation.status;
+  if (readiness?.ready) return 'current';
+  if (readiness?.reason === 'SEED_MISSING' && operation?.status === 'completed')
+    return 'missing';
+  return 'unknown';
+}
+
+/**
+ * Queue a `seed` job on one locked cell (I0007-R006, R016). A job already
+ * `queued` or `running` is returned unchanged with `alreadyQueued`.
+ * @param {AdminCellsDb} db
+ * @param {{actorId: string}} granted
+ * @param {string} id
+ * @param {{readiness: Function, seedVersion?: number}|undefined} runtime
+ * @param {string|null} requestId
+ * @returns {Promise<{operation: object, alreadyQueued: boolean}>}
+ * @throws {AdminControlError} `NOT_FOUND`, `INVALID_STATE`
+ */
+function queueSeed(db, granted, id, runtime, requestId) {
+  return db.tx(async tx => {
+    const operation = await db.cell_provisioning.lockByCellId(id, { tx });
+    if (!operation) throw new AdminControlError('NOT_FOUND');
+    if (operation.status === 'queued' || operation.status === 'running')
+      return { operation: operationView(operation), alreadyQueued: true };
+    if (seedStateOf(operation, runtime?.readiness(id)) !== 'missing')
+      throw new AdminControlError('INVALID_STATE');
+    const updated = await db.cell_provisioning.update(
+      operation.id,
+      {
+        requested_action: 'seed',
+        stage: 'seed',
+        status: 'queued',
+        failure_code: null,
+        started_at: null,
+        completed_at: null,
+      },
+      { tx }
+    );
+    // I0007-R008.
+    await appendCellEvent(
+      db,
+      {
+        event_key: 'cell.seed.requested',
+        outcome: 'succeeded',
+        request_id: requestId,
+        actor_id: granted.actorId,
+        target_id: id,
+        details: { seed_version: runtime?.seedVersion ?? null },
+      },
+      tx
+    );
+    return { operation: operationView(updated), alreadyQueued: false };
+  });
+}
+
+/**
+ * Queue a `seed` job that loads the declared reference seed into one
+ * existing cell (I0007-R006).
+ * @param {AdminCellsDb} db
+ * @param {unknown} authority
+ * @param {unknown} cellId
+ * @param {{requestId?: string|null, runtime?: object}} [context]
+ * @returns {Promise<object>} Safe operation view.
+ * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function seedCell(
+  db,
+  authority,
+  cellId,
+  { requestId = null, runtime } = {}
+) {
+  const granted = requireGranted(authority);
+  const id = parseUuidOrControl(cellId);
+  return withControlErrors(async () => {
+    const { operation } = await queueSeed(db, granted, id, runtime, requestId);
+    return operation;
+  });
+}
+
+/**
+ * Queue a `seed` job for every eligible cell, each in its own transaction
+ * (I0007-R007, R008). One cell's failure does not stop the others.
+ * @param {AdminCellsDb} db
+ * @param {unknown} authority
+ * @param {{requestId?: string|null, runtime?: object}} [context]
+ * @returns {Promise<{declaredVersion: number|null, queued: string[], skipped: {cell: string, reason: string}[]}>}
+ * @throws {AdminControlError} `FORBIDDEN`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function rolloutReferenceData(
+  db,
+  authority,
+  { requestId = null, runtime } = {}
+) {
+  const granted = requireGranted(authority);
+  return withControlErrors(async () => {
+    const states = await db.cell_provisioning.listStates();
+    const candidates = states
+      .filter(row => runtime?.readiness(row.cell_id)?.reason === 'SEED_MISSING')
+      .map(row => row.cell_id);
+    const queued = [];
+    const skipped = [];
+    for (const cell of candidates) {
+      try {
+        const { alreadyQueued } = await queueSeed(
+          db,
+          granted,
+          cell,
+          runtime,
+          requestId
+        );
+        if (alreadyQueued) skipped.push({ cell, reason: 'ALREADY_QUEUED' });
+        else queued.push(cell);
+      } catch (error) {
+        skipped.push({ cell, reason: error?.code ?? 'INTERNAL_ERROR' });
+      }
+    }
+    const declaredVersion = runtime?.seedVersion ?? null;
+    await db.tx(tx =>
+      db.managed_events.append(
+        {
+          deduplication_key: randomUUID(),
+          target_type: 'reference-seed',
+          event_key: 'reference.rollout.requested',
+          outcome: 'succeeded',
+          request_id: requestId,
+          actor_id: granted.actorId,
+          target_id: null,
+          details: {
+            seed_version: declaredVersion,
+            queued: queued.length,
+            skipped: skipped.length,
+          },
+        },
+        { tx }
+      )
+    );
+    return { declaredVersion, queued, skipped };
+  });
+}
+
 const provisionCommandSchema = z.discriminatedUnion('operation', [
   z.strictObject({ operation: z.literal('cell-retry'), cell: z.uuid() }),
   z.strictObject({ operation: z.literal('cell-disable'), cell: z.uuid() }),
   z.strictObject({ operation: z.literal('cell-activate'), cell: z.uuid() }),
+  z.strictObject({ operation: z.literal('cell-seed'), cell: z.uuid() }),
+  z.strictObject({ operation: z.literal('reference-rollout') }),
   z.strictObject({
     operation: z.literal('tenant-provision'),
     tenant: z.uuid(),
@@ -458,16 +612,21 @@ export async function executeProvisionCommand(
     return retryCellProvisioning(db, authority, command.cell, { requestId });
   if (command.operation === 'cell-activate')
     return activateCell(db, authority, command.cell, { requestId });
+  if (command.operation === 'cell-seed')
+    return seedCell(db, authority, command.cell, { requestId, runtime });
+  if (command.operation === 'reference-rollout')
+    return rolloutReferenceData(db, authority, { requestId, runtime });
   return disableCell(db, authority, command.cell, { requestId });
 }
 
 /**
  * Move a locked, queued operation to `running` (I0003 §8).
  *
- * A `provision` job starts at `setup`; an `activate` job starts at
- * `activation`. Attempts are counted by retry, not here (M0001-06 §13). A job returned to
- * `queued` mid-stage by a stopped worker restarts from `setup`, because every
- * stage reuses work it already did.
+ * A `provision` job starts, and restarts after a stopped worker, at `setup`;
+ * an `activate` or `seed` job at its own first stage (`activation`, `seed`).
+ * Restarting is safe because every stage reuses work it already did, and
+ * publishing and seeding are idempotent. Attempts are counted by retry, not
+ * here (M0001-06 §13).
  * @param {AdminCellsDb} db
  * @param {object} operation Row locked in `tx`.
  * @param {import('pg-promise').IDatabase<unknown>} tx
@@ -477,15 +636,18 @@ export async function executeProvisionCommand(
 async function startOperation(db, operation, tx) {
   if (operation.status !== 'queued')
     throw new AdminControlError('INVALID_STATE');
-  if (operation.requested_action === 'activate') {
-    if (operation.stage !== 'activation')
-      throw new AdminControlError('INVALID_STATE');
+  // An `activate` or `seed` job always restarts at its first stage, whether
+  // retried from `registered` (I0007-R005) or requeued mid-stage by a stopped
+  // worker: publishing and seeding are idempotent (I0007-R003, R018).
+  const first = { activate: 'activation', seed: 'seed' }[
+    operation.requested_action
+  ];
+  if (first)
     return db.cell_provisioning.update(
       operation.id,
-      { status: 'running', started_at: new Date() },
+      { stage: first, status: 'running', started_at: new Date() },
       { tx }
     );
-  }
   return db.cell_provisioning.update(
     operation.id,
     { stage: 'setup', status: 'running', started_at: new Date() },
@@ -583,6 +745,10 @@ export async function advanceCellProvisioning(
           { status: 'failed', failure_code: parsed.failureCode },
           { tx }
         );
+        // I0007-R017: a `seed` job runs on an enabled cell; failure leaves
+        // it disabled like every other failed job (M0001-06-R006).
+        if (operation.requested_action === 'seed')
+          await db.cells.update(operation.cell_id, { enabled: false }, { tx });
         await appendCellEvent(
           db,
           {
@@ -732,6 +898,19 @@ export async function getOverview(
       : [];
     const anyActive = await db.cell_provisioning.hasActive();
     const byCellId = new Map(operations.map(row => [row.cell_id, row]));
+    // I0007-R009: counts cover every cell, not just this page.
+    const referenceSeed = {
+      declaredVersion: runtime?.seedVersion ?? null,
+      current: 0,
+      missing: 0,
+      queued: 0,
+      running: 0,
+      failed: 0,
+    };
+    for (const row of await db.cell_provisioning.listStates()) {
+      const state = seedStateOf(row, runtime?.readiness(row.cell_id));
+      if (state in referenceSeed) referenceSeed[state] += 1;
+    }
     return {
       rows: page.rows.map(row => ({
         cell: cellView(row),
@@ -740,9 +919,14 @@ export async function getOverview(
           : null,
         // I0006-R010: the Tenants screen offers only ready cells.
         ready: Boolean(runtime?.readiness(row.id)?.ready),
+        seedState: seedStateOf(
+          byCellId.get(row.id),
+          runtime?.readiness(row.id)
+        ),
       })),
       nextCursor: encodeCellCursor(page.nextCursor),
       anyActive,
+      referenceSeed,
     };
   });
 }

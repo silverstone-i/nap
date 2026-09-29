@@ -203,6 +203,7 @@ function fakeAdmin({ cells = [], operations = [], tenants = [] } = {}) {
       },
       findWhere: async ({ cell_id: { $in: ids } }) =>
         [...opStore.values()].filter(row => ids.includes(row.cell_id)),
+      listStates: async () => [...opStore.values()].map(row => ({ ...row })),
       hasActive: async () =>
         [...opStore.values()].some(row =>
           ['queued', 'running'].includes(row.status)
@@ -425,6 +426,7 @@ describe('control routes', () => {
         cell: expect.objectContaining({ id: cell.id }),
         operation: expect.objectContaining({ id: operation.id }),
         ready: false,
+        seedState: 'unknown',
       },
     ]);
     expect(overview.body.data.anyActive).toBe(true);
@@ -442,5 +444,168 @@ describe('control routes', () => {
       .get(`/api/admin-tenancy/v1/control/cell-readiness?cell=${randomUUID()}`)
       .set('Cookie', cookie);
     expect(missing.status).toBe(ERROR_STATUS.NOT_FOUND);
+  });
+
+  describe('reference-data rollout (I0007)', () => {
+    /**
+     * A registry fake reporting `SEED_MISSING` for the given cells and
+     * ready for the rest.
+     * @param {string[]} missing
+     * @returns {{seedVersion: number, readiness: Function}}
+     */
+    const runtimeFor = missing => ({
+      seedVersion: 2,
+      readiness: id =>
+        missing.includes(id)
+          ? { ready: false, reason: 'SEED_MISSING' }
+          : { ready: true },
+    });
+    const completed = cellId =>
+      operationRow(cellId, { stage: 'complete', status: 'completed' });
+    const post = (app, cookie, body) =>
+      request(app)
+        .post('/api/admin-tenancy/v1/control/provision')
+        .set('Origin', ORIGIN)
+        .set('Cookie', cookie)
+        .send(body);
+
+    it('queues a seed job for an eligible cell and records an event', async () => {
+      const cell = cellRow({ enabled: true });
+      const { app, admin, cookie } = api({
+        cells: [cell],
+        operations: [completed(cell.id)],
+        runtime: runtimeFor([cell.id]),
+      });
+      const response = await post(app, cookie, {
+        operation: 'cell-seed',
+        cell: cell.id,
+      });
+      expect(response.status).toBe(200);
+      expect(response.body.data).toMatchObject({
+        requested_action: 'seed',
+        stage: 'seed',
+        status: 'queued',
+      });
+      expect(admin.events).toContainEqual(
+        expect.objectContaining({
+          event_key: 'cell.seed.requested',
+          target_id: cell.id,
+          details: { seed_version: 2 },
+        })
+      );
+    });
+
+    it('refuses a ready cell and returns an already queued job unchanged', async () => {
+      const ready = cellRow({ enabled: true });
+      const busy = cellRow({ enabled: true });
+      const busyJob = operationRow(busy.id, {
+        requested_action: 'seed',
+        stage: 'seed',
+        status: 'running',
+      });
+      const { app, cookie } = api({
+        cells: [ready, busy],
+        operations: [completed(ready.id), busyJob],
+        runtime: runtimeFor([busy.id]),
+      });
+      const refused = await post(app, cookie, {
+        operation: 'cell-seed',
+        cell: ready.id,
+      });
+      expect(refused.status).toBe(ERROR_STATUS.INVALID_STATE);
+      const unchanged = await post(app, cookie, {
+        operation: 'cell-seed',
+        cell: busy.id,
+      });
+      expect(unchanged.status).toBe(200);
+      expect(unchanged.body.data).toMatchObject({
+        id: busyJob.id,
+        status: 'running',
+      });
+    });
+
+    it('rolls out to every eligible cell and skips queued ones', async () => {
+      const a = cellRow({ enabled: true });
+      const b = cellRow({ enabled: true });
+      const ready = cellRow({ enabled: true });
+      const { app, admin, cookie } = api({
+        cells: [a, b, ready],
+        operations: [completed(a.id), completed(b.id), completed(ready.id)],
+        runtime: runtimeFor([a.id, b.id]),
+      });
+      const first = await post(app, cookie, { operation: 'reference-rollout' });
+      expect(first.status).toBe(200);
+      expect(first.body.data.declaredVersion).toBe(2);
+      expect(first.body.data.queued.sort()).toEqual([a.id, b.id].sort());
+      expect(first.body.data.skipped).toEqual([]);
+      expect(admin.events).toContainEqual(
+        expect.objectContaining({
+          event_key: 'reference.rollout.requested',
+          details: { seed_version: 2, queued: 2, skipped: 0 },
+        })
+      );
+
+      const second = await post(app, cookie, {
+        operation: 'reference-rollout',
+      });
+      expect(second.body.data.queued).toEqual([]);
+      expect(second.body.data.skipped).toEqual(
+        expect.arrayContaining([
+          { cell: a.id, reason: 'ALREADY_QUEUED' },
+          { cell: b.id, reason: 'ALREADY_QUEUED' },
+        ])
+      );
+    });
+
+    it('reports seed state and counts in the overview', async () => {
+      const missing = cellRow({ enabled: true });
+      const ready = cellRow({ enabled: true });
+      const failed = cellRow();
+      const { app, cookie } = api({
+        cells: [missing, ready, failed],
+        operations: [
+          completed(missing.id),
+          completed(ready.id),
+          operationRow(failed.id, {
+            requested_action: 'seed',
+            stage: 'seed',
+            status: 'failed',
+            failure_code: 'SEED_FAILED',
+          }),
+        ],
+        runtime: runtimeFor([missing.id, failed.id]),
+      });
+      const overview = await request(app)
+        .get('/api/admin-tenancy/v1/control/overview')
+        .set('Cookie', cookie);
+      expect(overview.status).toBe(200);
+      expect(overview.body.data.referenceSeed).toEqual({
+        declaredVersion: 2,
+        current: 1,
+        missing: 1,
+        queued: 0,
+        running: 0,
+        failed: 1,
+      });
+      const states = Object.fromEntries(
+        overview.body.data.rows.map(row => [row.cell.id, row.seedState])
+      );
+      expect(states).toEqual({
+        [missing.id]: 'missing',
+        [ready.id]: 'current',
+        [failed.id]: 'failed',
+      });
+    });
+
+    it('denies both operations without control write', async () => {
+      const { app, cookie } = api({ root: false, runtime: runtimeFor([]) });
+      for (const body of [
+        { operation: 'cell-seed', cell: randomUUID() },
+        { operation: 'reference-rollout' },
+      ])
+        expect((await post(app, cookie, body)).status).toBe(
+          ERROR_STATUS.FORBIDDEN
+        );
+    });
   });
 });

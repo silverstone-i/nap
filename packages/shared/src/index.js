@@ -260,6 +260,16 @@ export const operationViewSchema = z.strictObject({
   updated_at: z.coerce.date(),
 });
 
+/** A cell's reference-seed state (I0007-R010). */
+export const seedStateSchema = z.enum([
+  'current',
+  'missing',
+  'queued',
+  'running',
+  'failed',
+  'unknown',
+]);
+
 /** Zod schema for the success envelope returned by `GET /control/overview`. */
 export const controlOverviewResponseSchema = z.strictObject({
   version: z.literal(transportVersion),
@@ -270,12 +280,30 @@ export const controlOverviewResponseSchema = z.strictObject({
         operation: operationViewSchema.nullable(),
         // I0006-R010: whether the runtime registry reports the cell ready.
         ready: z.boolean(),
+        // I0007-R010.
+        seedState: seedStateSchema,
       })
     ),
     nextCursor: z.string().nullable(),
     // I0003-R030: whether any job is queued or running on any page.
     anyActive: z.boolean(),
+    // I0007-R009: reference-seed counts across every cell.
+    referenceSeed: z.strictObject({
+      declaredVersion: z.number().nullable(),
+      current: z.number(),
+      missing: z.number(),
+      queued: z.number(),
+      running: z.number(),
+      failed: z.number(),
+    }),
   }),
+});
+
+/** Zod schema for `reference-rollout` data (I0007-R007). */
+export const referenceRolloutSchema = z.strictObject({
+  declaredVersion: z.number().nullable(),
+  queued: z.array(z.uuid()),
+  skipped: z.array(z.strictObject({ cell: z.uuid(), reason: z.string() })),
 });
 
 const capabilityTenantSchema = z.strictObject({

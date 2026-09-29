@@ -152,9 +152,10 @@ The customer-tenant seed (`tenant_admin`) runs with tenant provisioning.
 
 Changing the reference seed version requires a seed rollout for existing cells.
 New cells receive the required seed version during provisioning. Existing cells
-require an explicit operator workflow before that version can be treated as
-deployed everywhere. The requirements for that bulk rollout belong in a
-separate operator-workflow specification.
+are not ready (`SEED_MISSING`) until an operator loads the new version from
+the Cells screen, or runs `npm run db:seed:rollout -- --env <env>` when no
+operator can reach it. See
+[I0007: Reference-Data Rollout](../PRDs/inter-module-workflows/I0007-reference-data-rollout.md).
 
 ## Rules
 

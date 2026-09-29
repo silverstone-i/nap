@@ -130,7 +130,7 @@ it('rolls back failed migrations and refuses checksum changes', async () => {
   ).toBeNull();
   expect(
     Number((await db.one('SELECT count(*) FROM admin.schema_migrations')).count)
-  ).toBe(1);
+  ).toBe(adminModules[0].migrations.length);
   const changed = defineMigration({
     id: '001-admin-tenancy',
     up: async () => {},

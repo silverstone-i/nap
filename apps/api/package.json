@@ -13,6 +13,7 @@
     "db:migrate:admin": "node src/scripts/migrate-admin.js",
     "db:bootstrap": "node src/scripts/bootstrap-admin.js",
     "db:provision:napsoft": "node src/scripts/provision-napsoft.js",
+    "db:seed:rollout": "node src/scripts/seed-rollout.js",
     "test:db": "vitest run --config vitest.db.config.js"
   },
   "dependencies": {

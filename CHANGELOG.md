@@ -10,6 +10,20 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Reference-data rollout (I0007): operators can load a new reference seed version into existing cells from the Cells screen (**Roll out reference data** for all cells, **Load reference data** for one), see per-cell seed state and counts, and retry failures. `npm run db:seed:rollout -- --env <env>` does the same without the API, for when the Napsoft cell itself is missing the seed.
+- Admin migration `002-cell-seed-action` allows `seed` provisioning jobs. Run `npm run db:migrate:admin` before starting the API.
+
+### Changed
+
+- A failed `seed` job disables its cell, like other failed provisioning jobs.
+- Docs: I0007 is Implemented; roadmap item 12 is Complete; `migrations.md` links the rollout.
+
+### Fixed
+
+- Retrying a failed `activate` job now starts it; before, the worker rejected it with `INVALID_STATE`.
+
 ## [v0.22.0] - 2026-09-29
 
 ### Added
