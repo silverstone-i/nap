@@ -9,6 +9,10 @@ import {
   customerSeedPresent,
   seedCustomerTenant,
 } from '../../modules/access-control/seeds/customerSeed.js';
+import {
+  directorySeedPresent,
+  seedDirectoryTenant,
+} from '../../modules/business-directory/seeds/tenantSeed.js';
 import { enqueueTenantSnapshots } from '../sync/backfill.js';
 import { StageError, stage, withCellAdmin } from './stages.js';
 
@@ -96,9 +100,10 @@ export function createTenantStages({
   }
 
   /**
-   * Seed (I0006-R007): write the tenant and the first administrator's
-   * membership into the cell with admin's current revisions, run the
-   * customer-tenant seed, then read everything back.
+   * Seed (I0006-R007, M0005-R022): write the tenant and the first
+   * administrator's membership into the cell with admin's current
+   * revisions, run the customer-tenant role seed and the directory seed,
+   * then read everything back.
    */
   async function seed(job) {
     return stage('SEED_FAILED', async () => {
@@ -115,13 +120,28 @@ export function createTenantStages({
         { id: job.cell_id },
         { columnWhitelist: ['id', 'database_name'] }
       );
-      if (!tenant || !membership || !cell) throw new StageError('SEED_FAILED');
+      const login = membership
+        ? await db.portal_users.findOneBy(
+            { id: membership.portal_user_id },
+            { columnWhitelist: ['email'] }
+          )
+        : null;
+      if (!tenant || !membership?.member_id || !cell || !login)
+        throw new StageError('SEED_FAILED');
       const expectedTenant = pick(tenant, TENANT_COPY);
       const expectedMember = pick(membership, MEMBER_COPY);
       const seedInput = {
         tenantId: tenant.id,
         tenantCode: tenant.tenant_code,
         portalUserId: membership.portal_user_id,
+      };
+      // M0005-R022: the first administrator's employee record.
+      const directoryInput = {
+        tenantId: tenant.id,
+        partyId: membership.member_id,
+        firstName: job.admin_first_name,
+        lastName: job.admin_last_name,
+        email: login.email,
       };
       const target = await driver.connection({ cell });
       await withCellAdmin(
@@ -138,9 +158,12 @@ export function createTenantStages({
               { tx }
             );
             await seedCustomerTenant(handle.db, tx, seedInput);
+            await seedDirectoryTenant(handle.db, tx, directoryInput);
           });
-          const seeded = await handle.db.tx(tx =>
-            customerSeedPresent(handle.db, tx, seedInput)
+          const seeded = await handle.db.tx(
+            async tx =>
+              (await customerSeedPresent(handle.db, tx, seedInput)) &&
+              (await directorySeedPresent(handle.db, tx, directoryInput))
           );
           const [storedTenant, storedMember] = await Promise.all([
             handle.db.tenants.findOneBy(

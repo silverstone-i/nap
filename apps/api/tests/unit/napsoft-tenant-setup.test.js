@@ -17,6 +17,10 @@ vi.mock('../../src/modules/access-control/seeds/napsoftSeed.js', () => ({
   seedNapsoft: vi.fn(async () => {}),
   napsoftSeedPresent: vi.fn(async () => true),
 }));
+vi.mock('../../src/modules/business-directory/seeds/tenantSeed.js', () => ({
+  seedDirectoryLabels: vi.fn(async () => {}),
+  directoryLabelsPresent: vi.fn(async () => true),
+}));
 
 const CELL = '6f1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';
 const TENANT = '7a1b2c3d-4e5f-4a7b-8c9d-0e1f2a3b4c5d';

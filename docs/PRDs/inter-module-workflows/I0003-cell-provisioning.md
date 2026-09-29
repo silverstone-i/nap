@@ -132,7 +132,7 @@ maintenance command (I0003-R042), not through the API.
   1. set the Napsoft tenant's `cell_id` to the completed cell, in the transaction that completes the job;
   2. write the Napsoft tenant into the cell's `cell.tenants` (ID, code, status, revision);
   3. write the bootstrap login's Napsoft membership into `cell.tenant_members` (membership ID, tenant ID, `portal_user_id`, status, revision; `member_type` and `member_id` null);
-  4. run M0003's Napsoft seed: the `platform_admin`, `support`, and `tenant_admin` roles and the bootstrap login's `platform_admin` assignment;
+  4. run M0003's Napsoft seed: the `platform_admin`, `support`, and `tenant_admin` roles and the bootstrap login's `platform_admin` assignment, and M0005's default labels (the bootstrap login gets no employee record, M0005-R023);
   5. read the rows back and confirm they match admin;
   6. set the Napsoft tenant's `provisioned` and `rbac_ready` to true;
   7. record a managed event.

@@ -575,7 +575,13 @@ const provisionCommandSchema = z.discriminatedUnion('operation', [
     operation: z.literal('tenant-provision'),
     tenant: z.uuid(),
     cell: z.uuid(),
-    admin: z.strictObject({ email: z.string(), password: z.string() }),
+    admin: z.strictObject({
+      email: z.string(),
+      password: z.string(),
+      // M0005-R021: the administrator's name for their employee record.
+      firstName: z.string().trim().min(1).max(160),
+      lastName: z.string().trim().min(1).max(160),
+    }),
   }),
   z.strictObject({ operation: z.literal('tenant-retry'), tenant: z.uuid() }),
 ]);

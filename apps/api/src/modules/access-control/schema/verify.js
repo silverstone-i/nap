@@ -5,11 +5,9 @@
 
 import { TableModel } from 'pg-schemata';
 import { randomUUID } from 'node:crypto';
-import { repositories } from '../repositories.js';
 import { functionBodies, TENANT_POLICY_EXPRESSION } from './protections.js';
 import { requireCondition } from '../../../application/shared/errors.js';
-const order = ['roles', 'role_grants', 'role_assignments'];
-async function catalog(db, schema) {
+async function catalog(db, schema, order) {
   const columns = await db.any(
     `SELECT c.relname AS table, a.attname AS name, format_type(a.atttypid,a.atttypmod) AS type, a.attnotnull AS required, pg_get_expr(d.adbin,d.adrelid) AS value FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_attrdef d ON d.adrelid=c.oid AND d.adnum=a.attnum WHERE n.nspname=$1 AND c.relname=ANY($2) AND a.attnum>0 AND NOT a.attisdropped ORDER BY c.relname,a.attnum`,
     [schema, order]
@@ -28,11 +26,13 @@ async function catalog(db, schema) {
   );
 }
 /**
- * Verify that the connected cell database matches the `access-control`
- * contract.
+ * Verify that the connected cell database's `app` schema matches the
+ * contract of every registered `app` module (`access-control`,
+ * `business-directory`). `access-control` owns the schema-wide parts: the
+ * `protect_record()` function and the grant rules.
  *
  * Checks `app` schema ownership and grants, the table set, row-level
- * security enabled and forced on every role table with the single
+ * security enabled and forced on every module table with the single
  * `tenant_isolation` policy (M0002-01-R006), `nap-app` table privileges,
  * absence of PUBLIC access, the trigger function and triggers, and the
  * `app.schema_migrations` ledger. It then builds the runtime model
@@ -43,8 +43,14 @@ async function catalog(db, schema) {
  * @returns {Promise<void>}
  * @throws {MaintenanceError} A `*_CONTRACT_MISMATCH`, `TABLE_GRANT_MISMATCH`, or `PUBLIC_ACCESS` code naming the first failed check.
  */
-export async function verifyAccessControl(handle, modules) {
+export async function verifyAppSchema(handle, modules) {
   const { db, pgp } = handle;
+  // Every app module's models, in registry order so referenced tables come first.
+  const models = Object.assign(
+    {},
+    ...modules.filter(m => m.schema === 'app').map(m => m.models)
+  );
+  const order = Object.keys(models);
   const schema = await db.one(
     `SELECT pg_get_userbyid(nspowner) AS owner, has_schema_privilege('nap-app',oid,'USAGE') AS usage,has_schema_privilege('nap-app',oid,'CREATE') AS create FROM pg_namespace WHERE nspname='app'`
   );
@@ -117,7 +123,7 @@ export async function verifyAccessControl(handle, modules) {
     type: 19,
     enabled: 'O',
     function: 'protect_record',
-    args: repositories[table].schema.columns
+    args: models[table].schema.columns
       .filter(c => c.immutable)
       .map(c => c.name + '\\000')
       .join(''),
@@ -172,14 +178,15 @@ export async function verifyAccessControl(handle, modules) {
     await db.tx(async tx => {
       await tx.none('CREATE SCHEMA $1:name', [scratch]);
       for (const table of order) {
-        const definition = structuredClone(repositories[table].schema);
+        const definition = structuredClone(models[table].schema);
         definition.dbSchema = scratch;
         for (const fk of definition.constraints.foreignKeys ?? [])
-          fk.references.schema = scratch;
+          if (fk.references.schema === 'app') fk.references.schema = scratch;
         await new TableModel(tx, pgp, definition).createTable();
       }
       requireCondition(
-        (await catalog(tx, 'app')) === (await catalog(tx, scratch)),
+        (await catalog(tx, 'app', order)) ===
+          (await catalog(tx, scratch, order)),
         'CATALOG_CONTRACT_MISMATCH'
       );
       throw rollback;

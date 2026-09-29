@@ -5,6 +5,11 @@
 
 import { useLocation, useNavigate } from 'react-router';
 import BusinessIcon from '@mui/icons-material/Business';
+import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
+import LabelIcon from '@mui/icons-material/Label';
+import StoreIcon from '@mui/icons-material/Store';
+import BadgeIcon from '@mui/icons-material/Badge';
+import CorporateFareIcon from '@mui/icons-material/CorporateFare';
 import DomainIcon from '@mui/icons-material/Domain';
 import HomeIcon from '@mui/icons-material/Home';
 import PeopleIcon from '@mui/icons-material/People';
@@ -20,6 +25,10 @@ import {
   TENANT_MANAGEMENT_CHILDREN,
   visibleTenantManagementChildren,
 } from './tenantManagementNav.js';
+import {
+  ORGANIZATION_SETUP_CHILDREN,
+  visibleOrganizationSetupChildren,
+} from './organizationSetupNav.js';
 import { Wordmark } from './Wordmark.jsx';
 
 /** Width of the expanded nav (icons and labels). */
@@ -36,6 +45,14 @@ const CHILD_ICONS = {
   cells: <StorageIcon fontSize="small" />,
   'portal-users': <PeopleIcon fontSize="small" />,
   roles: <SecurityIcon fontSize="small" />,
+};
+
+/** Icon for each `Organization Setup` child, by id. */
+const SETUP_ICONS = {
+  people: <BadgeIcon fontSize="small" />,
+  organizations: <StoreIcon fontSize="small" />,
+  'tenant-contacts': <ContactPhoneIcon fontSize="small" />,
+  labels: <LabelIcon fontSize="small" />,
 };
 
 /**
@@ -68,6 +85,15 @@ export function NavDrawer({ variant, expanded, open, onClose }) {
     active: location.pathname === child.path,
   }));
 
+  // M0005-R026: directory screens for the selected tenant.
+  const organizationSetupChildren = visibleOrganizationSetupChildren(
+    session.capabilities
+  ).map(child => ({
+    ...child,
+    icon: SETUP_ICONS[child.id],
+    active: location.pathname === child.path,
+  }));
+
   const goTo = path => {
     navigate(path);
     onClose?.();
@@ -97,6 +123,16 @@ export function NavDrawer({ variant, expanded, open, onClose }) {
           children={tenantManagementChildren}
           onSelect={id => {
             const child = TENANT_MANAGEMENT_CHILDREN.find(c => c.id === id);
+            if (child) goTo(child.path);
+          }}
+        />
+        <NavGroup
+          icon={<CorporateFareIcon fontSize="small" />}
+          label="Organization Setup"
+          expanded={showLabels}
+          children={organizationSetupChildren}
+          onSelect={id => {
+            const child = ORGANIZATION_SETUP_CHILDREN.find(c => c.id === id);
             if (child) goTo(child.path);
           }}
         />

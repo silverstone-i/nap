@@ -42,6 +42,7 @@ const JSON_BODY_LIMIT = '64kb';
  * @param {string} api.applicationOrigin Configured public application origin.
  * @param {{readiness: Function, markDisabled: Function}} [api.runtime] Runtime cell registry (I0003-R020).
  * @param {{getOrLoad: Function}} [api.cache] Revision cache for resolved patterns (I0005-R008).
+ * @param {{encryptionKey: Buffer, hashKey: string}} [api.taxIdPolicy] Tax ID keys (M0005-R011).
  * @param {object[]} [api.registrations] Route registrations to mount.
  * @returns {void}
  * @throws {Error} When the application origin or a registration is invalid,
@@ -57,6 +58,7 @@ function mountApi(app, api) {
     applicationOrigin,
     runtime,
     cache,
+    taxIdPolicy,
     registrations = [],
   } = api;
   const registry = createRouteRegistry();
@@ -85,6 +87,7 @@ function mountApi(app, api) {
       authenticationPolicy,
       cookiePolicy,
       runtime,
+      taxIdPolicy,
       // Cell routers mount only when the runtime cell registry is present.
       cells: runtime,
     },

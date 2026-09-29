@@ -26,7 +26,7 @@ export const tenantMembersSchema = {
   constraints: {
     primaryKey: ['id'],
     checks: [
-      "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
+      "member_type IS NULL OR member_type IN ('employee', 'contact', 'vendor_contact', 'client_contact')",
       "status IN ('pending', 'active', 'suspended')",
       'revision > 0',
     ],

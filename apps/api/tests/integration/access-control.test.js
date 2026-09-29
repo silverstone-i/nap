@@ -9,7 +9,7 @@ import { using } from '../../src/infrastructure/runtime/adminDatabase.js';
 import { createCellDatabase } from '../../src/infrastructure/runtime/cellDatabase.js';
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateCell } from '../../src/application/maintenance/migrateCell.js';
-import { verifyAccessControl } from '../../src/modules/access-control/schema/verify.js';
+import { verifyAppSchema } from '../../src/modules/access-control/schema/verify.js';
 import {
   napsoftSeedPresent,
   seedNapsoft,
@@ -95,7 +95,7 @@ it('creates the three role tables with forced tenant RLS and a clean contract; r
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname='app' AND c.relkind='r' AND c.relname<>'schema_migrations'
+      WHERE n.nspname='app' AND c.relkind='r' AND c.relname LIKE 'role%'
       ORDER BY c.relname`
   );
   expect(tables).toEqual([
@@ -103,7 +103,7 @@ it('creates the three role tables with forced tenant RLS and a clean contract; r
     { name: 'role_grants', rls: true, force: true },
     { name: 'roles', rls: true, force: true },
   ]);
-  await verifyAccessControl(handle, cellModules);
+  await verifyAppSchema(handle, cellModules);
   expect((await migrateCell(config)).status).toBe('unchanged');
 });
 

@@ -261,7 +261,11 @@ describe('memberships and provisioning jobs', () => {
     const write = authority();
     const tenantId = await seedTenant();
     const userId = await seedUser();
-    const body = { portalUserId: userId, tenantId, memberType: 'client' };
+    const body = {
+      portalUserId: userId,
+      tenantId,
+      memberType: 'client_contact',
+    };
     const idempotencyKey = randomUUID();
 
     const first = await createMembership(db, write, body, idempotencyKey);

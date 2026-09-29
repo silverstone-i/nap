@@ -33,6 +33,7 @@ const DENIED = Object.freeze(['denied']);
  */
 export const EVENT_DETAIL_KEYS = Object.freeze([
   'after',
+  'applies_to',
   'attempt',
   'attempts',
   'before',
@@ -42,6 +43,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'changed_at',
   'changed_fields',
   'code',
+  'designation',
   'direction',
   'email',
   'failure_code',
@@ -50,14 +52,17 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'from_status',
   'invitation_pending',
   'job_id',
+  'kind',
   'login_created',
   'member_type',
   'method',
   'module_key',
   'name',
+  'party_id',
   'portal_user_id',
   'previous_session_id',
   'queued',
+  'record_table',
   'region',
   'reset_required',
   'retry_after_seconds',
@@ -145,6 +150,52 @@ export const EVENT_CATALOGUE = Object.freeze({
     outcomes: ANY_OUTCOME,
     details: ['role', 'revision', 'before', 'after', 'changed_at'],
   },
+
+  // M0005-R025. Directory changes delivered from the cell outbox. `before`
+  // and `after` are JSON snapshots that carry a tax ID only as its last four
+  // digits; a reveal records who read which record, never the value.
+  ...Object.fromEntries(
+    ['created', 'updated', 'archived', 'restored'].map(action => [
+      `directory.record.${action}`,
+      {
+        outcomes: ANY_OUTCOME,
+        details: ['kind', 'record_table', 'before', 'after', 'changed_at'],
+      },
+    ])
+  ),
+  'directory.tax_id.revealed': {
+    outcomes: ANY_OUTCOME,
+    details: ['kind', 'record_table', 'changed_at'],
+  },
+  ...Object.fromEntries(
+    ['contact_method', 'address'].flatMap(target =>
+      ['created', 'updated', 'removed'].map(action => [
+        `directory.${target}.${action}`,
+        {
+          outcomes: ANY_OUTCOME,
+          details: ['kind', 'party_id', 'before', 'after', 'changed_at'],
+        },
+      ])
+    )
+  ),
+  ...Object.fromEntries(
+    ['created', 'renamed', 'archived', 'restored'].map(action => [
+      `directory.label.${action}`,
+      {
+        outcomes: ANY_OUTCOME,
+        details: ['applies_to', 'before', 'after', 'changed_at'],
+      },
+    ])
+  ),
+  ...Object.fromEntries(
+    ['added', 'removed'].map(action => [
+      `directory.tenant_contact.${action}`,
+      {
+        outcomes: ANY_OUTCOME,
+        details: ['party_id', 'designation', 'changed_at'],
+      },
+    ])
+  ),
 
   'cell.registered': {
     outcomes: ANY_OUTCOME,

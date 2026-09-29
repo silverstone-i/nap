@@ -177,10 +177,10 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "member_type IS NULL OR member_type IN ('employee', 'client', 'vendor_contact', 'contact')",
+          "member_type IS NULL OR member_type IN ('employee', 'contact', 'vendor_contact', 'client_contact')",
           "status IN ('pending', 'active', 'suspended')",
           'revision > 0',
-          "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR status = 'active'))",
+          "(member_type IS NULL AND status = 'active' AND ready = true AND member_id IS NULL) OR (member_type IS NOT NULL AND (ready = false OR (status = 'active' AND member_id IS NOT NULL)))",
         ],
         foreignKeys: [
           {
@@ -361,6 +361,18 @@ export const migration = defineMigration({
           notNull: true,
           immutable: true,
         },
+        {
+          name: 'admin_first_name',
+          type: 'varchar(160)',
+          notNull: true,
+          immutable: true,
+        },
+        {
+          name: 'admin_last_name',
+          type: 'varchar(160)',
+          notNull: true,
+          immutable: true,
+        },
         { name: 'stage', type: 'text', notNull: true, default: 'assignment' },
         { name: 'status', type: 'text', notNull: true, default: 'queued' },
         { name: 'attempts', type: 'integer', notNull: true, default: 0 },
@@ -427,7 +439,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "kind IN ('employee', 'client', 'vendor_contact', 'contact')",
+          "kind IN ('employee', 'contact', 'vendor_contact', 'client_contact')",
           "status IN ('queued', 'running', 'failed', 'completed')",
           'attempts >= 0',
           "(status = 'completed' AND result_member_id IS NOT NULL AND failure_code IS NULL) OR status <> 'completed'",

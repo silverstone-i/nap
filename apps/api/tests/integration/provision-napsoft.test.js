@@ -146,6 +146,20 @@ it('provisions the first cell and runs Napsoft tenant setup with the seed (I0003
       { code: 'support', portal_user_id: null },
       { code: 'tenant_admin', portal_user_id: null },
     ]);
+    // M0005-R017, R023: default labels, and no employee record for root.
+    const directory = await cell.db.tx(async tx => {
+      await setTenant(tx, boot.tenant.id);
+      return tx.one(
+        `SELECT (SELECT count(*)::int FROM app.contact_labels) AS labels,
+                (SELECT count(*)::int FROM app.parties) AS parties`
+      );
+    });
+    expect(directory).toEqual({ labels: 13, parties: 0 });
+    const member = await cell.db.tenant_members.findOneBy(
+      { portal_user_id: boot.login.id },
+      { columnWhitelist: ['member_type', 'member_id'] }
+    );
+    expect(member).toEqual({ member_type: null, member_id: null });
   } finally {
     await cell.close();
   }

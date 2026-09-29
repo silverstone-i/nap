@@ -5,7 +5,7 @@
 
 /**
  * PL/pgSQL bodies of the trigger functions installed by migration
- * `001-access-control`, keyed by function name. `verifyAccessControl`
+ * `001-access-control`, keyed by function name. `verifyAppSchema`
  * compares these against `pg_proc.prosrc`, so each string must match the
  * migration exactly.
  */

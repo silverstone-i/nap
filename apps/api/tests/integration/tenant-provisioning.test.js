@@ -89,7 +89,8 @@ function provision(
   cell,
   email,
   key = randomUUID(),
-  password = 'temporary-password'
+  password = 'temporary-password',
+  name = { firstName: 'Jane', lastName: 'Doe' }
 ) {
   return executeProvisionCommand(
     db,
@@ -98,7 +99,7 @@ function provision(
       operation: 'tenant-provision',
       tenant,
       cell,
-      admin: { email, password },
+      admin: { email, password, ...name },
     },
     { idempotencyKey: key, runtime: registry, hashingPolicy: ARGON2_MINIMUM }
   );
@@ -145,6 +146,22 @@ async function cellRoles(cellId, tenantId) {
         assignments: await tx.any(
           `SELECT a.portal_user_id, r.code FROM app.role_assignments a
              JOIN app.roles r ON r.id=a.role_id`
+        ),
+        // M0005-R022: the first administrator's directory rows.
+        people: await tx.any(
+          `SELECT x.party_id, p.kind, x.first_name, x.last_name, x.is_portal_user
+             FROM app.people x JOIN app.parties p ON p.id=x.party_id`
+        ),
+        emails: await tx.any(
+          `SELECT party_id, value FROM app.contact_methods
+            WHERE type='email' AND is_primary AND deactivated_at IS NULL`
+        ),
+        designations: await tx.any(
+          `SELECT party_id, designation FROM app.tenant_contacts
+            WHERE deactivated_at IS NULL`
+        ),
+        labels: await tx.one(
+          'SELECT count(*)::int AS n FROM app.contact_labels'
         ),
       };
     });
@@ -249,6 +266,12 @@ describe('tenant provisioning (I0006)', () => {
     await expect(
       provision(tenant.id, cellId, email, key, 'different-password')
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    await expect(
+      provision(tenant.id, cellId, email, key, undefined, {
+        firstName: 'Janet',
+        lastName: 'Doe',
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
   });
 
   it('AC01, AC02: the worker provisions the tenant and the admin selects it with tenant_admin', async () => {
@@ -274,8 +297,15 @@ describe('tenant provisioning (I0006)', () => {
     const login = await loginOf(email);
     const selected = await select(login.id, tenant.id);
     expect(selected.session.tenant).toBe(tenant.id);
+    const membership = await db.portal_user_tenants.findOneBy(
+      { portal_user_id: login.id, tenant_id: tenant.id },
+      { columnWhitelist: ['member_type', 'member_id'] }
+    );
+    expect(membership.member_type).toBe('employee');
+    expect(membership.member_id).toMatch(/^[0-9a-f-]{36}$/);
 
-    const { roles, assignments } = await cellRoles(cellId, tenant.id);
+    const { roles, assignments, people, emails, designations, labels } =
+      await cellRoles(cellId, tenant.id);
     expect(roles).toEqual([
       {
         code: 'tenant_admin',
@@ -286,6 +316,21 @@ describe('tenant provisioning (I0006)', () => {
     expect(assignments).toEqual([
       { portal_user_id: login.id, code: 'tenant_admin' },
     ]);
+    // M0005 AC07: the administrator is an employee and the primary contact.
+    expect(people).toEqual([
+      {
+        party_id: membership.member_id,
+        kind: 'employee',
+        first_name: 'Jane',
+        last_name: 'Doe',
+        is_portal_user: true,
+      },
+    ]);
+    expect(emails).toEqual([{ party_id: membership.member_id, value: email }]);
+    expect(designations).toEqual([
+      { party_id: membership.member_id, designation: 'primary' },
+    ]);
+    expect(labels.n).toBe(13);
   });
 
   it('AC06: rejects the Napsoft tenant, a provisioned tenant, and a cell that is not ready', async () => {

@@ -28,7 +28,7 @@ cell-side member provisioning.
 ### Excluded
 
 - Table definitions and migrations.
-- Cell-side employee, client, vendor contact, or contact creation.
+- Cell-side employee, contact, vendor contact, or client contact creation.
 - Self-service profile and password changes.
 
 ## 4. Actors And Permissions
@@ -69,12 +69,13 @@ password that meets WU 3 rules. A later invite flow will let users choose
 their own password at signup. An existing active user
 with the same email is reused when adding another membership.
 
-Member type is `employee`, `client`, `vendor_contact`, or `contact`. A
-`vendor_contact` member is a person working for a vendor. The vendor business
-is a cell-side vendor record and is never a member.
+Member type is `employee`, `contact`, `vendor_contact`, or `client_contact`
+(M0005-R024). A `vendor_contact` or `client_contact` member is a person at a
+vendor or client. The vendor or client itself is a cell-side record and is
+never a member.
 
 A tenant's `tenant_admin` normally manages its memberships, adding employees,
-clients, vendor contacts, and contacts. Holders of `NAP::admin-tenancy::accounts::write`
+contacts, vendor contacts, and client contacts. Holders of `NAP::admin-tenancy::accounts::write`
 can manage any membership; their normal use is assigning a tenant's first
 `tenant_admin`.
 
