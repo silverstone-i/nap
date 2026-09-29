@@ -635,20 +635,18 @@ export async function executeProvisionCommand(
 async function startOperation(db, operation, tx) {
   if (operation.status !== 'queued')
     throw new AdminControlError('INVALID_STATE');
-  // A retry resets the stage to `registered` (M0001-06-R003); an `activate`
-  // or `seed` job then starts at its first stage again (I0007-R005).
+  // An `activate` or `seed` job always restarts at its first stage, whether
+  // retried from `registered` (I0007-R005) or requeued mid-stage by a stopped
+  // worker: publishing and seeding are idempotent (I0007-R003, R018).
   const first = { activate: 'activation', seed: 'seed' }[
     operation.requested_action
   ];
-  if (first) {
-    if (operation.stage !== first && operation.stage !== 'registered')
-      throw new AdminControlError('INVALID_STATE');
+  if (first)
     return db.cell_provisioning.update(
       operation.id,
       { stage: first, status: 'running', started_at: new Date() },
       { tx }
     );
-  }
   return db.cell_provisioning.update(
     operation.id,
     { stage: 'setup', status: 'running', started_at: new Date() },

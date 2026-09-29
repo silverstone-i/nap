@@ -109,7 +109,8 @@ describe('provisioning worker (I0003-R002–R006)', () => {
   });
 
   it('runs seed then activation for a seed job, and again after retry (I0007-R002, R005)', async () => {
-    for (const stage of ['seed', 'registered']) {
+    // `activation`: requeued mid-stage by a stopped or crashed worker.
+    for (const stage of ['seed', 'registered', 'activation']) {
       const { admin, row } = fakeAdmin({
         requested_action: 'seed',
         stage,
