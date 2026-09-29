@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.22.0] - 2026-09-29
+
 ### Added
 
 - Reference data (M0004): each new cell is seeded with ISO 3166-1 countries and ISO 4217 currencies; a cell missing the seed version is not ready (`SEED_MISSING`); `GET /api/reference-data/v1/countries` and `/currencies`; country and currency lookup controls in the web app.
