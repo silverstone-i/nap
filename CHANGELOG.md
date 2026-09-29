@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.24.0] - 2026-09-29
+
 ### Added
 
 - Business directory (M0005): employees, contacts, vendors, clients, and their contacts, each with emails, phones, and addresses under tenant-defined labels, plus the tenant's primary and billing contacts. Routes are under `/api/business-directory/v1`, and the web app adds an **Organization Setup** group (People, Vendors & Clients, Tenant Contacts, Labels). A home buyer client takes its primary tax ID from one flagged buyer. The last primary tenant contact cannot be removed.
