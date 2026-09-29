@@ -185,7 +185,7 @@ visibility improve the user experience but do not grant access.
 - I0001-R024: The shell must show each `Tenant Management` child only when the
   session capabilities from I0005's
   `GET /api/admin-tenancy/v1/session/capabilities` match its capability under
-  I0005's matching rules: `NAP::admin-tenancy::tenants::read` for `Tenants`,
+  I0005's matching rules: `NAP::admin-tenancy::control::read` for `Tenants`,
   `NAP::admin-tenancy::control::read` for `Cells`, and
   `NAP::admin-tenancy::accounts::read` for `Portal Users`. Every other
   destination and action is gated the same way.
@@ -336,6 +336,10 @@ closed and must not reuse a prior user's, tenant's, or route's protected data.
 | AC17      | The shell shows each `Tenant Management` child only when the session capabilities from I0005's endpoint match its capability; a partial capability set shows only the matching children.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | I0001-R024                         |
 
 ## Verification Evidence
+
+Re-verified on 2026-09-28 against the code after the RBAC rewrite ([silverstone-i/nap#42](https://github.com/silverstone-i/nap/pull/42), [#43](https://github.com/silverstone-i/nap/pull/43), [#44](https://github.com/silverstone-i/nap/pull/44), and the capability-scoping branch): `npm run lint`, `npm run format:check`, `npm test` (530 API, 148 web), `npm run build`, and `npm run test:db:local` (231 tests) passed. Covering tests: `access-context`, `tenant-access`, `authentication`, and `session-management` (API unit and integration), and `App`, `LoginPage`, `deriveDestination`, `tenantManagementNav`, and `NavDrawer` (web). I0001-R003: a user with no selected tenant but eligible tenants lands on `/tenants`, management access included (`deriveDestination` and `App` tests).
+
+The entries below predate the RBAC rewrite and are kept as history.
 
 This section verifies I0001-R001 through I0001-R024 and AC01 through AC17.
 

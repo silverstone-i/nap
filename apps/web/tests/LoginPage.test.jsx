@@ -136,7 +136,9 @@ describe('LoginPage', () => {
     it('leaves the choice to the user when several tenants are eligible', async () => {
       api.listTenants.mockResolvedValue([napsoft, other]);
       await signIn();
-      expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+      // Tenant selection lists both, with no tenant chosen for the user.
+      expect(await screen.findByText('Acme')).toBeTruthy();
+      expect(screen.getByText('Napsoft')).toBeTruthy();
       expect(api.selectTenant).not.toHaveBeenCalled();
     });
 
@@ -144,7 +146,9 @@ describe('LoginPage', () => {
       api.listTenants.mockResolvedValue([napsoft]);
       api.selectTenant.mockRejectedValue(new ApiError('CELL_UNAVAILABLE', 503));
       await signIn();
-      expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+      // Unselected, so the user lands on tenant selection to try again.
+      expect(await screen.findByText('Napsoft')).toBeTruthy();
+      expect(screen.queryByText('No tenant selected.')).toBeNull();
     });
   });
 });

@@ -69,8 +69,8 @@ for.
 
 | Context                                                | Required capability                   | Result                                                          |
 | ------------------------------------------------------ | ------------------------------------- | --------------------------------------------------------------- |
-| `/management/tenants`                                  | `NAP::admin-tenancy::tenants::read`   | List tenants                                                    |
-| `/management/tenants` (create)                         | `NAP::admin-tenancy::tenants::write`  | Create a tenant                                                 |
+| `/management/tenants`                                  | `NAP::admin-tenancy::control::read`   | List tenants                                                    |
+| `/management/tenants` (create)                         | `NAP::admin-tenancy::control::write`  | Create a tenant                                                 |
 | `/management/cells`                                    | `NAP::admin-tenancy::control::read`   | List cells and their provisioning state                         |
 | `/management/cells` (register/retry/disable)           | `NAP::admin-tenancy::control::write`  | Register, retry, or disable a cell                              |
 | `/management/portal-users`                             | `NAP::admin-tenancy::accounts::read`  | List portal-user accounts                                       |
@@ -125,7 +125,7 @@ check role names.
   and Restore must not.
 - I0002-R007: `GET /api/admin-tenancy/v1/tenants` must accept `cursor` and
   `limit` (1–100, default 50, matching `parseLimit`) query parameters,
-  require `NAP::admin-tenancy::tenants::read`, and return
+  require `NAP::admin-tenancy::control::read`, and return
   `{rows: [tenantView...], nextCursor}` in the existing versioned envelope
   with `Cache-Control: no-store` — the same shape and column safety
   `tenantView` (`domain/tenants.js`) already provides for `POST /tenants`'
@@ -224,7 +224,7 @@ error envelopes.
 | Field           | Required value                                                                                                  |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | Query           | `cursor` (opaque, optional), `limit` (1–100, default 50)                                                        |
-| Capability      | `NAP::admin-tenancy::tenants::read`                                                                             |
+| Capability      | `NAP::admin-tenancy::control::read`                                                                             |
 | Response `data` | `{ rows: [{id, code, name, tier, status, cellId, provisioned, rbacReady}], nextCursor }` (reusing `tenantView`) |
 | Errors          | `401 UNAUTHENTICATED`, `403 FORBIDDEN`, `400 INVALID_INPUT` (bad `limit`)                                       |
 | Cache           | `Cache-Control: no-store`                                                                                       |
@@ -289,6 +289,10 @@ and introduce no new error code.
 | AC10      | Each of the three nav children appears only once both its screen is implemented and the session capabilities match it; neither alone is sufficient.                                                         | I0002-R010   |
 
 ### Verification Evidence
+
+Re-verified on 2026-09-28 against the code after the RBAC rewrite ([silverstone-i/nap#42](https://github.com/silverstone-i/nap/pull/42), [#43](https://github.com/silverstone-i/nap/pull/43), [#44](https://github.com/silverstone-i/nap/pull/44), and the capability-scoping branch): `npm run lint`, `npm run format:check`, `npm test` (530 API, 148 web), `npm run build`, and `npm run test:db:local` (231 tests) passed. Covering tests: `tenant-creation`, `accounts`, and `cell-management` (API unit and integration) and the `TenantsPage`, `CellsPage`, and `PortalUsersPage` page tests (web). Tenant routes use `NAP::admin-tenancy::control::read/write`.
+
+The entries below predate the RBAC rewrite and are kept as history.
 
 Local validation on 2026-09-22: `npm run lint`, `npm run format:check`,
 `npm test` (509 tests across the workspace — 402 API, 106 web, 1 shared),

@@ -188,6 +188,12 @@ describe('eventScopeFilter', () => {
   it('permits nothing for an empty named-tenant scope', () => {
     expect(eventScopeFilter(scope([]))).toBeNull();
   });
+
+  it('excludes a tenant, and so null-tenant events, from a `*` scope', () => {
+    expect(
+      eventScopeFilter({ ...scope('*'), excludeTenantIds: [napsoft] })
+    ).toEqual([{ tenant_id: { $ne: napsoft } }]);
+  });
 });
 
 describe('listEvents', () => {

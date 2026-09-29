@@ -238,6 +238,11 @@ it('applies the reader scope to tenant and null-tenant events', async () => {
   );
   expect(await readable(scope([tenant]))).toEqual([tenantEvent.id]);
   expect(await readable(scope([]))).toEqual([]);
+  // A `*` reader: every tenant but the excluded (Napsoft) one, and no
+  // null-tenant events.
+  expect(await readable({ ...scope('*'), excludeTenantIds: [other] })).toEqual([
+    tenantEvent.id,
+  ]);
 });
 
 // AC02 and AC06 at the storage boundary: a rejected event writes nothing.

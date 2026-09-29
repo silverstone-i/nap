@@ -34,7 +34,7 @@ Create a central tenant before cell assignment and provisioning.
 
 | Actor               | Authority                            | Result          |
 | ------------------- | ------------------------------------ | --------------- |
-| Authorized operator | `NAP::admin-tenancy::tenants::write` | Create a tenant |
+| Authorized operator | `NAP::admin-tenancy::control::write` | Create a tenant |
 | Other caller        | None                                 | Deny            |
 
 Only bootstrap may create a tenant with `is_napsoft = true`.
@@ -110,7 +110,7 @@ Central tenant creation does not seed roles or claim that provisioning is comple
 
 ## 12. Security And Audit
 
-- M0001-07-R005: Creation must require `NAP::admin-tenancy::tenants::write` and must return only safe central metadata.
+- M0001-07-R005: Creation must require `NAP::admin-tenancy::control::write` and must return only safe central metadata.
 
 Success, denial, validation failure, and conflict record managed events without
 request headers or secrets. Success advances the tenant-list cache revision.
@@ -125,6 +125,10 @@ request headers or secrets. Success advances the tenant-list cache revision.
 | AC04      | No caller can create or designate the Napsoft tenant.                                                | M0001-07-R005                |
 
 ### Verification Evidence
+
+Re-verified on 2026-09-28 against the code after the RBAC rewrite ([silverstone-i/nap#42](https://github.com/silverstone-i/nap/pull/42), [#43](https://github.com/silverstone-i/nap/pull/43), [#44](https://github.com/silverstone-i/nap/pull/44), and the capability-scoping branch): `npm run lint`, `npm run format:check`, `npm test` (530 API, 148 web), `npm run build`, and `npm run test:db:local` (231 tests) passed. Covering tests: `tenant-creation` (unit and integration). Creation requires `NAP::admin-tenancy::control::write` (R005).
+
+The entries below predate the RBAC rewrite and are kept as history.
 
 Local validation on 2026-09-20: `npm run lint`, `npm run format:check`,
 `npm test` (306 tests across the workspace, including 12 new unit tests),
