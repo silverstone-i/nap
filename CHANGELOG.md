@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.23.0] - 2026-09-29
+
 ### Added
 
 - Reference-data rollout (I0007): operators can load a new reference seed version into existing cells from the Cells screen (**Roll out reference data** for all cells, **Load reference data** for one), see per-cell seed state and counts, and retry failures. `npm run db:seed:rollout -- --env <env>` does the same without the API, for when the Napsoft cell itself is missing the seed.
