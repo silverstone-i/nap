@@ -24,6 +24,8 @@ vi.mock('../../src/api/endpoints.js', () => ({
   retryCellProvisioning: vi.fn(),
   disableCell: vi.fn(),
   activateCell: vi.fn(),
+  seedCell: vi.fn(),
+  rolloutReferenceData: vi.fn(),
 }));
 
 vi.mock('../../src/auth/SessionContext.jsx', () => ({
@@ -365,5 +367,110 @@ describe('CellsPage', () => {
     await screen.findByRole('menuitem', { name: 'View progress' });
     expect(screen.queryByRole('menuitem', { name: 'Retry' })).toBeNull();
     expect(screen.queryByRole('menuitem', { name: 'Disable' })).toBeNull();
+  });
+
+  describe('reference-data rollout (I0007)', () => {
+    const counts = overrides => ({
+      declaredVersion: 3,
+      current: 1,
+      missing: 2,
+      queued: 0,
+      running: 0,
+      failed: 0,
+      ...overrides,
+    });
+    const missingRow = () =>
+      overviewRow({
+        operation: {
+          ...overviewRow().operation,
+          stage: 'complete',
+          status: 'completed',
+        },
+        seedState: 'missing',
+      });
+
+    it('hides the panel when every cell is current', async () => {
+      api.listCellsOverview.mockResolvedValue({
+        rows: [overviewRow()],
+        nextCursor: null,
+        referenceSeed: counts({ current: 1, missing: 0 }),
+      });
+      renderPage();
+      await screen.findByText('dev');
+      expect(screen.queryByText(/Reference data version/)).toBeNull();
+    });
+
+    it('confirms and runs a rollout, then reports the result (R011, R012)', async () => {
+      api.listCellsOverview.mockResolvedValue({
+        rows: [missingRow()],
+        nextCursor: null,
+        referenceSeed: counts(),
+      });
+      api.rolloutReferenceData.mockResolvedValue({
+        declaredVersion: 3,
+        queued: ['c1', 'c2'],
+        skipped: [],
+      });
+      renderPage();
+      expect(await screen.findByText('Reference data version 3')).toBeTruthy();
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole('button', { name: 'Roll out reference data' })
+      );
+      const dialog = await screen.findByRole('dialog');
+      expect(
+        within(dialog).getByText('Load reference data version 3 into 2 cells?')
+      ).toBeTruthy();
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Roll out' })
+      );
+      expect(api.rolloutReferenceData).toHaveBeenCalledTimes(1);
+      expect(
+        await screen.findByText('Queued 2 cells; skipped 0.')
+      ).toBeTruthy();
+    });
+
+    it('offers Load reference data for a missing cell (R013)', async () => {
+      api.listCellsOverview.mockResolvedValue({
+        rows: [missingRow()],
+        nextCursor: null,
+        referenceSeed: counts({ missing: 1 }),
+      });
+      api.seedCell.mockResolvedValue({});
+      renderPage();
+      await screen.findByText('dev');
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('menuitem', { name: 'more' }));
+      await user.click(
+        await screen.findByRole('menuitem', { name: 'Load reference data' })
+      );
+      expect(api.seedCell).toHaveBeenCalledWith({ cell: 'c1' });
+    });
+
+    it('shows the panel but no rollout actions without control write', async () => {
+      useSession.mockReturnValue({
+        capabilities: capabilitiesFixture({
+          patterns: ['NAP::admin-tenancy::control::read'],
+        }),
+        refreshCapabilities: vi.fn(),
+      });
+      api.listCellsOverview.mockResolvedValue({
+        rows: [missingRow()],
+        nextCursor: null,
+        referenceSeed: counts(),
+      });
+      renderPage();
+      await screen.findByText('dev');
+      expect(screen.getByText('Reference data version 3')).toBeTruthy();
+      expect(
+        screen.queryByRole('button', { name: 'Roll out reference data' })
+      ).toBeNull();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('menuitem', { name: 'more' }));
+      await screen.findByRole('menuitem', { name: 'View progress' });
+      expect(
+        screen.queryByRole('menuitem', { name: 'Load reference data' })
+      ).toBeNull();
+    });
   });
 });

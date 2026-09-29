@@ -30,7 +30,7 @@ controls.
 
 ### Excluded
 
-- Applying a new seed version to cells that already exist: roadmap 12, Reference-data rollout. Before release, an existing cell gets reference data by being recreated (Migrations, baseline reset).
+- Applying a new seed version to cells that already exist: [I0007: Reference-Data Rollout](../inter-module-workflows/I0007-reference-data-rollout.md). Before release, an existing cell gets reference data by being recreated (Migrations, baseline reset).
 - Editing reference data at runtime. Changes come only from a new snapshot version.
 - Using the controls in a specific form: each setup module's PRD.
 - Other lists such as languages, time zones, or subdivisions.

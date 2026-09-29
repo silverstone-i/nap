@@ -27,6 +27,7 @@ function nextAction(row) {
   if (row.status === 'completed' && row.failureCode === 'NAPSOFT_SETUP_FAILED')
     return 'Wait. Napsoft tenant setup is retried automatically.';
   if (row.status === 'completed' && !row.enabled) return 'Choose Activate.';
+  if (row.seedState === 'missing') return 'Choose Load reference data.';
   if (row.status === 'completed') return 'None. The cell is serving.';
   return 'None.';
 }

@@ -5,10 +5,12 @@
 
 import { repositories } from './repositories.js';
 import { migration } from './schema/migrations/001-admin-tenancy.js';
+import { migration as cellSeedAction } from './schema/migrations/002-cell-seed-action.js';
 
 /**
  * Module descriptor for `admin-tenancy`. It registers the twelve admin table
- * models and the frozen baseline migration with the admin registry. See
+ * models, the frozen baseline migration, and later migrations with the admin
+ * registry. See
  * docs/architecture/module-design.md for the descriptor fields.
  */
 export const descriptor = {
@@ -17,7 +19,7 @@ export const descriptor = {
   schema: 'admin',
   entitlementType: 'infrastructure',
   models: repositories,
-  migrations: [migration],
+  migrations: [migration, cellSeedAction],
   // M0003-R005: the route capabilities it declares.
   capabilities: [
     'admin-tenancy::control::read',

@@ -5,7 +5,10 @@
 
 import { roleUrl } from '../../application/shared/configuration.js';
 import { verifyPhysicalIdentity } from '../../modules/cell-tenancy/schema/identity.js';
-import { seedPresent } from '../../modules/reference-data/seeds/referenceSeed.js';
+import {
+  SEED_VERSION,
+  seedPresent,
+} from '../../modules/reference-data/seeds/referenceSeed.js';
 import { createCellDatabase } from './cellDatabase.js';
 
 /** Thrown by `cellFor` when the session's tenant has no ready cell. */
@@ -27,7 +30,7 @@ export class CellRegistryError extends Error {
  * (R038).
  * @param {{admin: {cells: object, tenants: object}, connect?: (url: string) => {connect: () => Promise<unknown>, close: () => Promise<void>, db: object}}} options
  *   `admin` is the admin database's repository handle (`admin.db`).
- * @returns {{load: Function, add: Function, readiness: Function, markDisabled: Function, recheck: Function, cellFor: Function, close: Function}}
+ * @returns {{seedVersion: number, load: Function, add: Function, readiness: Function, markDisabled: Function, recheck: Function, cellFor: Function, close: Function}}
  */
 export function createCellRegistry({ admin, connect = createCellDatabase }) {
   /** @type {Map<string, {connection: {endpoint: string, appPassword: string}, handle: object|null, ready: boolean, reason?: string}>} */
@@ -200,6 +203,8 @@ export function createCellRegistry({ admin, connect = createCellDatabase }) {
   }
 
   return {
+    // I0007-R009: the reference seed version every cell must hold.
+    seedVersion: SEED_VERSION,
     load,
     add,
     readiness,

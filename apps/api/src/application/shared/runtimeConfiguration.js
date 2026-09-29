@@ -211,7 +211,7 @@ function originConfiguration(env, suffix) {
  * @returns {Record<string, {endpoint: string, appPassword: string}>}
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming `CELL_DATABASES_<ENV>`.
  */
-function cellDatabasesConfiguration(env, suffix, localAppPassword) {
+export function cellDatabasesConfiguration(env, suffix, localAppPassword) {
   const setting = `CELL_DATABASES_${suffix}`;
   const text = env[setting]?.trim();
   if (!text) return {};

@@ -22,6 +22,8 @@ import {
   disableCell,
   registerCell,
   retryCellProvisioning,
+  rolloutReferenceData,
+  seedCell,
 } from '../../src/modules/admin-tenancy/domain/cells.js';
 import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
@@ -33,8 +35,12 @@ import {
   createLocalCellDriver,
   operationMarker,
 } from '../../src/infrastructure/provisioning/localCells.js';
-import { createStages } from '../../src/application/provisioning/stages.js';
+import {
+  createStages,
+  withCellAdmin,
+} from '../../src/application/provisioning/stages.js';
 import { createProvisioningWorker } from '../../src/application/provisioning/worker.js';
+import { seedRollout } from '../../src/application/maintenance/seedRollout.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -488,6 +494,147 @@ describe('cell provisioning (I0003)', () => {
     expect((await job(before.cell_id)).failure_code).toBeNull();
     await registry.close();
     await firstSystem.registry.close();
+  });
+
+  it('I0007: a rollout loads a missing seed; a failed seed job retries to ready', async () => {
+    const base = system();
+    const { driver, registry } = base;
+    const job0 = {
+      cell: { id: first.cell.id, database_name: first.cell.database_name },
+    };
+    const target = await driver.connection(job0);
+    // Removing the recorded version is what raising the declared version
+    // does to an existing cell (M0004-R007).
+    const dropVersion = () =>
+      withCellAdmin(
+        target,
+        h => h.db.none('DELETE FROM reference.seed_versions'),
+        createCellDatabase
+      );
+    const connection = {
+      endpoint: target.endpoint,
+      appPassword: target.appPassword,
+    };
+    try {
+      await dropVersion();
+      expect(await registry.add(first.cell.id, connection)).toEqual({
+        ready: false,
+        reason: 'SEED_MISSING',
+      });
+      await expect(
+        seedCell(db, authority(), randomUUID(), { runtime: registry })
+      ).rejects.toThrow('NOT_FOUND');
+
+      const rollout = await rolloutReferenceData(db, authority(), {
+        runtime: registry,
+      });
+      expect(rollout.queued).toContain(first.cell.id);
+      const ran = [];
+      const recording = Object.fromEntries(
+        Object.entries(base.stages).map(([key, run]) => [
+          key,
+          async context => {
+            ran.push(key);
+            return run(context);
+          },
+        ])
+      );
+      await system({ registry, stages: recording }).worker.tick();
+      expect(ran).toEqual(['seed', 'activation']);
+      expect(registry.readiness(first.cell.id)).toEqual({ ready: true });
+      expect(await job(first.cell.id)).toMatchObject({
+        requested_action: 'seed',
+        status: 'completed',
+      });
+
+      await dropVersion();
+      await registry.add(first.cell.id, connection);
+      let fail = true;
+      const failing = {
+        ...base.stages,
+        seed: async context => {
+          if (fail) {
+            fail = false;
+            throw Object.assign(new Error('x'), { code: 'SEED_FAILED' });
+          }
+          return base.stages.seed(context);
+        },
+      };
+      const worker = system({ registry, stages: failing }).worker;
+      await seedCell(db, authority(), first.cell.id, { runtime: registry });
+      await worker.tick();
+      expect(await job(first.cell.id)).toMatchObject({
+        stage: 'seed',
+        status: 'failed',
+        failure_code: 'SEED_FAILED',
+      });
+      expect(
+        (
+          await db.cells.findOneBy(
+            { id: first.cell.id },
+            { columnWhitelist: ['enabled'] }
+          )
+        ).enabled
+      ).toBe(false);
+
+      await retryCellProvisioning(db, authority(), first.cell.id);
+      await worker.tick();
+      expect(await job(first.cell.id)).toMatchObject({
+        requested_action: 'seed',
+        status: 'completed',
+      });
+      expect(registry.readiness(first.cell.id)).toEqual({ ready: true });
+      expect(
+        await db.managed_events.countWhere({
+          event_key: 'cell.seed.requested',
+          target_id: first.cell.id,
+        })
+      ).toBe(2);
+    } finally {
+      await registry.close();
+    }
+  });
+
+  it('db:seed:rollout loads a missing seed without the API', async () => {
+    const base = system();
+    const { driver, registry, worker } = base;
+    const target = await driver.connection({
+      cell: { id: first.cell.id, database_name: first.cell.database_name },
+    });
+    try {
+      await withCellAdmin(
+        target,
+        h => h.db.none('DELETE FROM reference.seed_versions'),
+        createCellDatabase
+      );
+      await registry.add(first.cell.id, {
+        endpoint: target.endpoint,
+        appPassword: target.appPassword,
+      });
+      const result = await seedRollout(db, { registry, worker });
+      expect(result).toMatchObject({
+        status: 'completed',
+        completed: [first.cell.id],
+        failed: [],
+      });
+      expect(registry.readiness(first.cell.id)).toEqual({ ready: true });
+    } finally {
+      await registry.close();
+    }
+  });
+
+  it('I0007-R001: the job check accepts seed and rejects other actions', async () => {
+    const cell = await register();
+    await db.cell_provisioning.updateWhere(
+      { cell_id: cell.cell.id },
+      { requested_action: 'seed', status: 'failed' }
+    );
+    await expect(
+      db.cell_provisioning.updateWhere(
+        { cell_id: cell.cell.id },
+        { requested_action: 'bogus' }
+      )
+    ).rejects.toThrow();
   });
 
   it('AC12: no failure code, event, or published secret leaks into admin', async () => {

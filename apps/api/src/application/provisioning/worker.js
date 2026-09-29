@@ -22,6 +22,8 @@ import {
 const PLANS = Object.freeze({
   provision: ['setup', 'migration', 'seed', 'activation'],
   activate: ['activation'],
+  // I0007-R002: load a new reference seed into an existing cell.
+  seed: ['seed', 'activation'],
 });
 
 /**

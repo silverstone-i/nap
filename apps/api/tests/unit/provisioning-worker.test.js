@@ -108,6 +108,42 @@ describe('provisioning worker (I0003-R002–R006)', () => {
     expect(row.status).toBe('completed');
   });
 
+  it('runs seed then activation for a seed job, and again after retry (I0007-R002, R005)', async () => {
+    for (const stage of ['seed', 'registered']) {
+      const { admin, row } = fakeAdmin({
+        requested_action: 'seed',
+        stage,
+        status: 'queued',
+      });
+      const order = [];
+      await createProvisioningWorker({
+        admin,
+        driver: {},
+        stages: stagesRecording(order),
+        napsoftSetup: noNapsoftSetup,
+      }).tick();
+      expect(order).toEqual(['seed', 'activation']);
+      expect(row).toMatchObject({ stage: 'complete', status: 'completed' });
+    }
+  });
+
+  it('starts a retried activate job at activation', async () => {
+    const { admin, row } = fakeAdmin({
+      requested_action: 'activate',
+      stage: 'registered',
+      status: 'queued',
+    });
+    const order = [];
+    await createProvisioningWorker({
+      admin,
+      driver: {},
+      stages: stagesRecording(order),
+      napsoftSetup: noNapsoftSetup,
+    }).tick();
+    expect(order).toEqual(['activation']);
+    expect(row.status).toBe('completed');
+  });
+
   it('records a failed step with its code and leaves the cell disabled (R034)', async () => {
     const { admin, row, cell } = fakeAdmin({
       requested_action: 'provision',

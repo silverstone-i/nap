@@ -57,11 +57,14 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'name',
   'portal_user_id',
   'previous_session_id',
+  'queued',
   'region',
   'reset_required',
   'retry_after_seconds',
   'revision',
   'role',
+  'seed_version',
+  'skipped',
   'stage',
   'step',
   'tenant_code',
@@ -158,6 +161,12 @@ export const EVENT_CATALOGUE = Object.freeze({
   },
   'cell.disabled': { outcomes: ANY_OUTCOME, details: ['code'] },
   'cell.activate.requested': { outcomes: ANY_OUTCOME, details: [] },
+  // I0007-R008.
+  'cell.seed.requested': { outcomes: ANY_OUTCOME, details: ['seed_version'] },
+  'reference.rollout.requested': {
+    outcomes: ANY_OUTCOME,
+    details: ['seed_version', 'queued', 'skipped'],
+  },
 
   'tenant.created': {
     outcomes: ANY_OUTCOME,

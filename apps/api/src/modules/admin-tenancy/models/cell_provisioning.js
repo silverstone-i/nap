@@ -46,7 +46,7 @@ export const cellProvisioningSchema = {
     primaryKey: ['id'],
     unique: [['cell_id'], ['operation_id']],
     checks: [
-      "requested_action IN ('provision', 'activate')",
+      "requested_action IN ('provision', 'activate', 'seed')",
       "stage IN ('registered', 'setup', 'migration', 'seed', 'activation', 'complete')",
       "status IN ('queued', 'running', 'failed', 'completed')",
       'attempts >= 0',
@@ -135,6 +135,21 @@ export class CellProvisioning extends TableModel {
    */
   async hasActive() {
     return this.exists({ status: { $in: ['queued', 'running'] } });
+  }
+
+  /**
+   * Every cell's job action and status, for the reference-seed counts that
+   * cover all cells rather than one page (I0007-R009).
+   * @returns {Promise<{cell_id: string, requested_action: string, status: string}[]>}
+   */
+  async listStates() {
+    return this.findWhere(
+      { status: { $in: ['queued', 'running', 'failed', 'completed'] } },
+      'AND',
+      {
+        columnWhitelist: ['cell_id', 'requested_action', 'status'],
+      }
+    );
   }
 
   /**

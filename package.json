@@ -26,6 +26,7 @@
     "db:migrate:admin": "npm run db:migrate:admin --workspace @nap/api --",
     "db:bootstrap": "npm run db:bootstrap --workspace @nap/api --",
     "db:provision:napsoft": "npm run db:provision:napsoft --workspace @nap/api --",
+    "db:seed:rollout": "npm run db:seed:rollout --workspace @nap/api --",
     "test:db": "npm run test:db --workspace @nap/api",
     "test:db:local": "node scripts/test-db-local.mjs"
   },

@@ -13,6 +13,7 @@ import {
   accessContextResponseSchema,
   capabilityEntrySchema,
   controlOverviewResponseSchema,
+  referenceRolloutSchema,
   countrySchema,
   currencySchema,
   eligibleTenantsResponseSchema,
@@ -198,6 +199,29 @@ export async function activateCell({ cell }) {
     operation: 'cell-activate',
     cell,
   });
+}
+
+/**
+ * I0007-R006: queue a load of the declared reference seed into one cell.
+ * @param {{cell: string}} input Cell UUID.
+ * @returns {Promise<object>} The queued seed operation.
+ */
+export async function seedCell({ cell }) {
+  return apiPost(`${BASE}/control/provision`, {
+    operation: 'cell-seed',
+    cell,
+  });
+}
+
+/**
+ * I0007-R007: queue a seed job for every cell missing the declared version.
+ * @returns {Promise<{declaredVersion: number|null, queued: string[], skipped: {cell: string, reason: string}[]}>}
+ */
+export async function rolloutReferenceData() {
+  const data = await apiPost(`${BASE}/control/provision`, {
+    operation: 'reference-rollout',
+  });
+  return referenceRolloutSchema.parse(data);
 }
 
 /**
