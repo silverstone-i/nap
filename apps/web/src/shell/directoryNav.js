@@ -4,15 +4,15 @@
  */
 
 /**
- * @file The `Organization Setup` navigation group's data (module map §
- * Organization Setup). Each child is one kind of business-directory record
+ * @file The `Directory` navigation group's data (module map §
+ * Directory). Each child is one kind of business-directory record
  * for the selected tenant (M0005-R026); it is visible only when the
  * session's resolved capabilities match its route capability (I0005-R011).
  */
 
 import { can } from '../auth/capabilities.js';
 
-export const ORGANIZATION_SETUP_CHILDREN = Object.freeze([
+export const DIRECTORY_CHILDREN = Object.freeze([
   Object.freeze({
     id: 'employees',
     label: 'Employees',
@@ -40,12 +40,12 @@ export const ORGANIZATION_SETUP_CHILDREN = Object.freeze([
 ]);
 
 /**
- * The `Organization Setup` children visible for the session's capabilities.
+ * The `Directory` children visible for the session's capabilities.
  * @param {object|null} capabilities `GET /session/capabilities` data.
  * @returns {Array<{id: string, label: string, path: string}>}
  */
-export function visibleOrganizationSetupChildren(capabilities) {
-  return ORGANIZATION_SETUP_CHILDREN.filter(child =>
+export function visibleDirectoryChildren(capabilities) {
+  return DIRECTORY_CHILDREN.filter(child =>
     can(capabilities, child.capability, 'session')
   ).map(({ id, label, path }) => ({ id, label, path }));
 }

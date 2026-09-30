@@ -74,7 +74,8 @@ A product area groups related features in the UI. It does not own tables.
 | ------------------------- | ---------------------------------------------------------------------------------------- |
 | Admin                     | `admin-tenancy`, `cell-tenancy`                                                          |
 | Authentication and access | `admin-tenancy`, `cell-tenancy`, `access-control`                                        |
-| Organization Setup        | `reference-data`, `business-directory`, `companies`, `access-control`, `tenant-settings` |
+| Directory                 | `business-directory`                                                                     |
+| Settings                  | `reference-data`, `companies`, `access-control`, `tenant-settings`                       |
 | Catalog                   | `catalog`                                                                                |
 | Projects                  | `projects`, `scheduling`, `project-costs`, `cost-codes`, `accounts-payable`, `contracts` |
 | Budgets                   | `project-costs`, `estimating`, `cost-codes`                                              |

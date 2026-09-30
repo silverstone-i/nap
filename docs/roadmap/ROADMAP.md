@@ -98,7 +98,7 @@ Implement the data contract before the workflow relies on it for tenant authoriz
 Phase 2 is complete when server-side authorization and UI visibility use the
 same accepted decision model, while the server remains authoritative.
 
-### Phase 3: Organization Setup
+### Phase 3: Directory and Settings
 
 | Order | Deliverable            | PRD                             | UI increment                                                                                                      | Status      | Evidence                                                                                                                                                                                                                                                                                                                                                                       |
 | ----: | ---------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
