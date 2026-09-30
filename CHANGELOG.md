@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- The web app's **Organization Setup** nav group is now **Directory** (Employees, Contacts, Vendors, Clients). Docs: the module map splits the product area into Directory (`business-directory`) and Settings (`reference-data`, `companies`, `access-control`, `tenant-settings`), and roadmap Phase 3 is now "Directory and Settings".
+
 ## [v0.24.1] - 2026-09-30
 
 ### Changed

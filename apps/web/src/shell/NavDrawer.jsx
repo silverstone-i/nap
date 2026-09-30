@@ -29,9 +29,9 @@ import {
   visibleTenantManagementChildren,
 } from './tenantManagementNav.js';
 import {
-  ORGANIZATION_SETUP_CHILDREN,
-  visibleOrganizationSetupChildren,
-} from './organizationSetupNav.js';
+  DIRECTORY_CHILDREN,
+  visibleDirectoryChildren,
+} from './directoryNav.js';
 import { SETTINGS_CHILDREN, visibleSettingsChildren } from './settingsNav.js';
 import { Wordmark } from './Wordmark.jsx';
 
@@ -50,8 +50,8 @@ const CHILD_ICONS = {
   'portal-users': <PeopleIcon fontSize="small" />,
 };
 
-/** Icon for each `Organization Setup` child, by id. */
-const SETUP_ICONS = {
+/** Icon for each `Directory` child, by id. */
+const DIRECTORY_ICONS = {
   employees: <BadgeIcon fontSize="small" />,
   contacts: <ContactsIcon fontSize="small" />,
   vendors: <StoreIcon fontSize="small" />,
@@ -96,13 +96,13 @@ export function NavDrawer({ variant, expanded, open, onClose }) {
   }));
 
   // M0005-R026: directory screens for the selected tenant.
-  const organizationSetupChildren = visibleOrganizationSetupChildren(
-    session.capabilities
-  ).map(child => ({
-    ...child,
-    icon: SETUP_ICONS[child.id],
-    active: location.pathname === child.path,
-  }));
+  const directoryChildren = visibleDirectoryChildren(session.capabilities).map(
+    child => ({
+      ...child,
+      icon: DIRECTORY_ICONS[child.id],
+      active: location.pathname === child.path,
+    })
+  );
 
   // The selected tenant's roles, own contacts, and labels.
   const settingsChildren = visibleSettingsChildren(session.capabilities).map(
@@ -147,11 +147,11 @@ export function NavDrawer({ variant, expanded, open, onClose }) {
         />
         <NavGroup
           icon={<CorporateFareIcon fontSize="small" />}
-          label="Organization Setup"
+          label="Directory"
           expanded={showLabels}
-          children={organizationSetupChildren}
+          children={directoryChildren}
           onSelect={id => {
-            const child = ORGANIZATION_SETUP_CHILDREN.find(c => c.id === id);
+            const child = DIRECTORY_CHILDREN.find(c => c.id === id);
             if (child) goTo(child.path);
           }}
         />

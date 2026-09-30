@@ -5,16 +5,16 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  ORGANIZATION_SETUP_CHILDREN,
-  visibleOrganizationSetupChildren,
-} from '../src/shell/organizationSetupNav.js';
+  DIRECTORY_CHILDREN,
+  visibleDirectoryChildren,
+} from '../src/shell/directoryNav.js';
 import { NO_CAPABILITIES, capabilitiesFixture } from './testUtils.jsx';
 
 const ACME = { id: 'acme', code: 'ACME' };
 
-describe('visibleOrganizationSetupChildren (M0005-R026)', () => {
+describe('visibleDirectoryChildren (M0005-R026)', () => {
   it('lists one directory screen per record kind', () => {
-    expect(ORGANIZATION_SETUP_CHILDREN.map(child => child.path)).toEqual([
+    expect(DIRECTORY_CHILDREN.map(child => child.path)).toEqual([
       '/directory/employees',
       '/directory/contacts',
       '/directory/vendors',
@@ -23,9 +23,9 @@ describe('visibleOrganizationSetupChildren (M0005-R026)', () => {
   });
 
   it('shows nothing without the directory read capability', () => {
-    expect(visibleOrganizationSetupChildren(NO_CAPABILITIES)).toEqual([]);
+    expect(visibleDirectoryChildren(NO_CAPABILITIES)).toEqual([]);
     expect(
-      visibleOrganizationSetupChildren(
+      visibleDirectoryChildren(
         capabilitiesFixture({
           patterns: ['ACME::access-control::*::*'],
           targetTenant: ACME,
@@ -36,7 +36,7 @@ describe('visibleOrganizationSetupChildren (M0005-R026)', () => {
 
   it('shows every screen with the directory read capability in the selected tenant', () => {
     expect(
-      visibleOrganizationSetupChildren(
+      visibleDirectoryChildren(
         capabilitiesFixture({
           patterns: ['ACME::business-directory::directory::read'],
           targetTenant: ACME,
