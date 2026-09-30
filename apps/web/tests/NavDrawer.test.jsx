@@ -175,3 +175,15 @@ describe('NavDrawer — no visible children (I0001-R023 today)', () => {
     );
   });
 });
+
+describe('NavDrawer — tenant groups', () => {
+  it('lists directory kinds under Organization Setup and tenant configuration under Settings', async () => {
+    renderDrawer({ variant: 'rail', expanded: true });
+    expect(await screen.findByText('Organization Setup')).toBeTruthy();
+    for (const label of ['Employees', 'Contacts', 'Vendors', 'Clients'])
+      expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.getByText('Settings')).toBeTruthy();
+    for (const label of ['Roles', 'Tenant Contacts', 'Labels'])
+      expect(screen.getByText(label)).toBeTruthy();
+  });
+});

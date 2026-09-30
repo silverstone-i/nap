@@ -14,16 +14,15 @@ import { NO_CAPABILITIES, capabilitiesFixture } from './testUtils.jsx';
 const ACME = { id: 'acme', code: 'ACME' };
 
 describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
-  it('lists Tenants, Cells, Portal Users, and Roles as the known children', () => {
+  it('lists Tenants, Cells, and Portal Users as the known children', () => {
     expect(TENANT_MANAGEMENT_CHILDREN.map(child => child.label)).toEqual([
       'Tenants',
       'Cells',
       'Portal Users',
-      'Roles',
     ]);
   });
 
-  it('every child is implemented (I0002 screens plus M0003-R016 Roles)', () => {
+  it('every child is implemented (I0002 screens)', () => {
     expect(
       TENANT_MANAGEMENT_CHILDREN.every(child => child.implemented === true)
     ).toBe(true);
@@ -40,7 +39,7 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
     }
   );
 
-  it('returns all four, in order, for a platform admin', () => {
+  it('returns all three, in order, for a platform admin', () => {
     expect(visibleTenantManagementChildren(capabilitiesFixture())).toEqual([
       { id: 'tenants', label: 'Tenants', path: '/management/tenants' },
       { id: 'cells', label: 'Cells', path: '/management/cells' },
@@ -49,7 +48,6 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
         label: 'Portal Users',
         path: '/management/portal-users',
       },
-      { id: 'roles', label: 'Roles', path: '/management/roles' },
     ]);
   });
 
@@ -62,7 +60,7 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
     ).toEqual(['portal-users']);
   });
 
-  it('checks Tenants, Cells, and Portal Users against Napsoft, and Roles against the target tenant', () => {
+  it('checks every child against Napsoft, not the target tenant', () => {
     // A tenant admin of ACME: everything on ACME, nothing on Napsoft.
     const capabilities = capabilitiesFixture({
       patterns: ['ACME::*::*::*'],
@@ -70,7 +68,7 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
     });
     expect(
       visibleTenantManagementChildren(capabilities).map(child => child.id)
-    ).toEqual(['roles']);
+    ).toEqual([]);
   });
 
   it('never shows the Napsoft children for a tenant-wildcard pattern', () => {
@@ -80,7 +78,7 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
     });
     expect(
       visibleTenantManagementChildren(capabilities).map(child => child.id)
-    ).toEqual(['roles']);
+    ).toEqual([]);
   });
 });
 

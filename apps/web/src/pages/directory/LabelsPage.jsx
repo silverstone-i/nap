@@ -33,7 +33,7 @@ import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 const GROUP_LABELS = { email: 'Email', phone: 'Phone', address: 'Address' };
 
 /**
- * `/directory/labels` (M0005-R017): the tenant's labels for emails, phones,
+ * `/settings/labels` (M0005-R017): the tenant's labels for emails, phones,
  * and addresses. A name is unique within its group.
  * @returns {JSX.Element}
  */

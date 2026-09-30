@@ -9,7 +9,6 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import Table from '@mui/material/Table';
@@ -24,40 +23,53 @@ import { useSession } from '../../auth/SessionContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { RecordDetailDialog } from './RecordDetailDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
-import { KIND_LABELS, recordName } from './directoryRecords.js';
+import { recordName } from './directoryRecords.js';
 import { describeDirectoryError } from './directoryErrors.js';
 import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 
-/** Per-collection page settings. */
+/** Per-kind page settings. */
 const PAGES = {
-  people: {
-    title: 'People',
-    kinds: ['employee', 'contact'],
-    create: 'New person',
-    empty: 'No people yet.',
+  employee: {
+    collection: 'people',
+    title: 'Employees',
+    create: 'New employee',
+    empty: 'No employees yet.',
   },
-  organizations: {
-    title: 'Vendors & Clients',
-    kinds: ['vendor', 'client'],
-    create: 'New vendor or client',
-    empty: 'No vendors or clients yet.',
+  contact: {
+    collection: 'people',
+    title: 'Contacts',
+    create: 'New contact',
+    empty: 'No contacts yet.',
+  },
+  vendor: {
+    collection: 'organizations',
+    title: 'Vendors',
+    create: 'New vendor',
+    empty: 'No vendors yet.',
+  },
+  client: {
+    collection: 'organizations',
+    title: 'Clients',
+    create: 'New client',
+    empty: 'No clients yet.',
   },
 };
 
 /**
- * `/directory/people` and `/directory/organizations` (M0005-R026): list,
- * search, and filter the selected tenant's records, open one, or create
- * one. A tax ID search needs `tax-ids::read`.
- * @param {{collection: 'people'|'organizations'}} props
+ * `/directory/employees`, `/directory/contacts`, `/directory/vendors`, and
+ * `/directory/clients` (M0005-R026): list and search the selected tenant's
+ * records of one kind, open one, or create one. A tax ID search needs
+ * `tax-ids::read`.
+ * @param {{kind: 'employee'|'contact'|'vendor'|'client'}} props
  * @returns {JSX.Element}
  */
-export function DirectoryRecordsPage({ collection }) {
-  const settings = PAGES[collection];
+export function DirectoryRecordsPage({ kind }) {
+  const settings = PAGES[kind];
+  const { collection } = settings;
   const session = useSession();
   const tenant = session.selectedTenant;
   const abilities = useDirectoryAbilities();
   const { onError } = abilities;
-  const [kind, setKind] = useState('');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [taxIdSearch, setTaxIdSearch] = useState('');
@@ -89,7 +101,7 @@ export function DirectoryRecordsPage({ collection }) {
     if (!tenant) return undefined;
     let cancelled = false;
     listDirectoryRecords(collection, {
-      kind: kind || undefined,
+      kind,
       q: query || undefined,
       taxId: taxIdQuery || undefined,
       includeArchived,
@@ -143,21 +155,6 @@ export function DirectoryRecordsPage({ collection }) {
         }}
       >
         <TextField
-          select
-          label="Kind"
-          value={kind}
-          onChange={event => setKind(event.target.value)}
-          size="small"
-          sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="">All</MenuItem>
-          {settings.kinds.map(option => (
-            <MenuItem key={option} value={option}>
-              {KIND_LABELS[option]}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
           label="Search by name"
           value={search}
           onChange={event => setSearch(event.target.value)}
@@ -205,7 +202,6 @@ export function DirectoryRecordsPage({ collection }) {
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
-              <TableCell>Kind</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Phone</TableCell>
               <TableCell>Tax ID</TableCell>
@@ -224,7 +220,6 @@ export function DirectoryRecordsPage({ collection }) {
                   </Button>
                   {row.archived ? <Chip size="small" label="Archived" /> : null}
                 </TableCell>
-                <TableCell>{KIND_LABELS[row.kind]}</TableCell>
                 <TableCell>{row.primaryEmail ?? '—'}</TableCell>
                 <TableCell>{row.primaryPhone ?? '—'}</TableCell>
                 <TableCell>
@@ -248,6 +243,7 @@ export function DirectoryRecordsPage({ collection }) {
         <RecordFormDialog
           collection={collection}
           record={null}
+          defaults={{ kind }}
           canWriteTaxIds={abilities.writeTaxIds}
           onClose={() => setCreating(false)}
           onSaved={saved => {

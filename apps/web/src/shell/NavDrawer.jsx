@@ -6,6 +6,8 @@
 import { useLocation, useNavigate } from 'react-router';
 import BusinessIcon from '@mui/icons-material/Business';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
+import ContactsIcon from '@mui/icons-material/Contacts';
+import HandshakeIcon from '@mui/icons-material/Handshake';
 import LabelIcon from '@mui/icons-material/Label';
 import StoreIcon from '@mui/icons-material/Store';
 import BadgeIcon from '@mui/icons-material/Badge';
@@ -14,6 +16,7 @@ import DomainIcon from '@mui/icons-material/Domain';
 import HomeIcon from '@mui/icons-material/Home';
 import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
+import SettingsIcon from '@mui/icons-material/Settings';
 import StorageIcon from '@mui/icons-material/Storage';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
@@ -29,6 +32,7 @@ import {
   ORGANIZATION_SETUP_CHILDREN,
   visibleOrganizationSetupChildren,
 } from './organizationSetupNav.js';
+import { SETTINGS_CHILDREN, visibleSettingsChildren } from './settingsNav.js';
 import { Wordmark } from './Wordmark.jsx';
 
 /** Width of the expanded nav (icons and labels). */
@@ -44,13 +48,19 @@ const CHILD_ICONS = {
   tenants: <BusinessIcon fontSize="small" />,
   cells: <StorageIcon fontSize="small" />,
   'portal-users': <PeopleIcon fontSize="small" />,
-  roles: <SecurityIcon fontSize="small" />,
 };
 
 /** Icon for each `Organization Setup` child, by id. */
 const SETUP_ICONS = {
-  people: <BadgeIcon fontSize="small" />,
-  organizations: <StoreIcon fontSize="small" />,
+  employees: <BadgeIcon fontSize="small" />,
+  contacts: <ContactsIcon fontSize="small" />,
+  vendors: <StoreIcon fontSize="small" />,
+  clients: <HandshakeIcon fontSize="small" />,
+};
+
+/** Icon for each `Settings` child, by id. */
+const SETTINGS_ICONS = {
+  roles: <SecurityIcon fontSize="small" />,
   'tenant-contacts': <ContactPhoneIcon fontSize="small" />,
   labels: <LabelIcon fontSize="small" />,
 };
@@ -94,6 +104,15 @@ export function NavDrawer({ variant, expanded, open, onClose }) {
     active: location.pathname === child.path,
   }));
 
+  // The selected tenant's roles, own contacts, and labels.
+  const settingsChildren = visibleSettingsChildren(session.capabilities).map(
+    child => ({
+      ...child,
+      icon: SETTINGS_ICONS[child.id],
+      active: location.pathname === child.path,
+    })
+  );
+
   const goTo = path => {
     navigate(path);
     onClose?.();
@@ -133,6 +152,16 @@ export function NavDrawer({ variant, expanded, open, onClose }) {
           children={organizationSetupChildren}
           onSelect={id => {
             const child = ORGANIZATION_SETUP_CHILDREN.find(c => c.id === id);
+            if (child) goTo(child.path);
+          }}
+        />
+        <NavGroup
+          icon={<SettingsIcon fontSize="small" />}
+          label="Settings"
+          expanded={showLabels}
+          children={settingsChildren}
+          onSelect={id => {
+            const child = SETTINGS_CHILDREN.find(c => c.id === id);
             if (child) goTo(child.path);
           }}
         />
