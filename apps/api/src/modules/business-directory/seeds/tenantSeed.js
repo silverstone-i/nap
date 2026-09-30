@@ -6,8 +6,7 @@
 /**
  * @file The directory rows a tenant starts with (M0005-R017, R022): the
  * default labels, and for a customer tenant its first administrator as an
- * employee with a primary email and the `primary` tenant contact
- * designation. Tenant provisioning runs it as `nap-admin` inside the seed
+ * employee with a primary email who is the tenant's primary contact. Tenant provisioning runs it as `nap-admin` inside the seed
  * stage's cell transaction. Every step is idempotent, so a retried stage
  * finds the rows and adds nothing.
  */
@@ -75,7 +74,7 @@ export async function directoryLabelsPresent(db, tx, tenantId) {
 /**
  * Seed a customer tenant's directory: the default labels, the first
  * administrator as an employee marked as a portal user, their primary
- * email, and their `primary` tenant contact designation (R022).
+ * email, and their `primary` tenant contact flag (R022).
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
  * @param {FirstAdministrator} admin
@@ -97,6 +96,7 @@ export async function seedDirectoryTenant(db, tx, admin) {
         first_name: firstName,
         last_name: lastName,
         is_portal_user: true,
+        is_primary_contact: true,
       },
       { tx }
     );
@@ -113,15 +113,6 @@ export async function seedDirectoryTenant(db, tx, admin) {
         value: email,
         is_primary: true,
       },
-      { tx }
-    );
-  const [designation] = await db.tenant_contacts.rows(
-    { party_id: partyId, designation: 'primary' },
-    { tx }
-  );
-  if (!designation)
-    await db.tenant_contacts.insert(
-      { tenant_id: tenantId, party_id: partyId, designation: 'primary' },
       { tx }
     );
 }
@@ -143,10 +134,6 @@ export async function directorySeedPresent(db, tx, admin) {
     { party_id: partyId, type: 'email', is_primary: true },
     { tx }
   );
-  const [designation] = await db.tenant_contacts.rows(
-    { party_id: partyId, designation: 'primary' },
-    { tx }
-  );
   return Boolean(
     party?.kind === 'employee' &&
     person &&
@@ -154,7 +141,7 @@ export async function directorySeedPresent(db, tx, admin) {
     person.first_name === firstName &&
     person.last_name === lastName &&
     person.is_portal_user &&
-    primaryEmail?.value === email &&
-    designation
+    person.is_primary_contact &&
+    primaryEmail?.value === email
   );
 }

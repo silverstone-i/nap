@@ -6,7 +6,7 @@
 import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
- * Baseline `business-directory` migration (M0005). It creates the eight
+ * Baseline `business-directory` migration (M0005). It creates the six
  * `app` directory tables in dependency order, attaches the existing
  * `app.protect_record()` trigger function from `001-access-control`, enables
  * and forces row-level security with the tenant rule from M0002-01-R006,
@@ -33,56 +33,19 @@ export const migration = defineMigration({
         },
         { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
         { name: 'kind', type: 'varchar(32)', notNull: true, immutable: true },
+        { name: 'tax_id_encrypted', type: 'text' },
+        { name: 'tax_id_hash', type: 'char(64)' },
+        { name: 'tax_id_last4', type: 'char(4)' },
       ],
       constraints: {
         primaryKey: ['id'],
         unique: [['tenant_id', 'id']],
         checks: [
           "kind IN ('employee', 'contact', 'vendor', 'client', 'vendor_contact', 'client_contact')",
-        ],
-      },
-    };
-    const peopleSchema = {
-      dbSchema: 'app',
-      table: 'people',
-      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
-      softDelete: true,
-      columns: [
-        { name: 'party_id', type: 'uuid', notNull: true, immutable: true },
-        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-        { name: 'first_name', type: 'varchar(160)', notNull: true },
-        { name: 'last_name', type: 'varchar(160)', notNull: true },
-        { name: 'tax_id_encrypted', type: 'text' },
-        { name: 'tax_id_hash', type: 'char(64)' },
-        { name: 'tax_id_last4', type: 'char(4)' },
-        {
-          name: 'is_portal_user',
-          type: 'boolean',
-          notNull: true,
-          default: false,
-        },
-        { name: 'revision', type: 'integer', notNull: true, default: 1 },
-      ],
-      constraints: {
-        primaryKey: ['party_id'],
-        unique: [['tenant_id', 'party_id']],
-        checks: [
-          'revision > 0',
           '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL)',
           "tax_id_hash IS NULL OR tax_id_hash ~ '^[0-9a-f]{64}$'",
           "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9]{4}$'",
-        ],
-        foreignKeys: [
-          {
-            type: 'ForeignKey',
-            columns: ['tenant_id', 'party_id'],
-            references: {
-              schema: 'app',
-              table: 'parties',
-              columns: ['tenant_id', 'id'],
-            },
-            onDelete: 'RESTRICT',
-          },
+          "kind <> 'vendor_contact' OR tax_id_hash IS NULL",
         ],
         indexes: [{ columns: ['tenant_id', 'tax_id_hash'] }],
       },
@@ -97,20 +60,12 @@ export const migration = defineMigration({
         { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
         { name: 'legal_name', type: 'varchar(255)', notNull: true },
         { name: 'dba_name', type: 'varchar(255)' },
-        { name: 'tax_id_encrypted', type: 'text' },
-        { name: 'tax_id_hash', type: 'char(64)' },
-        { name: 'tax_id_last4', type: 'char(4)' },
         { name: 'revision', type: 'integer', notNull: true, default: 1 },
       ],
       constraints: {
         primaryKey: ['party_id'],
         unique: [['tenant_id', 'party_id']],
-        checks: [
-          'revision > 0',
-          '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL)',
-          "tax_id_hash IS NULL OR tax_id_hash ~ '^[0-9a-f]{64}$'",
-          "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9]{4}$'",
-        ],
+        checks: ['revision > 0'],
         foreignKeys: [
           {
             type: 'ForeignKey',
@@ -123,29 +78,33 @@ export const migration = defineMigration({
             onDelete: 'RESTRICT',
           },
         ],
-        indexes: [{ columns: ['tenant_id', 'tax_id_hash'] }],
       },
     };
-    const organizationContactsSchema = {
+    const peopleSchema = {
       dbSchema: 'app',
-      table: 'organization_contacts',
+      table: 'people',
       hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
       softDelete: true,
       columns: [
         { name: 'party_id', type: 'uuid', notNull: true, immutable: true },
         { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-        {
-          name: 'organization_id',
-          type: 'uuid',
-          notNull: true,
-          immutable: true,
-        },
-        { name: 'full_name', type: 'varchar(255)', notNull: true },
-        { name: 'tax_id_encrypted', type: 'text' },
-        { name: 'tax_id_hash', type: 'char(64)' },
-        { name: 'tax_id_last4', type: 'char(4)' },
+        { name: 'organization_id', type: 'uuid', immutable: true },
+        { name: 'first_name', type: 'varchar(160)', notNull: true },
+        { name: 'last_name', type: 'varchar(160)', notNull: true },
         {
           name: 'is_portal_user',
+          type: 'boolean',
+          notNull: true,
+          default: false,
+        },
+        {
+          name: 'is_primary_contact',
+          type: 'boolean',
+          notNull: true,
+          default: false,
+        },
+        {
+          name: 'is_billing_contact',
           type: 'boolean',
           notNull: true,
           default: false,
@@ -160,12 +119,10 @@ export const migration = defineMigration({
       ],
       constraints: {
         primaryKey: ['party_id'],
+        unique: [['tenant_id', 'party_id']],
         checks: [
           'revision > 0',
-          '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL)',
-          "tax_id_hash IS NULL OR tax_id_hash ~ '^[0-9a-f]{64}$'",
-          "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9]{4}$'",
-          'NOT is_primary_tax_contact OR tax_id_hash IS NOT NULL',
+          'NOT is_primary_tax_contact OR organization_id IS NOT NULL',
         ],
         foreignKeys: [
           {
@@ -196,7 +153,6 @@ export const migration = defineMigration({
             where: 'is_primary_tax_contact AND deactivated_at IS NULL',
           },
           { columns: ['organization_id'] },
-          { columns: ['tenant_id', 'tax_id_hash'] },
         ],
       },
     };
@@ -358,63 +314,13 @@ export const migration = defineMigration({
         ],
       },
     };
-    const tenantContactsSchema = {
-      dbSchema: 'app',
-      table: 'tenant_contacts',
-      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
-      softDelete: true,
-      columns: [
-        {
-          name: 'id',
-          type: 'uuid',
-          notNull: true,
-          default: 'gen_random_uuid()',
-          immutable: true,
-        },
-        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-        { name: 'party_id', type: 'uuid', notNull: true, immutable: true },
-        {
-          name: 'designation',
-          type: 'varchar(16)',
-          notNull: true,
-          immutable: true,
-        },
-        { name: 'revision', type: 'integer', notNull: true, default: 1 },
-      ],
-      constraints: {
-        primaryKey: ['id'],
-        checks: ["designation IN ('primary', 'billing')", 'revision > 0'],
-        foreignKeys: [
-          {
-            type: 'ForeignKey',
-            columns: ['tenant_id', 'party_id'],
-            references: {
-              schema: 'app',
-              table: 'people',
-              columns: ['tenant_id', 'party_id'],
-            },
-            onDelete: 'RESTRICT',
-          },
-        ],
-        indexes: [
-          {
-            columns: ['party_id', 'designation'],
-            unique: true,
-            where: 'deactivated_at IS NULL',
-          },
-          { columns: ['designation'] },
-        ],
-      },
-    };
     const schemas = [
       partiesSchema,
-      peopleSchema,
       organizationsSchema,
-      organizationContactsSchema,
+      peopleSchema,
       contactLabelsSchema,
       contactMethodsSchema,
       addressesSchema,
-      tenantContactsSchema,
     ];
     for (const schema of schemas)
       await new TableModel(db, pgp, schema).createTable();

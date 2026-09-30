@@ -157,8 +157,10 @@ async function cellRoles(cellId, tenantId) {
             WHERE type='email' AND is_primary AND deactivated_at IS NULL`
         ),
         designations: await tx.any(
-          `SELECT party_id, designation FROM app.tenant_contacts
-            WHERE deactivated_at IS NULL`
+          `SELECT party_id, is_primary_contact, is_billing_contact
+             FROM app.people
+            WHERE (is_primary_contact OR is_billing_contact)
+              AND deactivated_at IS NULL`
         ),
         labels: await tx.one(
           'SELECT count(*)::int AS n FROM app.contact_labels'
@@ -328,7 +330,11 @@ describe('tenant provisioning (I0006)', () => {
     ]);
     expect(emails).toEqual([{ party_id: membership.member_id, value: email }]);
     expect(designations).toEqual([
-      { party_id: membership.member_id, designation: 'primary' },
+      {
+        party_id: membership.member_id,
+        is_primary_contact: true,
+        is_billing_contact: false,
+      },
     ]);
     expect(labels.n).toBe(13);
   });

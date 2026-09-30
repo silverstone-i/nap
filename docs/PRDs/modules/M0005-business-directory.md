@@ -73,10 +73,10 @@ entitlement row (M0001-10), because provisioning creates its first rows
 
 ### Records
 
-- M0005-R001: Every directory record must have one `app.parties` row with `kind` in `employee`, `contact`, `vendor`, `client`, `vendor_contact`, `client_contact`. `kind` never changes.
+- M0005-R001: Every directory record must have one `app.parties` row with `kind` in `employee`, `contact`, `vendor`, `client`, `vendor_contact`, `client_contact`. `kind` never changes. A record's optional tax ID is stored on its party.
 - M0005-R002: Employees and contacts are stored in `app.people`, each with a first name, last name, optional tax ID, and portal flag.
 - M0005-R003: Vendors and clients are stored in `app.organizations`, each with a legal name, an optional "doing business as" name, and a tax ID or primary tax contact (R006, R007).
-- M0005-R004: Vendor contacts and client contacts are stored in `app.organization_contacts`, each with a full name, optional tax ID, and portal flag. A vendor contact belongs to a vendor and a client contact to a client.
+- M0005-R004: Vendor contacts and client contacts are also stored in `app.people`, each with a first name, last name, optional tax ID, portal flag, and the `organization_id` it belongs to. A vendor contact belongs to a vendor and a client contact to a client. Any number of an organization's contacts may be flagged as its primary contact or billing contact.
 - M0005-R005: A party's child row must match its `kind`. For example, a `people` row may point only at an `employee` or `contact` party.
 
 ### Tax IDs
@@ -88,7 +88,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 - M0005-R010: A tax ID is never stored in plain text. It is stored encrypted with AES-256-GCM (Advanced Encryption Standard in Galois/Counter Mode) using a fresh random value (nonce) per write, as an HMAC-SHA-256 keyed hash of its digits, and as its last four digits. The plain value must not appear in logs, outbox rows, or events.
 - M0005-R011: The encryption key and the hash key come from deploy secrets `TAX_ID_ENCRYPTION_KEY_<ENV>` and `TAX_ID_HASH_KEY_<ENV>` and are never stored in a database. The API must refuse to start without them. Neither key rotates.
 - M0005-R012: Responses show only `taxIdLast4`. Reading a full tax ID requires `business-directory::tax-ids::read` and writes an event recording who read which record. Setting, changing, or clearing a tax ID requires `business-directory::tax-ids::write`.
-- M0005-R013: Searching by tax ID requires `business-directory::tax-ids::read`. The API hashes the entered digits and matches `tax_id_hash`. Saving a tax ID already held by another active record of the same table succeeds and returns `duplicateTaxIds` with those records' IDs, because one buyer can buy several units.
+- M0005-R013: Searching by tax ID requires `business-directory::tax-ids::read`. The API hashes the entered digits and matches `tax_id_hash`. Saving a tax ID already held by another active record succeeds and returns `duplicateTaxIds` with those records' IDs, because one buyer can buy several units.
 
 ### Emails, phones, and addresses
 
@@ -99,7 +99,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 
 ### Tenant contacts
 
-- M0005-R018: Tenant contacts are stored in `app.tenant_contacts` as `primary` or `billing`. Only an active employee may be a tenant contact. A tenant may have any number of each designation, and an employee holds each designation at most once.
+- M0005-R018: A tenant contact is an employee whose `app.people` row is flagged `is_primary_contact` (designation `primary`) or `is_billing_contact` (designation `billing`). Only an active employee may be a tenant contact. A tenant may have any number of each designation. Archiving an employee clears both flags, and restoring does not bring them back.
 - M0005-R019: Removing the last `primary` tenant contact, or archiving the employee who is the last one, must be rejected with `LAST_PRIMARY_CONTACT`.
 
 ### Portal flag
@@ -109,7 +109,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 ### Provisioning
 
 - M0005-R021: `tenant-provision` (I0006-R001) must also require the first administrator's `firstName` and `lastName`. It must generate the administrator's party ID and store it as the membership's `member_id` (I0006-R002).
-- M0005-R022: The seed stage (I0006-R007) must, in the same cell transaction, create the employee party, the `people` row with `is_portal_user = true`, the login email as the primary email, the default labels (R017), and a `primary` tenant contact for that employee. The readback check covers these rows.
+- M0005-R022: The seed stage (I0006-R007) must, in the same cell transaction, create the employee party, the `people` row with `is_portal_user = true`, the login email as the primary email, the default labels (R017), and `is_primary_contact = true` on that employee. The readback check covers these rows.
 - M0005-R023: An active, ready membership with a `member_type` must have a `member_id`. This replaces I0006's rule that `member_id` may be null. The Napsoft root membership keeps `member_type` and `member_id` null and has no employee record; it is an emergency login for first setup and recovery. Napsoft staff who need an employee record get their own login with an `employee` membership. The Napsoft tenant therefore starts with no primary tenant contact; R019 only blocks removing the last one.
 - M0005-R024: `member_type` values become `employee`, `contact`, `vendor_contact`, `client_contact` in `admin.portal_user_tenants`, `cell.tenant_members`, and the admin provisioning job kinds. `client` is removed, because the login belongs to the buyer, not the client.
 
@@ -121,7 +121,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 ## 7. Business Rules And Invariants
 
 - The database enforces the keys, checks, and unique indexes in section 9.
-- The model layer enforces rules that span tables: R005, R008, R018's employee rule, and R019.
+- The model layer enforces rules that span tables: R005, R009's tax ID rule, R018's employee rule, and R019.
 
 ## 8. Lifecycle And State Transitions
 
@@ -141,71 +141,57 @@ for tenant business tables (M0002-01-R006). Every table also has the standard
 audit fields, soft delete (`deactivated_at`), and `revision`. Row-level
 security (RLS) limits each query to the session's tenant through `tenant_id`.
 
-| Table                   | Schema object                | Behavior defined by    |
-| ----------------------- | ---------------------------- | ---------------------- |
-| `parties`               | `partiesSchema`              | R001, R005             |
-| `people`                | `peopleSchema`               | R002, R010–R013        |
-| `organizations`         | `organizationsSchema`        | R003, R006, R007, R010 |
-| `organization_contacts` | `organizationContactsSchema` | R004, R008–R010        |
-| `contact_methods`       | `contactMethodsSchema`       | R014, R016             |
-| `addresses`             | `addressesSchema`            | R015                   |
-| `contact_labels`        | `contactLabelsSchema`        | R017                   |
-| `tenant_contacts`       | `tenantContactsSchema`       | R018, R019             |
+| Table             | Schema object          | Behavior defined by                |
+| ----------------- | ---------------------- | ---------------------------------- |
+| `parties`         | `partiesSchema`        | R001, R005, R008, R010–R013        |
+| `people`          | `peopleSchema`         | R002, R004, R007, R009, R018, R019 |
+| `organizations`   | `organizationsSchema`  | R003, R006, R007                   |
+| `contact_methods` | `contactMethodsSchema` | R014, R016                         |
+| `addresses`       | `addressesSchema`      | R015                               |
+| `contact_labels`  | `contactLabelsSchema`  | R017                               |
 
 ### `app.parties`
 
-One row per directory record.
+One row per directory record. It has audit fields but no soft delete or
+`revision`; a record is archived and versioned through its child row.
 
-| Column      | Type   | Rules                                                                                                 |
-| ----------- | ------ | ----------------------------------------------------------------------------------------------------- |
-| `id`        | `uuid` | Primary key, default `gen_random_uuid()`; immutable                                                   |
-| `tenant_id` | `uuid` | Not null; immutable; RLS column                                                                       |
-| `kind`      | `text` | Not null; `employee`, `contact`, `vendor`, `client`, `vendor_contact`, or `client_contact`; immutable |
+| Column             | Type       | Rules                                                                                                 |
+| ------------------ | ---------- | ----------------------------------------------------------------------------------------------------- |
+| `id`               | `uuid`     | Primary key, default `gen_random_uuid()`; immutable                                                   |
+| `tenant_id`        | `uuid`     | Not null; immutable; RLS column                                                                       |
+| `kind`             | `text`     | Not null; `employee`, `contact`, `vendor`, `client`, `vendor_contact`, or `client_contact`; immutable |
+| `tax_id_encrypted` | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID                       |
+| `tax_id_hash`      | `char(64)` | Hex HMAC-SHA-256 of the digits (R010); null with `tax_id_encrypted`; indexed                          |
+| `tax_id_last4`     | `char(4)`  | Last four digits; null with `tax_id_encrypted`                                                        |
 
-### `app.people`
-
-One row per employee or contact.
-
-| Column             | Type       | Rules                                                                           |
-| ------------------ | ---------- | ------------------------------------------------------------------------------- |
-| `party_id`         | `uuid`     | Primary key; references `parties.id`; immutable                                 |
-| `tenant_id`        | `uuid`     | Not null; immutable; RLS column                                                 |
-| `first_name`       | `text`     | Not null                                                                        |
-| `last_name`        | `text`     | Not null                                                                        |
-| `tax_id_encrypted` | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID |
-| `tax_id_hash`      | `char(64)` | Hex HMAC-SHA-256 of the digits (R010); null with `tax_id_encrypted`; indexed    |
-| `tax_id_last4`     | `char(4)`  | Last four digits; null with `tax_id_encrypted`                                  |
-| `is_portal_user`   | `boolean`  | Not null, default `false`                                                       |
+A `vendor_contact` party has no tax ID (R008).
 
 ### `app.organizations`
 
 One row per vendor or client.
 
-| Column             | Type       | Rules                                                                           |
-| ------------------ | ---------- | ------------------------------------------------------------------------------- |
-| `party_id`         | `uuid`     | Primary key; references `parties.id`; immutable                                 |
-| `tenant_id`        | `uuid`     | Not null; immutable; RLS column                                                 |
-| `legal_name`       | `text`     | Not null; for a home buyer client, the unit, such as `Lot 12, Maple Ridge`      |
-| `dba_name`         | `text`     | Nullable                                                                        |
-| `tax_id_encrypted` | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID |
-| `tax_id_hash`      | `char(64)` | Hex HMAC-SHA-256 of the digits (R010); null with `tax_id_encrypted`; indexed    |
-| `tax_id_last4`     | `char(4)`  | Last four digits; null with `tax_id_encrypted`                                  |
+| Column       | Type   | Rules                                                                      |
+| ------------ | ------ | -------------------------------------------------------------------------- |
+| `party_id`   | `uuid` | Primary key; references `parties.id`; immutable                            |
+| `tenant_id`  | `uuid` | Not null; immutable; RLS column                                            |
+| `legal_name` | `text` | Not null; for a home buyer client, the unit, such as `Lot 12, Maple Ridge` |
+| `dba_name`   | `text` | Nullable                                                                   |
 
-### `app.organization_contacts`
+### `app.people`
 
-One row per vendor contact or client contact.
+One row per employee, contact, vendor contact, or client contact.
 
-| Column                   | Type       | Rules                                                                                                                |
-| ------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| `party_id`               | `uuid`     | Primary key; references `parties.id`; immutable                                                                      |
-| `tenant_id`              | `uuid`     | Not null; immutable; RLS column                                                                                      |
-| `organization_id`        | `uuid`     | Not null; references `organizations.party_id`; immutable                                                             |
-| `full_name`              | `text`     | Not null                                                                                                             |
-| `tax_id_encrypted`       | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID                                      |
-| `tax_id_hash`            | `char(64)` | Hex HMAC-SHA-256 of the digits (R010); null with `tax_id_encrypted`; indexed                                         |
-| `tax_id_last4`           | `char(4)`  | Last four digits; null with `tax_id_encrypted`                                                                       |
-| `is_portal_user`         | `boolean`  | Not null, default `false`                                                                                            |
-| `is_primary_tax_contact` | `boolean`  | Not null, default `false`; client contacts only; unique per `organization_id` among active flagged rows (R007, R009) |
+| Column                   | Type      | Rules                                                                                                                                                |
+| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `party_id`               | `uuid`    | Primary key; references `parties.id`; immutable                                                                                                      |
+| `tenant_id`              | `uuid`    | Not null; immutable; RLS column                                                                                                                      |
+| `organization_id`        | `uuid`    | Nullable; references `organizations.party_id`; set for vendor and client contacts only; immutable                                                    |
+| `first_name`             | `text`    | Not null                                                                                                                                             |
+| `last_name`              | `text`    | Not null                                                                                                                                             |
+| `is_portal_user`         | `boolean` | Not null, default `false`                                                                                                                            |
+| `is_primary_contact`     | `boolean` | Not null, default `false`; on an employee, a `primary` tenant contact (R018); on an organization contact, that organization's primary contact (R004) |
+| `is_billing_contact`     | `boolean` | Not null, default `false`; on an employee, a `billing` tenant contact (R018); on an organization contact, that organization's billing contact (R004) |
+| `is_primary_tax_contact` | `boolean` | Not null, default `false`; requires `organization_id`; client contacts only; unique per `organization_id` among active flagged rows (R007, R009)     |
 
 ### `app.contact_methods`
 
@@ -249,21 +235,6 @@ One row per label.
 | `tenant_id`  | `uuid` | Not null; immutable; RLS column                                        |
 | `applies_to` | `text` | Not null; `email`, `phone`, or `address`; immutable                    |
 | `name`       | `text` | Not null; unique per `(tenant_id, applies_to)`, archived rows included |
-
-### `app.tenant_contacts`
-
-One row per employee designation.
-
-| Column        | Type   | Rules                                                                   |
-| ------------- | ------ | ----------------------------------------------------------------------- |
-| `id`          | `uuid` | Primary key, default `gen_random_uuid()`; immutable                     |
-| `tenant_id`   | `uuid` | Not null; immutable; RLS column                                         |
-| `party_id`    | `uuid` | Not null; references `people.party_id`; employee only (R018); immutable |
-| `designation` | `text` | Not null; `primary` or `billing`; immutable                             |
-
-`(party_id, designation)` is unique among active rows.
-
-`cell.tenant_members.member_id` holds a `parties.id`. There is no cross-database foreign key.
 
 ## 10. API Requirements
 
@@ -311,7 +282,7 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 
 | Criterion | Required result                                                                                                                                                                                                              | Requirements                            |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| AC01      | The cell migration creates the eight tables with RLS; reruns are no-ops.                                                                                                                                                     | M0005-R001–R004, R014, R015, R017, R018 |
+| AC01      | The cell migration creates the six tables with RLS; reruns are no-ops.                                                                                                                                                       | M0005-R001–R004, R014, R015, R017, R018 |
 | AC02      | A child row whose party has the wrong `kind` is rejected.                                                                                                                                                                    | M0005-R005                              |
 | AC03      | A vendor without a tax ID, a client with both or neither of a tax ID and a primary tax contact, and a vendor contact with a tax ID are rejected.                                                                             | M0005-R006–R008                         |
 | AC04      | A client has at most one primary tax contact, drawn from its own contacts; the flagged contact must have a tax ID and cannot be archived while flagged.                                                                      | M0005-R007, R009                        |

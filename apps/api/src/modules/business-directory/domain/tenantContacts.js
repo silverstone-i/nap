@@ -4,82 +4,91 @@
  */
 
 /**
- * @file The tenant's primary and billing contacts (M0005-R018, R019). Only
- * an active employee holds a designation, any number of employees may hold
- * each, and the last primary contact cannot be removed. Every removal locks
- * the tenant's active primary rows first, so two concurrent removals cannot
- * both see another primary and leave none.
+ * @file The tenant's primary and billing contacts (M0005-R018, R019): the
+ * `is_primary_contact` and `is_billing_contact` flags on an employee's
+ * `app.people` row. Only an active employee holds a designation, any number
+ * of employees may hold each, and the last primary contact cannot be
+ * removed. Every removal locks the tenant's primary employees first, so two
+ * concurrent removals cannot both see another primary and leave none.
  */
 
 import { z } from 'zod';
 import { DirectoryError } from './errors.js';
 import { mutate, parse, parseId, read } from './shared.js';
 
-/** Tenant contact designations (R018). */
-export const DESIGNATIONS = Object.freeze(['primary', 'billing']);
+/** Tenant contact designations (R018) and the flag each one sets. */
+const FLAGS = Object.freeze({
+  primary: 'is_primary_contact',
+  billing: 'is_billing_contact',
+});
+
+export const DESIGNATIONS = Object.freeze(Object.keys(FLAGS));
 
 const designation = z.enum(DESIGNATIONS);
 
 /**
+ * The designations an employee's row holds.
+ * @param {object} row `app.people` row.
+ * @returns {string[]}
+ */
+export function designationsOf(row) {
+  return DESIGNATIONS.filter(name => row[FLAGS[name]]);
+}
+
+/**
  * A designation change for the outbox.
  * @param {string} action `added` or `removed`.
- * @param {object} row `tenant_contacts` row.
+ * @param {string} partyId
+ * @param {string} name Designation.
  * @returns {import('./shared.js').DirectoryChange}
  */
-function designationChange(action, row) {
+function designationChange(action, partyId, name) {
   return {
     eventKey: `directory.tenant_contact.${action}`,
-    recordId: row.id,
-    details: { party_id: row.party_id, designation: row.designation },
+    recordId: partyId,
+    details: { party_id: partyId, designation: name },
   };
 }
 
 /**
- * Refuse to end `rows` if they include the tenant's last active primary
- * contact (R019). Locks every active primary row first.
+ * Refuse to end `partyId`'s primary designation if it is the tenant's last
+ * one (R019). Locks every primary employee first.
  * @param {object} context
- * @param {object[]} ending Rows about to be archived.
+ * @param {string} partyId
  * @param {object} tx
  * @returns {Promise<void>}
  * @throws {DirectoryError} `LAST_PRIMARY_CONTACT`
  */
-async function requireRemainingPrimary(context, ending, tx) {
-  if (!ending.some(row => row.designation === 'primary')) return;
-  const primaries = await context.cell.tenant_contacts.rows(
-    { designation: 'primary' },
-    { tx, lock: true }
-  );
-  const endingIds = new Set(ending.map(row => row.id));
-  if (!primaries.some(row => !endingIds.has(row.id)))
+async function requireRemainingPrimary(context, partyId, tx) {
+  const primaries = await context.cell.people.tenantContacts({
+    tx,
+    column: FLAGS.primary,
+    lock: true,
+  });
+  if (!primaries.some(row => row.party_id !== partyId))
     throw new DirectoryError('LAST_PRIMARY_CONTACT');
 }
 
 /**
- * Archive an employee's designations when the employee is archived. Refused
+ * End an employee's designations when the employee is archived. Refused
  * when that would leave no primary contact.
  * @param {object} context
- * @param {string} partyId
+ * @param {object} employee Locked `app.people` row.
  * @param {object} tx
- * @returns {Promise<import('./shared.js').DirectoryChange[]>}
+ * @returns {Promise<{columns: object, changes: import('./shared.js').DirectoryChange[]}>}
+ *   The flag columns to clear with the archive, and the changes to record.
  * @throws {DirectoryError} `LAST_PRIMARY_CONTACT`
  */
-export async function endDesignations(context, partyId, tx) {
-  const rows = await context.cell.tenant_contacts.rows(
-    { party_id: partyId },
-    { tx, lock: true }
-  );
-  await requireRemainingPrimary(context, rows, tx);
-  const changes = [];
-  for (const row of rows) {
-    await context.cell.tenant_contacts.saveRevision(
-      row.id,
-      { archived: true },
-      context.actorId,
-      { tx }
-    );
-    changes.push(designationChange('removed', row));
-  }
-  return changes;
+export async function endDesignations(context, employee, tx) {
+  const held = designationsOf(employee);
+  if (held.includes('primary'))
+    await requireRemainingPrimary(context, employee.party_id, tx);
+  return {
+    columns: Object.fromEntries(held.map(name => [FLAGS[name], false])),
+    changes: held.map(name =>
+      designationChange('removed', employee.party_id, name)
+    ),
+  };
 }
 
 /**
@@ -90,27 +99,44 @@ export async function endDesignations(context, partyId, tx) {
  */
 export function listTenantContacts(context) {
   return read(context, async tx => {
-    const rows = await context.cell.tenant_contacts.rows(
-      {},
-      { tx, orderBy: ['designation', 'created_at', 'id'] }
-    );
-    const ids = [...new Set(rows.map(row => row.party_id))];
-    const people = new Map(
-      (await context.cell.people.byKeys(ids, { tx })).map(p => [p.party_id, p])
-    );
+    const people = await context.cell.people.tenantContacts({ tx });
     const emails = new Map(
-      (await context.cell.contact_methods.primariesFor(ids, { tx }))
+      (
+        await context.cell.contact_methods.primariesFor(
+          people.map(p => p.party_id),
+          { tx }
+        )
+      )
         .filter(row => row.type === 'email')
         .map(row => [row.party_id, row.value])
     );
-    return rows.map(row => ({
-      partyId: row.party_id,
-      designation: row.designation,
-      firstName: people.get(row.party_id)?.first_name ?? null,
-      lastName: people.get(row.party_id)?.last_name ?? null,
-      primaryEmail: emails.get(row.party_id) ?? null,
-    }));
+    return DESIGNATIONS.flatMap(name =>
+      people
+        .filter(person => person[FLAGS[name]])
+        .map(person => ({
+          partyId: person.party_id,
+          designation: name,
+          firstName: person.first_name,
+          lastName: person.last_name,
+          primaryEmail: emails.get(person.party_id) ?? null,
+        }))
+    );
   });
+}
+
+/**
+ * Lock an employee's `app.people` row.
+ * @param {object} context
+ * @param {string} key
+ * @param {object} tx
+ * @returns {Promise<object|null>} The row, or null when the party is not an employee.
+ * @throws {DirectoryError} `NOT_FOUND`
+ */
+async function lockEmployee(context, key, tx) {
+  const party = await context.cell.parties.byKey(key, { tx });
+  if (!party) throw new DirectoryError('NOT_FOUND');
+  const person = await context.cell.people.byKey(key, { tx, lock: true });
+  return party.kind === 'employee' ? person : null;
 }
 
 /**
@@ -124,33 +150,20 @@ export function listTenantContacts(context) {
  */
 export function addTenantContact(context, partyId, value) {
   const key = parseId(partyId);
-  const kind = parse(designation, value);
+  const name = parse(designation, value);
   return mutate(context, async tx => {
-    const party = await context.cell.parties.byKey(key, { tx });
-    if (!party) throw new DirectoryError('NOT_FOUND');
-    const person = await context.cell.people.byKey(key, { tx, lock: true });
-    if (party.kind !== 'employee' || !person || person.deactivated_at)
+    const person = await lockEmployee(context, key, tx);
+    if (!person || person.deactivated_at)
       throw new DirectoryError('NOT_EMPLOYEE');
-    const [existing] = await context.cell.tenant_contacts.rows(
-      { party_id: key, designation: kind },
+    const result = { partyId: key, designation: name };
+    if (person[FLAGS[name]]) return { result, changes: [] };
+    await context.cell.people.saveRevision(
+      key,
+      { [FLAGS[name]]: true },
+      context.actorId,
       { tx }
     );
-    if (existing)
-      return { result: { partyId: key, designation: kind }, changes: [] };
-    const row = await context.cell.tenant_contacts.insert(
-      {
-        tenant_id: context.tenant.id,
-        party_id: key,
-        designation: kind,
-        created_by: context.actorId,
-        updated_by: context.actorId,
-      },
-      { tx }
-    );
-    return {
-      result: { partyId: key, designation: kind },
-      changes: [designationChange('added', row)],
-    };
+    return { result, changes: [designationChange('added', key, name)] };
   });
 }
 
@@ -164,23 +177,21 @@ export function addTenantContact(context, partyId, value) {
  */
 export function removeTenantContact(context, partyId, value) {
   const key = parseId(partyId);
-  const kind = parse(designation, value);
+  const name = parse(designation, value);
   return mutate(context, async tx => {
-    const [row] = await context.cell.tenant_contacts.rows(
-      { party_id: key, designation: kind },
-      { tx, lock: true }
-    );
-    if (!row) throw new DirectoryError('NOT_FOUND');
-    await requireRemainingPrimary(context, [row], tx);
-    await context.cell.tenant_contacts.saveRevision(
-      row.id,
-      { archived: true },
+    const person = await lockEmployee(context, key, tx);
+    if (!person || person.deactivated_at || !person[FLAGS[name]])
+      throw new DirectoryError('NOT_FOUND');
+    if (name === 'primary') await requireRemainingPrimary(context, key, tx);
+    await context.cell.people.saveRevision(
+      key,
+      { [FLAGS[name]]: false },
       context.actorId,
       { tx }
     );
     return {
-      result: { partyId: key, designation: kind },
-      changes: [designationChange('removed', row)],
+      result: { partyId: key, designation: name },
+      changes: [designationChange('removed', key, name)],
     };
   });
 }

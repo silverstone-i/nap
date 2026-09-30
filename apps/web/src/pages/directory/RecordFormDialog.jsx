@@ -74,7 +74,7 @@ function TaxIdInput({
 }
 
 /** One buyer row in a new client's contact list. */
-const blankBuyer = () => ({ fullName: '', taxId: '' });
+const blankBuyer = () => ({ firstName: '', lastName: '', taxId: '' });
 
 /**
  * Create or edit a directory record (M0005-R002–R009, R016). Tax ID fields
@@ -101,7 +101,6 @@ export function RecordFormDialog({
   const [primaryEmail, setPrimaryEmail] = useState('');
   const [legalName, setLegalName] = useState(record?.legalName ?? '');
   const [dbaName, setDbaName] = useState(record?.dbaName ?? '');
-  const [fullName, setFullName] = useState(record?.fullName ?? '');
   const [isPortalUser, setIsPortalUser] = useState(
     record?.isPortalUser ?? false
   );
@@ -111,6 +110,12 @@ export function RecordFormDialog({
   const [primaryBuyer, setPrimaryBuyer] = useState(0);
   const [clientTaxSource, setClientTaxSource] = useState('buyer');
   const [isPrimaryTaxContact, setIsPrimaryTaxContact] = useState(false);
+  const [isPrimaryContact, setIsPrimaryContact] = useState(
+    record?.isPrimaryContact ?? false
+  );
+  const [isBillingContact, setIsBillingContact] = useState(
+    record?.isBillingContact ?? false
+  );
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -161,18 +166,25 @@ export function RecordFormDialog({
         kind,
         ...common,
         contacts: buyers.map((buyer, index) => ({
-          fullName: buyer.fullName,
+          firstName: buyer.firstName,
+          lastName: buyer.lastName,
           ...(buyer.taxId.trim() ? { taxId: buyer.taxId.trim() } : {}),
           isPrimaryTaxContact: index === primaryBuyer,
         })),
       };
     }
+    const contact = {
+      firstName,
+      lastName,
+      isPortalUser,
+      isPrimaryContact,
+      isBillingContact,
+    };
     return editing
-      ? { fullName, isPortalUser, ...taxIdField() }
+      ? { ...contact, ...taxIdField() }
       : {
           organizationId: defaults.organizationId,
-          fullName,
-          isPortalUser,
+          ...contact,
           ...(isClientContact && isPrimaryTaxContact
             ? { isPrimaryTaxContact: true }
             : {}),
@@ -223,7 +235,7 @@ export function RecordFormDialog({
           </Alert>
         ) : null}
         <Stack spacing={2} sx={{ mt: 1 }}>
-          {people ? (
+          {people || contacts ? (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
                 label="First name"
@@ -271,15 +283,6 @@ export function RecordFormDialog({
               />
             </>
           ) : null}
-          {contacts ? (
-            <TextField
-              label="Full name"
-              value={fullName}
-              onChange={event => setFullName(event.target.value)}
-              required
-              fullWidth
-            />
-          ) : null}
           {organizations && !editing && kind === 'client' ? (
             <TextField
               select
@@ -303,21 +306,28 @@ export function RecordFormDialog({
                   spacing={1}
                   sx={{ alignItems: { sm: 'center' } }}
                 >
-                  <TextField
-                    label="Buyer name"
-                    value={buyer.fullName}
-                    onChange={event =>
-                      setBuyers(list =>
-                        list.map((b, i) =>
-                          i === index
-                            ? { ...b, fullName: event.target.value }
-                            : b
+                  {['firstName', 'lastName'].map(field => (
+                    <TextField
+                      key={field}
+                      label={
+                        field === 'firstName'
+                          ? 'Buyer first name'
+                          : 'Buyer last name'
+                      }
+                      value={buyer[field]}
+                      onChange={event =>
+                        setBuyers(list =>
+                          list.map((b, i) =>
+                            i === index
+                              ? { ...b, [field]: event.target.value }
+                              : b
+                          )
                         )
-                      )
-                    }
-                    required
-                    fullWidth
-                  />
+                      }
+                      required
+                      fullWidth
+                    />
+                  ))}
                   {canWriteTaxIds ? (
                     <TextField
                       label="Buyer SSN"
@@ -391,6 +401,32 @@ export function RecordFormDialog({
               }
               label="Primary tax contact"
             />
+          ) : null}
+          {contacts ? (
+            <Stack direction="row" spacing={2}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isPrimaryContact}
+                    onChange={event =>
+                      setIsPrimaryContact(event.target.checked)
+                    }
+                  />
+                }
+                label="Primary contact"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isBillingContact}
+                    onChange={event =>
+                      setIsBillingContact(event.target.checked)
+                    }
+                  />
+                }
+                label="Billing contact"
+              />
+            </Stack>
           ) : null}
           {people || contacts ? (
             <FormControlLabel

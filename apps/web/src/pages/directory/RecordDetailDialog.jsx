@@ -407,11 +407,13 @@ export function RecordDetailDialog({
                               size="small"
                               onClick={() => setOpenContact(contact.id)}
                             >
-                              {contact.fullName}
+                              {recordName(contact)}
                             </Button>
                           }
                           secondary={[
                             contact.primaryEmail,
+                            contact.isPrimaryContact ? 'Primary contact' : null,
+                            contact.isBillingContact ? 'Billing contact' : null,
                             contact.isPrimaryTaxContact
                               ? 'Primary tax contact'
                               : null,

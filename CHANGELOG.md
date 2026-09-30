@@ -10,6 +10,13 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Business directory schema: `app.organization_contacts` and `app.tenant_contacts` are gone. Vendor and client contacts are `app.people` rows with an `organization_id`, and use first and last name instead of a full name. A tenant contact is an employee flagged `is_primary_contact` or `is_billing_contact`. An organization contact can carry the same two flags, as its organization's primary or billing contact. Tax IDs move from each record table to `app.parties`, and the database now rejects a tax ID on a vendor contact. The `/organization-contacts` and `/tenant-contacts` routes and `directory.tenant_contact.*` events keep their shape, except contacts take `firstName`/`lastName` in place of `fullName` and add `isPrimaryContact`/`isBillingContact`.
+- A duplicate tax ID warning now covers every active record, not just records of the same kind.
+- Designating or removing a tenant contact advances that employee's `revision`.
+- The `business-directory` migration is edited in place, so recreate existing cell databases.
+
 ## [v0.25.0] - 2026-09-30
 
 ### Changed

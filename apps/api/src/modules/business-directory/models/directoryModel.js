@@ -121,23 +121,4 @@ export class DirectoryModel extends TableModel {
       values
     );
   }
-
-  /**
-   * Active rows of this table holding a tax ID hash, other than `excludeKey`
-   * (M0005-R013).
-   * @param {string} hash
-   * @param {string|null} excludeKey
-   * @param {{tx: object}} options
-   * @returns {Promise<string[]>} Their keys.
-   */
-  async holdersOfTaxId(hash, excludeKey, { tx }) {
-    return tx.map(
-      `SELECT ${this.key} AS key FROM ${this.schemaName}.${this.tableName}
-        WHERE tax_id_hash = $1 AND deactivated_at IS NULL
-          AND ($2::uuid IS NULL OR ${this.key} <> $2::uuid)
-        ORDER BY ${this.key}`,
-      [hash, excludeKey],
-      row => row.key
-    );
-  }
 }
