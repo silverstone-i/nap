@@ -9,7 +9,7 @@
  * A child is visible only when it is implemented and the session's resolved
  * capabilities match its route capability (I0005-R011). Tenants, cells, and
  * portal users are records Napsoft manages, so they target the Napsoft
- * tenant; Roles targets the selected tenant (M0003-R016).
+ * tenant. Roles belong to the selected tenant and live under `Settings`.
  */
 
 import { can } from '../auth/capabilities.js';
@@ -38,14 +38,6 @@ export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
     implemented: true,
     capability: 'admin-tenancy::accounts::read',
     target: 'napsoft',
-  }),
-  Object.freeze({
-    id: 'roles',
-    label: 'Roles',
-    path: '/management/roles',
-    implemented: true,
-    capability: 'access-control::roles::read',
-    target: 'session',
   }),
 ]);
 

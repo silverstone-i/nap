@@ -33,7 +33,7 @@ import { UserRolesSection } from './UserRolesSection.jsx';
 import { describeRoleError, isStaleRevision } from './roleErrors.js';
 
 /**
- * `/management/roles` (M0003-R016): the selected tenant's roles, their
+ * `/settings/roles` (M0003-R016): the selected tenant's roles, their
  * detail, create / edit / archive / restore, and a user's assignments.
  * Every call is scoped server-side to the session's selected tenant.
  */

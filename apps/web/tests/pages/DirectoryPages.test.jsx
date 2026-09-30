@@ -105,11 +105,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('People (M0005-R026)', () => {
-  it('lists people with masked tax IDs and reveals one on request', async () => {
+describe('Employees (M0005-R026)', () => {
+  it('lists employees with masked tax IDs and reveals one on request', async () => {
     api.revealTaxId.mockResolvedValue('123456789');
-    renderWithHeader(<DirectoryRecordsPage collection="people" />);
-    const table = await screen.findByRole('table', { name: 'People' });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const table = await screen.findByRole('table', { name: 'Employees' });
+    expect(api.listDirectoryRecords).toHaveBeenCalledWith(
+      'people',
+      expect.objectContaining({ kind: 'employee' })
+    );
     expect(within(table).getByText('•••••6789')).toBeTruthy();
     expect(within(table).queryByText('123456789')).toBeNull();
 
@@ -124,8 +128,8 @@ describe('People (M0005-R026)', () => {
 
   it('hides tax ID search, reveal, and entry without the tax ID capabilities', async () => {
     useSession.mockReturnValue(sessionFor(NO_TAX));
-    renderWithHeader(<DirectoryRecordsPage collection="people" />);
-    await screen.findByRole('table', { name: 'People' });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await screen.findByRole('table', { name: 'Employees' });
     expect(screen.queryByLabelText('Search by tax ID')).toBeNull();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Jane Doe' }));
@@ -141,10 +145,12 @@ describe('People (M0005-R026)', () => {
       ...JANE,
       duplicateTaxIds: ['22222222-2222-4222-8222-222222222222'],
     });
-    renderWithHeader(<DirectoryRecordsPage collection="people" />);
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'New person' }));
-    const form = await screen.findByRole('dialog', { name: 'New person' });
+    await user.click(
+      await screen.findByRole('button', { name: 'New employee' })
+    );
+    const form = await screen.findByRole('dialog', { name: 'New employee' });
     await user.type(within(form).getByLabelText(/First name/), 'Jane');
     await user.type(within(form).getByLabelText(/Last name/), 'Doe');
     await user.type(
@@ -167,7 +173,7 @@ describe('People (M0005-R026)', () => {
   });
 });
 
-describe('Vendors & Clients (M0005-R007)', () => {
+describe('Clients (M0005-R007)', () => {
   it('creates a home buyer client with its primary buyer', async () => {
     api.listDirectoryRecords.mockResolvedValue([]);
     api.createDirectoryRecord.mockResolvedValue({
@@ -195,16 +201,11 @@ describe('Vendors & Clients (M0005-R007)', () => {
       addresses: [],
       contacts: [],
     });
-    renderWithHeader(<DirectoryRecordsPage collection="organizations" />);
+    renderWithHeader(<DirectoryRecordsPage kind="client" />);
     const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole('button', { name: 'New vendor or client' })
-    );
-    const form = await screen.findByRole('dialog', {
-      name: 'New vendor or client',
-    });
-    await user.click(within(form).getByRole('combobox', { name: 'Kind' }));
-    await user.click(await screen.findByRole('option', { name: 'Client' }));
+    await user.click(await screen.findByRole('button', { name: 'New client' }));
+    const form = await screen.findByRole('dialog', { name: 'New client' });
+    expect(within(form).queryByRole('combobox', { name: 'Kind' })).toBeNull();
     await user.type(
       within(form).getByLabelText(/Legal name or unit/),
       'Lot 12'
@@ -230,7 +231,7 @@ describe('Vendors & Clients (M0005-R007)', () => {
     api.listDirectoryRecords.mockRejectedValue(
       new ApiError('CELL_UNAVAILABLE', 503)
     );
-    renderWithHeader(<DirectoryRecordsPage collection="organizations" />);
+    renderWithHeader(<DirectoryRecordsPage kind="client" />);
     expect(await screen.findByText(/database is unavailable/)).toBeTruthy();
   });
 });

@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Web navigation: **Organization Setup** now lists one page per record kind (Employees, Contacts, Vendors, Clients) in place of People and Vendors & Clients, with no kind filter or kind picker. A new **Settings** group holds Roles, Tenant Contacts, and Labels; Roles leaves Tenant Management. Routes move to `/directory/{employees,contacts,vendors,clients}` and `/settings/{roles,tenant-contacts,labels}`; the old paths redirect to the root.
+
 ## [v0.24.0] - 2026-09-29
 
 ### Added

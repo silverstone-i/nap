@@ -94,9 +94,8 @@ export function RecordFormDialog({
   const people = collection === 'people';
   const organizations = collection === 'organizations';
   const contacts = collection === 'organization-contacts';
-  const [kind, setKind] = useState(
-    record?.kind ?? defaults.kind ?? (people ? 'employee' : 'vendor')
-  );
+  // A new person or organization's kind comes from the page that opened it.
+  const kind = record?.kind ?? defaults.kind;
   const [firstName, setFirstName] = useState(record?.firstName ?? '');
   const [lastName, setLastName] = useState(record?.lastName ?? '');
   const [primaryEmail, setPrimaryEmail] = useState('');
@@ -204,7 +203,7 @@ export function RecordFormDialog({
     ? `Edit ${KIND_LABELS[record.kind].toLowerCase()}`
     : contacts
       ? 'Add contact'
-      : `New ${people ? 'person' : 'vendor or client'}`;
+      : `New ${KIND_LABELS[kind].toLowerCase()}`;
 
   return (
     <Dialog
@@ -224,23 +223,6 @@ export function RecordFormDialog({
           </Alert>
         ) : null}
         <Stack spacing={2} sx={{ mt: 1 }}>
-          {!editing && !contacts ? (
-            <TextField
-              select
-              label="Kind"
-              value={kind}
-              onChange={event => setKind(event.target.value)}
-              fullWidth
-            >
-              {(people ? ['employee', 'contact'] : ['vendor', 'client']).map(
-                option => (
-                  <MenuItem key={option} value={option}>
-                    {KIND_LABELS[option]}
-                  </MenuItem>
-                )
-              )}
-            </TextField>
-          ) : null}
           {people ? (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField

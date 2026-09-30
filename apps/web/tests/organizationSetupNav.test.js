@@ -13,12 +13,12 @@ import { NO_CAPABILITIES, capabilitiesFixture } from './testUtils.jsx';
 const ACME = { id: 'acme', code: 'ACME' };
 
 describe('visibleOrganizationSetupChildren (M0005-R026)', () => {
-  it('lists the four directory screens', () => {
+  it('lists one directory screen per record kind', () => {
     expect(ORGANIZATION_SETUP_CHILDREN.map(child => child.path)).toEqual([
-      '/directory/people',
-      '/directory/organizations',
-      '/directory/tenant-contacts',
-      '/directory/labels',
+      '/directory/employees',
+      '/directory/contacts',
+      '/directory/vendors',
+      '/directory/clients',
     ]);
   });
 
@@ -42,6 +42,6 @@ describe('visibleOrganizationSetupChildren (M0005-R026)', () => {
           targetTenant: ACME,
         })
       ).map(child => child.id)
-    ).toEqual(['people', 'organizations', 'tenant-contacts', 'labels']);
+    ).toEqual(['employees', 'contacts', 'vendors', 'clients']);
   });
 });

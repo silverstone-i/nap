@@ -114,32 +114,27 @@ export function App() {
             </ShellRoute>
           }
         />
+        {['employee', 'contact', 'vendor', 'client'].map(kind => (
+          <Route
+            key={kind}
+            path={`/directory/${kind}s`}
+            element={
+              <ShellRoute guard={RequireHomeAccess}>
+                <DirectoryRecordsPage key={kind} kind={kind} />
+              </ShellRoute>
+            }
+          />
+        ))}
         <Route
-          path="/management/roles"
+          path="/settings/roles"
           element={
-            <ShellRoute guard={RequireManagementAccess}>
+            <ShellRoute guard={RequireHomeAccess}>
               <RolesPage />
             </ShellRoute>
           }
         />
         <Route
-          path="/directory/people"
-          element={
-            <ShellRoute guard={RequireHomeAccess}>
-              <DirectoryRecordsPage collection="people" />
-            </ShellRoute>
-          }
-        />
-        <Route
-          path="/directory/organizations"
-          element={
-            <ShellRoute guard={RequireHomeAccess}>
-              <DirectoryRecordsPage collection="organizations" />
-            </ShellRoute>
-          }
-        />
-        <Route
-          path="/directory/tenant-contacts"
+          path="/settings/tenant-contacts"
           element={
             <ShellRoute guard={RequireHomeAccess}>
               <TenantContactsPage />
@@ -147,7 +142,7 @@ export function App() {
           }
         />
         <Route
-          path="/directory/labels"
+          path="/settings/labels"
           element={
             <ShellRoute guard={RequireHomeAccess}>
               <LabelsPage />

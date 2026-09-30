@@ -31,7 +31,7 @@ import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 const DESIGNATION_LABELS = { primary: 'Primary', billing: 'Billing' };
 
 /**
- * `/directory/tenant-contacts` (M0005-R018, R019): the tenant's primary and
+ * `/settings/tenant-contacts` (M0005-R018, R019): the tenant's primary and
  * billing contacts. Any number of employees may hold each; the last
  * primary contact cannot be removed.
  * @returns {JSX.Element}

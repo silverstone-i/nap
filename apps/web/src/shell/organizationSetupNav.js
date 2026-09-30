@@ -5,36 +5,36 @@
 
 /**
  * @file The `Organization Setup` navigation group's data (module map §
- * Organization Setup). Each child is a business-directory screen for the
- * selected tenant (M0005-R026); it is visible only when the session's
- * resolved capabilities match its route capability (I0005-R011).
+ * Organization Setup). Each child is one kind of business-directory record
+ * for the selected tenant (M0005-R026); it is visible only when the
+ * session's resolved capabilities match its route capability (I0005-R011).
  */
 
 import { can } from '../auth/capabilities.js';
 
 export const ORGANIZATION_SETUP_CHILDREN = Object.freeze([
   Object.freeze({
-    id: 'people',
-    label: 'People',
-    path: '/directory/people',
+    id: 'employees',
+    label: 'Employees',
+    path: '/directory/employees',
     capability: 'business-directory::directory::read',
   }),
   Object.freeze({
-    id: 'organizations',
-    label: 'Vendors & Clients',
-    path: '/directory/organizations',
+    id: 'contacts',
+    label: 'Contacts',
+    path: '/directory/contacts',
     capability: 'business-directory::directory::read',
   }),
   Object.freeze({
-    id: 'tenant-contacts',
-    label: 'Tenant Contacts',
-    path: '/directory/tenant-contacts',
+    id: 'vendors',
+    label: 'Vendors',
+    path: '/directory/vendors',
     capability: 'business-directory::directory::read',
   }),
   Object.freeze({
-    id: 'labels',
-    label: 'Labels',
-    path: '/directory/labels',
+    id: 'clients',
+    label: 'Clients',
+    path: '/directory/clients',
     capability: 'business-directory::directory::read',
   }),
 ]);
