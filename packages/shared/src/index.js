@@ -148,8 +148,8 @@ function cursorPageResponseSchema(rowSchema) {
 
 /**
  * Zod schema for the safe tenant view — `tenantView`
- * (`apps/api` `domain/tenants.js`), reused verbatim by `GET /tenants` and
- * `POST /tenants` (I0002-R007).
+ * (`apps/api` `domain/tenants.js`), reused verbatim by `GET /tenants`
+ * (I0002-R007).
  */
 export const tenantViewSchema = z.strictObject({
   id: z.uuid(),
@@ -160,12 +160,8 @@ export const tenantViewSchema = z.strictObject({
   cellId: z.uuid().nullable(),
   provisioned: z.boolean(),
   rbacReady: z.boolean(),
-});
-
-/** Zod schema for the success envelope returned by `POST /tenants`. */
-export const tenantResponseSchema = z.strictObject({
-  version: z.literal(transportVersion),
-  data: tenantViewSchema,
+  // I0006-R001: the Napsoft client the tenant was provisioned from.
+  clientId: z.uuid().nullable(),
 });
 
 /** Zod schema for a tenant's provisioning job, `tenantJobView` (I0006-R011). */
@@ -459,11 +455,8 @@ const recordDetail = {
   addresses: z.array(addressViewSchema),
 };
 
-/** Zod schema for a person with their details; an employee adds designations. */
-export const personDetailSchema = personViewSchema.extend({
-  ...recordDetail,
-  designations: z.array(z.enum(['primary', 'billing'])).optional(),
-});
+/** Zod schema for a person with their details. */
+export const personDetailSchema = personViewSchema.extend(recordDetail);
 
 /** Zod schema for an organization with its details and contacts. */
 export const organizationDetailSchema = organizationViewSchema.extend({
@@ -482,13 +475,4 @@ export const contactLabelViewSchema = z.strictObject({
   name: z.string(),
   archived: z.boolean(),
   revision: z.number().int().positive(),
-});
-
-/** Zod schema for one tenant contact designation (M0005-R018). */
-export const tenantContactViewSchema = z.strictObject({
-  partyId: z.uuid(),
-  designation: z.enum(['primary', 'billing']),
-  firstName: z.string().nullable(),
-  lastName: z.string().nullable(),
-  primaryEmail: z.string().nullable(),
 });

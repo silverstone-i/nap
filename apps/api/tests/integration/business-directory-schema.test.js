@@ -237,22 +237,28 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
   });
 });
 
-it('AC06: allows many primary and billing contacts, each a flag on the employee', async () => {
+it('allows primary and billing flags only on organization contacts, several per organization', async () => {
   await inTenant(tenant, async tx => {
-    const employee = async () => {
-      const id = await party(tx, 'employee');
+    const vendor = await party(tx, 'vendor');
+    await tx.none(
+      "INSERT INTO app.organizations (party_id, tenant_id, legal_name) VALUES ($1,$2,'Flag Supply')",
+      [vendor, tenant]
+    );
+    for (const name of ['Rita', 'Sam']) {
+      const id = await party(tx, 'vendor_contact');
       await tx.none(
-        "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_primary_contact, is_billing_contact) VALUES ($1,$2,'Jane','Doe',true,true)",
-        [id, tenant]
+        "INSERT INTO app.people (party_id, tenant_id, organization_id, first_name, last_name, is_primary_contact, is_billing_contact) VALUES ($1,$2,$3,$4,'Moss',true,true)",
+        [id, tenant, vendor, name]
       );
-      return id;
-    };
-    const ids = [await employee(), await employee()];
-    expect(
-      await tx.one(
-        'SELECT count(*) FILTER (WHERE is_primary_contact)::int AS primary, count(*) FILTER (WHERE is_billing_contact)::int AS billing FROM app.people WHERE party_id = ANY($1::uuid[])',
-        [ids]
+    }
+    const employee = await party(tx, 'employee');
+    await expect(
+      tx.tx(() =>
+        tx.none(
+          "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_billing_contact) VALUES ($1,$2,'Jane','Doe',true)",
+          [employee, tenant]
+        )
       )
-    ).toEqual({ primary: 2, billing: 2 });
+    ).rejects.toMatchObject({ code: '23514' });
   });
 });

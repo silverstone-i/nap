@@ -31,17 +31,11 @@ import {
   renameLabel,
   restoreLabel,
 } from '../../domain/labels.js';
-import {
-  addTenantContact,
-  listTenantContacts,
-  removeTenantContact,
-} from '../../domain/tenantContacts.js';
 import { directoryContext, sendDirectoryError } from './shared.js';
 
 const READ = 'business-directory::directory::read';
 const WRITE = 'business-directory::directory::write';
 const LABELS = 'business-directory::labels::write';
-const TENANT_CONTACTS = 'business-directory::tenant-contacts::write';
 const TAX_IDS_READ = 'business-directory::tax-ids::read';
 
 /**
@@ -265,48 +259,6 @@ export function createLabelsRouter(deps) {
 }
 
 /**
- * Build the `tenant-contacts` router (M0005-R018, R019).
- * @param {object} deps
- * @returns {import('express').Router}
- */
-export function createTenantContactsRouter(deps) {
-  const router = Router();
-  router.get(
-    '/',
-    ...route(deps, READ, async (context, _request, response) =>
-      sendData(response, await listTenantContacts(context))
-    )
-  );
-  router.put(
-    '/:partyId/:designation',
-    ...route(deps, TENANT_CONTACTS, async (context, request, response) =>
-      sendData(
-        response,
-        await addTenantContact(
-          context,
-          request.params.partyId,
-          request.params.designation
-        )
-      )
-    )
-  );
-  router.delete(
-    '/:partyId/:designation',
-    ...route(deps, TENANT_CONTACTS, async (context, request, response) =>
-      sendData(
-        response,
-        await removeTenantContact(
-          context,
-          request.params.partyId,
-          request.params.designation
-        )
-      )
-    )
-  );
-  return router;
-}
-
-/**
  * Version 1 route registrations for `business-directory`, mounted at
  * `/api/business-directory/v1/<router>` against the selected tenant's cell.
  */
@@ -319,7 +271,6 @@ export const businessDirectoryRoutesV1 = [
   },
   { router: 'parties', factory: createPartiesRouter },
   { router: 'labels', factory: createLabelsRouter },
-  { router: 'tenant-contacts', factory: createTenantContactsRouter },
 ].map(entry => ({
   module: 'business-directory',
   version: 1,

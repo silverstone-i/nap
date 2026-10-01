@@ -8,17 +8,15 @@
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Related architecture | [Admin and cells](../../architecture/admin-cells.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Related PRDs         | [M0001-07: Tenant Creation](../modules/M0001-admin-tenancy/M0001-07-tenant-creation.md), [M0001-08: Portal User And Membership Administration](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md), [M0001-09: Tenant Selection](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md), [M0003: Access Control](../modules/M0003-access-control.md), [I0002: Platform Administration Screens](I0002-platform-administration-screens.md), [I0003: Cell Provisioning](I0003-cell-provisioning.md), [I0004: Admin-Cell Sync](I0004-admin-cell-sync.md) |
-| Related decisions    | The provisioning worker from I0003 runs tenant jobs too; the first `tenant_admin` is named when provisioning is requested; the operator picks the cell                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Last reviewed        | 2026-09-28                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Related decisions    | The provisioning worker from I0003 runs tenant jobs too; the first `tenant_admin` is named when provisioning is requested; the operator picks the cell; a tenant starts from a Napsoft client                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Last reviewed        | 2026-09-30                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ## 2. Purpose
 
-Let an operator take a customer tenant from created to usable from the
-Tenants screen. Today M0001-07 creates a `pending` tenant with no cell, and
-nothing assigns a cell, seeds its roles, or makes it selectable. Only the
-Napsoft tenant gets that, through I0003.
-
-After this PRD, the operator picks a ready cell and names the tenant's first
+Let an operator turn one of Napsoft's clients into a usable customer tenant.
+A customer is first a client in the Napsoft tenant's directory (M0005), which
+holds its legal name, tax ID, and contacts. From that client record the
+operator creates the tenant, picks a ready cell, and names the tenant's first
 administrator. That person signs in with a temporary password, selects the
 tenant, and holds `tenant_admin`.
 
@@ -26,14 +24,16 @@ tenant, and holds `tenant_admin`.
 
 ### Included
 
-- A `tenant-provision` operation that names the cell and the first
-  administrator, and a `tenant-retry` operation.
+- A `tenant-provision` operation that creates the tenant from a Napsoft
+  client and names the cell and the first administrator, and a
+  `tenant-retry` operation.
 - A tenant provisioning job stored in the admin database.
 - The worker stages: assignment, seed, and activation.
 - Creating or reusing the first administrator's login and membership.
 - Running M0003's customer-tenant seed (M0003-R009) and assigning
   `tenant_admin` to the first administrator.
-- Tenants screen changes: Provision action, progress, failure code, and Retry.
+- A **Provision tenant** action on a Napsoft client record, and Tenants
+  screen progress, failure code, Retry, and View client.
 
 ### Excluded
 
@@ -48,14 +48,13 @@ tenant, and holds `tenant_admin`.
 
 ## 4. Actors And Permissions
 
-| Context            | Actor               | Required permission                  | Required state                                | Result                      |
-| ------------------ | ------------------- | ------------------------------------ | --------------------------------------------- | --------------------------- |
-| Tenants screen     | Authorized operator | `NAP::admin-tenancy::control::read`  | Any                                           | See provisioning progress   |
-| `tenant-provision` | Authorized operator | `NAP::admin-tenancy::control::write` | Tenant `pending`, no cell, no job; cell ready | Job queued                  |
-| `tenant-retry`     | Authorized operator | `NAP::admin-tenancy::control::write` | Tenant's job `failed`                         | Job queued again            |
-| Either operation   | Any caller          | Missing the permission               | Any                                           | `403`                       |
-| Either operation   | Any caller          | Any                                  | Tenant is the Napsoft tenant                  | `409 INVALID_STATE`         |
-| Worker             | Provisioning worker | Trusted in-process runner context    | Queued job                                    | Claims and advances the job |
+| Context            | Actor               | Required permission                  | Required state                                                | Result                      |
+| ------------------ | ------------------- | ------------------------------------ | ------------------------------------------------------------- | --------------------------- |
+| Tenants screen     | Authorized operator | `NAP::admin-tenancy::control::read`  | Any                                                           | See provisioning progress   |
+| `tenant-provision` | Authorized operator | `NAP::admin-tenancy::control::write` | Active Napsoft client with no tenant; unused code; cell ready | Tenant created; job queued  |
+| `tenant-retry`     | Authorized operator | `NAP::admin-tenancy::control::write` | Tenant's job `failed`                                         | Job queued again            |
+| Either operation   | Any caller          | Missing the permission               | Any                                                           | `403`                       |
+| Worker             | Provisioning worker | Trusted in-process runner context    | Queued job                                                    | Claims and advances the job |
 
 ## 5. Concepts And Terminology
 
@@ -73,12 +72,20 @@ tenant, and holds `tenant_admin`.
 ### Operations
 
 - I0006-R001: `POST /control/provision` must accept
-  `{ "operation": "tenant-provision", "tenant": "<uuid>", "cell": "<uuid>", "admin": { "email": "...", "password": "...", "firstName": "...", "lastName": "..." } }`
-  (names added by M0005-R021).
-  It must queue a tenant job when the tenant is a `pending` customer tenant
-  with no cell and no job, and the cell is ready (I0003-R017). Otherwise it
-  rejects with `409 INVALID_STATE`, or `409 CELL_UNAVAILABLE` when only the
-  cell check fails.
+  `{ "operation": "tenant-provision", "client": "<uuid>", "code": "...", "name": "...", "tier": "...", "cell": "<uuid>", "admin": { "email": "...", "password": "...", "firstName": "...", "lastName": "..." } }`
+  (names added by M0005-R021). `client` is a party ID in the Napsoft
+  tenant's directory; `code`, `name`, and `tier` are normalized and validated as in M0001-07.
+  In one admin transaction it must create a `pending` customer tenant with
+  `client_id` set to the client, and queue its tenant job. It must reject:
+  - a client that is not an active `client` of the Napsoft tenant, read from
+    the Napsoft cell, with `404 NOT_FOUND`;
+  - a code or client already used by an active tenant with `409 CONFLICT`;
+  - a cell that is not ready (I0003-R017), or an unreachable Napsoft cell,
+    with `503 CELL_UNAVAILABLE`.
+
+  A rejected request creates no tenant, job, login, or membership. Tenants
+  are created only this way; M0001-07's `POST /tenants` is withdrawn.
+
 - I0006-R002: `tenant-provision` must, in the transaction that queues the
   job, create or reuse the first administrator's login and create their
   membership in the tenant, following M0001-08's rules for email, temporary
@@ -108,9 +115,9 @@ tenant, and holds `tenant_admin`.
   3. run M0003's customer-tenant seed, creating the immutable `tenant_admin`
      role with grant `<CODE>::*::*::*`;
   4. assign `tenant_admin` to the first administrator;
-  5. run M0005's directory seed: the default labels, the first administrator
-     as an employee with their login email as primary email, and their
-     `primary` tenant contact designation (M0005-R022).
+  5. run M0005's directory seed: the default labels, and the first
+     administrator as an employee with their login email as primary email
+     (M0005-R022).
 
   It must then read the rows back and confirm they match admin. A mismatch
   fails with `SEED_FAILED`; a seeded role whose grants differ fails with
@@ -127,9 +134,15 @@ tenant, and holds `tenant_admin`.
 
 ### Tenants screen
 
-- I0006-R010: Each tenant row's menu must offer **Provision** for a `pending`
-  customer tenant with no job. It opens a dialog to pick a ready cell and
-  enter the first administrator's email and temporary password.
+- I0006-R010: A client record in the Napsoft tenant's directory must show
+  the client's tenant, or offer **Provision tenant** when it has none to an
+  operator with `NAP::admin-tenancy::control::write`. The dialog takes the
+  code, name (prefilled with the legal name), tier, a ready cell, the first
+  administrator (pickable from the client's contacts), and a temporary
+  password. Each Tenants row with a client offers **View client**, opening
+  that client record. The client record's contact list shows each contact's
+  primary email and phone and whether it is a primary or billing contact
+  (M0005-R004).
 - I0006-R011: The Tenants screen must show each tenant's job stage, status,
   and failure code, and refresh every 2 seconds while any tenant job is
   `queued` or `running`.
@@ -149,16 +162,16 @@ tenant, and holds `tenant_admin`.
 
 ## 8. Lifecycle And State Transitions
 
-| Starting state                    | Trigger               | Result                                                        |
-| --------------------------------- | --------------------- | ------------------------------------------------------------- |
-| Tenant `pending`, no cell, no job | `tenant-provision`    | Job `assignment/queued`; admin login and membership `pending` |
-| `assignment/queued`               | Worker claims the job | `assignment/running`                                          |
-| `assignment/running`              | Assignment passes     | `seed/running`; tenant has its cell                           |
-| `seed/running`                    | Seed passes           | `activation/running`                                          |
-| `activation/running`              | Activation passes     | `complete/completed`; tenant provisioned; membership active   |
-| Any stage, `running`              | Step fails            | Same stage, `failed`, failure code; tenant stays `pending`    |
-| Any stage, `running`              | API stops or crashes  | Same stage, `queued` on next start                            |
-| Any stage, `failed`               | `tenant-retry`        | Same stage, `queued`; attempts incremented                    |
+| Starting state            | Trigger               | Result                                                                    |
+| ------------------------- | --------------------- | ------------------------------------------------------------------------- |
+| Napsoft client, no tenant | `tenant-provision`    | Tenant `pending`; job `assignment/queued`; login and membership `pending` |
+| `assignment/queued`       | Worker claims the job | `assignment/running`                                                      |
+| `assignment/running`      | Assignment passes     | `seed/running`; tenant has its cell                                       |
+| `seed/running`            | Seed passes           | `activation/running`                                                      |
+| `activation/running`      | Activation passes     | `complete/completed`; tenant provisioned; membership active               |
+| Any stage, `running`      | Step fails            | Same stage, `failed`, failure code; tenant stays `pending`                |
+| Any stage, `running`      | API stops or crashes  | Same stage, `queued` on next start                                        |
+| Any stage, `failed`       | `tenant-retry`        | Same stage, `queued`; attempts incremented                                |
 
 Failure codes: `CELL_UNAVAILABLE`, `SEED_FAILED`, `SEED_DRIFT`,
 `ACTIVATION_FAILED`.
@@ -181,7 +194,9 @@ M0001 admin-tenancy owns a new tenant job record, one per tenant:
 
 The workflow also writes:
 
-- `admin.tenants`: `cell_id`, `status`, `provisioned`, `rbac_ready`;
+- `admin.tenants`: a new row with `client_id` (nullable, immutable, unique
+  among active tenants), then `cell_id`, `status`, `provisioned`,
+  `rbac_ready`;
 - `admin.portal_users` and `admin.portal_user_tenants` for the first
   administrator, through M0001-08's domain functions;
 - `cell.tenants`, `cell.tenant_members`, and M0003's `roles`, `role_grants`,
@@ -197,17 +212,20 @@ R022). An active, ready customer membership must have a `member_id`
 
 ## 10. API Requirements
 
-| Method and route                                        | Change                                                                                                                                                                                                           |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/admin-tenancy/v1/control/provision`          | Adds `tenant-provision` (R001–R003) and `tenant-retry` (R004). Requires `NAP::admin-tenancy::control::write`. Returns `200` with the job. Validation `400`, denial `403`, state and idempotency conflicts `409`. |
-| `GET /api/admin-tenancy/v1/control/overview` (M0001-06) | Each row adds `ready`, the runtime registry's readiness, so the Provision dialog lists only ready cells (R010).                                                                                                  |
-| `GET /api/admin-tenancy/v1/tenants` (I0002)             | Each row adds `job: { stage, status, attempts, failureCode } \| null`; the response adds `anyActive`.                                                                                                            |
-| `POST /api/admin-tenancy/v1/access/select` (M0001-09)   | No change. Succeeds for a provisioned tenant and a ready active membership.                                                                                                                                      |
+| Method and route                                        | Change                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/admin-tenancy/v1/control/provision`          | Adds `tenant-provision` (R001–R003) and `tenant-retry` (R004). Requires `NAP::admin-tenancy::control::write`. Returns `200` with the job. Validation `400`, denial `403`, unknown client `404`, code, client, state, and idempotency conflicts `409`, unready cell `503`. |
+| `POST /api/admin-tenancy/v1/tenants` (M0001-07)         | Withdrawn (R001).                                                                                                                                                                                                                                                         |
+| `GET /api/admin-tenancy/v1/control/overview` (M0001-06) | Each row adds `ready`, the runtime registry's readiness, so the Provision dialog lists only ready cells (R010).                                                                                                                                                           |
+| `GET /api/admin-tenancy/v1/tenants` (I0002)             | Each row adds `clientId` and `job: { stage, status, attempts, failureCode } \| null`; the response adds `anyActive`. `?clientId=<uuid>` returns that client's tenants, unpaged (R010).                                                                                    |
+| `POST /api/admin-tenancy/v1/access/select` (M0001-09)   | No change. Succeeds for a provisioned tenant and a ready active membership.                                                                                                                                                                                               |
 
 ## 11. Cross-Module Interactions
 
-- M0001-07 owns `admin.tenants` and creation. This workflow writes only the
-  fields in §9.
+- M0001-07 owns `admin.tenants`. This workflow is now its only creator and
+  writes only the fields in §9.
+- M0005 owns the Napsoft client record. This workflow reads it from the
+  Napsoft cell to check the client, and never copies its contacts.
 - M0001-08 owns login and membership rules. This workflow calls its domain
   functions instead of repeating them.
 - M0003 owns the customer-tenant seed (M0003-R009) and seed drift rules
@@ -231,18 +249,18 @@ R022). An active, ready customer membership must have a `member_id`
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                                       | Requirements                      |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| AC01      | Provisioning a `pending` tenant into a ready cell leads, with no other action, to a provisioned tenant that the first administrator can select after changing their password, holding `tenant_admin`. | I0006-R001, R002, R005–R008, R019 |
-| AC02      | The cell holds exactly one immutable `tenant_admin` role with grant `<CODE>::*::*::*` and one assignment to the first administrator.                                                                  | I0006-R007                        |
-| AC03      | The first administrator cannot select the tenant before activation.                                                                                                                                   | I0006-R016                        |
-| AC04      | A failure at each stage leaves the tenant `pending` with the failure code; retry completes it without duplicate rows.                                                                                 | I0006-R004, R009, R014            |
-| AC05      | A job left `running` by a stopped API completes after restart; two workers never run the same job.                                                                                                    | I0006-R005                        |
-| AC06      | Provisioning the Napsoft tenant, an already assigned tenant, or into a cell that is not ready is rejected without creating a job, login, or membership.                                               | I0006-R001, R013, R015            |
-| AC07      | A repeated `Idempotency-Key` returns the original job; a reused key with a different payload is rejected.                                                                                             | I0006-R003                        |
-| AC08      | An existing active login with the same email is reused rather than duplicated.                                                                                                                        | I0006-R002                        |
-| AC09      | The Tenants screen offers Provision and Retry only when allowed, shows stage and failure code, and refreshes while jobs run.                                                                          | I0006-R010–R012                   |
-| AC10      | No response, log, event, or failure code contains the temporary password or a connection detail.                                                                                                      | I0006-R017, R018                  |
+| Criterion | Required result                                                                                                                                                                                                   | Requirements                      |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| AC01      | Provisioning a tenant from a Napsoft client into a ready cell leads, with no other action, to a provisioned tenant that the first administrator can select after changing their password, holding `tenant_admin`. | I0006-R001, R002, R005–R008, R019 |
+| AC02      | The cell holds exactly one immutable `tenant_admin` role with grant `<CODE>::*::*::*` and one assignment to the first administrator.                                                                              | I0006-R007                        |
+| AC03      | The first administrator cannot select the tenant before activation.                                                                                                                                               | I0006-R016                        |
+| AC04      | A failure at each stage leaves the tenant `pending` with the failure code; retry completes it without duplicate rows.                                                                                             | I0006-R004, R009, R014            |
+| AC05      | A job left `running` by a stopped API completes after restart; two workers never run the same job.                                                                                                                | I0006-R005                        |
+| AC06      | An unknown client, a vendor, a client or code already used, or a cell that is not ready is rejected without creating a tenant, job, login, or membership.                                                         | I0006-R001, R013, R015            |
+| AC07      | A repeated `Idempotency-Key` returns the original job; a reused key with a different payload is rejected.                                                                                                         | I0006-R003                        |
+| AC08      | An existing active login with the same email is reused rather than duplicated.                                                                                                                                    | I0006-R002                        |
+| AC09      | A Napsoft client offers Provision tenant only without a tenant; the Tenants screen offers View client and Retry, shows stage and failure code, and refreshes while jobs run.                                      | I0006-R010–R012                   |
+| AC10      | No response, log, event, or failure code contains the temporary password or a connection detail.                                                                                                                  | I0006-R017, R018                  |
 
 ### Verification Evidence
 

@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -78,7 +79,10 @@ export function DirectoryRecordsPage({ kind }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
-  const [selected, setSelected] = useState(null);
+  // `?open=<id>` opens a record on arrival, such as a tenant's client from
+  // the Tenants screen.
+  const [params, setParams] = useSearchParams();
+  const [selected, setSelected] = useState(params.get('open'));
   const [creating, setCreating] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey(key => key + 1);
@@ -235,7 +239,10 @@ export function DirectoryRecordsPage({ kind }) {
           collection={collection}
           id={selected}
           abilities={abilities}
-          onClose={() => setSelected(null)}
+          onClose={() => {
+            setSelected(null);
+            if (params.has('open')) setParams({}, { replace: true });
+          }}
           onChanged={reload}
         />
       ) : null}

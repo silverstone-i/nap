@@ -679,68 +679,19 @@ describe('addresses and labels (M0005-R015, R017)', () => {
   });
 });
 
-describe('tenant contacts (M0005-R018, R019)', () => {
-  it('AC06: allows several primary and billing contacts, only employees, and never zero primaries', async () => {
-    const employee = async name =>
-      create('people', {
-        kind: 'employee',
-        firstName: name,
-        lastName: 'Staff',
-        primaryEmail: `${name.toLowerCase()}-${randomUUID().slice(0, 6)}@example.test`,
-      });
-    const jane = await employee('Jane');
-    const owner = await employee('Owner');
-    const jim = await employee('Jim');
-    const contact = await create('people', {
-      kind: 'contact',
-      firstName: 'Not',
-      lastName: 'Employee',
+describe('organization contact flags (M0005-R004)', () => {
+  it('archives an employee with no tenant contact step and serves no tenant-contacts route', async () => {
+    const employee = await create('people', {
+      kind: 'employee',
+      firstName: 'Solo',
+      lastName: 'Staff',
+      primaryEmail: `solo-${randomUUID().slice(0, 6)}@example.test`,
     });
-    expect(
-      (await call('put', `/tenant-contacts/${jane.id}/primary`)).status
-    ).toBe(200);
-    expect(
-      (await call('put', `/tenant-contacts/${jane.id}/primary`)).status
-    ).toBe(200);
-    expect(
-      (await call('put', `/tenant-contacts/${owner.id}/primary`)).status
-    ).toBe(200);
-    expect(
-      (await call('put', `/tenant-contacts/${jim.id}/billing`)).status
-    ).toBe(200);
-    expect(
-      (await call('put', `/tenant-contacts/${contact.id}/primary`)).body.error
-        .code
-    ).toBe('NOT_EMPLOYEE');
-    const list = (await call('get', '/tenant-contacts')).body.data;
-    expect(list.filter(c => c.designation === 'primary')).toHaveLength(2);
-    expect(
-      (await call('delete', `/tenant-contacts/${owner.id}/primary`)).status
-    ).toBe(200);
-    expect(
-      (await call('delete', `/tenant-contacts/${jane.id}/primary`)).body.error
-        .code
-    ).toBe('LAST_PRIMARY_CONTACT');
-    // A designation is a flag on the employee, so it advances the revision.
-    const current = async id =>
-      (await call('get', `/people/${id}`)).body.data.revision;
-    expect(await current(jane.id)).toBeGreaterThan(jane.revision);
-    expect(
-      (
-        await call('post', `/people/${jane.id}/archive`, {
-          revision: await current(jane.id),
-        })
-      ).body.error.code
-    ).toBe('LAST_PRIMARY_CONTACT');
-    const archivedJim = await call('post', `/people/${jim.id}/archive`, {
-      revision: await current(jim.id),
+    const archived = await call('post', `/people/${employee.id}/archive`, {
+      revision: employee.revision,
     });
-    expect(archivedJim.status).toBe(200);
-    expect(
-      (await call('get', '/tenant-contacts')).body.data.some(
-        c => c.partyId === jim.id
-      )
-    ).toBe(false);
+    expect(archived.status).toBe(200);
+    expect((await call('get', '/tenant-contacts')).status).toBe(404);
   });
 });
 

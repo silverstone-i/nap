@@ -122,7 +122,6 @@ const DIRECTORY_TARGETS = Object.freeze({
   contact_method: 'contact_method',
   address: 'address',
   label: 'contact_label',
-  tenant_contact: 'tenant_contact',
 });
 
 /**

@@ -12,6 +12,7 @@ import {
   provisionTenant,
   retryTenantProvisioning,
 } from './tenantProvisioning.js';
+import { TIERS, tenantCodeSchema, tenantNameSchema } from './tenants.js';
 
 /** Advisory lock key serializing concurrent cell registrations. */
 const LOCK_KEY = "hashtext('admin-tenancy:cell-registry')";
@@ -573,7 +574,11 @@ const provisionCommandSchema = z.discriminatedUnion('operation', [
   z.strictObject({ operation: z.literal('reference-rollout') }),
   z.strictObject({
     operation: z.literal('tenant-provision'),
-    tenant: z.uuid(),
+    // I0006-R001: a new tenant starts from an active Napsoft client.
+    client: z.uuid(),
+    code: tenantCodeSchema,
+    name: tenantNameSchema,
+    tier: z.enum(TIERS),
     cell: z.uuid(),
     admin: z.strictObject({
       email: z.string(),

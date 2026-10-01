@@ -7,11 +7,11 @@ import { DirectoryModel } from './directoryModel.js';
 
 /**
  * Schema object for `app.people`: employees and contacts, and vendor and
- * client contacts with their `organization_id` (M0005-R002, R004). An
- * employee's `is_primary_contact` and `is_billing_contact` make it a tenant
- * contact (R018); on an organization contact they name that organization's
- * primary and billing contacts. Only a client contact can be its client's
- * primary tax contact (R009).
+ * client contacts with their `organization_id` (M0005-R002, R004). Only an
+ * organization contact can be flagged `is_primary_contact` or
+ * `is_billing_contact`, naming that organization's primary and billing
+ * contacts; any number may hold each. Only a client contact can be its
+ * client's primary tax contact (R009).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
 export const peopleSchema = {
@@ -57,6 +57,7 @@ export const peopleSchema = {
     checks: [
       'revision > 0',
       'NOT is_primary_tax_contact OR organization_id IS NOT NULL',
+      'organization_id IS NOT NULL OR NOT (is_primary_contact OR is_billing_contact)',
     ],
     foreignKeys: [
       {
@@ -122,26 +123,6 @@ export class People extends DirectoryModel {
         ORDER BY x.last_name, x.first_name, x.party_id
         LIMIT 500`,
       [kinds, text, taxIdHash, includeArchived, organizationId]
-    );
-  }
-
-  /**
-   * The tenant's active employees holding a tenant contact flag (R018).
-   * @param {{tx: object, column?: 'is_primary_contact'|'is_billing_contact'|null, lock?: boolean}} options
-   *   `column` limits the rows to one flag; `lock` locks them.
-   * @returns {Promise<object[]>}
-   */
-  async tenantContacts({ tx, column = null, lock = false }) {
-    const flag =
-      column === 'is_primary_contact'
-        ? 'x.is_primary_contact'
-        : column === 'is_billing_contact'
-          ? 'x.is_billing_contact'
-          : '(x.is_primary_contact OR x.is_billing_contact)';
-    return tx.any(
-      `SELECT x.* FROM app.people x JOIN app.parties p ON p.id = x.party_id
-        WHERE p.kind = 'employee' AND x.deactivated_at IS NULL AND ${flag}
-        ORDER BY x.last_name, x.first_name, x.party_id${lock ? ' FOR UPDATE OF x' : ''}`
     );
   }
 }

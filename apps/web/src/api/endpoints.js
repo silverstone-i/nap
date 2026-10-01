@@ -20,7 +20,6 @@ import {
   roleViewSchema,
   sessionCapabilitiesSchema,
   sessionResponseSchema,
-  tenantResponseSchema,
   tenantsListResponseSchema,
   userRolesSchema,
   userResponseSchema,
@@ -34,7 +33,6 @@ import {
   contactMethodViewSchema,
   addressViewSchema,
   contactLabelViewSchema,
-  tenantContactViewSchema,
 } from '@nap/shared';
 import { z } from 'zod';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client.js';
@@ -119,24 +117,29 @@ export async function listTenantsPage(page) {
 }
 
 /**
- * @param {{code: string, name: string, tier: string}} input
- * @returns {Promise<object>} Safe tenant view (I0002-R002).
+ * I0006-R001: the tenants provisioned from one Napsoft client.
+ * @param {string} clientId
+ * @returns {Promise<object[]>} Safe tenant views with their provisioning jobs.
  */
-export async function createTenant(input) {
-  const data = await apiPost(`${BASE}/tenants`, input, {
-    'Idempotency-Key': crypto.randomUUID(),
-  });
-  return tenantResponseSchema.parse({ version: 1, data }).data;
+export async function listClientTenants(clientId) {
+  const data = await apiGet(
+    `${BASE}/tenants?clientId=${encodeURIComponent(clientId)}`
+  );
+  return tenantsListResponseSchema.parse({ version: 1, data }).data.rows;
 }
 
 /**
- * I0006-R001: queue a tenant's provisioning into a ready cell with its first
- * administrator. The name becomes their employee record (M0005-R021).
- * @param {{tenant: string, cell: string, firstName: string, lastName: string, email: string, password: string}} input
+ * I0006-R001: create a tenant from a Napsoft client and queue its
+ * provisioning into a ready cell with its first administrator. The name
+ * becomes their employee record (M0005-R021).
+ * @param {{client: string, code: string, name: string, tier: string, cell: string, firstName: string, lastName: string, email: string, password: string}} input
  * @returns {Promise<object>} The queued tenant job.
  */
 export async function provisionTenant({
-  tenant,
+  client,
+  code,
+  name,
+  tier,
   cell,
   firstName,
   lastName,
@@ -147,7 +150,10 @@ export async function provisionTenant({
     `${BASE}/control/provision`,
     {
       operation: 'tenant-provision',
-      tenant,
+      client,
+      code,
+      name,
+      tier,
       cell,
       admin: { email, password, firstName, lastName },
     },
@@ -661,32 +667,5 @@ export async function archiveContactLabel(id, revision) {
 export async function restoreContactLabel(id, revision) {
   return contactLabelViewSchema.parse(
     await apiPost(`${DIRECTORY_BASE}/labels/${id}/restore`, { revision })
-  );
-}
-
-/** @returns {Promise<object[]>} The tenant's active primary and billing contacts. */
-export async function listTenantContacts() {
-  return z
-    .array(tenantContactViewSchema)
-    .parse(await apiGet(`${DIRECTORY_BASE}/tenant-contacts`));
-}
-
-/**
- * @param {string} partyId An active employee.
- * @param {'primary'|'billing'} designation
- * @returns {Promise<void>}
- */
-export async function addTenantContact(partyId, designation) {
-  await apiPut(`${DIRECTORY_BASE}/tenant-contacts/${partyId}/${designation}`);
-}
-
-/**
- * @param {string} partyId
- * @param {'primary'|'billing'} designation
- * @returns {Promise<void>}
- */
-export async function removeTenantContact(partyId, designation) {
-  await apiDelete(
-    `${DIRECTORY_BASE}/tenant-contacts/${partyId}/${designation}`
   );
 }

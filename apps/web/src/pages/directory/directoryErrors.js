@@ -13,11 +13,8 @@ const MESSAGES = {
   INVALID_STATE: 'An employee must keep a primary email.',
   STALE_REVISION:
     'Someone else changed this record. It has been reloaded; try again.',
-  LAST_PRIMARY_CONTACT:
-    'The tenant must keep at least one primary contact. Add another first.',
   PRIMARY_TAX_CONTACT:
     'This buyer is the client’s primary tax contact. Choose another first.',
-  NOT_EMPLOYEE: 'Only an active employee can be a tenant contact.',
   CONFLICT: 'That name is already used, or the record changed. Try again.',
   NOT_FOUND: 'That record no longer exists.',
   CELL_UNAVAILABLE: 'The tenant’s database is unavailable. Try again later.',

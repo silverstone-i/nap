@@ -10,11 +10,16 @@
 | Related architecture | [Admin and cells](../../../architecture/admin-cells.md)                        |
 | Related PRDs         | [M0001-05](M0001-05-authorization.md), [M0001-06](M0001-06-cell-management.md) |
 | Related decisions    | Central tenant creation does not require cell assignment                       |
-| Last reviewed        | 2026-09-20                                                                     |
+| Last reviewed        | 2026-09-30                                                                     |
 
 ## 2. Purpose
 
 Create a central tenant before cell assignment and provisioning.
+
+> **Superseded 2026-09-30.** The standalone `POST /api/admin-tenancy/v1/tenants`
+> route is withdrawn. A tenant is now created only by `tenant-provision` from
+> a Napsoft client (I0006-R001), which applies this PRD's code, name, tier,
+> and initial-state rules and records `admin.tenants.client_id`.
 
 ## 3. Scope
 

@@ -183,7 +183,7 @@ describe('NavDrawer — tenant groups', () => {
     for (const label of ['Employees', 'Contacts', 'Vendors', 'Clients'])
       expect(screen.getByText(label)).toBeTruthy();
     expect(screen.getByText('Settings')).toBeTruthy();
-    for (const label of ['Roles', 'Tenant Contacts', 'Labels'])
+    for (const label of ['Roles', 'Labels'])
       expect(screen.getByText(label)).toBeTruthy();
   });
 });

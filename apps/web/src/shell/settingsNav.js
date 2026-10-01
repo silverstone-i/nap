@@ -5,8 +5,7 @@
 
 /**
  * @file The `Settings` navigation group's data: the selected tenant's roles
- * (M0003-R016), its own contacts (M0005-R018, R019), and its labels
- * (M0005-R017). A child is visible only when the session's resolved
+ * (M0003-R016) and its labels (M0005-R017). A child is visible only when the session's resolved
  * capabilities match its route capability in the selected tenant
  * (I0005-R011).
  */
@@ -19,12 +18,6 @@ export const SETTINGS_CHILDREN = Object.freeze([
     label: 'Roles',
     path: '/settings/roles',
     capability: 'access-control::roles::read',
-  }),
-  Object.freeze({
-    id: 'tenant-contacts',
-    label: 'Tenant Contacts',
-    path: '/settings/tenant-contacts',
-    capability: 'business-directory::directory::read',
   }),
   Object.freeze({
     id: 'labels',

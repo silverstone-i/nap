@@ -13,7 +13,7 @@ import { requireSession } from '../../../../middleware/sessionContext.js';
 import { requireCapability } from '../../../../capability/requireCapability.js';
 import { requestAuthority } from '../../domain/authorization.js';
 import { buildControlAuthority } from '../../domain/cells.js';
-import { createTenant, listTenants } from '../../domain/tenants.js';
+import { listTenants } from '../../domain/tenants.js';
 import {
   grantEntitlement,
   listEntitlements,
@@ -24,7 +24,7 @@ import {
 const NAPSOFT = { target: 'napsoft' };
 
 /**
- * Report a tenant-creation or entitlement failure through the shared error
+ * Report a tenant-list or entitlement failure through the shared error
  * envelope. Both `AdminTenantError` and `AdminEntitlementError` carry the
  * failure entirely in `error.code`, so one mapper serves both.
  * @param {import('express').Response} response
@@ -42,9 +42,9 @@ function sendTenantError(response, error) {
 }
 
 /**
- * Build the `tenants` router: central tenant creation with no cell
- * assignment (M0001-07), and per-tenant module entitlements (M0001-10). See
- * docs/PRDs/modules/M0001-admin-tenancy/M0001-07-tenant-creation.md and
+ * Build the `tenants` router: the tenant list (I0002-R007) and per-tenant
+ * module entitlements (M0001-10). Tenants are created only by provisioning
+ * one from a Napsoft client (I0006-R001). See
  * docs/PRDs/modules/M0001-admin-tenancy/M0001-10-module-entitlements.md.
  * Entitlement routes nest under `/:tenant/entitlements` rather than
  * registering as a separate `entitlements` router, since the route registry
@@ -53,7 +53,7 @@ function sendTenantError(response, error) {
  * entry would mount at `/api/admin-tenancy/v1/entitlements`, not nested
  * under this one.
  *
- * Tenant creation reuses the `admin-tenancy::control::write` capability and
+ * The list reuses the `admin-tenancy::control::read` capability and
  * `buildControlAuthority` from cell-management (domain/cells.js); the
  * entitlement routes instead build an `{actorId, scope}` authority via
  * `requestAuthority`, since entitlements are tenant-scoped like accounts
@@ -66,27 +66,6 @@ function sendTenantError(response, error) {
 export function createTenantsRouter({ admin }) {
   const router = Router();
 
-  router.post(
-    '/',
-    requireSession(),
-    requireCapability('admin-tenancy::control::write', NAPSOFT),
-    async (request, response) => {
-      try {
-        const authority = buildControlAuthority(request.authorization);
-        const tenant = await createTenant(
-          admin.db,
-          authority,
-          request.body,
-          request.get('Idempotency-Key'),
-          { requestId: request.requestId }
-        );
-        sendData(response, tenant, 201);
-      } catch (error) {
-        sendTenantError(response, error);
-      }
-    }
-  );
-
   router.get(
     '/',
     requireSession(),
@@ -96,6 +75,7 @@ export function createTenantsRouter({ admin }) {
         const authority = buildControlAuthority(request.authorization);
         const result = await listTenants(admin.db, authority, {
           cursor: request.query.cursor,
+          clientId: request.query.clientId,
           limit:
             request.query.limit === undefined
               ? undefined
