@@ -9,6 +9,10 @@ import { AdminControlError, withControlErrors } from './errors.js';
 import { createFirstAdministrator } from './accounts.js';
 import { COLLECTION_ENTITY } from './cache.js';
 import { verifyPassword } from './password.js';
+import { findActiveClient } from '../../business-directory/domain/clients.js';
+
+/** Advisory lock key serializing tenant creation (shared with M0001-07). */
+const REGISTRY_LOCK = "hashtext('admin-tenancy:tenant-registry')";
 
 /** Stages a tenant provisioning job passes through, in order (I0006 §8). */
 export const TENANT_STAGES = Object.freeze([
@@ -94,7 +98,7 @@ const idempotencyKeySchema = z.uuid();
  * No password or hash is stored on the event.
  * @param {object} db
  * @param {string} key
- * @param {{tenant: string, cell: string, email: string, password: unknown, firstName: string, lastName: string}} request
+ * @param {{client: string, code: string, name: string, tier: string, cell: string, email: string, password: unknown, firstName: string, lastName: string}} request
  * @param {{tx?: object}} [options] Reads run on `tx` when called inside a transaction.
  * @returns {Promise<object|null>} The tenant's job view, or null.
  * @throws {AdminControlError} `IDEMPOTENCY_CONFLICT`
@@ -111,13 +115,16 @@ async function resolveReplay(db, key, request, { tx } = {}) {
   if (!existing) return null;
   const details = existing.details ?? {};
   if (
-    existing.target_id !== request.tenant ||
+    details.client_id !== request.client ||
+    details.tenant_code !== request.code ||
+    details.name !== request.name ||
+    details.tier !== request.tier ||
     details.cell_id !== request.cell ||
     details.email !== request.email
   )
     throw new AdminControlError('IDEMPOTENCY_CONFLICT');
   const job = await db.tenant_provisioning.findOneBy(
-    { tenant_id: request.tenant },
+    { tenant_id: existing.target_id },
     { tx }
   );
   if (!job) return null;
@@ -150,15 +157,41 @@ async function resolveReplay(db, key, request, { tx } = {}) {
 }
 
 /**
- * Queue a customer tenant's provisioning job and create its first
- * administrator's login and membership (I0006-R001–R003).
+ * Require an active client of the Napsoft tenant, read from the Napsoft
+ * cell (I0006-R001).
+ * @param {object} db Admin repository handle.
+ * @param {{dbFor: (cellId: string) => object}} runtime
+ * @param {string} clientId
+ * @returns {Promise<void>}
+ * @throws {AdminControlError} `NOT_FOUND`, `CELL_UNAVAILABLE`
+ */
+async function requireNapsoftClient(db, runtime, clientId) {
+  const napsoft = await db.tenants.findOneBy(
+    { is_napsoft: true },
+    { columnWhitelist: ['id', 'cell_id'] }
+  );
+  if (!napsoft?.cell_id) throw new AdminControlError('CELL_UNAVAILABLE');
+  let cell;
+  try {
+    cell = runtime.dbFor(napsoft.cell_id);
+  } catch {
+    throw new AdminControlError('CELL_UNAVAILABLE');
+  }
+  if (!(await findActiveClient(cell, napsoft.id, clientId)))
+    throw new AdminControlError('NOT_FOUND');
+}
+
+/**
+ * Create a customer tenant from a Napsoft client, queue its provisioning
+ * job, and create its first administrator's login and membership
+ * (I0006-R001–R003). One active tenant per client and per code.
  * @param {object} db Admin repository handle.
  * @param {unknown} authority
- * @param {{tenant: string, cell: string, admin: {email: string, password: string, firstName: string, lastName: string}}} command Validated command.
+ * @param {{client: string, code: string, name: string, tier: string, cell: string, admin: {email: string, password: string, firstName: string, lastName: string}}} command Validated command.
  * @param {unknown} idempotencyKeyHeader
- * @param {{requestId?: string|null, runtime?: {readiness: (id: string) => {ready: boolean}}, hashingPolicy?: unknown}} [context]
+ * @param {{requestId?: string|null, runtime?: {readiness: (id: string) => {ready: boolean}, dbFor: (id: string) => object}, hashingPolicy?: unknown}} [context]
  * @returns {Promise<object>} Job view.
- * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INVALID_STATE`, `CELL_UNAVAILABLE`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`, `INTERNAL_ERROR`
+ * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CELL_UNAVAILABLE`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`, `INTERNAL_ERROR`
  */
 export async function provisionTenant(
   db,
@@ -175,7 +208,10 @@ export async function provisionTenant(
       ? command.admin.email.trim().toLowerCase()
       : '';
   const request = {
-    tenant: command.tenant,
+    client: command.client,
+    code: command.code,
+    name: command.name,
+    tier: command.tier,
     cell: command.cell,
     email,
     password: command.admin.password,
@@ -185,21 +221,16 @@ export async function provisionTenant(
   return withControlErrors(async () => {
     const replay = await resolveReplay(db, key.data, request);
     if (replay) return replay;
+    await requireNapsoftClient(db, runtime, command.client);
     return db.tx(async tx => {
-      const tenant = await db.tenants.lockById(command.tenant, { tx });
-      if (!tenant) throw new AdminControlError('NOT_FOUND');
+      await tx.one(`SELECT pg_advisory_xact_lock(${REGISTRY_LOCK})`);
       const raced = await resolveReplay(db, key.data, request, { tx });
       if (raced) return raced;
-      const job = await db.tenant_provisioning.lockByTenantId(tenant.id, {
-        tx,
-      });
       if (
-        tenant.is_napsoft ||
-        tenant.status !== 'pending' ||
-        tenant.cell_id ||
-        job
+        (await db.tenants.lockActiveByCode(command.code, { tx })) ||
+        (await db.tenants.lockActiveByClient(command.client, { tx }))
       )
-        throw new AdminControlError('INVALID_STATE');
+        throw new AdminControlError('CONFLICT');
       const cell = await db.cells.findOneBy(
         { id: command.cell },
         { columnWhitelist: ['id', 'enabled'], tx }
@@ -207,6 +238,38 @@ export async function provisionTenant(
       if (!cell?.enabled || !runtime?.readiness(cell.id)?.ready)
         throw new AdminControlError('CELL_UNAVAILABLE');
 
+      const tenant = await db.tenants.insert(
+        {
+          tenant_code: command.code,
+          name: command.name,
+          tier: command.tier,
+          client_id: command.client,
+          status: 'pending',
+          cell_id: null,
+          provisioned: false,
+          rbac_ready: false,
+          is_napsoft: false,
+        },
+        { tx, actorId: granted.actorId }
+      );
+      await appendTenantEvent(
+        db,
+        {
+          event_key: 'tenant.created',
+          outcome: 'succeeded',
+          request_id: requestId,
+          actor_id: granted.actorId,
+          tenant_id: tenant.id,
+          target_id: tenant.id,
+          details: {
+            tenant_code: tenant.tenant_code,
+            name: tenant.name,
+            tier: tenant.tier,
+            client_id: command.client,
+          },
+        },
+        tx
+      );
       const { membership, loginCreated } = await createFirstAdministrator(
         db,
         {
@@ -238,7 +301,15 @@ export async function provisionTenant(
           actor_id: granted.actorId,
           tenant_id: tenant.id,
           target_id: tenant.id,
-          details: { cell_id: cell.id, email, login_created: loginCreated },
+          details: {
+            client_id: command.client,
+            tenant_code: tenant.tenant_code,
+            name: tenant.name,
+            tier: tenant.tier,
+            cell_id: cell.id,
+            email,
+            login_created: loginCreated,
+          },
         },
         tx
       );

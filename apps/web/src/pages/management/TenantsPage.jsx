@@ -4,8 +4,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
 import { ApiError } from '../../api/client.js';
 import { denialMessage } from '../../auth/capabilities.js';
 import {
@@ -15,9 +15,8 @@ import {
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
+import { useSession } from '../../auth/SessionContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
-import { CreateTenantDialog } from './CreateTenantDialog.jsx';
-import { ProvisionTenantDialog } from './ProvisionTenantDialog.jsx';
 
 export const REFRESH_MS = 2000;
 
@@ -151,11 +150,14 @@ export function TenantsPage() {
     []
   );
   const [resetKey, setResetKey] = useState(0);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [provisionRow, setProvisionRow] = useState(null);
   const [actionError, setActionError] = useState(null);
   const { can, onError } = useCapabilities();
   const canWrite = can('admin-tenancy::control::write', 'napsoft');
+  const navigate = useNavigate();
+  const session = useSession();
+  const napsoftSelected =
+    session.selectedTenant != null &&
+    session.selectedTenant.id === session.capabilities?.napsoftTenant?.id;
 
   // I0006-R011: refresh while any tenant job is queued or running.
   useEffect(() => {
@@ -164,18 +166,8 @@ export function TenantsPage() {
     return () => clearInterval(timer);
   }, [active]);
 
-  usePageHeader({
-    title: 'Tenants',
-    actions: canWrite ? (
-      <Button
-        variant="contained"
-        size="small"
-        onClick={() => setDialogOpen(true)}
-      >
-        Create tenant
-      </Button>
-    ) : null,
-  });
+  // I0006-R010: tenants are created from a Napsoft client, not here.
+  usePageHeader({ title: 'Tenants' });
 
   async function handleRetry(row) {
     setActionError(null);
@@ -189,14 +181,16 @@ export function TenantsPage() {
   }
 
   function rowActions(row) {
-    if (!canWrite) return [];
     const actions = [];
-    // I0006-R010: only a pending tenant with no job can be provisioned. The
-    // Napsoft tenant is never pending, and the server rejects it regardless.
-    if (row.status === 'pending' && !row.cellId && !row.jobStatus)
-      actions.push({ label: 'Provision', onClick: setProvisionRow });
+    // A tenant's contacts are on its Napsoft client record, which lives in
+    // the Napsoft tenant's directory.
+    if (row.clientId && napsoftSelected)
+      actions.push({
+        label: 'View client',
+        onClick: () => navigate(`/directory/clients?open=${row.clientId}`),
+      });
     // I0006-R012
-    if (row.jobStatus === 'failed')
+    if (canWrite && row.jobStatus === 'failed')
       actions.push({ label: 'Retry', onClick: handleRetry });
     return actions;
   }
@@ -219,25 +213,6 @@ export function TenantsPage() {
         rowActions={rowActions}
         emptyMessage="No tenants yet."
       />
-      {dialogOpen ? (
-        <CreateTenantDialog
-          onClose={() => setDialogOpen(false)}
-          onCreated={() => {
-            setDialogOpen(false);
-            setResetKey(key => key + 1);
-          }}
-        />
-      ) : null}
-      {provisionRow ? (
-        <ProvisionTenantDialog
-          tenant={provisionRow}
-          onClose={() => setProvisionRow(null)}
-          onProvisioned={() => {
-            setProvisionRow(null);
-            setResetKey(key => key + 1);
-          }}
-        />
-      ) : null}
     </>
   );
 }

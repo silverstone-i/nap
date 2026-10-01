@@ -42,8 +42,8 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'cell_id',
   'changed_at',
   'changed_fields',
+  'client_id',
   'code',
-  'designation',
   'direction',
   'email',
   'failure_code',
@@ -187,15 +187,6 @@ export const EVENT_CATALOGUE = Object.freeze({
       },
     ])
   ),
-  ...Object.fromEntries(
-    ['added', 'removed'].map(action => [
-      `directory.tenant_contact.${action}`,
-      {
-        outcomes: ANY_OUTCOME,
-        details: ['party_id', 'designation', 'changed_at'],
-      },
-    ])
-  ),
 
   'cell.registered': {
     outcomes: ANY_OUTCOME,
@@ -221,10 +212,10 @@ export const EVENT_CATALOGUE = Object.freeze({
 
   'tenant.created': {
     outcomes: ANY_OUTCOME,
-    // `name` is stored so a repeated `Idempotency-Key` can compare the full
-    // normalized request against the immutable snapshot this event recorded,
-    // not against the live (possibly later-edited) `tenants` row.
-    details: ['tenant_code', 'tier', 'name'],
+    // Audit record of the tenant as `tenant-provision` created it, including
+    // the Napsoft client it came from (I0006-R001). Idempotent replay compares
+    // against `tenant.provision.requested`, not this event.
+    details: ['tenant_code', 'tier', 'name', 'client_id'],
   },
 
   'user.created': {
@@ -277,11 +268,19 @@ export const EVENT_CATALOGUE = Object.freeze({
 
   'tenant.napsoft_setup.completed': { outcomes: SUCCEEDED, details: [] },
 
-  // I0006-R018. `cell_id`, `email`, and `login_created` are stored so a
-  // repeated `Idempotency-Key` can compare against the recorded request.
+  // I0006-R018. The request's client, code, name, tier, cell, and email
+  // are stored so a repeated `Idempotency-Key` can compare against it.
   'tenant.provision.requested': {
     outcomes: ANY_OUTCOME,
-    details: ['cell_id', 'email', 'login_created'],
+    details: [
+      'client_id',
+      'tenant_code',
+      'name',
+      'tier',
+      'cell_id',
+      'email',
+      'login_created',
+    ],
   },
   'tenant.provision.retry.requested': {
     outcomes: ANY_OUTCOME,

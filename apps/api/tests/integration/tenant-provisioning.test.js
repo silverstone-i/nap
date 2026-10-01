@@ -19,7 +19,6 @@ import {
   executeProvisionCommand,
   registerCell,
 } from '../../src/modules/admin-tenancy/domain/cells.js';
-import { createTenant } from '../../src/modules/admin-tenancy/domain/tenants.js';
 import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 import { createSession } from '../../src/modules/admin-tenancy/domain/session.js';
@@ -73,15 +72,60 @@ function worker(overrides = {}) {
   });
 }
 
+/**
+ * Run `operation` in the Napsoft cell as `nap-admin`, scoped to the Napsoft
+ * tenant.
+ * @param {(tx: object) => Promise<unknown>} operation
+ */
+async function inNapsoftCell(operation) {
+  const target = await driver.connection({
+    cell: await db.cells.findOneBy(
+      { id: cellId },
+      { columnWhitelist: ['id', 'database_name'] }
+    ),
+  });
+  const cell = createCellDatabase(
+    roleUrl(target.endpoint, 'nap-admin', target.adminPassword)
+  );
+  try {
+    await cell.connect();
+    return await cell.db.tx(async tx => {
+      await tx.one("SELECT set_config('nap.tenant_id', $1, true)", [napsoftId]);
+      return operation(tx);
+    });
+  } finally {
+    await cell.close();
+  }
+}
+
+/**
+ * A new organization in the Napsoft tenant's directory (I0006-R001).
+ * @param {'client'|'vendor'} [kind]
+ * @returns {Promise<string>} Its party ID.
+ */
+function napsoftOrganization(kind = 'client') {
+  return inNapsoftCell(async tx => {
+    const { id } = await tx.one(
+      'INSERT INTO app.parties (tenant_id, kind) VALUES ($1, $2) RETURNING id',
+      [napsoftId, kind]
+    );
+    await tx.none(
+      'INSERT INTO app.organizations (party_id, tenant_id, legal_name) VALUES ($1, $2, $3)',
+      [id, napsoftId, `Customer ${id.slice(0, 8)}`]
+    );
+    return id;
+  });
+}
+
+/** A new tenant request: a fresh Napsoft client and a unique code. */
 async function newTenant() {
   const code =
     'C' + randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
-  return createTenant(
-    db,
-    authority(),
-    { code, name: `Customer ${code}`, tier: 'starter' },
-    randomUUID()
-  );
+  return {
+    client: await napsoftOrganization(),
+    code,
+    name: `Customer ${code}`,
+  };
 }
 
 function provision(
@@ -97,7 +141,10 @@ function provision(
     authority(),
     {
       operation: 'tenant-provision',
-      tenant,
+      client: tenant.client,
+      code: tenant.code,
+      name: tenant.name,
+      tier: 'starter',
       cell,
       admin: { email, password, ...name },
     },
@@ -226,6 +273,15 @@ beforeAll(async () => {
   cellId = registered.cell.id;
   await worker().tick();
   expect(registry.readiness(cellId)).toEqual({ ready: true });
+  // The first cell becomes the Napsoft tenant's cell, which holds its clients.
+  expect(
+    (
+      await db.tenants.findOneBy(
+        { id: napsoftId },
+        { columnWhitelist: ['cell_id'] }
+      )
+    ).cell_id
+  ).toBe(cellId);
 }, 120000);
 
 afterAll(async () => {
@@ -241,35 +297,58 @@ afterAll(async () => {
 describe('tenant provisioning (I0006)', () => {
   let tenant, email;
 
-  it('AC03, AC07: queues the job; the admin cannot select yet; the key replays', async () => {
-    tenant = await newTenant();
+  it('AC03, AC07: creates the tenant from a client and queues the job; the admin cannot select yet; the key replays', async () => {
+    const request = await newTenant();
     email = `admin-${randomUUID().slice(0, 8)}@acme.test`;
     const key = randomUUID();
     const queued = await provision(
-      tenant.id,
+      request,
       cellId,
       ` ${email.toUpperCase()} `,
       key
     );
+    tenant = { ...request, id: queued.tenantId };
     expect(queued).toMatchObject({
-      tenantId: tenant.id,
       cellId,
       stage: 'assignment',
       status: 'queued',
+    });
+    expect(
+      await db.tenants.findOneBy(
+        { id: tenant.id },
+        {
+          columnWhitelist: [
+            'tenant_code',
+            'name',
+            'client_id',
+            'status',
+            'cell_id',
+          ],
+        }
+      )
+    ).toEqual({
+      tenant_code: request.code,
+      name: request.name,
+      client_id: request.client,
+      status: 'pending',
+      cell_id: null,
     });
     const login = await loginOf(email);
     expect(login.must_change_password).toBe(true);
     await expect(select(login.id, tenant.id)).rejects.toBeTruthy();
 
-    expect(await provision(tenant.id, cellId, email, key)).toEqual(queued);
+    expect(await provision(tenant, cellId, email, key)).toEqual(queued);
     await expect(
-      provision(tenant.id, cellId, 'other@acme.test', key)
+      provision({ ...tenant, code: 'OTHER_CODE' }, cellId, email, key)
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
     await expect(
-      provision(tenant.id, cellId, email, key, 'different-password')
+      provision(tenant, cellId, 'other@acme.test', key)
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
     await expect(
-      provision(tenant.id, cellId, email, key, undefined, {
+      provision(tenant, cellId, email, key, 'different-password')
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    await expect(
+      provision(tenant, cellId, email, key, undefined, {
         firstName: 'Janet',
         lastName: 'Doe',
       })
@@ -318,7 +397,8 @@ describe('tenant provisioning (I0006)', () => {
     expect(assignments).toEqual([
       { portal_user_id: login.id, code: 'tenant_admin' },
     ]);
-    // M0005 AC07: the administrator is an employee and the primary contact.
+    // M0005 AC07: the administrator is an employee; no one is flagged as a
+    // tenant contact.
     expect(people).toEqual([
       {
         party_id: membership.member_id,
@@ -329,37 +409,47 @@ describe('tenant provisioning (I0006)', () => {
       },
     ]);
     expect(emails).toEqual([{ party_id: membership.member_id, value: email }]);
-    expect(designations).toEqual([
-      {
-        party_id: membership.member_id,
-        is_primary_contact: true,
-        is_billing_contact: false,
-      },
-    ]);
+    expect(designations).toEqual([]);
     expect(labels.n).toBe(13);
   });
 
-  it('AC06: rejects the Napsoft tenant, a provisioned tenant, and a cell that is not ready', async () => {
+  it('AC06: rejects an unknown client, a non-client, a client or code already used, and a cell that is not ready', async () => {
     const before = await db.portal_users.countAll({ includeDeactivated: true });
-    await expect(
-      provision(napsoftId, cellId, 'x@nap.test')
-    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
-    await expect(
-      provision(tenant.id, cellId, 'y@nap.test')
-    ).rejects.toMatchObject({ code: 'INVALID_STATE' });
+    const tenantsBefore = await db.tenants.countAll({
+      includeDeactivated: true,
+    });
     const fresh = await newTenant();
     await expect(
-      provision(fresh.id, randomUUID(), 'z@nap.test')
+      provision({ ...fresh, client: randomUUID() }, cellId, 'w@nap.test')
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(
+      provision(
+        { ...fresh, client: await napsoftOrganization('vendor') },
+        cellId,
+        'x@nap.test'
+      )
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(
+      provision({ ...fresh, client: tenant.client }, cellId, 'y@nap.test')
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(
+      provision({ ...fresh, code: tenant.code }, cellId, 'y@nap.test')
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(
+      provision(fresh, randomUUID(), 'z@nap.test')
     ).rejects.toMatchObject({ code: 'CELL_UNAVAILABLE' });
-    expect(await job(fresh.id)).toBeNull();
+    expect(await db.tenants.countAll({ includeDeactivated: true })).toBe(
+      tenantsBefore
+    );
     expect(await db.portal_users.countAll({ includeDeactivated: true })).toBe(
       before
     );
   });
 
   it('AC04, AC08: a failed stage keeps the tenant pending; retry completes without duplicates and reuses the login', async () => {
-    const second = await newTenant();
-    await provision(second.id, cellId, email);
+    const second = {
+      id: (await provision(await newTenant(), cellId, email)).tenantId,
+    };
     const real = createTenantStages({ admin: { db }, driver, registry });
     let failSeed = true;
     const flaky = {
@@ -407,12 +497,15 @@ describe('tenant provisioning (I0006)', () => {
   });
 
   it('AC05: a job left running is requeued on start and completes', async () => {
-    const third = await newTenant();
-    await provision(
-      third.id,
-      cellId,
-      `third-${randomUUID().slice(0, 8)}@acme.test`
-    );
+    const third = {
+      id: (
+        await provision(
+          await newTenant(),
+          cellId,
+          `third-${randomUUID().slice(0, 8)}@acme.test`
+        )
+      ).tenantId,
+    };
     const row = await job(third.id);
     await db.tenant_provisioning.update(row.id, { status: 'running' });
     const running = worker();

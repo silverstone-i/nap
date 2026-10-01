@@ -5,7 +5,6 @@
 
 import { useLocation, useNavigate } from 'react-router';
 import BusinessIcon from '@mui/icons-material/Business';
-import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import LabelIcon from '@mui/icons-material/Label';
@@ -61,7 +60,6 @@ const DIRECTORY_ICONS = {
 /** Icon for each `Settings` child, by id. */
 const SETTINGS_ICONS = {
   roles: <SecurityIcon fontSize="small" />,
-  'tenant-contacts': <ContactPhoneIcon fontSize="small" />,
   labels: <LabelIcon fontSize="small" />,
 };
 

@@ -123,6 +123,7 @@ export const migration = defineMigration({
         checks: [
           'revision > 0',
           'NOT is_primary_tax_contact OR organization_id IS NOT NULL',
+          'organization_id IS NOT NULL OR NOT (is_primary_contact OR is_billing_contact)',
         ],
         foreignKeys: [
           {

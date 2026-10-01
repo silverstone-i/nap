@@ -10,13 +10,14 @@ import { createApp } from '../../src/app.js';
 import { authorizeActor } from './helpers/authorization.js';
 import { ERROR_STATUS } from '../../src/framework/envelope.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
+import { executeProvisionCommand } from '../../src/modules/admin-tenancy/domain/cells.js';
 import {
   createSessionToken,
   hashSessionToken,
 } from '../../src/modules/admin-tenancy/domain/session.js';
 import {
-  parseCreateTenantInput,
-  parseIdempotencyKey,
+  tenantCodeSchema,
+  tenantNameSchema,
   tenantView,
 } from '../../src/modules/admin-tenancy/domain/tenants.js';
 
@@ -29,38 +30,48 @@ const policy = {
 const cookiePolicy = { secure: false, sameSite: 'lax' };
 
 describe('validation', () => {
-  it('normalizes a well-formed body and rejects the rest', () => {
-    expect(
-      parseCreateTenantInput({
-        code: ' acme ',
-        name: '  Acme Construction  ',
-        tier: 'starter',
-      })
-    ).toEqual({ code: 'ACME', name: 'Acme Construction', tier: 'starter' });
-
-    for (const bad of [
-      { code: '1ACME', name: 'Acme', tier: 'starter' },
-      { code: 'A', name: 'Acme', tier: 'starter' },
-      { code: 'A'.repeat(33), name: 'Acme', tier: 'starter' },
-      { code: 'AC-ME', name: 'Acme', tier: 'starter' },
-      { code: 'ACME', name: '', tier: 'starter' },
-      { code: 'ACME', name: 'A'.repeat(161), tier: 'starter' },
-      { code: 'ACME', name: 'Acme', tier: 'gold' },
-      { code: 'ACME', name: 'Acme' },
-      { code: 'ACME', name: 'Acme', tier: 'starter', is_napsoft: true },
-    ])
-      expect(() => parseCreateTenantInput(bad)).toThrow(
-        expect.objectContaining({ code: 'INVALID_INPUT' })
-      );
+  it('normalizes a tenant code and name and rejects the rest', () => {
+    expect(tenantCodeSchema.parse(' acme ')).toBe('ACME');
+    expect(tenantNameSchema.parse('  Acme Construction  ')).toBe(
+      'Acme Construction'
+    );
+    for (const bad of ['1ACME', 'A', 'A'.repeat(33), 'AC-ME', 7])
+      expect(tenantCodeSchema.safeParse(bad).success).toBe(false);
+    for (const bad of ['', '   ', 'A'.repeat(161)])
+      expect(tenantNameSchema.safeParse(bad).success).toBe(false);
   });
 
-  it('accepts only a UUID idempotency key', () => {
-    const key = randomUUID();
-    expect(parseIdempotencyKey(key)).toBe(key);
-    for (const bad of [undefined, '', 'not-a-uuid', 123])
-      expect(() => parseIdempotencyKey(bad)).toThrow(
-        expect.objectContaining({ code: 'INVALID_INPUT' })
-      );
+  it('requires a client, code, name, tier, cell, and administrator to provision (I0006-R001)', async () => {
+    const valid = {
+      operation: 'tenant-provision',
+      client: randomUUID(),
+      code: 'ACME',
+      name: 'Acme',
+      tier: 'starter',
+      cell: randomUUID(),
+      admin: {
+        email: 'a@acme.test',
+        password: 'pw',
+        firstName: 'Ann',
+        lastName: 'Lee',
+      },
+    };
+    const noClient = { ...valid };
+    delete noClient.client;
+    for (const bad of [
+      noClient,
+      { ...valid, tenant: randomUUID() },
+      { ...valid, code: '1ACME' },
+      { ...valid, tier: 'gold' },
+      { ...valid, client: 'not-a-uuid' },
+    ])
+      await expect(
+        executeProvisionCommand(
+          {},
+          { actorId: randomUUID(), granted: true },
+          bad
+        )
+      ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });
 
   it('maps a tenant row to the API camelCase contract', () => {
@@ -73,6 +84,7 @@ describe('validation', () => {
       cell_id: null,
       provisioned: false,
       rbac_ready: false,
+      client_id: 'client-id',
     };
     expect(tenantView(row)).toEqual({
       id: 'tenant-id',
@@ -83,6 +95,7 @@ describe('validation', () => {
       cellId: null,
       provisioned: false,
       rbacReady: false,
+      clientId: 'client-id',
     });
   });
 });
@@ -102,6 +115,7 @@ function tenantRow(overrides = {}) {
     status: 'pending',
     is_napsoft: false,
     cell_id: null,
+    client_id: null,
     provisioned: false,
     rbac_ready: false,
     revision: 1,
@@ -163,6 +177,8 @@ function fakeAdmin({ tenants = [], failInsertWith, failAdvanceWith } = {}) {
         const found = tenantStore.get(id);
         return found ? { ...found } : null;
       },
+      findWhere: async ({ client_id }) =>
+        [...tenantStore.values()].filter(row => row.client_id === client_id),
       findAfterCursor: async (cursor, limit) => {
         const rows = [...tenantStore.values()]
           .sort((a, b) => (a.id < b.id ? -1 : 1))
@@ -250,158 +266,16 @@ function api({ tenants, root = true, failInsertWith, failAdvanceWith } = {}) {
   return { app, admin, cookie: `nap_session=${token}` };
 }
 
-const VALID_BODY = { code: 'ACME', name: 'Acme Construction', tier: 'starter' };
-
-function post(
-  app,
-  cookie,
-  { body = VALID_BODY, idempotencyKey = randomUUID() } = {}
-) {
-  return request(app)
-    .post('/api/admin-tenancy/v1/tenants')
-    .set('Origin', ORIGIN)
-    .set('Cookie', cookie)
-    .set('Idempotency-Key', idempotencyKey)
-    .send(body);
-}
-
-describe('tenants route', () => {
-  it('requires a session', async () => {
-    const { app } = api();
-    const response = await request(app)
-      .post('/api/admin-tenancy/v1/tenants')
-      .set('Origin', ORIGIN)
-      .set('Idempotency-Key', randomUUID())
-      .send(VALID_BODY);
-    expect(response.status).toBe(ERROR_STATUS.UNAUTHENTICATED);
-  });
-
-  it('refuses a session with no control capability', async () => {
-    const { app, cookie } = api({ root: false });
-    const response = await post(app, cookie);
-    expect(response.status).toBe(ERROR_STATUS.FORBIDDEN);
-  });
-
-  it('rejects a malformed body', async () => {
-    const { app, cookie } = api();
-    const response = await post(app, cookie, {
-      body: { code: 'a', name: 'Acme', tier: 'starter' },
-    });
-    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
-  });
-
-  it('rejects a body naming is_napsoft, for every actor', async () => {
-    const { app, cookie } = api();
-    const response = await post(app, cookie, {
-      body: { ...VALID_BODY, is_napsoft: true },
-    });
-    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
-  });
-
-  it('requires a well-formed Idempotency-Key header', async () => {
+describe('POST /tenants', () => {
+  it('is gone: tenants are created only from a Napsoft client (I0006-R001)', async () => {
     const { app, cookie } = api();
     const response = await request(app)
       .post('/api/admin-tenancy/v1/tenants')
       .set('Origin', ORIGIN)
       .set('Cookie', cookie)
-      .send(VALID_BODY);
-    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
-  });
-
-  it('creates a pending, unassigned, unprovisioned tenant', async () => {
-    const { app, admin, cookie } = api();
-    const response = await post(app, cookie);
-    expect(response.status).toBe(201);
-    expect(response.body.data).toEqual({
-      id: expect.any(String),
-      code: 'ACME',
-      name: 'Acme Construction',
-      tier: 'starter',
-      status: 'pending',
-      cellId: null,
-      provisioned: false,
-      rbacReady: false,
-    });
-    expect(admin.appended).toHaveLength(1);
-    expect(admin.appended[0]).toMatchObject({
-      event_key: 'tenant.created',
-      outcome: 'succeeded',
-    });
-    expect(admin.revisions.get('tenant:list')).toBe(1);
-  });
-
-  it('reports a duplicate code as a conflict', async () => {
-    const existing = tenantRow({ tenant_code: 'ACME' });
-    const { app, admin, cookie } = api({ tenants: [existing] });
-    const response = await post(app, cookie);
-    expect(response.status).toBe(ERROR_STATUS.CONFLICT);
-    expect(admin.appended.at(-1)).toMatchObject({
-      event_key: 'tenant.created',
-      outcome: 'failed',
-    });
-  });
-
-  it('returns the original representation for a repeated key and payload', async () => {
-    const { app, cookie } = api();
-    const idempotencyKey = randomUUID();
-    const first = await post(app, cookie, { idempotencyKey });
-    const second = await post(app, cookie, { idempotencyKey });
-    expect(second.status).toBe(201);
-    expect(second.body.data).toEqual(first.body.data);
-  });
-
-  it('reports a reused key with a different payload as an idempotency conflict', async () => {
-    const { app, admin, cookie } = api();
-    const idempotencyKey = randomUUID();
-    await post(app, cookie, { idempotencyKey });
-    const response = await post(app, cookie, {
-      idempotencyKey,
-      body: { ...VALID_BODY, name: 'Different Name' },
-    });
-    expect(response.status).toBe(ERROR_STATUS.IDEMPOTENCY_CONFLICT);
-    expect(response.body.error.code).toBe('IDEMPOTENCY_CONFLICT');
-    expect(admin.appended).toHaveLength(2);
-    expect(admin.appended[1]).toMatchObject({ outcome: 'failed' });
-  });
-
-  it('replays the original snapshot even if the live tenant row later changed', async () => {
-    const { app, admin, cookie } = api();
-    const idempotencyKey = randomUUID();
-    const first = await post(app, cookie, { idempotencyKey });
-
-    const stored = admin.tenantStore.get(first.body.data.id);
-    stored.name = 'Renamed Out Of Band';
-    stored.tier = 'growth';
-
-    const second = await post(app, cookie, { idempotencyKey });
-    expect(second.status).toBe(201);
-    expect(second.body.data).toEqual(first.body.data);
-  });
-
-  it('surfaces an unavailable cache-revision store as 503, not 500', async () => {
-    const { app, cookie } = api({
-      failAdvanceWith: Object.assign(new Error('unavailable'), {
-        code: 'SERVICE_UNAVAILABLE',
-      }),
-    });
-    const response = await post(app, cookie);
-    expect(response.status).toBe(ERROR_STATUS.SERVICE_UNAVAILABLE);
-    expect(response.body.error.code).toBe('SERVICE_UNAVAILABLE');
-  });
-
-  it('records the required failure event for a database-level conflict', async () => {
-    const { app, admin, cookie } = api({
-      failInsertWith: Object.assign(new Error('serialization failure'), {
-        code: '40001',
-      }),
-    });
-    const response = await post(app, cookie);
-    expect(response.status).toBe(ERROR_STATUS.CONFLICT);
-    expect(admin.appended).toHaveLength(1);
-    expect(admin.appended[0]).toMatchObject({
-      event_key: 'tenant.created',
-      outcome: 'failed',
-    });
+      .set('Idempotency-Key', randomUUID())
+      .send({ code: 'ACME', name: 'Acme', tier: 'starter' });
+    expect(response.status).toBe(404);
   });
 });
 
@@ -459,6 +333,22 @@ describe('GET /tenants', () => {
     );
     expect(secondPage.body.data.rows).toHaveLength(1);
     expect(secondPage.body.data.nextCursor).toBeNull();
+  });
+
+  it("returns one client's tenants for clientId, and rejects a malformed one", async () => {
+    const clientId = randomUUID();
+    const mine = tenantRow({ tenant_code: 'MINE', client_id: clientId });
+    const other = tenantRow({ tenant_code: 'OTHER', client_id: randomUUID() });
+    const { app, cookie } = api({ tenants: [mine, other] });
+    const response = await get(app, cookie, `?clientId=${clientId}`);
+    expect(response.status).toBe(200);
+    expect(response.body.data.rows).toEqual([
+      { ...tenantView(mine), job: null },
+    ]);
+    expect(response.body.data.nextCursor).toBeNull();
+    expect((await get(app, cookie, '?clientId=nope')).status).toBe(
+      ERROR_STATUS.INVALID_INPUT
+    );
   });
 
   it('rejects an out-of-range limit', async () => {

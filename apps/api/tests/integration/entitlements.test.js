@@ -12,7 +12,7 @@ import {
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
-import { createTenant } from '../../src/modules/admin-tenancy/domain/tenants.js';
+import { insertTenant } from './helpers/tenantRows.js';
 import {
   OPTIONAL_MODULES,
   grantEntitlement,
@@ -57,17 +57,7 @@ function authority() {
 
 /** Create a real tenant row and return its id. */
 async function seedTenant() {
-  const tenant = await createTenant(
-    db,
-    { actorId: randomUUID(), granted: true },
-    {
-      code: 'T' + randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase(),
-      name: 'Acme Construction',
-      tier: 'starter',
-    },
-    randomUUID()
-  );
-  return tenant.id;
+  return (await insertTenant(db)).id;
 }
 
 beforeAll(async () => {

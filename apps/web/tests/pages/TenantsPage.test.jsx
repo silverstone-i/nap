@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '../../src/api/client.js';
 import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { TenantsPage } from '../../src/pages/management/TenantsPage.jsx';
@@ -14,16 +13,20 @@ import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.j
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
 import {
+  NAPSOFT_TENANT,
   capabilitiesFixture,
   installMatchMedia,
   installResizeObserver,
 } from '../testUtils.jsx';
 
+const navigate = vi.fn();
+vi.mock('react-router', async importOriginal => ({
+  ...(await importOriginal()),
+  useNavigate: () => navigate,
+}));
+
 vi.mock('../../src/api/endpoints.js', () => ({
   listTenantsPage: vi.fn(),
-  createTenant: vi.fn(),
-  listCellsOverview: vi.fn(),
-  provisionTenant: vi.fn(),
   retryTenantProvisioning: vi.fn(),
 }));
 
@@ -40,6 +43,7 @@ const TENANT = {
   cellId: null,
   provisioned: false,
   rbacReady: false,
+  clientId: null,
   job: null,
 };
 
@@ -61,7 +65,7 @@ const failedJob = {
 // `usePageHeader` only registers {title, actions} in context; the shell's
 // `ContextualActionHeader` is what actually renders them (normally mounted
 // by `AppShell`), so it must be present here too for the header action
-// button (e.g. "Create tenant") to appear in the DOM.
+// button to appear in the DOM.
 function renderPage() {
   return render(
     <ThemeModeProvider>
@@ -78,6 +82,7 @@ beforeEach(() => {
   installResizeObserver();
   useSession.mockReturnValue({
     capabilities: capabilitiesFixture(),
+    selectedTenant: NAPSOFT_TENANT,
     refreshCapabilities: vi.fn(),
   });
 });
@@ -108,53 +113,21 @@ describe('TenantsPage', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
-  it('provisions a pending tenant into a ready cell (I0006-R010, AC09)', async () => {
-    api.listTenantsPage.mockResolvedValue(page([TENANT]));
-    api.listCellsOverview.mockResolvedValue({
-      rows: [
-        { cell: { id: 'c1', database_name: 'nap_dev_cell_a' }, ready: true },
-        { cell: { id: 'c2', database_name: 'nap_dev_cell_b' }, ready: false },
-      ],
-      nextCursor: null,
-      anyActive: false,
-    });
-    api.provisionTenant.mockResolvedValue({});
+  it("offers View client, opening the tenant's Napsoft client record (I0006-R010)", async () => {
+    api.listTenantsPage.mockResolvedValue(
+      page([{ ...TENANT, clientId: 'client-1' }])
+    );
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('ACME');
+    expect(screen.queryByRole('button', { name: 'Create tenant' })).toBeNull();
 
     await user.click(screen.getByRole('menuitem', { name: 'more' }));
-    expect(screen.queryByRole('menuitem', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Provision' })).toBeNull();
     await user.click(
-      await screen.findByRole('menuitem', { name: 'Provision' })
+      await screen.findByRole('menuitem', { name: 'View client' })
     );
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByRole('combobox'));
-    expect(screen.queryByRole('option', { name: 'nap_dev_cell_b' })).toBeNull();
-    await user.click(
-      await screen.findByRole('option', { name: 'nap_dev_cell_a' })
-    );
-    await user.type(within(dialog).getByLabelText(/First name/), 'Jane');
-    await user.type(within(dialog).getByLabelText(/Last name/), 'Doe');
-    await user.type(
-      within(dialog).getByLabelText(/Administrator email/),
-      'admin@acme.test'
-    );
-    await user.type(
-      within(dialog).getByLabelText(/Temporary password/),
-      'temporary'
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'Provision' }));
-
-    expect(api.provisionTenant).toHaveBeenCalledWith({
-      tenant: 't1',
-      cell: 'c1',
-      firstName: 'Jane',
-      lastName: 'Doe',
-      email: 'admin@acme.test',
-      password: 'temporary',
-    });
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(navigate).toHaveBeenCalledWith('/directory/clients?open=client-1');
   });
 
   it('offers Retry only for a failed job, and shows its failure (I0006-R012)', async () => {
@@ -167,7 +140,6 @@ describe('TenantsPage', () => {
     expect(await screen.findByText('SEED_FAILED')).toBeTruthy();
 
     await user.click(screen.getByRole('menuitem', { name: 'more' }));
-    expect(screen.queryByRole('menuitem', { name: 'Provision' })).toBeNull();
     await user.click(await screen.findByRole('menuitem', { name: 'Retry' }));
     expect(api.retryTenantProvisioning).toHaveBeenCalledWith({ tenant: 't1' });
   });
@@ -213,50 +185,5 @@ describe('TenantsPage', () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it('creates a tenant with an idempotency key and reloads the grid (AC02)', async () => {
-    api.listTenantsPage.mockResolvedValue(page([]));
-    api.createTenant.mockResolvedValue(TENANT);
-    renderPage();
-    const user = userEvent.setup();
-    await screen.findByText('No tenants yet.');
-
-    await user.click(screen.getByRole('button', { name: 'Create tenant' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText(/Code/), 'ACME');
-    await user.type(within(dialog).getByLabelText(/Name/), 'Acme Construction');
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create tenant' })
-    );
-
-    expect(api.createTenant).toHaveBeenCalledWith({
-      code: 'ACME',
-      name: 'Acme Construction',
-      tier: 'starter',
-    });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(api.listTenantsPage).toHaveBeenCalledTimes(2); // initial load + reload after create
-  });
-
-  it('surfaces a server conflict unmodified, without a client-side uniqueness check (AC02)', async () => {
-    api.listTenantsPage.mockResolvedValue(page([]));
-    api.createTenant.mockRejectedValue(new ApiError('CONFLICT', 409));
-    renderPage();
-    const user = userEvent.setup();
-    await screen.findByText('No tenants yet.');
-
-    await user.click(screen.getByRole('button', { name: 'Create tenant' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText(/Code/), 'ACME');
-    await user.type(within(dialog).getByLabelText(/Name/), 'Acme Construction');
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create tenant' })
-    );
-
-    expect(
-      await within(dialog).findByText('A tenant with this code already exists.')
-    ).toBeTruthy();
-    expect(screen.getByRole('dialog')).toBeTruthy(); // dialog stays open
   });
 });

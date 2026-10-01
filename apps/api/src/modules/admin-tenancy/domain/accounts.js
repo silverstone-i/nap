@@ -281,7 +281,7 @@ function parseIdempotencyKey(value) {
  * Resolve a previously recorded `user.created` success for this idempotency
  * key against the current request. Reconstructed entirely from the event's
  * immutable `details` snapshot, never a fresh read of the live
- * `portal_users` row — mirroring `domain/tenants.js`'s `createTenant`.
+ * `portal_users` row.
  * @param {AdminAccountsDb} db
  * @param {string} idempotencyKey
  * @param {{email: string}} normalized
@@ -861,8 +861,7 @@ function parseCreateMembershipInput(body) {
  * Resolve a previously recorded `membership.created` success for this
  * idempotency key against the current request. Reconstructed entirely from
  * the event's own `tenant_id` column and immutable `details` snapshot, never
- * a fresh read of the live `portal_user_tenants`/`provisioning_jobs` rows —
- * mirroring `domain/tenants.js`'s `createTenant`.
+ * a fresh read of the live `portal_user_tenants`/`provisioning_jobs` rows.
  * @param {AdminAccountsDb} db
  * @param {string} idempotencyKey
  * @param {{portalUserId: string, tenantId: string, memberType: string}} normalized

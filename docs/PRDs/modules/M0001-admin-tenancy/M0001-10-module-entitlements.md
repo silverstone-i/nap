@@ -61,8 +61,7 @@ The optional catalogue is `companies`, `catalog`, `projects`, `cost-codes`,
 `cell-tenancy`, `reference-data`, `access-control`, `business-directory`,
 `tenant-settings`, and `reporting` are mandatory modules and do not have
 entitlement rows. `business-directory` is mandatory because tenant
-provisioning creates every tenant's first employee and primary contact
-(M0005-R022).
+provisioning creates every tenant's first employee (M0005-R022).
 
 ## 7. Business Rules And Invariants
 

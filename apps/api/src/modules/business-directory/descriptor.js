@@ -27,7 +27,6 @@ export const descriptor = {
     'business-directory::directory::read',
     'business-directory::directory::write',
     'business-directory::labels::write',
-    'business-directory::tenant-contacts::write',
     'business-directory::tax-ids::read',
     'business-directory::tax-ids::write',
   ],

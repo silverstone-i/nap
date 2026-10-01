@@ -15,9 +15,9 @@
 
 Later modules need to know who a tenant works with. `business-directory` stores
 the tenant's employees, contacts, vendors, clients, and the people at each
-vendor and client, with their emails, phones, and addresses. It also records
-the tenant's primary and billing contacts. Provisioning a tenant creates the
-first administrator as an employee and as the tenant's first primary contact.
+vendor and client, with their emails, phones, and addresses. A vendor's or
+client's contacts can be flagged as its primary and billing contacts.
+Provisioning a tenant creates the first administrator as an employee.
 
 ## 3. Scope
 
@@ -26,7 +26,7 @@ first administrator as an employee and as the tenant's first primary contact.
 - Employees, contacts, vendors, clients, vendor contacts, and client contacts.
 - Emails, phones, and addresses for any directory record, with user-defined labels.
 - Tax IDs on people, vendors, clients, and client contacts.
-- The tenant's primary and billing contacts.
+- Primary and billing contact flags on vendor and client contacts.
 - The `is_portal_user` flag on people, vendor contacts, and client contacts.
 - Creating the first administrator's employee record during tenant provisioning.
 - Directory screens.
@@ -40,14 +40,13 @@ first administrator as an employee and as the tenant's first primary contact.
 
 ## 4. Actors And Permissions
 
-| Required capability                                    | Allows                                                       |
-| ------------------------------------------------------ | ------------------------------------------------------------ |
-| `<TENANT>::business-directory::directory::read`        | List and view directory records, labels, and tenant contacts |
-| `<TENANT>::business-directory::directory::write`       | Create, edit, archive, and restore directory records         |
-| `<TENANT>::business-directory::labels::write`          | Create, rename, archive, and restore labels                  |
-| `<TENANT>::business-directory::tenant-contacts::write` | Add and remove primary and billing contacts                  |
-| `<TENANT>::business-directory::tax-ids::read`          | Read full tax IDs and search by tax ID                       |
-| `<TENANT>::business-directory::tax-ids::write`         | Set, change, and clear tax IDs                               |
+| Required capability                              | Allows                                               |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| `<TENANT>::business-directory::directory::read`  | List and view directory records and labels           |
+| `<TENANT>::business-directory::directory::write` | Create, edit, archive, and restore directory records |
+| `<TENANT>::business-directory::labels::write`    | Create, rename, archive, and restore labels          |
+| `<TENANT>::business-directory::tax-ids::read`    | Read full tax IDs and search by tax ID               |
+| `<TENANT>::business-directory::tax-ids::write`   | Set, change, and clear tax IDs                       |
 
 `tenant_admin` holds all six through `<CODE>::*::*::*` (M0003-R007).
 `business-directory` is a foundation module: every tenant can use it, with no
@@ -66,7 +65,6 @@ entitlement row (M0001-10), because provisioning creates its first rows
 | Client               | The party the tenant sells to. In construction, the unit being sold; the buyers are its client contacts |
 | Contact method       | One email or phone number of a party                                                                    |
 | Label                | A tenant-defined category for a contact method or address, such as spouse, emergency, or billing        |
-| Tenant contact       | An employee designated as the tenant's primary or billing contact                                       |
 | Tax ID               | A Social Security Number (SSN) for a person or an Employer Identification Number (EIN) for a business   |
 
 ## 6. Functional Requirements
@@ -76,7 +74,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 - M0005-R001: Every directory record must have one `app.parties` row with `kind` in `employee`, `contact`, `vendor`, `client`, `vendor_contact`, `client_contact`. `kind` never changes. A record's optional tax ID is stored on its party.
 - M0005-R002: Employees and contacts are stored in `app.people`, each with a first name, last name, optional tax ID, and portal flag.
 - M0005-R003: Vendors and clients are stored in `app.organizations`, each with a legal name, an optional "doing business as" name, and a tax ID or primary tax contact (R006, R007).
-- M0005-R004: Vendor contacts and client contacts are also stored in `app.people`, each with a first name, last name, optional tax ID, portal flag, and the `organization_id` it belongs to. A vendor contact belongs to a vendor and a client contact to a client. Any number of an organization's contacts may be flagged as its primary contact or billing contact.
+- M0005-R004: Vendor contacts and client contacts are also stored in `app.people`, each with a first name, last name, optional tax ID, portal flag, and the `organization_id` it belongs to. A vendor contact belongs to a vendor and a client contact to a client. Any number of an organization's contacts may be flagged as its primary contact or billing contact; only an organization contact can carry either flag.
 - M0005-R005: A party's child row must match its `kind`. For example, a `people` row may point only at an `employee` or `contact` party.
 
 ### Tax IDs
@@ -99,8 +97,8 @@ entitlement row (M0001-10), because provisioning creates its first rows
 
 ### Tenant contacts
 
-- M0005-R018: A tenant contact is an employee whose `app.people` row is flagged `is_primary_contact` (designation `primary`) or `is_billing_contact` (designation `billing`). Only an active employee may be a tenant contact. A tenant may have any number of each designation. Archiving an employee clears both flags, and restoring does not bring them back.
-- M0005-R019: Removing the last `primary` tenant contact, or archiving the employee who is the last one, must be rejected with `LAST_PRIMARY_CONTACT`.
+- M0005-R018: Withdrawn. A tenant no longer designates its own employees as primary or billing contacts. Napsoft keeps a tenant's contacts on its client record in the Napsoft tenant (I0006-R001).
+- M0005-R019: Withdrawn with R018.
 
 ### Portal flag
 
@@ -109,19 +107,19 @@ entitlement row (M0001-10), because provisioning creates its first rows
 ### Provisioning
 
 - M0005-R021: `tenant-provision` (I0006-R001) must also require the first administrator's `firstName` and `lastName`. It must generate the administrator's party ID and store it as the membership's `member_id` (I0006-R002).
-- M0005-R022: The seed stage (I0006-R007) must, in the same cell transaction, create the employee party, the `people` row with `is_portal_user = true`, the login email as the primary email, the default labels (R017), and `is_primary_contact = true` on that employee. The readback check covers these rows.
-- M0005-R023: An active, ready membership with a `member_type` must have a `member_id`. This replaces I0006's rule that `member_id` may be null. The Napsoft root membership keeps `member_type` and `member_id` null and has no employee record; it is an emergency login for first setup and recovery. Napsoft staff who need an employee record get their own login with an `employee` membership. The Napsoft tenant therefore starts with no primary tenant contact; R019 only blocks removing the last one.
+- M0005-R022: The seed stage (I0006-R007) must, in the same cell transaction, create the employee party, the `people` row with `is_portal_user = true`, the login email as the primary email, and the default labels (R017). The readback check covers these rows.
+- M0005-R023: An active, ready membership with a `member_type` must have a `member_id`. This replaces I0006's rule that `member_id` may be null. The Napsoft root membership keeps `member_type` and `member_id` null and has no employee record; it is an emergency login for first setup and recovery. Napsoft staff who need an employee record get their own login with an `employee` membership.
 - M0005-R024: `member_type` values become `employee`, `contact`, `vendor_contact`, `client_contact` in `admin.portal_user_tenants`, `cell.tenant_members`, and the admin provisioning job kinds. `client` is removed, because the login belongs to the buyer, not the client.
 
 ### Events and screens
 
 - M0005-R025: Every directory write must write a `cell.outbox` row in the same cell transaction. The sync worker (I0004) delivers it to admin, where it writes an administrative event with actor, tenant, record, and before and after values. Tax IDs appear in events only as their last four characters.
-- M0005-R026: The web app must provide screens to list, search, view, create, edit, archive, and restore each record type; to manage a record's emails, phones, and addresses; to manage labels; and to manage tenant contacts. Actions the session cannot perform are hidden (I0005).
+- M0005-R026: The web app must provide screens to list, search, view, create, edit, archive, and restore each record type; to manage a record's emails, phones, and addresses; and to manage labels. Actions the session cannot perform are hidden (I0005).
 
 ## 7. Business Rules And Invariants
 
 - The database enforces the keys, checks, and unique indexes in section 9.
-- The model layer enforces rules that span tables: R005, R009's tax ID rule, R018's employee rule, and R019.
+- The model layer enforces rules that span tables: R005 and R009's tax ID rule.
 
 ## 8. Lifecycle And State Transitions
 
@@ -130,7 +128,6 @@ entitlement row (M0001-10), because provisioning creates its first rows
 | —        | Create                                 | Active record                                    |
 | Active   | Edit                                   | Changed; event written                           |
 | Active   | Archive                                | Archived; its contact methods and addresses stay |
-| Active   | Archive last primary tenant contact    | Reject `LAST_PRIMARY_CONTACT`                    |
 | Active   | Archive a client's primary tax contact | Reject `PRIMARY_TAX_CONTACT`                     |
 | Archived | Restore                                | Active                                           |
 
@@ -141,14 +138,14 @@ for tenant business tables (M0002-01-R006). Every table also has the standard
 audit fields, soft delete (`deactivated_at`), and `revision`. Row-level
 security (RLS) limits each query to the session's tenant through `tenant_id`.
 
-| Table             | Schema object          | Behavior defined by                |
-| ----------------- | ---------------------- | ---------------------------------- |
-| `parties`         | `partiesSchema`        | R001, R005, R008, R010–R013        |
-| `people`          | `peopleSchema`         | R002, R004, R007, R009, R018, R019 |
-| `organizations`   | `organizationsSchema`  | R003, R006, R007                   |
-| `contact_methods` | `contactMethodsSchema` | R014, R016                         |
-| `addresses`       | `addressesSchema`      | R015                               |
-| `contact_labels`  | `contactLabelsSchema`  | R017                               |
+| Table             | Schema object          | Behavior defined by         |
+| ----------------- | ---------------------- | --------------------------- |
+| `parties`         | `partiesSchema`        | R001, R005, R008, R010–R013 |
+| `people`          | `peopleSchema`         | R002, R004, R007, R009      |
+| `organizations`   | `organizationsSchema`  | R003, R006, R007            |
+| `contact_methods` | `contactMethodsSchema` | R014, R016                  |
+| `addresses`       | `addressesSchema`      | R015                        |
+| `contact_labels`  | `contactLabelsSchema`  | R017                        |
 
 ### `app.parties`
 
@@ -181,17 +178,17 @@ One row per vendor or client.
 
 One row per employee, contact, vendor contact, or client contact.
 
-| Column                   | Type      | Rules                                                                                                                                                |
-| ------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `party_id`               | `uuid`    | Primary key; references `parties.id`; immutable                                                                                                      |
-| `tenant_id`              | `uuid`    | Not null; immutable; RLS column                                                                                                                      |
-| `organization_id`        | `uuid`    | Nullable; references `organizations.party_id`; set for vendor and client contacts only; immutable                                                    |
-| `first_name`             | `text`    | Not null                                                                                                                                             |
-| `last_name`              | `text`    | Not null                                                                                                                                             |
-| `is_portal_user`         | `boolean` | Not null, default `false`                                                                                                                            |
-| `is_primary_contact`     | `boolean` | Not null, default `false`; on an employee, a `primary` tenant contact (R018); on an organization contact, that organization's primary contact (R004) |
-| `is_billing_contact`     | `boolean` | Not null, default `false`; on an employee, a `billing` tenant contact (R018); on an organization contact, that organization's billing contact (R004) |
-| `is_primary_tax_contact` | `boolean` | Not null, default `false`; requires `organization_id`; client contacts only; unique per `organization_id` among active flagged rows (R007, R009)     |
+| Column                   | Type      | Rules                                                                                                                                            |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `party_id`               | `uuid`    | Primary key; references `parties.id`; immutable                                                                                                  |
+| `tenant_id`              | `uuid`    | Not null; immutable; RLS column                                                                                                                  |
+| `organization_id`        | `uuid`    | Nullable; references `organizations.party_id`; set for vendor and client contacts only; immutable                                                |
+| `first_name`             | `text`    | Not null                                                                                                                                         |
+| `last_name`              | `text`    | Not null                                                                                                                                         |
+| `is_portal_user`         | `boolean` | Not null, default `false`                                                                                                                        |
+| `is_primary_contact`     | `boolean` | Not null, default `false`; that organization's primary contact; requires `organization_id` (R004)                                                |
+| `is_billing_contact`     | `boolean` | Not null, default `false`; that organization's billing contact; requires `organization_id` (R004)                                                |
+| `is_primary_tax_contact` | `boolean` | Not null, default `false`; requires `organization_id`; client contacts only; unique per `organization_id` among active flagged rows (R007, R009) |
 
 ### `app.contact_methods`
 
@@ -240,26 +237,22 @@ One row per label.
 
 Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, which I0005 adds.
 
-| Method and route                                                   | Route capability                             | Errors                                                          |
-| ------------------------------------------------------------------ | -------------------------------------------- | --------------------------------------------------------------- |
-| `GET /people`, `/organizations`, `/organization-contacts`          | `business-directory::directory::read`        | —                                                               |
-| `GET /{collection}/:id`                                            | `business-directory::directory::read`        | `NOT_FOUND`                                                     |
-| `POST /{collection}`                                               | `business-directory::directory::write`       | `INVALID_INPUT`                                                 |
-| `PATCH /{collection}/:id`                                          | `business-directory::directory::write`       | `INVALID_INPUT`, `STALE_REVISION`                               |
-| `POST /{collection}/:id/archive`, `/restore`                       | `business-directory::directory::write`       | `STALE_REVISION`, `LAST_PRIMARY_CONTACT`, `PRIMARY_TAX_CONTACT` |
-| `POST`, `PATCH`, `DELETE /parties/:id/contact-methods[/:methodId]` | `business-directory::directory::write`       | `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE`                   |
-| `POST`, `PATCH`, `DELETE /parties/:id/addresses[/:addressId]`      | `business-directory::directory::write`       | `NOT_FOUND`, `INVALID_INPUT`                                    |
-| `GET /{collection}/:id/tax-id`                                     | `business-directory::tax-ids::read`          | `NOT_FOUND`                                                     |
-| `GET /labels`                                                      | `business-directory::directory::read`        | —                                                               |
-| `POST /labels`, `PATCH /labels/:id`, `/archive`, `/restore`        | `business-directory::labels::write`          | `INVALID_INPUT`, `CONFLICT`                                     |
-| `GET /tenant-contacts`                                             | `business-directory::directory::read`        | —                                                               |
-| `PUT /tenant-contacts/:partyId/:designation`                       | `business-directory::tenant-contacts::write` | `NOT_FOUND`, `NOT_EMPLOYEE`                                     |
-| `DELETE /tenant-contacts/:partyId/:designation`                    | `business-directory::tenant-contacts::write` | `NOT_FOUND`, `LAST_PRIMARY_CONTACT`                             |
+| Method and route                                                   | Route capability                       | Errors                                        |
+| ------------------------------------------------------------------ | -------------------------------------- | --------------------------------------------- |
+| `GET /people`, `/organizations`, `/organization-contacts`          | `business-directory::directory::read`  | —                                             |
+| `GET /{collection}/:id`                                            | `business-directory::directory::read`  | `NOT_FOUND`                                   |
+| `POST /{collection}`                                               | `business-directory::directory::write` | `INVALID_INPUT`                               |
+| `PATCH /{collection}/:id`                                          | `business-directory::directory::write` | `INVALID_INPUT`, `STALE_REVISION`             |
+| `POST /{collection}/:id/archive`, `/restore`                       | `business-directory::directory::write` | `STALE_REVISION`, `PRIMARY_TAX_CONTACT`       |
+| `POST`, `PATCH`, `DELETE /parties/:id/contact-methods[/:methodId]` | `business-directory::directory::write` | `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE` |
+| `POST`, `PATCH`, `DELETE /parties/:id/addresses[/:addressId]`      | `business-directory::directory::write` | `NOT_FOUND`, `INVALID_INPUT`                  |
+| `GET /{collection}/:id/tax-id`                                     | `business-directory::tax-ids::read`    | `NOT_FOUND`                                   |
+| `GET /labels`                                                      | `business-directory::directory::read`  | —                                             |
+| `POST /labels`, `PATCH /labels/:id`, `/archive`, `/restore`        | `business-directory::labels::write`    | `INVALID_INPUT`, `CONFLICT`                   |
 
 - `{collection}` is `people`, `organizations`, or `organization-contacts`. A create request names the `kind`; an organization contact takes its kind from its organization.
 - Creating a client without its own tax ID includes its buyers in `contacts`, one flagged `isPrimaryTaxContact`, so R007 holds when the request commits. `PATCH /organizations/:id` moves a client's tax source with `taxId` and `primaryTaxContactId`.
 - Making an email, phone, or address primary demotes the party's previous primary of that type in the same transaction.
-- `PUT /tenant-contacts/...` repeated for an active designation returns it unchanged.
 - `DELETE` routes archive the row; they take no `revision`.
 - Writes use optimistic concurrency on `revision`.
 - `GET /{collection}?taxId=` searches by tax ID and requires `business-directory::tax-ids::read` (R013).
@@ -280,21 +273,21 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                                                              | Requirements                            |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| AC01      | The cell migration creates the six tables with RLS; reruns are no-ops.                                                                                                                                                       | M0005-R001–R004, R014, R015, R017, R018 |
-| AC02      | A child row whose party has the wrong `kind` is rejected.                                                                                                                                                                    | M0005-R005                              |
-| AC03      | A vendor without a tax ID, a client with both or neither of a tax ID and a primary tax contact, and a vendor contact with a tax ID are rejected.                                                                             | M0005-R006–R008                         |
-| AC04      | A client has at most one primary tax contact, drawn from its own contacts; the flagged contact must have a tax ID and cannot be archived while flagged.                                                                      | M0005-R007, R009                        |
-| AC05      | A second primary email, phone, or address for one party is rejected.                                                                                                                                                         | M0005-R014, R015                        |
-| AC06      | A tenant can hold two primary and two billing contacts; a non-employee is rejected; removing the last primary is rejected.                                                                                                   | M0005-R018, R019                        |
-| AC07      | Provisioning a tenant creates the administrator's employee, primary email, labels, and primary tenant contact, and links the membership's `member_id`; the Napsoft root membership keeps `member_type` and `member_id` null. | M0005-R021–R023                         |
-| AC08      | `client` is no longer a valid `member_type`; `client_contact` is.                                                                                                                                                            | M0005-R024                              |
-| AC09      | Each directory change writes an outbox row; delivery writes an event with the tax ID masked.                                                                                                                                 | M0005-R025                              |
-| AC10      | A stored tax ID has no plain-text copy in the table, logs, outbox, or events; decrypting it returns the original; the API does not start without both keys.                                                                  | M0005-R010, R011                        |
-| AC11      | Without `tax-ids::read` a response shows only the last four digits and tax ID search fails; with it the full value returns and an event is written; saving a tax ID without `tax-ids::write` fails.                          | M0005-R012, R013                        |
-| AC12      | Searching by a tax ID entered with or without dashes finds the record; saving a duplicate succeeds and returns `duplicateTaxIds`.                                                                                            | M0005-R013                              |
-| AC13      | The directory screens support list, search, view, create, edit, archive, and restore, hiding disallowed actions.                                                                                                             | M0005-R026                              |
+| Criterion | Required result                                                                                                                                                                                      | Requirements                      |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| AC01      | The cell migration creates the six tables with RLS; reruns are no-ops.                                                                                                                               | M0005-R001–R004, R014, R015, R017 |
+| AC02      | A child row whose party has the wrong `kind` is rejected.                                                                                                                                            | M0005-R005                        |
+| AC03      | A vendor without a tax ID, a client with both or neither of a tax ID and a primary tax contact, and a vendor contact with a tax ID are rejected.                                                     | M0005-R006–R008                   |
+| AC04      | A client has at most one primary tax contact, drawn from its own contacts; the flagged contact must have a tax ID and cannot be archived while flagged.                                              | M0005-R007, R009                  |
+| AC05      | A second primary email, phone, or address for one party is rejected.                                                                                                                                 | M0005-R014, R015                  |
+| AC06      | An organization can have several primary and billing contacts; the database rejects either flag on a person with no organization.                                                                    | M0005-R004                        |
+| AC07      | Provisioning a tenant creates the administrator's employee, primary email, and labels, and links the membership's `member_id`; the Napsoft root membership keeps `member_type` and `member_id` null. | M0005-R021–R023                   |
+| AC08      | `client` is no longer a valid `member_type`; `client_contact` is.                                                                                                                                    | M0005-R024                        |
+| AC09      | Each directory change writes an outbox row; delivery writes an event with the tax ID masked.                                                                                                         | M0005-R025                        |
+| AC10      | A stored tax ID has no plain-text copy in the table, logs, outbox, or events; decrypting it returns the original; the API does not start without both keys.                                          | M0005-R010, R011                  |
+| AC11      | Without `tax-ids::read` a response shows only the last four digits and tax ID search fails; with it the full value returns and an event is written; saving a tax ID without `tax-ids::write` fails.  | M0005-R012, R013                  |
+| AC12      | Searching by a tax ID entered with or without dashes finds the record; saving a duplicate succeeds and returns `duplicateTaxIds`.                                                                    | M0005-R013                        |
+| AC13      | The directory screens support list, search, view, create, edit, archive, and restore, hiding disallowed actions.                                                                                     | M0005-R026                        |
 
 ## 14. Outstanding Questions
 

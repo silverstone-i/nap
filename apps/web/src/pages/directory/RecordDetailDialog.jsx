@@ -32,6 +32,7 @@ import {
 } from '../../api/endpoints.js';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { AddressDialog } from './AddressDialog.jsx';
+import { ClientTenantPanel } from './ClientTenantPanel.jsx';
 import { ContactMethodDialog } from './ContactMethodDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { KIND_LABELS, recordName } from './directoryRecords.js';
@@ -207,18 +208,8 @@ export function RecordDetailDialog({
                 sx={{ alignSelf: 'flex-start' }}
               />
             ) : null}
-            {record.designations?.length ? (
-              <Stack direction="row" spacing={1}>
-                {record.designations.map(d => (
-                  <Chip
-                    key={d}
-                    size="small"
-                    label={
-                      d === 'primary' ? 'Primary contact' : 'Billing contact'
-                    }
-                  />
-                ))}
-              </Stack>
+            {record.kind === 'client' ? (
+              <ClientTenantPanel client={record} />
             ) : null}
 
             <Divider />
@@ -412,6 +403,7 @@ export function RecordDetailDialog({
                           }
                           secondary={[
                             contact.primaryEmail,
+                            contact.primaryPhone,
                             contact.isPrimaryContact ? 'Primary contact' : null,
                             contact.isBillingContact ? 'Billing contact' : null,
                             contact.isPrimaryTaxContact

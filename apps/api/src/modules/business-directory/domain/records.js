@@ -17,7 +17,6 @@
 import { z } from 'zod';
 import { DirectoryError } from './errors.js';
 import { addressView, contactMethodView } from './details.js';
-import { endDesignations, designationsOf } from './tenantContacts.js';
 import {
   containsPattern,
   mutate,
@@ -442,7 +441,7 @@ export async function listRecords(context, name, query) {
 
 /**
  * One record with its emails, phones, and addresses; an organization adds
- * its contacts and an employee its tenant contact designations.
+ * its contacts.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name
  * @param {unknown} id
@@ -483,8 +482,6 @@ export async function getRecord(context, name, id) {
         recordView('organization-contacts', c, map.get(c.party_id))
       );
     }
-    if (row.kind === 'employee' && !row.deactivated_at)
-      detail.designations = designationsOf(row);
     return detail;
   });
 }
@@ -775,8 +772,7 @@ async function setPrimaryTaxContact(context, organization, contactId, tx) {
 
 /**
  * Archive a record (R015 lifecycle). A client's primary tax contact cannot
- * be archived (R009). An employee's tenant contact designations end with
- * it, and archiving the last primary tenant contact is refused (R019).
+ * be archived (R009).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name
  * @param {unknown} id
@@ -791,15 +787,11 @@ export async function archiveRecord(context, name, id, body) {
     requireRevision(locked, input.revision);
     if (locked.is_primary_tax_contact && !locked.deactivated_at)
       throw new DirectoryError('PRIMARY_TAX_CONTACT');
-    const ended =
-      locked.kind === 'employee' && !locked.deactivated_at
-        ? await endDesignations(context, locked, tx)
-        : { columns: {}, changes: [] };
     const before = await viewOf(context, name, locked, tx);
     const row = withParty(
       await context.cell[table].saveRevision(
         locked.party_id,
-        { ...ended.columns, archived: true },
+        { archived: true },
         context.actorId,
         { tx }
       ),
@@ -808,16 +800,13 @@ export async function archiveRecord(context, name, id, body) {
     const after = await viewOf(context, name, row, tx);
     return {
       result: after,
-      changes: [
-        recordChange('archived', name, before, after),
-        ...ended.changes,
-      ],
+      changes: [recordChange('archived', name, before, after)],
     };
   });
 }
 
 /**
- * Restore an archived record. Tenant contact designations do not come back.
+ * Restore an archived record.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name
  * @param {unknown} id

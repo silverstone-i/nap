@@ -10,13 +10,17 @@ import { ApiError } from '../../src/api/client.js';
 import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { DirectoryRecordsPage } from '../../src/pages/directory/DirectoryRecordsPage.jsx';
-import { TenantContactsPage } from '../../src/pages/directory/TenantContactsPage.jsx';
 import { LabelsPage } from '../../src/pages/directory/LabelsPage.jsx';
 import { RecordFormDialog } from '../../src/pages/directory/RecordFormDialog.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
-import { capabilitiesFixture, installMatchMedia } from '../testUtils.jsx';
+import { MemoryRouter } from 'react-router';
+import {
+  NAPSOFT_TENANT,
+  capabilitiesFixture,
+  installMatchMedia,
+} from '../testUtils.jsx';
 
 vi.mock('../../src/api/endpoints.js', () => ({
   listDirectoryRecords: vi.fn(),
@@ -37,9 +41,9 @@ vi.mock('../../src/api/endpoints.js', () => ({
   renameContactLabel: vi.fn(),
   archiveContactLabel: vi.fn(),
   restoreContactLabel: vi.fn(),
-  listTenantContacts: vi.fn(),
-  addTenantContact: vi.fn(),
-  removeTenantContact: vi.fn(),
+  listClientTenants: vi.fn(),
+  listCellsOverview: vi.fn(),
+  provisionTenant: vi.fn(),
   listCountries: vi.fn(async () => [
     { code: 'US', alpha3: 'USA', numericCode: '840', name: 'United States' },
   ]),
@@ -79,12 +83,14 @@ const JANE = {
 
 function renderWithHeader(element) {
   return render(
-    <ThemeModeProvider>
-      <PageHeaderProvider>
-        <ContextualActionHeader />
-        {element}
-      </PageHeaderProvider>
-    </ThemeModeProvider>
+    <MemoryRouter>
+      <ThemeModeProvider>
+        <PageHeaderProvider>
+          <ContextualActionHeader />
+          {element}
+        </PageHeaderProvider>
+      </ThemeModeProvider>
+    </MemoryRouter>
   );
 }
 
@@ -96,7 +102,6 @@ beforeEach(() => {
     ...JANE,
     contactMethods: [],
     addresses: [],
-    designations: ['primary'],
   });
   api.listContactLabels.mockResolvedValue([]);
 });
@@ -121,7 +126,6 @@ describe('Employees (M0005-R026)', () => {
     const user = userEvent.setup();
     await user.click(within(table).getByRole('button', { name: 'Jane Doe' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Primary contact')).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Reveal' }));
     expect(await within(dialog).findByText('Tax ID: 123456789')).toBeTruthy();
     expect(api.revealTaxId).toHaveBeenCalledWith('people', JANE.id);
@@ -284,35 +288,137 @@ describe('Organization contacts (M0005-R004)', () => {
   });
 });
 
-describe('Tenant contacts (M0005-R018, R019)', () => {
-  it('adds an employee as billing contact and reports the last-primary refusal', async () => {
-    api.listTenantContacts.mockResolvedValue([
+describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
+  const ACME_BUILDERS = {
+    id: '44444444-4444-4444-8444-444444444444',
+    kind: 'client',
+    legalName: 'Acme Builders',
+    dbaName: null,
+    taxIdLast4: '6789',
+    archived: false,
+    revision: 1,
+    primaryEmail: null,
+    primaryPhone: null,
+    contactMethods: [],
+    addresses: [],
+    contacts: [
       {
-        partyId: JANE.id,
-        designation: 'primary',
-        firstName: 'Jane',
-        lastName: 'Doe',
-        primaryEmail: 'jane@acme.test',
+        id: '55555555-5555-4555-8555-555555555555',
+        kind: 'client_contact',
+        organizationId: '44444444-4444-4444-8444-444444444444',
+        firstName: 'Rita',
+        lastName: 'Moss',
+        isPortalUser: false,
+        isPrimaryContact: true,
+        isBillingContact: true,
+        isPrimaryTaxContact: false,
+        taxIdLast4: null,
+        archived: false,
+        revision: 1,
+        primaryEmail: 'rita@acme.test',
+        primaryPhone: '555-0100',
       },
-    ]);
-    api.removeTenantContact.mockRejectedValue(
-      new ApiError('LAST_PRIMARY_CONTACT', 409)
-    );
-    api.addTenantContact.mockResolvedValue(undefined);
-    renderWithHeader(<TenantContactsPage />);
-    const table = await screen.findByRole('table', { name: 'Tenant contacts' });
-    const user = userEvent.setup();
-    await user.click(within(table).getByRole('button', { name: 'Remove' }));
-    expect(
-      await screen.findByText(/at least one primary contact/)
-    ).toBeTruthy();
+    ],
+  };
 
-    await user.click(screen.getByRole('combobox', { name: 'Employee' }));
-    await user.click(await screen.findByRole('option', { name: 'Jane Doe' }));
-    await user.click(screen.getByRole('combobox', { name: 'Designation' }));
-    await user.click(await screen.findByRole('option', { name: 'Billing' }));
-    await user.click(screen.getByRole('button', { name: 'Add contact' }));
-    expect(api.addTenantContact).toHaveBeenCalledWith(JANE.id, 'billing');
+  beforeEach(() => {
+    useSession.mockReturnValue({
+      selectedTenant: NAPSOFT_TENANT,
+      capabilities: capabilitiesFixture(),
+      refreshCapabilities: vi.fn(),
+    });
+    api.listDirectoryRecords.mockResolvedValue([ACME_BUILDERS]);
+    api.getDirectoryRecord.mockResolvedValue(ACME_BUILDERS);
+    api.listCellsOverview.mockResolvedValue({
+      rows: [
+        { cell: { id: 'c1', database_name: 'nap_dev_cell_a' }, ready: true },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it("shows the client's contacts and provisions a tenant with a contact as administrator", async () => {
+    api.listClientTenants.mockResolvedValue([]);
+    api.provisionTenant.mockResolvedValue({});
+    renderWithHeader(<DirectoryRecordsPage kind="client" />);
+    const user = userEvent.setup();
+    const table = await screen.findByRole('table', { name: 'Clients' });
+    await user.click(
+      within(table).getByRole('button', { name: 'Acme Builders' })
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'rita@acme.test · 555-0100 · Primary contact · Billing contact'
+      )
+    ).toBeTruthy();
+    expect(await within(dialog).findByText('Tenant: none')).toBeTruthy();
+    expect(api.listClientTenants).toHaveBeenCalledWith(ACME_BUILDERS.id);
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Provision tenant' })
+    );
+    const form = await screen.findByRole('dialog', {
+      name: 'Provision tenant for Acme Builders',
+    });
+    expect(within(form).getByLabelText(/^Name/).value).toBe('Acme Builders');
+    await user.type(within(form).getByLabelText(/^Code/), 'acme');
+    await user.click(
+      within(form).getByRole('combobox', {
+        name: 'Administrator from contacts',
+      })
+    );
+    await user.click(
+      await screen.findByRole('option', { name: 'Rita Moss · rita@acme.test' })
+    );
+    await user.type(
+      within(form).getByLabelText(/Temporary password/),
+      'temporary'
+    );
+    await user.click(within(form).getByRole('button', { name: 'Provision' }));
+    expect(api.provisionTenant).toHaveBeenCalledWith({
+      client: ACME_BUILDERS.id,
+      code: 'acme',
+      name: 'Acme Builders',
+      tier: 'starter',
+      cell: 'c1',
+      firstName: 'Rita',
+      lastName: 'Moss',
+      email: 'rita@acme.test',
+      password: 'temporary',
+    });
+  });
+
+  it('shows the existing tenant instead of the Provision action', async () => {
+    api.listClientTenants.mockResolvedValue([
+      { code: 'ACME', provisioned: true, job: null },
+    ]);
+    renderWithHeader(<DirectoryRecordsPage kind="client" />);
+    const user = userEvent.setup();
+    const table = await screen.findByRole('table', { name: 'Clients' });
+    await user.click(
+      within(table).getByRole('button', { name: 'Acme Builders' })
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText('Tenant: ACME · provisioned')
+    ).toBeTruthy();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Provision tenant' })
+    ).toBeNull();
+  });
+
+  it('hides the tenant panel outside the Napsoft tenant', async () => {
+    useSession.mockReturnValue(sessionFor());
+    renderWithHeader(<DirectoryRecordsPage kind="client" />);
+    const user = userEvent.setup();
+    const table = await screen.findByRole('table', { name: 'Clients' });
+    await user.click(
+      within(table).getByRole('button', { name: 'Acme Builders' })
+    );
+    await screen.findByRole('dialog');
+    expect(screen.queryByText(/^Tenant:/)).toBeNull();
+    expect(api.listClientTenants).not.toHaveBeenCalled();
   });
 });
 

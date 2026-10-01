@@ -10,6 +10,21 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- New tenants are provisioned from a client record in the Napsoft tenant's Directory: **Provision tenant** on the client takes the code, name, tier, a ready cell, and the first administrator (pickable from the client's contacts). `tenant-provision` now takes `client`, `code`, `name`, and `tier`, creates the tenant and queues its job in one request, and rejects an unknown client (`404`), a client or code already used (`409`), or an unready cell (`503`). `admin.tenants` gains `client_id`, unique among active tenants.
+- The Tenants screen offers **View client**, which opens the tenant's Napsoft client record. `GET /tenants?clientId=` returns a client's tenant. A client's contact list shows each contact's primary email and phone and its Primary and Billing contact flags.
+
+### Removed
+
+- `POST /api/admin-tenancy/v1/tenants` and the Tenants screen's **Create tenant** and **Provision** actions.
+- Tenant self-designated contacts: the Settings → Tenant Contacts page, the `/tenant-contacts` routes, the `business-directory::tenant-contacts::write` capability, the `directory.tenant_contact.*` events, and the `LAST_PRIMARY_CONTACT` and `NOT_EMPLOYEE` errors. Provisioning no longer flags the first administrator as primary contact.
+
+### Changed
+
+- `is_primary_contact` and `is_billing_contact` now apply only to vendor and client contacts; the database rejects them on a person with no organization.
+- The `admin-tenancy` and `business-directory` migrations are edited in place, so recreate existing databases.
+
 ## [v0.25.1] - 2026-10-01
 
 ### Changed

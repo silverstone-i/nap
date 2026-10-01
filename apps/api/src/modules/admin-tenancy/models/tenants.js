@@ -39,6 +39,7 @@ export const tenantsSchema = {
       immutable: true,
     },
     { name: 'cell_id', type: 'uuid' },
+    { name: 'client_id', type: 'uuid', immutable: true },
     { name: 'provisioned', type: 'boolean', notNull: true, default: false },
     { name: 'rbac_ready', type: 'boolean', notNull: true, default: false },
     { name: 'revision', type: 'integer', notNull: true, default: 1 },
@@ -66,6 +67,11 @@ export const tenantsSchema = {
         where: 'deactivated_at IS NULL',
       },
       { columns: ['is_napsoft'], unique: true, where: 'is_napsoft = true' },
+      {
+        columns: ['client_id'],
+        unique: true,
+        where: 'client_id IS NOT NULL AND deactivated_at IS NULL',
+      },
       { columns: ['cell_id'] },
     ],
   },
@@ -136,6 +142,20 @@ export class Tenants extends RevisionedTableModel {
     return tx.oneOrNone(
       `SELECT * FROM ${table(this)} WHERE lower(tenant_code)=lower($1) AND deactivated_at IS NULL FOR UPDATE`,
       [tenantCode]
+    );
+  }
+
+  /**
+   * The active tenant provisioned from a Napsoft client, locked, or null
+   * (I0006-R001).
+   * @param {string} clientId
+   * @param {{tx: object}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockActiveByClient(clientId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)} WHERE client_id=$1 AND deactivated_at IS NULL FOR UPDATE`,
+      [clientId]
     );
   }
 

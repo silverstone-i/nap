@@ -26,28 +26,38 @@ function describeError(err) {
   if (!(err instanceof ApiError))
     return 'Something went wrong. Please try again.';
   if (err.code === 'INVALID_INPUT')
-    return 'Check the cell, name, email, and temporary password.';
+    return 'Check the code, name, cell, administrator, and temporary password.';
   if (err.code === 'CELL_UNAVAILABLE')
-    return 'That cell is not ready. Pick another.';
-  if (err.code === 'INVALID_STATE')
-    return 'This tenant cannot be provisioned in its current state.';
+    return 'That cell, or the Napsoft cell, is not ready. Try again or pick another cell.';
+  if (err.code === 'NOT_FOUND')
+    return 'This client no longer exists or is archived.';
   if (err.code === 'CONFLICT')
-    return 'That email belongs to a login that cannot be used, or is already a member.';
+    return 'That code is taken, this client already has a tenant, or the email belongs to a login that cannot be used.';
+  if (err.code === 'IDEMPOTENCY_CONFLICT')
+    return 'This request was already submitted differently. Close and try again.';
   if (err.code === 'FORBIDDEN')
     return 'You are not authorized to provision a tenant.';
   return 'Something went wrong. Please try again.';
 }
 
+/** Mirrors `TIERS` (`apps/api` `domain/tenants.js`) — a display list only; the server remains the source of truth for validation. */
+const TIERS = ['starter', 'growth', 'enterprise'];
+
 /**
- * "Provision" (I0006-R010): pick a ready cell and name the tenant's first
- * administrator with a temporary password. The name becomes their employee
- * record and the tenant's first primary contact (M0005-R021).
- * @param {{tenant: {id: string, code: string}, onClose: () => void, onProvisioned: () => void}} props
+ * "Provision tenant" (I0006-R010): create a tenant from a Napsoft client,
+ * pick a ready cell, and name its first administrator with a temporary
+ * password, usually one of the client's contacts. The name becomes their
+ * employee record (M0005-R021).
+ * @param {{client: {id: string, legalName: string, contacts: object[]}, onClose: () => void, onProvisioned: () => void}} props
  * @returns {JSX.Element}
  */
-export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
+export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
+  const [code, setCode] = useState('');
+  const [name, setName] = useState(client.legalName);
+  const [tier, setTier] = useState('starter');
   const [cells, setCells] = useState(null);
   const [cell, setCell] = useState('');
+  const [contactId, setContactId] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -81,7 +91,10 @@ export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
     setSubmitting(true);
     try {
       await provisionTenant({
-        tenant: tenant.id,
+        client: client.id,
+        code: code.trim(),
+        name: name.trim(),
+        tier,
         cell,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -97,6 +110,17 @@ export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
   }
 
   const noCells = cells !== null && cells.length === 0;
+  const contacts = client.contacts.filter(c => !c.archived);
+
+  /** Prefill the administrator from one of the client's contacts. */
+  function pickContact(id) {
+    setContactId(id);
+    const contact = contacts.find(c => c.id === id);
+    if (!contact) return;
+    setFirstName(contact.firstName);
+    setLastName(contact.lastName);
+    setEmail(contact.primaryEmail ?? '');
+  }
 
   return (
     <Dialog
@@ -109,7 +133,7 @@ export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
       maxWidth="xs"
     >
       <DialogTitle id="provision-tenant-title">
-        Provision {tenant.code}
+        Provision tenant for {client.legalName}
       </DialogTitle>
       <DialogContent>
         {error ? (
@@ -123,6 +147,37 @@ export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
           </Alert>
         ) : null}
         <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField
+            label="Code"
+            value={code}
+            onChange={event => setCode(event.target.value)}
+            helperText="Letters, digits, and _; starts with a letter."
+            autoFocus
+            required
+            fullWidth
+          />
+          <TextField
+            label="Name"
+            value={name}
+            onChange={event => setName(event.target.value)}
+            required
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 160 } }}
+          />
+          <TextField
+            select
+            label="Tier"
+            value={tier}
+            onChange={event => setTier(event.target.value)}
+            required
+            fullWidth
+          >
+            {TIERS.map(option => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             select
             label="Cell"
@@ -138,6 +193,23 @@ export function ProvisionTenantDialog({ tenant, onClose, onProvisioned }) {
               </MenuItem>
             ))}
           </TextField>
+          {contacts.length ? (
+            <TextField
+              select
+              label="Administrator from contacts"
+              value={contactId}
+              onChange={event => pickContact(event.target.value)}
+              helperText="Fills in the name and email below."
+              fullWidth
+            >
+              {contacts.map(contact => (
+                <MenuItem key={contact.id} value={contact.id}>
+                  {contact.firstName} {contact.lastName}
+                  {contact.primaryEmail ? ` · ${contact.primaryEmail}` : ''}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label="First name"

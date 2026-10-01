@@ -96,11 +96,8 @@ check role names.
   showing at minimum code, name, tier, and status, with explicit loading,
   empty, and error states (I0001-R021). It must provide no update, suspend,
   archive, or restore action, since none exists server-side.
-- I0002-R002: The Tenants screen must provide a "Create tenant" action
-  that submits `code`, `name`, and `tier` to the existing
-  `POST /api/admin-tenancy/v1/tenants` contract with a client-generated
-  `Idempotency-Key`, and must surface the server's validation and conflict
-  responses without inventing new client-side tenant-uniqueness rules.
+- I0002-R002: Withdrawn 2026-09-30. Tenants are created from a Napsoft
+  client record (I0006-R010), not from the Tenants screen.
 - I0002-R003: The Cells screen must list cells and their latest
   provisioning operation via the existing `GET /control/overview`, in a
   `StandardDataGrid` showing at minimum environment, database name,
