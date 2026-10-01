@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.25.1] - 2026-10-01
+
 ### Changed
 
 - Business directory schema: `app.organization_contacts` and `app.tenant_contacts` are gone. Vendor and client contacts are `app.people` rows with an `organization_id`, and use first and last name instead of a full name. A tenant contact is an employee flagged `is_primary_contact` or `is_billing_contact`. An organization contact can carry the same two flags, as its organization's primary or billing contact. Tax IDs move from each record table to `app.parties`, and the database now rejects a tax ID on a vendor contact. The `/organization-contacts` and `/tenant-contacts` routes and `directory.tenant_contact.*` events keep their shape, except contacts take `firstName`/`lastName` in place of `fullName` and add `isPrimaryContact`/`isBillingContact`.
