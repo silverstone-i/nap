@@ -222,6 +222,22 @@ export const userListRowSchema = z.strictObject({
 export const usersListResponseSchema =
   cursorPageResponseSchema(userListRowSchema);
 
+/** Zod schema for one `GET /accounts/users/:id/memberships` row (I0008-R013). */
+export const userMembershipSchema = z.strictObject({
+  id: z.uuid(),
+  tenantId: z.uuid(),
+  tenantCode: z.string(),
+  tenantName: z.string(),
+  memberType: z.string().nullable(),
+  status: z.enum(['pending', 'active', 'suspended']),
+});
+
+/** Zod schema for the success envelope returned by `GET /accounts/users/:id/memberships`. */
+export const userMembershipsResponseSchema = z.strictObject({
+  version: z.literal(transportVersion),
+  data: z.array(userMembershipSchema),
+});
+
 /**
  * Zod schema for the safe cell view — `cellView` (`apps/api`
  * `domain/cells.js`). Column names are passed through unmapped (unlike
@@ -392,6 +408,21 @@ const directoryRecordBase = {
   duplicateTaxIds: z.array(z.uuid()).optional(),
 };
 
+/** Portal-access statuses a person shows (I0008-R008). */
+export const PORTAL_ACCESS_STATUSES = Object.freeze([
+  'off',
+  'requested',
+  'invited',
+  'on',
+  'failed',
+]);
+
+/** Zod schema for a person's portal-access status (I0008-R008). */
+export const portalAccessSchema = z.strictObject({
+  status: z.enum(PORTAL_ACCESS_STATUSES),
+  failureCode: z.string().nullable(),
+});
+
 /** Zod schema for an employee or contact (M0005-R002). */
 export const personViewSchema = z.strictObject({
   ...directoryRecordBase,
@@ -399,6 +430,7 @@ export const personViewSchema = z.strictObject({
   firstName: z.string(),
   lastName: z.string(),
   isPortalUser: z.boolean(),
+  portalAccess: portalAccessSchema,
 });
 
 /** Zod schema for a vendor or client (M0005-R003). */
@@ -417,6 +449,7 @@ export const organizationContactViewSchema = z.strictObject({
   firstName: z.string(),
   lastName: z.string(),
   isPortalUser: z.boolean(),
+  portalAccess: portalAccessSchema,
   isPrimaryContact: z.boolean(),
   isBillingContact: z.boolean(),
   isPrimaryTaxContact: z.boolean(),

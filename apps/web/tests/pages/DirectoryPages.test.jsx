@@ -30,6 +30,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   archiveDirectoryRecord: vi.fn(),
   restoreDirectoryRecord: vi.fn(),
   revealTaxId: vi.fn(),
+  retryPortalAccess: vi.fn(),
   addContactMethod: vi.fn(),
   updateContactMethod: vi.fn(),
   removeContactMethod: vi.fn(),
@@ -75,6 +76,7 @@ const JANE = {
   lastName: 'Doe',
   taxIdLast4: '6789',
   isPortalUser: true,
+  portalAccess: { status: 'on', failureCode: null },
   archived: false,
   revision: 2,
   primaryEmail: 'jane@acme.test',
@@ -122,6 +124,7 @@ describe('Employees (M0005-R026)', () => {
     );
     expect(within(table).getByText('•••••6789')).toBeTruthy();
     expect(within(table).queryByText('123456789')).toBeNull();
+    expect(within(table).getByText('On')).toBeTruthy();
 
     const user = userEvent.setup();
     await user.click(within(table).getByRole('button', { name: 'Jane Doe' }));
@@ -174,6 +177,127 @@ describe('Employees (M0005-R026)', () => {
     });
     expect(
       await screen.findByText(/1 other record\(s\) have the same tax ID/)
+    ).toBeTruthy();
+  });
+});
+
+describe('Portal access (I0008)', () => {
+  // The form dialog restores focus to whatever opened it; stand one in.
+  let opener;
+  beforeEach(() => {
+    opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+  });
+  afterEach(() => {
+    cleanup();
+    opener.remove();
+  });
+
+  it('asks for a temporary password when access is turned on', async () => {
+    api.updateDirectoryRecord.mockResolvedValue({ ...JANE });
+    const off = {
+      ...JANE,
+      isPortalUser: false,
+      portalAccess: { status: 'off', failureCode: null },
+    };
+    render(
+      <ThemeModeProvider>
+        <RecordFormDialog
+          collection="people"
+          record={off}
+          canWriteTaxIds={false}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />
+      </ThemeModeProvider>
+    );
+    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    expect(within(form).queryByLabelText(/Temporary password/)).toBeNull();
+    const user = userEvent.setup();
+    await user.click(within(form).getByLabelText('Portal access'));
+    await user.type(
+      within(form).getByLabelText(/Temporary password/),
+      'temp-pass'
+    );
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
+      firstName: 'Jane',
+      lastName: 'Doe',
+      isPortalUser: true,
+      temporaryPassword: 'temp-pass',
+      revision: 2,
+    });
+  });
+
+  it('explains a refused turn-off of an administrator', async () => {
+    api.updateDirectoryRecord.mockRejectedValue(
+      new ApiError('ADMIN_ASSIGNED', 409)
+    );
+    render(
+      <ThemeModeProvider>
+        <RecordFormDialog
+          collection="people"
+          record={JANE}
+          canWriteTaxIds={false}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />
+      </ThemeModeProvider>
+    );
+    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    const user = userEvent.setup();
+    await user.click(within(form).getByLabelText('Portal access'));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(
+      await within(form).findByText(/holds an administrator role/)
+    ).toBeTruthy();
+  });
+
+  it('shows why a request failed and retries it with a new temporary password', async () => {
+    api.getDirectoryRecord.mockResolvedValue({
+      ...JANE,
+      portalAccess: { status: 'failed', failureCode: 'LOGIN_UNAVAILABLE' },
+      contactMethods: [],
+      addresses: [],
+    });
+    api.retryPortalAccess.mockResolvedValue({ ...JANE });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText(/This login is disabled/)
+    ).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Retry' }));
+    const retry = await screen.findByRole('dialog', {
+      name: 'Retry portal access',
+    });
+    await user.type(
+      within(retry).getByLabelText(/Temporary password/),
+      'new-temp'
+    );
+    await user.click(within(retry).getByRole('button', { name: 'Retry' }));
+    expect(api.retryPortalAccess).toHaveBeenCalledWith(
+      'people',
+      JANE.id,
+      'new-temp'
+    );
+  });
+
+  it('shows the pending-invitation note while invited', async () => {
+    api.getDirectoryRecord.mockResolvedValue({
+      ...JANE,
+      portalAccess: { status: 'invited', failureCode: null },
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText(/earlier temporary password/)
     ).toBeTruthy();
   });
 });
@@ -277,7 +401,6 @@ describe('Organization contacts (M0005-R004)', () => {
         organizationId: 'org-1',
         firstName: 'Rita',
         lastName: 'Moss',
-        isPortalUser: false,
         isPrimaryContact: true,
         isBillingContact: true,
       }
@@ -309,6 +432,7 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
         firstName: 'Rita',
         lastName: 'Moss',
         isPortalUser: false,
+        portalAccess: { status: 'off', failureCode: null },
         isPrimaryContact: true,
         isBillingContact: true,
         isPrimaryTaxContact: false,

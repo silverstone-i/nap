@@ -13,6 +13,7 @@ import {
   getRecord,
   listRecords,
   restoreRecord,
+  retryPortalAccess,
   revealTaxId,
   updateRecord,
 } from '../../domain/records.js';
@@ -121,6 +122,21 @@ function recordRouter(name) {
         )
       )
     );
+    if (name !== 'organizations')
+      router.post(
+        '/:id/portal-access/retry',
+        ...route(deps, WRITE, async (context, request, response) =>
+          sendData(
+            response,
+            await retryPortalAccess(
+              context,
+              name,
+              request.params.id,
+              request.body
+            )
+          )
+        )
+      );
     return router;
   };
 }

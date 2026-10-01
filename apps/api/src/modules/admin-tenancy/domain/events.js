@@ -230,6 +230,8 @@ export const EVENT_CATALOGUE = Object.freeze({
   'user.disabled': { outcomes: ANY_OUTCOME, details: ['code'] },
   'user.archived': { outcomes: ANY_OUTCOME, details: ['code'] },
   'user.restored': { outcomes: ANY_OUTCOME, details: [] },
+  'user.password_reset': { outcomes: ANY_OUTCOME, details: ['code'] },
+  'user.unlocked': { outcomes: ANY_OUTCOME, details: ['skipped'] },
   'membership.created': {
     outcomes: ANY_OUTCOME,
     // `portal_user_id` and `job_id` complete the immutable snapshot an

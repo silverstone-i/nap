@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { findCredentialByEmail, findCredentialById } from './credentials.js';
 import { AdminAuthError, withAuthErrors } from './errors.js';
+import { activatePendingMemberships } from './membershipActivation.js';
 import {
   dummyVerify,
   hashPassword,
@@ -381,6 +382,10 @@ export async function changePassword(
         { tx }
       );
       if (!updated) throw new AdminAuthError('FORBIDDEN');
+      // Replacing a temporary password accepts every pending invitation
+      // (I0008-R012); a later change leaves memberships alone.
+      if (credential.must_change_password)
+        await activatePendingMemberships(db, session.user, { tx, requestId });
       await revokeSessionsForUser(
         db,
         {

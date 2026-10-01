@@ -6,6 +6,13 @@
 import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import ArchiveIcon from '@mui/icons-material/Archive';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import GroupsIcon from '@mui/icons-material/Groups';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import LockResetIcon from '@mui/icons-material/LockReset';
+import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
 import { ApiError } from '../../api/client.js';
 import { denialMessage } from '../../auth/capabilities.js';
 import { useCapabilities } from '../../auth/useCapabilities.js';
@@ -13,11 +20,17 @@ import {
   deactivatePortalUser,
   listUsersPage,
   restorePortalUser,
+  setUserStatus,
+  unlockUser,
 } from '../../api/endpoints.js';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { CreatePortalUserDialog } from './CreatePortalUserDialog.jsx';
+import {
+  MembershipsDialog,
+  ResetPasswordDialog,
+} from './LoginRecoveryDialogs.jsx';
 
 const COLUMNS = [
   {
@@ -67,12 +80,16 @@ function describeActionError(err) {
     return denialMessage(err);
   if (err instanceof ApiError && err.code === 'NOT_FOUND')
     return 'This account no longer exists.';
+  if (err instanceof ApiError && err.code === 'INVALID_INPUT')
+    return 'Enter a temporary password of 1 to 128 characters.';
   return 'Something went wrong. Please try again.';
 }
 
 /**
  * `/management/portal-users` (I0002-R005/R006): browse portal-user
- * accounts; create, deactivate, or restore one. No membership data.
+ * accounts; create, deactivate, or restore one. Napsoft login recovery
+ * (I0008-R013–R016): view memberships, reset the password, unlock, and
+ * disable or re-enable a login.
  */
 export function PortalUsersPage() {
   const fetchPage = useMemo(() => createCursorPageAdapter(listUsersPage), []);
@@ -80,7 +97,22 @@ export function PortalUsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionError, setActionError] = useState(null);
   const { can, onError } = useCapabilities();
+  const canRead = can('admin-tenancy::accounts::read', 'napsoft');
   const canWrite = can('admin-tenancy::accounts::write', 'napsoft');
+  const [membershipsOf, setMembershipsOf] = useState(null);
+  const [resetting, setResetting] = useState(null);
+
+  /** Run a row action, then reload the grid or report its failure. */
+  async function act(action) {
+    setActionError(null);
+    try {
+      await action();
+      setResetKey(key => key + 1);
+    } catch (err) {
+      onError(err);
+      setActionError(describeActionError(err));
+    }
+  }
 
   usePageHeader({
     title: 'Portal Users',
@@ -120,10 +152,53 @@ export function PortalUsersPage() {
   // Mutually exclusive by construction: an archived account can only be
   // restored, an active one only deactivated (I0002-R006).
   function rowActions(row) {
-    if (!canWrite) return [];
-    return row.deactivatedAt
-      ? [{ label: 'Restore', onClick: handleRestore }]
-      : [{ label: 'Deactivate', destructive: true, onClick: handleDeactivate }];
+    const actions = [];
+    if (canRead)
+      actions.push({
+        label: 'Memberships',
+        icon: <GroupsIcon fontSize="small" />,
+        onClick: setMembershipsOf,
+      });
+    if (!canWrite) return actions;
+    if (row.deactivatedAt)
+      return [
+        ...actions,
+        {
+          label: 'Restore',
+          icon: <RestoreFromTrashIcon fontSize="small" />,
+          onClick: handleRestore,
+        },
+      ];
+    return [
+      ...actions,
+      {
+        label: 'Reset password',
+        icon: <LockResetIcon fontSize="small" />,
+        onClick: setResetting,
+      },
+      {
+        label: 'Unlock',
+        icon: <LockOpenIcon fontSize="small" />,
+        onClick: target => act(() => unlockUser(target.id)),
+      },
+      row.status === 'disabled'
+        ? {
+            label: 'Enable',
+            icon: <CheckCircleIcon fontSize="small" />,
+            onClick: target => act(() => setUserStatus(target.id, 'active')),
+          }
+        : {
+            label: 'Disable',
+            icon: <BlockIcon fontSize="small" />,
+            onClick: target => act(() => setUserStatus(target.id, 'disabled')),
+          },
+      {
+        label: 'Deactivate',
+        icon: <ArchiveIcon fontSize="small" />,
+        destructive: true,
+        onClick: handleDeactivate,
+      },
+    ];
   }
 
   return (
@@ -144,6 +219,24 @@ export function PortalUsersPage() {
         rowActions={rowActions}
         emptyMessage="No portal users yet."
       />
+      {membershipsOf ? (
+        <MembershipsDialog
+          user={membershipsOf}
+          describeError={describeActionError}
+          onClose={() => setMembershipsOf(null)}
+        />
+      ) : null}
+      {resetting ? (
+        <ResetPasswordDialog
+          user={resetting}
+          describeError={describeActionError}
+          onClose={() => setResetting(null)}
+          onReset={() => {
+            setResetting(null);
+            setResetKey(key => key + 1);
+          }}
+        />
+      ) : null}
       {dialogOpen ? (
         <CreatePortalUserDialog
           onClose={() => setDialogOpen(false)}

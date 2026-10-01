@@ -28,6 +28,7 @@ import { createStages } from '../../src/application/provisioning/stages.js';
 import { createProvisioningWorker } from '../../src/application/provisioning/worker.js';
 import { accessControlRoutesV1 } from '../../src/modules/access-control/apiRoutes/v1/index.js';
 import { businessDirectoryRoutesV1 } from '../../src/modules/business-directory/apiRoutes/v1/index.js';
+import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import { randomBytes } from 'node:crypto';
 import { createSyncWorker } from '../../src/application/sync/worker.js';
 import { withTenantTransaction } from '../../src/infrastructure/runtime/tenantTransaction.js';
@@ -106,7 +107,7 @@ async function staff(roleCode) {
       { tx }
     )
   );
-  await db.portal_user_tenants.insert({
+  const membership = await db.portal_user_tenants.insert({
     portal_user_id: user.id,
     tenant_id: napsoft.id,
     member_type: 'employee',
@@ -114,8 +115,10 @@ async function staff(roleCode) {
     status: 'active',
     ready: true,
   });
+  // Same ID and revision as the admin row, so the sync worker's delivery of
+  // that row is a no-op rather than a conflicting second copy.
   await cell.tenant_members.insert({
-    id: randomUUID(),
+    id: membership.id,
     tenant_id: napsoft.id,
     portal_user_id: user.id,
     member_type: 'employee',
@@ -234,7 +237,15 @@ beforeAll(async () => {
       applicationOrigin: ORIGIN,
       runtime: registry,
       taxIdPolicy,
-      registrations: [...accessControlRoutesV1, ...businessDirectoryRoutesV1],
+      authenticationPolicy: {
+        throttleSecret: 'integration-throttle-secret-of-ample-length',
+        ...ARGON2_MINIMUM,
+      },
+      registrations: [
+        ...adminTenancyRoutesV1,
+        ...accessControlRoutesV1,
+        ...businessDirectoryRoutesV1,
+      ],
     },
   });
 }, 120000);
@@ -788,5 +799,305 @@ describe('event delivery (M0005-R025)', () => {
       event_key: 'directory.label.created',
       target_type: 'contact_label',
     });
+  });
+});
+
+describe('portal access (I0008)', () => {
+  const ADMIN = '/api/admin-tenancy/v1';
+  const TEMP = 'temporary-pass';
+
+  /** Deliver both directions until nothing moves: request, then its copy. */
+  async function drain() {
+    await sync.tick();
+    await sync.tick();
+  }
+
+  /** A person's current portal-access status. */
+  async function statusOf(collection, id) {
+    return (await call('get', `/${collection}/${id}`)).body.data.portalAccess;
+  }
+
+  /** An employee with a fresh email; `body` overrides the create body. */
+  function employee(body = {}) {
+    return create('people', {
+      kind: 'employee',
+      firstName: 'Portal',
+      lastName: 'User',
+      primaryEmail: `portal-${randomUUID().slice(0, 8)}@example.test`,
+      ...body,
+    });
+  }
+
+  /** Pending `portal_access` rows for one person. */
+  function requests(id) {
+    return cell.outbox.findWhere(
+      { tenant_id: napsoft.id, topic: 'portal_access', entity_id: id },
+      'AND',
+      { columnWhitelist: ['status', 'payload'] }
+    );
+  }
+
+  /** Mark `person` as the directory record of `loginId`, access on. */
+  async function link(person, loginId) {
+    await withTenantTransaction(cell, napsoft.id, async tx => {
+      await tx.none(
+        'UPDATE app.people SET is_portal_user=true WHERE party_id=$1',
+        [person.id]
+      );
+      await tx.none(
+        `UPDATE cell.tenant_members SET member_id=$1
+          WHERE tenant_id=$2 AND portal_user_id=$3`,
+        [person.id, napsoft.id, loginId]
+      );
+    });
+    return (await call('get', `/people/${person.id}`)).body.data;
+  }
+
+  it('AC01: turns access on; the person signs in, changes the password, and can select the tenant', async () => {
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+    });
+    expect(person.portalAccess).toEqual({
+      status: 'requested',
+      failureCode: null,
+    });
+    const [row] = await requests(person.id);
+    expect(JSON.stringify(row.payload)).not.toContain(TEMP);
+    await drain();
+    expect(await statusOf('people', person.id)).toEqual({
+      status: 'invited',
+      failureCode: null,
+    });
+
+    const login = await request(app)
+      .post(`${ADMIN}/auth/login`)
+      .set('Origin', ORIGIN)
+      .send({ email: person.primaryEmail, password: TEMP });
+    expect(login.status).toBe(200);
+    const restricted = login.headers['set-cookie'][0].split(';')[0];
+    const changed = await request(app)
+      .post(`${ADMIN}/auth/password`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', restricted)
+      .send({ currentPassword: TEMP, newPassword: 'a-new-long-password' });
+    expect(changed.status).toBe(200);
+    const session = changed.headers['set-cookie'][0].split(';')[0];
+    const tenants = await request(app)
+      .get(`${ADMIN}/access/tenants`)
+      .set('Cookie', session);
+    expect(tenants.status).toBe(200);
+    expect(JSON.stringify(tenants.body.data)).toContain(napsoft.id);
+    await drain();
+    expect((await statusOf('people', person.id)).status).toBe('on');
+  }, 30_000);
+
+  it('AC02: refuses access on without a primary email or temporary password, and on contact create', async () => {
+    const before = await cell.outbox.findWhere(
+      { tenant_id: napsoft.id, topic: 'portal_access' },
+      'AND',
+      { columnWhitelist: ['id'] }
+    );
+    const contact = await create('people', {
+      kind: 'contact',
+      firstName: 'No',
+      lastName: 'Email',
+    });
+    const noEmail = await call('patch', `/people/${contact.id}`, {
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      revision: contact.revision,
+    });
+    expect(noEmail.body.error.code).toBe('INVALID_INPUT');
+    const noPassword = await call('post', '/people', {
+      kind: 'employee',
+      firstName: 'No',
+      lastName: 'Password',
+      primaryEmail: `nopass-${randomUUID().slice(0, 6)}@example.test`,
+      isPortalUser: true,
+    });
+    expect(noPassword.body.error.code).toBe('INVALID_INPUT');
+    const vendor = await create('organizations', {
+      kind: 'vendor',
+      legalName: 'Portal Vendor',
+      taxId: '12-3456789',
+    });
+    const vendorContact = await call('post', '/organization-contacts', {
+      organizationId: vendor.id,
+      firstName: 'Vendor',
+      lastName: 'Rep',
+      isPortalUser: true,
+    });
+    expect(vendorContact.body.error.code).toBe('INVALID_INPUT');
+    const after = await cell.outbox.findWhere(
+      { tenant_id: napsoft.id, topic: 'portal_access' },
+      'AND',
+      { columnWhitelist: ['id'] }
+    );
+    expect(after.length).toBe(before.length);
+  });
+
+  it('AC03: turning off or archiving suspends the membership; restore leaves the flag off', async () => {
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+    });
+    await drain();
+    const off = await call('patch', `/people/${person.id}`, {
+      isPortalUser: false,
+      revision: person.revision,
+    });
+    expect(off.body.data.portalAccess.status).toBe('requested');
+    await drain();
+    expect((await statusOf('people', person.id)).status).toBe('off');
+    const login = await db.portal_users.findOneBy(
+      { email: person.primaryEmail },
+      { columnWhitelist: ['id'] }
+    );
+    const membership = await db.portal_user_tenants.findOneBy(
+      { portal_user_id: login.id, tenant_id: napsoft.id },
+      { columnWhitelist: ['status'] }
+    );
+    expect(membership.status).toBe('suspended');
+
+    const other = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+    });
+    await drain();
+    const archived = await call('post', `/people/${other.id}/archive`, {
+      revision: other.revision,
+    });
+    expect(archived.body.data).toMatchObject({
+      archived: true,
+      isPortalUser: false,
+    });
+    await drain();
+    const restored = await call('post', `/people/${other.id}/restore`, {
+      revision: archived.body.data.revision,
+    });
+    expect(restored.body.data.isPortalUser).toBe(false);
+    expect(restored.body.data.portalAccess.status).toBe('off');
+  }, 30_000);
+
+  it('AC04: refuses turning off or archiving a tenant_admin, or oneself', async () => {
+    const admin = await staff('tenant_admin');
+    const adminPerson = await link(await employee(), admin.id);
+    const off = await call('patch', `/people/${adminPerson.id}`, {
+      isPortalUser: false,
+      revision: adminPerson.revision,
+    });
+    expect(off.body.error.code).toBe('ADMIN_ASSIGNED');
+    const archived = await call('post', `/people/${adminPerson.id}/archive`, {
+      revision: adminPerson.revision,
+    });
+    expect(archived.body.error.code).toBe('ADMIN_ASSIGNED');
+
+    const writer = await staff(await role(['business-directory::*::*']));
+    const self = await link(await employee(), writer.id);
+    const own = await call(
+      'patch',
+      `/people/${self.id}`,
+      { isPortalUser: false, revision: self.revision },
+      writer.cookie
+    );
+    expect(own.body.error.code).toBe('INVALID_STATE');
+  });
+
+  it('AC05, AC07: a disabled login fails the request; retry works only on a failed status', async () => {
+    const email = `disabled-${randomUUID().slice(0, 6)}@example.test`;
+    const login = await db.tx(tx =>
+      db.portal_users.insertBootstrapLogin(
+        { email, passwordHash: 'unused' },
+        { tx }
+      )
+    );
+    await db.portal_users.update(login.id, { status: 'disabled' });
+    const person = await employee({
+      primaryEmail: email,
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+    });
+    expect(
+      (
+        await call('post', `/people/${person.id}/portal-access/retry`, {
+          temporaryPassword: TEMP,
+        })
+      ).body.error.code
+    ).toBe('INVALID_STATE');
+    await drain();
+    expect(await statusOf('people', person.id)).toEqual({
+      status: 'failed',
+      failureCode: 'LOGIN_UNAVAILABLE',
+    });
+    await db.portal_users.update(login.id, { status: 'active' });
+    const missing = await call(
+      'post',
+      `/people/${person.id}/portal-access/retry`,
+      {}
+    );
+    expect(missing.body.error.code).toBe('INVALID_INPUT');
+    const retried = await call(
+      'post',
+      `/people/${person.id}/portal-access/retry`,
+      {
+        temporaryPassword: TEMP,
+      }
+    );
+    expect(retried.body.data.portalAccess.status).toBe('requested');
+    await drain();
+    expect((await statusOf('people', person.id)).status).toBe('invited');
+  }, 30_000);
+
+  it('AC11: locks the primary email while access is on', async () => {
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+    });
+    const detail = (await call('get', `/people/${person.id}`)).body.data;
+    const [primary] = detail.contactMethods;
+    const blocked = [
+      await call('post', `/parties/${person.id}/contact-methods`, {
+        type: 'email',
+        value: 'replacement@example.test',
+        isPrimary: true,
+      }),
+      await call(
+        'patch',
+        `/parties/${person.id}/contact-methods/${primary.id}`,
+        {
+          value: 'edited@example.test',
+          revision: primary.revision,
+        }
+      ),
+    ];
+    for (const response of blocked)
+      expect(response.body.error.code).toBe('INVALID_STATE');
+    const secondary = await call(
+      'post',
+      `/parties/${person.id}/contact-methods`,
+      {
+        type: 'email',
+        value: 'secondary@example.test',
+      }
+    );
+    expect(secondary.status).toBe(201);
+    const promote = await call(
+      'patch',
+      `/parties/${person.id}/contact-methods/${secondary.body.data.id}`,
+      { isPrimary: true, revision: secondary.body.data.revision }
+    );
+    expect(promote.body.error.code).toBe('INVALID_STATE');
+
+    await call('patch', `/people/${person.id}`, {
+      isPortalUser: false,
+      revision: person.revision,
+    });
+    const edited = await call(
+      'patch',
+      `/parties/${person.id}/contact-methods/${primary.id}`,
+      { value: 'edited@example.test', revision: primary.revision }
+    );
+    expect(edited.status).toBe(200);
   });
 });

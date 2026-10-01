@@ -23,7 +23,8 @@ import { DirectoryError, withDirectoryErrors } from './errors.js';
 /**
  * @typedef {object} DirectoryContext
  * @property {object} cell Target tenant's cell repository handle.
- * @property {{id: string}} tenant Target tenant.
+ * @property {{id: string, isNapsoft?: boolean}} tenant Target tenant.
+ * @property {object} [hashingPolicy] Argon2id parameters for temporary passwords; the environment's when absent.
  * @property {string} actorId Acting portal user.
  * @property {ReturnType<typeof import('./taxIds.js').createTaxIdProtector>} taxIds
  * @property {(capability: string) => Promise<boolean>} can Whether the actor holds `business-directory::<router>::<action>` in the target tenant.

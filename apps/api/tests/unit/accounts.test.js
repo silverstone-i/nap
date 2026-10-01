@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
@@ -123,8 +123,29 @@ function fakeAdmin() {
     );
   }
 
+  const throttles = new Map();
   const db = {
-    tx: operation => operation({ one: async () => ({}) }),
+    tx: operation =>
+      operation({
+        one: async () => ({}),
+        // The membership listing's join, answered from the stores.
+        any: async (_sql, [portalUserId]) =>
+          [...membershipStore.values()]
+            .filter(
+              row => row.portal_user_id === portalUserId && !row.deactivated_at
+            )
+            .map(row => {
+              const tenant = tenantStore.get(row.tenant_id);
+              return {
+                ...row,
+                tenant_code: tenant?.tenant_code,
+                name: tenant?.name,
+              };
+            }),
+      }),
+    login_throttles: {
+      clear: async key => (throttles.delete(key) ? 1 : 0),
+    },
     portal_users: {
       findOneBy: async conditions => {
         const found = [...userStore.values()].find(row =>
@@ -340,6 +361,7 @@ function fakeAdmin() {
     jobStore,
     tenantStore,
     revisions,
+    throttles,
   };
 }
 
@@ -349,7 +371,7 @@ function fakeAdmin() {
  * @param {{bootstrap?: boolean}} [options]
  * @returns {{app: import('express').Express, admin: object, cookie: string, actorId: string}}
  */
-function api({ bootstrap = true } = {}) {
+function api({ bootstrap = true, patterns } = {}) {
   const admin = fakeAdmin();
   const token = createSessionToken();
   const actorId = bootstrap ? BOOTSTRAP_ID : randomUUID();
@@ -377,7 +399,11 @@ function api({ bootstrap = true } = {}) {
     expired: false,
     stale: false,
   });
-  const cache = authorizeActor(admin.db, BOOTSTRAP_ID);
+  const cache = authorizeActor(
+    admin.db,
+    patterns ? actorId : BOOTSTRAP_ID,
+    patterns
+  );
   const app = createApp({
     api: {
       admin,
@@ -1038,6 +1064,141 @@ describe('memberships', () => {
       status: 'suspended',
       ready: false,
     });
+  });
+});
+
+describe('login recovery (I0008)', () => {
+  const post = (app, cookie, path, body = {}) =>
+    request(app)
+      .post(`${BASE}${path}`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie)
+      .send(body);
+
+  it("lists a login's memberships with tenant code and name", async () => {
+    const { app, admin, cookie } = api();
+    const target = seedUser(admin);
+    const tenant = seedTenant(admin, { tenant_code: 'ACME', name: 'Acme' });
+    seedMembership(admin, {
+      portal_user_id: target.id,
+      tenant_id: tenant.id,
+      status: 'active',
+    });
+    seedMembership(admin, {
+      portal_user_id: target.id,
+      tenant_id: tenant.id,
+      deactivated_at: new Date(),
+    });
+    const response = await request(app)
+      .get(`${BASE}/users/${target.id}/memberships`)
+      .set('Cookie', cookie);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual([
+      expect.objectContaining({
+        tenantCode: 'ACME',
+        tenantName: 'Acme',
+        memberType: 'employee',
+        status: 'active',
+      }),
+    ]);
+  });
+
+  it('resets a password, requires a change, revokes sessions, and keeps memberships', async () => {
+    const { app, admin, cookie } = api();
+    const target = seedUser(admin, { password_hash: 'old' });
+    const membership = seedMembership(admin, {
+      portal_user_id: target.id,
+      status: 'active',
+    });
+    admin.sessionStore.set('target-session', {
+      id: randomUUID(),
+      portal_user_id: target.id,
+      deactivated_at: null,
+    });
+    const response = await post(
+      app,
+      cookie,
+      `/users/${target.id}/password-reset`,
+      {
+        temporaryPassword: 'temp-pass',
+      }
+    );
+    expect(response.status).toBe(200);
+    expect(response.body.data.mustChangePassword).toBe(true);
+    const stored = admin.userStore.get(target.id);
+    expect(stored.password_hash).toMatch(/^\$argon2id\$/);
+    expect(
+      admin.sessionStore.get('target-session').deactivated_at
+    ).not.toBeNull();
+    expect(admin.membershipStore.get(membership.id).status).toBe('active');
+    const event = admin.appended.find(
+      e => e.event_key === 'user.password_reset'
+    );
+    expect(event.outcome).toBe('succeeded');
+    expect(JSON.stringify(admin.appended)).not.toContain('temp-pass');
+  }, 20_000);
+
+  it('rejects a reset without a temporary password', async () => {
+    const { app, admin, cookie } = api();
+    const target = seedUser(admin);
+    const response = await post(
+      app,
+      cookie,
+      `/users/${target.id}/password-reset`,
+      {
+        temporaryPassword: '',
+      }
+    );
+    expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
+  });
+
+  it('unlocks a login by clearing its account throttle', async () => {
+    const { app, admin, cookie } = api();
+    const target = seedUser(admin, { email: 'locked@example.com' });
+    const key = createHmac('sha256', 'a'.repeat(32))
+      .update('account:locked@example.com')
+      .digest('hex');
+    admin.throttles.set(key, { key_hash: key });
+    const response = await post(app, cookie, `/users/${target.id}/unlock`);
+    expect(response.status).toBe(200);
+    expect(admin.throttles.has(key)).toBe(false);
+    const event = admin.appended.find(e => e.event_key === 'user.unlocked');
+    expect(event.details).toEqual({ skipped: false });
+  });
+
+  it('refuses every recovery action on the bootstrap login', async () => {
+    const { app, cookie, actorId } = api();
+    for (const [path, body] of [
+      ['password-reset', { temporaryPassword: 'temp-pass' }],
+      ['unlock', {}],
+    ]) {
+      const response = await post(
+        app,
+        cookie,
+        `/users/${actorId}/${path}`,
+        body
+      );
+      expect(response.status, path).toBe(ERROR_STATUS.ROOT_IMMUTABLE);
+      expect(response.body.error.code).toBe('ROOT_IMMUTABLE');
+    }
+  });
+
+  it('refuses support every Napsoft account route', async () => {
+    const { app, admin, cookie } = api({
+      bootstrap: false,
+      patterns: ['*::*::*::read'],
+    });
+    const target = seedUser(admin);
+    const read = await request(app)
+      .get(`${BASE}/users/${target.id}/memberships`)
+      .set('Cookie', cookie);
+    expect(read.status).toBe(ERROR_STATUS.FORBIDDEN);
+    for (const path of ['password-reset', 'unlock']) {
+      const response = await post(app, cookie, `/users/${target.id}/${path}`, {
+        temporaryPassword: 'temp-pass',
+      });
+      expect(response.status, path).toBe(ERROR_STATUS.FORBIDDEN);
+    }
   });
 });
 

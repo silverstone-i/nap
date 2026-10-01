@@ -35,11 +35,14 @@ export function sendDirectoryError(response, error) {
  * rules that depend on the request body, such as `tax-ids::write`
  * (M0005-R012).
  * @param {import('express').Request} request
- * @param {{runtime?: {cellFor: Function}, taxIdPolicy?: {encryptionKey: Buffer, hashKey: string}}} deps
+ * @param {{runtime?: {cellFor: Function}, taxIdPolicy?: {encryptionKey: Buffer, hashKey: string}, authenticationPolicy?: {memoryKib: number, timeCost: number, parallelism: number}}} deps
  * @returns {Promise<import('../../domain/shared.js').DirectoryContext>}
  * @throws {DirectoryError} `CELL_UNAVAILABLE`, `SERVICE_UNAVAILABLE`
  */
-export async function directoryContext(request, { runtime, taxIdPolicy }) {
+export async function directoryContext(
+  request,
+  { runtime, taxIdPolicy, authenticationPolicy }
+) {
   const { session, authorization } = request;
   const { targetTenant: tenant, actorId } = authorization;
   if (!runtime) throw new DirectoryError('CELL_UNAVAILABLE');
@@ -52,8 +55,15 @@ export async function directoryContext(request, { runtime, taxIdPolicy }) {
   const cell = await runtime.cellFor(session);
   return {
     cell,
-    tenant: { id: tenant.id },
+    tenant: { id: tenant.id, isNapsoft: tenant.is_napsoft === true },
     actorId,
+    hashingPolicy: authenticationPolicy
+      ? {
+          memoryKib: authenticationPolicy.memoryKib,
+          timeCost: authenticationPolicy.timeCost,
+          parallelism: authenticationPolicy.parallelism,
+        }
+      : undefined,
     taxIds,
     can: async capability =>
       (

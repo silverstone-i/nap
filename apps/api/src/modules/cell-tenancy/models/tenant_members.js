@@ -64,6 +64,25 @@ export class TenantMembers extends CopyTableModel {
   }
 
   /**
+   * Unarchived memberships whose `member_id` is one of `memberIds`, the
+   * directory people they belong to (I0008-R005, R006, R008).
+   * @param {string} tenantId
+   * @param {string[]} memberIds
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<{member_id: string, portal_user_id: string, status: string}[]>}
+   */
+  async byMemberIds(tenantId, memberIds, { tx }) {
+    if (memberIds.length === 0) return [];
+    return tx.any(
+      `SELECT member_id, portal_user_id, status
+         FROM ${this.schemaName}.${this.tableName}
+        WHERE tenant_id=$1 AND member_id = ANY($2::uuid[])
+          AND deactivated_at IS NULL`,
+      [tenantId, memberIds]
+    );
+  }
+
+  /**
    * A portal user's membership status in the tenant (`pending`, `active`, or
    * `suspended`), or `null` when there is no unarchived membership. Read
    * inside the caller's transaction (M0003 §10).

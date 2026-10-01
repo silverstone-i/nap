@@ -24,6 +24,10 @@ vi.mock('../../src/api/endpoints.js', () => ({
   createPortalUser: vi.fn(),
   deactivatePortalUser: vi.fn(),
   restorePortalUser: vi.fn(),
+  listUserMemberships: vi.fn(),
+  resetUserPassword: vi.fn(),
+  unlockUser: vi.fn(),
+  setUserStatus: vi.fn(),
 }));
 
 vi.mock('../../src/auth/SessionContext.jsx', () => ({
@@ -199,5 +203,77 @@ describe('PortalUsersPage', () => {
     renderPage();
     await screen.findByText('a@example.com');
     expect(screen.queryByText(/membership/i)).toBeNull();
+  });
+
+  describe('login recovery (I0008)', () => {
+    beforeEach(() => {
+      api.listUsersPage.mockResolvedValue({
+        rows: [ACTIVE_USER],
+        nextCursor: null,
+      });
+    });
+
+    async function openAction(name) {
+      renderPage();
+      await screen.findByText('a@example.com');
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('menuitem', { name: 'more' }));
+      await user.click(await screen.findByRole('menuitem', { name }));
+      return user;
+    }
+
+    it("shows a login's memberships", async () => {
+      api.listUserMemberships.mockResolvedValue([
+        {
+          id: 'm1',
+          tenantId: 't1',
+          tenantCode: 'ACME',
+          tenantName: 'Acme',
+          memberType: 'employee',
+          status: 'pending',
+        },
+      ]);
+      await openAction('Memberships');
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Memberships of a@example.com',
+      });
+      expect(await within(dialog).findByText('Acme (ACME)')).toBeTruthy();
+      expect(within(dialog).getByText('pending')).toBeTruthy();
+      expect(api.listUserMemberships).toHaveBeenCalledWith('u1');
+    });
+
+    it('resets a password with a temporary one', async () => {
+      api.resetUserPassword.mockResolvedValue(ACTIVE_USER);
+      const user = await openAction('Reset password');
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Reset password',
+      });
+      await user.type(
+        within(dialog).getByLabelText(/Temporary password/),
+        'temp-pass'
+      );
+      await user.click(
+        within(dialog).getByRole('button', { name: 'Reset password' })
+      );
+      expect(api.resetUserPassword).toHaveBeenCalledWith('u1', 'temp-pass');
+    });
+
+    it('unlocks and disables a login', async () => {
+      api.unlockUser.mockResolvedValue(ACTIVE_USER);
+      api.setUserStatus.mockResolvedValue(ACTIVE_USER);
+      await openAction('Unlock');
+      expect(api.unlockUser).toHaveBeenCalledWith('u1');
+      cleanup();
+      await openAction('Disable');
+      expect(api.setUserStatus).toHaveBeenCalledWith('u1', 'disabled');
+    });
+
+    it('explains a refusal on the initial Napsoft login', async () => {
+      api.unlockUser.mockRejectedValue(new ApiError('ROOT_IMMUTABLE', 409));
+      await openAction('Unlock');
+      expect(
+        await screen.findByText('The initial Napsoft user cannot be changed.')
+      ).toBeTruthy();
+    });
   });
 });

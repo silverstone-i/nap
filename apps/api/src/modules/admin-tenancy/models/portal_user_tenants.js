@@ -115,6 +115,21 @@ export class PortalUserTenants extends RevisionedTableModel {
   }
 
   /**
+   * Lock and return a portal user's unarchived `pending` memberships.
+   * @param {string} portalUserId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object[]>}
+   */
+  async lockPendingByUser(portalUserId, { tx }) {
+    return tx.any(
+      `SELECT * FROM ${table(this)}
+        WHERE portal_user_id=$1 AND status='pending' AND deactivated_at IS NULL
+        ORDER BY id FOR UPDATE`,
+      [portalUserId]
+    );
+  }
+
+  /**
    * Lock and return a membership by identifier, archived or not.
    * @param {string} id
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options

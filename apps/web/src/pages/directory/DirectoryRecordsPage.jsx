@@ -22,6 +22,7 @@ import Typography from '@mui/material/Typography';
 import { listDirectoryRecords } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
+import { PortalAccessChip } from './PortalAccess.jsx';
 import { RecordDetailDialog } from './RecordDetailDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { recordName } from './directoryRecords.js';
@@ -209,6 +210,9 @@ export function DirectoryRecordsPage({ kind }) {
               <TableCell>Email</TableCell>
               <TableCell>Phone</TableCell>
               <TableCell>Tax ID</TableCell>
+              {collection === 'people' ? (
+                <TableCell>Portal access</TableCell>
+              ) : null}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -229,6 +233,11 @@ export function DirectoryRecordsPage({ kind }) {
                 <TableCell>
                   {row.taxIdLast4 ? `•••••${row.taxIdLast4}` : '—'}
                 </TableCell>
+                {row.portalAccess ? (
+                  <TableCell>
+                    <PortalAccessChip portalAccess={row.portalAccess} />
+                  </TableCell>
+                ) : null}
               </TableRow>
             ))}
           </TableBody>

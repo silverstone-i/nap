@@ -22,6 +22,7 @@ import {
   sessionResponseSchema,
   tenantsListResponseSchema,
   userRolesSchema,
+  userMembershipsResponseSchema,
   userResponseSchema,
   usersListResponseSchema,
   personViewSchema,
@@ -284,6 +285,50 @@ export async function restorePortalUser(id) {
   return userResponseSchema.parse({ version: 1, data }).data;
 }
 
+/**
+ * A login's memberships across tenants (I0008-R013).
+ * @param {string} id Portal-user UUID.
+ * @returns {Promise<object[]>} `{id, tenantId, tenantCode, tenantName, memberType, status}` rows.
+ */
+export async function listUserMemberships(id) {
+  const data = await apiGet(`${BASE}/accounts/users/${id}/memberships`);
+  return userMembershipsResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * Give a login a new temporary password (I0008-R014).
+ * @param {string} id Portal-user UUID.
+ * @param {string} temporaryPassword
+ * @returns {Promise<object>} Safe user view.
+ */
+export async function resetUserPassword(id, temporaryPassword) {
+  const data = await apiPost(`${BASE}/accounts/users/${id}/password-reset`, {
+    temporaryPassword,
+  });
+  return userResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * Clear a login's sign-in throttle (I0008-R015).
+ * @param {string} id Portal-user UUID.
+ * @returns {Promise<object>} Safe user view.
+ */
+export async function unlockUser(id) {
+  const data = await apiPost(`${BASE}/accounts/users/${id}/unlock`);
+  return userResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * Disable or re-enable a login everywhere (I0008-R016).
+ * @param {string} id Portal-user UUID.
+ * @param {'active'|'disabled'} status
+ * @returns {Promise<object>} Safe user view.
+ */
+export async function setUserStatus(id, status) {
+  const data = await apiPatch(`${BASE}/accounts/users/${id}`, { status });
+  return userResponseSchema.parse({ version: 1, data }).data;
+}
+
 // ---------------------------------------------------------------------------
 // Access control: roles and assignments (M0003-R016, M0003 §10)
 // ---------------------------------------------------------------------------
@@ -494,6 +539,22 @@ export async function createDirectoryRecord(collection, input) {
 export async function updateDirectoryRecord(collection, id, input) {
   return COLLECTION_SCHEMAS[collection].view.parse(
     await apiPatch(`${DIRECTORY_BASE}/${collection}/${id}`, input)
+  );
+}
+
+/**
+ * Resend a person's failed portal-access request (I0008-R007).
+ * @param {'people'|'organization-contacts'} collection
+ * @param {string} id
+ * @param {string} [temporaryPassword] Required when the person's access is on.
+ * @returns {Promise<object>}
+ */
+export async function retryPortalAccess(collection, id, temporaryPassword) {
+  return COLLECTION_SCHEMAS[collection].view.parse(
+    await apiPost(
+      `${DIRECTORY_BASE}/${collection}/${id}/portal-access/retry`,
+      temporaryPassword === undefined ? {} : { temporaryPassword }
+    )
   );
 }
 
