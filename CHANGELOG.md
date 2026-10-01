@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.26.0] - 2026-10-01
+
 ### Added
 
 - New tenants are provisioned from a client record in the Napsoft tenant's Directory: **Provision tenant** on the client takes the code, name, tier, a ready cell, and the first administrator (pickable from the client's contacts). `tenant-provision` now takes `client`, `code`, `name`, and `tier`, creates the tenant and queues its job in one request, and rejects an unknown client (`404`), a client or code already used (`409`), or an unready cell (`503`). `admin.tenants` gains `client_id`, unique among active tenants.
