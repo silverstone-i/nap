@@ -124,7 +124,7 @@ function sessionRow(overrides = {}) {
  * @param {{users?: object[], sessions?: object[]}} [seed]
  * @returns {{db: object, events: object[], users: object[], throttles: Map<string, object>}}
  */
-function fakeAdmin({ users = [], sessions = [] } = {}) {
+function fakeAdmin({ users = [], sessions = [], memberships = [] } = {}) {
   const events = [];
   const throttles = new Map();
   const byHash = new Map(
@@ -141,6 +141,20 @@ function fakeAdmin({ users = [], sessions = [] } = {}) {
       },
     },
     cache_revisions: { advance: async keys => keys },
+    portal_user_tenants: {
+      lockPendingByUser: async portalUserId =>
+        memberships.filter(
+          row =>
+            row.portal_user_id === portalUserId &&
+            row.status === 'pending' &&
+            row.deactivated_at === null
+        ),
+      update: async (id, dto) => {
+        const found = memberships.find(row => row.id === id);
+        Object.assign(found, dto);
+        return { ...found };
+      },
+    },
     portal_users: {
       findOneBy: async conditions => {
         const [[column, value]] = Object.entries(conditions);
@@ -258,7 +272,7 @@ function fakeAdmin({ users = [], sessions = [] } = {}) {
       touch: async () => null,
     },
   };
-  return { db, events, users, throttles, sessions: byHash };
+  return { db, events, users, throttles, sessions: byHash, memberships };
 }
 
 /**
@@ -608,13 +622,23 @@ describe('POST /auth/login', () => {
 
 describe('POST /auth/password', () => {
   /** Seed an account with one live session and mount the API. */
-  function withSession(overrides = {}) {
+  function withSession(overrides = {}, memberships = []) {
     const account = user(overrides);
     const own = issue(account);
     const other = issue(account);
     const admin = fakeAdmin({
       users: [account],
       sessions: [own.row, other.row],
+      memberships: memberships.map(row => ({
+        id: randomUUID(),
+        portal_user_id: account.id,
+        tenant_id: randomUUID(),
+        member_id: randomUUID(),
+        status: 'pending',
+        ready: false,
+        deactivated_at: null,
+        ...row,
+      })),
     });
     const app = createApp({
       api: {
@@ -658,6 +682,40 @@ describe('POST /auth/password', () => {
     expect(changed.actor_id).toBe(account.id);
     expect(JSON.stringify(admin.events)).not.toContain(REPLACEMENT);
     expect(JSON.stringify(admin.events)).not.toContain('$argon2id$');
+  }, 20_000);
+
+  it('activates every pending membership when the temporary password is replaced (I0008-R012)', async () => {
+    const { app, admin, own } = withSession({ must_change_password: true }, [
+      {},
+      { member_id: null },
+      { status: 'suspended' },
+    ]);
+    const response = await post(app, '/auth/password', {
+      currentPassword: PASSWORD,
+      newPassword: REPLACEMENT,
+    }).set('Cookie', `nap_session=${own.token}`);
+    expect(response.status).toBe(200);
+    const [linked, unlinked, suspended] = admin.memberships;
+    expect(linked).toMatchObject({ status: 'active', ready: true });
+    expect(unlinked).toMatchObject({ status: 'active', ready: false });
+    expect(suspended.status).toBe('suspended');
+    const activated = admin.events.filter(
+      event => event.event_key === 'membership.activated'
+    );
+    expect(activated.map(event => event.target_id)).toEqual([
+      linked.id,
+      unlinked.id,
+    ]);
+  }, 20_000);
+
+  it('leaves pending memberships alone on a later password change', async () => {
+    const { app, admin, own } = withSession({}, [{}]);
+    const response = await post(app, '/auth/password', {
+      currentPassword: PASSWORD,
+      newPassword: REPLACEMENT,
+    }).set('Cookie', `nap_session=${own.token}`);
+    expect(response.status).toBe(200);
+    expect(admin.memberships[0].status).toBe('pending');
   }, 20_000);
 
   it('refuses a wrong current password without touching the stored hash', async () => {

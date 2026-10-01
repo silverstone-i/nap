@@ -19,6 +19,12 @@ import {
   REVOCATION_CODES,
 } from './session.js';
 import { findPortalUser } from './access.js';
+import {
+  normalizeAccountInput,
+  parseThrottlePolicy,
+  throttleKey,
+  THROTTLE_KINDS,
+} from './throttle.js';
 import { COLLECTION_ENTITY } from './cache.js';
 
 /** Member types a membership or provisioning job may carry. */
@@ -683,6 +689,218 @@ export async function updateUser(
       );
     throw error;
   }
+}
+
+/**
+ * List every membership of a login, archived ones excluded, with each
+ * tenant's code and name (I0008-R013).
+ * @param {AdminAccountsDb} db
+ * @param {unknown} authority `{actorId, scope}` built for `admin-tenancy::accounts::read`.
+ * @param {unknown} userId
+ * @returns {Promise<object[]>} `{id, tenantId, tenantCode, tenantName, memberType, status}` rows.
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INTERNAL_ERROR`
+ */
+export async function listUserMemberships(db, authority, userId) {
+  requirePlatformAuthority(authority);
+  const id = parseUuidOrAccount(userId);
+  return withAccountErrors(async () => {
+    const user = await db.portal_users.findOneBy(
+      { id },
+      { columnWhitelist: ['id'], includeDeactivated: true }
+    );
+    if (!user) throw new AdminAccountError('NOT_FOUND');
+    const rows = await db.tx(tx =>
+      tx.any(
+        `SELECT m.id, m.tenant_id, t.tenant_code, t.name, m.member_type, m.status
+           FROM admin.portal_user_tenants m
+           JOIN admin.tenants t ON t.id = m.tenant_id
+          WHERE m.portal_user_id = $1 AND m.deactivated_at IS NULL
+          ORDER BY t.tenant_code`,
+        [id]
+      )
+    );
+    return rows.map(row => ({
+      id: row.id,
+      tenantId: row.tenant_id,
+      tenantCode: row.tenant_code,
+      tenantName: row.name,
+      memberType: row.member_type,
+      status: row.status,
+    }));
+  });
+}
+
+const passwordResetBodySchema = z.strictObject({
+  temporaryPassword: z.string(),
+});
+
+/**
+ * Run one Napsoft login-recovery write: lock the login, refuse the
+ * bootstrap login (I0008-R017), apply `change`, and record `eventKey` with
+ * a failure event when it is refused.
+ * @param {AdminAccountsDb} db
+ * @param {unknown} authority
+ * @param {unknown} userId
+ * @param {string} eventKey
+ * @param {(tx: object, login: object, granted: object) => Promise<object>} change Returns the event `details`.
+ * @param {{requestId?: string|null}} options
+ * @returns {Promise<object>} Safe user view.
+ */
+async function recoverLogin(
+  db,
+  authority,
+  userId,
+  eventKey,
+  change,
+  { requestId }
+) {
+  let actorId =
+    typeof authority?.actorId === 'string' ? authority.actorId : null;
+  try {
+    return await withAccountErrors(async () => {
+      const granted = requirePlatformAuthority(authority);
+      actorId = granted.actorId;
+      const id = parseUuidOrAccount(userId);
+      return await db.tx(async tx => {
+        const login = await db.portal_users.lockById(id, { tx });
+        if (!login || login.deactivated_at)
+          throw new AdminAccountError('NOT_FOUND');
+        const bootstrap = await db.portal_users.lockBootstrapLogin({ tx });
+        if (bootstrap?.id === id) throw new AdminAccountError('ROOT_IMMUTABLE');
+        const details = await change(tx, login, granted);
+        await appendAccountEvent(
+          db,
+          'user',
+          {
+            event_key: eventKey,
+            outcome: 'succeeded',
+            request_id: requestId,
+            actor_id: granted.actorId,
+            target_id: id,
+            details,
+          },
+          tx
+        );
+        await db.cache_revisions.advance([{ domain: 'user', entity: id }], {
+          tx,
+        });
+        const current = await db.portal_users.lockById(id, { tx });
+        return userView(current);
+      });
+    });
+  } catch (error) {
+    if (AUDITED_FAILURE_CODES.has(error?.code))
+      await appendFailureEvent(
+        db,
+        'user',
+        eventKey,
+        error.code === 'FORBIDDEN' ? 'denied' : 'failed',
+        { requestId, actorId }
+      );
+    throw error;
+  }
+}
+
+/**
+ * Give a login a new temporary password it must replace at next sign-in,
+ * and revoke every session it holds (I0008-R014). Membership statuses do
+ * not change.
+ * @param {AdminAccountsDb} db
+ * @param {unknown} authority
+ * @param {unknown} hashingPolicy Argon2id parameters.
+ * @param {unknown} userId
+ * @param {unknown} body `{temporaryPassword}`.
+ * @param {{requestId?: string|null}} [options]
+ * @returns {Promise<object>} Safe user view.
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `ROOT_IMMUTABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function resetUserPassword(
+  db,
+  authority,
+  hashingPolicy,
+  userId,
+  body,
+  { requestId = null } = {}
+) {
+  const result = passwordResetBodySchema.safeParse(body);
+  let password;
+  try {
+    if (!result.success) throw new Error('invalid');
+    password = parseTemporaryPassword(result.data.temporaryPassword);
+  } catch {
+    throw new AdminAccountError('INVALID_INPUT');
+  }
+  const digest = await hashPassword(
+    parseHashingPolicy(hashingPolicy),
+    password
+  );
+  return recoverLogin(
+    db,
+    authority,
+    userId,
+    'user.password_reset',
+    async (tx, login, granted) => {
+      await db.portal_users.update(
+        login.id,
+        { password_hash: digest, must_change_password: true },
+        { tx }
+      );
+      await revokeSessionsForUser(
+        db,
+        {
+          portalUserId: login.id,
+          code: REVOCATION_CODES.operator,
+          actorId: granted.actorId,
+          requestId,
+        },
+        { tx }
+      );
+      return { code: REVOCATION_CODES.operator };
+    },
+    { requestId }
+  );
+}
+
+/**
+ * Clear a login's account throttle so it can sign in again at once
+ * (I0008-R015). Client-address throttles are not tied to a login and stay.
+ * @param {AdminAccountsDb & {login_throttles: object}} db
+ * @param {unknown} authority
+ * @param {unknown} throttlePolicy `{secret}`, the key login uses.
+ * @param {unknown} userId
+ * @param {{requestId?: string|null}} [options]
+ * @returns {Promise<object>} Safe user view.
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `ROOT_IMMUTABLE`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function unlockUser(
+  db,
+  authority,
+  throttlePolicy,
+  userId,
+  { requestId = null } = {}
+) {
+  let policy;
+  try {
+    policy = parseThrottlePolicy(throttlePolicy);
+  } catch {
+    throw new AdminAccountError('INTERNAL_ERROR');
+  }
+  return recoverLogin(
+    db,
+    authority,
+    userId,
+    'user.unlocked',
+    async (tx, login) => {
+      const key = throttleKey(
+        policy,
+        THROTTLE_KINDS.account,
+        normalizeAccountInput(login.email)
+      );
+      const cleared = await db.login_throttles.clear(key, { tx });
+      return { skipped: cleared === 0 };
+    },
+    { requestId }
+  );
 }
 
 /**
@@ -1748,14 +1966,14 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
         member_type: payload.member_type,
         member_id: payload.member_id,
         status,
-        ready: false,
+        ready: status === 'active',
       },
       { tx }
     );
   else if (membership.status === 'suspended')
     await db.portal_user_tenants.update(
       membership.id,
-      { status, member_type: payload.member_type },
+      { status, member_type: payload.member_type, ready: status === 'active' },
       { tx }
     );
   if (!membership || membership.status === 'suspended')

@@ -24,10 +24,13 @@ import {
   createOrReuseUser,
   getJob,
   getUser,
+  listUserMemberships,
   listUsers,
+  resetUserPassword,
   restoreMembership,
   restoreUser,
   retryJob,
+  unlockUser,
   updateMembership,
   updateUser,
 } from '../../domain/accounts.js';
@@ -147,6 +150,66 @@ export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
             assertDeactivationAllowed: userId =>
               assertAccountDeactivationAllowed(admin.db, runtime, userId),
           }
+        );
+        sendData(response, user);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
+    }
+  );
+
+  router.get(
+    '/users/:id/memberships',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        const read = requestAuthority(request);
+        sendData(
+          response,
+          await listUserMemberships(admin.db, read, request.params.id)
+        );
+      } catch (error) {
+        sendAccountError(response, error);
+      }
+    }
+  );
+
+  router.post(
+    '/users/:id/password-reset',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        const user = await resetUserPassword(
+          admin.db,
+          write,
+          hashingPolicy,
+          request.params.id,
+          request.body,
+          { requestId: request.requestId }
+        );
+        sendData(response, user);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
+    }
+  );
+
+  router.post(
+    '/users/:id/unlock',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        const user = await unlockUser(
+          admin.db,
+          write,
+          { secret: authenticationPolicy?.throttleSecret },
+          request.params.id,
+          { requestId: request.requestId }
         );
         sendData(response, user);
       } catch (error) {

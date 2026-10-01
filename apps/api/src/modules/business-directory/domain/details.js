@@ -210,6 +210,31 @@ async function requirePrimaryEmail(context, party, tx) {
 }
 
 /**
+ * Snapshot a portal user's primary email, and return a check that refuses
+ * the change when it moved (I0008-R018): the login keeps the email it was
+ * created with, so access must be off first.
+ * @param {object} context
+ * @param {object} party
+ * @param {object} tx
+ * @returns {Promise<() => Promise<void>>}
+ */
+async function lockPortalEmail(context, party, tx) {
+  const primary = async () => {
+    const [row] = await context.cell.contact_methods.rows(
+      { party_id: party.id, type: 'email', is_primary: true },
+      { tx }
+    );
+    return row ? `${row.id}:${row.value}` : null;
+  };
+  const person = await context.cell.people.byKey(party.id, { tx });
+  if (!person?.is_portal_user) return async () => {};
+  const before = await primary();
+  return async () => {
+    if ((await primary()) !== before) throw new DirectoryError('INVALID_STATE');
+  };
+}
+
+/**
  * A detail change for the outbox.
  * @param {string} eventKey
  * @param {object} party
@@ -248,6 +273,7 @@ export function addContactMethod(context, partyId, body) {
   const value = parseValue(input.type, input.value);
   return mutate(context, async tx => {
     const party = await lockParty(context, partyId, tx);
+    const portalEmail = await lockPortalEmail(context, party, tx);
     await requireLabel(context, input.labelId, input.type, tx);
     if (input.isPrimary)
       await demotePrimary(
@@ -270,6 +296,7 @@ export function addContactMethod(context, partyId, body) {
       },
       { tx }
     );
+    await portalEmail();
     const view = contactMethodView(row);
     return {
       result: view,
@@ -309,6 +336,7 @@ export function updateContactMethod(context, partyId, methodId, body) {
   const input = parse(methodUpdate, body);
   return mutate(context, async tx => {
     const party = await lockParty(context, partyId, tx);
+    const portalEmail = await lockPortalEmail(context, party, tx);
     const locked = await lockDetail(
       context,
       'contact_methods',
@@ -342,6 +370,7 @@ export function updateContactMethod(context, partyId, methodId, body) {
       { tx }
     );
     await requirePrimaryEmail(context, party, tx);
+    await portalEmail();
     const view = contactMethodView(row);
     return {
       result: view,
@@ -368,6 +397,7 @@ export function updateContactMethod(context, partyId, methodId, body) {
 export function removeContactMethod(context, partyId, methodId) {
   return mutate(context, async tx => {
     const party = await lockParty(context, partyId, tx);
+    const portalEmail = await lockPortalEmail(context, party, tx);
     const locked = await lockDetail(
       context,
       'contact_methods',
@@ -382,6 +412,7 @@ export function removeContactMethod(context, partyId, methodId) {
       { tx }
     );
     await requirePrimaryEmail(context, party, tx);
+    await portalEmail();
     const view = contactMethodView(row);
     return {
       result: view,

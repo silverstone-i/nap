@@ -36,7 +36,12 @@ import { ClientTenantPanel } from './ClientTenantPanel.jsx';
 import { ContactMethodDialog } from './ContactMethodDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { KIND_LABELS, recordName } from './directoryRecords.js';
-import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
+import {
+  describeDirectoryError,
+  isStaleRevision,
+  PORTAL_MESSAGES,
+} from './directoryErrors.js';
+import { PortalAccessPanel } from './PortalAccess.jsx';
 
 /**
  * Tax ID shown masked, with a reveal button for `tax-ids::read`. Revealing
@@ -120,13 +125,13 @@ export function RecordDetailDialog({
     onChanged();
   };
 
-  async function run(action) {
+  async function run(action, messages = {}) {
     setError(null);
     try {
       await action();
       changed();
     } catch (err) {
-      setError(describeDirectoryError(err));
+      setError(describeDirectoryError(err, messages));
       if (isStaleRevision(err)) void load();
     }
   }
@@ -195,10 +200,13 @@ export function RecordDetailDialog({
               record={record}
               canReveal={abilities.readTaxIds}
             />
-            {record.isPortalUser !== undefined ? (
-              <Typography variant="body2">
-                Portal user: {record.isPortalUser ? 'Yes' : 'No'}
-              </Typography>
+            {record.portalAccess ? (
+              <PortalAccessPanel
+                collection={collection}
+                record={record}
+                canWrite={abilities.write}
+                onChanged={changed}
+              />
             ) : null}
             {record.isPrimaryTaxContact ? (
               <Chip
@@ -259,8 +267,9 @@ export function RecordDetailDialog({
                           <IconButton
                             aria-label={`Remove ${method.value}`}
                             onClick={() =>
-                              run(() =>
-                                removeContactMethod(record.id, method.id)
+                              run(
+                                () => removeContactMethod(record.id, method.id),
+                                record.isPortalUser ? PORTAL_MESSAGES.email : {}
                               )
                             }
                           >
@@ -409,7 +418,9 @@ export function RecordDetailDialog({
                             contact.isPrimaryTaxContact
                               ? 'Primary tax contact'
                               : null,
-                            contact.isPortalUser ? 'Portal user' : null,
+                            contact.portalAccess.status === 'off'
+                              ? null
+                              : `Portal access: ${contact.portalAccess.status}`,
                           ]
                             .filter(Boolean)
                             .join(' · ')}
@@ -459,8 +470,10 @@ export function RecordDetailDialog({
         confirmLabel="Archive"
         onConfirm={() => {
           setConfirmArchive(false);
-          void run(() =>
-            archiveDirectoryRecord(collection, record.id, record.revision)
+          void run(
+            () =>
+              archiveDirectoryRecord(collection, record.id, record.revision),
+            PORTAL_MESSAGES.archive
           );
         }}
         onCancel={() => setConfirmArchive(false)}
@@ -490,6 +503,7 @@ export function RecordDetailDialog({
       {methodForm ? (
         <ContactMethodDialog
           partyId={record.id}
+          portalUser={record.isPortalUser === true}
           method={methodForm.method}
           type={methodForm.type}
           onClose={() => setMethodForm(null)}

@@ -24,7 +24,8 @@ import {
   createDirectoryRecord,
   updateDirectoryRecord,
 } from '../../api/endpoints.js';
-import { describeDirectoryError } from './directoryErrors.js';
+import { PasswordField } from '../../components/PasswordField.jsx';
+import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
 import { KIND_LABELS } from './directoryRecords.js';
 
 /**
@@ -104,6 +105,7 @@ export function RecordFormDialog({
   const [isPortalUser, setIsPortalUser] = useState(
     record?.isPortalUser ?? false
   );
+  const [temporaryPassword, setTemporaryPassword] = useState('');
   const [taxId, setTaxId] = useState('');
   const [clearTaxId, setClearTaxId] = useState(false);
   const [buyers, setBuyers] = useState([blankBuyer()]);
@@ -133,6 +135,19 @@ export function RecordFormDialog({
     canWriteTaxIds &&
     (people || (organizations && !newClientWithBuyers) || isClientContact);
 
+  const wasPortalUser = record?.isPortalUser ?? false;
+  // I0008-R001: turning access on sends a temporary password; a contact is
+  // created without an email, so its access is turned on by editing (R003).
+  const turningOn = isPortalUser && !wasPortalUser;
+  const turningOff = !isPortalUser && wasPortalUser;
+  const showPortal = people || (contacts && editing);
+
+  /** The portal-access part of a request (I0008-R001, R004). */
+  function portalField() {
+    if (!showPortal) return {};
+    return turningOn ? { isPortalUser, temporaryPassword } : { isPortalUser };
+  }
+
   /** The tax ID part of a request: absent, a value, or null to clear. */
   function taxIdField() {
     if (!showTaxId) return {};
@@ -143,12 +158,12 @@ export function RecordFormDialog({
   function body() {
     if (people)
       return editing
-        ? { firstName, lastName, isPortalUser, ...taxIdField() }
+        ? { firstName, lastName, ...portalField(), ...taxIdField() }
         : {
             kind,
             firstName,
             lastName,
-            isPortalUser,
+            ...portalField(),
             ...(primaryEmail.trim()
               ? { primaryEmail: primaryEmail.trim() }
               : {}),
@@ -176,7 +191,7 @@ export function RecordFormDialog({
     const contact = {
       firstName,
       lastName,
-      isPortalUser,
+      ...portalField(),
       isPrimaryContact,
       isBillingContact,
     };
@@ -205,7 +220,16 @@ export function RecordFormDialog({
         : await createDirectoryRecord(collection, body());
       onSaved(saved);
     } catch (err) {
-      setError(describeDirectoryError(err));
+      setError(
+        describeDirectoryError(
+          err,
+          turningOn
+            ? PORTAL_MESSAGES.turnOn
+            : turningOff
+              ? PORTAL_MESSAGES.turnOff
+              : {}
+        )
+      );
     } finally {
       setSaving(false);
     }
@@ -428,7 +452,7 @@ export function RecordFormDialog({
               />
             </Stack>
           ) : null}
-          {people || contacts ? (
+          {showPortal ? (
             <FormControlLabel
               control={
                 <Switch
@@ -436,7 +460,16 @@ export function RecordFormDialog({
                   onChange={event => setIsPortalUser(event.target.checked)}
                 />
               }
-              label="Portal user"
+              label="Portal access"
+            />
+          ) : null}
+          {showPortal && turningOn ? (
+            <PasswordField
+              label="Temporary password"
+              value={temporaryPassword}
+              onChange={event => setTemporaryPassword(event.target.value)}
+              helperText="Give this to the person. They must replace it when they first sign in."
+              required
             />
           ) : null}
         </Stack>

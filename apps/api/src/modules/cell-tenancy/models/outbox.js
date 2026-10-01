@@ -78,4 +78,25 @@ export class Outbox extends OutboxTableModel {
   constructor(db, pgp, logger) {
     super(db, pgp, outboxSchema, logger);
   }
+
+  /**
+   * The highest-revision row of `topic` for each entity, with its delivery
+   * state. Portal Access reads it to show each person's request status
+   * (I0008-R008).
+   * @param {string} tenantId
+   * @param {string} topic
+   * @param {string[]} entityIds
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<{entity_id: string, status: string, failure_code: string|null}[]>}
+   */
+  async latestByEntities(tenantId, topic, entityIds, { tx }) {
+    if (entityIds.length === 0) return [];
+    return tx.any(
+      `SELECT DISTINCT ON (entity_id) entity_id, status, failure_code
+         FROM ${this.schemaName}.${this.tableName}
+        WHERE tenant_id=$1 AND topic=$2 AND entity_id = ANY($3::uuid[])
+        ORDER BY entity_id, revision DESC`,
+      [tenantId, topic, entityIds]
+    );
+  }
 }

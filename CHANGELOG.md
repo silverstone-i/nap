@@ -10,6 +10,19 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Portal access (I0008). Turning **Portal access** on for an employee, contact, or (after it has an email) a vendor or client contact sends a request that creates or reuses the person's login and membership; it takes a temporary password, which the person must replace at first sign-in. Turning access off or archiving the person suspends the membership and signs them out of that tenant. Directory lists and records show each person's status (Off, Requested, Invited, On, Failed) with the reason for a failure, and **Retry** resends a failed request (`POST /{collection}/:id/portal-access/retry`).
+- Replacing a temporary password activates every pending membership of that login, so the person can select the tenant straight away.
+- Napsoft login recovery on Portal Users: **Memberships** (`GET /accounts/users/:id/memberships`), **Reset password** (`POST /accounts/users/:id/password-reset`, which signs the login out everywhere), **Unlock** (`POST /accounts/users/:id/unlock`, which clears the sign-in throttle), and **Disable**/**Enable**. All refuse the initial Napsoft login with `ROOT_IMMUTABLE`.
+
+### Changed
+
+- Turning off portal access for, or archiving, a person who holds `tenant_admin` (or `platform_admin` in Napsoft) fails with `ADMIN_ASSIGNED`, and a user cannot turn off their own access or archive themselves (`INVALID_STATE`).
+- A portal user's primary email cannot be added, edited, replaced, or removed while their access is on (`INVALID_STATE`).
+- Vendor and client contacts can no longer be created with portal access on; turn it on by editing the contact once it has a primary email.
+- Person and contact responses include `portalAccess: { status, failureCode }`.
+
 ## [v0.26.1] - 2026-10-01
 
 ### Fixed

@@ -304,6 +304,8 @@ describe('admin-cell sync (I0004)', () => {
       await drain();
       const other = await membershipOf(login.id, otherId);
       expect(other.status).toBe('active');
+      // I0008-R011: an active portal-access membership is selectable.
+      expect(other.ready).toBe(true);
       expect((await loginByEmail(email)).password_hash).toBe(hash);
       expect((await copy('tenant_members', other.id)).status).toBe('active');
     });
@@ -319,7 +321,10 @@ describe('admin-cell sync (I0004)', () => {
       expect((await loginByEmail(pendingEmail)).password_hash).toBe(
         invited.password_hash
       );
-      expect((await membershipOf(invited.id, otherId)).status).toBe('pending');
+      expect(await membershipOf(invited.id, otherId)).toMatchObject({
+        status: 'pending',
+        ready: false,
+      });
       const event = await db.one(
         `SELECT details FROM admin.managed_events
           WHERE event_key='portal_access.applied' AND target_id=$1`,

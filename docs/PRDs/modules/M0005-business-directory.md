@@ -33,8 +33,8 @@ Provisioning a tenant creates the first administrator as an employee.
 
 ### Excluded
 
-- Creating, suspending, or linking logins when `is_portal_user` changes: Portal
-  Access (roadmap 14). This module stores the flag only.
+- Creating, suspending, or linking logins when `is_portal_user` changes:
+  [I0008: Portal Access](../inter-module-workflows/I0008-portal-access.md).
 - Roles and role assignments: M0003.
 - Legal entities and tax registrations of the tenant itself: Companies (roadmap 15).
 
@@ -102,7 +102,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 
 ### Portal flag
 
-- M0005-R020: `is_portal_user` on a person or organization contact is stored and shown. It does not create or change a login until Portal Access exists.
+- M0005-R020: `is_portal_user` on a person or organization contact is stored and shown. Changing it creates, links, or suspends the login as defined in [I0008: Portal Access](../inter-module-workflows/I0008-portal-access.md).
 
 ### Provisioning
 
@@ -263,7 +263,7 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 - I0006 gains the first administrator's name (R021) and creates the directory rows in its seed stage (R022).
 - M0001 and M0002 change `member_type` values and require `member_id` (R023, R024).
 - M0004 supplies country codes and the country lookup control for addresses.
-- Portal Access will read `is_portal_user` and create logins from it.
+- I0008 reads `is_portal_user` and creates, links, or suspends logins from it.
 - Administrative events follow M0001-12.
 
 ## 12. Security And Audit

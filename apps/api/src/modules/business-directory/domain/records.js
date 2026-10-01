@@ -16,6 +16,14 @@
 
 import { z } from 'zod';
 import { DirectoryError } from './errors.js';
+import {
+  assertCanTurnOff,
+  PORTAL_OFF,
+  portalFacts,
+  portalStatus,
+  sendPortalAccess,
+  temporaryPassword,
+} from './portalAccess.js';
 import { addressView, contactMethodView } from './details.js';
 import {
   containsPattern,
@@ -62,6 +70,7 @@ const personCreate = z.strictObject({
   lastName: personName,
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
+  temporaryPassword: temporaryPassword.optional(),
   primaryEmail: email.optional(),
 });
 const personUpdate = z.strictObject({
@@ -69,6 +78,7 @@ const personUpdate = z.strictObject({
   lastName: personName.optional(),
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
+  temporaryPassword: temporaryPassword.optional(),
   revision,
 });
 const contactFields = {
@@ -104,6 +114,7 @@ const contactUpdate = z.strictObject({
   lastName: personName.optional(),
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
+  temporaryPassword: temporaryPassword.optional(),
   isPrimaryContact: z.boolean().optional(),
   isBillingContact: z.boolean().optional(),
   revision,
@@ -163,11 +174,12 @@ async function loadRecord(context, name, id, tx, { lock = false } = {}) {
 }
 
 /**
- * Primary email and phone of each party, keyed by party ID.
+ * Primary email and phone of each party, and the facts its portal-access
+ * status comes from (I0008-R008), keyed by party ID.
  * @param {object} context
  * @param {string[]} partyIds
  * @param {object} tx
- * @returns {Promise<Map<string, {email: string|null, phone: string|null}>>}
+ * @returns {Promise<Map<string, {email: string|null, phone: string|null, portal?: object}>>}
  */
 async function primaries(context, partyIds, tx) {
   const map = new Map(partyIds.map(id => [id, { email: null, phone: null }]));
@@ -175,6 +187,8 @@ async function primaries(context, partyIds, tx) {
     tx,
   }))
     map.get(row.party_id)[row.type] = row.value;
+  for (const [id, fact] of await portalFacts(context, partyIds, tx))
+    map.get(id).portal = fact;
   return map;
 }
 
@@ -187,6 +201,9 @@ async function primaries(context, partyIds, tx) {
  * @returns {object}
  */
 export function recordView(name, row, primary = { email: null, phone: null }) {
+  const portalAccess = primary.portal
+    ? portalStatus(row.is_portal_user, primary.portal)
+    : PORTAL_OFF;
   const common = {
     id: row.party_id,
     kind: row.kind,
@@ -202,6 +219,7 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
       firstName: row.first_name,
       lastName: row.last_name,
       isPortalUser: row.is_portal_user,
+      portalAccess,
     };
   if (name === 'organizations')
     return {
@@ -215,6 +233,7 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
     firstName: row.first_name,
     lastName: row.last_name,
     isPortalUser: row.is_portal_user,
+    portalAccess,
     isPrimaryContact: row.is_primary_contact,
     isBillingContact: row.is_billing_contact,
     isPrimaryTaxContact: row.is_primary_tax_contact,
@@ -233,6 +252,7 @@ function snapshot(view) {
   delete rest.revision;
   delete rest.primaryEmail;
   delete rest.primaryPhone;
+  delete rest.portalAccess;
   return JSON.stringify(rest);
 }
 
@@ -369,6 +389,9 @@ async function insertContact(context, organization, input, tx) {
   // R009: the flagged contact must have a tax ID.
   if (input.isPrimaryTaxContact && !hasTaxId)
     throw new DirectoryError('INVALID_INPUT');
+  // I0008-R003: a contact is created without an email, so its portal
+  // access can only be turned on by editing it once it has one.
+  if (input.isPortalUser) throw new DirectoryError('INVALID_INPUT');
   const party = await insertParty(context, kind, input.taxId, tx);
   if (input.isPrimaryTaxContact)
     for (const row of await context.cell.people.rows(
@@ -388,7 +411,7 @@ async function insertContact(context, organization, input, tx) {
       organization_id: organization.party_id,
       first_name: input.firstName,
       last_name: input.lastName,
-      is_portal_user: input.isPortalUser ?? false,
+      is_portal_user: false,
       is_primary_contact: input.isPrimaryContact ?? false,
       is_billing_contact: input.isBillingContact ?? false,
       is_primary_tax_contact: input.isPrimaryTaxContact ?? false,
@@ -537,6 +560,8 @@ async function createPerson(context, body) {
         },
         { tx }
       );
+    if (row.is_portal_user)
+      await sendPortalAccess(context, row, true, input.temporaryPassword, tx);
     const view = await viewOf(context, 'people', row, tx);
     return {
       result: withDuplicates(
@@ -691,6 +716,16 @@ export async function updateRecord(context, name, id, body) {
         ))
       );
     }
+    // I0008-R001–R006: a flag change sends a request; anything else
+    // ignores `temporaryPassword` (R004).
+    const portal =
+      input.isPortalUser !== undefined &&
+      input.isPortalUser !== locked.is_portal_user
+        ? input.isPortalUser
+        : null;
+    if (portal === true && locked.deactivated_at)
+      throw new DirectoryError('INVALID_STATE');
+    if (portal === false) await assertCanTurnOff(context, locked, tx);
     const row = {
       ...withParty(
         await context.cell[table].saveRevision(
@@ -703,6 +738,8 @@ export async function updateRecord(context, name, id, body) {
       ),
       ...taxColumns,
     };
+    if (portal !== null)
+      await sendPortalAccess(context, row, portal, input.temporaryPassword, tx);
     if (name === 'organizations') await requireTaxSource(context, row, tx);
     const after = await viewOf(context, name, row, tx);
     return {
@@ -787,16 +824,22 @@ export async function archiveRecord(context, name, id, body) {
     requireRevision(locked, input.revision);
     if (locked.is_primary_tax_contact && !locked.deactivated_at)
       throw new DirectoryError('PRIMARY_TAX_CONTACT');
+    // I0008-R002: archiving a person turns their access off.
+    const portalOff = table === 'people' && locked.is_portal_user;
+    if (portalOff) await assertCanTurnOff(context, locked, tx);
     const before = await viewOf(context, name, locked, tx);
     const row = withParty(
       await context.cell[table].saveRevision(
         locked.party_id,
-        { archived: true },
+        portalOff
+          ? { archived: true, is_portal_user: false }
+          : { archived: true },
         context.actorId,
         { tx }
       ),
       locked
     );
+    if (portalOff) await sendPortalAccess(context, row, false, undefined, tx);
     const after = await viewOf(context, name, row, tx);
     return {
       result: after,
@@ -834,6 +877,41 @@ export async function restoreRecord(context, name, id, body) {
       result: after,
       changes: [recordChange('restored', name, before, after)],
     };
+  });
+}
+
+const retryBody = z.strictObject({
+  temporaryPassword: temporaryPassword.optional(),
+});
+
+/**
+ * Resend a person's failed portal-access request to match the current flag
+ * (I0008-R007). Turning access on again needs a new temporary password.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} name `people` or `organization-contacts`.
+ * @param {unknown} id
+ * @param {unknown} body `{temporaryPassword?}`
+ * @returns {Promise<object>} The person's view.
+ * @throws {DirectoryError} `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE`
+ */
+export async function retryPortalAccess(context, name, id, body) {
+  if (collection(name).table !== 'people')
+    throw new DirectoryError('NOT_FOUND');
+  const input = parse(retryBody, body ?? {});
+  return mutate(context, async tx => {
+    const person = await loadRecord(context, name, id, tx, { lock: true });
+    const before = await viewOf(context, name, person, tx);
+    if (before.portalAccess.status !== 'failed')
+      throw new DirectoryError('INVALID_STATE');
+    if (!person.is_portal_user) await assertCanTurnOff(context, person, tx);
+    await sendPortalAccess(
+      context,
+      person,
+      person.is_portal_user,
+      person.is_portal_user ? input.temporaryPassword : undefined,
+      tx
+    );
+    return { result: await viewOf(context, name, person, tx) };
   });
 }
 

@@ -20,7 +20,7 @@ import {
   listContactLabels,
   updateContactMethod,
 } from '../../api/endpoints.js';
-import { describeDirectoryError } from './directoryErrors.js';
+import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
 
 /**
  * Pick one active label of a group, or none.
@@ -61,13 +61,14 @@ export function LabelSelect({ appliesTo, value, onChange }) {
 /**
  * Add or edit an email or phone (M0005-R014). Making it primary replaces
  * the party's current primary of that type.
- * @param {{partyId: string, method: object|null, type: 'email'|'phone', onClose: () => void, onSaved: () => void}} props
+ * @param {{partyId: string, method: object|null, type: 'email'|'phone', portalUser?: boolean, onClose: () => void, onSaved: () => void}} props
  * @returns {JSX.Element}
  */
 export function ContactMethodDialog({
   partyId,
   method,
   type,
+  portalUser = false,
   onClose,
   onSaved,
 }) {
@@ -93,7 +94,10 @@ export function ContactMethodDialog({
       else await addContactMethod(partyId, { type, value, labelId, isPrimary });
       onSaved();
     } catch (err) {
-      setError(describeDirectoryError(err));
+      // I0008-R018: a portal user's primary email is locked.
+      setError(
+        describeDirectoryError(err, portalUser ? PORTAL_MESSAGES.email : {})
+      );
     } finally {
       setSaving(false);
     }
