@@ -212,9 +212,9 @@ export const EVENT_CATALOGUE = Object.freeze({
 
   'tenant.created': {
     outcomes: ANY_OUTCOME,
-    // `name` is stored so a repeated `Idempotency-Key` can compare the full
-    // normalized request against the immutable snapshot this event recorded,
-    // not against the live (possibly later-edited) `tenants` row.
+    // Audit record of the tenant as `tenant-provision` created it, including
+    // the Napsoft client it came from (I0006-R001). Idempotent replay compares
+    // against `tenant.provision.requested`, not this event.
     details: ['tenant_code', 'tier', 'name', 'client_id'],
   },
 
