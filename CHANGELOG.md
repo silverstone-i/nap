@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.27.0] - 2026-10-01
+
 ### Added
 
 - Portal access (I0008). Turning **Portal access** on for an employee, contact, or (after it has an email) a vendor or client contact sends a request that creates or reuses the person's login and membership; it takes a temporary password, which the person must replace at first sign-in. Turning access off or archiving the person suspends the membership and signs them out of that tenant. Directory lists and records show each person's status (Off, Requested, Invited, On, Failed) with the reason for a failure, and **Retry** resends a failed request (`POST /{collection}/:id/portal-access/retry`).
