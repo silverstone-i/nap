@@ -6,9 +6,10 @@
 /**
  * @file The directory rows a tenant starts with (M0005-R017, R022): the
  * default labels, and for a customer tenant its first administrator as an
- * employee with a primary email who is the tenant's primary contact. Tenant provisioning runs it as `nap-admin` inside the seed
- * stage's cell transaction. Every step is idempotent, so a retried stage
- * finds the rows and adds nothing.
+ * employee with a primary email who is the tenant's primary contact.
+ * Tenant provisioning runs it as `nap-admin` inside the seed stage's cell
+ * transaction. Every step is idempotent, so a retried stage finds the rows
+ * and adds nothing.
  */
 
 import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
