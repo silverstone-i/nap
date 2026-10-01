@@ -6,7 +6,12 @@
 import { DirectoryModel } from './directoryModel.js';
 
 /**
- * Schema object for `app.people`: employees and contacts (M0005-R002). The tax ID is stored only in its protected form (R010).
+ * Schema object for `app.people`: employees and contacts, and vendor and
+ * client contacts with their `organization_id` (M0005-R002, R004). An
+ * employee's `is_primary_contact` and `is_billing_contact` make it a tenant
+ * contact (R018); on an organization contact they name that organization's
+ * primary and billing contacts. Only a client contact can be its client's
+ * primary tax contact (R009).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
 export const peopleSchema = {
@@ -17,12 +22,33 @@ export const peopleSchema = {
   columns: [
     { name: 'party_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+    { name: 'organization_id', type: 'uuid', immutable: true },
     { name: 'first_name', type: 'varchar(160)', notNull: true },
     { name: 'last_name', type: 'varchar(160)', notNull: true },
-    { name: 'tax_id_encrypted', type: 'text' },
-    { name: 'tax_id_hash', type: 'char(64)' },
-    { name: 'tax_id_last4', type: 'char(4)' },
-    { name: 'is_portal_user', type: 'boolean', notNull: true, default: false },
+    {
+      name: 'is_portal_user',
+      type: 'boolean',
+      notNull: true,
+      default: false,
+    },
+    {
+      name: 'is_primary_contact',
+      type: 'boolean',
+      notNull: true,
+      default: false,
+    },
+    {
+      name: 'is_billing_contact',
+      type: 'boolean',
+      notNull: true,
+      default: false,
+    },
+    {
+      name: 'is_primary_tax_contact',
+      type: 'boolean',
+      notNull: true,
+      default: false,
+    },
     { name: 'revision', type: 'integer', notNull: true, default: 1 },
   ],
   constraints: {
@@ -30,9 +56,7 @@ export const peopleSchema = {
     unique: [['tenant_id', 'party_id']],
     checks: [
       'revision > 0',
-      '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL)',
-      "tax_id_hash IS NULL OR tax_id_hash ~ '^[0-9a-f]{64}$'",
-      "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9]{4}$'",
+      'NOT is_primary_tax_contact OR organization_id IS NOT NULL',
     ],
     foreignKeys: [
       {
@@ -45,21 +69,38 @@ export const peopleSchema = {
         },
         onDelete: 'RESTRICT',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['tenant_id', 'organization_id'],
+        references: {
+          schema: 'app',
+          table: 'organizations',
+          columns: ['tenant_id', 'party_id'],
+        },
+        onDelete: 'RESTRICT',
+      },
     ],
-    indexes: [{ columns: ['tenant_id', 'tax_id_hash'] }],
+    indexes: [
+      {
+        columns: ['organization_id'],
+        unique: true,
+        where: 'is_primary_tax_contact AND deactivated_at IS NULL',
+      },
+      { columns: ['organization_id'] },
+    ],
   },
 };
 
-/** Model for `app.people`. Subject to the tenant row-level security rule. */
 export class People extends DirectoryModel {
   static schema = peopleSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, peopleSchema, logger);
   }
+
   /**
-   * Search the tenant's rows with their party kind (M0005 §10 list routes).
-   * `text` is an already escaped ILIKE pattern.
-   * @param {{tx: object, kinds?: string[]|null, text?: string|null, taxIdHash?: string|null, includeArchived?: boolean}} options
+   * Search the tenant's rows with their party kind and tax ID columns
+   * (M0005 §10 list routes). `text` is an already escaped ILIKE pattern.
+   * @param {{tx: object, kinds?: string[]|null, text?: string|null, taxIdHash?: string|null, includeArchived?: boolean, organizationId?: string|null}} options
    * @returns {Promise<object[]>}
    */
   async search({
@@ -68,17 +109,39 @@ export class People extends DirectoryModel {
     text = null,
     taxIdHash = null,
     includeArchived = false,
+    organizationId = null,
   }) {
     return tx.any(
-      `SELECT x.*, p.kind FROM app.people x JOIN app.parties p ON p.id = x.party_id
+      `SELECT x.*, p.kind, p.tax_id_encrypted, p.tax_id_hash, p.tax_id_last4 FROM app.people x JOIN app.parties p ON p.id = x.party_id
         WHERE ($1::text[] IS NULL OR p.kind = ANY($1::text[]))
           AND ($2::text IS NULL OR x.first_name ILIKE $2 OR x.last_name ILIKE $2
                OR (x.first_name || ' ' || x.last_name) ILIKE $2)
-          AND ($3::text IS NULL OR x.tax_id_hash = $3)
+          AND ($3::text IS NULL OR p.tax_id_hash = $3)
           AND ($4 OR x.deactivated_at IS NULL)
+          AND ($5::uuid IS NULL OR x.organization_id = $5::uuid)
         ORDER BY x.last_name, x.first_name, x.party_id
         LIMIT 500`,
-      [kinds, text, taxIdHash, includeArchived]
+      [kinds, text, taxIdHash, includeArchived, organizationId]
+    );
+  }
+
+  /**
+   * The tenant's active employees holding a tenant contact flag (R018).
+   * @param {{tx: object, column?: 'is_primary_contact'|'is_billing_contact'|null, lock?: boolean}} options
+   *   `column` limits the rows to one flag; `lock` locks them.
+   * @returns {Promise<object[]>}
+   */
+  async tenantContacts({ tx, column = null, lock = false }) {
+    const flag =
+      column === 'is_primary_contact'
+        ? 'x.is_primary_contact'
+        : column === 'is_billing_contact'
+          ? 'x.is_billing_contact'
+          : '(x.is_primary_contact OR x.is_billing_contact)';
+    return tx.any(
+      `SELECT x.* FROM app.people x JOIN app.parties p ON p.id = x.party_id
+        WHERE p.kind = 'employee' AND x.deactivated_at IS NULL AND ${flag}
+        ORDER BY x.last_name, x.first_name, x.party_id${lock ? ' FOR UPDATE OF x' : ''}`
     );
   }
 }

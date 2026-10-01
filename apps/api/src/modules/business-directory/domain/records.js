@@ -7,15 +7,17 @@
  * @file People, organizations, and organization contacts (M0005-R001–R013).
  *
  * Every record is one `app.parties` row plus one child row of a matching
- * kind (R005). A tax ID only ever reaches the database through
- * `taxIds.protect` (R010), only with `tax-ids::write` (R012), and leaves it
- * masked unless revealed with `tax-ids::read`, which records who read it.
+ * kind (R005): people and organization contacts in `app.people`, vendors and
+ * clients in `app.organizations`. A record's tax ID lives on its party. It
+ * only ever reaches the database through `taxIds.protect` (R010), only with
+ * `tax-ids::write` (R012), and leaves it masked unless revealed with
+ * `tax-ids::read`, which records who read it.
  */
 
 import { z } from 'zod';
 import { DirectoryError } from './errors.js';
 import { addressView, contactMethodView } from './details.js';
-import { endDesignations } from './tenantContacts.js';
+import { endDesignations, designationsOf } from './tenantContacts.js';
 import {
   containsPattern,
   mutate,
@@ -36,7 +38,7 @@ export const COLLECTIONS = Object.freeze({
   people: { table: 'people', kinds: ['employee', 'contact'] },
   organizations: { table: 'organizations', kinds: ['vendor', 'client'] },
   'organization-contacts': {
-    table: 'organization_contacts',
+    table: 'people',
     kinds: ['vendor_contact', 'client_contact'],
   },
 });
@@ -49,6 +51,9 @@ const CONTACT_KIND = Object.freeze({
 
 const personName = z.string().trim().min(1).max(160);
 const longName = z.string().trim().min(1).max(255);
+
+/** Tax ID columns, which live on the party (R010). */
+const TAX_COLUMNS = ['tax_id_encrypted', 'tax_id_hash', 'tax_id_last4'];
 const taxId = z.string().max(32).nullable();
 const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
 
@@ -68,9 +73,12 @@ const personUpdate = z.strictObject({
   revision,
 });
 const contactFields = {
-  fullName: longName,
+  firstName: personName,
+  lastName: personName,
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
+  isPrimaryContact: z.boolean().optional(),
+  isBillingContact: z.boolean().optional(),
   isPrimaryTaxContact: z.boolean().optional(),
 };
 const organizationCreate = z.strictObject({
@@ -93,9 +101,12 @@ const contactCreate = z.strictObject({
   ...contactFields,
 });
 const contactUpdate = z.strictObject({
-  fullName: longName.optional(),
+  firstName: personName.optional(),
+  lastName: personName.optional(),
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
+  isPrimaryContact: z.boolean().optional(),
+  isBillingContact: z.boolean().optional(),
   revision,
 });
 const listQuery = z.object({
@@ -119,6 +130,40 @@ function collection(name) {
 }
 
 /**
+ * A child row joined with its party's `kind` and tax ID columns.
+ * @param {object} row
+ * @param {object} party
+ * @returns {object}
+ */
+function withParty(row, party) {
+  const joined = { ...row, kind: party.kind };
+  for (const column of TAX_COLUMNS) joined[column] = party[column];
+  return joined;
+}
+
+/**
+ * Load a record of one collection, joined with its party, or report
+ * `NOT_FOUND`. A key of another collection's kind is not found here, since
+ * `app.people` holds more than one collection.
+ * @param {object} context
+ * @param {string} name Collection name.
+ * @param {unknown} id
+ * @param {object} tx
+ * @param {{lock?: boolean}} [options] `lock` locks the child row.
+ * @returns {Promise<object>}
+ * @throws {DirectoryError} `NOT_FOUND`
+ */
+async function loadRecord(context, name, id, tx, { lock = false } = {}) {
+  const { table, kinds } = collection(name);
+  const key = parseId(id);
+  const row = await context.cell[table].byKey(key, { tx, lock });
+  if (!row) throw new DirectoryError('NOT_FOUND');
+  const party = await context.cell.parties.byKey(key, { tx });
+  if (!kinds.includes(party.kind)) throw new DirectoryError('NOT_FOUND');
+  return withParty(row, party);
+}
+
+/**
  * Primary email and phone of each party, keyed by party ID.
  * @param {object} context
  * @param {string[]} partyIds
@@ -137,12 +182,12 @@ async function primaries(context, partyIds, tx) {
 /**
  * Safe projection of a record. A tax ID appears only as its last four
  * digits (R012).
- * @param {string} table
- * @param {object} row Child row joined with its party `kind`.
+ * @param {string} name Collection name.
+ * @param {object} row Child row joined with its party (`withParty`).
  * @param {{email: string|null, phone: string|null}} primary
  * @returns {object}
  */
-export function recordView(table, row, primary = { email: null, phone: null }) {
+export function recordView(name, row, primary = { email: null, phone: null }) {
   const common = {
     id: row.party_id,
     kind: row.kind,
@@ -152,14 +197,14 @@ export function recordView(table, row, primary = { email: null, phone: null }) {
     primaryEmail: primary.email,
     primaryPhone: primary.phone,
   };
-  if (table === 'people')
+  if (name === 'people')
     return {
       ...common,
       firstName: row.first_name,
       lastName: row.last_name,
       isPortalUser: row.is_portal_user,
     };
-  if (table === 'organizations')
+  if (name === 'organizations')
     return {
       ...common,
       legalName: row.legal_name,
@@ -168,8 +213,11 @@ export function recordView(table, row, primary = { email: null, phone: null }) {
   return {
     ...common,
     organizationId: row.organization_id,
-    fullName: row.full_name,
+    firstName: row.first_name,
+    lastName: row.last_name,
     isPortalUser: row.is_portal_user,
+    isPrimaryContact: row.is_primary_contact,
+    isBillingContact: row.is_billing_contact,
     isPrimaryTaxContact: row.is_primary_tax_contact,
   };
 }
@@ -192,18 +240,18 @@ function snapshot(view) {
 /**
  * A record change for the outbox.
  * @param {string} action `created`, `updated`, `archived`, or `restored`.
- * @param {string} table
+ * @param {string} name Collection name.
  * @param {object|null} before View before the change.
  * @param {object} after View after the change.
  * @returns {import('./shared.js').DirectoryChange}
  */
-function recordChange(action, table, before, after) {
+function recordChange(action, name, before, after) {
   return {
     eventKey: `directory.record.${action}`,
     recordId: after.id,
     details: {
       kind: after.kind,
-      record_table: table,
+      record_table: COLLECTIONS[name].table,
       before: snapshot(before),
       after: snapshot(after),
     },
@@ -211,76 +259,62 @@ function recordChange(action, table, before, after) {
 }
 
 /**
- * Lock a record's child row, joined with its party kind, or report
- * `NOT_FOUND`.
+ * The view of a loaded or freshly written row joined with its party.
  * @param {object} context
- * @param {string} table
- * @param {unknown} id
- * @param {object} tx
- * @returns {Promise<object>}
- * @throws {DirectoryError} `NOT_FOUND`
- */
-async function lockRecord(context, table, id, tx) {
-  const key = parseId(id);
-  const row = await context.cell[table].byKey(key, { tx, lock: true });
-  if (!row) throw new DirectoryError('NOT_FOUND');
-  const party = await context.cell.parties.byKey(key, { tx });
-  return { ...row, kind: party.kind };
-}
-
-/**
- * The view of a locked or freshly written row.
- * @param {object} context
- * @param {string} table
+ * @param {string} name Collection name.
  * @param {object} row
- * @param {string} kind
  * @param {object} tx
  * @returns {Promise<object>}
  */
-async function viewOf(context, table, row, kind, tx) {
+async function viewOf(context, name, row, tx) {
   const map = await primaries(context, [row.party_id], tx);
-  return recordView(table, { ...row, kind }, map.get(row.party_id));
+  return recordView(name, row, map.get(row.party_id));
 }
 
 /**
- * Protect a tax ID for storage, checking the write capability first.
+ * Save a record's tax ID on its party, checking the write capability first.
  * @param {object} context
- * @param {string|null} value
+ * @param {string|null} value Entered tax ID, or null to clear it.
  * @param {string} partyId
- * @returns {Promise<object>} The three tax ID columns.
+ * @param {object} tx
+ * @returns {Promise<object>} The three tax ID columns as stored.
  */
-async function protectTaxId(context, value, partyId) {
+async function saveTaxId(context, value, partyId, tx) {
   await requireCapability(context, TAX_IDS_WRITE);
-  return context.taxIds.protect(value, {
+  const columns = context.taxIds.protect(value, {
     tenantId: context.tenant.id,
     partyId,
   });
+  await context.cell.parties.setTaxId(partyId, columns, context.actorId, {
+    tx,
+  });
+  return columns;
 }
 
 /**
- * Other active records of the same table holding the same tax ID (R013).
+ * Other active records holding the same tax ID (R013).
  * @param {object} context
- * @param {string} table
- * @param {object} row
+ * @param {object} row Row joined with its party.
  * @param {object} tx
  * @returns {Promise<string[]>}
  */
-function duplicates(context, table, row, tx) {
+function duplicates(context, row, tx) {
   if (!row.tax_id_hash) return [];
-  return context.cell[table].holdersOfTaxId(row.tax_id_hash, row.party_id, {
+  return context.cell.parties.holdersOfTaxId(row.tax_id_hash, row.party_id, {
     tx,
   });
 }
 
 /**
- * Insert a party and return its ID.
+ * Insert a party and, when `taxIdValue` is given, its tax ID.
  * @param {object} context
  * @param {string} kind
+ * @param {string|null|undefined} taxIdValue
  * @param {object} tx
- * @returns {Promise<string>}
+ * @returns {Promise<object>} The party as stored.
  */
-async function insertParty(context, kind, tx) {
-  const row = await context.cell.parties.insert(
+async function insertParty(context, kind, taxIdValue, tx) {
+  const party = await context.cell.parties.insert(
     {
       tenant_id: context.tenant.id,
       kind,
@@ -289,7 +323,11 @@ async function insertParty(context, kind, tx) {
     },
     { tx }
   );
-  return row.id;
+  if (taxIdValue == null) return party;
+  return {
+    ...party,
+    ...(await saveTaxId(context, taxIdValue, party.id, tx)),
+  };
 }
 
 /**
@@ -302,7 +340,7 @@ async function insertParty(context, kind, tx) {
  * @throws {DirectoryError} `INVALID_INPUT`
  */
 async function requireTaxSource(context, organization, tx) {
-  const flagged = await context.cell.organization_contacts.rows(
+  const flagged = await context.cell.people.rows(
     { organization_id: organization.party_id, is_primary_tax_contact: true },
     { tx }
   );
@@ -329,36 +367,38 @@ async function insertContact(context, organization, input, tx) {
   // a primary tax contact (R007, R009).
   if (kind === 'vendor_contact' && (hasTaxId || input.isPrimaryTaxContact))
     throw new DirectoryError('INVALID_INPUT');
-  const partyId = await insertParty(context, kind, tx);
-  const protectedTaxId = hasTaxId
-    ? await protectTaxId(context, input.taxId, partyId)
-    : {};
+  // R009: the flagged contact must have a tax ID.
+  if (input.isPrimaryTaxContact && !hasTaxId)
+    throw new DirectoryError('INVALID_INPUT');
+  const party = await insertParty(context, kind, input.taxId, tx);
   if (input.isPrimaryTaxContact)
-    for (const row of await context.cell.organization_contacts.rows(
+    for (const row of await context.cell.people.rows(
       { organization_id: organization.party_id, is_primary_tax_contact: true },
       { tx, lock: true }
     ))
-      await context.cell.organization_contacts.saveRevision(
+      await context.cell.people.saveRevision(
         row.party_id,
         { is_primary_tax_contact: false },
         context.actorId,
         { tx }
       );
-  const row = await context.cell.organization_contacts.insert(
+  const row = await context.cell.people.insert(
     {
-      party_id: partyId,
+      party_id: party.id,
       tenant_id: context.tenant.id,
       organization_id: organization.party_id,
-      full_name: input.fullName,
+      first_name: input.firstName,
+      last_name: input.lastName,
       is_portal_user: input.isPortalUser ?? false,
+      is_primary_contact: input.isPrimaryContact ?? false,
+      is_billing_contact: input.isBillingContact ?? false,
       is_primary_tax_contact: input.isPrimaryTaxContact ?? false,
-      ...protectedTaxId,
       created_by: context.actorId,
       updated_by: context.actorId,
     },
     { tx }
   );
-  return { ...row, kind };
+  return withParty(row, party);
 }
 
 /**
@@ -387,7 +427,7 @@ export async function listRecords(context, name, query) {
       text: containsPattern(input.q),
       taxIdHash,
       includeArchived: input.includeArchived === 'true',
-      ...(table === 'organization_contacts'
+      ...(name === 'organization-contacts'
         ? { organizationId: input.organizationId ?? null }
         : {}),
     });
@@ -396,7 +436,7 @@ export async function listRecords(context, name, query) {
       rows.map(row => row.party_id),
       tx
     );
-    return rows.map(row => recordView(table, row, map.get(row.party_id)));
+    return rows.map(row => recordView(name, row, map.get(row.party_id)));
   });
 }
 
@@ -409,13 +449,10 @@ export async function listRecords(context, name, query) {
  * @returns {Promise<object>}
  */
 export async function getRecord(context, name, id) {
-  const { table } = collection(name);
-  const key = parseId(id);
   return read(context, async tx => {
-    const row = await context.cell[table].byKey(key, { tx });
-    if (!row) throw new DirectoryError('NOT_FOUND');
-    const party = await context.cell.parties.byKey(key, { tx });
-    const view = await viewOf(context, table, row, party.kind, tx);
+    const row = await loadRecord(context, name, id, tx);
+    const key = row.party_id;
+    const view = await viewOf(context, name, row, tx);
     const detail = {
       ...view,
       contactMethods: (
@@ -431,9 +468,10 @@ export async function getRecord(context, name, id) {
         )
       ).map(addressView),
     };
-    if (table === 'organizations') {
-      const contacts = await context.cell.organization_contacts.search({
+    if (name === 'organizations') {
+      const contacts = await context.cell.people.search({
         tx,
+        kinds: COLLECTIONS['organization-contacts'].kinds,
         organizationId: key,
       });
       const map = await primaries(
@@ -442,13 +480,11 @@ export async function getRecord(context, name, id) {
         tx
       );
       detail.contacts = contacts.map(c =>
-        recordView('organization_contacts', c, map.get(c.party_id))
+        recordView('organization-contacts', c, map.get(c.party_id))
       );
     }
-    if (party.kind === 'employee')
-      detail.designations = (
-        await context.cell.tenant_contacts.rows({ party_id: key }, { tx })
-      ).map(row => row.designation);
+    if (row.kind === 'employee' && !row.deactivated_at)
+      detail.designations = designationsOf(row);
     return detail;
   });
 }
@@ -463,9 +499,9 @@ export async function getRecord(context, name, id) {
  * @returns {Promise<object>} The view, plus `duplicateTaxIds` when a tax ID was saved.
  */
 export async function createRecord(context, name, body) {
-  const { table } = collection(name);
-  if (table === 'people') return createPerson(context, body);
-  if (table === 'organizations') return createOrganization(context, body);
+  collection(name);
+  if (name === 'people') return createPerson(context, body);
+  if (name === 'organizations') return createOrganization(context, body);
   return createContact(context, body);
 }
 
@@ -474,23 +510,22 @@ async function createPerson(context, body) {
   if (input.kind === 'employee' && !input.primaryEmail)
     throw new DirectoryError('INVALID_INPUT');
   return mutate(context, async tx => {
-    const partyId = await insertParty(context, input.kind, tx);
-    const protectedTaxId =
-      input.taxId != null
-        ? await protectTaxId(context, input.taxId, partyId)
-        : {};
-    const row = await context.cell.people.insert(
-      {
-        party_id: partyId,
-        tenant_id: context.tenant.id,
-        first_name: input.firstName,
-        last_name: input.lastName,
-        is_portal_user: input.isPortalUser ?? false,
-        ...protectedTaxId,
-        created_by: context.actorId,
-        updated_by: context.actorId,
-      },
-      { tx }
+    const party = await insertParty(context, input.kind, input.taxId, tx);
+    const partyId = party.id;
+    const row = withParty(
+      await context.cell.people.insert(
+        {
+          party_id: partyId,
+          tenant_id: context.tenant.id,
+          first_name: input.firstName,
+          last_name: input.lastName,
+          is_portal_user: input.isPortalUser ?? false,
+          created_by: context.actorId,
+          updated_by: context.actorId,
+        },
+        { tx }
+      ),
+      party
     );
     if (input.primaryEmail)
       await context.cell.contact_methods.insert(
@@ -505,12 +540,12 @@ async function createPerson(context, body) {
         },
         { tx }
       );
-    const view = await viewOf(context, 'people', row, input.kind, tx);
+    const view = await viewOf(context, 'people', row, tx);
     return {
       result: withDuplicates(
         view,
         input.taxId != null,
-        await duplicates(context, 'people', row, tx)
+        await duplicates(context, row, tx)
       ),
       changes: [recordChange('created', 'people', null, view)],
     };
@@ -522,43 +557,40 @@ async function createOrganization(context, body) {
   if (input.kind === 'vendor' && input.contacts?.length)
     throw new DirectoryError('INVALID_INPUT');
   return mutate(context, async tx => {
-    const partyId = await insertParty(context, input.kind, tx);
-    const protectedTaxId =
-      input.taxId != null
-        ? await protectTaxId(context, input.taxId, partyId)
-        : {};
-    const row = await context.cell.organizations.insert(
-      {
-        party_id: partyId,
-        tenant_id: context.tenant.id,
-        legal_name: input.legalName,
-        dba_name: input.dbaName ?? null,
-        ...protectedTaxId,
-        created_by: context.actorId,
-        updated_by: context.actorId,
-      },
-      { tx }
+    const party = await insertParty(context, input.kind, input.taxId, tx);
+    const organization = withParty(
+      await context.cell.organizations.insert(
+        {
+          party_id: party.id,
+          tenant_id: context.tenant.id,
+          legal_name: input.legalName,
+          dba_name: input.dbaName ?? null,
+          created_by: context.actorId,
+          updated_by: context.actorId,
+        },
+        { tx }
+      ),
+      party
     );
-    const organization = { ...row, kind: input.kind };
     const changes = [];
     for (const contact of input.contacts ?? []) {
       const created = await insertContact(context, organization, contact, tx);
       changes.push(
         recordChange(
           'created',
-          'organization_contacts',
+          'organization-contacts',
           null,
-          recordView('organization_contacts', created)
+          recordView('organization-contacts', created)
         )
       );
     }
     await requireTaxSource(context, organization, tx);
-    const view = await viewOf(context, 'organizations', row, input.kind, tx);
+    const view = await viewOf(context, 'organizations', organization, tx);
     return {
       result: withDuplicates(
         view,
         input.taxId != null,
-        await duplicates(context, 'organizations', row, tx)
+        await duplicates(context, organization, tx)
       ),
       changes: [
         recordChange('created', 'organizations', null, view),
@@ -571,11 +603,12 @@ async function createOrganization(context, body) {
 async function createContact(context, body) {
   const input = parse(contactCreate, body);
   return mutate(context, async tx => {
-    const organization = await lockRecord(
+    const organization = await loadRecord(
       context,
       'organizations',
       input.organizationId,
-      tx
+      tx,
+      { lock: true }
     );
     if (organization.deactivated_at) throw new DirectoryError('NOT_FOUND');
     if (input.kind && input.kind !== CONTACT_KIND[organization.kind])
@@ -583,20 +616,14 @@ async function createContact(context, body) {
     const row = await insertContact(context, organization, input, tx);
     if (input.isPrimaryTaxContact)
       await requireTaxSource(context, organization, tx);
-    const view = await viewOf(
-      context,
-      'organization_contacts',
-      row,
-      row.kind,
-      tx
-    );
+    const view = await viewOf(context, 'organization-contacts', row, tx);
     return {
       result: withDuplicates(
         view,
         input.taxId != null,
-        await duplicates(context, 'organization_contacts', row, tx)
+        await duplicates(context, row, tx)
       ),
-      changes: [recordChange('created', 'organization_contacts', null, view)],
+      changes: [recordChange('created', 'organization-contacts', null, view)],
     };
   });
 }
@@ -625,39 +652,38 @@ function withDuplicates(view, savedTaxId, holders) {
 export async function updateRecord(context, name, id, body) {
   const { table } = collection(name);
   const schema =
-    table === 'people'
+    name === 'people'
       ? personUpdate
-      : table === 'organizations'
+      : name === 'organizations'
         ? organizationUpdate
         : contactUpdate;
   const input = parse(schema, body);
   return mutate(context, async tx => {
-    const locked = await lockRecord(context, table, id, tx);
+    const locked = await loadRecord(context, name, id, tx, { lock: true });
     requireRevision(locked, input.revision);
-    const before = await viewOf(context, table, locked, locked.kind, tx);
+    const before = await viewOf(context, name, locked, tx);
     const changes = {};
     const map = {
       firstName: 'first_name',
       lastName: 'last_name',
       isPortalUser: 'is_portal_user',
+      isPrimaryContact: 'is_primary_contact',
+      isBillingContact: 'is_billing_contact',
       legalName: 'legal_name',
       dbaName: 'dba_name',
-      fullName: 'full_name',
     };
     for (const [field, column] of Object.entries(map))
       if (input[field] !== undefined) changes[column] = input[field];
+    let taxColumns = {};
     if (input.taxId !== undefined) {
       if (locked.kind === 'vendor_contact' && input.taxId !== null)
         throw new DirectoryError('INVALID_INPUT');
       if (input.taxId === null && locked.is_primary_tax_contact)
         throw new DirectoryError('PRIMARY_TAX_CONTACT');
-      Object.assign(
-        changes,
-        await protectTaxId(context, input.taxId, locked.party_id)
-      );
+      taxColumns = await saveTaxId(context, input.taxId, locked.party_id, tx);
     }
     const extra = [];
-    if (table === 'organizations' && input.primaryTaxContactId !== undefined) {
+    if (name === 'organizations' && input.primaryTaxContactId !== undefined) {
       if (locked.kind !== 'client') throw new DirectoryError('INVALID_INPUT');
       extra.push(
         ...(await setPrimaryTaxContact(
@@ -668,22 +694,27 @@ export async function updateRecord(context, name, id, body) {
         ))
       );
     }
-    const row = await context.cell[table].saveRevision(
-      locked.party_id,
-      changes,
-      context.actorId,
-      { tx }
-    );
-    if (table === 'organizations')
-      await requireTaxSource(context, { ...row, kind: locked.kind }, tx);
-    const after = await viewOf(context, table, row, locked.kind, tx);
+    const row = {
+      ...withParty(
+        await context.cell[table].saveRevision(
+          locked.party_id,
+          changes,
+          context.actorId,
+          { tx }
+        ),
+        locked
+      ),
+      ...taxColumns,
+    };
+    if (name === 'organizations') await requireTaxSource(context, row, tx);
+    const after = await viewOf(context, name, row, tx);
     return {
       result: withDuplicates(
         after,
         input.taxId != null,
-        await duplicates(context, table, row, tx)
+        await duplicates(context, row, tx)
       ),
-      changes: [recordChange('updated', table, before, after), ...extra],
+      changes: [recordChange('updated', name, before, after), ...extra],
     };
   });
 }
@@ -699,13 +730,13 @@ export async function updateRecord(context, name, id, body) {
  * @returns {Promise<import('./shared.js').DirectoryChange[]>}
  */
 async function setPrimaryTaxContact(context, organization, contactId, tx) {
-  const contacts = context.cell.organization_contacts;
+  const contacts = context.cell.people;
   const changes = [];
+  const joined = async row =>
+    withParty(row, await context.cell.parties.byKey(row.party_id, { tx }));
   const flip = async (row, value) => {
-    const before = recordView('organization_contacts', {
-      ...row,
-      kind: 'client_contact',
-    });
+    const party = await joined(row);
+    const before = recordView('organization-contacts', party);
     const saved = await contacts.saveRevision(
       row.party_id,
       { is_primary_tax_contact: value },
@@ -715,18 +746,16 @@ async function setPrimaryTaxContact(context, organization, contactId, tx) {
     changes.push(
       recordChange(
         'updated',
-        'organization_contacts',
+        'organization-contacts',
         before,
-        recordView('organization_contacts', {
-          ...saved,
-          kind: 'client_contact',
-        })
+        recordView('organization-contacts', withParty(saved, party))
       )
     );
   };
   let target = null;
   if (contactId) {
-    target = await contacts.byKey(contactId, { tx, lock: true });
+    const row = await contacts.byKey(contactId, { tx, lock: true });
+    target = row ? await joined(row) : null;
     if (
       !target ||
       target.organization_id !== organization.party_id ||
@@ -758,25 +787,31 @@ export async function archiveRecord(context, name, id, body) {
   const { table } = collection(name);
   const input = parse(revisionSchema, body);
   return mutate(context, async tx => {
-    const locked = await lockRecord(context, table, id, tx);
+    const locked = await loadRecord(context, name, id, tx, { lock: true });
     requireRevision(locked, input.revision);
     if (locked.is_primary_tax_contact && !locked.deactivated_at)
       throw new DirectoryError('PRIMARY_TAX_CONTACT');
-    const changes = [];
-    if (locked.kind === 'employee') {
-      changes.push(...(await endDesignations(context, locked.party_id, tx)));
-    }
-    const before = await viewOf(context, table, locked, locked.kind, tx);
-    const row = await context.cell[table].saveRevision(
-      locked.party_id,
-      { archived: true },
-      context.actorId,
-      { tx }
+    const ended =
+      locked.kind === 'employee' && !locked.deactivated_at
+        ? await endDesignations(context, locked, tx)
+        : { columns: {}, changes: [] };
+    const before = await viewOf(context, name, locked, tx);
+    const row = withParty(
+      await context.cell[table].saveRevision(
+        locked.party_id,
+        { ...ended.columns, archived: true },
+        context.actorId,
+        { tx }
+      ),
+      locked
     );
-    const after = await viewOf(context, table, row, locked.kind, tx);
+    const after = await viewOf(context, name, row, tx);
     return {
       result: after,
-      changes: [recordChange('archived', table, before, after), ...changes],
+      changes: [
+        recordChange('archived', name, before, after),
+        ...ended.changes,
+      ],
     };
   });
 }
@@ -793,19 +828,22 @@ export async function restoreRecord(context, name, id, body) {
   const { table } = collection(name);
   const input = parse(revisionSchema, body);
   return mutate(context, async tx => {
-    const locked = await lockRecord(context, table, id, tx);
+    const locked = await loadRecord(context, name, id, tx, { lock: true });
     requireRevision(locked, input.revision);
-    const before = await viewOf(context, table, locked, locked.kind, tx);
-    const row = await context.cell[table].saveRevision(
-      locked.party_id,
-      { archived: false },
-      context.actorId,
-      { tx }
+    const before = await viewOf(context, name, locked, tx);
+    const row = withParty(
+      await context.cell[table].saveRevision(
+        locked.party_id,
+        { archived: false },
+        context.actorId,
+        { tx }
+      ),
+      locked
     );
-    const after = await viewOf(context, table, row, locked.kind, tx);
+    const after = await viewOf(context, name, row, tx);
     return {
       result: after,
-      changes: [recordChange('restored', table, before, after)],
+      changes: [recordChange('restored', name, before, after)],
     };
   });
 }
@@ -820,22 +858,20 @@ export async function restoreRecord(context, name, id, body) {
  */
 export async function revealTaxId(context, name, id) {
   const { table } = collection(name);
-  const key = parseId(id);
   return mutate(context, async tx => {
-    const row = await context.cell[table].byKey(key, { tx });
-    if (!row?.tax_id_encrypted) throw new DirectoryError('NOT_FOUND');
-    const party = await context.cell.parties.byKey(key, { tx });
+    const row = await loadRecord(context, name, id, tx);
+    if (!row.tax_id_encrypted) throw new DirectoryError('NOT_FOUND');
     const value = context.taxIds.reveal(row.tax_id_encrypted, {
       tenantId: context.tenant.id,
-      partyId: key,
+      partyId: row.party_id,
     });
     return {
       result: { taxId: value },
       changes: [
         {
           eventKey: 'directory.tax_id.revealed',
-          recordId: key,
-          details: { kind: party.kind, record_table: table },
+          recordId: row.party_id,
+          details: { kind: row.kind, record_table: table },
         },
       ],
     };

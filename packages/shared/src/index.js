@@ -418,8 +418,11 @@ export const organizationContactViewSchema = z.strictObject({
   ...directoryRecordBase,
   kind: z.enum(['vendor_contact', 'client_contact']),
   organizationId: z.uuid(),
-  fullName: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
   isPortalUser: z.boolean(),
+  isPrimaryContact: z.boolean(),
+  isBillingContact: z.boolean(),
   isPrimaryTaxContact: z.boolean(),
 });
 

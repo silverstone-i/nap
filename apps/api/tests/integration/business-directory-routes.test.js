@@ -379,7 +379,8 @@ describe('tax IDs (M0005-R006–R013)', () => {
           taxId: '12-3456789',
           contacts: [
             {
-              fullName: 'Ann',
+              firstName: 'Ann',
+              lastName: 'Lee',
               taxId: '111-22-3333',
               isPrimaryTaxContact: true,
             },
@@ -399,7 +400,8 @@ describe('tax IDs (M0005-R006–R013)', () => {
     expect(vendor.taxIdLast4).toBe('6789');
     const contact = await call('post', '/organization-contacts', {
       organizationId: vendor.id,
-      fullName: 'Sam Ruiz',
+      firstName: 'Sam',
+      lastName: 'Ruiz',
       taxId: '111-22-3333',
     });
     expect(contact.body.error.code).toBe('INVALID_INPUT');
@@ -411,16 +413,17 @@ describe('tax IDs (M0005-R006–R013)', () => {
       legalName: 'Lot 12, Maple Ridge',
       contacts: [
         {
-          fullName: 'Ann Smith',
+          firstName: 'Ann',
+          lastName: 'Smith',
           taxId: '222-33-4444',
           isPrimaryTaxContact: true,
         },
-        { fullName: 'Tom Smith', taxId: '555-66-7777' },
+        { firstName: 'Tom', lastName: 'Smith', taxId: '555-66-7777' },
       ],
     });
     const detail = (await call('get', `/organizations/${client.id}`)).body.data;
-    const ann = detail.contacts.find(c => c.fullName === 'Ann Smith');
-    const tom = detail.contacts.find(c => c.fullName === 'Tom Smith');
+    const ann = detail.contacts.find(c => c.firstName === 'Ann');
+    const tom = detail.contacts.find(c => c.firstName === 'Tom');
     expect(ann).toMatchObject({
       isPrimaryTaxContact: true,
       kind: 'client_contact',
@@ -457,6 +460,47 @@ describe('tax IDs (M0005-R006–R013)', () => {
         })
       ).body.error.code
     ).toBe('INVALID_INPUT');
+  });
+
+  it('names an organization contact as its primary and billing contact, and keeps each collection to its own kinds', async () => {
+    const vendor = await create('organizations', {
+      kind: 'vendor',
+      legalName: 'Flag Supply LLC',
+      taxId: '45-6789012',
+    });
+    const contact = await create('organization-contacts', {
+      organizationId: vendor.id,
+      firstName: 'Rita',
+      lastName: 'Moss',
+      isPrimaryContact: true,
+    });
+    expect(contact).toMatchObject({
+      kind: 'vendor_contact',
+      firstName: 'Rita',
+      lastName: 'Moss',
+      isPrimaryContact: true,
+      isBillingContact: false,
+    });
+    const billed = await call('patch', `/organization-contacts/${contact.id}`, {
+      isBillingContact: true,
+      revision: contact.revision,
+    });
+    expect(billed.body.data).toMatchObject({
+      isPrimaryContact: true,
+      isBillingContact: true,
+    });
+    expect((await call('get', `/people/${contact.id}`)).status).toBe(404);
+    expect(
+      (await call('get', '/people')).body.data.some(p => p.id === contact.id)
+    ).toBe(false);
+    const person = await create('people', {
+      kind: 'contact',
+      firstName: 'Not',
+      lastName: 'Aorg',
+    });
+    expect(
+      (await call('get', `/organization-contacts/${person.id}`)).status
+    ).toBe(404);
   });
 
   it('AC11: masks tax IDs without tax-ids::read and needs tax-ids::write to save one', async () => {
@@ -544,6 +588,28 @@ describe('tax IDs (M0005-R006–R013)', () => {
       taxId: '321549876',
     });
     expect(second.duplicateTaxIds).toEqual([first.id]);
+    const client = await create('organizations', {
+      kind: 'client',
+      legalName: 'Lot 30',
+      contacts: [
+        {
+          firstName: 'Dup',
+          lastName: 'Buyer',
+          taxId: '321-54-9876',
+          isPrimaryTaxContact: true,
+        },
+      ],
+    });
+    const buyer = (await call('get', `/organizations/${client.id}`)).body.data
+      .contacts[0];
+    const third = await call('patch', `/organization-contacts/${buyer.id}`, {
+      taxId: '321549876',
+      revision: buyer.revision,
+    });
+    // R013: a duplicate is reported across people, buyers, and organizations.
+    expect(third.body.data.duplicateTaxIds.sort()).toEqual(
+      [first.id, second.id].sort()
+    );
     for (const query of ['321-54-9876', '321549876']) {
       const found = (await call('get', `/people?taxId=${query}`)).body.data;
       expect(found.map(p => p.id).sort()).toEqual([first.id, second.id].sort());
@@ -655,15 +721,19 @@ describe('tenant contacts (M0005-R018, R019)', () => {
       (await call('delete', `/tenant-contacts/${jane.id}/primary`)).body.error
         .code
     ).toBe('LAST_PRIMARY_CONTACT');
+    // A designation is a flag on the employee, so it advances the revision.
+    const current = async id =>
+      (await call('get', `/people/${id}`)).body.data.revision;
+    expect(await current(jane.id)).toBeGreaterThan(jane.revision);
     expect(
       (
         await call('post', `/people/${jane.id}/archive`, {
-          revision: jane.revision,
+          revision: await current(jane.id),
         })
       ).body.error.code
     ).toBe('LAST_PRIMARY_CONTACT');
     const archivedJim = await call('post', `/people/${jim.id}/archive`, {
-      revision: jim.revision,
+      revision: await current(jim.id),
     });
     expect(archivedJim.status).toBe(200);
     expect(

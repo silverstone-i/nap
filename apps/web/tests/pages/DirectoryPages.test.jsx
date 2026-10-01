@@ -12,6 +12,7 @@ import { useSession } from '../../src/auth/SessionContext.jsx';
 import { DirectoryRecordsPage } from '../../src/pages/directory/DirectoryRecordsPage.jsx';
 import { TenantContactsPage } from '../../src/pages/directory/TenantContactsPage.jsx';
 import { LabelsPage } from '../../src/pages/directory/LabelsPage.jsx';
+import { RecordFormDialog } from '../../src/pages/directory/RecordFormDialog.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
@@ -210,7 +211,8 @@ describe('Clients (M0005-R007)', () => {
       within(form).getByLabelText(/Legal name or unit/),
       'Lot 12'
     );
-    await user.type(within(form).getByLabelText(/Buyer name/), 'Ann Smith');
+    await user.type(within(form).getByLabelText(/Buyer first name/), 'Ann');
+    await user.type(within(form).getByLabelText(/Buyer last name/), 'Smith');
     await user.type(within(form).getByLabelText(/Buyer SSN/), '222-33-4444');
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.createDirectoryRecord).toHaveBeenCalledWith('organizations', {
@@ -219,7 +221,8 @@ describe('Clients (M0005-R007)', () => {
       dbaName: null,
       contacts: [
         {
-          fullName: 'Ann Smith',
+          firstName: 'Ann',
+          lastName: 'Smith',
           taxId: '222-33-4444',
           isPrimaryTaxContact: true,
         },
@@ -233,6 +236,51 @@ describe('Clients (M0005-R007)', () => {
     );
     renderWithHeader(<DirectoryRecordsPage kind="client" />);
     expect(await screen.findByText(/database is unavailable/)).toBeTruthy();
+  });
+});
+
+describe('Organization contacts (M0005-R004)', () => {
+  it('adds a vendor contact by first and last name as primary and billing contact', async () => {
+    api.createDirectoryRecord.mockResolvedValue({ id: 'saved' });
+    const onSaved = vi.fn();
+    // The dialog restores focus to whatever opened it; stand one in.
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    render(
+      <ThemeModeProvider>
+        <RecordFormDialog
+          collection="organization-contacts"
+          record={null}
+          defaults={{ organizationId: 'org-1', organizationKind: 'vendor' }}
+          canWriteTaxIds
+          onClose={vi.fn()}
+          onSaved={onSaved}
+        />
+      </ThemeModeProvider>
+    );
+    const form = await screen.findByRole('dialog', { name: 'Add contact' });
+    const user = userEvent.setup();
+    await user.type(within(form).getByLabelText(/First name/), 'Rita');
+    await user.type(within(form).getByLabelText(/Last name/), 'Moss');
+    expect(within(form).queryByLabelText(/SSN/)).toBeNull();
+    await user.click(within(form).getByLabelText('Primary contact'));
+    await user.click(within(form).getByLabelText('Billing contact'));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.createDirectoryRecord).toHaveBeenCalledWith(
+      'organization-contacts',
+      {
+        organizationId: 'org-1',
+        firstName: 'Rita',
+        lastName: 'Moss',
+        isPortalUser: false,
+        isPrimaryContact: true,
+        isBillingContact: true,
+      }
+    );
+    expect(onSaved).toHaveBeenCalledWith({ id: 'saved' });
+    cleanup();
+    opener.remove();
   });
 });
 

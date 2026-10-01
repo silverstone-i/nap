@@ -39,11 +39,9 @@ const TABLES = [
   'addresses',
   'contact_labels',
   'contact_methods',
-  'organization_contacts',
   'organizations',
   'parties',
   'people',
-  'tenant_contacts',
 ];
 
 /** Run `operation` as `nap-app` in a transaction scoped to `tenantId`. */
@@ -100,7 +98,7 @@ afterAll(async () => {
   );
 });
 
-it('AC01: creates the eight directory tables with forced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
+it('AC01: creates the six directory tables with forced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -153,27 +151,28 @@ it('rejects an unknown kind, a changed kind, and a child pointing at another ten
   ).rejects.toThrow();
 });
 
-it('stores the three tax ID columns together, and requires a tax ID on a primary tax contact', async () => {
+it('stores the three tax ID columns together on the party, never on a vendor contact, and requires an organization for a primary tax contact', async () => {
   await inTenant(tenant, async tx => {
     const id = await party(tx, 'employee');
     await expect(
+      tx.none('UPDATE app.parties SET tax_id_hash=$2 WHERE id=$1', [id, HASH])
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+  await inTenant(tenant, async tx => {
+    const id = await party(tx, 'vendor_contact');
+    await expect(
       tx.none(
-        "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, tax_id_hash) VALUES ($1,$2,'A','B',$3)",
-        [id, tenant, HASH]
+        "UPDATE app.parties SET tax_id_encrypted='x', tax_id_hash=$2, tax_id_last4='1234' WHERE id=$1",
+        [id, HASH]
       )
     ).rejects.toMatchObject({ code: '23514' });
   });
   await inTenant(tenant, async tx => {
-    const client = await party(tx, 'client');
-    await tx.none(
-      "INSERT INTO app.organizations (party_id, tenant_id, legal_name) VALUES ($1,$2,'Lot 12')",
-      [client, tenant]
-    );
-    const buyer = await party(tx, 'client_contact');
+    const id = await party(tx, 'contact');
     await expect(
       tx.none(
-        "INSERT INTO app.organization_contacts (party_id, tenant_id, organization_id, full_name, is_primary_tax_contact) VALUES ($1,$2,$3,'Ann',true)",
-        [buyer, tenant, client]
+        "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_primary_tax_contact) VALUES ($1,$2,'A','B',true)",
+        [id, tenant]
       )
     ).rejects.toMatchObject({ code: '23514' });
   });
@@ -189,8 +188,12 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
     const insertBuyer = async name => {
       const id = await party(tx, 'client_contact');
       await tx.none(
-        "INSERT INTO app.organization_contacts (party_id, tenant_id, organization_id, full_name, tax_id_encrypted, tax_id_hash, tax_id_last4, is_primary_tax_contact) VALUES ($1,$2,$3,$4,'x',$5,'1234',true)",
-        [id, tenant, client, name, HASH]
+        "UPDATE app.parties SET tax_id_encrypted='x', tax_id_hash=$2, tax_id_last4='1234' WHERE id=$1",
+        [id, HASH]
+      );
+      await tx.none(
+        "INSERT INTO app.people (party_id, tenant_id, organization_id, first_name, last_name, is_primary_tax_contact) VALUES ($1,$2,$3,$4,'Smith',true)",
+        [id, tenant, client, name]
       );
     };
     await insertBuyer('Ann');
@@ -234,28 +237,22 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
   });
 });
 
-it('AC06: allows many primary and billing contacts but each designation once per employee', async () => {
+it('AC06: allows many primary and billing contacts, each a flag on the employee', async () => {
   await inTenant(tenant, async tx => {
     const employee = async () => {
       const id = await party(tx, 'employee');
       await tx.none(
-        "INSERT INTO app.people (party_id, tenant_id, first_name, last_name) VALUES ($1,$2,'Jane','Doe')",
+        "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_primary_contact, is_billing_contact) VALUES ($1,$2,'Jane','Doe',true,true)",
         [id, tenant]
       );
       return id;
     };
-    const designate = (id, designation) =>
-      tx.none(
-        'INSERT INTO app.tenant_contacts (tenant_id, party_id, designation) VALUES ($1,$2,$3)',
-        [tenant, id, designation]
-      );
-    const [a, b] = [await employee(), await employee()];
-    await designate(a, 'primary');
-    await designate(b, 'primary');
-    await designate(a, 'billing');
-    await designate(b, 'billing');
-    await expect(tx.tx(() => designate(a, 'primary'))).rejects.toMatchObject({
-      code: '23505',
-    });
+    const ids = [await employee(), await employee()];
+    expect(
+      await tx.one(
+        'SELECT count(*) FILTER (WHERE is_primary_contact)::int AS primary, count(*) FILTER (WHERE is_billing_contact)::int AS billing FROM app.people WHERE party_id = ANY($1::uuid[])',
+        [ids]
+      )
+    ).toEqual({ primary: 2, billing: 2 });
   });
 });

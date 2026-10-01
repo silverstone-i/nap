@@ -21,5 +21,5 @@ export const KIND_LABELS = {
 export function recordName(record) {
   if (record.firstName !== undefined)
     return `${record.firstName} ${record.lastName}`;
-  return record.legalName ?? record.fullName;
+  return record.legalName;
 }
