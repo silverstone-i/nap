@@ -6,6 +6,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import Alert from '@mui/material/Alert';
+import HandshakeIcon from '@mui/icons-material/Handshake';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { ApiError } from '../../api/client.js';
 import { denialMessage } from '../../auth/capabilities.js';
 import {
@@ -187,11 +189,17 @@ export function TenantsPage() {
     if (row.clientId && napsoftSelected)
       actions.push({
         label: 'View client',
+        // Same icon as Directory → Clients.
+        icon: <HandshakeIcon fontSize="small" />,
         onClick: () => navigate(`/directory/clients?open=${row.clientId}`),
       });
     // I0006-R012
     if (canWrite && row.jobStatus === 'failed')
-      actions.push({ label: 'Retry', onClick: handleRetry });
+      actions.push({
+        label: 'Retry',
+        icon: <RefreshIcon fontSize="small" />,
+        onClick: handleRetry,
+      });
     return actions;
   }
 
