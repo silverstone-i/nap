@@ -265,6 +265,12 @@ R022). An active, ready customer membership must have a `member_id`
 ### Verification Evidence
 
 Implemented in [silverstone-i/nap#44](https://github.com/silverstone-i/nap/pull/44).
+Revised in [silverstone-i/nap#52](https://github.com/silverstone-i/nap/pull/52)
+to provision from a Napsoft client (R001, R007, R010). On 2026-09-30, lint,
+formatting, `npm test` (549 API, 175 web), and `npm run test:db:local` (252
+tests) passed. `tenant-provisioning.test.js` now creates each tenant from a
+client in the Napsoft cell and rejects an unknown client, a vendor, a reused
+client or code, and an unready cell (AC06).
 On 2026-09-28, lint, formatting, `npm test` (520 API, 148 web), `npm run build`,
 and `npm run test:db:local` (231 tests) passed.
 
