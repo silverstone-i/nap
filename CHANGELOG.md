@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Tenants screen's row menu shows an icon for each action: a handshake for **View client** (as on Directory → Clients) and a refresh arrow for **Retry**, instead of the generic ⋮.
+
 ## [v0.26.0] - 2026-10-01
 
 ### Added
