@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.27.2] - 2026-10-09
+
 ### Added
 
 - Session management (I0009). Tenant Management has a **Sessions** screen listing every portal user's sessions, active and ended, filterable by user email, tenant, sign-in date range, and status, with **Revoke** on an active row and **Revoke selected** for the current page. `GET /sessions` (`NAP::admin-tenancy::sessions::read`, new) returns cursor pages with each session's email, tenant, start, last seen, status, and end time. `POST /sessions/revoke` (`sessions::revoke`) revokes up to 100 sessions in one transaction and refuses the whole batch with `403` when any ID is unknown or out of scope.
