@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.27.1] - 2026-10-09
+
 ### Fixed
 
 - **Change password** from the profile menu has a **Cancel** button that returns to the previous page. The required first-sign-in change still offers only **Logout**.
