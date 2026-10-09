@@ -5,7 +5,7 @@
 
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StandardDataGrid } from '../src/grid/StandardDataGrid.jsx';
 import { ThemeModeProvider } from '../src/theme/ThemeModeContext.jsx';
 import { installMatchMedia, installResizeObserver } from './testUtils.jsx';
@@ -94,4 +94,27 @@ describe('StandardDataGrid', () => {
       expect(within(dialog).getByText(expected)).toBeTruthy();
     }
   );
+
+  it('reports the selected row IDs, and the clear on reset (I0001-R016)', async () => {
+    const user = userEvent.setup();
+    const onSelectionChange = vi.fn();
+    const { rerender } = renderGrid({ resetKey: 'a', onSelectionChange });
+    await screen.findByText('Alpha');
+    await user.click(
+      screen.getAllByRole('checkbox', { name: /select row/i })[1]
+    );
+    expect(onSelectionChange).toHaveBeenLastCalledWith([2]);
+    rerender(
+      <ThemeModeProvider>
+        <StandardDataGrid
+          columns={COLUMNS}
+          fetchPage={fetchPage}
+          resetKey="b"
+          onSelectionChange={onSelectionChange}
+        />
+      </ThemeModeProvider>
+    );
+    await screen.findByText('Alpha');
+    expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+  });
 });

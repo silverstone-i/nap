@@ -141,6 +141,26 @@ function fakeAdmin(rows) {
       lockLiveForUser: async () => [],
       insertSession: async () => row(),
       archiveForUser: async () => [],
+      lockByIds: async ids =>
+        ids
+          .map(byId)
+          .filter(Boolean)
+          .map(found => ({ ...found })),
+      page: async (filters, limit) => ({
+        rows: [...store.values()].slice(0, limit).map(found => ({
+          id: found.id,
+          portal_user_id: found.portal_user_id,
+          email: 'user@example.com',
+          tenant_id: found.tenant_id,
+          tenant_code: null,
+          tenant_name: null,
+          created_at: found.created_at,
+          last_seen_at: found.last_seen_at,
+          status: found.deactivated_at === null ? 'active' : 'ended',
+          ended_at: found.deactivated_at,
+        })),
+        nextCursor: null,
+      }),
     },
   };
   return { db, events, revisions };
@@ -149,13 +169,13 @@ function fakeAdmin(rows) {
 /**
  * Build the API with a fake admin handle and the real route table.
  * @param {object[]} rows
- * @param {{bootstrapLoginId?: string}} [options]
+ * @param {{bootstrapLoginId?: string, patterns?: string[]}} [options] `patterns` replaces the bootstrap login's grants.
  * @returns {{app: import('express').Express, admin: object}}
  */
 function api(rows = [], options) {
   const admin = fakeAdmin(rows);
   const cache = options?.bootstrapLoginId
-    ? authorizeActor(admin.db, options.bootstrapLoginId)
+    ? authorizeActor(admin.db, options.bootstrapLoginId, options.patterns)
     : authorizeActor(admin.db, randomUUID(), []);
   const app = createApp({
     api: {
@@ -614,6 +634,163 @@ describe('session routes', () => {
       .set('Origin', ORIGIN)
       .set('Cookie', `nap_session=${bootstrap.token}`);
     expect(malformed.status).toBe(400);
+  });
+
+  describe('I0009 session list and bulk revoke', () => {
+    const list = (app, token, query = '') =>
+      request(app)
+        .get(`/api/admin-tenancy/v1/sessions${query}`)
+        .set('Origin', ORIGIN)
+        .set('Cookie', `nap_session=${token}`);
+    const bulk = (app, token, ids) =>
+      request(app)
+        .post('/api/admin-tenancy/v1/sessions/revoke')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `nap_session=${token}`)
+        .send({ ids });
+
+    it('lists sessions without tokens for a holder of sessions::read (R001, R003, R004)', async () => {
+      const operator = live();
+      const other = live();
+      const { app } = api([operator.session, other.session], {
+        bootstrapLoginId: operator.session.portal_user_id,
+      });
+      const response = await list(
+        app,
+        operator.token,
+        '?status=active&limit=10'
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers['cache-control']).toBe('no-store');
+      expect(response.body.data.nextCursor).toBeNull();
+      expect(response.body.data.rows).toHaveLength(2);
+      expect(response.body.data.rows[0]).toMatchObject({
+        id: operator.session.id,
+        userId: operator.session.portal_user_id,
+        email: 'user@example.com',
+        status: 'active',
+        endedAt: null,
+      });
+      expect(JSON.stringify(response.body)).not.toMatch(/token|hash/i);
+    });
+
+    it('rejects a bad filter and refuses a reader without the capability (R002, R004)', async () => {
+      const operator = live();
+      const { app } = api([operator.session], {
+        bootstrapLoginId: operator.session.portal_user_id,
+      });
+      expect((await list(app, operator.token, '?status=gone')).status).toBe(
+        400
+      );
+      expect(
+        (
+          await list(
+            app,
+            operator.token,
+            '?from=2026-10-09T00:00:00Z&to=2026-10-08T00:00:00Z'
+          )
+        ).status
+      ).toBe(400);
+
+      const support = live();
+      const { app: supportApp } = api([support.session], {
+        bootstrapLoginId: support.session.portal_user_id,
+        patterns: ['*::*::*::read'],
+      });
+      const denied = await list(supportApp, support.token);
+      expect(denied.status).toBe(403);
+      expect(denied.body.error.capability).toBe(
+        'NAP::admin-tenancy::sessions::read'
+      );
+    });
+
+    it('revokes every listed session, one event each (R009)', async () => {
+      const operator = live();
+      const first = live();
+      const second = live();
+      const ended = live({ deactivated_at: new Date() });
+      const { app, admin } = api(
+        [operator.session, first.session, second.session, ended.session],
+        { bootstrapLoginId: operator.session.portal_user_id }
+      );
+      const response = await bulk(app, operator.token, [
+        first.session.id,
+        second.session.id,
+        ended.session.id,
+      ]);
+      expect(response.status).toBe(204);
+      expect(sessionCookie(response)).toBeUndefined();
+      expect(first.session.deactivated_at).not.toBeNull();
+      expect(second.session.deactivated_at).not.toBeNull();
+      expect(
+        admin.events.filter(event => event.event_key === 'session.revoked')
+      ).toEqual([
+        expect.objectContaining({
+          session_id: first.session.id,
+          details: { code: 'operator' },
+        }),
+        expect.objectContaining({
+          session_id: second.session.id,
+          details: { code: 'operator' },
+        }),
+      ]);
+    });
+
+    it('refuses the whole batch when one identifier is unknown (R009)', async () => {
+      const operator = live();
+      const target = live();
+      const { app, admin } = api([operator.session, target.session], {
+        bootstrapLoginId: operator.session.portal_user_id,
+      });
+      const response = await bulk(app, operator.token, [
+        target.session.id,
+        randomUUID(),
+      ]);
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual(errorEnvelope('FORBIDDEN'));
+      expect(target.session.deactivated_at).toBeNull();
+      expect(
+        admin.events.some(event => event.event_key === 'session.revoked')
+      ).toBe(false);
+    });
+
+    it('rejects an empty, oversized, or repeated list (R009)', async () => {
+      const operator = live();
+      const { app } = api([operator.session], {
+        bootstrapLoginId: operator.session.portal_user_id,
+      });
+      const id = randomUUID();
+      for (const ids of [
+        [],
+        Array.from({ length: 101 }, () => randomUUID()),
+        [id, id],
+        ['not-a-uuid'],
+      ])
+        expect((await bulk(app, operator.token, ids)).status).toBe(400);
+    });
+
+    it("clears the cookie when the caller's own session is revoked (R011)", async () => {
+      const operator = live();
+      const { app } = api([operator.session], {
+        bootstrapLoginId: operator.session.portal_user_id,
+      });
+      const response = await bulk(app, operator.token, [operator.session.id]);
+      expect(response.status).toBe(204);
+      expect(sessionCookie(response).value).toBe('');
+      expect(operator.session.deactivated_at).not.toBeNull();
+    });
+
+    it('refuses bulk revoke without sessions::revoke (R010)', async () => {
+      const support = live();
+      const target = live();
+      const { app } = api([support.session, target.session], {
+        bootstrapLoginId: support.session.portal_user_id,
+        patterns: ['*::*::*::read'],
+      });
+      const response = await bulk(app, support.token, [target.session.id]);
+      expect(response.status).toBe(403);
+      expect(target.session.deactivated_at).toBeNull();
+    });
   });
 
   it('refuses a body that is not JSON and a body that is not parseable', async () => {

@@ -339,4 +339,109 @@ export class Sessions extends TableModel {
       [id]
     );
   }
+
+  /**
+   * Lock a set of sessions by identifier, archived ones included, so a bulk
+   * revocation decides authority and applies inside one consistent view.
+   * Unknown identifiers are simply absent from the result.
+   * @param {string[]} ids
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<{id: string, portal_user_id: string, tenant_id: string|null, deactivated_at: Date|null}[]>}
+   */
+  async lockByIds(ids, { tx }) {
+    return tx.any(
+      `SELECT s.id,s.portal_user_id,s.tenant_id,s.deactivated_at
+         FROM ${table(this)} AS s WHERE s.id = ANY($1::uuid[])
+        ORDER BY s.id FOR UPDATE`,
+      [ids]
+    );
+  }
+
+  /**
+   * Read one page of sessions, archived ones included, newest sign-in first,
+   * with each session's account email and selected tenant (I0009-R001–R003).
+   *
+   * Status and end time are derived here from `now()`, so a session past its
+   * expiry reads as ended even if it was never resolved again. The cursor
+   * carries `created_at` at full microsecond precision, for the reason given
+   * on `ManagedEvents.page`.
+   * @param {object} filters
+   * @param {'*'|string[]} filters.tenantIds Tenants the reader's scope permits.
+   * @param {string[]} [filters.excludeTenantIds] With `'*'`, tenants it does not.
+   * @param {string} [filters.userId]
+   * @param {string} [filters.email] Case-insensitive substring of the account email.
+   * @param {string} [filters.tenantId]
+   * @param {string} [filters.from] Earliest sign-in, an ISO instant.
+   * @param {string} [filters.to] Latest sign-in, an ISO instant.
+   * @param {'active'|'ended'} [filters.status]
+   * @param {number} limit Rows per page, 1 to 100.
+   * @param {{created_at: string, id: string}|null} after Position to resume from.
+   * @returns {Promise<{rows: object[], nextCursor: {created_at: string, id: string}|null}>}
+   */
+  async page(filters, limit, after) {
+    const values = [];
+    const bind = value => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+    const live = `(s.deactivated_at IS NULL AND s.idle_expires_at > now()
+                   AND s.absolute_expires_at > now())`;
+    const where = [];
+    if (filters.tenantIds === '*') {
+      if (filters.excludeTenantIds?.length)
+        where.push(
+          `(s.tenant_id IS NULL OR s.tenant_id <> ALL(${bind(filters.excludeTenantIds)}::uuid[]))`
+        );
+    } else {
+      where.push(`s.tenant_id = ANY(${bind(filters.tenantIds)}::uuid[])`);
+    }
+    if (filters.userId)
+      where.push(`s.portal_user_id = ${bind(filters.userId)}::uuid`);
+    if (filters.email)
+      where.push(
+        `u.email ILIKE ${bind(`%${filters.email.replace(/[\\%_]/g, '\\$&')}%`)}`
+      );
+    if (filters.tenantId)
+      where.push(`s.tenant_id = ${bind(filters.tenantId)}::uuid`);
+    if (filters.from)
+      where.push(`s.created_at >= ${bind(filters.from)}::timestamptz`);
+    if (filters.to)
+      where.push(`s.created_at <= ${bind(filters.to)}::timestamptz`);
+    if (filters.status === 'active') where.push(live);
+    if (filters.status === 'ended') where.push(`NOT ${live}`);
+    if (after)
+      where.push(
+        `(s.created_at,s.id) < (${bind(after.created_at)}::timestamptz,${bind(after.id)}::uuid)`
+      );
+    // One row past the page, so a full page is distinguishable from a last one.
+    const fetched = await this.db.any(
+      `SELECT s.id, s.portal_user_id, u.email,
+              s.tenant_id, t.tenant_code, t.name AS tenant_name,
+              s.created_at, s.last_seen_at,
+              CASE WHEN ${live} THEN 'active' ELSE 'ended' END AS status,
+              CASE WHEN ${live} THEN NULL
+                   ELSE COALESCE(s.deactivated_at,
+                                 LEAST(s.idle_expires_at, s.absolute_expires_at))
+              END AS ended_at,
+              to_char(s.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
+         FROM ${table(this)} AS s
+         JOIN ${this.schemaName}.portal_users AS u ON u.id = s.portal_user_id
+         LEFT JOIN ${this.schemaName}.tenants AS t ON t.id = s.tenant_id
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY s.created_at DESC, s.id DESC
+        LIMIT ${bind(limit + 1)}`,
+      values
+    );
+    const hasMore = fetched.length > limit;
+    const rows = hasMore ? fetched.slice(0, limit) : fetched;
+    const last = hasMore ? rows.at(-1) : undefined;
+    return {
+      rows: rows.map(row => {
+        const view = { ...row };
+        delete view.cursor_at;
+        return view;
+      }),
+      nextCursor: last ? { created_at: last.cursor_at, id: last.id } : null,
+    };
+  }
 }

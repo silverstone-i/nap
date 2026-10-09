@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { encodeSessionCursor, parseSessionCursor } from './cursor.js';
 import { AdminSessionError, withSessionErrors } from './errors.js';
 import { isTenantPermitted, parseScope } from './scope.js';
+import { parseLimit } from './validation.js';
 
 /** Bytes of entropy in a session token. 256 bits, as M0001-04 §5 requires. */
 export const SESSION_TOKEN_BYTES = 32;
@@ -612,6 +614,159 @@ export async function revokeSession(
         tx
       );
       return { revoked: archived.length > 0 };
+    })
+  );
+}
+
+/** Most sessions one bulk revocation may name (I0009-R009). */
+export const MAX_BULK_REVOCATION = 100;
+
+const listFilterSchema = z.strictObject({
+  userId: z.uuid().optional(),
+  email: z.string().trim().min(1).max(254).optional(),
+  tenantId: z.uuid().optional(),
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
+  status: z.enum(['active', 'ended']).optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().optional(),
+});
+
+/**
+ * Reduce a listed session to the fields a response may contain
+ * (I0009-R003). The row never carries a token or token hash.
+ * @param {object} row Row from `Sessions.page`.
+ * @returns {object}
+ */
+export function sessionListView(row) {
+  return {
+    id: row.id,
+    userId: row.portal_user_id,
+    email: row.email,
+    tenant: row.tenant_id
+      ? { id: row.tenant_id, code: row.tenant_code, name: row.tenant_name }
+      : null,
+    startedAt: row.created_at,
+    lastSeenAt: row.last_seen_at,
+    status: row.status,
+    endedAt: row.ended_at ?? null,
+  };
+}
+
+/**
+ * I0009-R001–R003: one page of sessions, active and ended, newest sign-in
+ * first, limited to the tenants the reader's scope permits. A tenant filter
+ * outside the scope returns an empty page rather than `FORBIDDEN`, as the
+ * events list does, so a caller cannot probe tenant UUIDs.
+ * @param {AdminSessionDb} db
+ * @param {unknown} scope The reader's admin data scope.
+ * @param {object} [query]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>}
+ * @throws {AdminSessionError} `INVALID_INPUT`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function listSessions(db, scope, query = {}) {
+  let parsedScope;
+  try {
+    parsedScope = parseScope(scope);
+  } catch {
+    throw new AdminSessionError('INVALID_INPUT');
+  }
+  const parsed = listFilterSchema.safeParse(query);
+  if (!parsed.success) throw new AdminSessionError('INVALID_INPUT');
+  const { cursor, limit: rawLimit, ...filters } = parsed.data;
+  // Compared as instants: offsets make text order disagree with time order.
+  if (
+    filters.from &&
+    filters.to &&
+    Date.parse(filters.from) > Date.parse(filters.to)
+  )
+    throw new AdminSessionError('INVALID_INPUT');
+  let limit;
+  try {
+    limit = parseLimit(rawLimit);
+  } catch {
+    throw new AdminSessionError('INVALID_INPUT');
+  }
+  if (filters.tenantId && !isTenantPermitted(parsedScope, filters.tenantId))
+    return { rows: [], nextCursor: null };
+  const conditions = {
+    tenantIds: parsedScope.tenantIds,
+    excludeTenantIds: parsedScope.excludeTenantIds ?? [],
+    ...filters,
+  };
+  const fingerprint = createHash('sha256')
+    .update(JSON.stringify(conditions))
+    .digest('hex');
+  const after = parseSessionCursor(cursor, fingerprint);
+  return withSessionErrors(async () => {
+    const page = await db.sessions.page(conditions, limit, after);
+    return {
+      rows: page.rows.map(sessionListView),
+      nextCursor: encodeSessionCursor(page.nextCursor, fingerprint),
+    };
+  });
+}
+
+/**
+ * I0009-R009: revoke several sessions in one transaction, all or nothing.
+ *
+ * Each session follows `revokeSession`'s rule: the caller's own sessions need
+ * no scope, and any other needs a scope permitting its tenant. An unknown or
+ * denied identifier refuses the whole request with `FORBIDDEN`, the answer
+ * `revokeSession` gives, so the route reveals nothing about which session IDs
+ * exist. Sessions already ended are skipped without a second event.
+ * @param {AdminSessionDb} db
+ * @param {unknown} authority `{ actorId, scope }`.
+ * @param {unknown} ids Session UUIDs, 1 to `MAX_BULK_REVOCATION`, no repeats.
+ * @param {{requestId?: string|null}} [context]
+ * @returns {Promise<{revoked: string[]}>} The sessions this call archived.
+ * @throws {AdminSessionError} `INVALID_INPUT`, `FORBIDDEN`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function revokeSessions(db, authority, ids, { requestId } = {}) {
+  const parsedAuthority = parseSessionAuthority(authority);
+  const parsedIds = z
+    .array(z.uuid())
+    .min(1)
+    .max(MAX_BULK_REVOCATION)
+    .safeParse(ids);
+  if (
+    !parsedIds.success ||
+    new Set(parsedIds.data).size !== parsedIds.data.length
+  )
+    throw new AdminSessionError('INVALID_INPUT');
+  return withSessionErrors(async () =>
+    db.tx(async tx => {
+      const rows = await db.sessions.lockByIds(parsedIds.data, { tx });
+      if (rows.length !== parsedIds.data.length)
+        throw new AdminSessionError('FORBIDDEN');
+      const isOwn = row => row.portal_user_id === parsedAuthority.actorId;
+      const permitted = rows.every(
+        row =>
+          isOwn(row) ||
+          (parsedAuthority.scope !== null &&
+            isSessionPermitted(parsedAuthority.scope, row.tenant_id))
+      );
+      if (!permitted) throw new AdminSessionError('FORBIDDEN');
+      const live = rows.filter(row => row.deactivated_at === null);
+      const context = {
+        actorId: parsedAuthority.actorId,
+        requestId: requestId ?? null,
+      };
+      const revoked = [
+        ...(await archiveSessions(
+          db,
+          live.filter(isOwn),
+          { ...context, code: REVOCATION_CODES.logout },
+          tx
+        )),
+        ...(await archiveSessions(
+          db,
+          live.filter(row => !isOwn(row)),
+          { ...context, code: REVOCATION_CODES.operator },
+          tx
+        )),
+      ];
+      return { revoked };
     })
   );
 }

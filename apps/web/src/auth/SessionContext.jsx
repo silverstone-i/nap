@@ -17,7 +17,7 @@ import {
   useState,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { ApiError } from '../api/client.js';
+import { ApiError, setUnauthenticatedHandler } from '../api/client.js';
 import * as api from '../api/endpoints.js';
 import { clearReturnPath, storeReturnPath } from './returnPath.js';
 import { deriveDestination } from './deriveDestination.js';
@@ -46,6 +46,19 @@ const EMPTY = {
 
 const SessionContext = createContext(null);
 
+/** Channel every tab of this browser listens on for a session ending (I0009-R013). */
+const SESSION_CHANNEL = 'nap.session';
+
+/**
+ * Open the session channel, or `null` where the browser has none.
+ * @returns {BroadcastChannel|null}
+ */
+function openSessionChannel() {
+  return typeof BroadcastChannel === 'undefined'
+    ? null
+    : new BroadcastChannel(SESSION_CHANNEL);
+}
+
 /**
  * The application's one piece of authenticated state, loaded from
  * `GET /access/context` and `GET /session/capabilities` and kept in sync with every mutation the PRD's
@@ -63,6 +76,13 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     locationRef.current = location;
   }, [location]);
+  // Read by the session-ended paths, which run outside React's render and
+  // must not act twice for one ending.
+  const statusRef = useRef(state.status);
+  useEffect(() => {
+    statusRef.current = state.status;
+  }, [state.status]);
+  const channelRef = useRef(null);
 
   const applyContext = ([context, capabilities]) =>
     setState({
@@ -145,12 +165,70 @@ export function SessionProvider({ children }) {
     loadContext().then(applyContext, applyContextFailure);
   }, []);
 
-  /** Mid-use expiry: clear state, remember where we were, and bounce to `/login`. */
-  const expire = useCallback(() => {
-    storeReturnPath(locationRef.current.pathname);
-    setState({ ...EMPTY, status: 'anonymous', notice: 'sessionExpired' });
-    navigate('/login', { replace: true });
-  }, [navigate]);
+  /**
+   * The session ended while this tab was using it: clear state, remember
+   * where the tab was, and go to `/login`. Runs once per ending however many
+   * failed requests report it.
+   * @param {'sessionExpired'|'sessionEnded'} notice
+   * @returns {boolean} Whether this call ended the tab's session.
+   */
+  const endLocally = useCallback(
+    notice => {
+      if (statusRef.current === 'anonymous') return false;
+      statusRef.current = 'anonymous';
+      storeReturnPath(locationRef.current.pathname);
+      setState({ ...EMPTY, status: 'anonymous', notice });
+      navigate('/login', { replace: true });
+      return true;
+    },
+    [navigate]
+  );
+
+  /**
+   * Mid-use expiry: end the session here and tell the browser's other tabs
+   * (I0009-R013). A request failing `UNAUTHENTICATED` cannot tell expiry
+   * from revocation, so that path says the session ended.
+   * @param {'sessionExpired'|'sessionEnded'} [notice]
+   */
+  const expire = useCallback(
+    (notice = 'sessionExpired') => {
+      if (endLocally(notice))
+        channelRef.current?.postMessage({ type: 'ended' });
+    },
+    [endLocally]
+  );
+
+  // I0009-R013: every tab of this browser leaves when one learns the session
+  // ended. The message carries no session data, and receiving it sends no
+  // request. A request failing `UNAUTHENTICATED` mid-use is one way to learn
+  // it; the auth routes are excluded because a wrong password fails the same
+  // way.
+  // The channel stays open for the provider's lifetime; the handlers read
+  // the latest callbacks through refs, since `navigate` changes identity on
+  // every navigation.
+  const handlersRef = useRef({ endLocally, expire });
+  useEffect(() => {
+    handlersRef.current = { endLocally, expire };
+  }, [endLocally, expire]);
+  useEffect(() => {
+    const channel = openSessionChannel();
+    channelRef.current = channel;
+    if (channel)
+      channel.onmessage = event => {
+        if (event.data?.type === 'ended')
+          handlersRef.current.endLocally('sessionEnded');
+      };
+    setUnauthenticatedHandler(path => {
+      if (path.includes('/auth/')) return;
+      if (statusRef.current === 'ready' || statusRef.current === 'restricted')
+        handlersRef.current.expire('sessionEnded');
+    });
+    return () => {
+      setUnauthenticatedHandler(null);
+      channel?.close();
+      channelRef.current = null;
+    };
+  }, []);
 
   const login = useCallback(
     async (email, password) => {
@@ -221,8 +299,10 @@ export function SessionProvider({ children }) {
       // browser must be able to drop a cookie it can no longer use.
     }
     clearReturnPath();
+    statusRef.current = 'anonymous';
     setState({ ...EMPTY, status: 'anonymous' });
     navigate('/login', { replace: true });
+    channelRef.current?.postMessage({ type: 'ended' });
   }, [navigate]);
 
   const value = useMemo(() => {

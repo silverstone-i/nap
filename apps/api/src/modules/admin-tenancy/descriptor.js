@@ -26,6 +26,7 @@ export const descriptor = {
     'admin-tenancy::control::write',
     'admin-tenancy::accounts::read',
     'admin-tenancy::accounts::write',
+    'admin-tenancy::sessions::read',
     'admin-tenancy::sessions::revoke',
     'admin-tenancy::entitlements::read',
     'admin-tenancy::entitlements::write',

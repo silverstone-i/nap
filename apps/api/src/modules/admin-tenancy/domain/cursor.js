@@ -4,7 +4,11 @@
  */
 
 import { z } from 'zod';
-import { AdminAccessError, AdminEventError } from './errors.js';
+import {
+  AdminAccessError,
+  AdminEventError,
+  AdminSessionError,
+} from './errors.js';
 
 const payloadSchema = z.strictObject({
   v: z.literal(1),
@@ -113,6 +117,57 @@ export function encodeEventCursor(nextCursor, fingerprint) {
     op: 'listEvents',
     fingerprint,
     after: { occurred_at: nextCursor.occurred_at, id: nextCursor.id },
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+const sessionPayloadSchema = z.strictObject({
+  v: z.literal(1),
+  op: z.literal('listSessions'),
+  fingerprint: z.string().length(64),
+  after: z.strictObject({
+    created_at: z.string().regex(microsecondInstant),
+    id: z.uuid(),
+  }),
+});
+
+/**
+ * Decode and validate an opaque session-list cursor, and confirm it was issued
+ * for this same filter set and scope (I0009-R001), as `parseEventCursor` does.
+ * @param {unknown} cursor Caller-supplied cursor, or `undefined` for the first page.
+ * @param {string} fingerprint Hash of the applied filters and scope.
+ * @returns {{created_at: string, id: string}|null}
+ * @throws {AdminSessionError} `INVALID_INPUT`
+ */
+export function parseSessionCursor(cursor, fingerprint) {
+  if (cursor === undefined || cursor === null) return null;
+  if (typeof cursor !== 'string' || cursor.length === 0)
+    throw new AdminSessionError('INVALID_INPUT');
+  let decoded;
+  try {
+    decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw new AdminSessionError('INVALID_INPUT');
+  }
+  const result = sessionPayloadSchema.safeParse(decoded);
+  if (!result.success || result.data.fingerprint !== fingerprint)
+    throw new AdminSessionError('INVALID_INPUT');
+  return result.data.after;
+}
+
+/**
+ * Encode the next session page's cursor.
+ * @param {{created_at: string, id: string}|null} nextCursor The model's raw cursor, or `null`.
+ * @param {string} fingerprint Hash of the applied filters and scope.
+ * @returns {string|null}
+ */
+export function encodeSessionCursor(nextCursor, fingerprint) {
+  if (!nextCursor) return null;
+  const payload = {
+    v: 1,
+    op: 'listSessions',
+    fingerprint,
+    after: { created_at: nextCursor.created_at, id: nextCursor.id },
   };
   return Buffer.from(JSON.stringify(payload)).toString('base64url');
 }
