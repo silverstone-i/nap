@@ -302,6 +302,90 @@ describe('Portal access (I0008)', () => {
   });
 });
 
+describe('Labels in the record detail (M0005-R014, R015)', () => {
+  it('shows each email, phone, address, and contact with its label', async () => {
+    const vendor = {
+      id: '44444444-4444-4444-8444-444444444444',
+      kind: 'vendor',
+      legalName: 'Flag Supply LLC',
+      dbaName: null,
+      taxIdLast4: null,
+      archived: false,
+      revision: 1,
+      primaryEmail: 'ap@flag.test',
+      primaryPhone: null,
+    };
+    api.listDirectoryRecords.mockResolvedValue([vendor]);
+    api.getDirectoryRecord.mockResolvedValue({
+      ...vendor,
+      contactMethods: [
+        {
+          id: 'm1',
+          type: 'email',
+          value: 'ap@flag.test',
+          labelId: 'l1',
+          labelName: 'Billing',
+          isPrimary: true,
+        },
+        {
+          id: 'm2',
+          type: 'phone',
+          value: '512-555-0100',
+          labelId: null,
+          labelName: null,
+          isPrimary: false,
+        },
+      ],
+      addresses: [
+        {
+          id: 'a1',
+          line1: '1 Oak St',
+          line2: null,
+          city: 'Austin',
+          region: 'TX',
+          postalCode: '78701',
+          country: 'US',
+          labelId: 'l2',
+          labelName: 'Location',
+          isPrimary: true,
+        },
+      ],
+      contacts: [
+        {
+          id: '55555555-5555-4555-8555-555555555555',
+          kind: 'vendor_contact',
+          firstName: 'Rita',
+          lastName: 'Moss',
+          primaryEmail: 'rita@flag.test',
+          primaryEmailLabel: 'Office',
+          primaryPhone: null,
+          primaryPhoneLabel: null,
+          isPrimaryContact: true,
+          isBillingContact: false,
+          isPrimaryTaxContact: false,
+          portalAccess: { status: 'off' },
+        },
+      ],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="vendor" />);
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'Flag Supply LLC' })
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText('Email · Billing · primary')
+    ).toBeTruthy();
+    expect(within(dialog).getByText('Phone')).toBeTruthy();
+    expect(
+      within(dialog).getByText('Austin TX 78701 US · Location · primary')
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText('rita@flag.test (Office) · Primary contact')
+    ).toBeTruthy();
+  });
+});
+
 describe('Clients (M0005-R007)', () => {
   it('creates a home buyer client with its primary buyer', async () => {
     api.listDirectoryRecords.mockResolvedValue([]);

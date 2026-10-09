@@ -171,3 +171,37 @@ it('leaves /password for the destination after a required change (I0001-R002)', 
   expect(await screen.findByText('No tenant selected.')).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Change password' })).toBeNull();
 });
+
+const readyContext = {
+  session: { restricted: false },
+  user: { id: 'u1', email: 'root@example.com' },
+  selectedTenant: null,
+  operator: napsoft,
+  entryPoints: { tenant: false },
+};
+
+it('offers Cancel, not Logout, on a voluntary password change', async () => {
+  const user = userEvent.setup();
+  api.getAccessContext.mockResolvedValue(readyContext);
+  api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
+  render(
+    <ThemeModeProvider>
+      <MemoryRouter initialEntries={['/home', '/password']} initialIndex={1}>
+        <App />
+      </MemoryRouter>
+    </ThemeModeProvider>
+  );
+  await user.click(await screen.findByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('button', { name: 'Logout' })).toBeNull();
+  expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+  expect(api.changePassword).not.toHaveBeenCalled();
+});
+
+it('offers Logout, not Cancel, on a required password change', async () => {
+  api.getAccessContext.mockRejectedValue(
+    new ApiError('PASSWORD_CHANGE_REQUIRED', 403)
+  );
+  renderAt('/password');
+  expect(await screen.findByRole('button', { name: 'Logout' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
+});

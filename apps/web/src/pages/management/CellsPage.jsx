@@ -258,11 +258,13 @@ export function CellsPage() {
     if (row.seedState === 'missing')
       actions.push({ label: 'Load reference data', onClick: handleSeed });
     // I0003-R033: `destructive` routes Disable through the grid's
-    // confirmation dialog.
+    // confirmation dialog. Disable is reversible, so it says so.
     if (row.enabled)
       actions.push({
         label: 'Disable',
         destructive: true,
+        confirmDescription:
+          'The cell stops serving until you activate it again.',
         onClick: handleDisable,
       });
     return actions;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { StandardDataGrid } from '../src/grid/StandardDataGrid.jsx';
@@ -69,4 +69,29 @@ describe('StandardDataGrid', () => {
     });
     expect(afterSwitch[0].checked).toBe(false);
   });
+
+  it.each([
+    [undefined, 'This action cannot be undone.'],
+    ['Reversible later.', 'Reversible later.'],
+  ])(
+    'confirms a destructive action with its own description (%s)',
+    async (confirmDescription, expected) => {
+      const user = userEvent.setup();
+      renderGrid({
+        rowActions: () => [
+          {
+            label: 'Remove',
+            destructive: true,
+            confirmDescription,
+            onClick: () => {},
+          },
+        ],
+      });
+      await screen.findByText('Alpha');
+      await user.click(screen.getAllByRole('menuitem', { name: 'more' })[0]);
+      await user.click(await screen.findByRole('menuitem', { name: 'Remove' }));
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByText(expected)).toBeTruthy();
+    }
+  );
 });

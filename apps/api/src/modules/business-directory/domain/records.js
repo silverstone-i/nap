@@ -185,8 +185,10 @@ async function primaries(context, partyIds, tx) {
   const map = new Map(partyIds.map(id => [id, { email: null, phone: null }]));
   for (const row of await context.cell.contact_methods.primariesFor(partyIds, {
     tx,
-  }))
+  })) {
     map.get(row.party_id)[row.type] = row.value;
+    map.get(row.party_id)[`${row.type}LabelId`] = row.label_id;
+  }
   for (const [id, fact] of await portalFacts(context, partyIds, tx))
     map.get(id).portal = fact;
   return map;
@@ -463,8 +465,24 @@ export async function listRecords(context, name, query) {
 }
 
 /**
- * One record with its emails, phones, and addresses; an organization adds
- * its contacts.
+ * Look up label names by id, archived labels included, so a contact that
+ * still carries an archived label shows it (R017).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {object} tx
+ * @returns {Promise<(id: string|null|undefined) => string|null>}
+ */
+async function labelNames(context, tx) {
+  const names = new Map(
+    (
+      await context.cell.contact_labels.rows({}, { tx, includeArchived: true })
+    ).map(label => [label.id, label.name])
+  );
+  return id => (id ? (names.get(id) ?? null) : null);
+}
+
+/**
+ * One record with its emails, phones, and addresses, each with its label
+ * name; an organization adds its contacts.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name
  * @param {unknown} id
@@ -475,6 +493,7 @@ export async function getRecord(context, name, id) {
     const row = await loadRecord(context, name, id, tx);
     const key = row.party_id;
     const view = await viewOf(context, name, row, tx);
+    const labelName = await labelNames(context, tx);
     const detail = {
       ...view,
       contactMethods: (
@@ -482,13 +501,19 @@ export async function getRecord(context, name, id) {
           { party_id: key },
           { tx, orderBy: ['type', 'created_at', 'id'] }
         )
-      ).map(contactMethodView),
+      ).map(method => ({
+        ...contactMethodView(method),
+        labelName: labelName(method.label_id),
+      })),
       addresses: (
         await context.cell.addresses.rows(
           { party_id: key },
           { tx, orderBy: ['created_at', 'id'] }
         )
-      ).map(addressView),
+      ).map(address => ({
+        ...addressView(address),
+        labelName: labelName(address.label_id),
+      })),
     };
     if (name === 'organizations') {
       const contacts = await context.cell.people.search({
@@ -501,9 +526,14 @@ export async function getRecord(context, name, id) {
         contacts.map(c => c.party_id),
         tx
       );
-      detail.contacts = contacts.map(c =>
-        recordView('organization-contacts', c, map.get(c.party_id))
-      );
+      detail.contacts = contacts.map(c => {
+        const primary = map.get(c.party_id);
+        return {
+          ...recordView('organization-contacts', c, primary),
+          primaryEmailLabel: labelName(primary.emailLabelId),
+          primaryPhoneLabel: labelName(primary.phoneLabelId),
+        };
+      });
     }
     return detail;
   });

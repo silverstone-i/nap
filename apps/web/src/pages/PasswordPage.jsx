@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -24,6 +24,7 @@ import { Wordmark } from '../shell/Wordmark.jsx';
 export function PasswordPage() {
   const session = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState(null);
@@ -37,6 +38,13 @@ export function PasswordPage() {
       navigate(session.destination ?? '/login', { replace: true });
     }
   }, [done, session, navigate]);
+
+  // A voluntary change can be abandoned: go back where the user came from, or
+  // to their destination when /password was opened directly.
+  function handleCancel() {
+    if (location.key !== 'default') navigate(-1);
+    else navigate(session.destination ?? '/', { replace: true });
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -121,9 +129,15 @@ export function PasswordPage() {
           >
             Change password
           </Button>
-          <Button variant="text" onClick={() => session.logout()} fullWidth>
-            Logout
-          </Button>
+          {forced ? (
+            <Button variant="text" onClick={() => session.logout()} fullWidth>
+              Logout
+            </Button>
+          ) : (
+            <Button variant="text" onClick={handleCancel} fullWidth>
+              Cancel
+            </Button>
+          )}
         </Stack>
       </Paper>
     </Box>
