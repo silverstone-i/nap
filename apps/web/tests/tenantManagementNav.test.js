@@ -14,11 +14,12 @@ import { NO_CAPABILITIES, capabilitiesFixture } from './testUtils.jsx';
 const ACME = { id: 'acme', code: 'ACME' };
 
 describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
-  it('lists Tenants, Cells, and Portal Users as the known children', () => {
+  it('lists Tenants, Cells, Portal Users, and Sessions as the known children', () => {
     expect(TENANT_MANAGEMENT_CHILDREN.map(child => child.label)).toEqual([
       'Tenants',
       'Cells',
       'Portal Users',
+      'Sessions',
     ]);
   });
 
@@ -39,7 +40,7 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
     }
   );
 
-  it('returns all three, in order, for a platform admin', () => {
+  it('returns all four, in order, for a platform admin', () => {
     expect(visibleTenantManagementChildren(capabilitiesFixture())).toEqual([
       { id: 'tenants', label: 'Tenants', path: '/management/tenants' },
       { id: 'cells', label: 'Cells', path: '/management/cells' },
@@ -48,6 +49,7 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
         label: 'Portal Users',
         path: '/management/portal-users',
       },
+      { id: 'sessions', label: 'Sessions', path: '/management/sessions' },
     ]);
   });
 
@@ -58,6 +60,15 @@ describe('visibleTenantManagementChildren (I0001-R023, I0005-R011)', () => {
     expect(
       visibleTenantManagementChildren(capabilities).map(child => child.id)
     ).toEqual(['portal-users']);
+  });
+
+  it('shows Sessions only with sessions::read on Napsoft (I0009-R005)', () => {
+    const capabilities = capabilitiesFixture({
+      patterns: ['NAP::admin-tenancy::sessions::read'],
+    });
+    expect(
+      visibleTenantManagementChildren(capabilities).map(child => child.id)
+    ).toEqual(['sessions']);
   });
 
   it('checks every child against Napsoft, not the target tenant', () => {

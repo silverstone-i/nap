@@ -39,6 +39,14 @@ export const TENANT_MANAGEMENT_CHILDREN = Object.freeze([
     capability: 'admin-tenancy::accounts::read',
     target: 'napsoft',
   }),
+  Object.freeze({
+    id: 'sessions',
+    label: 'Sessions',
+    path: '/management/sessions',
+    implemented: true,
+    capability: 'admin-tenancy::sessions::read',
+    target: 'napsoft',
+  }),
 ]);
 
 /**

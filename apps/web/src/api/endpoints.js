@@ -25,6 +25,7 @@ import {
   userMembershipsResponseSchema,
   userResponseSchema,
   usersListResponseSchema,
+  sessionsListResponseSchema,
   personViewSchema,
   personDetailSchema,
   organizationViewSchema,
@@ -255,6 +256,30 @@ export async function rolloutReferenceData() {
 export async function listUsersPage(page) {
   const data = await apiGet(`${BASE}/accounts/users${pageQuery(page)}`);
   return usersListResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * I0009-R001, R002: one page of sessions, active and ended.
+ * @param {{cursor?: string, limit?: number, userId?: string, email?: string, tenantId?: string, from?: string, to?: string, status?: 'active'|'ended'}} [page]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>}
+ */
+export async function listSessionsPage(page = {}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(page))
+    if (value !== undefined && value !== null && value !== '')
+      params.set(key, String(value));
+  const query = params.toString();
+  const data = await apiGet(`${BASE}/sessions${query ? `?${query}` : ''}`);
+  return sessionsListResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * I0009-R009: revoke several sessions at once, all or nothing.
+ * @param {string[]} ids Session UUIDs, 1 to 100.
+ * @returns {Promise<void>}
+ */
+export async function revokeSessions(ids) {
+  await apiPost(`${BASE}/sessions/revoke`, { ids });
 }
 
 /**

@@ -19,6 +19,7 @@ import {
 import { LoginPage } from './pages/LoginPage.jsx';
 import { CellsPage } from './pages/management/CellsPage.jsx';
 import { PortalUsersPage } from './pages/management/PortalUsersPage.jsx';
+import { SessionsPage } from './pages/management/SessionsPage.jsx';
 import { RolesPage } from './pages/management/RolesPage.jsx';
 import { DirectoryRecordsPage } from './pages/directory/DirectoryRecordsPage.jsx';
 import { LabelsPage } from './pages/directory/LabelsPage.jsx';
@@ -110,6 +111,14 @@ export function App() {
           element={
             <ShellRoute guard={RequireManagementAccess}>
               <PortalUsersPage />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/management/sessions"
+          element={
+            <ShellRoute guard={RequireManagementAccess}>
+              <SessionsPage />
             </ShellRoute>
           }
         />

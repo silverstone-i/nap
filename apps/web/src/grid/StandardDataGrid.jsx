@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -38,7 +38,10 @@ const EMPTY_SELECTION = { type: 'include', ids: new Set() };
  *   resetKey?: unknown,
  *   rowActions?: (row: object) => Array<{label: string, icon?: import('react').ReactNode, onClick: (row: object) => void, destructive?: boolean, confirmDescription?: string}>,
  *   emptyMessage?: string,
- * }} props
+ *   onSelectionChange?: (ids: Array<string|number>) => void,
+ * }} props `onSelectionChange` receives the selected row IDs whenever the
+ *   selection changes, including when a page, sort, filter, or reset clears
+ *   it, so a page can offer bulk actions on the current page (I0001-R016).
  * @returns {JSX.Element}
  */
 export function StandardDataGrid({
@@ -48,6 +51,7 @@ export function StandardDataGrid({
   resetKey,
   rowActions,
   emptyMessage = 'No rows to show.',
+  onSelectionChange,
 }) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
@@ -65,6 +69,10 @@ export function StandardDataGrid({
   const [error, setError] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [retryTick, setRetryTick] = useState(0);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  useEffect(() => {
+    onSelectionChangeRef.current = onSelectionChange;
+  }, [onSelectionChange]);
 
   // Reset to page 0 whenever the tenant context (resetKey) changes.
   // Adjusted directly during render — React's "adjusting state when a prop
@@ -95,6 +103,17 @@ export function StandardDataGrid({
     setLoading(true);
     setError(null);
   }
+
+  // Report the selection as row IDs. An `exclude` model (select-all) names
+  // the rows left out, so it resolves against the current page's rows.
+  useEffect(() => {
+    const idOf = row => (getRowId ? getRowId(row) : row.id);
+    const ids =
+      rowSelectionModel.type === 'exclude'
+        ? rows.map(idOf).filter(id => !rowSelectionModel.ids.has(id))
+        : [...rowSelectionModel.ids];
+    onSelectionChangeRef.current?.(ids);
+  }, [rowSelectionModel, rows, getRowId]);
 
   // The fetch itself is the one legitimate use of an effect here — it
   // synchronizes with an external system (the server page). Its body sets

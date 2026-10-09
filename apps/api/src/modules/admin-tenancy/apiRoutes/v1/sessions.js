@@ -4,15 +4,23 @@
  */
 
 import { Router } from 'express';
-import { sendNoContent } from '../../../../framework/envelope.js';
+import { sendData, sendNoContent } from '../../../../framework/envelope.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
-import { revokeSession } from '../../domain/session.js';
+import {
+  listSessions,
+  revokeSession,
+  revokeSessions,
+} from '../../domain/session.js';
 import { requireCapability } from '../../../../capability/requireCapability.js';
 import { accessScope } from '../../domain/authorization.js';
 import { discardSessionCookie, sendSessionError } from './shared.js';
 
+/** Query parameters `GET /sessions` passes to the domain (I0009-R002). */
+const LIST_FILTERS = ['userId', 'email', 'tenantId', 'from', 'to', 'status'];
+
 /**
- * Build the `sessions` router: revoke a session by identifier.
+ * Build the `sessions` router: list sessions, revoke several at once
+ * (I0009), and revoke one by identifier.
  *
  * Self-revocation needs only the session. Revoking another user's session
  * requires `admin-tenancy::sessions::revoke` against the Napsoft tenant
@@ -28,6 +36,59 @@ export function createSessionsRouter({ admin, cookiePolicy }) {
   const revoke = requireCapability('admin-tenancy::sessions::revoke', {
     target: 'napsoft',
   });
+
+  router.get(
+    '/',
+    requireSession(),
+    requireCapability('admin-tenancy::sessions::read', { target: 'napsoft' }),
+    async (request, response) => {
+      try {
+        const query = {};
+        for (const key of LIST_FILTERS)
+          if (typeof request.query[key] === 'string' && request.query[key])
+            query[key] = request.query[key];
+        if (request.query.cursor !== undefined)
+          query.cursor = request.query.cursor;
+        if (request.query.limit !== undefined)
+          query.limit = Number(request.query.limit);
+        const result = await listSessions(
+          admin.db,
+          accessScope(request.authorization),
+          query
+        );
+        sendData(response, result);
+      } catch (error) {
+        sendSessionError(response, error);
+      }
+    }
+  );
+
+  router.post(
+    '/revoke',
+    requireSession(),
+    requireCapability('admin-tenancy::sessions::revoke', { target: 'napsoft' }),
+    async (request, response) => {
+      try {
+        const ids = request.body?.ids;
+        await revokeSessions(
+          admin.db,
+          {
+            actorId: request.session.user,
+            scope: accessScope(request.authorization),
+          },
+          ids,
+          { requestId: request.requestId }
+        );
+        // I0009-R011: revoking the session this request arrived on is a
+        // logout, so the cookie goes with it.
+        if (Array.isArray(ids) && ids.includes(request.session.id))
+          discardSessionCookie(response, cookiePolicy);
+        sendNoContent(response);
+      } catch (error) {
+        sendSessionError(response, error);
+      }
+    }
+  );
   // Skips the check for the caller's own session; declares the capability
   // for the I0005-R002 startup check either way.
   const revokeGuard = (request, response, next) =>

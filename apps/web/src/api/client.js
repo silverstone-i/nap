@@ -31,6 +31,22 @@ export class ApiError extends Error {
   }
 }
 
+/** @type {((path: string) => void)|null} */
+let unauthenticatedHandler = null;
+
+/**
+ * Register the one listener told when a request comes back
+ * `UNAUTHENTICATED`, so a session that ended mid-use (revoked, expired, or
+ * logged out elsewhere) can leave the app from any screen (I0009-R013). The
+ * listener gets the request path and decides whether the failure means the
+ * session ended: a wrong password on `/auth/login` is also `UNAUTHENTICATED`.
+ * @param {((path: string) => void)|null} handler
+ * @returns {void}
+ */
+export function setUnauthenticatedHandler(handler) {
+  unauthenticatedHandler = handler;
+}
+
 /**
  * Send one request and unwrap the envelope.
  * @param {string} method
@@ -67,6 +83,7 @@ async function request(method, path, body, extraHeaders = {}) {
 
   if (envelope?.error) {
     const { code, capability, reason } = envelope.error;
+    if (code === 'UNAUTHENTICATED') unauthenticatedHandler?.(path);
     const retryAfter = response.headers.get('Retry-After');
     throw new ApiError(
       code,

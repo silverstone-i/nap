@@ -18,9 +18,11 @@ import {
   createSession,
   createSessionToken,
   hashSessionToken,
+  listSessions,
   logoutSession,
   resolveSession,
   revokeSession,
+  revokeSessions,
   revokeSessionsForUser,
   rotateSession,
 } from '../../src/modules/admin-tenancy/domain/session.js';
@@ -630,6 +632,213 @@ describe('revocation', () => {
       await expect(revokeSessionsForUser(db, bad)).rejects.toMatchObject({
         code: 'INVALID_INPUT',
       });
+  });
+});
+
+describe('I0009 session list and bulk revoke', () => {
+  /**
+   * Sign one user in `count` times, oldest first.
+   * @param {string} user
+   * @param {number} count
+   * @returns {Promise<string[]>} Session UUIDs, oldest first.
+   */
+  async function signIns(user, count) {
+    const ids = [];
+    for (let index = 0; index < count; index += 1)
+      ids.push(
+        (await createSession(db, policy, { portalUserId: user })).session.id
+      );
+    return ids;
+  }
+
+  it('pages newest first and binds the cursor to its filters (R001, R003)', async () => {
+    const user = await portalUser();
+    const [oldest, middle, newest] = await signIns(user, 3);
+    const first = await listSessions(db, operatorScope(), {
+      userId: user,
+      limit: 2,
+    });
+    expect(first.rows.map(row => row.id)).toEqual([newest, middle]);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    const second = await listSessions(db, operatorScope(), {
+      userId: user,
+      limit: 2,
+      cursor: first.nextCursor,
+    });
+    expect(second.rows.map(row => row.id)).toEqual([oldest]);
+    expect(second.nextCursor).toBeNull();
+    await expect(
+      listSessions(db, operatorScope(), {
+        userId: user,
+        status: 'active',
+        limit: 2,
+        cursor: first.nextCursor,
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    const email = (await db.portal_users.findOneBy({ id: user })).email;
+    expect(first.rows[0]).toEqual({
+      id: newest,
+      userId: user,
+      email,
+      tenant: null,
+      startedAt: expect.any(Date),
+      lastSeenAt: expect.any(Date),
+      status: 'active',
+      endedAt: null,
+    });
+    expect(JSON.stringify(first)).not.toMatch(/token|hash/i);
+  });
+
+  it('derives ended status and end time, including a never-resolved expiry (R003, AC02)', async () => {
+    const user = await portalUser();
+    const [expired, revoked, active] = await signIns(user, 3);
+    await db.sessions.update(expired, {
+      idle_expires_at: new Date(Date.now() - 2 * 3600_000),
+      absolute_expires_at: new Date(Date.now() - 3600_000),
+    });
+    await revokeSession(db, { actorId: user }, revoked);
+    const rows = (await listSessions(db, operatorScope(), { userId: user }))
+      .rows;
+    const byId = Object.fromEntries(rows.map(row => [row.id, row]));
+    const expiredRow = await stored(expired);
+    expect(byId[expired]).toMatchObject({
+      status: 'ended',
+      endedAt: expiredRow.idle_expires_at,
+    });
+    expect(byId[revoked]).toMatchObject({
+      status: 'ended',
+      endedAt: (await stored(revoked)).deactivated_at,
+    });
+    expect(byId[active]).toMatchObject({ status: 'active', endedAt: null });
+    const ended = await listSessions(db, operatorScope(), {
+      userId: user,
+      status: 'ended',
+    });
+    expect(ended.rows.map(row => row.id).sort()).toEqual(
+      [expired, revoked].sort()
+    );
+    const live = await listSessions(db, operatorScope(), {
+      userId: user,
+      status: 'active',
+    });
+    expect(live.rows.map(row => row.id)).toEqual([active]);
+  });
+
+  it('filters by email, tenant, and sign-in range (R002)', async () => {
+    const user = await portalUser();
+    const tenantId = await tenant();
+    const [early, late] = await signIns(user, 2);
+    await db.sessions.update(early, { tenant_id: tenantId });
+    // `created_at` is an audit column the model will not write.
+    await db.none('UPDATE admin.sessions SET created_at=$2 WHERE id=$1', [
+      early,
+      new Date('2026-01-05T12:00:00Z'),
+    ]);
+    const email = (await db.portal_users.findOneBy({ id: user })).email;
+    const fragment = email.slice(5, 17).toUpperCase();
+    const byEmail = await listSessions(db, operatorScope(), {
+      email: fragment,
+    });
+    expect(byEmail.rows.map(row => row.id).sort()).toEqual(
+      [early, late].sort()
+    );
+    const byTenant = await listSessions(db, operatorScope(), { tenantId });
+    expect(byTenant.rows.map(row => row.id)).toEqual([early]);
+    expect(byTenant.rows[0].tenant).toMatchObject({
+      id: tenantId,
+      name: 'Tenant',
+    });
+    const inRange = await listSessions(db, operatorScope(), {
+      userId: user,
+      from: '2026-01-05T00:00:00-05:00',
+      to: '2026-01-05T23:59:59.999-05:00',
+    });
+    expect(inRange.rows.map(row => row.id)).toEqual([early]);
+    await expect(
+      listSessions(db, operatorScope(), {
+        from: '2026-01-06T00:00:00Z',
+        to: '2026-01-05T00:00:00Z',
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  });
+
+  it("limits the list to the reader's tenants", async () => {
+    const user = await portalUser();
+    const allowed = await tenant();
+    const other = await tenant();
+    // The third session selects no tenant, which a tenant-limited scope never reads.
+    const [inScope, outOfScope] = await signIns(user, 3);
+    await db.sessions.update(inScope, { tenant_id: allowed });
+    await db.sessions.update(outOfScope, { tenant_id: other });
+    const rows = (
+      await listSessions(db, operatorScope([allowed]), { userId: user })
+    ).rows;
+    expect(rows.map(row => row.id)).toEqual([inScope]);
+    expect(
+      (await listSessions(db, operatorScope([allowed]), { tenantId: other }))
+        .rows
+    ).toEqual([]);
+  });
+
+  it('revokes a batch in one transaction with one event per live session (R009)', async () => {
+    const operator = await portalUser();
+    const target = await portalUser();
+    const [own] = await signIns(operator, 1);
+    const [first, second, already] = await signIns(target, 3);
+    await revokeSession(db, { actorId: target }, already);
+    const before = await revisionOf(first);
+    const result = await revokeSessions(
+      db,
+      { actorId: operator, scope: operatorScope() },
+      [own, first, second, already],
+      { requestId: randomUUID() }
+    );
+    expect(result.revoked.sort()).toEqual([own, first, second].sort());
+    for (const id of [own, first, second])
+      expect((await stored(id)).deactivated_at).not.toBeNull();
+    expect(await revisionOf(first)).not.toBe(before);
+    const revocations = async id =>
+      (await eventsFor(id)).filter(
+        event => event.event_key === 'session.revoked'
+      );
+    expect(await revocations(own)).toEqual([
+      expect.objectContaining({
+        actor_id: operator,
+        details: { code: 'logout' },
+      }),
+    ]);
+    expect(await revocations(first)).toEqual([
+      expect.objectContaining({
+        actor_id: operator,
+        details: { code: 'operator' },
+      }),
+    ]);
+    expect(await revocations(already)).toHaveLength(1);
+  });
+
+  it('refuses the whole batch for an unknown or out-of-scope session (R009)', async () => {
+    const operator = await portalUser();
+    const target = await portalUser();
+    const allowed = await tenant();
+    const denied = await tenant();
+    const [inScope, outOfScope] = await signIns(target, 2);
+    await db.sessions.update(inScope, { tenant_id: allowed });
+    await db.sessions.update(outOfScope, { tenant_id: denied });
+    await expect(
+      revokeSessions(db, { actorId: operator, scope: operatorScope() }, [
+        inScope,
+        randomUUID(),
+      ])
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(
+      revokeSessions(
+        db,
+        { actorId: operator, scope: operatorScope([allowed]) },
+        [inScope, outOfScope]
+      )
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect((await stored(inScope)).deactivated_at).toBeNull();
+    expect((await stored(outOfScope)).deactivated_at).toBeNull();
   });
 });
 

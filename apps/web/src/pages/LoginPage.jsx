@@ -101,6 +101,11 @@ export function LoginPage() {
             Your session has expired. Please sign in again.
           </Alert>
         ) : null}
+        {session.notice === 'sessionEnded' ? (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Your session ended. Please sign in again.
+          </Alert>
+        ) : null}
         {retryAfterSeconds != null ? (
           <Alert severity="warning" sx={{ mb: 2 }}>
             Too many attempts. Try again in {retryAfterSeconds} second

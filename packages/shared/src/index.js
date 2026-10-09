@@ -222,6 +222,27 @@ export const userListRowSchema = z.strictObject({
 export const usersListResponseSchema =
   cursorPageResponseSchema(userListRowSchema);
 
+/**
+ * Zod schema for one `GET /sessions` row — `sessionListView`
+ * (`apps/api` `domain/session.js`, I0009-R003). Never a token or token hash.
+ */
+export const sessionListRowSchema = z.strictObject({
+  id: z.uuid(),
+  userId: z.uuid(),
+  email: z.string(),
+  tenant: z
+    .strictObject({ id: z.uuid(), code: z.string(), name: z.string() })
+    .nullable(),
+  startedAt: z.coerce.date(),
+  lastSeenAt: z.coerce.date(),
+  status: z.enum(['active', 'ended']),
+  endedAt: z.coerce.date().nullable(),
+});
+
+/** Zod schema for the success envelope returned by `GET /sessions` (I0009-R001). */
+export const sessionsListResponseSchema =
+  cursorPageResponseSchema(sessionListRowSchema);
+
 /** Zod schema for one `GET /accounts/users/:id/memberships` row (I0008-R013). */
 export const userMembershipSchema = z.strictObject({
   id: z.uuid(),
