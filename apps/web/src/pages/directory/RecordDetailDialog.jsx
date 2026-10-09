@@ -44,6 +44,17 @@ import {
 import { PortalAccessPanel } from './PortalAccess.jsx';
 
 /**
+ * A contact value followed by its label, such as `a@b.com (Work)`.
+ * @param {string|null} value
+ * @param {string|null|undefined} label
+ * @returns {string|null}
+ */
+function withLabel(value, label) {
+  if (!value) return null;
+  return label ? `${value} (${label})` : value;
+}
+
+/**
  * Tax ID shown masked, with a reveal button for `tax-ids::read`. Revealing
  * is recorded by the server (M0005-R012).
  * @param {{collection: string, record: object, canReveal: boolean}} props
@@ -281,9 +292,13 @@ export function RecordDetailDialog({
                   >
                     <ListItemText
                       primary={method.value}
-                      secondary={`${method.type === 'email' ? 'Email' : 'Phone'}${
-                        method.isPrimary ? ' · primary' : ''
-                      }`}
+                      secondary={[
+                        method.type === 'email' ? 'Email' : 'Phone',
+                        method.labelName,
+                        method.isPrimary ? 'primary' : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     />
                   </ListItem>
                 ))}
@@ -336,15 +351,15 @@ export function RecordDetailDialog({
                       primary={[address.line1, address.line2]
                         .filter(Boolean)
                         .join(', ')}
-                      secondary={`${[
-                        address.city,
-                        address.region,
-                        address.postalCode,
+                      secondary={[
+                        `${[address.city, address.region, address.postalCode]
+                          .filter(Boolean)
+                          .join(' ')} ${address.country}`,
+                        address.labelName,
+                        address.isPrimary ? 'primary' : null,
                       ]
                         .filter(Boolean)
-                        .join(' ')} ${address.country}${
-                        address.isPrimary ? ' · primary' : ''
-                      }`}
+                        .join(' · ')}
                     />
                   </ListItem>
                 ))}
@@ -411,8 +426,14 @@ export function RecordDetailDialog({
                             </Button>
                           }
                           secondary={[
-                            contact.primaryEmail,
-                            contact.primaryPhone,
+                            withLabel(
+                              contact.primaryEmail,
+                              contact.primaryEmailLabel
+                            ),
+                            withLabel(
+                              contact.primaryPhone,
+                              contact.primaryPhoneLabel
+                            ),
                             contact.isPrimaryContact ? 'Primary contact' : null,
                             contact.isBillingContact ? 'Billing contact' : null,
                             contact.isPrimaryTaxContact

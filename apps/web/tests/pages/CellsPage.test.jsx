@@ -162,6 +162,11 @@ describe('CellsPage', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Disable' }));
 
     const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(
+        'The cell stops serving until you activate it again.'
+      )
+    ).toBeTruthy();
     expect(api.disableCell).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Disable' }));
     expect(api.disableCell).toHaveBeenCalledWith({ cell: 'c1' });

@@ -500,6 +500,27 @@ describe('tax IDs (M0005-R006–R013)', () => {
       isPrimaryContact: true,
       isBillingContact: true,
     });
+    const emailLabel = (
+      await call('post', '/labels', {
+        appliesTo: 'email',
+        name: 'Office ' + randomUUID().slice(0, 6),
+      })
+    ).body.data;
+    await call('post', `/parties/${contact.id}/contact-methods`, {
+      type: 'email',
+      value: 'rita@flag.example',
+      labelId: emailLabel.id,
+      isPrimary: true,
+    });
+    const listed = (await call('get', `/organizations/${vendor.id}`)).body.data
+      .contacts;
+    expect(listed).toEqual([
+      expect.objectContaining({
+        primaryEmail: 'rita@flag.example',
+        primaryEmailLabel: emailLabel.name,
+        primaryPhoneLabel: null,
+      }),
+    ]);
     expect((await call('get', `/people/${contact.id}`)).status).toBe(404);
     expect(
       (await call('get', '/people')).body.data.some(p => p.id === contact.id)
@@ -667,10 +688,23 @@ describe('addresses and labels (M0005-R015, R017)', () => {
       isPrimary: true,
     });
     expect(second.status).toBe(201);
+    const phone = await call('post', `/parties/${person.id}/contact-methods`, {
+      type: 'phone',
+      value: '512-555-0100',
+      labelId: phoneLabel.id,
+    });
+    expect(phone.status).toBe(201);
     const detail = (await call('get', `/people/${person.id}`)).body.data;
     expect(detail.addresses.filter(a => a.isPrimary).map(a => a.line1)).toEqual(
       ['2 Oak St']
     );
+    expect(detail.addresses.map(a => [a.line1, a.labelName])).toEqual([
+      ['1 Oak St', label.body.data.name],
+      ['2 Oak St', null],
+    ]);
+    expect(detail.contactMethods.map(m => m.labelName)).toEqual([
+      phoneLabel.name,
+    ]);
     expect(
       (
         await call('post', `/parties/${person.id}/addresses`, {

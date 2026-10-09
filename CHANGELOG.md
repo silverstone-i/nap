@@ -10,6 +10,12 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Change password** from the profile menu has a **Cancel** button that returns to the previous page. The required first-sign-in change still offers only **Logout**.
+- Disabling a cell no longer warns "This action cannot be undone"; the dialog says the cell stops serving until it is activated again. Row actions can now set their own confirmation text.
+- The record detail shows each email, phone, and address with its label, and an organization's contact list shows the label of each contact's primary email and phone. Record detail responses include `labelName` on emails, phones, and addresses, and `primaryEmailLabel` and `primaryPhoneLabel` on organization contacts.
+
 ## [v0.27.0] - 2026-10-01
 
 ### Added
