@@ -36,7 +36,8 @@ throttled login, and re-enable a disabled one.
 ### Excluded
 
 - Applying requests in the admin database: I0004-R024–R032.
-- Assigning the new member a role: done on the Roles screen (M0003-R016).
+- Assigning the new member a role. [I0010](I0010-tenant-portal-access-roles.md)
+  replaces the Roles-screen step with role selection when access is turned on.
 - Tenant suspend, archive, and reinstate, and their effect on portal access.
 - Changing a login's email. M0001-08's `PATCH /accounts/users/:id` keeps that.
 - Emailed invitations and set-password links. The tenant supplies a temporary

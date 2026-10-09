@@ -10,6 +10,11 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Draft PRDs for the next manual-test follow-ups: I0009 Session Management (a Napsoft Sessions screen with filters and single and bulk revoke, and same-browser tab reset), I0010 Tenant-Managed Portal Access and Roles (portal access and role selection in the person dialog), and M0005-R027–R030 (directory lists as standard grids with row actions and all-or-nothing bulk archive and restore). I0008 points its role-assignment exclusion at I0010.
+- Roadmap Phase 3 gains rows 15–17 for these three; later rows are renumbered.
+
 ## [v0.27.1] - 2026-10-09
 
 ### Fixed

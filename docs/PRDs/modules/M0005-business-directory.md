@@ -4,12 +4,12 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                                                                                                                                                                                                           |
+| Status               | Implemented; R027–R030 Draft                                                                                                                                                                                                                                                                                                                                          |
 | Type                 | Module                                                                                                                                                                                                                                                                                                                                                                |
 | Related architecture | [Module map](../../architecture/module-map.md), [Migrations](../../architecture/migrations.md)                                                                                                                                                                                                                                                                        |
 | Related PRDs         | [M0002-01: Cell Database Foundation](M0002-cell-tenancy/M0002-01-cell-database-foundation.md), [M0003: Access Control](M0003-access-control.md), [M0004: Reference Data](M0004-reference-data.md), [I0004: Admin-Cell Sync](../inter-module-workflows/I0004-admin-cell-sync.md), [I0006: Tenant Provisioning](../inter-module-workflows/I0006-tenant-provisioning.md) |
 | Related decisions    | Roles stay in `access-control` and attach to logins; the directory stores people and organizations, not permissions                                                                                                                                                                                                                                                   |
-| Last reviewed        | 2026-09-29                                                                                                                                                                                                                                                                                                                                                            |
+| Last reviewed        | 2026-10-09                                                                                                                                                                                                                                                                                                                                                            |
 
 ## 2. Purpose
 
@@ -29,14 +29,15 @@ Provisioning a tenant creates the first administrator as an employee.
 - Primary and billing contact flags on vendor and client contacts.
 - The `is_portal_user` flag on people, vendor contacts, and client contacts.
 - Creating the first administrator's employee record during tenant provisioning.
-- Directory screens.
+- Directory screens, with standard grids, row actions, and bulk archive and
+  restore.
 
 ### Excluded
 
 - Creating, suspending, or linking logins when `is_portal_user` changes:
   [I0008: Portal Access](../inter-module-workflows/I0008-portal-access.md).
 - Roles and role assignments: M0003.
-- Legal entities and tax registrations of the tenant itself: Companies (roadmap 15).
+- Legal entities and tax registrations of the tenant itself: Companies (roadmap 18).
 
 ## 4. Actors And Permissions
 
@@ -115,6 +116,13 @@ entitlement row (M0001-10), because provisioning creates its first rows
 
 - M0005-R025: Every directory write must write a `cell.outbox` row in the same cell transaction. The sync worker (I0004) delivers it to admin, where it writes an administrative event with actor, tenant, record, and before and after values. Tax IDs appear in events only as their last four characters.
 - M0005-R026: The web app must provide screens to list, search, view, create, edit, archive, and restore each record type; to manage a record's emails, phones, and addresses; and to manage labels. Actions the session cannot perform are hidden (I0005).
+
+### Lists and bulk actions
+
+- M0005-R027: `GET /people`, `/organizations`, and `/organization-contacts` must return cursor pages (`{ rows, nextCursor }`, `cursor` and `limit` 1–100, default 50), keeping their existing filters (`kind`, `q`, `taxId`, `organizationId`, `includeArchived`).
+- M0005-R028: Every directory list screen (employees, contacts, vendors, clients, and an organization's contacts) must be a standard grid (I0001-R015–R017). Selecting a record's name still opens its detail. Each row's action menu must offer **Edit**, and **Archive** for an active record or **Restore** for an archived one, hiding actions the session cannot perform. Archive asks for confirmation with "Archived records are hidden from lists until restored."
+- M0005-R029: Selecting rows on the current page must enable **Archive selected** and **Restore selected**, each after one confirmation naming the count. Archive selected applies only when every selected record is active, and Restore selected only when every one is archived.
+- M0005-R030: `POST /{collection}/archive` and `POST /{collection}/restore` with `{ items: [{ id, revision }, …] }` (1–100 items) must apply the single-record archive or restore, with all its rules and side effects (R009, R025, and I0008-R002, R005, R006), to every item in one cell transaction. It is all-or-nothing: if any item fails, nothing changes and the response is `409 BULK_FAILED` with `details: [{ id, code }]` naming each failed item and its error code. The screen must list each failed record by name with the reason, and keep the selection so the user can deselect and retry.
 
 ## 7. Business Rules And Invariants
 
@@ -246,6 +254,7 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 | `POST /{collection}/:id/archive`, `/restore`                       | `business-directory::directory::write` | `STALE_REVISION`, `PRIMARY_TAX_CONTACT`       |
 | `POST`, `PATCH`, `DELETE /parties/:id/contact-methods[/:methodId]` | `business-directory::directory::write` | `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE` |
 | `POST`, `PATCH`, `DELETE /parties/:id/addresses[/:addressId]`      | `business-directory::directory::write` | `NOT_FOUND`, `INVALID_INPUT`                  |
+| `POST /{collection}/archive`, `/restore` (bulk)                    | `business-directory::directory::write` | `INVALID_INPUT`, `BULK_FAILED`                |
 | `GET /{collection}/:id/tax-id`                                     | `business-directory::tax-ids::read`    | `NOT_FOUND`                                   |
 | `GET /labels`                                                      | `business-directory::directory::read`  | —                                             |
 | `POST /labels`, `PATCH /labels/:id`, `/archive`, `/restore`        | `business-directory::labels::write`    | `INVALID_INPUT`, `CONFLICT`                   |
@@ -255,6 +264,7 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 - Making an email, phone, or address primary demotes the party's previous primary of that type in the same transaction.
 - `DELETE` routes archive the row; they take no `revision`.
 - Writes use optimistic concurrency on `revision`.
+- List routes return cursor pages (R027). A bulk request's `details` uses the single-record codes: `NOT_FOUND`, `STALE_REVISION`, `PRIMARY_TAX_CONTACT`, `ADMIN_ASSIGNED`, and `INVALID_STATE`.
 - `GET /{collection}?taxId=` searches by tax ID and requires `business-directory::tax-ids::read` (R013).
 - A create or edit that includes a tax ID also requires `business-directory::tax-ids::write`; without it the request fails with `FORBIDDEN`.
 
@@ -288,6 +298,10 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 | AC11      | Without `tax-ids::read` a response shows only the last four digits and tax ID search fails; with it the full value returns and an event is written; saving a tax ID without `tax-ids::write` fails.  | M0005-R012, R013                  |
 | AC12      | Searching by a tax ID entered with or without dashes finds the record; saving a duplicate succeeds and returns `duplicateTaxIds`.                                                                    | M0005-R013                        |
 | AC13      | The directory screens support list, search, view, create, edit, archive, and restore, hiding disallowed actions.                                                                                     | M0005-R026                        |
+| AC14      | Each directory list returns cursor pages with its filters intact, and the screens page through them in a standard grid.                                                                              | M0005-R027, R028                  |
+| AC15      | A row's menu offers Edit and Archive on active records and Restore on archived ones, and hides them without `directory::write`.                                                                      | M0005-R028                        |
+| AC16      | Archive selected on a page of active records archives them all, turning off portal access where it was on; Restore selected restores them.                                                           | M0005-R029, R030                  |
+| AC17      | A bulk archive including a `tenant_admin`, the caller, a flagged primary tax contact, or a stale revision changes nothing and lists each failed record with its reason.                              | M0005-R030                        |
 
 ## 14. Outstanding Questions
 
