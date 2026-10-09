@@ -111,8 +111,8 @@ cannot list sessions.
   admin transaction, applying M0001-04's revocation to each. It is
   all-or-nothing: if any ID is unknown, or names another user's session
   outside the caller's scope, nothing is revoked and the response is
-  `403 FORBIDDEN`, the answer `DELETE /sessions/:id` gives an unknown or
-  denied ID, so the route cannot reveal which session IDs exist. A session
+  `403 FORBIDDEN`, the same answer `DELETE /sessions/:id` gives for an
+  unknown or denied ID, so the route cannot reveal which session IDs exist. A session
   that has already ended is not a failure (M0001-04: repeated revocation
   succeeds).
 - I0009-R010: The bulk route must require
