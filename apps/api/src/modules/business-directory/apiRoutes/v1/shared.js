@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ERROR_STATUS, sendError } from '../../../../framework/envelope.js';
+import {
+  ERROR_STATUS,
+  errorEnvelope,
+  sendError,
+} from '../../../../framework/envelope.js';
 import { authorize } from '../../../../capability/authorize.js';
 import { roleChangeRecorder } from '../../../access-control/domain/events.js';
 import { DirectoryError } from '../../domain/errors.js';
@@ -22,6 +26,14 @@ const protectors = new WeakMap();
  */
 export function sendDirectoryError(response, error) {
   const code = error?.code;
+  // M0005-R030: a bulk failure names each failed item and its code.
+  if (code === 'BULK_FAILED' && Array.isArray(error.details)) {
+    const body = errorEnvelope(code);
+    body.error.details = error.details;
+    response.setHeader('Cache-Control', 'no-store');
+    response.status(ERROR_STATUS[code]).json(body);
+    return;
+  }
   sendError(
     response,
     typeof code === 'string' && Object.hasOwn(ERROR_STATUS, code)

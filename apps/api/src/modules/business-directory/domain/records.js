@@ -15,7 +15,8 @@
  */
 
 import { z } from 'zod';
-import { DirectoryError } from './errors.js';
+import { encodeCursor, fingerprint, parseCursor } from './cursor.js';
+import { BulkFailedError, DirectoryError, directoryCode } from './errors.js';
 import {
   applyPortalRoles,
   assertCanTurnOff,
@@ -132,6 +133,9 @@ const listQuery = z.object({
   taxId: z.string().max(32).optional(),
   organizationId: uuid.optional(),
   includeArchived: z.enum(['true', 'false']).optional(),
+  cursor: z.string().max(512).optional(),
+  // R027: query-string values arrive as text.
+  limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 /**
@@ -438,7 +442,7 @@ async function insertContact(context, organization, input, tx) {
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name Collection name.
  * @param {object} query Raw query string values.
- * @returns {Promise<object[]>}
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} One page (R027).
  */
 export async function listRecords(context, name, query) {
   const { table, kinds } = collection(name);
@@ -451,23 +455,48 @@ export async function listRecords(context, name, query) {
     await requireCapability(context, TAX_IDS_READ);
     taxIdHash = context.taxIds.hash(input.taxId);
   }
+  const filters = {
+    kinds: kindFilter ?? kinds,
+    text: containsPattern(input.q),
+    taxIdHash,
+    includeArchived: input.includeArchived === 'true',
+    ...(name === 'organization-contacts'
+      ? { organizationId: input.organizationId ?? null }
+      : {}),
+  };
+  const issued = fingerprint({ name, ...filters });
+  const after = parseCursor(input.cursor, issued);
+  const limit = input.limit ?? 50;
   return read(context, async tx => {
-    const rows = await context.cell[table].search({
+    // One row past the page, so a full page is told apart from a last one.
+    const fetched = await context.cell[table].search({
       tx,
-      kinds: kindFilter ?? kinds,
-      text: containsPattern(input.q),
-      taxIdHash,
-      includeArchived: input.includeArchived === 'true',
-      ...(name === 'organization-contacts'
-        ? { organizationId: input.organizationId ?? null }
-        : {}),
+      ...filters,
+      after,
+      limit: limit + 1,
     });
+    const rows = fetched.slice(0, limit);
     const map = await primaries(
       context,
       rows.map(row => row.party_id),
       tx
     );
-    return rows.map(row => recordView(name, row, map.get(row.party_id)));
+    const labelName = await labelNames(context, tx);
+    return {
+      // Each row names its primary email's and phone's labels (M0005-R014).
+      rows: rows.map(row => {
+        const primary = map.get(row.party_id);
+        return {
+          ...recordView(name, row, primary),
+          primaryEmailLabel: labelName(primary.emailLabelId),
+          primaryPhoneLabel: labelName(primary.phoneLabelId),
+        };
+      }),
+      nextCursor:
+        fetched.length > limit
+          ? encodeCursor(rows.at(-1).party_id, issued)
+          : null,
+    };
   });
 }
 
@@ -528,10 +557,13 @@ export async function getRecord(context, name, id) {
       if (roles) detail.roles = roles;
     }
     if (name === 'organizations') {
+      // The embedded list feeds tenant provisioning's administrator choice;
+      // the detail dialog's contacts grid pages on its own (R027).
       const contacts = await context.cell.people.search({
         tx,
         kinds: COLLECTIONS['organization-contacts'].kinds,
         organizationId: key,
+        limit: 500,
       });
       const map = await primaries(
         context,
@@ -880,35 +912,57 @@ async function setPrimaryTaxContact(context, organization, contactId, tx) {
  * @returns {Promise<object>}
  */
 export async function archiveRecord(context, name, id, body) {
-  const { table } = collection(name);
+  collection(name);
   const input = parse(revisionSchema, body);
   return mutate(context, async tx => {
-    const locked = await loadRecord(context, name, id, tx, { lock: true });
-    requireRevision(locked, input.revision);
-    if (locked.is_primary_tax_contact && !locked.deactivated_at)
-      throw new DirectoryError('PRIMARY_TAX_CONTACT');
-    // I0008-R002: archiving a person turns their access off.
-    const portalOff = table === 'people' && locked.is_portal_user;
-    if (portalOff) await assertCanTurnOff(context, locked, tx);
-    const before = await viewOf(context, name, locked, tx);
-    const row = withParty(
-      await context.cell[table].saveRevision(
-        locked.party_id,
-        portalOff
-          ? { archived: true, is_portal_user: false }
-          : { archived: true },
-        context.actorId,
-        { tx }
-      ),
-      locked
-    );
-    if (portalOff) await sendPortalAccess(context, row, false, undefined, tx);
-    const after = await viewOf(context, name, row, tx);
-    return {
-      result: after,
-      changes: [recordChange('archived', name, before, after)],
-    };
+    const { view, change } = await archiveOne(context, name, id, input, tx);
+    return { result: view, changes: [change] };
   });
+}
+
+/**
+ * Archive one record inside `tx` (R009, I0008-R002, R005, R006).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} name
+ * @param {unknown} id
+ * @param {{revision: number}} input
+ * @param {object} tx
+ * @param {{requireActive?: boolean}} [options] `requireActive` refuses an already archived record (R030).
+ * @returns {Promise<{view: object, change: object}>}
+ */
+async function archiveOne(
+  context,
+  name,
+  id,
+  input,
+  tx,
+  { requireActive = false } = {}
+) {
+  const { table } = collection(name);
+  const locked = await loadRecord(context, name, id, tx, { lock: true });
+  requireRevision(locked, input.revision);
+  if (requireActive && locked.deactivated_at)
+    throw new DirectoryError('INVALID_STATE');
+  if (locked.is_primary_tax_contact && !locked.deactivated_at)
+    throw new DirectoryError('PRIMARY_TAX_CONTACT');
+  // I0008-R002: archiving a person turns their access off.
+  const portalOff = table === 'people' && locked.is_portal_user;
+  if (portalOff) await assertCanTurnOff(context, locked, tx);
+  const before = await viewOf(context, name, locked, tx);
+  const row = withParty(
+    await context.cell[table].saveRevision(
+      locked.party_id,
+      portalOff
+        ? { archived: true, is_portal_user: false }
+        : { archived: true },
+      context.actorId,
+      { tx }
+    ),
+    locked
+  );
+  if (portalOff) await sendPortalAccess(context, row, false, undefined, tx);
+  const after = await viewOf(context, name, row, tx);
+  return { view: after, change: recordChange('archived', name, before, after) };
 }
 
 /**
@@ -920,27 +974,132 @@ export async function archiveRecord(context, name, id, body) {
  * @returns {Promise<object>}
  */
 export async function restoreRecord(context, name, id, body) {
-  const { table } = collection(name);
+  collection(name);
   const input = parse(revisionSchema, body);
   return mutate(context, async tx => {
-    const locked = await loadRecord(context, name, id, tx, { lock: true });
-    requireRevision(locked, input.revision);
-    const before = await viewOf(context, name, locked, tx);
-    const row = withParty(
-      await context.cell[table].saveRevision(
-        locked.party_id,
-        { archived: false },
-        context.actorId,
-        { tx }
-      ),
-      locked
-    );
-    const after = await viewOf(context, name, row, tx);
+    const { view, change } = await restoreOne(context, name, id, input, tx);
+    return { result: view, changes: [change] };
+  });
+}
+
+/**
+ * Restore one record inside `tx`.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} name
+ * @param {unknown} id
+ * @param {{revision: number}} input
+ * @param {object} tx
+ * @param {{requireArchived?: boolean}} [options] `requireArchived` refuses an active record (R030).
+ * @returns {Promise<{view: object, change: object}>}
+ */
+async function restoreOne(
+  context,
+  name,
+  id,
+  input,
+  tx,
+  { requireArchived = false } = {}
+) {
+  const { table } = collection(name);
+  const locked = await loadRecord(context, name, id, tx, { lock: true });
+  requireRevision(locked, input.revision);
+  if (requireArchived && !locked.deactivated_at)
+    throw new DirectoryError('INVALID_STATE');
+  const before = await viewOf(context, name, locked, tx);
+  const row = withParty(
+    await context.cell[table].saveRevision(
+      locked.party_id,
+      { archived: false },
+      context.actorId,
+      { tx }
+    ),
+    locked
+  );
+  const after = await viewOf(context, name, row, tx);
+  return { view: after, change: recordChange('restored', name, before, after) };
+}
+
+const bulkBody = z.strictObject({
+  items: z
+    .array(z.strictObject({ id: uuid, revision }))
+    .min(1)
+    .max(100),
+});
+
+/**
+ * Apply the single-record archive or restore to every item in one cell
+ * transaction (M0005-R030). Each item runs in a savepoint so a failure,
+ * including a database error, is recorded against that item alone; if any
+ * item failed, the whole transaction rolls back and the caller gets
+ * `BULK_FAILED` naming each failed item and its code. Items are locked in ID
+ * order, so two bulk requests over the same records cannot deadlock.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} name
+ * @param {unknown} body `{ items: [{ id, revision }] }`, 1 to 100 distinct IDs.
+ * @param {'archive'|'restore'} action
+ * @returns {Promise<{rows: object[]}>}
+ * @throws {DirectoryError} `INVALID_INPUT`, `NOT_FOUND`, `BULK_FAILED`
+ */
+async function bulk(context, name, body, action) {
+  collection(name);
+  const { items } = parse(bulkBody, body);
+  if (new Set(items.map(item => item.id)).size !== items.length)
+    throw new DirectoryError('INVALID_INPUT');
+  const ordered = [...items].sort((a, b) => a.id.localeCompare(b.id));
+  return mutate(context, async tx => {
+    const done = new Map();
+    const failed = [];
+    for (const item of ordered) {
+      try {
+        done.set(
+          item.id,
+          await tx.tx(savepoint =>
+            action === 'archive'
+              ? archiveOne(context, name, item.id, item, savepoint, {
+                  requireActive: true,
+                })
+              : restoreOne(context, name, item.id, item, savepoint, {
+                  requireArchived: true,
+                })
+          )
+        );
+      } catch (error) {
+        failed.push({ id: item.id, code: directoryCode(error) });
+      }
+    }
+    if (failed.length) {
+      // Report in request order, as the caller listed them.
+      const order = new Map(items.map((item, index) => [item.id, index]));
+      failed.sort((a, b) => order.get(a.id) - order.get(b.id));
+      throw new BulkFailedError(failed);
+    }
     return {
-      result: after,
-      changes: [recordChange('restored', name, before, after)],
+      result: { rows: items.map(item => done.get(item.id).view) },
+      changes: items.map(item => done.get(item.id).change),
     };
   });
+}
+
+/**
+ * Archive several records at once (M0005-R029, R030).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} name
+ * @param {unknown} body
+ * @returns {Promise<{rows: object[]}>}
+ */
+export function bulkArchive(context, name, body) {
+  return bulk(context, name, body, 'archive');
+}
+
+/**
+ * Restore several records at once (M0005-R029, R030).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} name
+ * @param {unknown} body
+ * @returns {Promise<{rows: object[]}>}
+ */
+export function bulkRestore(context, name, body) {
+  return bulk(context, name, body, 'restore');
 }
 
 const retryBody = z.strictObject({

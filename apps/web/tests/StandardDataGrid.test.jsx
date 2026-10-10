@@ -103,7 +103,7 @@ describe('StandardDataGrid', () => {
     await user.click(
       screen.getAllByRole('checkbox', { name: /select row/i })[1]
     );
-    expect(onSelectionChange).toHaveBeenLastCalledWith([2]);
+    expect(onSelectionChange).toHaveBeenLastCalledWith([2], [ROWS[1]]);
     rerender(
       <ThemeModeProvider>
         <StandardDataGrid
@@ -115,6 +115,18 @@ describe('StandardDataGrid', () => {
       </ThemeModeProvider>
     );
     await screen.findByText('Alpha');
-    expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+    expect(onSelectionChange).toHaveBeenLastCalledWith([], []);
+  });
+
+  it('names the grid and describes a load failure (M0005-R028)', async () => {
+    renderGrid({
+      ariaLabel: 'Employees',
+      fetchPage: () => Promise.reject(new Error('CELL_UNAVAILABLE')),
+      describeError: err => `Directory said ${err.message}`,
+    });
+    expect(
+      await screen.findByText('Directory said CELL_UNAVAILABLE')
+    ).toBeTruthy();
+    expect(screen.getByRole('grid', { name: 'Employees' })).toBeTruthy();
   });
 });

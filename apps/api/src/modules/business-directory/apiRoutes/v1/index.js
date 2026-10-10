@@ -9,6 +9,8 @@ import { requireCapability } from '../../../../capability/requireCapability.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import {
   archiveRecord,
+  bulkArchive,
+  bulkRestore,
   createRecord,
   getRecord,
   listRecords,
@@ -102,6 +104,19 @@ function recordRouter(name) {
           response,
           await updateRecord(context, name, request.params.id, request.body)
         )
+      )
+    );
+    // M0005-R030: all-or-nothing bulk archive and restore.
+    router.post(
+      '/archive',
+      ...route(deps, WRITE, async (context, request, response) =>
+        sendData(response, await bulkArchive(context, name, request.body))
+      )
+    );
+    router.post(
+      '/restore',
+      ...route(deps, WRITE, async (context, request, response) =>
+        sendData(response, await bulkRestore(context, name, request.body))
       )
     );
     router.post(

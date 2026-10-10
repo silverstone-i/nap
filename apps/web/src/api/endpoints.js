@@ -511,13 +511,14 @@ const COLLECTION_SCHEMAS = {
 };
 
 /**
+ * One page of a directory list (M0005-R027).
  * @param {'people'|'organizations'|'organization-contacts'} collection
- * @param {{kind?: string, q?: string, taxId?: string, organizationId?: string, includeArchived?: boolean}} [filters]
- * @returns {Promise<object[]>} Matching records; tax IDs masked.
+ * @param {{cursor?: string, limit?: number, kind?: string, q?: string, taxId?: string, organizationId?: string, includeArchived?: boolean}} [page]
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} Tax IDs masked.
  */
-export async function listDirectoryRecords(collection, filters = {}) {
+export async function listDirectoryPage(collection, page = {}) {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters))
+  for (const [key, value] of Object.entries(page))
     if (
       value !== undefined &&
       value !== null &&
@@ -527,7 +528,10 @@ export async function listDirectoryRecords(collection, filters = {}) {
       params.set(key, String(value));
   const query = params.toString();
   return z
-    .array(COLLECTION_SCHEMAS[collection].view)
+    .strictObject({
+      rows: z.array(COLLECTION_SCHEMAS[collection].view),
+      nextCursor: z.string().nullable(),
+    })
     .parse(
       await apiGet(`${DIRECTORY_BASE}/${collection}${query ? `?${query}` : ''}`)
     );
@@ -609,6 +613,23 @@ export async function restoreDirectoryRecord(collection, id, revision) {
       revision,
     })
   );
+}
+
+/**
+ * Archive or restore several records at once, all or nothing (M0005-R030).
+ * A failure is `BULK_FAILED` with `details` naming each failed record.
+ * @param {'people'|'organizations'|'organization-contacts'} collection
+ * @param {'archive'|'restore'} action
+ * @param {{id: string, revision: number}[]} items
+ * @returns {Promise<object[]>} The changed records.
+ */
+export async function bulkDirectoryAction(collection, action, items) {
+  const data = await apiPost(`${DIRECTORY_BASE}/${collection}/${action}`, {
+    items,
+  });
+  return z
+    .strictObject({ rows: z.array(COLLECTION_SCHEMAS[collection].view) })
+    .parse(data).rows;
 }
 
 /**

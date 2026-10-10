@@ -369,7 +369,7 @@ describe('people (M0005-R002, R016)', () => {
       revision: 2,
     });
     expect(archived.body.data.archived).toBe(true);
-    const list = (await call('get', '/people?q=Li')).body.data;
+    const list = (await call('get', '/people?q=Li')).body.data.rows;
     expect(list.some(p => p.id === bob.id)).toBe(false);
     const restored = await call('post', `/people/${bob.id}/restore`, {
       revision: 3,
@@ -529,7 +529,9 @@ describe('tax IDs (M0005-R006–R013)', () => {
     ).toBe(true);
     expect((await call('get', `/people/${contact.id}`)).status).toBe(404);
     expect(
-      (await call('get', '/people')).body.data.some(p => p.id === contact.id)
+      (await call('get', '/people?limit=100')).body.data.rows.some(
+        p => p.id === contact.id
+      )
     ).toBe(false);
     const person = await create('people', {
       kind: 'contact',
@@ -649,7 +651,8 @@ describe('tax IDs (M0005-R006–R013)', () => {
       [first.id, second.id].sort()
     );
     for (const query of ['321-54-9876', '321549876']) {
-      const found = (await call('get', `/people?taxId=${query}`)).body.data;
+      const found = (await call('get', `/people?taxId=${query}`)).body.data
+        .rows;
       expect(found.map(p => p.id).sort()).toEqual([first.id, second.id].sort());
     }
   });
@@ -1514,5 +1517,221 @@ describe('tenant-managed portal access and roles (I0010)', () => {
       clerk.cookie
     );
     expect(response.body.error.code).toBe('GRANT_EXCEEDS_ACTOR');
+  });
+});
+
+describe('directory lists and bulk actions (M0005-R027–R030)', () => {
+  const tag = () => randomUUID().slice(0, 8);
+
+  /** Every page of `path`, following `nextCursor`. */
+  async function walk(path, limit) {
+    const seen = [];
+    let cursor;
+    for (let page = 0; page < 20; page += 1) {
+      const sep = path.includes('?') ? '&' : '?';
+      const response = await call(
+        'get',
+        `${path}${sep}limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`
+      );
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      seen.push(...response.body.data.rows);
+      cursor = response.body.data.nextCursor;
+      if (!cursor) break;
+    }
+    return seen;
+  }
+
+  it("AC14: pages people, organizations, and an organization's contacts in name order with filters intact", async () => {
+    const mark = tag();
+    const people = [];
+    for (const last of ['Cole', 'Abel', 'Baker', 'Abel'])
+      people.push(
+        await create('people', {
+          kind: 'contact',
+          firstName: `P${people.length}`,
+          lastName: `${last}${mark}`,
+        })
+      );
+    const walked = await walk(`/people?q=${mark}`, 2);
+    expect(walked.map(p => `${p.lastName.slice(0, 4)} ${p.firstName}`)).toEqual(
+      ['Abel P1', 'Abel P3', 'Bake P2', 'Cole P0']
+    );
+
+    const orgs = [];
+    for (const legal of ['Zeta', 'Alpha', 'Mu'])
+      orgs.push(
+        await create('organizations', {
+          kind: 'vendor',
+          legalName: `${legal} ${mark}`,
+          taxId: `9${String(orgs.length).padStart(1, '0')}-${mark.replace(/\D/g, '').padEnd(7, '1').slice(0, 7)}`,
+        })
+      );
+    expect(
+      (await walk(`/organizations?q=${mark}`, 1)).map(o => o.legalName)
+    ).toEqual([`Alpha ${mark}`, `Mu ${mark}`, `Zeta ${mark}`]);
+
+    for (const last of ['Two', 'One'])
+      await create('organization-contacts', {
+        organizationId: orgs[0].id,
+        firstName: 'C',
+        lastName: last,
+      });
+    expect(
+      (
+        await walk(`/organization-contacts?organizationId=${orgs[0].id}`, 1)
+      ).map(c => c.lastName)
+    ).toEqual(['One', 'Two']);
+
+    const first = await call('get', `/people?q=${mark}&limit=2`);
+    const replay = await call(
+      'get',
+      `/people?q=other&limit=2&cursor=${first.body.data.nextCursor}`
+    );
+    expect(replay.body.error.code).toBe('INVALID_INPUT');
+    expect((await call('get', '/people?limit=101')).body.error.code).toBe(
+      'INVALID_INPUT'
+    );
+  });
+
+  it('AC16: archives and restores a page of records in one request', async () => {
+    const mark = tag();
+    const a = await create('people', {
+      kind: 'contact',
+      firstName: 'Bulk',
+      lastName: `A${mark}`,
+    });
+    const b = await create('people', {
+      kind: 'contact',
+      firstName: 'Bulk',
+      lastName: `B${mark}`,
+    });
+    const archived = await call('post', '/people/archive', {
+      items: [
+        { id: a.id, revision: a.revision },
+        { id: b.id, revision: b.revision },
+      ],
+    });
+    expect(archived.status, JSON.stringify(archived.body)).toBe(200);
+    expect(archived.body.data.rows.map(row => row.archived)).toEqual([
+      true,
+      true,
+    ]);
+    expect((await call('get', `/people?q=${mark}`)).body.data.rows).toEqual([]);
+    const again = await call('post', '/people/archive', {
+      items: [{ id: a.id, revision: archived.body.data.rows[0].revision }],
+    });
+    expect(again.body.error).toMatchObject({
+      code: 'BULK_FAILED',
+      details: [{ id: a.id, code: 'INVALID_STATE' }],
+    });
+    const restored = await call('post', '/people/restore', {
+      items: archived.body.data.rows.map(row => ({
+        id: row.id,
+        revision: row.revision,
+      })),
+    });
+    expect(restored.status, JSON.stringify(restored.body)).toBe(200);
+    expect((await call('get', `/people?q=${mark}`)).body.data.rows.length).toBe(
+      2
+    );
+    expect(
+      (
+        await call('post', '/people/archive', {
+          items: [
+            { id: a.id, revision: 1 },
+            { id: a.id, revision: 1 },
+          ],
+        })
+      ).body.error.code
+    ).toBe('INVALID_INPUT');
+  });
+
+  it('AC17: refuses the whole batch and names each failed record', async () => {
+    const mark = tag();
+    const fine = await create('people', {
+      kind: 'contact',
+      firstName: 'Fine',
+      lastName: `F${mark}`,
+    });
+    const stale = await create('people', {
+      kind: 'contact',
+      firstName: 'Stale',
+      lastName: `S${mark}`,
+    });
+    const admin = await staff('tenant_admin');
+    const adminPerson = await withTenantTransaction(cell, napsoft.id, tx =>
+      tx.one(
+        `SELECT member_id FROM cell.tenant_members
+          WHERE tenant_id=$1 AND portal_user_id=$2`,
+        [napsoft.id, admin.id]
+      )
+    );
+    // The staff login's directory record: a person with access on.
+    const person = await create('people', {
+      kind: 'employee',
+      firstName: 'Admin',
+      lastName: `A${mark}`,
+      primaryEmail: `admin-${mark}@example.test`,
+    });
+    await withTenantTransaction(cell, napsoft.id, async tx => {
+      await tx.none(
+        'UPDATE app.people SET is_portal_user=true WHERE party_id=$1',
+        [person.id]
+      );
+      await tx.none(
+        'UPDATE cell.tenant_members SET member_id=$1 WHERE member_id=$2',
+        [person.id, adminPerson.member_id]
+      );
+    });
+    const current = (await call('get', `/people/${person.id}`)).body.data;
+    const response = await call('post', '/people/archive', {
+      items: [
+        { id: fine.id, revision: fine.revision },
+        { id: stale.id, revision: stale.revision + 5 },
+        { id: person.id, revision: current.revision },
+      ],
+    });
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('BULK_FAILED');
+    expect(response.body.error.details).toEqual([
+      { id: stale.id, code: 'STALE_REVISION' },
+      { id: person.id, code: 'ADMIN_ASSIGNED' },
+    ]);
+    expect((await call('get', `/people/${fine.id}`)).body.data.archived).toBe(
+      false
+    );
+  });
+
+  it('AC17: refuses a batch with a flagged primary tax contact', async () => {
+    const client = await create('organizations', {
+      kind: 'client',
+      legalName: `Lot ${tag()}`,
+      contacts: [
+        {
+          firstName: 'Flag',
+          lastName: 'Holder',
+          taxId: '444-55-6666',
+          isPrimaryTaxContact: true,
+        },
+        { firstName: 'Other', lastName: 'Buyer' },
+      ],
+    });
+    const contacts = (await call('get', `/organizations/${client.id}`)).body
+      .data.contacts;
+    const response = await call('post', '/organization-contacts/archive', {
+      items: contacts.map(c => ({ id: c.id, revision: c.revision })),
+    });
+    expect(response.body.error.code).toBe('BULK_FAILED');
+    expect(response.body.error.details).toEqual([
+      {
+        id: contacts.find(c => c.isPrimaryTaxContact).id,
+        code: 'PRIMARY_TAX_CONTACT',
+      },
+    ]);
+    const other = contacts.find(c => !c.isPrimaryTaxContact);
+    expect(
+      (await call('get', `/organization-contacts/${other.id}`)).body.data
+        .archived
+    ).toBe(false);
   });
 });

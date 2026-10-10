@@ -18,8 +18,8 @@ export class ApiError extends Error {
    * @param {string} code One of `@nap/shared`'s `apiErrorCodes`.
    * @param {number} status HTTP status.
    * @param {number|null} [retryAfterSeconds] Present only for `THROTTLED`.
-   * @param {{capability?: string, reason?: string}} [denial] Present on a
-   *   capability denial (I0005-R007).
+   * @param {{capability?: string, reason?: string, details?: {id: string, code: string}[]}} [denial] Present on a
+   *   capability denial (I0005-R007), or a bulk failure's items (M0005-R030).
    */
   constructor(code, status, retryAfterSeconds = null, denial = {}) {
     super(code);
@@ -28,6 +28,8 @@ export class ApiError extends Error {
     this.retryAfterSeconds = retryAfterSeconds;
     this.capability = denial.capability ?? null;
     this.reason = denial.reason ?? null;
+    // M0005-R030: each failed item of a `BULK_FAILED` request.
+    this.details = denial.details ?? null;
   }
 }
 
@@ -82,14 +84,14 @@ async function request(method, path, body, extraHeaders = {}) {
   }
 
   if (envelope?.error) {
-    const { code, capability, reason } = envelope.error;
+    const { code, capability, reason, details } = envelope.error;
     if (code === 'UNAUTHENTICATED') unauthenticatedHandler?.(path);
     const retryAfter = response.headers.get('Retry-After');
     throw new ApiError(
       code,
       response.status,
       code === 'THROTTLED' && retryAfter ? Number(retryAfter) : null,
-      { capability, reason }
+      { capability, reason, details }
     );
   }
 
