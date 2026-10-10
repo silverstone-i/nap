@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.29.0] - 2026-10-10
+
 ### Added
 
 - Directory grids and bulk actions (M0005-R027–R030). Employees, contacts, vendors, clients, and an organization's contacts are standard grids with server paging. Each row's menu offers **Edit**, and **Archive** (confirming "Archived records are hidden from lists until restored.") or **Restore**; a client buyer's menu also offers **Make primary tax contact**. Selecting rows on the current page offers **Archive selected** when all are active and **Restore selected** when all are archived. `POST /{collection}/archive` and `/restore` take `{ items: [{ id, revision }] }` (up to 100) and apply the single-record rules in one transaction: if any item fails, nothing changes and the response is `409 BULK_FAILED` with `details: [{ id, code }]`, which the screen lists by name. The organization's contact grid has an **Include archived** switch.
