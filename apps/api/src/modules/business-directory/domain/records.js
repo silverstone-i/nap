@@ -557,10 +557,13 @@ export async function getRecord(context, name, id) {
       if (roles) detail.roles = roles;
     }
     if (name === 'organizations') {
+      // The embedded list feeds tenant provisioning's administrator choice;
+      // the detail dialog's contacts grid pages on its own (R027).
       const contacts = await context.cell.people.search({
         tx,
         kinds: COLLECTIONS['organization-contacts'].kinds,
         organizationId: key,
+        limit: 500,
       });
       const map = await primaries(
         context,
