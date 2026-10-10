@@ -14,8 +14,20 @@
  */
 
 import { z } from 'zod';
+import {
+  memberRoles,
+  memberRoleViews,
+  setMemberRoles,
+} from '../../access-control/domain/memberRoles.js';
 import { requestPortalAccess } from '../../cell-tenancy/domain/portalAccess.js';
 import { DirectoryError } from './errors.js';
+import { requireCapability } from './shared.js';
+
+/** Assigning roles needs this beside `directory::write` (I0010-R001, R012). */
+export const ASSIGNMENTS_WRITE = 'access-control::assignments::write';
+
+/** Seeing a person's roles needs this (I0010 §4). */
+export const ROLES_READ = 'access-control::roles::read';
 
 /** Roles whose holder must keep access (I0008-R005, M0001-08-R008). */
 const ADMIN_ROLES = Object.freeze(['tenant_admin', 'platform_admin']);
@@ -163,4 +175,68 @@ export function portalStatus(flag, fact) {
   if (fact?.membership === 'pending')
     return { status: 'invited', failureCode: null };
   return { status: 'requested', failureCode: null };
+}
+
+/**
+ * The access-control context for a person's roles, built from the
+ * directory request's context.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @returns {import('../../access-control/domain/memberRoles.js').MemberRolesContext}
+ */
+function rolesContext(context) {
+  return {
+    cell: context.cell,
+    tenant: context.tenant,
+    napsoftCode: context.napsoftCode ?? null,
+    actorId: context.actorId,
+    actorPatterns: context.actorPatterns,
+    record: context.recordRole,
+  };
+}
+
+/**
+ * I0010-R005, R006, R009–R012: apply the role part of a person save inside
+ * its transaction. Turning access on, or sending `roleIds`, is the tenant's
+ * own decision: it needs a caller whose home tenant is this tenant (R011)
+ * and `access-control::assignments::write` (R012). Turning access on needs
+ * at least one role, chosen now or kept from before (R005, R010).
+ * `roleIds` is accepted only while access stays or turns on.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} partyId
+ * @param {{roleIds?: string[], turningOn: boolean, portalOn: boolean}} change
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `INVALID_INPUT`, `FORBIDDEN`
+ */
+export async function applyPortalRoles(
+  context,
+  partyId,
+  { roleIds, turningOn, portalOn },
+  tx
+) {
+  if (roleIds === undefined && !turningOn) return;
+  if (context.homeTenantId !== context.tenant.id)
+    throw new DirectoryError('FORBIDDEN');
+  await requireCapability(context, ASSIGNMENTS_WRITE);
+  if (roleIds !== undefined && !portalOn)
+    throw new DirectoryError('INVALID_INPUT');
+  if (roleIds === undefined) {
+    const kept = await memberRoles(rolesContext(context), partyId, tx);
+    if (kept.roleIds.length === 0) throw new DirectoryError('INVALID_INPUT');
+    return;
+  }
+  await setMemberRoles(rolesContext(context), partyId, roleIds, tx);
+}
+
+/**
+ * A person's roles for the detail response (I0010 §10), or `undefined` when
+ * the caller cannot read roles.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} partyId
+ * @param {object} tx
+ * @returns {Promise<{id: string, code: string, name: string, held: boolean}[]|undefined>}
+ */
+export async function portalRolesView(context, partyId, tx) {
+  if (!(await context.can(ROLES_READ))) return undefined;
+  return memberRoleViews(rolesContext(context), partyId, tx);
 }

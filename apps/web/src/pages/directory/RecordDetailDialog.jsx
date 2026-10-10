@@ -100,7 +100,7 @@ function TaxIdLine({ collection, record, canReveal }) {
 /**
  * A record's detail: its fields, tax ID, emails, phones, and addresses; an
  * organization's contacts; and edit, archive, and restore (M0005-R026).
- * @param {{collection: 'people'|'organizations'|'organization-contacts', id: string, abilities: {write: boolean, readTaxIds: boolean, writeTaxIds: boolean}, onClose: () => void, onChanged: () => void}} props
+ * @param {{collection: 'people'|'organizations'|'organization-contacts', id: string, abilities: {write: boolean, readTaxIds: boolean, writeTaxIds: boolean, assignRoles?: boolean}, onClose: () => void, onChanged: () => void}} props
  * @returns {JSX.Element}
  */
 export function RecordDetailDialog({
@@ -218,6 +218,24 @@ export function RecordDetailDialog({
                 canWrite={abilities.write}
                 onChanged={changed}
               />
+            ) : null}
+            {record.roles?.length ? (
+              <Stack
+                direction="row"
+                spacing={1}
+                useFlexGap
+                sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+              >
+                <Typography variant="body2">Roles:</Typography>
+                {record.roles.map(role => (
+                  <Chip key={role.id} size="small" label={role.name} />
+                ))}
+                {record.roles.some(role => role.held) ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Applies when this person first signs in.
+                  </Typography>
+                ) : null}
+              </Stack>
             ) : null}
             {record.isPrimaryTaxContact ? (
               <Chip
@@ -504,6 +522,7 @@ export function RecordDetailDialog({
           collection={collection}
           record={record}
           canWriteTaxIds={abilities.writeTaxIds}
+          canManagePortal={abilities.write && Boolean(abilities.assignRoles)}
           onClose={() => setEditing(false)}
           onSaved={afterSave}
         />
@@ -517,6 +536,7 @@ export function RecordDetailDialog({
             organizationKind: record.kind,
           }}
           canWriteTaxIds={abilities.writeTaxIds}
+          canManagePortal={abilities.write && Boolean(abilities.assignRoles)}
           onClose={() => setContactForm(false)}
           onSaved={afterSave}
         />

@@ -17,9 +17,11 @@
 import { z } from 'zod';
 import { DirectoryError } from './errors.js';
 import {
+  applyPortalRoles,
   assertCanTurnOff,
   PORTAL_OFF,
   portalFacts,
+  portalRolesView,
   portalStatus,
   sendPortalAccess,
   temporaryPassword,
@@ -63,6 +65,8 @@ const longName = z.string().trim().min(1).max(255);
 const TAX_COLUMNS = ['tax_id_encrypted', 'tax_id_hash', 'tax_id_last4'];
 const taxId = z.string().max(32).nullable();
 const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
+/** I0010-R002: a person's role set, one or more distinct roles. */
+const roleIds = z.array(uuid).min(1).max(50);
 
 const personCreate = z.strictObject({
   kind: z.enum(COLLECTIONS.people.kinds),
@@ -71,6 +75,7 @@ const personCreate = z.strictObject({
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
+  roleIds: roleIds.optional(),
   primaryEmail: email.optional(),
 });
 const personUpdate = z.strictObject({
@@ -79,6 +84,7 @@ const personUpdate = z.strictObject({
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
+  roleIds: roleIds.optional(),
   revision,
 });
 const contactFields = {
@@ -115,6 +121,7 @@ const contactUpdate = z.strictObject({
   taxId: taxId.optional(),
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
+  roleIds: roleIds.optional(),
   isPrimaryContact: z.boolean().optional(),
   isBillingContact: z.boolean().optional(),
   revision,
@@ -515,6 +522,11 @@ export async function getRecord(context, name, id) {
         labelName: labelName(address.label_id),
       })),
     };
+    if (name !== 'organizations') {
+      // I0010 §10: the person's roles, for a caller who may read them.
+      const roles = await portalRolesView(context, key, tx);
+      if (roles) detail.roles = roles;
+    }
     if (name === 'organizations') {
       const contacts = await context.cell.people.search({
         tx,
@@ -590,6 +602,16 @@ async function createPerson(context, body) {
         },
         { tx }
       );
+    await applyPortalRoles(
+      context,
+      partyId,
+      {
+        roleIds: input.roleIds,
+        turningOn: row.is_portal_user,
+        portalOn: row.is_portal_user,
+      },
+      tx
+    );
     if (row.is_portal_user)
       await sendPortalAccess(context, row, true, input.temporaryPassword, tx);
     const view = await viewOf(context, 'people', row, tx);
@@ -768,6 +790,17 @@ export async function updateRecord(context, name, id, body) {
       ),
       ...taxColumns,
     };
+    if (name !== 'organizations')
+      await applyPortalRoles(
+        context,
+        locked.party_id,
+        {
+          roleIds: input.roleIds,
+          turningOn: portal === true,
+          portalOn: row.is_portal_user,
+        },
+        tx
+      );
     if (portal !== null)
       await sendPortalAccess(context, row, portal, input.temporaryPassword, tx);
     if (name === 'organizations') await requireTaxSource(context, row, tx);

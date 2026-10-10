@@ -5,6 +5,7 @@
 
 import { ERROR_STATUS, sendError } from '../../../../framework/envelope.js';
 import { authorize } from '../../../../capability/authorize.js';
+import { roleChangeRecorder } from '../../../access-control/domain/events.js';
 import { DirectoryError } from '../../domain/errors.js';
 import { directoryChangeRecorder } from '../../domain/events.js';
 import { createTaxIdProtector } from '../../domain/taxIds.js';
@@ -72,6 +73,16 @@ export async function directoryContext(
         })
       ).decision === 'permit',
     record: directoryChangeRecorder(cell, {
+      tenantId: tenant.id,
+      actorId,
+      sessionId: session.id ?? null,
+      requestId: request.requestId ?? null,
+    }),
+    // I0010: a person's roles are set in the same save.
+    homeTenantId: authorization.homeTenant?.id ?? null,
+    napsoftCode: authorization.napsoftCode ?? null,
+    actorPatterns: async () => authorization.patterns ?? [],
+    recordRole: roleChangeRecorder(cell, {
       tenantId: tenant.id,
       actorId,
       sessionId: session.id ?? null,

@@ -134,6 +134,17 @@ export const EVENT_CATALOGUE = Object.freeze({
       'changed_at',
     ],
   },
+  // I0010 §12. `role.held` and `role.released` record a role chosen for, or
+  // no longer chosen for, the person `party_id` before they are an active
+  // member; activation turns held roles into `role.granted`.
+  'role.held': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'party_id', 'from_status', 'to_status', 'changed_at'],
+  },
+  'role.released': {
+    outcomes: ANY_OUTCOME,
+    details: ['role', 'party_id', 'from_status', 'to_status', 'changed_at'],
+  },
   'role.created': {
     outcomes: ANY_OUTCOME,
     details: ['role', 'revision', 'after', 'changed_at'],

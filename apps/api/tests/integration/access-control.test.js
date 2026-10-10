@@ -95,10 +95,12 @@ it('creates the three role tables with forced tenant RLS and a clean contract; r
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-      WHERE n.nspname='app' AND c.relkind='r' AND c.relname LIKE 'role%'
+      WHERE n.nspname='app' AND c.relkind='r'
+        AND (c.relname LIKE 'role%' OR c.relname='held_roles')
       ORDER BY c.relname`
   );
   expect(tables).toEqual([
+    { name: 'held_roles', rls: true, force: true },
     { name: 'role_assignments', rls: true, force: true },
     { name: 'role_grants', rls: true, force: true },
     { name: 'roles', rls: true, force: true },

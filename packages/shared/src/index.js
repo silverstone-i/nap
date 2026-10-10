@@ -504,23 +504,51 @@ export const addressViewSchema = z.strictObject({
   revision: z.number().int().positive(),
 });
 
+// The detail read adds each label's name (M0005-R014, R015).
+const labelName = z.string().nullable();
 const recordDetail = {
-  contactMethods: z.array(contactMethodViewSchema),
-  addresses: z.array(addressViewSchema),
+  contactMethods: z.array(contactMethodViewSchema.extend({ labelName })),
+  addresses: z.array(addressViewSchema.extend({ labelName })),
+};
+
+/**
+ * A person's roles on the detail read (I0010 §10), present only for a
+ * session holding `access-control::roles::read`. `held` marks roles waiting
+ * for the person's first sign-in.
+ */
+const personRoles = {
+  roles: z
+    .array(
+      z.strictObject({
+        id: z.uuid(),
+        code: z.string(),
+        name: z.string(),
+        held: z.boolean(),
+      })
+    )
+    .optional(),
 };
 
 /** Zod schema for a person with their details. */
-export const personDetailSchema = personViewSchema.extend(recordDetail);
+export const personDetailSchema = personViewSchema.extend({
+  ...recordDetail,
+  ...personRoles,
+});
 
 /** Zod schema for an organization with its details and contacts. */
 export const organizationDetailSchema = organizationViewSchema.extend({
   ...recordDetail,
-  contacts: z.array(organizationContactViewSchema),
+  contacts: z.array(
+    organizationContactViewSchema.extend({
+      primaryEmailLabel: labelName,
+      primaryPhoneLabel: labelName,
+    })
+  ),
 });
 
 /** Zod schema for an organization contact with its details. */
 export const organizationContactDetailSchema =
-  organizationContactViewSchema.extend(recordDetail);
+  organizationContactViewSchema.extend({ ...recordDetail, ...personRoles });
 
 /** Zod schema for one label (M0005-R017). */
 export const contactLabelViewSchema = z.strictObject({

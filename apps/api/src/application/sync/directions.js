@@ -4,6 +4,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { applyHeldRoles } from '../../modules/access-control/domain/memberRoles.js';
 import { applyPortalAccess } from '../../modules/admin-tenancy/domain/accounts.js';
 import {
   EVENT_CATALOGUE,
@@ -62,13 +63,27 @@ export function adminToCell({ admin, registry, tenantId }) {
             throw new SyncFailure('TENANT_NOT_SYNCED');
           tenantSynced = true;
         }
-        await cell[COPIES[row.topic]].applySnapshot(
+        const applied = await cell[COPIES[row.topic]].applySnapshot(
           snapshot,
           row.revision,
           row.created_by ?? null,
           { tx }
         );
         if (row.topic === 'tenant') tenantSynced = true;
+        // I0010-R007: a person's membership arriving active assigns the
+        // roles held for them, in this same transaction.
+        if (
+          row.topic === 'membership' &&
+          applied !== 'unchanged' &&
+          snapshot.status === 'active' &&
+          !snapshot.deactivated_at &&
+          snapshot.member_id
+        )
+          await applyHeldRoles(cell, tx, {
+            tenantId: snapshot.tenant_id,
+            partyId: snapshot.member_id,
+            portalUserId: snapshot.portal_user_id,
+          });
       }
     });
     return { delivered: valid.map(({ row }) => row.id), failed };
