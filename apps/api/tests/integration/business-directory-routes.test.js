@@ -30,6 +30,7 @@ import { accessControlRoutesV1 } from '../../src/modules/access-control/apiRoute
 import { businessDirectoryRoutesV1 } from '../../src/modules/business-directory/apiRoutes/v1/index.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import { randomBytes } from 'node:crypto';
+import { organizationDetailSchema, personDetailSchema } from '@nap/shared';
 import { createSyncWorker } from '../../src/application/sync/worker.js';
 import { withTenantTransaction } from '../../src/infrastructure/runtime/tenantTransaction.js';
 
@@ -521,6 +522,11 @@ describe('tax IDs (M0005-R006–R013)', () => {
         primaryPhoneLabel: null,
       }),
     ]);
+    expect(
+      organizationDetailSchema.safeParse(
+        (await call('get', `/organizations/${vendor.id}`)).body.data
+      ).success
+    ).toBe(true);
     expect((await call('get', `/people/${contact.id}`)).status).toBe(404);
     expect(
       (await call('get', '/people')).body.data.some(p => p.id === contact.id)
@@ -705,6 +711,8 @@ describe('addresses and labels (M0005-R015, R017)', () => {
     expect(detail.contactMethods.map(m => m.labelName)).toEqual([
       phoneLabel.name,
     ]);
+    // The web app parses this response with the shared schema.
+    expect(personDetailSchema.safeParse(detail).success).toBe(true);
     expect(
       (
         await call('post', `/parties/${person.id}/addresses`, {
@@ -839,6 +847,12 @@ describe('event delivery (M0005-R025)', () => {
 describe('portal access (I0008)', () => {
   const ADMIN = '/api/admin-tenancy/v1';
   const TEMP = 'temporary-pass';
+  // I0010-R005: turning access on now names at least one role.
+  let roleIds;
+  beforeAll(async () => {
+    const roles = (await acl('get', '/roles')).body.data;
+    roleIds = [roles.find(role => role.code === 'support').id];
+  });
 
   /** Deliver both directions until nothing moves: request, then its copy. */
   async function drain() {
@@ -891,6 +905,7 @@ describe('portal access (I0008)', () => {
     const person = await employee({
       isPortalUser: true,
       temporaryPassword: TEMP,
+      roleIds,
     });
     expect(person.portalAccess).toEqual({
       status: 'requested',
@@ -940,6 +955,7 @@ describe('portal access (I0008)', () => {
     const noEmail = await call('patch', `/people/${contact.id}`, {
       isPortalUser: true,
       temporaryPassword: TEMP,
+      roleIds,
       revision: contact.revision,
     });
     expect(noEmail.body.error.code).toBe('INVALID_INPUT');
@@ -949,6 +965,7 @@ describe('portal access (I0008)', () => {
       lastName: 'Password',
       primaryEmail: `nopass-${randomUUID().slice(0, 6)}@example.test`,
       isPortalUser: true,
+      roleIds,
     });
     expect(noPassword.body.error.code).toBe('INVALID_INPUT');
     const vendor = await create('organizations', {
@@ -975,6 +992,7 @@ describe('portal access (I0008)', () => {
     const person = await employee({
       isPortalUser: true,
       temporaryPassword: TEMP,
+      roleIds,
     });
     await drain();
     const off = await call('patch', `/people/${person.id}`, {
@@ -997,6 +1015,7 @@ describe('portal access (I0008)', () => {
     const other = await employee({
       isPortalUser: true,
       temporaryPassword: TEMP,
+      roleIds,
     });
     await drain();
     const archived = await call('post', `/people/${other.id}/archive`, {
@@ -1051,6 +1070,7 @@ describe('portal access (I0008)', () => {
       primaryEmail: email,
       isPortalUser: true,
       temporaryPassword: TEMP,
+      roleIds,
     });
     expect(
       (
@@ -1087,6 +1107,7 @@ describe('portal access (I0008)', () => {
     const person = await employee({
       isPortalUser: true,
       temporaryPassword: TEMP,
+      roleIds,
     });
     const detail = (await call('get', `/people/${person.id}`)).body.data;
     const [primary] = detail.contactMethods;
@@ -1133,5 +1154,365 @@ describe('portal access (I0008)', () => {
       { value: 'edited@example.test', revision: primary.revision }
     );
     expect(edited.status).toBe(200);
+  });
+});
+
+describe('tenant-managed portal access and roles (I0010)', () => {
+  const ADMIN = '/api/admin-tenancy/v1';
+  const TEMP = 'temporary-pass';
+  let support, platformAdmin, tenantAdmin;
+
+  beforeAll(async () => {
+    const roles = (await acl('get', '/roles')).body.data;
+    support = roles.find(role => role.code === 'support').id;
+    platformAdmin = roles.find(role => role.code === 'platform_admin').id;
+    tenantAdmin = roles.find(role => role.code === 'tenant_admin').id;
+  });
+
+  async function drain() {
+    await sync.tick();
+    await sync.tick();
+  }
+
+  function employee(body = {}) {
+    return create('people', {
+      kind: 'employee',
+      firstName: 'Role',
+      lastName: 'Holder',
+      primaryEmail: `roles-${randomUUID().slice(0, 8)}@example.test`,
+      ...body,
+    });
+  }
+
+  function detail(id) {
+    return call('get', `/people/${id}`).then(response => response.body.data);
+  }
+
+  /** The person signs in with the temporary password and replaces it. */
+  async function activate(person, password = TEMP) {
+    await drain();
+    const login = await request(app)
+      .post(`${ADMIN}/auth/login`)
+      .set('Origin', ORIGIN)
+      .send({ email: person.primaryEmail, password });
+    expect(login.status).toBe(200);
+    const changed = await request(app)
+      .post(`${ADMIN}/auth/password`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', login.headers['set-cookie'][0].split(';')[0])
+      .send({ currentPassword: password, newPassword: 'a-new-long-password' });
+    expect(changed.status).toBe(200);
+    await drain();
+    const user = await db.portal_users.findOneBy(
+      { email: person.primaryEmail },
+      { columnWhitelist: ['id'] }
+    );
+    return user.id;
+  }
+
+  /** The login's assigned role IDs, sorted. */
+  async function assigned(loginId) {
+    const roles = (await acl('get', `/users/${loginId}/roles`)).body.data.roles;
+    return roles.map(role => role.id).sort();
+  }
+
+  function heldRows(partyId) {
+    return withTenantTransaction(cell, napsoft.id, tx =>
+      tx.any(
+        'SELECT role_id, created_by FROM app.held_roles WHERE party_id=$1 AND deactivated_at IS NULL',
+        [partyId]
+      )
+    );
+  }
+
+  function roleEvents(partyOrLogin) {
+    return withTenantTransaction(cell, napsoft.id, tx =>
+      tx.any(
+        `SELECT payload->>'event_key' AS key, payload->>'actor_id' AS actor
+           FROM cell.outbox
+          WHERE topic='role_change'
+            AND (payload->'details'->>'party_id'=$1
+                 OR payload->'details'->>'portal_user_id'=$1)
+          ORDER BY created_at, id`,
+        [partyOrLogin]
+      )
+    );
+  }
+
+  it('AC01: holds the chosen roles until the first sign-in, then assigns them', async () => {
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds: [support, tenantAdmin],
+    });
+    const before = await detail(person.id);
+    expect(personDetailSchema.safeParse(before).success).toBe(true);
+    expect(before.roles.map(role => [role.code, role.held])).toEqual([
+      ['support', true],
+      ['tenant_admin', true],
+    ]);
+    expect((await heldRows(person.id)).map(row => row.created_by)).toEqual([
+      rootId,
+      rootId,
+    ]);
+    expect((await roleEvents(person.id)).map(event => event.key)).toEqual([
+      'role.held',
+      'role.held',
+    ]);
+
+    const loginId = await activate(person);
+    expect(await assigned(loginId)).toEqual([support, tenantAdmin].sort());
+    expect(await heldRows(person.id)).toEqual([]);
+    expect(
+      (await detail(person.id)).roles.map(role => [role.code, role.held])
+    ).toEqual([
+      ['support', false],
+      ['tenant_admin', false],
+    ]);
+    expect(await roleEvents(loginId)).toEqual([
+      { key: 'role.granted', actor: rootId },
+      { key: 'role.granted', actor: rootId },
+    ]);
+  }, 30_000);
+
+  it('AC02: refuses access on without a role and sends no request', async () => {
+    const response = await call('post', '/people', {
+      kind: 'employee',
+      firstName: 'No',
+      lastName: 'Role',
+      primaryEmail: `norole-${randomUUID().slice(0, 6)}@example.test`,
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+    });
+    expect(response.body.error.code).toBe('INVALID_INPUT');
+    const empty = await call('post', '/people', {
+      kind: 'employee',
+      firstName: 'Empty',
+      lastName: 'Roles',
+      primaryEmail: `empty-${randomUUID().slice(0, 6)}@example.test`,
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds: [],
+    });
+    expect(empty.body.error.code).toBe('INVALID_INPUT');
+  });
+
+  it("AC04: edits an active member's assignments and refuses an empty role set", async () => {
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds: [tenantAdmin],
+    });
+    const loginId = await activate(person);
+    let current = await detail(person.id);
+    const added = await call('patch', `/people/${person.id}`, {
+      roleIds: [tenantAdmin, support],
+      revision: current.revision,
+    });
+    expect(added.status, JSON.stringify(added.body)).toBe(200);
+    expect(await assigned(loginId)).toEqual([support, tenantAdmin].sort());
+    current = await detail(person.id);
+    const none = await call('patch', `/people/${person.id}`, {
+      roleIds: [],
+      revision: current.revision,
+    });
+    expect(none.body.error.code).toBe('INVALID_INPUT');
+    // Other tenant_admin holders exist here, so the removal is allowed; the
+    // last-holder refusal is covered by the member-roles unit test.
+    const removed = await call('patch', `/people/${person.id}`, {
+      roleIds: [support],
+      revision: current.revision,
+    });
+    expect(removed.status, JSON.stringify(removed.body)).toBe(200);
+    expect(await assigned(loginId)).toEqual([support]);
+  }, 30_000);
+
+  it("AC05: replaces a not-yet-active person's held roles without assigning any", async () => {
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds: [support],
+    });
+    const changed = await call('patch', `/people/${person.id}`, {
+      roleIds: [tenantAdmin],
+      revision: person.revision,
+    });
+    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    expect((await heldRows(person.id)).map(row => row.role_id)).toEqual([
+      tenantAdmin,
+    ]);
+    // One transaction, one timestamp: compare the events as a set.
+    expect(
+      (await roleEvents(person.id)).map(event => event.key).sort()
+    ).toEqual(['role.held', 'role.held', 'role.released']);
+  });
+
+  it('AC06: keeps roles when access is turned off and applies exactly the new set when turned back on', async () => {
+    // A second non-administrator role: turning off an administrator's
+    // access is refused (I0008-R005).
+    const other = (
+      await acl('post', '/roles', {
+        code: `other_${randomUUID().slice(0, 6)}`,
+        name: 'Other',
+        grants: [`${napsoft.tenant_code}::business-directory::directory::read`],
+      })
+    ).body.data.id;
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds: [support],
+    });
+    const loginId = await activate(person);
+    let current = await detail(person.id);
+    expect(
+      (
+        await call('patch', `/people/${person.id}`, {
+          isPortalUser: false,
+          revision: current.revision,
+        })
+      ).status
+    ).toBe(200);
+    await drain();
+    expect(await assigned(loginId)).toEqual([support]);
+    current = await detail(person.id);
+    expect(current.roles.map(role => role.code)).toEqual(['support']);
+    const roleWhileOff = await call('patch', `/people/${person.id}`, {
+      roleIds: [other],
+      revision: current.revision,
+    });
+    expect(roleWhileOff.body.error.code).toBe('INVALID_INPUT');
+
+    const back = await call('patch', `/people/${person.id}`, {
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds: [other],
+      revision: current.revision,
+    });
+    expect(back.status, JSON.stringify(back.body)).toBe(200);
+    // I0008: re-enabling resets the temporary password, so the membership
+    // activates at the next password change.
+    await activate(person);
+    expect(await assigned(loginId)).toEqual([other]);
+    expect(await heldRows(person.id)).toEqual([]);
+
+    current = await detail(person.id);
+    expect(
+      (
+        await call('patch', `/people/${person.id}`, {
+          isPortalUser: false,
+          revision: current.revision,
+        })
+      ).status
+    ).toBe(200);
+    await drain();
+    current = await detail(person.id);
+    const kept = await call('patch', `/people/${person.id}`, {
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      revision: current.revision,
+    });
+    expect(kept.status, JSON.stringify(kept.body)).toBe(200);
+    await activate(person);
+    expect(await assigned(loginId)).toEqual([other]);
+  }, 30_000);
+
+  it('AC07: needs access-control::assignments::write to send roles', async () => {
+    const custom = await acl('post', '/roles', {
+      code: `dir_${randomUUID().slice(0, 6)}`,
+      name: 'Directory clerk',
+      grants: [`${napsoft.tenant_code}::business-directory::*::*`],
+    });
+    expect(custom.status, JSON.stringify(custom.body)).toBe(201);
+    const clerk = await staff(custom.body.data.code);
+    const response = await call(
+      'post',
+      '/people',
+      {
+        kind: 'employee',
+        firstName: 'Clerk',
+        lastName: 'Made',
+        primaryEmail: `clerk-${randomUUID().slice(0, 6)}@example.test`,
+        isPortalUser: true,
+        temporaryPassword: TEMP,
+        roleIds: [support],
+      },
+      clerk.cookie
+    );
+    expect(response.status).toBe(403);
+    const plain = await call(
+      'post',
+      '/people',
+      {
+        kind: 'employee',
+        firstName: 'Clerk',
+        lastName: 'Plain',
+        primaryEmail: `plain-${randomUUID().slice(0, 6)}@example.test`,
+      },
+      clerk.cookie
+    );
+    expect(plain.status, JSON.stringify(plain.body)).toBe(201);
+    expect(
+      (
+        await call(
+          'get',
+          `/people/${plain.body.data.id}`,
+          undefined,
+          clerk.cookie
+        )
+      ).body.data.roles
+    ).toBeUndefined();
+  });
+
+  it('AC09: assigns a held role archived before activation; it grants nothing', async () => {
+    const custom = (
+      await acl('post', '/roles', {
+        code: `temp_${randomUUID().slice(0, 6)}`,
+        name: 'Temporary',
+        grants: [`${napsoft.tenant_code}::business-directory::directory::read`],
+      })
+    ).body.data;
+    const person = await employee({
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds: [custom.id],
+    });
+    expect(
+      (
+        await acl('post', `/roles/${custom.id}/archive`, {
+          revision: custom.revision,
+        })
+      ).status
+    ).toBe(200);
+    const loginId = await activate(person);
+    expect(await assigned(loginId)).toEqual([custom.id]);
+  }, 30_000);
+
+  it('refuses a role the caller does not cover (M0003-R011)', async () => {
+    const clerkRole = (
+      await acl('post', '/roles', {
+        code: `assign_${randomUUID().slice(0, 6)}`,
+        name: 'Assigner',
+        grants: [
+          `${napsoft.tenant_code}::business-directory::*::*`,
+          `${napsoft.tenant_code}::access-control::assignments::write`,
+        ],
+      })
+    ).body.data;
+    const clerk = await staff(clerkRole.code);
+    const response = await call(
+      'post',
+      '/people',
+      {
+        kind: 'employee',
+        firstName: 'Over',
+        lastName: 'Reach',
+        primaryEmail: `over-${randomUUID().slice(0, 6)}@example.test`,
+        isPortalUser: true,
+        temporaryPassword: TEMP,
+        roleIds: [platformAdmin],
+      },
+      clerk.cookie
+    );
+    expect(response.body.error.code).toBe('GRANT_EXCEEDS_ACTOR');
   });
 });

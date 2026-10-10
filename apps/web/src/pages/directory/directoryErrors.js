@@ -17,6 +17,10 @@ const MESSAGES = {
     'This buyer is the client’s primary tax contact. Choose another first.',
   ADMIN_ASSIGNED:
     'This person holds an administrator role. Remove the role on the Roles screen first.',
+  GRANT_EXCEEDS_ACTOR:
+    'You can only give roles whose permissions you hold yourself.',
+  LAST_ADMIN:
+    'This person is the tenant’s last administrator. Give the role to someone else first.',
   CONFLICT: 'That name is already used, or the record changed. Try again.',
   NOT_FOUND: 'That record no longer exists.',
   CELL_UNAVAILABLE: 'The tenant’s database is unavailable. Try again later.',
@@ -26,7 +30,7 @@ const MESSAGES = {
 export const PORTAL_MESSAGES = Object.freeze({
   turnOn: {
     INVALID_INPUT:
-      'Turning on portal access needs a primary email and a temporary password.',
+      'Turning on portal access needs a primary email, a temporary password, and at least one role.',
     INVALID_STATE: 'An archived person cannot get portal access.',
   },
   turnOff: {

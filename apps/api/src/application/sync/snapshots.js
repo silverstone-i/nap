@@ -64,6 +64,8 @@ const SNAPSHOTS = Object.freeze({
       'role.restored',
       'role.granted',
       'role.revoked',
+      'role.held',
+      'role.released',
     ]),
     role_id: z.uuid(),
     actor_id: z.uuid(),

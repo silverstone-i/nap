@@ -29,6 +29,9 @@ const PASS_THROUGH = new Set([
   'STALE_REVISION',
   'PRIMARY_TAX_CONTACT',
   'ADMIN_ASSIGNED',
+  // I0010-R009: M0003's role rules, reported as Access Control reports them.
+  'GRANT_EXCEEDS_ACTOR',
+  'LAST_ADMIN',
   'CELL_UNAVAILABLE',
   'SERVICE_UNAVAILABLE',
 ]);

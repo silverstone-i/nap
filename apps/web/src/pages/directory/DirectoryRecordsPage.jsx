@@ -261,6 +261,7 @@ export function DirectoryRecordsPage({ kind }) {
           record={null}
           defaults={{ kind }}
           canWriteTaxIds={abilities.writeTaxIds}
+          canManagePortal={abilities.write && abilities.assignRoles}
           onClose={() => setCreating(false)}
           onSaved={saved => {
             setCreating(false);

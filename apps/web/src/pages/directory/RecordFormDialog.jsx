@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Dialog from '@mui/material/Dialog';
@@ -22,6 +23,7 @@ import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   createDirectoryRecord,
+  listRoles,
   updateDirectoryRecord,
 } from '../../api/endpoints.js';
 import { PasswordField } from '../../components/PasswordField.jsx';
@@ -74,13 +76,56 @@ function TaxIdInput({
   );
 }
 
+/**
+ * The tenant's unarchived roles to choose from (I0010-R002). The server
+ * still refuses a role the session cannot assign (M0003-R011).
+ * @param {{value: string[], onChange: (ids: string[]) => void, current: {id: string, name: string}[]}} props
+ */
+function RolesSelect({ value, onChange, current }) {
+  const [roles, setRoles] = useState(null);
+  useEffect(() => {
+    let live = true;
+    listRoles()
+      .then(rows => live && setRoles(rows.filter(role => !role.archived)))
+      .catch(() => live && setRoles([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+  // A role the person already holds stays listed even if it was archived.
+  const options = [
+    ...(roles ?? []),
+    ...current.filter(role => !(roles ?? []).some(r => r.id === role.id)),
+  ];
+  return (
+    <Autocomplete
+      multiple
+      loading={roles === null}
+      options={options}
+      getOptionLabel={role => role.name}
+      isOptionEqualToValue={(option, selected) => option.id === selected.id}
+      value={options.filter(role => value.includes(role.id))}
+      onChange={(_event, selected) => onChange(selected.map(role => role.id))}
+      renderInput={params => (
+        <TextField
+          {...params}
+          label="Roles"
+          helperText="What this person can do in the portal. At least one."
+        />
+      )}
+    />
+  );
+}
+
 /** One buyer row in a new client's contact list. */
 const blankBuyer = () => ({ firstName: '', lastName: '', taxId: '' });
 
 /**
  * Create or edit a directory record (M0005-R002–R009, R016). Tax ID fields
- * appear only for a session holding `tax-ids::write`.
- * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object|null, defaults?: {kind?: string, organizationId?: string, organizationKind?: string}, canWriteTaxIds: boolean, onClose: () => void, onSaved: (saved: object) => void}} props
+ * appear only for a session holding `tax-ids::write`. Portal access and the
+ * person's roles appear only for a session that may assign roles
+ * (I0010-R001).
+ * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object|null, defaults?: {kind?: string, organizationId?: string, organizationKind?: string}, canWriteTaxIds: boolean, canManagePortal?: boolean, onClose: () => void, onSaved: (saved: object) => void}} props
  * @returns {JSX.Element}
  */
 export function RecordFormDialog({
@@ -88,6 +133,7 @@ export function RecordFormDialog({
   record,
   defaults = {},
   canWriteTaxIds,
+  canManagePortal = false,
   onClose,
   onSaved,
 }) {
@@ -106,6 +152,10 @@ export function RecordFormDialog({
     record?.isPortalUser ?? false
   );
   const [temporaryPassword, setTemporaryPassword] = useState('');
+  const currentRoles = record?.roles ?? [];
+  const [roleIds, setRoleIds] = useState(() =>
+    currentRoles.map(role => role.id)
+  );
   const [taxId, setTaxId] = useState('');
   const [clearTaxId, setClearTaxId] = useState(false);
   const [buyers, setBuyers] = useState([blankBuyer()]);
@@ -140,12 +190,23 @@ export function RecordFormDialog({
   // created without an email, so its access is turned on by editing (R003).
   const turningOn = isPortalUser && !wasPortalUser;
   const turningOff = !isPortalUser && wasPortalUser;
-  const showPortal = people || (contacts && editing);
+  const showPortal = canManagePortal && (people || (contacts && editing));
+  const rolesChanged =
+    roleIds.length !== currentRoles.length ||
+    roleIds.some(id => !currentRoles.some(role => role.id === id));
 
-  /** The portal-access part of a request (I0008-R001, R004). */
+  /**
+   * The portal-access part of a request (I0008-R001, R004): the flag, the
+   * temporary password when turning on, and the roles when turning on or
+   * when they changed while access stays on (I0010-R005, R009).
+   */
   function portalField() {
     if (!showPortal) return {};
-    return turningOn ? { isPortalUser, temporaryPassword } : { isPortalUser };
+    const field = turningOn
+      ? { isPortalUser, temporaryPassword }
+      : { isPortalUser };
+    if (isPortalUser && (turningOn || rolesChanged)) field.roleIds = roleIds;
+    return field;
   }
 
   /** The tax ID part of a request: absent, a value, or null to clear. */
@@ -210,6 +271,10 @@ export function RecordFormDialog({
   async function handleSubmit(event) {
     event.preventDefault();
     setError(null);
+    if (showPortal && isPortalUser && roleIds.length === 0) {
+      setError('Choose at least one role for portal access.');
+      return;
+    }
     setSaving(true);
     try {
       const saved = editing
@@ -462,6 +527,20 @@ export function RecordFormDialog({
               }
               label="Portal access"
             />
+          ) : null}
+          {showPortal && isPortalUser ? (
+            <RolesSelect
+              value={roleIds}
+              onChange={setRoleIds}
+              current={currentRoles}
+            />
+          ) : null}
+          {showPortal &&
+          isPortalUser &&
+          currentRoles.some(role => role.held) ? (
+            <Typography variant="caption" color="text.secondary">
+              Applies when this person first signs in.
+            </Typography>
           ) : null}
           {showPortal && turningOn ? (
             <PasswordField

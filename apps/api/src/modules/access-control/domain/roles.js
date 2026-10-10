@@ -33,7 +33,7 @@ const MAX_GRANTS = 256;
 
 /**
  * @typedef {object} RoleChange
- * @property {'role.created'|'role.updated'|'role.archived'|'role.restored'|'role.granted'|'role.revoked'} eventKey
+ * @property {'role.created'|'role.updated'|'role.archived'|'role.restored'|'role.granted'|'role.revoked'|'role.held'|'role.released'} eventKey
  * @property {string} roleId
  * @property {Record<string, string|number|null>} details
  */

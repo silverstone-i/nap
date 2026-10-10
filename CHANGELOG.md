@@ -10,6 +10,18 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Tenant-managed portal access and roles (I0010). The person create and edit dialog shows **Portal access**, the temporary password, and a **Roles** picker to a user holding both `business-directory::directory::write` and `access-control::assignments::write`; turning access on needs at least one role. Roles chosen before the person first signs in are held and assigned when the membership becomes active, so the login gets exactly the chosen set; a role archived meanwhile is still assigned and grants nothing. Editing the person changes their roles, under M0003's coverage (`GRANT_EXCEEDS_ACTOR`) and last-administrator (`LAST_ADMIN`) rules. Turning access off keeps the roles. Only a user whose home tenant is the tenant may turn access on or change roles, so a Napsoft operator working in a customer tenant gets `403`. People and contacts accept `roleIds`, and their detail includes `roles: [{ id, code, name, held }]` for a session holding `access-control::roles::read`. Holding and releasing a role record `role.held` and `role.released` events.
+
+### Changed
+
+- Migration `001-access-control` is edited in place to add `app.held_roles`, so recreate existing cell databases.
+
+### Fixed
+
+- The record detail dialog failed to load any record with an email, phone, or address, or any organization with contacts, since v0.27.1. The shared response schemas now accept the label names the detail read returns.
+
 ## [v0.27.2] - 2026-10-09
 
 ### Added

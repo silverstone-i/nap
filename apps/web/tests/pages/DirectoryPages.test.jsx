@@ -38,6 +38,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   updateAddress: vi.fn(),
   removeAddress: vi.fn(),
   listContactLabels: vi.fn(),
+  listRoles: vi.fn(),
   createContactLabel: vi.fn(),
   renameContactLabel: vi.fn(),
   archiveContactLabel: vi.fn(),
@@ -55,6 +56,22 @@ vi.mock('../../src/auth/SessionContext.jsx', () => ({
 }));
 
 const TENANT = { id: 't1', code: 'ACME', name: 'Acme', tier: 'standard' };
+const role = (id, code, name, archived = false) => ({
+  id,
+  code,
+  name,
+  description: null,
+  isImmutable: false,
+  archived,
+  revision: 1,
+  grants: [],
+});
+const CLERK = role('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'clerk', 'Clerk');
+const MANAGER = role(
+  'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'manager',
+  'Manager'
+);
 const ALL = ['ACME::*::*::*'];
 const NO_TAX = [
   'ACME::business-directory::directory::read',
@@ -106,6 +123,11 @@ beforeEach(() => {
     addresses: [],
   });
   api.listContactLabels.mockResolvedValue([]);
+  api.listRoles.mockResolvedValue([
+    CLERK,
+    MANAGER,
+    role('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'old', 'Old', true),
+  ]);
 });
 
 afterEach(() => {
@@ -207,6 +229,7 @@ describe('Portal access (I0008)', () => {
           collection="people"
           record={off}
           canWriteTaxIds={false}
+          canManagePortal
           onClose={vi.fn()}
           onSaved={vi.fn()}
         />
@@ -220,12 +243,74 @@ describe('Portal access (I0008)', () => {
       within(form).getByLabelText(/Temporary password/),
       'temp-pass'
     );
+    // I0010-R005: a role is required to turn access on.
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(
+      await within(form).findByText(
+        'Choose at least one role for portal access.'
+      )
+    ).toBeTruthy();
+    expect(api.updateDirectoryRecord).not.toHaveBeenCalled();
+    await user.click(within(form).getByLabelText('Roles'));
+    await user.click(await screen.findByRole('option', { name: 'Clerk' }));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
       firstName: 'Jane',
       lastName: 'Doe',
       isPortalUser: true,
       temporaryPassword: 'temp-pass',
+      roleIds: [CLERK.id],
+      revision: 2,
+    });
+  });
+
+  it('hides portal access and roles without the right to assign roles (I0010-R001)', async () => {
+    render(
+      <ThemeModeProvider>
+        <RecordFormDialog
+          collection="people"
+          record={JANE}
+          canWriteTaxIds={false}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />
+      </ThemeModeProvider>
+    );
+    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    expect(within(form).queryByLabelText('Portal access')).toBeNull();
+    expect(within(form).queryByLabelText('Roles')).toBeNull();
+  });
+
+  it('sends the new role set when roles change while access stays on (I0010-R009)', async () => {
+    api.updateDirectoryRecord.mockResolvedValue({ ...JANE });
+    render(
+      <ThemeModeProvider>
+        <RecordFormDialog
+          collection="people"
+          record={{
+            ...JANE,
+            roles: [{ id: CLERK.id, code: 'clerk', name: 'Clerk', held: true }],
+          }}
+          canWriteTaxIds={false}
+          canManagePortal
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />
+      </ThemeModeProvider>
+    );
+    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    expect(
+      within(form).getByText('Applies when this person first signs in.')
+    ).toBeTruthy();
+    const user = userEvent.setup();
+    await user.click(within(form).getByLabelText('Roles'));
+    await user.click(await screen.findByRole('option', { name: 'Manager' }));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
+      firstName: 'Jane',
+      lastName: 'Doe',
+      isPortalUser: true,
+      roleIds: [CLERK.id, MANAGER.id],
       revision: 2,
     });
   });
@@ -240,6 +325,7 @@ describe('Portal access (I0008)', () => {
           collection="people"
           record={JANE}
           canWriteTaxIds={false}
+          canManagePortal
           onClose={vi.fn()}
           onSaved={vi.fn()}
         />
@@ -283,6 +369,30 @@ describe('Portal access (I0008)', () => {
       JANE.id,
       'new-temp'
     );
+  });
+
+  it("shows the person's roles in the detail, with no access switch (I0010-R004)", async () => {
+    api.getDirectoryRecord.mockResolvedValue({
+      ...JANE,
+      contactMethods: [],
+      addresses: [],
+      roles: [
+        { id: CLERK.id, code: 'clerk', name: 'Clerk', held: true },
+        { id: MANAGER.id, code: 'manager', name: 'Manager', held: true },
+      ],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Clerk')).toBeTruthy();
+    expect(within(dialog).getByText('Manager')).toBeTruthy();
+    expect(
+      within(dialog).getByText('Applies when this person first signs in.')
+    ).toBeTruthy();
+    expect(
+      within(dialog).queryByRole('checkbox', { name: 'Portal access' })
+    ).toBeNull();
   });
 
   it('shows the pending-invitation note while invited', async () => {

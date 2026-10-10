@@ -29,6 +29,10 @@ import { DirectoryError, withDirectoryErrors } from './errors.js';
  * @property {ReturnType<typeof import('./taxIds.js').createTaxIdProtector>} taxIds
  * @property {(capability: string) => Promise<boolean>} can Whether the actor holds `business-directory::<router>::<action>` in the target tenant.
  * @property {(change: DirectoryChange, tx: object) => Promise<void>} record Writes the change's outbox row inside `tx`.
+ * @property {string|null} [homeTenantId] The tenant whose cell holds the actor's own roles (I0005); I0010-R011 compares it with `tenant.id`.
+ * @property {string|null} [napsoftCode] Napsoft's tenant code, for M0003-R011 pattern coverage.
+ * @property {() => Promise<string[]>} [actorPatterns] The actor's resolved grants (I0005).
+ * @property {(change: object, tx: object) => Promise<void>} [recordRole] Writes a `role_change` outbox row inside `tx` (M0003-R015).
  */
 
 export const uuid = z.uuid();

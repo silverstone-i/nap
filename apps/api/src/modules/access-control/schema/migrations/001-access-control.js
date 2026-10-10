@@ -6,7 +6,7 @@
 import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
- * Baseline `access-control` migration (M0003). It creates the three `app`
+ * Baseline `access-control` migration (M0003, I0010). It creates the four `app`
  * role tables in dependency order, installs the immutable-field trigger,
  * enables and forces row-level security with the tenant rule from
  * M0002-01-R006, and applies the `nap-app` grant contract.
@@ -140,7 +140,54 @@ export const migration = defineMigration({
         ],
       },
     };
-    const schemas = [rolesSchema, roleGrantsSchema, roleAssignmentsSchema];
+    // I0010-R006: roles chosen for a person who is not yet an active member.
+    const heldRolesSchema = {
+      dbSchema: 'app',
+      table: 'held_roles',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      softDelete: true,
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          notNull: true,
+          default: 'gen_random_uuid()',
+          immutable: true,
+        },
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'party_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'role_id', type: 'uuid', notNull: true, immutable: true },
+      ],
+      constraints: {
+        primaryKey: ['id'],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'role_id'],
+            references: {
+              schema: 'app',
+              table: 'roles',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+        ],
+        indexes: [
+          {
+            columns: ['party_id', 'role_id'],
+            unique: true,
+            where: 'deactivated_at IS NULL',
+          },
+          { columns: ['role_id'] },
+        ],
+      },
+    };
+    const schemas = [
+      rolesSchema,
+      roleGrantsSchema,
+      roleAssignmentsSchema,
+      heldRolesSchema,
+    ];
     for (const schema of schemas)
       await new TableModel(db, pgp, schema).createTable();
     await db.none(`CREATE FUNCTION app.protect_record() RETURNS trigger LANGUAGE plpgsql AS $$
