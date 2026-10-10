@@ -48,6 +48,32 @@ export class DirectoryError extends Error {
 }
 
 /**
+ * A bulk archive or restore in which some items failed (M0005-R030).
+ * `details` names each failed item and its single-record error code.
+ */
+export class BulkFailedError extends DirectoryError {
+  /** @param {{id: string, code: string}[]} details */
+  constructor(details) {
+    super('BULK_FAILED');
+    this.details = details;
+  }
+}
+
+/**
+ * The code a caller would see for `error`, as `withDirectoryErrors` maps it.
+ * @param {unknown} error
+ * @returns {string}
+ */
+export function directoryCode(error) {
+  if (error instanceof DirectoryError) return error.code;
+  const code = error?.code;
+  if (typeof code === 'string' && PASS_THROUGH.has(code)) return code;
+  return typeof code === 'string' && Object.hasOwn(SQLSTATE_CODES, code)
+    ? SQLSTATE_CODES[code]
+    : 'INTERNAL_ERROR';
+}
+
+/**
  * Run `operation` and translate its failures into a `DirectoryError`. A
  * known code passes through; a caller-caused SQLSTATE maps as
  * `SQLSTATE_CODES` says; anything else becomes `INTERNAL_ERROR`, so database structure

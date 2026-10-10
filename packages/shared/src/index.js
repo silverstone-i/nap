@@ -52,6 +52,7 @@ export const apiErrorCodes = Object.freeze([
   'INTERNAL_ERROR',
   'AUDIT_UNAVAILABLE',
   'SERVICE_UNAVAILABLE',
+  'BULK_FAILED',
 ]);
 
 /** Zod schema for any API error envelope. */
@@ -63,6 +64,10 @@ export const apiErrorResponseSchema = z.strictObject({
     // I0005-R007: present on a capability denial.
     capability: z.string().optional(),
     reason: z.string().optional(),
+    // M0005-R030: on `BULK_FAILED`, each failed item and its code.
+    details: z
+      .array(z.strictObject({ id: z.uuid(), code: z.string() }))
+      .optional(),
   }),
 });
 
@@ -426,6 +431,9 @@ const directoryRecordBase = {
   revision: z.number().int().positive(),
   primaryEmail: z.string().nullable(),
   primaryPhone: z.string().nullable(),
+  // List rows name their primary email's and phone's labels (M0005-R027).
+  primaryEmailLabel: z.string().nullable().optional(),
+  primaryPhoneLabel: z.string().nullable().optional(),
   duplicateTaxIds: z.array(z.uuid()).optional(),
 };
 

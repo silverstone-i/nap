@@ -28,6 +28,7 @@ export const ERROR_STATUS = Object.freeze({
   GRANT_EXCEEDS_ACTOR: 403,
   // M0005 §10 directory rules.
   PRIMARY_TAX_CONTACT: 409,
+  BULK_FAILED: 409,
   UNSUPPORTED_MEDIA_TYPE: 415,
   THROTTLED: 429,
   INTERNAL_ERROR: 500,
@@ -58,6 +59,7 @@ export const ERROR_MESSAGE = Object.freeze({
   ROOT_IMMUTABLE: 'Root user cannot be changed',
   GRANT_EXCEEDS_ACTOR: 'Grant exceeds your access',
   PRIMARY_TAX_CONTACT: 'Primary tax contact cannot be removed',
+  BULK_FAILED: 'One or more items failed; nothing was changed',
   UNSUPPORTED_MEDIA_TYPE: 'Unsupported media type',
   THROTTLED: 'Too many requests',
   INTERNAL_ERROR: 'Internal error',

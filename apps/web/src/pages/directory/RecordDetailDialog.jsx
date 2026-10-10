@@ -14,10 +14,12 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -33,6 +35,7 @@ import {
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { AddressDialog } from './AddressDialog.jsx';
 import { ClientTenantPanel } from './ClientTenantPanel.jsx';
+import { ARCHIVE_TEXT, DirectoryGrid } from './DirectoryGrid.jsx';
 import { ContactMethodDialog } from './ContactMethodDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { KIND_LABELS, recordName } from './directoryRecords.js';
@@ -42,17 +45,6 @@ import {
   PORTAL_MESSAGES,
 } from './directoryErrors.js';
 import { PortalAccessPanel } from './PortalAccess.jsx';
-
-/**
- * A contact value followed by its label, such as `a@b.com (Work)`.
- * @param {string|null} value
- * @param {string|null|undefined} label
- * @returns {string|null}
- */
-function withLabel(value, label) {
-  if (!value) return null;
-  return label ? `${value} (${label})` : value;
-}
 
 /**
  * Tax ID shown masked, with a reveal button for `tax-ids::read`. Revealing
@@ -119,6 +111,9 @@ export function RecordDetailDialog({
   const [contactForm, setContactForm] = useState(false);
   const [openContact, setOpenContact] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [contactsArchived, setContactsArchived] = useState(false);
+  // Bumped on every change, so the contacts grid reloads its page too.
+  const [contactsTick, setContactsTick] = useState(0);
 
   const load = useCallback(
     () =>
@@ -133,6 +128,7 @@ export function RecordDetailDialog({
 
   const changed = () => {
     void load();
+    setContactsTick(tick => tick + 1);
     onChanged();
   };
 
@@ -399,75 +395,55 @@ export function RecordDetailDialog({
                     </Button>
                   ) : null}
                 </Stack>
-                {record.contacts.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    None.
-                  </Typography>
-                ) : (
-                  <List dense aria-label="Contacts">
-                    {record.contacts.map(contact => (
-                      <ListItem
-                        key={contact.id}
-                        secondaryAction={
-                          canEditDetails &&
-                          record.kind === 'client' &&
-                          contact.taxIdLast4 &&
-                          !contact.isPrimaryTaxContact ? (
-                            <Button
-                              size="small"
-                              onClick={() =>
-                                run(() =>
-                                  updateDirectoryRecord(
-                                    'organizations',
-                                    record.id,
-                                    {
-                                      primaryTaxContactId: contact.id,
-                                      revision: record.revision,
-                                    }
-                                  )
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={contactsArchived}
+                      onChange={event =>
+                        setContactsArchived(event.target.checked)
+                      }
+                    />
+                  }
+                  label="Include archived"
+                />
+                <DirectoryGrid
+                  collection="organization-contacts"
+                  filters={{
+                    organizationId: record.id,
+                    includeArchived: contactsArchived,
+                  }}
+                  ariaLabel="Contacts"
+                  emptyMessage="None."
+                  abilities={{
+                    ...abilities,
+                    write: abilities.write && !record.archived,
+                  }}
+                  onOpen={contact => setOpenContact(contact.id)}
+                  onChanged={changed}
+                  refreshKey={contactsTick}
+                  extraActions={(contact, runAction) =>
+                    record.kind === 'client' &&
+                    contact.taxIdLast4 &&
+                    !contact.isPrimaryTaxContact
+                      ? [
+                          {
+                            label: 'Make primary tax contact',
+                            onClick: target =>
+                              runAction(() =>
+                                updateDirectoryRecord(
+                                  'organizations',
+                                  record.id,
+                                  {
+                                    primaryTaxContactId: target.id,
+                                    revision: record.revision,
+                                  }
                                 )
-                              }
-                            >
-                              Make primary tax contact
-                            </Button>
-                          ) : null
-                        }
-                      >
-                        <ListItemText
-                          primary={
-                            <Button
-                              variant="text"
-                              size="small"
-                              onClick={() => setOpenContact(contact.id)}
-                            >
-                              {recordName(contact)}
-                            </Button>
-                          }
-                          secondary={[
-                            withLabel(
-                              contact.primaryEmail,
-                              contact.primaryEmailLabel
-                            ),
-                            withLabel(
-                              contact.primaryPhone,
-                              contact.primaryPhoneLabel
-                            ),
-                            contact.isPrimaryContact ? 'Primary contact' : null,
-                            contact.isBillingContact ? 'Billing contact' : null,
-                            contact.isPrimaryTaxContact
-                              ? 'Primary tax contact'
-                              : null,
-                            contact.portalAccess.status === 'off'
-                              ? null
-                              : `Portal access: ${contact.portalAccess.status}`,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
+                              ),
+                          },
+                        ]
+                      : []
+                  }
+                />
               </>
             ) : null}
           </Stack>
@@ -505,7 +481,7 @@ export function RecordDetailDialog({
       <ConfirmDialog
         open={confirmArchive}
         title="Archive record?"
-        description="An archived record is hidden from lists until it is restored. Its emails, phones, and addresses are kept."
+        description={`${ARCHIVE_TEXT} Its emails, phones, and addresses are kept.`}
         confirmLabel="Archive"
         onConfirm={() => {
           setConfirmArchive(false);

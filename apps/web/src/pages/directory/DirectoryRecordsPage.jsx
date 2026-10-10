@@ -3,30 +3,19 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
-import { listDirectoryRecords } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
-import { PortalAccessChip } from './PortalAccess.jsx';
+import { DirectoryGrid } from './DirectoryGrid.jsx';
 import { RecordDetailDialog } from './RecordDetailDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
-import { recordName } from './directoryRecords.js';
-import { describeDirectoryError } from './directoryErrors.js';
 import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 
 /** Per-kind page settings. */
@@ -59,8 +48,9 @@ const PAGES = {
 
 /**
  * `/directory/employees`, `/directory/contacts`, `/directory/vendors`, and
- * `/directory/clients` (M0005-R026): list and search the selected tenant's
- * records of one kind, open one, or create one. A tax ID search needs
+ * `/directory/clients` (M0005-R026–R029): list and search the selected
+ * tenant's records of one kind in a standard grid, open, edit, archive, or
+ * restore one or a page of them, or create one. A tax ID search needs
  * `tax-ids::read`.
  * @param {{kind: 'employee'|'contact'|'vendor'|'client'}} props
  * @returns {JSX.Element}
@@ -71,14 +61,11 @@ export function DirectoryRecordsPage({ kind }) {
   const session = useSession();
   const tenant = session.selectedTenant;
   const abilities = useDirectoryAbilities();
-  const { onError } = abilities;
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [taxIdSearch, setTaxIdSearch] = useState('');
   const [taxIdQuery, setTaxIdQuery] = useState('');
   const [includeArchived, setIncludeArchived] = useState(false);
-  const [rows, setRows] = useState(null);
-  const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   // `?open=<id>` opens a record on arrival, such as a tenant's client from
   // the Tenants screen.
@@ -101,39 +88,6 @@ export function DirectoryRecordsPage({ kind }) {
         </Button>
       ) : null,
   });
-
-  useEffect(() => {
-    if (!tenant) return undefined;
-    let cancelled = false;
-    listDirectoryRecords(collection, {
-      kind,
-      q: query || undefined,
-      taxId: taxIdQuery || undefined,
-      includeArchived,
-    })
-      .then(result => {
-        if (cancelled) return;
-        setError(null);
-        setRows(result);
-      })
-      .catch(err => {
-        if (cancelled) return;
-        onError(err);
-        setError(describeDirectoryError(err));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    tenant,
-    collection,
-    kind,
-    query,
-    taxIdQuery,
-    includeArchived,
-    reloadKey,
-    onError,
-  ]);
 
   if (!tenant)
     return (
@@ -187,62 +141,20 @@ export function DirectoryRecordsPage({ kind }) {
           label="Include archived"
         />
       </Stack>
-      {error ? (
-        <Alert
-          severity="error"
-          action={
-            <Button color="inherit" size="small" onClick={reload}>
-              Retry
-            </Button>
-          }
-        >
-          {error}
-        </Alert>
-      ) : rows === null ? (
-        <CircularProgress aria-label={`Loading ${settings.title}`} />
-      ) : rows.length === 0 ? (
-        <Typography color="text.secondary">{settings.empty}</Typography>
-      ) : (
-        <Table size="small" aria-label={settings.title}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Tax ID</TableCell>
-              {collection === 'people' ? (
-                <TableCell>Portal access</TableCell>
-              ) : null}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map(row => (
-              <TableRow key={row.id} hover>
-                <TableCell>
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={() => setSelected(row.id)}
-                  >
-                    {recordName(row)}
-                  </Button>
-                  {row.archived ? <Chip size="small" label="Archived" /> : null}
-                </TableCell>
-                <TableCell>{row.primaryEmail ?? '—'}</TableCell>
-                <TableCell>{row.primaryPhone ?? '—'}</TableCell>
-                <TableCell>
-                  {row.taxIdLast4 ? `•••••${row.taxIdLast4}` : '—'}
-                </TableCell>
-                {row.portalAccess ? (
-                  <TableCell>
-                    <PortalAccessChip portalAccess={row.portalAccess} />
-                  </TableCell>
-                ) : null}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <DirectoryGrid
+        collection={collection}
+        filters={{
+          kind,
+          q: query || undefined,
+          taxId: taxIdQuery || undefined,
+          includeArchived,
+        }}
+        ariaLabel={settings.title}
+        emptyMessage={settings.empty}
+        abilities={abilities}
+        onOpen={row => setSelected(row.id)}
+        refreshKey={reloadKey}
+      />
       {selected ? (
         <RecordDetailDialog
           collection={collection}

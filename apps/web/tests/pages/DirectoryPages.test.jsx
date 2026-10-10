@@ -20,10 +20,12 @@ import {
   NAPSOFT_TENANT,
   capabilitiesFixture,
   installMatchMedia,
+  installResizeObserver,
 } from '../testUtils.jsx';
 
 vi.mock('../../src/api/endpoints.js', () => ({
-  listDirectoryRecords: vi.fn(),
+  listDirectoryPage: vi.fn(),
+  bulkDirectoryAction: vi.fn(),
   getDirectoryRecord: vi.fn(),
   createDirectoryRecord: vi.fn(),
   updateDirectoryRecord: vi.fn(),
@@ -113,10 +115,22 @@ function renderWithHeader(element) {
   );
 }
 
+/** Rows the mocked list pages return. */
+let listRows = [];
+let contactRows = [];
+
 beforeEach(() => {
   installMatchMedia();
+  installResizeObserver();
   useSession.mockReturnValue(sessionFor());
-  api.listDirectoryRecords.mockResolvedValue([JANE]);
+  listRows = [JANE];
+  contactRows = [];
+  // M0005-R027: lists are cursor pages; an organization's contacts come
+  // from their own list.
+  api.listDirectoryPage.mockImplementation(async collection => ({
+    rows: collection === 'organization-contacts' ? contactRows : listRows,
+    nextCursor: null,
+  }));
   api.getDirectoryRecord.mockResolvedValue({
     ...JANE,
     contactMethods: [],
@@ -139,8 +153,9 @@ describe('Employees (M0005-R026)', () => {
   it('lists employees with masked tax IDs and reveals one on request', async () => {
     api.revealTaxId.mockResolvedValue('123456789');
     renderWithHeader(<DirectoryRecordsPage kind="employee" />);
-    const table = await screen.findByRole('table', { name: 'Employees' });
-    expect(api.listDirectoryRecords).toHaveBeenCalledWith(
+    const table = await screen.findByRole('grid', { name: 'Employees' });
+    expect(await within(table).findByText('•••••6789')).toBeTruthy();
+    expect(api.listDirectoryPage).toHaveBeenCalledWith(
       'people',
       expect.objectContaining({ kind: 'employee' })
     );
@@ -159,7 +174,9 @@ describe('Employees (M0005-R026)', () => {
   it('hides tax ID search, reveal, and entry without the tax ID capabilities', async () => {
     useSession.mockReturnValue(sessionFor(NO_TAX));
     renderWithHeader(<DirectoryRecordsPage kind="employee" />);
-    await screen.findByRole('table', { name: 'Employees' });
+    await within(
+      await screen.findByRole('grid', { name: 'Employees' })
+    ).findByText('Jane Doe');
     expect(screen.queryByLabelText('Search by tax ID')).toBeNull();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Jane Doe' }));
@@ -425,7 +442,7 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
       primaryEmail: 'ap@flag.test',
       primaryPhone: null,
     };
-    api.listDirectoryRecords.mockResolvedValue([vendor]);
+    listRows = [vendor];
     api.getDirectoryRecord.mockResolvedValue({
       ...vendor,
       contactMethods: [
@@ -477,6 +494,7 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
         },
       ],
     });
+    contactRows = (await api.getDirectoryRecord()).contacts;
     renderWithHeader(<DirectoryRecordsPage kind="vendor" />);
     const user = userEvent.setup();
     await user.click(
@@ -486,19 +504,25 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
     expect(
       await within(dialog).findByText('Email · Billing · primary')
     ).toBeTruthy();
-    expect(within(dialog).getByText('Phone')).toBeTruthy();
+    expect(
+      within(
+        within(dialog).getByRole('list', { name: 'Emails and phones' })
+      ).getByText('Phone')
+    ).toBeTruthy();
     expect(
       within(dialog).getByText('Austin TX 78701 US · Location · primary')
     ).toBeTruthy();
+    const contacts = within(dialog).getByRole('grid', { name: 'Contacts' });
     expect(
-      within(dialog).getByText('rita@flag.test (Office) · Primary contact')
+      await within(contacts).findByText('rita@flag.test (Office)')
     ).toBeTruthy();
+    expect(within(contacts).getByText('Primary contact')).toBeTruthy();
   });
 });
 
 describe('Clients (M0005-R007)', () => {
   it('creates a home buyer client with its primary buyer', async () => {
-    api.listDirectoryRecords.mockResolvedValue([]);
+    listRows = [];
     api.createDirectoryRecord.mockResolvedValue({
       id: '33333333-3333-4333-8333-333333333333',
       kind: 'client',
@@ -553,7 +577,7 @@ describe('Clients (M0005-R007)', () => {
   });
 
   it('shows a load failure from the server', async () => {
-    api.listDirectoryRecords.mockRejectedValue(
+    api.listDirectoryPage.mockRejectedValue(
       new ApiError('CELL_UNAVAILABLE', 503)
     );
     renderWithHeader(<DirectoryRecordsPage kind="client" />);
@@ -645,7 +669,8 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
       capabilities: capabilitiesFixture(),
       refreshCapabilities: vi.fn(),
     });
-    api.listDirectoryRecords.mockResolvedValue([ACME_BUILDERS]);
+    listRows = [ACME_BUILDERS];
+    contactRows = ACME_BUILDERS.contacts;
     api.getDirectoryRecord.mockResolvedValue(ACME_BUILDERS);
     api.listCellsOverview.mockResolvedValue({
       rows: [
@@ -660,15 +685,15 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
     api.provisionTenant.mockResolvedValue({});
     renderWithHeader(<DirectoryRecordsPage kind="client" />);
     const user = userEvent.setup();
-    const table = await screen.findByRole('table', { name: 'Clients' });
+    const table = await screen.findByRole('grid', { name: 'Clients' });
     await user.click(
-      within(table).getByRole('button', { name: 'Acme Builders' })
+      await within(table).findByRole('button', { name: 'Acme Builders' })
     );
     const dialog = await screen.findByRole('dialog');
+    const contacts = within(dialog).getByRole('grid', { name: 'Contacts' });
+    expect(await within(contacts).findByText('rita@acme.test')).toBeTruthy();
     expect(
-      within(dialog).getByText(
-        'rita@acme.test · 555-0100 · Primary contact · Billing contact'
-      )
+      within(contacts).getByText('Primary contact · Billing contact')
     ).toBeTruthy();
     expect(await within(dialog).findByText('Tenant: none')).toBeTruthy();
     expect(api.listClientTenants).toHaveBeenCalledWith(ACME_BUILDERS.id);
@@ -713,9 +738,9 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
     ]);
     renderWithHeader(<DirectoryRecordsPage kind="client" />);
     const user = userEvent.setup();
-    const table = await screen.findByRole('table', { name: 'Clients' });
+    const table = await screen.findByRole('grid', { name: 'Clients' });
     await user.click(
-      within(table).getByRole('button', { name: 'Acme Builders' })
+      await within(table).findByRole('button', { name: 'Acme Builders' })
     );
     const dialog = await screen.findByRole('dialog');
     expect(
@@ -730,9 +755,9 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
     useSession.mockReturnValue(sessionFor());
     renderWithHeader(<DirectoryRecordsPage kind="client" />);
     const user = userEvent.setup();
-    const table = await screen.findByRole('table', { name: 'Clients' });
+    const table = await screen.findByRole('grid', { name: 'Clients' });
     await user.click(
-      within(table).getByRole('button', { name: 'Acme Builders' })
+      await within(table).findByRole('button', { name: 'Acme Builders' })
     );
     await screen.findByRole('dialog');
     expect(screen.queryByText(/^Tenant:/)).toBeNull();
@@ -762,5 +787,139 @@ describe('Labels (M0005-R017)', () => {
       name: 'work',
     });
     expect(await screen.findByText(/already used/)).toBeTruthy();
+  });
+});
+
+describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
+  const BOB = {
+    ...JANE,
+    id: '22222222-2222-4222-8222-222222222222',
+    firstName: 'Bob',
+    lastName: 'Ray',
+    isPortalUser: false,
+    portalAccess: { status: 'off', failureCode: null },
+    taxIdLast4: null,
+  };
+  const OLD = {
+    ...BOB,
+    id: '33333333-3333-4333-8333-333333333333',
+    firstName: 'Old',
+    lastName: 'Timer',
+    archived: true,
+  };
+
+  async function grid() {
+    const table = await screen.findByRole('grid', { name: 'Employees' });
+    await within(table).findByText('Jane Doe');
+    return table;
+  }
+
+  it('offers Edit and Archive on active rows and Restore on archived ones', async () => {
+    listRows = [JANE, OLD];
+    api.archiveDirectoryRecord.mockResolvedValue({ ...JANE, archived: true });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await grid();
+    const user = userEvent.setup();
+    const menus = screen.getAllByRole('menuitem', { name: 'more' });
+    await user.click(menus[0]);
+    expect(await screen.findByRole('menuitem', { name: 'Edit' })).toBeTruthy();
+    await user.click(screen.getByRole('menuitem', { name: 'Archive' }));
+    const confirm = await screen.findByRole('dialog');
+    expect(
+      within(confirm).getByText(
+        'Archived records are hidden from lists until restored.'
+      )
+    ).toBeTruthy();
+    await user.click(within(confirm).getByRole('button', { name: 'Archive' }));
+    expect(api.archiveDirectoryRecord).toHaveBeenCalledWith(
+      'people',
+      JANE.id,
+      JANE.revision
+    );
+    await user.keyboard('{Escape}');
+    await user.click(screen.getAllByRole('menuitem', { name: 'more' })[1]);
+    expect(
+      await screen.findByRole('menuitem', { name: 'Restore' })
+    ).toBeTruthy();
+    expect(screen.queryByRole('menuitem', { name: 'Archive' })).toBeNull();
+  });
+
+  it('hides the row menu without directory::write', async () => {
+    useSession.mockReturnValue(
+      sessionFor(['ACME::business-directory::directory::read'])
+    );
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await grid();
+    expect(screen.queryAllByRole('menuitem', { name: 'more' })).toHaveLength(0);
+  });
+
+  it('archives the selected rows in one request', async () => {
+    listRows = [JANE, BOB];
+    api.bulkDirectoryAction.mockResolvedValue([]);
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await grid();
+    const user = userEvent.setup();
+    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await user.click(boxes[0]);
+    await user.click(boxes[1]);
+    expect(
+      screen.queryByRole('button', { name: /Restore selected/ })
+    ).toBeNull();
+    await user.click(
+      screen.getByRole('button', { name: 'Archive selected (2)' })
+    );
+    const confirm = await screen.findByRole('dialog');
+    expect(
+      within(confirm).getByText(/2 records will be archived/)
+    ).toBeTruthy();
+    await user.click(within(confirm).getByRole('button', { name: 'Archive' }));
+    expect(api.bulkDirectoryAction).toHaveBeenCalledWith('people', 'archive', [
+      { id: JANE.id, revision: JANE.revision },
+      { id: BOB.id, revision: BOB.revision },
+    ]);
+  });
+
+  it('lists each record a bulk archive refused and keeps the selection', async () => {
+    listRows = [JANE, BOB];
+    api.bulkDirectoryAction.mockRejectedValue(
+      new ApiError('BULK_FAILED', 409, null, {
+        details: [{ id: JANE.id, code: 'ADMIN_ASSIGNED' }],
+      })
+    );
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await grid();
+    const user = userEvent.setup();
+    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await user.click(boxes[0]);
+    await user.click(boxes[1]);
+    await user.click(
+      screen.getByRole('button', { name: 'Archive selected (2)' })
+    );
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Archive',
+      })
+    );
+    expect(await screen.findByText(/Nothing was changed/)).toBeTruthy();
+    expect(
+      screen.getByText(/Jane Doe: This person holds an administrator role/)
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Archive selected (2)' })
+    ).toBeTruthy();
+  });
+
+  it('offers Restore selected only when every selected row is archived', async () => {
+    listRows = [JANE, OLD];
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await grid();
+    const user = userEvent.setup();
+    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await user.click(boxes[1]);
+    expect(
+      screen.getByRole('button', { name: 'Restore selected (1)' })
+    ).toBeTruthy();
+    await user.click(boxes[0]);
+    expect(screen.queryByRole('button', { name: /selected/ })).toBeNull();
   });
 });

@@ -38,8 +38,11 @@ const EMPTY_SELECTION = { type: 'include', ids: new Set() };
  *   resetKey?: unknown,
  *   rowActions?: (row: object) => Array<{label: string, icon?: import('react').ReactNode, onClick: (row: object) => void, destructive?: boolean, confirmDescription?: string}>,
  *   emptyMessage?: string,
- *   onSelectionChange?: (ids: Array<string|number>) => void,
- * }} props `onSelectionChange` receives the selected row IDs whenever the
+ *   onSelectionChange?: (ids: Array<string|number>, rows: object[]) => void,
+ *   ariaLabel?: string,
+ *   describeError?: (error: unknown) => string,
+ * }} props `onSelectionChange` receives the selected row IDs, and the
+ *   selected rows from the current page, whenever the
  *   selection changes, including when a page, sort, filter, or reset clears
  *   it, so a page can offer bulk actions on the current page (I0001-R016).
  * @returns {JSX.Element}
@@ -52,6 +55,8 @@ export function StandardDataGrid({
   rowActions,
   emptyMessage = 'No rows to show.',
   onSelectionChange,
+  ariaLabel,
+  describeError,
 }) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
@@ -108,11 +113,15 @@ export function StandardDataGrid({
   // the rows left out, so it resolves against the current page's rows.
   useEffect(() => {
     const idOf = row => (getRowId ? getRowId(row) : row.id);
+    const selected =
+      rowSelectionModel.type === 'exclude'
+        ? rows.filter(row => !rowSelectionModel.ids.has(idOf(row)))
+        : rows.filter(row => rowSelectionModel.ids.has(idOf(row)));
     const ids =
       rowSelectionModel.type === 'exclude'
-        ? rows.map(idOf).filter(id => !rowSelectionModel.ids.has(id))
+        ? selected.map(idOf)
         : [...rowSelectionModel.ids];
-    onSelectionChangeRef.current?.(ids);
+    onSelectionChangeRef.current?.(ids, selected);
   }, [rowSelectionModel, rows, getRowId]);
 
   // The fetch itself is the one legitimate use of an effect here — it
@@ -132,9 +141,9 @@ export function StandardDataGrid({
         setRowCount(result.rowCount);
         setLoading(false);
       },
-      () => {
+      err => {
         if (cancelled) return;
-        setError('Could not load data.');
+        setError(describeError?.(err) ?? 'Could not load data.');
         setLoading(false);
       }
     );
@@ -205,6 +214,7 @@ export function StandardDataGrid({
         </Alert>
       ) : null}
       <DataGrid
+        aria-label={ariaLabel}
         autoHeight
         rows={rows}
         columns={gridColumns}
