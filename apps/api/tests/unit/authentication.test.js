@@ -554,7 +554,19 @@ describe('known-device tokens', () => {
 
   it('AC06: treats a tampered, foreign, or expired token as unknown', () => {
     const { token } = issueKnownDeviceToken(policy, credential);
-    const tampered = token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A');
+    // Change a middle signature character, which always changes the bytes.
+    const at = token.length - 10;
+    const tampered =
+      token.slice(0, at) +
+      (token[at] === 'A' ? 'B' : 'A') +
+      token.slice(at + 1);
+    // And the last one, whose low bits base64url ignores: still rejected.
+    const respelled =
+      token.slice(0, -1) +
+      String.fromCharCode(token.charCodeAt(token.length - 1) ^ 1);
+    expect(verifyKnownDeviceToken(policy, respelled, credential, EMAIL)).toBe(
+      false
+    );
     expect(verifyKnownDeviceToken(policy, tampered, credential, EMAIL)).toBe(
       false
     );
