@@ -25,16 +25,21 @@ import {
   rotateSession,
 } from './session.js';
 import {
-  LOCK_MINUTES,
-  MAX_FAILURES,
+  issueKnownDeviceToken,
+  knownDeviceUser,
+  parseKnownDevicePolicy,
+  verifyKnownDeviceToken,
+} from './knownDevice.js';
+import {
+  limitsFor,
   normalizeAccountInput,
   normalizeClientAddress,
   parseThrottlePolicy,
   RETENTION_HOURS,
   retryAfterSeconds,
+  pairValue,
   THROTTLE_KINDS,
   throttleKey,
-  WINDOW_MINUTES,
 } from './throttle.js';
 
 /** Marker admitting this module, and only this module, to the credential reader. */
@@ -56,13 +61,6 @@ export const FAILURE_CODES = Object.freeze({
   badPassword: 'bad_password',
   ineligible: 'ineligible',
   locked: 'locked',
-});
-
-/** Failure-window limits passed to the model on every recorded failure. */
-const LIMITS = Object.freeze({
-  maxFailures: MAX_FAILURES,
-  windowMinutes: WINDOW_MINUTES,
-  lockMinutes: LOCK_MINUTES,
 });
 
 /**
@@ -145,6 +143,32 @@ async function credentialFor(db, account) {
 }
 
 /**
+ * Whether the caller's known-device token is valid for this account.
+ *
+ * Runs before the lock check, the one credential read M0001-13 §7 allows
+ * there: the row is read by the token's own user, no password is verified, and
+ * a missing or malformed token costs no read at all.
+ * @param {object} db
+ * @param {import('./knownDevice.js').KnownDevicePolicy} policy
+ * @param {unknown} token
+ * @param {string} account Normalized account input.
+ * @returns {Promise<boolean>}
+ */
+async function isKnownDevice(db, policy, token, account) {
+  const userId = knownDeviceUser(token);
+  if (!userId) return false;
+  const credential = await findCredentialById(
+    db,
+    AUTHENTICATION_CONTEXT,
+    userId
+  ).catch(error => {
+    if (error?.code === 'INVALID_INPUT') return null;
+    throw error;
+  });
+  return verifyKnownDeviceToken(policy, token, credential, account);
+}
+
+/**
  * Verify a portal user's password and open a session.
  *
  * M0001-03-R001 through M0001-03-R004. The order is deliberate and each step
@@ -163,37 +187,60 @@ async function credentialFor(db, account) {
  * holding a row lock for the duration would let a handful of attempts exhaust
  * the connection pool.
  * @param {object} db Admin database handle with `portal_users`, `login_throttles`, `sessions`, `managed_events`, `cache_revisions`, and `tx`.
- * @param {unknown} policies `{ session, hashing, throttle }`.
+ * @param {unknown} policies `{ session, hashing, throttle, knownDevice }`.
  * @param {object} request
  * @param {unknown} request.email Submitted account identifier.
  * @param {unknown} request.password Submitted password.
  * @param {unknown} [request.clientAddress] Value of `request.ip`.
+ * @param {unknown} [request.knownDeviceToken] Value of the known-device cookie.
  * @param {string|null} [request.requestId] Correlation identifier.
- * @returns {Promise<{token: string, session: object}>} The only copy of the token that leaves this function.
+ * @returns {Promise<{token: string, session: object, knownDevice: {token: string, maxAgeMs: number}|null}>} The only copy of the token that leaves this function; `knownDevice` is `null` for a restricted session.
  * @throws {AdminAuthError} `UNAUTHENTICATED`, `THROTTLED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
  */
 export async function login(
   db,
   policies,
-  { email, password, clientAddress = null, requestId = null }
+  {
+    email,
+    password,
+    clientAddress = null,
+    knownDeviceToken = null,
+    requestId = null,
+  }
 ) {
   const parsed = parseAuthenticationPolicies(policies);
+  const deviceKeyPolicy = parseKnownDevicePolicy(policies?.knownDevice);
   const account = normalizeAccountInput(email);
-  const accountKey = throttleKey(
-    parsed.throttle,
-    THROTTLE_KINDS.account,
-    account
-  );
-  const addressKey = throttleKey(
-    parsed.throttle,
-    THROTTLE_KINDS.address,
-    normalizeClientAddress(clientAddress)
-  );
+  const address = normalizeClientAddress(clientAddress);
+  // M0001-13-R001. Keys are listed in the order a refusal is attributed.
+  const keys = {
+    pair: throttleKey(
+      parsed.throttle,
+      THROTTLE_KINDS.pair,
+      pairValue(account, address)
+    ),
+    address: throttleKey(parsed.throttle, THROTTLE_KINDS.address, address),
+    account: throttleKey(parsed.throttle, THROTTLE_KINDS.account, account),
+  };
 
   return withAuthErrors(async () => {
-    const lock = await db.login_throttles.lockedUntil([accountKey, addressKey]);
+    // M0001-13-R004: a known device neither checks nor counts the account key.
+    const knownDevice = await isKnownDevice(
+      db,
+      deviceKeyPolicy,
+      knownDeviceToken,
+      account
+    );
+    const kinds = knownDevice
+      ? [THROTTLE_KINDS.pair, THROTTLE_KINDS.address]
+      : [THROTTLE_KINDS.pair, THROTTLE_KINDS.address, THROTTLE_KINDS.account];
+
+    const lock = await db.login_throttles.lockedUntil(
+      kinds.map(kind => keys[kind])
+    );
     if (lock) {
       const seconds = retryAfterSeconds(lock.locked_until);
+      const kind = kinds.find(candidate => keys[candidate] === lock.key_hash);
       await db.tx(tx =>
         appendAuthEvent(
           db,
@@ -203,6 +250,7 @@ export async function login(
             request_id: requestId,
             details: {
               code: FAILURE_CODES.locked,
+              kind,
               retry_after_seconds: seconds,
               throttle_key: lock.key_hash,
             },
@@ -226,8 +274,10 @@ export async function login(
           ? FAILURE_CODES.ineligible
           : FAILURE_CODES.badPassword;
       await db.tx(async tx => {
-        await db.login_throttles.recordFailure(accountKey, LIMITS, { tx });
-        await db.login_throttles.recordFailure(addressKey, LIMITS, { tx });
+        for (const kind of kinds)
+          await db.login_throttles.recordFailure(keys[kind], limitsFor(kind), {
+            tx,
+          });
         await db.login_throttles.purgeExpired(RETENTION_HOURS, { tx });
         await appendAuthEvent(
           db,
@@ -237,7 +287,7 @@ export async function login(
             request_id: requestId,
             actor_id: credential?.id ?? null,
             target_id: credential?.id ?? null,
-            details: { code, throttle_key: accountKey },
+            details: { code, throttle_key: keys.account },
           },
           tx
         );
@@ -246,7 +296,9 @@ export async function login(
     }
 
     const issued = await db.tx(async tx => {
-      await db.login_throttles.clear(accountKey, { tx });
+      // M0001-13-R005: the address key survives a success.
+      await db.login_throttles.clear(keys.account, { tx });
+      await db.login_throttles.clear(keys.pair, { tx });
       const created = await createSession(
         db,
         parsed.session,
@@ -281,14 +333,27 @@ export async function login(
     // §7's rehash, after the session has committed. An upgrade is a
     // convenience, not part of authenticating: failing it must not cost the
     // caller a session it has already earned.
-    if (needsRehash(parsed.hashing, credential.password_hash))
-      await upgradeStoredHash(
-        db,
-        parsed.hashing,
-        credential.id,
-        /** @type {string} */ (password)
-      );
-    return issued;
+    let passwordHash = credential.password_hash;
+    if (needsRehash(parsed.hashing, passwordHash))
+      passwordHash =
+        (await upgradeStoredHash(
+          db,
+          parsed.hashing,
+          credential.id,
+          /** @type {string} */ (password)
+        )) ?? passwordHash;
+
+    // M0001-13-R006. Signed after any rehash, so the token covers the hash
+    // actually stored; a restricted session earns no token.
+    return {
+      ...issued,
+      knownDevice: issued.session.restricted
+        ? null
+        : issueKnownDeviceToken(deviceKeyPolicy, {
+            id: credential.id,
+            password_hash: passwordHash,
+          }),
+    };
   });
 }
 
@@ -302,7 +367,7 @@ export async function login(
  * @param {import('./password.js').HashingPolicy} policy
  * @param {string} portalUserId
  * @param {string} password
- * @returns {Promise<boolean>} Whether the stored hash was replaced.
+ * @returns {Promise<string|null>} The new stored hash, or `null` when it was not replaced.
  */
 async function upgradeStoredHash(db, policy, portalUserId, password) {
   try {
@@ -310,9 +375,9 @@ async function upgradeStoredHash(db, policy, portalUserId, password) {
     const row = await db.tx(tx =>
       db.portal_users.rehashPassword(portalUserId, digest, { tx })
     );
-    return row !== null;
+    return row !== null ? digest : null;
   } catch {
-    return false;
+    return null;
   }
 }
 

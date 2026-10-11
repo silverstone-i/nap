@@ -7,23 +7,55 @@ import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { AdminAuthError } from './errors.js';
 
-/** Failures inside one window that lock a key, from M0001-03 §7. */
-export const MAX_FAILURES = 5;
-
 /** Minutes a failure window spans before it restarts. */
 export const WINDOW_MINUTES = 15;
 
-/** Minutes a key stays locked once it reaches `MAX_FAILURES`. */
+/** Minutes a key stays hard-locked once it reaches its failure limit. */
 export const LOCK_MINUTES = 15;
+
+/** Longest delay, in seconds, a failure imposes before the hard lock. */
+export const DELAY_CAP_SECONDS = 30;
+
+/** Days a known-device token stays valid, from M0001-13-R006. */
+export const KNOWN_DEVICE_DAYS = 90;
 
 /** Hours after which a spent throttle row may be deleted, from M0001-03 §7. */
 export const RETENTION_HOURS = 24;
 
-/** The two independent throttle dimensions a login evaluates. */
+/** The three independent throttle dimensions a login evaluates (M0001-13-R001). */
 export const THROTTLE_KINDS = Object.freeze({
-  account: 'account',
+  pair: 'pair',
   address: 'address',
+  account: 'account',
 });
+
+/**
+ * Per-kind limits from M0001-13-R002 and M0001-13-R003.
+ *
+ * `delayFrom` is the failure count at which doubling delays start, or `null`
+ * for none. The pair key needs no delay: its hard lock at five already caps
+ * guessing. The address key waits for ten so one person's typos on a shared
+ * office address slow nobody else down.
+ */
+export const THROTTLE_LIMITS = Object.freeze({
+  pair: Object.freeze({ maxFailures: 5, delayFrom: null }),
+  address: Object.freeze({ maxFailures: 100, delayFrom: 10 }),
+  account: Object.freeze({ maxFailures: 20, delayFrom: 1 }),
+});
+
+/**
+ * Full model limits for one throttle kind.
+ * @param {'pair'|'address'|'account'} kind
+ * @returns {{maxFailures: number, delayFrom: number|null, windowMinutes: number, lockMinutes: number, delayCapSeconds: number}}
+ */
+export function limitsFor(kind) {
+  return {
+    ...THROTTLE_LIMITS[kind],
+    windowMinutes: WINDOW_MINUTES,
+    lockMinutes: LOCK_MINUTES,
+    delayCapSeconds: DELAY_CAP_SECONDS,
+  };
+}
 
 const throttlePolicySchema = z.strictObject({ secret: z.string().min(32) });
 
@@ -56,14 +88,27 @@ export function parseThrottlePolicy(policy) {
  * The kind is part of the message, so an account whose normalized input
  * happens to equal a client address cannot share that address's lock.
  * @param {ThrottlePolicy} policy
- * @param {'account'|'address'} kind
- * @param {string} value Normalized account input or client address.
+ * @param {'pair'|'address'|'account'} kind
+ * @param {string} value Normalized account input, client address, or `pairValue`.
  * @returns {string} Hexadecimal HMAC.
  */
 export function throttleKey(policy, kind, value) {
   return createHmac('sha256', policy.secret)
     .update(`${kind}:${value}`)
     .digest('hex');
+}
+
+/**
+ * The value a pair key hashes: account input and client address together.
+ *
+ * JSON rather than a separator, so no account input containing the separator
+ * can make two different pairs hash alike.
+ * @param {string} account Normalized account input.
+ * @param {string} address Normalized client address.
+ * @returns {string}
+ */
+export function pairValue(account, address) {
+  return JSON.stringify([account, address]);
 }
 
 /**

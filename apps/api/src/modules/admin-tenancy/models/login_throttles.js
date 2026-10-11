@@ -42,17 +42,34 @@ function table(model) {
 /**
  * Whether the stored window has been spent and the next failure starts a new one.
  *
- * Two ways in. A lock that has run out always starts fresh, so a key does not
- * re-lock on the single next attempt after serving a fifteen-minute penalty.
- * An unlocked key starts fresh once its window has elapsed, which is the plain
- * reading of "five failures in fifteen minutes".
+ * Two ways in. A hard lock that has run out always starts fresh, so a key does
+ * not re-lock on the single next attempt after serving a fifteen-minute
+ * penalty. Otherwise the window restarts once it has elapsed and no lock or
+ * delay is live. An expired delay alone does not restart anything: the count
+ * keeps climbing toward the hard lock (M0001-13-R003).
  */
-const SPENT = `((l.locked_until IS NOT NULL AND l.locked_until <= now())
-       OR (l.locked_until IS NULL
+const SPENT = `((l.locked_until IS NOT NULL AND l.locked_until <= now()
+            AND l.failures >= $2::integer)
+       OR ((l.locked_until IS NULL OR l.locked_until <= now())
            AND l.window_started_at <= now() - ($3::integer * interval '1 minute')))`;
 
 /** The failure count this attempt produces. */
 const NEXT = `(CASE WHEN ${SPENT} THEN 1 ELSE l.failures + 1 END)`;
+
+/**
+ * The lock a key carries after reaching `count` failures: the hard lock at the
+ * limit, else a doubling delay capped at `$6` seconds from `$5` failures on.
+ * @param {string} count SQL expression for the new failure count.
+ * @returns {string}
+ */
+function penalty(count) {
+  return `CASE
+    WHEN ${count} >= $2::integer THEN now() + ($4::integer * interval '1 minute')
+    WHEN $5::integer IS NOT NULL AND ${count} >= $5::integer
+      THEN now() + least(power(2, ${count} - $5::integer + 1), $6::integer)
+                   * interval '1 second'
+    ELSE NULL END`;
+}
 
 /**
  * Model for `admin.login_throttles`.
@@ -97,37 +114,51 @@ export class LoginThrottles extends TableModel {
 
   /**
    * Record one failure against a key, opening, extending, or restarting its
-   * window and locking it at the limit.
+   * window, and delaying or hard-locking it per its limits.
    *
-   * A live lock is never extended: an attacker hammering a locked key cannot
-   * stretch the penalty, and neither can they shorten it.
+   * A live lock or delay is never extended: an attacker hammering a locked key
+   * cannot stretch the penalty, and neither can they shorten it.
    * @param {string} keyHash
    * @param {object} limits
-   * @param {number} limits.maxFailures Failures that lock the key.
+   * @param {number} limits.maxFailures Failures that hard-lock the key.
    * @param {number} limits.windowMinutes Length of one failure window.
-   * @param {number} limits.lockMinutes Length of the lock.
+   * @param {number} limits.lockMinutes Length of the hard lock.
+   * @param {number|null} [limits.delayFrom] Failure count at which delays start; `null` for none.
+   * @param {number} [limits.delayCapSeconds] Longest delay.
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<{failures: number, locked_until: Date|null}>}
    */
   async recordFailure(
     keyHash,
-    { maxFailures, windowMinutes, lockMinutes },
+    {
+      maxFailures,
+      windowMinutes,
+      lockMinutes,
+      delayFrom = null,
+      delayCapSeconds = 30,
+    },
     { tx }
   ) {
     return tx.one(
       `INSERT INTO ${table(this)} AS l
-         (key_hash,failures,window_started_at,last_failed_at)
-       VALUES ($1,1,now(),now())
+         (key_hash,failures,window_started_at,last_failed_at,locked_until)
+       VALUES ($1,1,now(),now(),${penalty('1')})
        ON CONFLICT (key_hash) DO UPDATE
           SET failures = ${NEXT},
               window_started_at = CASE WHEN ${SPENT} THEN now() ELSE l.window_started_at END,
               last_failed_at = now(),
               locked_until = CASE
                 WHEN l.locked_until > now() THEN l.locked_until
-                WHEN ${NEXT} >= $2::integer THEN now() + ($4::integer * interval '1 minute')
-                ELSE NULL END
+                ELSE ${penalty(NEXT)} END
        RETURNING l.failures,l.locked_until`,
-      [keyHash, maxFailures, windowMinutes, lockMinutes]
+      [
+        keyHash,
+        maxFailures,
+        windowMinutes,
+        lockMinutes,
+        delayFrom,
+        delayCapSeconds,
+      ]
     );
   }
 

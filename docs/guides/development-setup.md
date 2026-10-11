@@ -56,6 +56,9 @@ Edit the DEV values in this private file:
   least 32 characters. It keys the hash that stands in for an email address or
   a client address in `admin.login_throttles`, and it is separate from the
   session secret so that leaking either one does not compromise both.
+- `KNOWN_DEVICE_SECRET_DEV`: a third, independently generated value of at
+  least 32 characters. It signs the cookie that exempts a returning browser
+  from the account login throttle.
 - `ROOT_TENANT_CODE_DEV`, `ROOT_COMPANY_DEV`, `ROOT_EMAIL_DEV`, and
   `ROOT_PASSWORD_DEV`: the Napsoft tenant and its first login
   that `npm run db:bootstrap -- --env dev` creates. The login gets `platform_admin` when Napsoft tenant setup seeds

@@ -115,6 +115,7 @@ describe('tax ID configuration (M0005-R011)', () => {
     NAP_APP_PSWD_TEST: 'test-app-password',
     SESSION_SECRET_TEST: 'test-session-secret-of-ample-length-here',
     AUTH_THROTTLE_SECRET_TEST: 'test-throttle-secret-of-ample-length-here',
+    KNOWN_DEVICE_SECRET_TEST: 'test-known-device-secret-of-ample-length',
     TAX_ID_ENCRYPTION_KEY_TEST: randomBytes(32).toString('base64'),
     TAX_ID_HASH_KEY_TEST: 'test-tax-id-hash-key-of-ample-length',
     APP_ORIGIN_TEST: 'http://localhost:5173',

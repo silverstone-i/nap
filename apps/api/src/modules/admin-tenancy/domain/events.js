@@ -97,7 +97,7 @@ export const EVENT_CATALOGUE = Object.freeze({
   'auth.login.failed': { outcomes: FAILED, details: ['code', 'throttle_key'] },
   'auth.login.throttled': {
     outcomes: DENIED,
-    details: ['code', 'retry_after_seconds', 'throttle_key'],
+    details: ['code', 'kind', 'retry_after_seconds', 'throttle_key'],
   },
   'auth.password.changed': { outcomes: ANY_OUTCOME, details: ['forced'] },
 

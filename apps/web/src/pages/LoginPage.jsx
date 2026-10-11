@@ -43,6 +43,19 @@ export function LoginPage() {
     }
   }, [session, navigate]);
 
+  // M0001-13: count `Retry-After` down and re-enable sign-in when it ends.
+  useEffect(() => {
+    if (retryAfterSeconds == null) return undefined;
+    const timer = setTimeout(
+      () =>
+        setRetryAfterSeconds(seconds =>
+          seconds == null || seconds <= 1 ? null : seconds - 1
+        ),
+      1000
+    );
+    return () => clearTimeout(timer);
+  }, [retryAfterSeconds]);
+
   if (session.status === 'loading' || session.status === 'restricted')
     return <FullPageLoader />;
   if (session.status === 'ready') {
@@ -122,7 +135,12 @@ export function LoginPage() {
             label="Email"
             type="email"
             value={email}
-            onChange={event => setEmail(event.target.value)}
+            onChange={event => {
+              setEmail(event.target.value);
+              // A lock may belong to the mistyped email alone (M0001-13 pair
+              // key), so a corrected email gets to try straight away.
+              setRetryAfterSeconds(null);
+            }}
             autoComplete="username"
             autoFocus
             required

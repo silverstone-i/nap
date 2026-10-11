@@ -4,6 +4,11 @@
  */
 
 import { Router } from 'express';
+import {
+  KNOWN_DEVICE_COOKIE,
+  readCookie,
+  setKnownDeviceCookie,
+} from '../../../../framework/cookies.js';
 import { sendData, sendNoContent } from '../../../../framework/envelope.js';
 import { sessionOnly } from '../../../../capability/requireCapability.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
@@ -31,7 +36,7 @@ import {
  * @param {import('pg-schemata').Database} context.admin
  * @param {object} context.sessionPolicy
  * @param {{secure: boolean, sameSite: 'lax'|'strict'}} context.cookiePolicy
- * @param {{throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}} context.authenticationPolicy
+ * @param {{throttleSecret: string, knownDeviceSecret: string, memoryKib: number, timeCost: number, parallelism: number}} context.authenticationPolicy
  * @returns {import('express').Router}
  */
 export function createAuthRouter({
@@ -49,6 +54,7 @@ export function createAuthRouter({
       parallelism: authenticationPolicy?.parallelism,
     },
     throttle: { secret: authenticationPolicy?.throttleSecret },
+    knownDevice: { secret: authenticationPolicy?.knownDeviceSecret },
   };
 
   // No session guard: a caller with a live cookie may still log in, and
@@ -59,13 +65,24 @@ export function createAuthRouter({
   router.post('/login', async (request, response) => {
     const body = loginRequestSchema.safeParse(request.body);
     try {
-      const { token, session } = await login(admin.db, policies, {
+      const { token, session, knownDevice } = await login(admin.db, policies, {
         email: body.success ? body.data.email : null,
         password: body.success ? body.data.password : null,
         clientAddress: request.ip,
+        knownDeviceToken: readCookie(
+          request.headers.cookie,
+          KNOWN_DEVICE_COOKIE
+        ),
         requestId: request.requestId,
       });
       issueSessionCookie(response, cookiePolicy, token, session);
+      if (knownDevice)
+        setKnownDeviceCookie(
+          response,
+          cookiePolicy,
+          knownDevice.token,
+          knownDevice.maxAgeMs
+        );
       sendData(response, session);
     } catch (error) {
       // A failed login leaves any cookie the caller presented alone. It may

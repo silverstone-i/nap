@@ -27,10 +27,17 @@ import {
   parsePassword,
   verifyPassword,
 } from '../../src/modules/admin-tenancy/domain/password.js';
+import { KNOWN_DEVICE_COOKIE } from '../../src/framework/cookies.js';
+import {
+  issueKnownDeviceToken,
+  parseKnownDevicePolicy,
+  verifyKnownDeviceToken,
+} from '../../src/modules/admin-tenancy/domain/knownDevice.js';
 import {
   LOCK_MINUTES,
-  MAX_FAILURES,
   THROTTLE_KINDS,
+  THROTTLE_LIMITS,
+  pairValue,
   normalizeAccountInput,
   normalizeClientAddress,
   parseThrottlePolicy,
@@ -59,6 +66,7 @@ const sessionPolicy = {
 const cookiePolicy = { secure: false, sameSite: 'lax' };
 const authenticationPolicy = {
   throttleSecret: 'unit-test-throttle-secret-of-ample-length',
+  knownDeviceSecret: 'unit-test-known-device-secret-of-ample-length',
   ...ARGON2_MINIMUM,
 };
 const throttlePolicy = { secret: authenticationPolicy.throttleSecret };
@@ -190,13 +198,16 @@ function fakeAdmin({ users = [], sessions = [], memberships = [] } = {}) {
       recordFailure: async (key, limits) => {
         const now = new Date();
         const existing = throttles.get(key);
+        const lockSpent =
+          existing?.locked_until && existing.locked_until <= now;
         const spent =
           existing &&
-          (existing.locked_until
-            ? existing.locked_until <= now
-            : existing.window_started_at <=
-              new Date(now.getTime() - limits.windowMinutes * 60_000));
+          ((lockSpent && existing.failures >= limits.maxFailures) ||
+            ((!existing.locked_until || lockSpent) &&
+              existing.window_started_at <=
+                new Date(now.getTime() - limits.windowMinutes * 60_000)));
         const failures = !existing || spent ? 1 : existing.failures + 1;
+        const delayFrom = limits.delayFrom ?? null;
         const row = {
           key_hash: key,
           failures,
@@ -208,7 +219,16 @@ function fakeAdmin({ users = [], sessions = [], memberships = [] } = {}) {
               ? existing.locked_until
               : failures >= limits.maxFailures
                 ? new Date(now.getTime() + limits.lockMinutes * 60_000)
-                : null,
+                : delayFrom !== null && failures >= delayFrom
+                  ? new Date(
+                      now.getTime() +
+                        Math.min(
+                          2 ** (failures - delayFrom + 1),
+                          limits.delayCapSeconds
+                        ) *
+                          1000
+                    )
+                  : null,
         };
         throttles.set(key, row);
         return row;
@@ -309,6 +329,33 @@ function sessionCookie(response) {
     value: readCookie(header.split(';')[0], 'nap_session'),
     attributes: header,
   };
+}
+
+/**
+ * Read the known-device cookie from a response's `Set-Cookie` header.
+ * @param {object} response Supertest response.
+ * @returns {{value: string|undefined, attributes: string}|undefined}
+ */
+function deviceCookie(response) {
+  const header = (response.headers['set-cookie'] ?? []).find(entry =>
+    entry.startsWith(`${KNOWN_DEVICE_COOKIE}=`)
+  );
+  if (!header) return undefined;
+  return {
+    value: readCookie(header.split(';')[0], KNOWN_DEVICE_COOKIE),
+    attributes: header,
+  };
+}
+
+/**
+ * End every live delay, leaving hard locks alone, as if the caller waited.
+ * @param {{throttles: Map<string, object>}} admin
+ * @returns {void}
+ */
+function waitOutDelays(admin) {
+  for (const row of admin.throttles.values())
+    if (row.locked_until && row.locked_until - Date.now() <= 30_000)
+      row.locked_until = new Date(Date.now() - 1);
 }
 
 /** Post to a route with a trusted `Origin`. */
@@ -474,6 +521,81 @@ describe('throttle keys', () => {
   });
 });
 
+describe('throttle limits', () => {
+  it('states the M0001-13 limits per kind', () => {
+    expect(THROTTLE_LIMITS).toEqual({
+      pair: { maxFailures: 5, delayFrom: null },
+      address: { maxFailures: 100, delayFrom: 10 },
+      account: { maxFailures: 20, delayFrom: 1 },
+    });
+  });
+
+  it('keeps pair values unambiguous and distinct from other kinds', () => {
+    expect(pairValue('a|b', 'c')).not.toBe(pairValue('a', 'b|c'));
+    const value = pairValue(EMAIL, '203.0.113.7');
+    expect(throttleKey(throttlePolicy, THROTTLE_KINDS.pair, value)).not.toBe(
+      throttleKey(throttlePolicy, THROTTLE_KINDS.account, value)
+    );
+  });
+});
+
+describe('known-device tokens', () => {
+  const policy = { secret: authenticationPolicy.knownDeviceSecret };
+  const credential = {
+    id: '00000000-0000-4000-8000-000000000001',
+    email: EMAIL,
+    password_hash: '$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA',
+  };
+
+  it('verifies a token for its own user and account', () => {
+    const { token } = issueKnownDeviceToken(policy, credential);
+    expect(verifyKnownDeviceToken(policy, token, credential, EMAIL)).toBe(true);
+  });
+
+  it('AC06: treats a tampered, foreign, or expired token as unknown', () => {
+    const { token } = issueKnownDeviceToken(policy, credential);
+    const tampered = token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A');
+    expect(verifyKnownDeviceToken(policy, tampered, credential, EMAIL)).toBe(
+      false
+    );
+    expect(
+      verifyKnownDeviceToken(policy, token, credential, 'someone@nap.test')
+    ).toBe(false);
+    expect(
+      verifyKnownDeviceToken(
+        policy,
+        token,
+        { ...credential, id: '00000000-0000-4000-8000-000000000002' },
+        EMAIL
+      )
+    ).toBe(false);
+    const old = issueKnownDeviceToken(policy, credential, 0).token;
+    expect(verifyKnownDeviceToken(policy, old, credential, EMAIL)).toBe(false);
+    expect(verifyKnownDeviceToken(policy, 'junk', credential, EMAIL)).toBe(
+      false
+    );
+    expect(verifyKnownDeviceToken(policy, token, null, EMAIL)).toBe(false);
+  });
+
+  it('AC07: a password change voids every earlier token', () => {
+    const { token } = issueKnownDeviceToken(policy, credential);
+    expect(
+      verifyKnownDeviceToken(
+        policy,
+        token,
+        { ...credential, password_hash: '$argon2id$v=19$changed' },
+        EMAIL
+      )
+    ).toBe(false);
+  });
+
+  it('rejects a known-device secret too short to key an HMAC', () => {
+    expect(() => parseKnownDevicePolicy({ secret: 'short' })).toThrow(
+      'INVALID_INPUT'
+    );
+  });
+});
+
 describe('POST /auth/login', () => {
   it('authenticates an active account and issues a session cookie', async () => {
     const account = user();
@@ -569,15 +691,13 @@ describe('POST /auth/login', () => {
     expect(logout.status).toBe(204);
   }, 20_000);
 
-  it('locks after five failures and answers with Retry-After', async () => {
+  it('delays the account from its first failure and answers with Retry-After', async () => {
     const { app, admin } = api({ users: [user()] });
-    for (let attempt = 0; attempt < MAX_FAILURES; attempt += 1) {
-      const response = await post(app, '/auth/login', {
-        email: EMAIL,
-        password: 'wrong-password-here',
-      });
-      expect(response.status).toBe(401);
-    }
+    const failed = await post(app, '/auth/login', {
+      email: EMAIL,
+      password: 'wrong-password-here',
+    });
+    expect(failed.status).toBe(401);
     const throttled = await post(app, '/auth/login', {
       email: EMAIL,
       password: PASSWORD,
@@ -586,11 +706,85 @@ describe('POST /auth/login', () => {
     expect(throttled.body).toEqual(errorEnvelope('THROTTLED'));
     const retry = Number(throttled.headers['retry-after']);
     expect(retry).toBeGreaterThan(0);
-    expect(retry).toBeLessThanOrEqual(LOCK_MINUTES * 60);
+    expect(retry).toBeLessThanOrEqual(2);
     const last = admin.events.at(-1);
     expect(last.event_key).toBe('auth.login.throttled');
     expect(last.outcome).toBe('denied');
-    expect(last.details.retry_after_seconds).toBe(retry);
+    expect(last.details).toMatchObject({
+      kind: THROTTLE_KINDS.account,
+      retry_after_seconds: retry,
+    });
+  }, 60_000);
+
+  it('AC01: a corrected email succeeds after the mistyped pair hard-locks', async () => {
+    const { app, admin } = api({ users: [user()] });
+    for (let n = 0; n < THROTTLE_LIMITS.pair.maxFailures; n += 1) {
+      waitOutDelays(admin);
+      const response = await post(app, '/auth/login', {
+        email: 'operator@npa.test',
+        password: PASSWORD,
+      });
+      expect(response.status).toBe(401);
+    }
+    waitOutDelays(admin);
+    const mistyped = await post(app, '/auth/login', {
+      email: 'operator@npa.test',
+      password: PASSWORD,
+    });
+    expect(mistyped.status).toBe(429);
+    expect(mistyped.headers['retry-after']).toBe(String(LOCK_MINUTES * 60));
+    expect(admin.events.at(-1).details.kind).toBe(THROTTLE_KINDS.pair);
+    const corrected = await post(app, '/auth/login', {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    expect(corrected.status).toBe(200);
+  }, 60_000);
+
+  it('AC05: a known device signs in past an account lock', async () => {
+    const { app, admin } = api({ users: [user()] });
+    const first = await post(app, '/auth/login', {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    const device = deviceCookie(first);
+    expect(device.value).toBeTruthy();
+    expect(device.attributes).toMatch(/HttpOnly/i);
+    expect(device.attributes).toMatch(/SameSite=Lax/i);
+    expect(device.attributes).toMatch(/Max-Age=7776000/);
+    // An attacker from elsewhere locks the account.
+    const accountKey = throttleKey(
+      throttlePolicy,
+      THROTTLE_KINDS.account,
+      EMAIL
+    );
+    admin.throttles.set(accountKey, {
+      key_hash: accountKey,
+      failures: THROTTLE_LIMITS.account.maxFailures,
+      window_started_at: new Date(),
+      last_failed_at: new Date(),
+      locked_until: new Date(Date.now() + LOCK_MINUTES * 60_000),
+    });
+    const stranger = await post(app, '/auth/login', {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    expect(stranger.status).toBe(429);
+    const known = await post(app, '/auth/login', {
+      email: EMAIL,
+      password: PASSWORD,
+    }).set('Cookie', `${KNOWN_DEVICE_COOKIE}=${device.value}`);
+    expect(known.status).toBe(200);
+  }, 60_000);
+
+  it('issues no known-device cookie for a restricted session', async () => {
+    const { app } = api({ users: [user({ must_change_password: true })] });
+    const response = await post(app, '/auth/login', {
+      email: EMAIL,
+      password: PASSWORD,
+    });
+    expect(response.status).toBe(200);
+    expect(deviceCookie(response)).toBeUndefined();
   }, 60_000);
 
   it('rehashes a digest stored under weaker parameters', async () => {
@@ -855,6 +1049,7 @@ describe('authentication configuration', () => {
     NAP_APP_PSWD_TEST: 'runtime-secret',
     SESSION_SECRET_TEST: 'test-session-secret-of-ample-length-here',
     AUTH_THROTTLE_SECRET_TEST: 'test-throttle-secret-of-ample-length-here',
+    KNOWN_DEVICE_SECRET_TEST: 'test-known-device-secret-of-ample-length',
     TAX_ID_ENCRYPTION_KEY_TEST: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
     TAX_ID_HASH_KEY_TEST: 'test-tax-id-hash-key-of-ample-length',
     APP_ORIGIN_TEST: 'http://localhost:5173',
@@ -863,6 +1058,7 @@ describe('authentication configuration', () => {
   it('defaults the Argon2id parameters to the PRD floor', () => {
     expect(runtimeConfiguration(base).authentication).toEqual({
       throttleSecret: base.AUTH_THROTTLE_SECRET_TEST,
+      knownDeviceSecret: base.KNOWN_DEVICE_SECRET_TEST,
       ...ARGON2_MINIMUM,
     });
   });
@@ -896,6 +1092,11 @@ describe('authentication configuration', () => {
       // compromise both HMACs, so startup rejects the pair regardless of
       // which value the operator copy-pasted into the other setting.
       { AUTH_THROTTLE_SECRET_TEST: base.SESSION_SECRET_TEST },
+      { KNOWN_DEVICE_SECRET_TEST: undefined },
+      { KNOWN_DEVICE_SECRET_TEST: 'short' },
+      { KNOWN_DEVICE_SECRET_TEST: base.SESSION_SECRET_TEST },
+      { KNOWN_DEVICE_SECRET_TEST: base.AUTH_THROTTLE_SECRET_TEST },
+      { TAX_ID_HASH_KEY_TEST: base.KNOWN_DEVICE_SECRET_TEST },
     ])
       expect(() => runtimeConfiguration({ ...base, ...change })).toThrow(
         'INVALID_CONFIGURATION'

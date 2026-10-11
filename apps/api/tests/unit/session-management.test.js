@@ -827,6 +827,7 @@ describe('session configuration', () => {
     NAP_APP_PSWD_TEST: 'runtime-secret',
     SESSION_SECRET_TEST: 'test-session-secret-of-ample-length-here',
     AUTH_THROTTLE_SECRET_TEST: 'test-throttle-secret-of-ample-length-here',
+    KNOWN_DEVICE_SECRET_TEST: 'test-known-device-secret-of-ample-length',
     TAX_ID_ENCRYPTION_KEY_TEST: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
     TAX_ID_HASH_KEY_TEST: 'test-tax-id-hash-key-of-ample-length',
     APP_ORIGIN_TEST: 'http://localhost:5173',
@@ -870,6 +871,7 @@ describe('session configuration', () => {
       TRUST_PROXY_HOPS_PROD: '1',
       SESSION_SECRET_PROD: 'production-session-secret-of-ample-length',
       AUTH_THROTTLE_SECRET_PROD: 'production-throttle-secret-of-ample-length',
+      KNOWN_DEVICE_SECRET_PROD: 'prod-known-device-secret-of-ample-length',
       TAX_ID_ENCRYPTION_KEY_PROD:
         'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
       TAX_ID_HASH_KEY_PROD: 'prod-tax-id-hash-key-of-ample-length',
