@@ -560,10 +560,15 @@ describe('known-device tokens', () => {
       token.slice(0, at) +
       (token[at] === 'A' ? 'B' : 'A') +
       token.slice(at + 1);
-    // And the last one, whose low bits base64url ignores: still rejected.
-    const respelled =
-      token.slice(0, -1) +
-      String.fromCharCode(token.charCodeAt(token.length - 1) ^ 1);
+    // And the last one: a 32-byte signature's last character sits at an
+    // alphabet index that is a multiple of 4, so index + 1 changes only the
+    // two bits base64url ignores — the same bytes, spelled differently.
+    const ALPHABET =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const last = ALPHABET.indexOf(token.at(-1));
+    const respelled = token.slice(0, -1) + ALPHABET[last + 1];
+    const signatureOf = value => Buffer.from(value.split('.')[2], 'base64url');
+    expect(signatureOf(respelled)).toEqual(signatureOf(token));
     expect(verifyKnownDeviceToken(policy, respelled, credential, EMAIL)).toBe(
       false
     );
