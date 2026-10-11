@@ -554,7 +554,24 @@ describe('known-device tokens', () => {
 
   it('AC06: treats a tampered, foreign, or expired token as unknown', () => {
     const { token } = issueKnownDeviceToken(policy, credential);
-    const tampered = token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A');
+    // Change a middle signature character, which always changes the bytes.
+    const at = token.length - 10;
+    const tampered =
+      token.slice(0, at) +
+      (token[at] === 'A' ? 'B' : 'A') +
+      token.slice(at + 1);
+    // And the last one: a 32-byte signature's last character sits at an
+    // alphabet index that is a multiple of 4, so index + 1 changes only the
+    // two bits base64url ignores — the same bytes, spelled differently.
+    const ALPHABET =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const last = ALPHABET.indexOf(token.at(-1));
+    const respelled = token.slice(0, -1) + ALPHABET[last + 1];
+    const signatureOf = value => Buffer.from(value.split('.')[2], 'base64url');
+    expect(signatureOf(respelled)).toEqual(signatureOf(token));
+    expect(verifyKnownDeviceToken(policy, respelled, credential, EMAIL)).toBe(
+      false
+    );
     expect(verifyKnownDeviceToken(policy, tampered, credential, EMAIL)).toBe(
       false
     );

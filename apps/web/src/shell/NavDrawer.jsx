@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router';
 import BusinessIcon from '@mui/icons-material/Business';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import HandshakeIcon from '@mui/icons-material/Handshake';
+import DevicesIcon from '@mui/icons-material/Devices';
 import LabelIcon from '@mui/icons-material/Label';
 import StoreIcon from '@mui/icons-material/Store';
 import BadgeIcon from '@mui/icons-material/Badge';
@@ -47,6 +48,7 @@ const CHILD_ICONS = {
   tenants: <BusinessIcon fontSize="small" />,
   cells: <StorageIcon fontSize="small" />,
   'portal-users': <PeopleIcon fontSize="small" />,
+  sessions: <DevicesIcon fontSize="small" />,
 };
 
 /** Icon for each `Directory` child, by id. */

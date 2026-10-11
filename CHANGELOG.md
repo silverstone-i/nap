@@ -10,6 +10,11 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Sessions** in the Tenant Management nav now shows an icon like the other items.
+- A known-device token whose signature's last character was changed to an equivalent base64url spelling was accepted as valid; tokens are now compared exactly as issued.
+
 ## [v0.29.1] - 2026-10-11
 
 ### Changed

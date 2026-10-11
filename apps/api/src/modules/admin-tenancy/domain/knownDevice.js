@@ -100,8 +100,15 @@ export function verifyKnownDeviceToken(
   const [, userId, expires, signature] = match;
   if (userId !== credential.id || credential.email !== account) return false;
   if (Number(expires) * 1000 <= now) return false;
-  const expected = sign(policy, userId, expires, credential.password_hash);
-  const presented = Buffer.from(signature, 'base64url');
+  // Compared as text, not decoded bytes: base64url's last character carries
+  // two ignored bits, so decoding would accept a second spelling of one
+  // signature.
+  const expected = Buffer.from(
+    sign(policy, userId, expires, credential.password_hash).toString(
+      'base64url'
+    )
+  );
+  const presented = Buffer.from(signature);
   return (
     presented.length === expected.length && timingSafeEqual(presented, expected)
   );
