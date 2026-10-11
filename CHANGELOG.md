@@ -10,6 +10,13 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Login throttling (M0001-13). Failures now count on three keys: the email and client address together, which hard-locks after 5 failures, the address alone after 100, and the email alone after 20, each for 15 minutes. One person's mistyped email no longer locks their whole address, and a corrected email from the same address can sign in at once. Failures on the email key delay the next attempt by 2, 4, 8, 16, then 30 seconds; on the address key the delays start at its 10th failure. A successful login clears the email and pair keys.
+- A successful, unrestricted login sets a 90-day `nap_device` cookie. A browser holding one for the account it signs in to skips the email-only limit; a password change or reset voids it. `auth.login.throttled` events record which key refused the attempt as `kind`.
+- The login screen counts `Retry-After` down and re-enables **Sign in** when it ends, or as soon as the email is edited.
+- The API requires `KNOWN_DEVICE_SECRET_<ENV>` (at least 32 characters, distinct from the session, throttle, and tax ID hash secrets) and refuses to start without it. Set `KNOWN_DEVICE_SECRET_PROD` before deploying.
+
 ## [v0.29.0] - 2026-10-10
 
 ### Added

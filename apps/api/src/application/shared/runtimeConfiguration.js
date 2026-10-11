@@ -141,7 +141,7 @@ function sessionConfiguration(env, suffix) {
  * @param {Record<string, string | undefined>} env
  * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
  * @param {string} sessionSecret The session secret already resolved for this environment.
- * @returns {{throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}}
+ * @returns {{throttleSecret: string, knownDeviceSecret: string, memoryKib: number, timeCost: number, parallelism: number}}
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 function authenticationConfiguration(env, suffix, sessionSecret) {
@@ -157,7 +157,21 @@ function authenticationConfiguration(env, suffix, sessionSecret) {
     'INVALID_CONFIGURATION',
     secretSetting
   );
-  return { throttleSecret, ...argon2PolicyFromEnv(env) };
+  // M0001-13-R008: known-device tokens get their own key, so a leak of the
+  // session or throttle secret cannot forge one.
+  const deviceSetting = `KNOWN_DEVICE_SECRET_${suffix}`;
+  const knownDeviceSecret = secret(env[deviceSetting], deviceSetting);
+  requireCondition(
+    knownDeviceSecret.length >= 32,
+    'INVALID_CONFIGURATION',
+    deviceSetting
+  );
+  requireCondition(
+    knownDeviceSecret !== sessionSecret && knownDeviceSecret !== throttleSecret,
+    'INVALID_CONFIGURATION',
+    deviceSetting
+  );
+  return { throttleSecret, knownDeviceSecret, ...argon2PolicyFromEnv(env) };
 }
 
 /**
@@ -329,7 +343,7 @@ export function provisioningConfiguration(env, suffix, adminEntry) {
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, memoryKib: number, timeCost: number, parallelism: number}, taxIds: {encryptionKey: Buffer, hashKey: string}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, cells: Record<string, {endpoint: string, appPassword: string}>, provisioning: object | null, webRoot: string | undefined}} `admin` is the `nap-app` connection string; `provisioning` is `null` in `test`.
+ * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, knownDeviceSecret: string, memoryKib: number, timeCost: number, parallelism: number}, taxIds: {encryptionKey: Buffer, hashKey: string}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, cells: Record<string, {endpoint: string, appPassword: string}>, provisioning: object | null, webRoot: string | undefined}} `admin` is the `nap-app` connection string; `provisioning` is `null` in `test`.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -392,6 +406,7 @@ export function runtimeConfiguration(env) {
     taxIds: taxIdConfiguration(env, suffix, [
       session.secret,
       authentication.throttleSecret,
+      authentication.knownDeviceSecret,
     ]),
     cookie: cookieConfiguration(env, suffix),
     applicationOrigin: originConfiguration(env, suffix),

@@ -240,6 +240,7 @@ beforeAll(async () => {
       taxIdPolicy,
       authenticationPolicy: {
         throttleSecret: 'integration-throttle-secret-of-ample-length',
+        knownDeviceSecret: 'integration-known-device-secret-of-ample-length',
         ...ARGON2_MINIMUM,
       },
       registrations: [

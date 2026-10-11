@@ -75,6 +75,50 @@ describe('LoginPage', () => {
     expect(await screen.findByText(/Try again in 30 seconds/)).toBeTruthy();
   });
 
+  it('counts the wait down and re-enables sign-in when it ends', async () => {
+    api.login.mockRejectedValue(new ApiError('THROTTLED', 429, 2));
+    renderAt('/login');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Sign in' });
+    await user.type(screen.getByLabelText(/Email/), 'user@example.com');
+    await user.type(screen.getByLabelText(/^Password/), 'password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByText(/Try again in 2 seconds/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in' }).disabled).toBe(true);
+    expect(
+      await screen.findByText(/Try again in 1 second\./, {}, { timeout: 2000 })
+    ).toBeTruthy();
+    await waitFor(
+      () =>
+        expect(screen.getByRole('button', { name: 'Sign in' }).disabled).toBe(
+          false
+        ),
+      { timeout: 2500 }
+    );
+    expect(screen.queryByText(/Too many attempts/)).toBeNull();
+  });
+
+  it('lets a corrected email try again at once', async () => {
+    api.login.mockRejectedValue(new ApiError('THROTTLED', 429, 900));
+    renderAt('/login');
+    const user = userEvent.setup();
+
+    await screen.findByRole('heading', { name: 'Sign in' });
+    await user.type(screen.getByLabelText(/Email/), 'user@exmaple.com');
+    await user.type(screen.getByLabelText(/^Password/), 'password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByText(/Too many attempts/);
+
+    await user.clear(screen.getByLabelText(/Email/));
+    await user.type(screen.getByLabelText(/Email/), 'user@example.com');
+    expect(screen.queryByText(/Too many attempts/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sign in' }).disabled).toBe(
+      false
+    );
+  });
+
   it('redirects to Home after a successful login with management access', async () => {
     api.login.mockResolvedValue({ restricted: false });
     renderAt('/login');

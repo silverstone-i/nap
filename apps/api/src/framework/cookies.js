@@ -3,8 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-/** Name of the BFF session cookie. The browser holds nothing else. */
+/** Name of the BFF session cookie. */
 export const SESSION_COOKIE = 'nap_session';
+
+/**
+ * Name of the known-device cookie (M0001-13). It authorizes nothing; it only
+ * exempts a returning browser from the account login throttle.
+ */
+export const KNOWN_DEVICE_COOKIE = 'nap_device';
 
 /**
  * Read one cookie from a raw `Cookie` header.
@@ -80,4 +86,20 @@ export function setSessionCookie(response, policy, token, maxAgeMs) {
  */
 export function clearSessionCookie(response, policy) {
   response.clearCookie(SESSION_COOKIE, baseOptions(policy));
+}
+
+/**
+ * Write the known-device cookie with the session cookie's attributes
+ * (M0001-13-R008). It outlives sessions on purpose, so logout leaves it.
+ * @param {import('express').Response} response
+ * @param {{secure: boolean, sameSite: 'lax'|'strict'}} policy
+ * @param {string} token Signed known-device token.
+ * @param {number} maxAgeMs Token lifetime in milliseconds.
+ * @returns {void}
+ */
+export function setKnownDeviceCookie(response, policy, token, maxAgeMs) {
+  response.cookie(KNOWN_DEVICE_COOKIE, token, {
+    ...baseOptions(policy),
+    maxAge: Math.floor(maxAgeMs),
+  });
 }

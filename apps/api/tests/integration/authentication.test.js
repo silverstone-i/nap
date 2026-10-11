@@ -24,10 +24,11 @@ import {
 } from '../../src/modules/admin-tenancy/domain/password.js';
 import {
   LOCK_MINUTES,
-  MAX_FAILURES,
   RETENTION_HOURS,
   THROTTLE_KINDS,
+  THROTTLE_LIMITS,
   WINDOW_MINUTES,
+  pairValue,
   throttleKey,
 } from '../../src/modules/admin-tenancy/domain/throttle.js';
 import {
@@ -63,6 +64,7 @@ const policies = {
   session: sessionPolicy,
   hashing: ARGON2_MINIMUM,
   throttle: throttlePolicy,
+  knownDevice: { secret: 'integration-known-device-secret-of-ample-length' },
 };
 
 const PASSWORD = 'correct-horse-battery';
@@ -106,14 +108,67 @@ function addressKey(address) {
   return throttleKey(throttlePolicy, THROTTLE_KINDS.address, address);
 }
 
-/** Attempt a login and return the error code, or `null` on success. */
-async function attempt(email, password, clientAddress = ADDRESS) {
+/** The pair throttle key for an account input and an address. */
+function pairKey(email, address) {
+  return throttleKey(
+    throttlePolicy,
+    THROTTLE_KINDS.pair,
+    pairValue(email, address)
+  );
+}
+
+/**
+ * End every live delay, leaving hard locks alone, as if the caller waited.
+ * @returns {Promise<void>}
+ */
+function waitOutDelays() {
+  return db.none(
+    `UPDATE admin.login_throttles SET locked_until = now() - interval '1 millisecond'
+      WHERE locked_until > now() AND locked_until <= now() + interval '30 seconds'`
+  );
+}
+
+/**
+ * Attempt a login and return the error code, or `null` on success.
+ *
+ * Waits out delays first unless told not to, so tests about hard locks are
+ * not tripped by the account key's per-failure delay.
+ */
+async function attempt(
+  email,
+  password,
+  clientAddress = ADDRESS,
+  { wait = true, knownDeviceToken = null } = {}
+) {
+  if (wait) await waitOutDelays();
   try {
-    await login(db, policies, { email, password, clientAddress });
+    await login(db, policies, {
+      email,
+      password,
+      clientAddress,
+      knownDeviceToken,
+    });
     return null;
   } catch (error) {
     return error.code;
   }
+}
+
+/** Seconds of lock a key carries, rounded, or `null` when it has none. */
+async function lockSeconds(key) {
+  const row = await throttleRow(key);
+  if (!row?.locked_until) return null;
+  return Math.round((row.locked_until.getTime() - Date.now()) / 1000);
+}
+
+/** Seed a key's row at a failure count, inside a fresh window and unlocked. */
+function seedFailures(key, failures) {
+  return db.none(
+    `INSERT INTO admin.login_throttles(key_hash,failures,window_started_at,last_failed_at)
+     VALUES ($1,$2,now(),now())
+     ON CONFLICT (key_hash) DO UPDATE SET failures=$2,locked_until=NULL`,
+    [key, failures]
+  );
 }
 
 /** The stored password hash for a portal user. */
@@ -249,38 +304,39 @@ describe('login', () => {
 });
 
 describe('throttling', () => {
-  it('locks a key after the fifth failure inside the window', async () => {
+  const PAIR = THROTTLE_LIMITS.pair.maxFailures;
+
+  it('hard-locks the pair after the fifth failure inside the window', async () => {
     const user = await portalUser();
     const address = '198.51.100.31';
-    for (
-      let attemptNumber = 1;
-      attemptNumber < MAX_FAILURES;
-      attemptNumber += 1
-    )
+    for (let n = 1; n < PAIR; n += 1)
       expect(await attempt(user.email, 'wrong-password-here', address)).toBe(
         'UNAUTHENTICATED'
       );
-    expect(await throttleRow(accountKey(user.email))).toMatchObject({
-      failures: MAX_FAILURES - 1,
+    expect(await throttleRow(pairKey(user.email, address))).toMatchObject({
+      failures: PAIR - 1,
       locked_until: null,
     });
     expect(await attempt(user.email, 'wrong-password-here', address)).toBe(
       'UNAUTHENTICATED'
     );
-    const locked = await throttleRow(accountKey(user.email));
-    expect(locked.failures).toBe(MAX_FAILURES);
-    expect(locked.locked_until.getTime()).toBeGreaterThan(Date.now());
+    const locked = await throttleRow(pairKey(user.email, address));
+    expect(locked.failures).toBe(PAIR);
     expect(locked.locked_until.getTime()).toBeLessThanOrEqual(
       Date.now() + LOCK_MINUTES * 60_000 + 5_000
     );
+    expect(await lockSeconds(pairKey(user.email, address))).toBeGreaterThan(
+      LOCK_MINUTES * 60 - 5
+    );
   }, 30000);
 
-  it('refuses a locked key with the right password and without verifying it', async () => {
+  it('refuses a locked pair with the right password and records its kind', async () => {
     const user = await portalUser();
     const address = '198.51.100.32';
-    for (let n = 0; n < MAX_FAILURES; n += 1)
+    for (let n = 0; n < PAIR; n += 1)
       await attempt(user.email, 'wrong-password-here', address);
-    const before = await throttleRow(accountKey(user.email));
+    await waitOutDelays();
+    const before = await throttleRow(pairKey(user.email, address));
     try {
       await login(db, policies, {
         email: user.email,
@@ -290,16 +346,12 @@ describe('throttling', () => {
       throw new Error('expected THROTTLED');
     } catch (error) {
       expect(error.code).toBe('THROTTLED');
-      expect(error.retryAfterSeconds).toBeGreaterThan(0);
-      expect(error.retryAfterSeconds).toBeLessThanOrEqual(LOCK_MINUTES * 60);
+      expect(error.retryAfterSeconds).toBeGreaterThan(LOCK_MINUTES * 60 - 5);
     }
     // A refused attempt is not a failure: the counter and window stand still.
-    const after = await throttleRow(accountKey(user.email));
+    const after = await throttleRow(pairKey(user.email, address));
     expect(after.failures).toBe(before.failures);
     expect(after.locked_until).toEqual(before.locked_until);
-    // Five failures from one address against one account lock both
-    // dimensions at once, so either key may be the one the refusal names —
-    // only that it names one of the two, truthfully, matters here.
     const denied = (
       await db.managed_events.findWhere(
         { event_key: 'auth.login.throttled' },
@@ -307,96 +359,238 @@ describe('throttling', () => {
         { columnWhitelist: ['details'], orderBy: ['occurred_at', 'id'] }
       )
     ).at(-1);
-    expect([accountKey(user.email), addressKey(address)]).toContain(
-      denied.details.throttle_key
-    );
-    expect(denied.details.code).toBe(FAILURE_CODES.locked);
+    expect(denied.details).toMatchObject({
+      code: FAILURE_CODES.locked,
+      kind: THROTTLE_KINDS.pair,
+      throttle_key: pairKey(user.email, address),
+    });
   }, 30000);
 
-  it('enforces the account and the client address independently', async () => {
-    const address = '198.51.100.33';
-    const users = [];
-    for (let n = 0; n < MAX_FAILURES; n += 1) users.push(await portalUser());
-    for (const user of users)
-      expect(await attempt(user.email, 'wrong-password-here', address)).toBe(
-        'UNAUTHENTICATED'
-      );
-    // Five failures spread over five accounts: the address is locked, every
-    // account key has seen exactly one failure and none of them is locked.
-    const locked = await throttleRow(addressKey(address));
-    expect(locked.failures).toBe(MAX_FAILURES);
-    expect(locked.locked_until).not.toBeNull();
-    for (const user of users)
-      expect(await throttleRow(accountKey(user.email))).toMatchObject({
-        failures: 1,
-        locked_until: null,
-      });
-    // The address lock nonetheless refuses a correct password from it, while
-    // the same account authenticates from elsewhere.
-    expect(await attempt(users[0].email, PASSWORD, address)).toBe('THROTTLED');
-    expect(await attempt(users[0].email, PASSWORD, '198.51.100.34')).toBeNull();
+  it('AC01: a corrected email succeeds after the mistyped pair locks', async () => {
+    const user = await portalUser();
+    const address = '198.51.100.40';
+    const typo = user.email.replace('@nap.test', '@npa.test');
+    for (let n = 0; n < PAIR; n += 1)
+      expect(await attempt(typo, PASSWORD, address)).toBe('UNAUTHENTICATED');
+    expect(await attempt(typo, PASSWORD, address)).toBe('THROTTLED');
+    expect(await attempt(user.email, PASSWORD, address, { wait: false })).toBe(
+      null
+    );
+  }, 30000);
+
+  it('AC02: five different wrong emails do not block a correct login', async () => {
+    const user = await portalUser();
+    const address = '198.51.100.82';
+    for (let n = 0; n < PAIR; n += 1)
+      expect(
+        await attempt(`nobody-${n}-${randomUUID()}@nap.test`, PASSWORD, address)
+      ).toBe('UNAUTHENTICATED');
+    expect(await attempt(user.email, PASSWORD, address, { wait: false })).toBe(
+      null
+    );
+    expect(await throttleRow(addressKey(address))).toMatchObject({
+      failures: PAIR,
+      locked_until: null,
+    });
+  }, 30000);
+
+  it('AC03: the hundredth address failure locks it for every account', async () => {
+    const user = await portalUser();
+    const address = '198.51.100.80';
+    await seedFailures(addressKey(address), 98);
+    await attempt(`a-${randomUUID()}@nap.test`, PASSWORD, address);
+    expect(await lockSeconds(addressKey(address))).toBeLessThanOrEqual(30);
+    await attempt(`b-${randomUUID()}@nap.test`, PASSWORD, address);
+    expect(await lockSeconds(addressKey(address))).toBeGreaterThan(
+      LOCK_MINUTES * 60 - 5
+    );
+    expect(await attempt(user.email, PASSWORD, address)).toBe('THROTTLED');
+    expect(await attempt(user.email, PASSWORD, '198.51.100.81')).toBeNull();
+  }, 30000);
+
+  it('AC04: delays double to a 30-second cap; address delays start at ten', async () => {
+    const user = await portalUser();
+    const address = '198.51.100.44';
+    const seen = [];
+    for (let n = 0; n < 6; n += 1) {
+      await attempt(user.email, 'wrong-password-here', `198.51.100.${50 + n}`);
+      seen.push(await lockSeconds(accountKey(user.email)));
+    }
+    expect(seen).toEqual([2, 4, 8, 16, 30, 30]);
+
+    await seedFailures(addressKey(address), 8);
+    await attempt(`c-${randomUUID()}@nap.test`, PASSWORD, address);
+    expect(await lockSeconds(addressKey(address))).toBeNull();
+    await attempt(`d-${randomUUID()}@nap.test`, PASSWORD, address);
+    expect(await lockSeconds(addressKey(address))).toBe(2);
+    // A live delay refuses the next attempt; the pair key is never delayed.
+    expect(
+      await attempt(`e-${randomUUID()}@nap.test`, PASSWORD, address, {
+        wait: false,
+      })
+    ).toBe('THROTTLED');
+    expect(await lockSeconds(pairKey(user.email, '198.51.100.50'))).toBeNull();
+  }, 30000);
+
+  it('AC05: a known device skips the account key, and only that key', async () => {
+    const user = await portalUser();
+    const issued = await login(db, policies, {
+      email: user.email,
+      password: PASSWORD,
+      clientAddress: '198.51.100.60',
+    });
+    const token = issued.knownDevice.token;
+    await seedFailures(accountKey(user.email), 0);
+    await db.none(
+      `UPDATE admin.login_throttles SET failures=$2,
+              locked_until = now() + interval '15 minutes'
+        WHERE key_hash=$1`,
+      [accountKey(user.email), THROTTLE_LIMITS.account.maxFailures]
+    );
+    expect(await attempt(user.email, PASSWORD, '198.51.100.61')).toBe(
+      'THROTTLED'
+    );
+    // A known device's failure leaves the account counter alone.
+    expect(
+      await attempt(user.email, 'wrong-password-here', '198.51.100.62', {
+        knownDeviceToken: token,
+      })
+    ).toBe('UNAUTHENTICATED');
+    expect((await throttleRow(accountKey(user.email))).failures).toBe(
+      THROTTLE_LIMITS.account.maxFailures
+    );
+    expect(
+      await attempt(user.email, PASSWORD, '198.51.100.62', {
+        knownDeviceToken: token,
+      })
+    ).toBeNull();
+    // Another account's token is no exemption.
+    const other = await portalUser();
+    expect(
+      await attempt(other.email, PASSWORD, '198.51.100.63', {
+        knownDeviceToken: token,
+      })
+    ).toBeNull();
+    await seedFailures(accountKey(other.email), 0);
+    await db.none(
+      `UPDATE admin.login_throttles SET locked_until = now() + interval '15 minutes'
+        WHERE key_hash=$1`,
+      [accountKey(other.email)]
+    );
+    expect(
+      await attempt(other.email, PASSWORD, '198.51.100.63', {
+        knownDeviceToken: token,
+      })
+    ).toBe('THROTTLED');
+  }, 60000);
+
+  it('AC07: a password change voids earlier known-device tokens', async () => {
+    const user = await portalUser();
+    const own = await login(db, policies, {
+      email: user.email,
+      password: PASSWORD,
+      clientAddress: '198.51.100.64',
+    });
+    await changePassword(db, policies, {
+      session: own.session,
+      token: own.token,
+      currentPassword: PASSWORD,
+      newPassword: REPLACEMENT,
+    });
+    await seedFailures(accountKey(user.email), 0);
+    await db.none(
+      `UPDATE admin.login_throttles SET locked_until = now() + interval '15 minutes'
+        WHERE key_hash=$1`,
+      [accountKey(user.email)]
+    );
+    expect(
+      await attempt(user.email, REPLACEMENT, '198.51.100.65', {
+        knownDeviceToken: own.knownDevice.token,
+      })
+    ).toBe('THROTTLED');
+  }, 60000);
+
+  it('issues no known-device token for a restricted session', async () => {
+    const user = await portalUser({ mustChange: true });
+    const issued = await login(db, policies, {
+      email: user.email,
+      password: PASSWORD,
+      clientAddress: '198.51.100.66',
+    });
+    expect(issued.session.restricted).toBe(true);
+    expect(issued.knownDevice).toBeNull();
   }, 30000);
 
   it('counts concurrent failures exactly once each', async () => {
     const user = await portalUser();
     const address = '198.51.100.35';
+    await waitOutDelays();
     const results = await Promise.all(
-      Array.from({ length: MAX_FAILURES }, () =>
-        attempt(user.email, 'wrong-password-here', address)
+      Array.from({ length: PAIR }, () =>
+        attempt(user.email, 'wrong-password-here', address, { wait: false })
       )
     );
-    expect(results).toEqual(Array(MAX_FAILURES).fill('UNAUTHENTICATED'));
-    const row = await throttleRow(accountKey(user.email));
-    expect(row.failures).toBe(MAX_FAILURES);
-    expect(row.locked_until).not.toBeNull();
-    expect(await throttleRow(addressKey(address))).toMatchObject({
-      failures: MAX_FAILURES,
-    });
+    expect(results).toEqual(Array(PAIR).fill('UNAUTHENTICATED'));
+    const pair = await throttleRow(pairKey(user.email, address));
+    expect(pair.failures).toBe(PAIR);
+    expect(pair.locked_until).not.toBeNull();
+    for (const key of [accountKey(user.email), addressKey(address)])
+      expect(await throttleRow(key)).toMatchObject({ failures: PAIR });
+  }, 30000);
+
+  it('keeps counting after a delay expires', async () => {
+    const user = await portalUser();
+    await attempt(user.email, 'wrong-password-here', '198.51.100.70');
+    await attempt(user.email, 'wrong-password-here', '198.51.100.71');
+    expect((await throttleRow(accountKey(user.email))).failures).toBe(2);
   }, 30000);
 
   it('restarts a window that has elapsed without locking', async () => {
     const user = await portalUser();
     const address = '198.51.100.36';
     await attempt(user.email, 'wrong-password-here', address);
+    await waitOutDelays();
     await db.none(
       `UPDATE admin.login_throttles
           SET window_started_at = now() - ($2::integer * interval '1 minute') - interval '1 second',
               last_failed_at = window_started_at
         WHERE key_hash=$1`,
-      [accountKey(user.email), WINDOW_MINUTES]
+      [pairKey(user.email, address), WINDOW_MINUTES]
     );
     await attempt(user.email, 'wrong-password-here', address);
-    expect(await throttleRow(accountKey(user.email))).toMatchObject({
+    expect(await throttleRow(pairKey(user.email, address))).toMatchObject({
       failures: 1,
       locked_until: null,
     });
   }, 30000);
 
-  it('does not re-lock on the single attempt after a lock expires', async () => {
+  it('does not re-lock on the single attempt after a hard lock expires', async () => {
     const user = await portalUser();
     const address = '198.51.100.37';
-    for (let n = 0; n < MAX_FAILURES; n += 1)
+    for (let n = 0; n < PAIR; n += 1)
       await attempt(user.email, 'wrong-password-here', address);
     await db.none(
-      "UPDATE admin.login_throttles SET locked_until = now() - interval '1 second'",
-      []
+      `UPDATE admin.login_throttles SET locked_until = now() - interval '1 second'
+        WHERE key_hash=$1`,
+      [pairKey(user.email, address)]
     );
     expect(await attempt(user.email, 'wrong-password-here', address)).toBe(
       'UNAUTHENTICATED'
     );
-    expect(await throttleRow(accountKey(user.email))).toMatchObject({
+    expect(await throttleRow(pairKey(user.email, address))).toMatchObject({
       failures: 1,
       locked_until: null,
     });
   }, 30000);
 
-  it('clears the account key on success and keeps the address key', async () => {
+  it('AC08: success clears the pair and account keys and keeps the address key', async () => {
     const user = await portalUser();
     const address = '198.51.100.38';
     await attempt(user.email, 'wrong-password-here', address);
     expect(await throttleRow(accountKey(user.email))).not.toBeNull();
     expect(await attempt(user.email, PASSWORD, address)).toBeNull();
     expect(await throttleRow(accountKey(user.email))).toBeNull();
+    expect(await throttleRow(pairKey(user.email, address))).toBeNull();
     expect(await throttleRow(addressKey(address))).toMatchObject({
       failures: 1,
     });
@@ -607,7 +801,7 @@ describe('stored and recorded secrets', () => {
       currentPassword: PASSWORD,
       newPassword: REPLACEMENT,
     });
-    for (let n = 0; n < MAX_FAILURES + 1; n += 1)
+    for (let n = 0; n < THROTTLE_LIMITS.pair.maxFailures + 1; n += 1)
       await attempt(user.email, 'wrong-password-here', ADDRESS);
     const rows = await db.managed_events.findWhere([]);
     const dump = JSON.stringify(rows);

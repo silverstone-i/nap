@@ -67,6 +67,7 @@ minimum: any nonempty password up to 128 characters is accepted, because the
 user must replace it at first login. Rehash after successful
 login when configured parameters increase.
 
+[M0001-13](M0001-13-login-throttle-hardening.md) replaces this paragraph once implemented.
 Login evaluates account and client-address keys. Five failures in 15 minutes
 lock that key for 15 minutes. A successful login clears the account key. Unknown
 accounts run one dummy Argon2id verification to avoid account-discovery timing.
