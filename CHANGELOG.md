@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.29.2] - 2026-10-11
+
 ### Fixed
 
 - **Sessions** in the Tenant Management nav now shows an icon like the other items.
