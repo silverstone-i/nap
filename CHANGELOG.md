@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.29.1] - 2026-10-11
+
 ### Changed
 
 - Login throttling (M0001-13). Failures now count on three keys: the email and client address together, which hard-locks after 5 failures, the address alone after 100, and the email alone after 20, each for 15 minutes. One person's mistyped email no longer locks their whole address, and a corrected email from the same address can sign in at once. Failures on the email key delay the next attempt by 2, 4, 8, 16, then 30 seconds; on the address key the delays start at its 10th failure. A successful login clears the email and pair keys.
