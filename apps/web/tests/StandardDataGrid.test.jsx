@@ -45,6 +45,12 @@ describe('StandardDataGrid', () => {
     expect(screen.getByText('Beta')).toBeTruthy();
   });
 
+  it('has no checkbox column when not selectable (I0001-R026)', async () => {
+    renderGrid({ selectable: false });
+    await screen.findByText('Alpha');
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
+
   it('clears row selection when the tenant context (resetKey) changes', async () => {
     const user = userEvent.setup();
     const { rerender } = renderGrid({ resetKey: 'tenant-1' });

@@ -219,6 +219,7 @@ export function TenantsPage() {
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}
+        selectable={false}
         emptyMessage="No tenants yet."
       />
     </>

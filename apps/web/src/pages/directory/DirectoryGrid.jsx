@@ -11,15 +11,12 @@ import Stack from '@mui/material/Stack';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
-import { ApiError } from '../../api/client.js';
 import {
   archiveDirectoryRecord,
-  bulkDirectoryAction,
   getDirectoryRecord,
   listDirectoryPage,
   restoreDirectoryRecord,
 } from '../../api/endpoints.js';
-import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { PortalAccessChip } from './PortalAccess.jsx';
@@ -124,11 +121,11 @@ function columnsFor(collection, onOpen) {
 }
 
 /**
- * A directory list as a standard grid (M0005-R027–R030): server pages, a row
- * menu with Edit and Archive or Restore, and Archive selected or Restore
- * selected for the current page. A bulk request is all or nothing; when it
- * fails, the grid lists each record that failed and why, and keeps the
- * selection so the user can change it and try again.
+ * A directory list as a standard grid (M0005-R027–R028): server pages and a
+ * row menu with Edit and Archive or Restore. The bulk actions live with the
+ * caller (`useDirectoryBulk`), which places them in the page header or a
+ * dialog's toolbar (I0001-R028, R034) and receives the selection through
+ * `onSelectionChange`.
  * @param {{
  *   collection: 'people'|'organizations'|'organization-contacts',
  *   filters: object,
@@ -139,6 +136,7 @@ function columnsFor(collection, onOpen) {
  *   onChanged?: () => void,
  *   refreshKey?: unknown,
  *   extraActions?: (row: object, run: (action: () => Promise<unknown>) => void) => object[],
+ *   onSelectionChange?: (ids: Array<string|number>, rows: object[]) => void,
  * }} props
  * @returns {JSX.Element}
  */
@@ -152,10 +150,9 @@ export function DirectoryGrid({
   onChanged,
   refreshKey,
   extraActions,
+  onSelectionChange,
 }) {
   const [tick, setTick] = useState(0);
-  const [selectedRows, setSelectedRows] = useState([]);
-  const [confirming, setConfirming] = useState(null);
   const [actionError, setActionError] = useState(null);
   const [editing, setEditing] = useState(null);
 
@@ -185,43 +182,6 @@ export function DirectoryGrid({
     } catch (err) {
       abilities.onError?.(err);
       setActionError(describeDirectoryError(err, messages));
-    }
-  }
-
-  async function runBulk(action) {
-    setActionError(null);
-    const rows = selectedRows;
-    try {
-      await bulkDirectoryAction(
-        collection,
-        action,
-        rows.map(row => ({ id: row.id, revision: row.revision }))
-      );
-      changed();
-    } catch (err) {
-      abilities.onError?.(err);
-      if (err instanceof ApiError && err.code === 'BULK_FAILED' && err.details)
-        setActionError(
-          <>
-            Nothing was changed. These records could not be{' '}
-            {action === 'archive' ? 'archived' : 'restored'}:
-            <ul style={{ margin: 0 }}>
-              {err.details.map(item => {
-                const row = rows.find(r => r.id === item.id);
-                return (
-                  <li key={item.id}>
-                    {row ? recordName(row) : item.id}:{' '}
-                    {describeDirectoryError(
-                      new ApiError(item.code, 409),
-                      action === 'archive' ? PORTAL_MESSAGES.archive : {}
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        );
-      else setActionError(describeDirectoryError(err));
     }
   }
 
@@ -275,35 +235,8 @@ export function DirectoryGrid({
     return actions;
   }
 
-  const count = selectedRows.length;
-  const allActive = count > 0 && selectedRows.every(row => !row.archived);
-  const allArchived = count > 0 && selectedRows.every(row => row.archived);
-
   return (
     <Stack spacing={1.5}>
-      {abilities.write && (allActive || allArchived) ? (
-        <Stack direction="row" spacing={1}>
-          {allActive ? (
-            <Button
-              variant="outlined"
-              size="small"
-              color="warning"
-              onClick={() => setConfirming('archive')}
-            >
-              Archive selected ({count})
-            </Button>
-          ) : null}
-          {allArchived ? (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => setConfirming('restore')}
-            >
-              Restore selected ({count})
-            </Button>
-          ) : null}
-        </Stack>
-      ) : null}
       {actionError ? (
         <Alert severity="error" onClose={() => setActionError(null)}>
           {actionError}
@@ -314,29 +247,12 @@ export function DirectoryGrid({
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}
-        onSelectionChange={(_ids, rows) => setSelectedRows(rows)}
+        onSelectionChange={onSelectionChange}
+        selectable={Boolean(onSelectionChange) && abilities.write}
         ariaLabel={ariaLabel}
         emptyMessage={emptyMessage}
         describeError={err => describeDirectoryError(err)}
       />
-      {confirming ? (
-        <ConfirmDialog
-          open
-          title={
-            confirming === 'archive' ? 'Archive selected' : 'Restore selected'
-          }
-          description={`${count} record${count === 1 ? '' : 's'} will be ${
-            confirming === 'archive' ? 'archived' : 'restored'
-          }.${confirming === 'archive' ? ` ${ARCHIVE_TEXT}` : ''}`}
-          confirmLabel={confirming === 'archive' ? 'Archive' : 'Restore'}
-          onCancel={() => setConfirming(null)}
-          onConfirm={() => {
-            const action = confirming;
-            setConfirming(null);
-            void runBulk(action);
-          }}
-        />
-      ) : null}
       {editing ? (
         <RecordFormDialog
           collection={collection}

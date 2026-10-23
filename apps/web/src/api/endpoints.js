@@ -250,11 +250,33 @@ export async function rolloutReferenceData() {
 }
 
 /**
- * @param {{cursor?: string, limit?: number}} [page]
+ * @param {{cursor?: string, limit?: number, includeArchived?: boolean, email?: string, tenantId?: string, status?: 'active'|'disabled', mustChangePassword?: 'true'|'false'}} [page]
+ *   Deactivated users are left out unless `includeArchived` (I0002-R011);
+ *   `email` keeps users whose email contains it (I0002-R015); `tenantId`,
+ *   `status`, and `mustChangePassword` narrow the list further (I0002-R016).
  * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe portal-user views (I0002-R008).
  */
-export async function listUsersPage(page) {
-  const data = await apiGet(`${BASE}/accounts/users${pageQuery(page)}`);
+export async function listUsersPage({
+  includeArchived,
+  email,
+  tenantId,
+  status,
+  mustChangePassword,
+  ...page
+} = {}) {
+  const params = new URLSearchParams(pageQuery(page));
+  if (includeArchived) params.set('includeArchived', 'true');
+  for (const [key, value] of Object.entries({
+    email,
+    tenantId,
+    status,
+    mustChangePassword,
+  }))
+    if (value) params.set(key, value);
+  const query = params.toString();
+  const data = await apiGet(
+    `${BASE}/accounts/users${query ? `?${query}` : ''}`
+  );
   return usersListResponseSchema.parse({ version: 1, data }).data;
 }
 
@@ -308,6 +330,21 @@ export async function deactivatePortalUser(id) {
 export async function restorePortalUser(id) {
   const data = await apiPost(`${BASE}/accounts/users/${id}/restore`);
   return userResponseSchema.parse({ version: 1, data }).data;
+}
+
+/**
+ * Deactivate or restore several portal users at once, all or nothing
+ * (I0002-R013). A failure is `BULK_FAILED` with `details` naming each
+ * failed user.
+ * @param {'archive'|'restore'} action `archive` deactivates.
+ * @param {string[]} ids Portal-user UUIDs.
+ * @returns {Promise<void>}
+ */
+export async function bulkPortalUserAction(action, ids) {
+  await apiPost(
+    `${BASE}/accounts/users/${action === 'archive' ? 'deactivate' : 'restore'}`,
+    { ids }
+  );
 }
 
 /**
@@ -427,6 +464,19 @@ export async function restoreRole(id, revision) {
   return roleViewSchema.parse(
     await apiPost(`${ACCESS_BASE}/roles/${id}/restore`, { revision })
   );
+}
+
+/**
+ * Archive or restore several custom roles at once, all or nothing
+ * (M0003-R018). A failure is `BULK_FAILED` with `details` naming each
+ * failed role.
+ * @param {'archive'|'restore'} action
+ * @param {{id: string, revision: number}[]} items
+ * @returns {Promise<RoleView[]>} The changed roles.
+ */
+export async function bulkRoleAction(action, items) {
+  const data = await apiPost(`${ACCESS_BASE}/roles/${action}`, { items });
+  return z.strictObject({ rows: z.array(roleViewSchema) }).parse(data).rows;
 }
 
 /** @param {string} userId @returns {Promise<{userId: string, roles: RoleView[]}>} Active assignments only. */
@@ -775,4 +825,17 @@ export async function restoreContactLabel(id, revision) {
   return contactLabelViewSchema.parse(
     await apiPost(`${DIRECTORY_BASE}/labels/${id}/restore`, { revision })
   );
+}
+
+/**
+ * Archive or restore several labels at once, all or nothing (M0005-R032).
+ * A failure is `BULK_FAILED` with `details` naming each failed label.
+ * @param {'archive'|'restore'} action
+ * @param {{id: string, revision: number}[]} items
+ * @returns {Promise<object[]>} The changed labels.
+ */
+export async function bulkContactLabelAction(action, items) {
+  const data = await apiPost(`${DIRECTORY_BASE}/labels/${action}`, { items });
+  return z.strictObject({ rows: z.array(contactLabelViewSchema) }).parse(data)
+    .rows;
 }

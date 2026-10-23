@@ -10,6 +10,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { ContextualActionHeader } from './ContextualActionHeader.jsx';
 import { NavDrawer } from './NavDrawer.jsx';
+import { NoticeProvider } from './NoticeContext.jsx';
 import { PageHeaderProvider } from './PageHeaderContext.jsx';
 import { TopHeader } from './TopHeader.jsx';
 
@@ -50,30 +51,32 @@ export function AppShell({ children }) {
 
   return (
     <PageHeaderProvider>
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <TopHeader onMenuClick={toggleNav} />
-        <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <NavDrawer
-            variant={isPhone ? 'temporary' : 'rail'}
-            expanded={navExpanded}
-            open={phoneNavOpen}
-            onClose={() => setPhoneNavOpen(false)}
-          />
-          <Box
-            component="main"
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'auto',
-            }}
-          >
-            <ContextualActionHeader headingRef={headingRef} />
-            <Box sx={{ flex: 1, p: 3, minWidth: 0 }}>{children}</Box>
+      <NoticeProvider>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+          <TopHeader onMenuClick={toggleNav} />
+          <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <NavDrawer
+              variant={isPhone ? 'temporary' : 'rail'}
+              expanded={navExpanded}
+              open={phoneNavOpen}
+              onClose={() => setPhoneNavOpen(false)}
+            />
+            <Box
+              component="main"
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'auto',
+              }}
+            >
+              <ContextualActionHeader headingRef={headingRef} />
+              <Box sx={{ flex: 1, p: 3, minWidth: 0 }}>{children}</Box>
+            </Box>
           </Box>
         </Box>
-      </Box>
+      </NoticeProvider>
     </PageHeaderProvider>
   );
 }

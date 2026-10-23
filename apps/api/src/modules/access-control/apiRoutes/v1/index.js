@@ -9,6 +9,7 @@ import { requireCapability } from '../../../../capability/requireCapability.js';
 import { requireSession } from '../../../../middleware/sessionContext.js';
 import {
   archiveRole,
+  archiveRoles,
   assignRole,
   createRole,
   getRole,
@@ -16,6 +17,7 @@ import {
   listRoles,
   removeRole,
   restoreRole,
+  restoreRoles,
   updateRole,
   userRoles,
 } from '../../domain/roles.js';
@@ -101,6 +103,19 @@ export function createRolesRouter(deps) {
         response,
         await updateRole(context, request.params.id, request.body)
       )
+    )
+  );
+  // M0003-R018: all-or-nothing bulk archive and restore.
+  router.post(
+    '/archive',
+    ...route(deps, WRITE, async (context, request, response) =>
+      sendData(response, await archiveRoles(context, request.body))
+    )
+  );
+  router.post(
+    '/restore',
+    ...route(deps, WRITE, async (context, request, response) =>
+      sendData(response, await restoreRoles(context, request.body))
     )
   );
   router.post(

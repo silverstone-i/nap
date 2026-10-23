@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { ERROR_STATUS, sendError } from '../../../../framework/envelope.js';
+import {
+  ERROR_STATUS,
+  sendBulkFailed,
+  sendError,
+} from '../../../../framework/envelope.js';
 import { capabilityCatalogue } from '../../domain/catalogue.js';
 import { AccessControlError } from '../../domain/errors.js';
 import { roleChangeRecorder } from '../../domain/events.js';
@@ -17,6 +21,11 @@ import { roleChangeRecorder } from '../../domain/events.js';
  */
 export function sendAccessControlError(response, error) {
   const code = error?.code;
+  // M0003-R018: a bulk failure names each failed role and its code.
+  if (code === 'BULK_FAILED' && Array.isArray(error.details)) {
+    sendBulkFailed(response, error.details);
+    return;
+  }
   sendError(
     response,
     typeof code === 'string' && Object.hasOwn(ERROR_STATUS, code)

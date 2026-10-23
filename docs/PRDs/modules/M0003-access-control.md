@@ -9,7 +9,7 @@
 | Related architecture | [Module map](../../architecture/module-map.md), [Migrations](../../architecture/migrations.md), [Admin and cells](../../architecture/admin-cells.md)                                                                                                                                                        |
 | Related PRDs         | [I0005: RBAC Decision Model](../inter-module-workflows/I0005-rbac-decision-model.md), [M0001-02: Napsoft bootstrap](M0001-admin-tenancy/M0001-02-root-user-provisioning.md), [M0002: Cell Tenancy](M0002-cell-tenancy.md), [I0003: Cell Provisioning](../inter-module-workflows/I0003-cell-provisioning.md) |
 | Related decisions    | Roles and role assignments live only in tenant cells; the admin database stores neither                                                                                                                                                                                                                     |
-| Last reviewed        | 2026-09-27                                                                                                                                                                                                                                                                                                  |
+| Last reviewed        | 2026-10-23                                                                                                                                                                                                                                                                                                  |
 
 ## 2. Purpose
 
@@ -91,6 +91,11 @@ the seeded tenant's own code.
 - M0003-R015: Every role, grant, or assignment change must write a `cell.outbox` row in the same cell transaction. The sync worker (I0004) delivers it to admin, where it writes an administrative event with actor, tenant, role, and before and after values, and advances the cache revision I0005 uses for that tenant's roles.
 - M0003-R016: The web app must provide a Roles screen: role list with immutable and custom badges, role detail with grants grouped by module, a create and edit form that picks capabilities from the catalogue, archive and restore, and a user's role assignments. Actions the session cannot perform are hidden (I0005).
 
+### Roles screen grid
+
+- M0003-R017: The role list must be a standard grid (I0001-R025–R034) with Name, Code, Type, and Grants columns. `GET /roles` returns the full list, which the grid pages in the browser. Selecting a role's name opens its detail. The header holds a name search, a filter popover with Include archived, and **Create role** last. Each row's ⋮ menu offers **Edit** and then **Archive** or **Restore**. Selected rows offer **Archive selected** when every selected role is active and **Restore selected** when every one is archived, each after one confirmation naming the count. The user role assignments section stays a form below the grid.
+- M0003-R018: `POST /roles/archive` and `POST /roles/restore` with `{ items: [{ id, revision }, …] }` (1–100 items) must apply the single-role archive or restore, with all its rules (R013, R014, R015), to every item in one cell transaction. It is all-or-nothing: if any item fails, nothing changes and the response is `409 BULK_FAILED` with `details: [{ id, code }]`. The screen must list each failed role by name with the reason, and keep the selection.
+
 ## 7. Business Rules And Invariants
 
 - A role, grant, or assignment belongs to exactly one tenant (database).
@@ -131,18 +136,19 @@ the seeded tenant's own code.
 
 Base: `/api/access-control/v1`. Route capabilities omit the tenant part, which I0005 adds.
 
-| Method and route                      | Route capability                     | Request                                      | Errors                                                             |
-| ------------------------------------- | ------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------ |
-| `GET /capabilities`                   | `access-control::roles::read`        | —                                            | —                                                                  |
-| `GET /roles`                          | `access-control::roles::read`        | `?includeArchived`                           | —                                                                  |
-| `GET /roles/:id`                      | `access-control::roles::read`        | —                                            | `NOT_FOUND`                                                        |
-| `POST /roles`                         | `access-control::roles::write`       | `{ code, name, description?, grants[] }`     | `VALIDATION`, `CONFLICT`, `GRANT_EXCEEDS_ACTOR`                    |
-| `PATCH /roles/:id`                    | `access-control::roles::write`       | `{ name?, description?, grants?, revision }` | `ROLE_IMMUTABLE`, `STALE_REVISION`, `GRANT_EXCEEDS_ACTOR`          |
-| `POST /roles/:id/archive`             | `access-control::roles::write`       | `{ revision }`                               | `ROLE_IMMUTABLE`, `STALE_REVISION`                                 |
-| `POST /roles/:id/restore`             | `access-control::roles::write`       | `{ revision }`                               | `STALE_REVISION`                                                   |
-| `GET /users/:userId/roles`            | `access-control::roles::read`        | —                                            | `NOT_FOUND`                                                        |
-| `PUT /users/:userId/roles/:roleId`    | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `NOT_MEMBER`, `GRANT_EXCEEDS_ACTOR`                   |
-| `DELETE /users/:userId/roles/:roleId` | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `GRANT_EXCEEDS_ACTOR`, `LAST_ADMIN`, `ROOT_IMMUTABLE` |
+| Method and route                         | Route capability                     | Request                                      | Errors                                                             |
+| ---------------------------------------- | ------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------ |
+| `GET /capabilities`                      | `access-control::roles::read`        | —                                            | —                                                                  |
+| `GET /roles`                             | `access-control::roles::read`        | `?includeArchived`                           | —                                                                  |
+| `GET /roles/:id`                         | `access-control::roles::read`        | —                                            | `NOT_FOUND`                                                        |
+| `POST /roles`                            | `access-control::roles::write`       | `{ code, name, description?, grants[] }`     | `VALIDATION`, `CONFLICT`, `GRANT_EXCEEDS_ACTOR`                    |
+| `PATCH /roles/:id`                       | `access-control::roles::write`       | `{ name?, description?, grants?, revision }` | `ROLE_IMMUTABLE`, `STALE_REVISION`, `GRANT_EXCEEDS_ACTOR`          |
+| `POST /roles/:id/archive`                | `access-control::roles::write`       | `{ revision }`                               | `ROLE_IMMUTABLE`, `STALE_REVISION`                                 |
+| `POST /roles/:id/restore`                | `access-control::roles::write`       | `{ revision }`                               | `STALE_REVISION`                                                   |
+| `POST /roles/archive`, `/restore` (bulk) | `access-control::roles::write`       | `{ items: [{ id, revision }] }`              | `INVALID_INPUT`, `BULK_FAILED`                                     |
+| `GET /users/:userId/roles`               | `access-control::roles::read`        | —                                            | `NOT_FOUND`                                                        |
+| `PUT /users/:userId/roles/:roleId`       | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `NOT_MEMBER`, `GRANT_EXCEEDS_ACTOR`                   |
+| `DELETE /users/:userId/roles/:roleId`    | `access-control::assignments::write` | —                                            | `NOT_FOUND`, `GRANT_EXCEEDS_ACTOR`, `LAST_ADMIN`, `ROOT_IMMUTABLE` |
 
 Writes use optimistic concurrency on `revision`. `grants` replaces the full set. The assigned user must be an active member of
 the tenant (`cell.tenant_members`).
@@ -162,18 +168,19 @@ the tenant (`cell.tenant_members`).
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                             | Requirements                       |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| AC01      | The cell migration creates the three tables; reruns are no-ops.                                                                                             | M0003-R001, M0003-R002, M0003-R006 |
-| AC02      | Invalid patterns and unknown catalogue names are rejected.                                                                                                  | M0003-R003, M0003-R004             |
-| AC03      | The catalogue lists every declared capability; a data-changing capability named `read` fails registration.                                                  | M0003-R005                         |
-| AC04      | Napsoft tenant setup seeds the three Napsoft roles and permanently assigns `platform_admin` to the bootstrap login; reseeding changes nothing; drift fails. | M0003-R007, M0003-R008, M0003-R010 |
-| AC05      | The customer-tenant seed creates only `tenant_admin`.                                                                                                       | M0003-R009                         |
-| AC06      | Assigning, removing, creating, or editing a role beyond the caller's patterns fails; covered cases succeed.                                                 | M0003-R011                         |
-| AC07      | Removing the last `tenant_admin`, or the last Napsoft `platform_admin`, among active members fails.                                                         | M0003-R012                         |
-| AC08      | Immutable roles cannot be edited or archived; archive and restore preserve grants and assignments.                                                          | M0003-R013, M0003-R014             |
-| AC09      | Each change writes an outbox row in its transaction; delivery writes the event and advances the role cache revision.                                        | M0003-R015                         |
-| AC10      | The Roles screen supports list, detail, create, edit, archive, restore, and assignments, hiding disallowed actions.                                         | M0003-R016                         |
+| Criterion | Required result                                                                                                                                                 | Requirements                       |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| AC01      | The cell migration creates the three tables; reruns are no-ops.                                                                                                 | M0003-R001, M0003-R002, M0003-R006 |
+| AC02      | Invalid patterns and unknown catalogue names are rejected.                                                                                                      | M0003-R003, M0003-R004             |
+| AC03      | The catalogue lists every declared capability; a data-changing capability named `read` fails registration.                                                      | M0003-R005                         |
+| AC04      | Napsoft tenant setup seeds the three Napsoft roles and permanently assigns `platform_admin` to the bootstrap login; reseeding changes nothing; drift fails.     | M0003-R007, M0003-R008, M0003-R010 |
+| AC05      | The customer-tenant seed creates only `tenant_admin`.                                                                                                           | M0003-R009                         |
+| AC06      | Assigning, removing, creating, or editing a role beyond the caller's patterns fails; covered cases succeed.                                                     | M0003-R011                         |
+| AC07      | Removing the last `tenant_admin`, or the last Napsoft `platform_admin`, among active members fails.                                                             | M0003-R012                         |
+| AC08      | Immutable roles cannot be edited or archived; archive and restore preserve grants and assignments.                                                              | M0003-R013, M0003-R014             |
+| AC09      | Each change writes an outbox row in its transaction; delivery writes the event and advances the role cache revision.                                            | M0003-R015                         |
+| AC10      | The Roles screen supports list, detail, create, edit, archive, restore, and assignments, hiding disallowed actions.                                             | M0003-R016                         |
+| AC11      | The role list follows I0001's list-screen rules; a bulk archive that includes an immutable role or a stale revision changes nothing and lists each failed role. | M0003-R017, M0003-R018             |
 
 ## 14. Outstanding Questions
 

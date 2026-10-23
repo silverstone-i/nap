@@ -1521,6 +1521,81 @@ describe('tenant-managed portal access and roles (I0010)', () => {
   });
 });
 
+describe('label bulk archive and restore (M0005-R032)', () => {
+  /** A new Email label with a unique name. */
+  async function label() {
+    const response = await call('post', '/labels', {
+      appliesTo: 'email',
+      name: `bulk-${randomUUID().slice(0, 8)}`,
+    });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    return response.body.data;
+  }
+
+  it('AC18: archives and restores several labels in one request', async () => {
+    const first = await label();
+    const second = await label();
+    const archived = await call('post', '/labels/archive', {
+      items: [
+        { id: first.id, revision: first.revision },
+        { id: second.id, revision: second.revision },
+      ],
+    });
+    expect(archived.status, JSON.stringify(archived.body)).toBe(200);
+    expect(archived.body.data.rows.map(row => [row.id, row.archived])).toEqual([
+      [first.id, true],
+      [second.id, true],
+    ]);
+
+    const restored = await call('post', '/labels/restore', {
+      items: archived.body.data.rows.map(row => ({
+        id: row.id,
+        revision: row.revision,
+      })),
+    });
+    expect(restored.status).toBe(200);
+    expect(restored.body.data.rows.every(row => !row.archived)).toBe(true);
+  });
+
+  it('AC18: changes nothing and names each failed label', async () => {
+    const fine = await label();
+    const stale = await label();
+    const already = await label();
+    await call('post', `/labels/${already.id}/archive`, {
+      revision: already.revision,
+    });
+    const response = await call('post', '/labels/archive', {
+      items: [
+        { id: fine.id, revision: fine.revision },
+        { id: stale.id, revision: stale.revision + 5 },
+        { id: already.id, revision: already.revision + 1 },
+      ],
+    });
+    expect(response.status).toBe(409);
+    expect(response.body.error.details).toEqual([
+      { id: stale.id, code: 'STALE_REVISION' },
+      { id: already.id, code: 'INVALID_STATE' },
+    ]);
+    const labels = (await call('get', '/labels')).body.data;
+    expect(labels.find(row => row.id === fine.id).archived).toBe(false);
+  });
+
+  it('rejects an empty or duplicated item list', async () => {
+    const one = await label();
+    for (const items of [
+      [],
+      [
+        { id: one.id, revision: one.revision },
+        { id: one.id, revision: one.revision },
+      ],
+    ]) {
+      const response = await call('post', '/labels/archive', { items });
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe('INVALID_INPUT');
+    }
+  });
+});
+
 describe('directory lists and bulk actions (M0005-R027–R030)', () => {
   const tag = () => randomUUID().slice(0, 8);
 

@@ -588,6 +588,72 @@ describe('access-control routes (M0003 §10)', () => {
     ).toBe('ROLE_IMMUTABLE');
   });
 
+  it('archives and restores several custom roles in one request, all or nothing (R018, AC11)', async () => {
+    /** A new custom role with a unique code. */
+    async function custom() {
+      const response = await call('post', '/roles', {
+        code: `bulk_${randomUUID().slice(0, 8).replace(/-/g, '')}`,
+        name: 'Bulk',
+        grants: ['*::access-control::roles::read'],
+      });
+      expect(response.status, JSON.stringify(response.body)).toBe(201);
+      return response.body.data;
+    }
+    const first = await custom();
+    const second = await custom();
+
+    const archived = await call('post', '/roles/archive', {
+      items: [
+        { id: first.id, revision: first.revision },
+        { id: second.id, revision: second.revision },
+      ],
+    });
+    expect(archived.status, JSON.stringify(archived.body)).toBe(200);
+    expect(archived.body.data.rows.map(row => [row.id, row.archived])).toEqual([
+      [first.id, true],
+      [second.id, true],
+    ]);
+
+    const restored = await call('post', '/roles/restore', {
+      items: archived.body.data.rows.map(row => ({
+        id: row.id,
+        revision: row.revision,
+      })),
+    });
+    expect(restored.status).toBe(200);
+    expect(restored.body.data.rows.every(row => !row.archived)).toBe(true);
+
+    const support = (await call('get', '/roles')).body.data.find(
+      r => r.code === 'support'
+    );
+    const current = restored.body.data.rows;
+    const refused = await call('post', '/roles/archive', {
+      items: [
+        { id: current[0].id, revision: current[0].revision },
+        { id: support.id, revision: support.revision },
+        { id: current[1].id, revision: current[1].revision + 5 },
+      ],
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('BULK_FAILED');
+    expect(refused.body.error.details).toEqual([
+      { id: support.id, code: 'ROLE_IMMUTABLE' },
+      { id: current[1].id, code: 'STALE_REVISION' },
+    ]);
+    const after = (await call('get', `/roles/${current[0].id}`)).body.data;
+    expect(after).toMatchObject({
+      archived: false,
+      revision: current[0].revision,
+    });
+
+    const active = await call('post', '/roles/restore', {
+      items: [{ id: current[0].id, revision: current[0].revision }],
+    });
+    expect(active.body.error.details).toEqual([
+      { id: current[0].id, code: 'INVALID_STATE' },
+    ]);
+  });
+
   it('assigns only active members and preserves the bootstrap platform_admin (R008, R012)', async () => {
     const roles = (await call('get', '/roles')).body.data;
     const platform = roles.find(r => r.code === 'platform_admin');

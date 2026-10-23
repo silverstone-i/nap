@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { DirectoryError } from './errors.js';
 import {
+  bulkApply,
   mutate,
   parse,
   parseId,
@@ -132,7 +133,32 @@ async function lockLabel(context, id, tx) {
 }
 
 /**
- * Save one label revision and describe it.
+ * Save one label revision inside `tx` and describe it.
+ * @param {object} context
+ * @param {object} tx
+ * @param {unknown} id
+ * @param {number} expected
+ * @param {object} changes
+ * @param {string} action
+ * @param {(locked: object) => void} [guard] Refuses the change, such as archiving an archived label.
+ * @returns {Promise<{view: object, change: import('./shared.js').DirectoryChange}>}
+ */
+async function applyLabel(context, tx, id, expected, changes, action, guard) {
+  const locked = await lockLabel(context, id, tx);
+  requireRevision(locked, expected);
+  guard?.(locked);
+  const row = await context.cell.contact_labels.saveRevision(
+    locked.id,
+    changes,
+    context.actorId,
+    { tx }
+  );
+  const view = labelView(row);
+  return { view, change: labelChange(action, labelView(locked), view) };
+}
+
+/**
+ * Save one label revision in its own transaction.
  * @param {object} context
  * @param {unknown} id
  * @param {number} expected
@@ -142,19 +168,15 @@ async function lockLabel(context, id, tx) {
  */
 function saveLabel(context, id, expected, changes, action) {
   return mutate(context, async tx => {
-    const locked = await lockLabel(context, id, tx);
-    requireRevision(locked, expected);
-    const row = await context.cell.contact_labels.saveRevision(
-      locked.id,
+    const { view, change } = await applyLabel(
+      context,
+      tx,
+      id,
+      expected,
       changes,
-      context.actorId,
-      { tx }
+      action
     );
-    const view = labelView(row);
-    return {
-      result: view,
-      changes: [labelChange(action, labelView(locked), view)],
-    };
+    return { result: view, changes: [change] };
   });
 }
 
@@ -203,5 +225,55 @@ export function restoreLabel(context, id, body) {
     input.revision,
     { archived: false },
     'restored'
+  );
+}
+
+/** M0005-R032: a bulk archive refuses an archived label, and a restore an active one. */
+function requireArchived(archived) {
+  return locked => {
+    if ((locked.deactivated_at != null) !== archived)
+      throw new DirectoryError('INVALID_STATE');
+  };
+}
+
+/**
+ * Archive several labels at once, all or nothing (M0005-R032).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {unknown} body `{ items: [{ id, revision }] }`
+ * @returns {Promise<{rows: object[]}>}
+ * @throws {DirectoryError} `INVALID_INPUT`, `BULK_FAILED`
+ */
+export function bulkArchiveLabels(context, body) {
+  return bulkApply(context, body, (item, tx) =>
+    applyLabel(
+      context,
+      tx,
+      item.id,
+      item.revision,
+      { archived: true },
+      'archived',
+      requireArchived(false)
+    )
+  );
+}
+
+/**
+ * Restore several labels at once, all or nothing (M0005-R032).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {unknown} body `{ items: [{ id, revision }] }`
+ * @returns {Promise<{rows: object[]}>}
+ * @throws {DirectoryError} `INVALID_INPUT`, `BULK_FAILED`
+ */
+export function bulkRestoreLabels(context, body) {
+  return bulkApply(context, body, (item, tx) =>
+    applyLabel(
+      context,
+      tx,
+      item.id,
+      item.revision,
+      { archived: false },
+      'restored',
+      requireArchived(true)
+    )
   );
 }

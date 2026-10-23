@@ -175,15 +175,13 @@ export function CellsPage() {
 
   usePageHeader({
     title: 'Cells',
-    actions: canWrite ? (
-      <Button
-        variant="contained"
-        size="small"
-        onClick={() => setDialogOpen(true)}
-      >
-        Register cell
-      </Button>
-    ) : null,
+    actions: [
+      canWrite && {
+        label: 'Register cell',
+        create: true,
+        onClick: () => setDialogOpen(true),
+      },
+    ],
   });
 
   async function handleRetry(row) {
@@ -323,6 +321,7 @@ export function CellsPage() {
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}
+        selectable={false}
         emptyMessage="No cells registered yet."
       />
       {progressRow ? (

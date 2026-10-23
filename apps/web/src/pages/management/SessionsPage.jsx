@@ -5,10 +5,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import MenuItem from '@mui/material/MenuItem';
-import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ApiError } from '../../api/client.js';
@@ -23,6 +21,7 @@ import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
+import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 
 const COLUMNS = [
   {
@@ -111,9 +110,13 @@ function describeError(err) {
   return 'Something went wrong. Please try again.';
 }
 
+const STATUS_LABELS = { active: 'Active', ended: 'Ended', all: 'All' };
+
 /**
  * `/management/sessions` (I0009-R005–R008, R012): every portal user's
  * sessions, active and ended, with filters, and Revoke for one or many.
+ * The email search, the filter popover (tenant, dates, status), and Revoke
+ * selected sit in the page header (I0001-R028, R029).
  * Revoking one's own session ends it here; the grid's reload then fails
  * `UNAUTHENTICATED`, which sends every tab to `/login` (R013).
  */
@@ -123,8 +126,8 @@ export function SessionsPage() {
   const canListTenants = can('admin-tenancy::control::read', 'napsoft');
 
   const [emailInput, setEmailInput] = useState('');
+  const email = useDebouncedValue(emailInput.trim());
   const [filters, setFilters] = useState({
-    email: '',
     tenantId: '',
     from: '',
     to: '',
@@ -152,16 +155,16 @@ export function SessionsPage() {
       createCursorPageAdapter(page =>
         listSessionsPage({
           ...page,
-          email: filters.email || undefined,
+          email: email || undefined,
           tenantId: filters.tenantId || undefined,
           from: dayBound(filters.from, 'start'),
           to: dayBound(filters.to, 'end'),
           status: filters.status === 'all' ? undefined : filters.status,
         })
       ),
-    [filters]
+    [filters, email]
   );
-  const resetKey = `${JSON.stringify(filters)}:${refreshTick}`;
+  const resetKey = `${JSON.stringify(filters)}:${email}:${refreshTick}`;
 
   /** Revoke sessions, then reload the page or report the failure (R012). */
   async function revoke(ids) {
@@ -174,21 +177,6 @@ export function SessionsPage() {
       setActionError(describeError(err));
     }
   }
-
-  usePageHeader({
-    title: 'Sessions',
-    actions:
-      canRevoke && selected.length > 0 ? (
-        <Button
-          variant="contained"
-          size="small"
-          color="error"
-          onClick={() => setConfirmingBulk(true)}
-        >
-          Revoke selected ({selected.length})
-        </Button>
-      ) : null,
-  });
 
   function rowActions(row) {
     if (!canRevoke || row.status !== 'active') return [];
@@ -203,77 +191,109 @@ export function SessionsPage() {
     ];
   }
 
-  // A typed email applies on Enter or when the field loses focus, not on
-  // every keystroke, so each letter does not start a new request.
-  const applyEmail = () =>
-    setFilters(prev => ({ ...prev, email: emailInput.trim() }));
-
   const setFilter = key => event =>
     setFilters(prev => ({ ...prev, [key]: event.target.value }));
+  const clearFilter =
+    (key, value = '') =>
+    () =>
+      setFilters(prev => ({ ...prev, [key]: value }));
 
-  return (
-    <>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={1.5}
-        sx={{ mb: 2, flexWrap: 'wrap' }}
-      >
-        <TextField
-          size="small"
-          label="User email"
-          value={emailInput}
-          onChange={event => setEmailInput(event.target.value)}
-          onKeyDown={event => {
-            if (event.key === 'Enter') applyEmail();
-          }}
-          onBlur={applyEmail}
-        />
-        {canListTenants ? (
+  // A chip for each filter away from its default; Active is the default status.
+  const chips = [
+    filters.tenantId && {
+      key: 'tenant',
+      label: `Tenant: ${tenants.find(t => t.id === filters.tenantId)?.code ?? 'selected'}`,
+      onDelete: clearFilter('tenantId'),
+    },
+    filters.from && {
+      key: 'from',
+      label: `From ${filters.from}`,
+      onDelete: clearFilter('from'),
+    },
+    filters.to && {
+      key: 'to',
+      label: `To ${filters.to}`,
+      onDelete: clearFilter('to'),
+    },
+    filters.status !== 'active' && {
+      key: 'status',
+      label: `Status: ${STATUS_LABELS[filters.status]}`,
+      onDelete: clearFilter('status', 'active'),
+    },
+  ].filter(Boolean);
+
+  usePageHeader({
+    title: 'Sessions',
+    search: {
+      value: emailInput,
+      onChange: setEmailInput,
+      placeholder: 'Search by email',
+      label: 'User email',
+    },
+    filters: {
+      content: (
+        <>
+          {canListTenants ? (
+            <TextField
+              select
+              size="small"
+              label="Tenant"
+              value={filters.tenantId}
+              onChange={setFilter('tenantId')}
+            >
+              <MenuItem value="">All tenants</MenuItem>
+              {tenants.map(tenant => (
+                <MenuItem key={tenant.id} value={tenant.id}>
+                  {tenant.code} — {tenant.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
+          <TextField
+            size="small"
+            type="date"
+            label="From"
+            value={filters.from}
+            onChange={setFilter('from')}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            size="small"
+            type="date"
+            label="To"
+            value={filters.to}
+            onChange={setFilter('to')}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
           <TextField
             select
             size="small"
-            label="Tenant"
-            value={filters.tenantId}
-            onChange={setFilter('tenantId')}
-            sx={{ minWidth: 160 }}
+            label="Status"
+            value={filters.status}
+            onChange={setFilter('status')}
           >
-            <MenuItem value="">All tenants</MenuItem>
-            {tenants.map(tenant => (
-              <MenuItem key={tenant.id} value={tenant.id}>
-                {tenant.code} — {tenant.name}
+            {Object.entries(STATUS_LABELS).map(([value, text]) => (
+              <MenuItem key={value} value={value}>
+                {text}
               </MenuItem>
             ))}
           </TextField>
-        ) : null}
-        <TextField
-          size="small"
-          type="date"
-          label="From"
-          value={filters.from}
-          onChange={setFilter('from')}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <TextField
-          size="small"
-          type="date"
-          label="To"
-          value={filters.to}
-          onChange={setFilter('to')}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <TextField
-          select
-          size="small"
-          label="Status"
-          value={filters.status}
-          onChange={setFilter('status')}
-          sx={{ minWidth: 120 }}
-        >
-          <MenuItem value="active">Active</MenuItem>
-          <MenuItem value="ended">Ended</MenuItem>
-          <MenuItem value="all">All</MenuItem>
-        </TextField>
-      </Stack>
+        </>
+      ),
+      chips,
+    },
+    actions: [
+      canRevoke &&
+        selected.length > 0 && {
+          label: `Revoke selected (${selected.length})`,
+          color: 'warning',
+          onClick: () => setConfirmingBulk(true),
+        },
+    ],
+  });
+
+  return (
+    <>
       {actionError ? (
         <Alert
           severity="error"
@@ -289,6 +309,7 @@ export function SessionsPage() {
         resetKey={resetKey}
         rowActions={rowActions}
         onSelectionChange={setSelected}
+        selectable={canRevoke}
         emptyMessage="No sessions match these filters."
       />
       {confirmingBulk ? (

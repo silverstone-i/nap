@@ -24,7 +24,8 @@ const EMPTY_SELECTION = { type: 'include', ids: new Set() };
  * Shared behavior for ordinary data grids (I0001-R015–R017): server-side
  * pagination with one browser-local page-size preference shared across
  * every grid instance, a leading checkbox column whose selection clears on
- * page/sort/filter/tenant change, and a trailing row-action menu that
+ * page/sort/filter/tenant change (only when `selectable`, I0001-R026), and a
+ * trailing row-action menu that
  * routes a destructive action through a confirmation dialog.
  *
  * There is no real server-paginated list to back this component within
@@ -41,7 +42,9 @@ const EMPTY_SELECTION = { type: 'include', ids: new Set() };
  *   onSelectionChange?: (ids: Array<string|number>, rows: object[]) => void,
  *   ariaLabel?: string,
  *   describeError?: (error: unknown) => string,
- * }} props `onSelectionChange` receives the selected row IDs, and the
+ *   selectable?: boolean,
+ * }} props Pass `selectable={false}` when the screen has no multi-row
+ *   action, so the grid has no checkbox column (I0001-R026). `onSelectionChange` receives the selected row IDs, and the
  *   selected rows from the current page, whenever the
  *   selection changes, including when a page, sort, filter, or reset clears
  *   it, so a page can offer bulk actions on the current page (I0001-R016).
@@ -57,6 +60,7 @@ export function StandardDataGrid({
   onSelectionChange,
   ariaLabel,
   describeError,
+  selectable = true,
 }) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
@@ -231,8 +235,8 @@ export function StandardDataGrid({
         onSortModelChange={setSortModel}
         filterModel={filterModel}
         onFilterModelChange={setFilterModel}
-        checkboxSelection
-        checkboxSelectionVisibleOnly
+        checkboxSelection={selectable}
+        checkboxSelectionVisibleOnly={selectable}
         rowSelectionModel={rowSelectionModel}
         onRowSelectionModelChange={setRowSelectionModel}
         columnVisibilityModel={columnVisibilityModel}

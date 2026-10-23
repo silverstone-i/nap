@@ -19,7 +19,12 @@
 import { z } from 'zod';
 import { withTenantTransaction } from '../../../infrastructure/runtime/tenantTransaction.js';
 import { coveredBy, parsePattern, patternInCatalogue } from './patterns.js';
-import { AccessControlError, withAccessControlErrors } from './errors.js';
+import {
+  AccessControlBulkFailedError,
+  AccessControlError,
+  accessControlCode,
+  withAccessControlErrors,
+} from './errors.js';
 
 /** Codes of the seeded immutable roles (M0003-R007). A custom role cannot use them (R013). */
 export const IMMUTABLE_ROLE_CODES = Object.freeze([
@@ -350,9 +355,60 @@ export async function updateRole(context, id, body) {
 }
 
 /**
- * Archive or restore a custom role (M0003-R014). Grants and assignments are
- * kept either way; an archived role contributes nothing to a resolved set.
- * Asking for the state the role is already in changes nothing.
+ * Archive or restore a custom role inside `tx` (M0003-R014). Grants and
+ * assignments are kept either way; an archived role contributes nothing to
+ * a resolved set. Asking for the state the role is already in changes
+ * nothing, unless `strict`, which refuses it with `INVALID_STATE` (R018).
+ * @param {AccessControlContext} context
+ * @param {object} tx
+ * @param {unknown} id
+ * @param {number} expected The caller's revision.
+ * @param {boolean} archived Target state.
+ * @param {{strict?: boolean}} [options]
+ * @returns {Promise<{result: ReturnType<typeof roleView>, change: RoleChange|null}>}
+ * @throws {AccessControlError} `NOT_FOUND`, `ROLE_IMMUTABLE`, `STALE_REVISION`, `INVALID_STATE`
+ */
+async function applyArchived(
+  context,
+  tx,
+  id,
+  expected,
+  archived,
+  { strict = false } = {}
+) {
+  const row = await lockRole(context, id, tx);
+  if (row.is_immutable) throw new AccessControlError('ROLE_IMMUTABLE');
+  if (row.revision !== expected) throw new AccessControlError('STALE_REVISION');
+  const current = await context.cell.role_grants.patternsFor(row.id, { tx });
+  const before = roleView(row, current);
+  if (before.archived === archived) {
+    if (strict) throw new AccessControlError('INVALID_STATE');
+    return { result: before, change: null };
+  }
+  const updated = await context.cell.roles.saveRevision(
+    row.id,
+    { archived },
+    context.actorId,
+    { tx }
+  );
+  const after = roleView(updated, current);
+  return {
+    result: after,
+    change: {
+      eventKey: archived ? 'role.archived' : 'role.restored',
+      roleId: row.id,
+      details: {
+        role: row.code,
+        revision: updated.revision,
+        before: snapshot(before),
+        after: snapshot(after),
+      },
+    },
+  };
+}
+
+/**
+ * Archive or restore one custom role in its own transaction.
  * @param {AccessControlContext} context
  * @param {unknown} id
  * @param {unknown} body `{revision}`
@@ -363,34 +419,87 @@ export async function updateRole(context, id, body) {
 function setArchived(context, id, body, archived) {
   return mutate(context, async tx => {
     const input = parse(revisionSchema, body);
-    const row = await lockRole(context, id, tx);
-    if (row.is_immutable) throw new AccessControlError('ROLE_IMMUTABLE');
-    if (row.revision !== input.revision)
-      throw new AccessControlError('STALE_REVISION');
-    const current = await context.cell.role_grants.patternsFor(row.id, { tx });
-    const before = roleView(row, current);
-    if (before.archived === archived) return { result: before, change: null };
-    const updated = await context.cell.roles.saveRevision(
-      row.id,
-      { archived },
-      context.actorId,
-      { tx }
-    );
-    const after = roleView(updated, current);
-    return {
-      result: after,
-      change: {
-        eventKey: archived ? 'role.archived' : 'role.restored',
-        roleId: row.id,
-        details: {
-          role: row.code,
-          revision: updated.revision,
-          before: snapshot(before),
-          after: snapshot(after),
-        },
-      },
-    };
+    return applyArchived(context, tx, id, input.revision, archived);
   });
+}
+
+const bulkSchema = z.strictObject({
+  items: z
+    .array(z.strictObject({ id: uuid, revision }))
+    .min(1)
+    .max(100),
+});
+
+/**
+ * Archive or restore several custom roles in one cell transaction
+ * (M0003-R018). Each role runs in a savepoint so its failure is recorded
+ * against it alone; if any failed, nothing changes and the caller gets
+ * `BULK_FAILED` naming each failed role and its code, in request order.
+ * Roles are locked in ID order, so two bulk requests cannot deadlock.
+ * @param {AccessControlContext} context
+ * @param {unknown} body `{ items: [{ id, revision }] }`, 1 to 100 distinct IDs.
+ * @param {boolean} archived Target state.
+ * @returns {Promise<{rows: ReturnType<typeof roleView>[]}>}
+ * @throws {AccessControlError} `INVALID_INPUT`, `BULK_FAILED`
+ */
+function setArchivedMany(context, body, archived) {
+  return withAccessControlErrors(async () => {
+    const { items } = parse(bulkSchema, body);
+    if (new Set(items.map(item => item.id)).size !== items.length)
+      throw new AccessControlError('INVALID_INPUT');
+    const ordered = [...items].sort((a, b) => a.id.localeCompare(b.id));
+    return withTenantTransaction(context.cell, context.tenant.id, async tx => {
+      const done = new Map();
+      const failed = [];
+      for (const item of ordered) {
+        try {
+          done.set(
+            item.id,
+            await tx.tx(savepoint =>
+              applyArchived(
+                context,
+                savepoint,
+                item.id,
+                item.revision,
+                archived,
+                { strict: true }
+              )
+            )
+          );
+        } catch (error) {
+          failed.push({ id: item.id, code: accessControlCode(error) });
+        }
+      }
+      if (failed.length) {
+        const order = new Map(items.map((item, index) => [item.id, index]));
+        failed.sort((a, b) => order.get(a.id) - order.get(b.id));
+        throw new AccessControlBulkFailedError(failed);
+      }
+      for (const item of items)
+        await context.record(done.get(item.id).change, tx);
+      return { rows: items.map(item => done.get(item.id).result) };
+    });
+  });
+}
+
+/**
+ * Archive several custom roles at once, all or nothing (M0003-R018).
+ * @param {AccessControlContext} context
+ * @param {unknown} body `{ items: [{ id, revision }] }`
+ * @returns {Promise<{rows: ReturnType<typeof roleView>[]}>}
+ */
+export function archiveRoles(context, body) {
+  return setArchivedMany(context, body, true);
+}
+
+/**
+ * Restore several archived custom roles at once, all or nothing (M0003-R018).
+ * @param {AccessControlContext} context
+ * @param {unknown} body `{ items: [{ id, revision }] }`
+ * @returns {Promise<{rows: ReturnType<typeof roleView>[]}>}
+ */
+export function restoreRoles(context, body) {
+  return setArchivedMany(context, body, false);
 }
 
 /**

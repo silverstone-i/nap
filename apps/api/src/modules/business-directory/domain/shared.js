@@ -11,7 +11,12 @@
 
 import { z } from 'zod';
 import { withTenantTransaction } from '../../../infrastructure/runtime/tenantTransaction.js';
-import { DirectoryError, withDirectoryErrors } from './errors.js';
+import {
+  BulkFailedError,
+  DirectoryError,
+  directoryCode,
+  withDirectoryErrors,
+} from './errors.js';
 
 /**
  * @typedef {object} DirectoryChange
@@ -117,6 +122,54 @@ export function mutate(context, operation) {
       return result;
     })
   );
+}
+
+const bulkBody = z.strictObject({
+  items: z
+    .array(z.strictObject({ id: uuid, revision }))
+    .min(1)
+    .max(100),
+});
+
+/**
+ * Apply a single-item write to every item of a bulk request in one cell
+ * transaction (M0005-R030, R032). Each item runs in a savepoint so a
+ * failure, including a database error, is recorded against that item alone;
+ * if any item failed, the whole transaction rolls back and the caller gets
+ * `BULK_FAILED` naming each failed item and its code, in request order.
+ * Items are applied in ID order, so two bulk requests over the same rows
+ * cannot deadlock.
+ * @param {DirectoryContext} context
+ * @param {unknown} body `{ items: [{ id, revision }] }`, 1 to 100 distinct IDs.
+ * @param {(item: {id: string, revision: number}, tx: object) => Promise<{view: object, change: DirectoryChange}>} applyOne
+ * @returns {Promise<{rows: object[]}>}
+ * @throws {DirectoryError} `INVALID_INPUT`, `BULK_FAILED`
+ */
+export function bulkApply(context, body, applyOne) {
+  const { items } = parse(bulkBody, body);
+  if (new Set(items.map(item => item.id)).size !== items.length)
+    throw new DirectoryError('INVALID_INPUT');
+  const ordered = [...items].sort((a, b) => a.id.localeCompare(b.id));
+  return mutate(context, async tx => {
+    const done = new Map();
+    const failed = [];
+    for (const item of ordered) {
+      try {
+        done.set(item.id, await tx.tx(savepoint => applyOne(item, savepoint)));
+      } catch (error) {
+        failed.push({ id: item.id, code: directoryCode(error) });
+      }
+    }
+    if (failed.length) {
+      const order = new Map(items.map((item, index) => [item.id, index]));
+      failed.sort((a, b) => order.get(a.id) - order.get(b.id));
+      throw new BulkFailedError(failed);
+    }
+    return {
+      result: { rows: items.map(item => done.get(item.id).view) },
+      changes: items.map(item => done.get(item.id).change),
+    };
+  });
 }
 
 /**

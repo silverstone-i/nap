@@ -5,7 +5,7 @@
 
 import {
   ERROR_STATUS,
-  errorEnvelope,
+  sendBulkFailed,
   sendError,
 } from '../../../../framework/envelope.js';
 import { authorize } from '../../../../capability/authorize.js';
@@ -28,10 +28,7 @@ export function sendDirectoryError(response, error) {
   const code = error?.code;
   // M0005-R030: a bulk failure names each failed item and its code.
   if (code === 'BULK_FAILED' && Array.isArray(error.details)) {
-    const body = errorEnvelope(code);
-    body.error.details = error.details;
-    response.setHeader('Cache-Control', 'no-store');
-    response.status(ERROR_STATUS[code]).json(body);
+    sendBulkFailed(response, error.details);
     return;
   }
   sendError(
