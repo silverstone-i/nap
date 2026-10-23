@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                          |
+| Status               | Accepted                                                                                                                                                                                                                                                                                                                                                       |
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                          |
 | Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                               |
 | Related PRDs         | [M0001-03: Authentication](../modules/M0001-admin-tenancy/M0001-03-authentication.md), [M0001-04: Session Management](../modules/M0001-admin-tenancy/M0001-04-session-management.md), [I0005: RBAC Decision Model](I0005-rbac-decision-model.md), [M0001-09: Tenant Selection](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md) |
@@ -191,7 +191,7 @@ visibility improve the user experience but do not grant access.
   `NAP::admin-tenancy::accounts::read` for `Portal Users`. Every other
   destination and action is gated the same way.
 
-### List screens (draft additions)
+### List screens
 
 - I0001-R025: Every screen that lists records must use a standard grid
   (I0001-R015–R017) unless its PRD says otherwise.

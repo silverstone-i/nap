@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Status               | Accepted                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                     |
 | Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                          |
 | Related PRDs         | [I0001: Application Entry and Shell](I0001-application-entry-and-shell.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-07: Tenant Creation](../modules/M0001-admin-tenancy/M0001-07-tenant-creation.md), [M0001-08: Portal-user and Membership Administration](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md) |
@@ -149,7 +149,7 @@ check role names.
   (I0001-R024) match that child's read capability. Neither condition alone
   is sufficient.
 
-### Deactivated portal users (draft additions)
+### Deactivated portal users
 
 - I0002-R011: `GET /api/admin-tenancy/v1/accounts/users` must also accept
   `includeArchived` (`true` or `false`, default `false`). Without it the
