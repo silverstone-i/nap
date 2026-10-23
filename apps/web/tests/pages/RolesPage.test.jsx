@@ -178,6 +178,8 @@ describe('RolesPage (M0003-R016–R018)', () => {
     await user.type(screen.getByLabelText('Search roles'), 'tenant');
     expect(await screen.findByText('Tenant admin')).toBeTruthy();
     await vi.waitFor(() => expect(screen.queryByText('Auditor')).toBeNull());
+    // The search filters the loaded list; it does not ask the server again.
+    expect(api.listRoles).toHaveBeenCalledTimes(1);
   });
 
   it("offers Edit then Archive in a custom role's row menu, and nothing for an immutable role (I0001-R027)", async () => {

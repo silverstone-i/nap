@@ -882,6 +882,7 @@ describe('Labels (M0005-R017, R031, R032)', () => {
       expect(within(table).queryByText('work')).toBeNull()
     );
     expect(within(table).getByText('mobile')).toBeTruthy();
+    expect(api.listContactLabels).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: 'Filters' }));
     await user.click(screen.getByLabelText('For'));

@@ -183,17 +183,25 @@ export function LabelsPage() {
   const reload = () => setReloadKey(key => key + 1);
 
   const needle = useDebouncedValue(search.trim().toLowerCase());
-  const fetchPage = useMemo(
+  // One load per server query; the name search filters it in the browser.
+  const adapter = useMemo(
     () =>
-      createListPageAdapter(
-        () =>
-          listContactLabels({
-            appliesTo: group || undefined,
-            includeArchived,
-          }),
-        row => row.name.toLowerCase().includes(needle)
+      createListPageAdapter(() =>
+        listContactLabels({
+          appliesTo: group || undefined,
+          includeArchived,
+        })
       ),
-    [group, includeArchived, needle]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload or a new tenant loads afresh
+    [group, includeArchived, reloadKey, tenant?.id]
+  );
+  const fetchPage = useMemo(
+    () => params =>
+      adapter({
+        ...params,
+        keep: row => row.name.toLowerCase().includes(needle),
+      }),
+    [adapter, needle]
   );
   const resetKey = `${tenant?.id}:${group}:${includeArchived}:${needle}:${reloadKey}`;
 

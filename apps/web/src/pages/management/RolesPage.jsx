@@ -123,20 +123,27 @@ export function RolesPage() {
   const reload = () => setReloadKey(key => key + 1);
 
   const needle = useDebouncedValue(search.trim().toLowerCase());
-  const fetchPage = useMemo(
+  // One load per server query; the search filters it in the browser.
+  const adapter = useMemo(
     () =>
-      createListPageAdapter(
-        async () => {
-          const rows = await listRoles({ includeArchived });
-          // The full list also feeds the user roles section below.
-          setRoles(rows);
-          return rows;
-        },
-        role =>
+      createListPageAdapter(async () => {
+        const rows = await listRoles({ includeArchived });
+        // The full list also feeds the user roles section below.
+        setRoles(rows);
+        return rows;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload or a new tenant loads afresh
+    [includeArchived, reloadKey, tenant?.id]
+  );
+  const fetchPage = useMemo(
+    () => params =>
+      adapter({
+        ...params,
+        keep: role =>
           role.name.toLowerCase().includes(needle) ||
-          role.code.toLowerCase().includes(needle)
-      ),
-    [includeArchived, needle]
+          role.code.toLowerCase().includes(needle),
+      }),
+    [adapter, needle]
   );
   const resetKey = `${tenant?.id}:${includeArchived}:${needle}:${reloadKey}`;
 
