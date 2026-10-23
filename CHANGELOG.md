@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.29.4] - 2026-10-23
+
 ### Added
 
 - List-screen conventions (I0001-R025–R034). Every list is a standard grid. Single-row actions sit in the row's ⋮ menu, Edit or Rename first and Archive or Restore last. Checkboxes appear only where several rows can be acted on at once. Bulk actions and the create action sit at the right of the page header, with create always last; on a phone the others fold into a ⋮ menu. Search sits in the header, and the filter button opens a panel headed **Filters** with **Clear all**, with each active filter shown as a removable chip. Archived records stay hidden until **Include archived** is on, then show an Archived tag. Success shows a brief notice, and a refused bulk action opens a dialog naming each record and why.
