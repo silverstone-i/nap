@@ -4,12 +4,12 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Accepted                                                                                                                                                                                                                                                                                                                                                       |
+| Status               | Draft                                                                                                                                                                                                                                                                                                                                                          |
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                          |
 | Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                               |
 | Related PRDs         | [M0001-03: Authentication](../modules/M0001-admin-tenancy/M0001-03-authentication.md), [M0001-04: Session Management](../modules/M0001-admin-tenancy/M0001-04-session-management.md), [I0005: RBAC Decision Model](I0005-rbac-decision-model.md), [M0001-09: Tenant Selection](../modules/M0001-admin-tenancy/M0001-09-tenant-selection-and-support-access.md) |
 | Related decisions    | One application shell for tenant work and management (2026-09-25)                                                                                                                                                                                                                                                                                              |
-| Last reviewed        | 2026-09-25                                                                                                                                                                                                                                                                                                                                                     |
+| Last reviewed        | 2026-10-23                                                                                                                                                                                                                                                                                                                                                     |
 
 ## 2. Purpose
 
@@ -29,8 +29,8 @@ application, and control browser-local display preferences.
 - Minimal platform and tenant Home work areas.
 - Responsive application layout, navigation, contextual actions, display-mode
   selection, and the initial user profile menu.
-- Shared behavior for ordinary data grids and space for future
-  spreadsheet-style editors.
+- Shared behavior for ordinary data grids, the layout of list screens, and
+  space for future spreadsheet-style editors.
 - A browser-focused access-context endpoint that combines the existing session
   and entry information needed to start the application.
 
@@ -145,8 +145,9 @@ visibility improve the user experience but do not grant access.
 - I0001-R015: Ordinary data grids must use MUI X Community with server-side
   pagination, 25 rows by default, and page-size choices of 25, 50, and 100. One
   browser-local page-size preference must apply across standard grids.
-- I0001-R016: A standard grid must provide a leading checkbox column,
-  current-page-only bulk selection, and a trailing row-action menu. Selection
+- I0001-R016: A standard grid must provide a trailing row-action menu and, when
+  the screen offers a multi-row action (I0001-R026), a leading checkbox column
+  with current-page-only bulk selection. Selection
   must clear when the page, filter, sort, or tenant context changes, and
   destructive lifecycle actions must require confirmation.
 - I0001-R017: Standard grids on phones must keep essential columns visible, hide
@@ -189,6 +190,40 @@ visibility improve the user experience but do not grant access.
   `NAP::admin-tenancy::control::read` for `Cells`, and
   `NAP::admin-tenancy::accounts::read` for `Portal Users`. Every other
   destination and action is gated the same way.
+
+### List screens (draft additions)
+
+- I0001-R025: Every screen that lists records must use a standard grid
+  (I0001-R015–R017) unless its PRD says otherwise.
+- I0001-R026: A grid has a checkbox column only when the screen offers an action
+  on more than one row. A grid with only single-row actions has no checkbox
+  column.
+- I0001-R027: Single-row actions must be in the row's trailing ⋮ menu, with
+  Edit or Rename first and Archive or Restore last.
+- I0001-R028: The contextual action header must hold the screen's actions at its
+  trailing edge. Multi-row actions appear only while rows are selected. The
+  create action is always last. The other actions sit before it, most
+  important nearest to it. On a phone, the actions that do not fit fold into a
+  ⋮ menu in the header, lowest priority first and the create action last.
+- I0001-R029: A screen that searches its list must put the search field in the
+  contextual action header. A screen with filters must put a filter button
+  beside the search that opens a popover holding the filter controls, and must
+  show each active filter as a removable chip. The popover must start with a
+  Filters heading, so it never reads as an action menu (those are always ⋮,
+  I0001-R027, R028), and while any filter is active it must offer Clear all,
+  which returns every filter to its default.
+- I0001-R030: Archived records must be hidden unless the user turns on the
+  Include archived filter. An archived record then shows an Archived tag next
+  to its name.
+- I0001-R031: Where a record has a detail view, selecting its name opens it.
+- I0001-R032: An action that takes input (create, rename, edit) or reports
+  detail (a bulk failure list, a destructive-action confirmation) must use a
+  modal dialog. A success message must be a brief notice that closes on its
+  own. A failure to load the list stays as an alert above the grid.
+- I0001-R033: Actions the session cannot perform must be hidden, not disabled.
+- I0001-R034: A grid inside a dialog has no contextual action header, so its
+  search, filters, and multi-row actions sit in a toolbar above the grid inside
+  the dialog.
 
 ## 7. Business Rules And Invariants
 
@@ -334,6 +369,10 @@ closed and must not reuse a prior user's, tenant's, or route's protected data.
 | AC15      | The access-context endpoint returns the safe session, `{ id, email }` user, nullable safe selected tenant, the platform operator's own tenant record, and the correct tenant entry flag in the versioned envelope with `Cache-Control: no-store`; an invalid session returns `401`, and no forbidden security data is exposed.                                                                                                                                                                                                                                                                                                                                                                                                                             | I0001-R003, I0001-R014, I0001-R022 |
 | AC16      | Platform navigation presents `Tenant Management` as a two-level group. The expanded rail and phone drawer show icons and labels with visible children nested under the group; the collapsed rail keeps the group icon visible with a tooltip and opens a keyboard-accessible child flyout. `Tenants`, `Cells`, and `Portal Users` appear only when their destinations are implemented and server-authorized, and the empty group remains hidden.                                                                                                                                                                                                                                                                                                           | I0001-R010, I0001-R014, I0001-R023 |
 | AC17      | The shell shows each `Tenant Management` child only when the session capabilities from I0005's endpoint match its capability; a partial capability set shows only the matching children.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | I0001-R024                         |
+| AC18      | Every list screen is a standard grid; a screen with no multi-row action has no checkbox column; single-row actions are in the trailing ⋮ menu with Edit or Rename first and Archive or Restore last.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | I0001-R025–R027                    |
+| AC19      | The contextual action header shows the search, the filter button, and the actions with create last; multi-row actions appear only while rows are selected; on a phone the actions that do not fit fold into a ⋮ menu, create last.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | I0001-R028, I0001-R029             |
+| AC20      | Archived records are hidden until Include archived is on, then show an Archived tag; selecting a record's name opens its detail; active filters show as removable chips.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | I0001-R029–R031                    |
+| AC21      | Create, rename, and edit open a modal dialog; a bulk failure and a destructive confirmation use a modal dialog; a success notice closes on its own; disallowed actions are hidden; a grid inside a dialog keeps its controls in the dialog's toolbar.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | I0001-R032–R034                    |
 
 ## Verification Evidence
 

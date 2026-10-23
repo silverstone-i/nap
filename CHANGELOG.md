@@ -10,6 +10,19 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- List-screen conventions (I0001-R025–R034). Every list is a standard grid. Single-row actions sit in the row's ⋮ menu, Edit or Rename first and Archive or Restore last. Checkboxes appear only where several rows can be acted on at once. Bulk actions and the create action sit at the right of the page header, with create always last; on a phone the others fold into a ⋮ menu. Search sits in the header, and the filter button opens a panel headed **Filters** with **Clear all**, with each active filter shown as a removable chip. Archived records stay hidden until **Include archived** is on, then show an Archived tag. Success shows a brief notice, and a refused bulk action opens a dialog naming each record and why.
+- **Labels** (M0005-R031–R032) is a grid: **Add label** and **Rename** open dialogs, the header has a name search and For and Include archived filters, and selected labels can be archived or restored together through `POST /labels/archive` and `/labels/restore`.
+- **Roles** (M0003-R017–R018) is a grid: selecting a role's name opens its detail, the header has a search and Include archived, and selected custom roles can be archived or restored together through `POST /roles/archive` and `/roles/restore`. A batch that includes an immutable role changes nothing.
+- **Portal Users** (I0002-R011–R016): deactivated users are hidden until Include archived is on; the header searches by email; the Filters panel narrows by tenant, status, and must change password; and selected users can be deactivated or restored together through `POST /accounts/users/deactivate` and `/accounts/users/restore`. A batch that includes the initial Napsoft login or an administrator changes nothing. `GET /accounts/users` takes `includeArchived`, `email`, `tenantId`, `status`, and `mustChangePassword`.
+
+### Changed
+
+- Directory, Sessions, and the organization contacts list follow the same layout: search and filters moved into the header (or, inside the record dialog, into the contacts toolbar), and Archive selected and Restore selected moved into the header. The Directory name search runs as you type instead of on **Search**.
+- **Cells** has no checkboxes. Its actions apply to one cell at a time on purpose, since a cell serves many tenants (I0003-R043).
+- **Revoke selected** on Sessions is an outlined button instead of a red filled one, and the single-user **Deactivate** confirmation says the user can be restored instead of "This action cannot be undone."
+
 ## [v0.29.3] - 2026-10-23
 
 ### Fixed

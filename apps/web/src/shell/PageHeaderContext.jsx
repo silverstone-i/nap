@@ -21,9 +21,34 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const PageHeaderContext = createContext(null);
 const SetPageHeaderContext = createContext(null);
 
+const EMPTY_HEADER = { title: '', actions: null, search: null, filters: null };
+
+/**
+ * @typedef {object} HeaderSearch
+ * @property {string} value
+ * @property {(value: string) => void} onChange
+ * @property {string} [placeholder]
+ * @property {string} [label] Accessible name; defaults to "Search".
+ */
+
+/**
+ * @typedef {object} HeaderFilters
+ * @property {import('react').ReactNode} content The filter controls the popover holds.
+ * @property {Array<{key: string, label: string, onDelete: () => void}>} [chips] One per active filter.
+ */
+
+/**
+ * @typedef {object} PageHeader
+ * @property {string} title
+ * @property {Array<import('./orderActions.js').ScreenAction|null|false|undefined>|null} actions
+ *   In I0001-R028 order once rendered; falsy entries are dropped.
+ * @property {HeaderSearch|null} search
+ * @property {HeaderFilters|null} filters
+ */
+
 /** Holds whatever the active page has registered for the contextual action header (I0001 §5). */
 export function PageHeaderProvider({ children }) {
-  const [header, setHeader] = useState({ title: '', actions: null });
+  const [header, setHeader] = useState(EMPTY_HEADER);
   return (
     <SetPageHeaderContext.Provider value={setHeader}>
       <PageHeaderContext.Provider value={header}>
@@ -33,7 +58,7 @@ export function PageHeaderProvider({ children }) {
   );
 }
 
-/** @returns {{title: string, actions: import('react').ReactNode|null}} */
+/** @returns {PageHeader} */
 export function usePageHeaderValue() {
   const header = useContext(PageHeaderContext);
   if (!header)
@@ -44,22 +69,33 @@ export function usePageHeaderValue() {
 }
 
 /**
- * Register this page's title and contextual actions for the shell's
- * contextual action header to render. Also sets `document.title`.
- * @param {{title: string, actions?: import('react').ReactNode}} options
+ * Register this page's title, search, filters, and actions for the shell's
+ * contextual action header to render (I0001-R028, R029). Also sets
+ * `document.title`.
+ * @param {{
+ *   title: string,
+ *   actions?: PageHeader['actions'],
+ *   search?: HeaderSearch|null,
+ *   filters?: HeaderFilters|null,
+ * }} options
  * @returns {void}
  */
-export function usePageHeader({ title, actions = null }) {
+export function usePageHeader({
+  title,
+  actions = null,
+  search = null,
+  filters = null,
+}) {
   const setHeader = useContext(SetPageHeaderContext);
   if (!setHeader)
     throw new Error('usePageHeader must be used within PageHeaderProvider');
   useEffect(() => {
-    setHeader({ title, actions });
+    setHeader({ title, actions, search, filters });
     document.title = title ? `${title} · nap.` : 'nap.';
     return () => {
-      setHeader({ title: '', actions: null });
+      setHeader(EMPTY_HEADER);
       document.title = 'nap.';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, actions]);
+  }, [title, actions, search, filters]);
 }

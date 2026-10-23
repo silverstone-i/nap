@@ -114,6 +114,20 @@ export function sendNoContent(response) {
 }
 
 /**
+ * Send `409 BULK_FAILED` naming each failed item of an all-or-nothing bulk
+ * request and its single-item code (M0005-R030, M0003-R018, I0002-R013).
+ * @param {import('express').Response} response
+ * @param {{id: string, code: string}[]} details
+ * @returns {void}
+ */
+export function sendBulkFailed(response, details) {
+  const body = errorEnvelope('BULK_FAILED');
+  body.error.details = details;
+  response.setHeader('Cache-Control', 'no-store');
+  response.status(ERROR_STATUS.BULK_FAILED).json(body);
+}
+
+/**
  * Send an error envelope with its mapped status.
  * @param {import('express').Response} response
  * @param {string} code A key of `ERROR_STATUS`.

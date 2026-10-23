@@ -125,8 +125,10 @@ function fakeAdmin() {
 
   const throttles = new Map();
   const db = {
-    tx: operation =>
-      operation({
+    tx: operation => {
+      const tx = {
+        // A savepoint (I0002-R013's bulk routes) runs in the same fake.
+        tx: inner => inner(tx),
         one: async () => ({}),
         // The membership listing's join, answered from the stores.
         any: async (_sql, [portalUserId]) =>
@@ -142,7 +144,9 @@ function fakeAdmin() {
                 name: tenant?.name,
               };
             }),
-      }),
+      };
+      return operation(tx);
+    },
     login_throttles: {
       clear: async key => (throttles.delete(key) ? 1 : 0),
     },
@@ -204,13 +208,31 @@ function fakeAdmin() {
         found.deactivated_at = null;
         return 1;
       },
-      findAfterCursor: async (cursor, limit, orderBy, options = {}) => {
-        const { filters = {}, includeDeactivated = false } = options;
+      // The list query (I0002-R016), answered from the stores.
+      page: async (filters, _columns, limit, after) => {
+        const needle = filters.email?.toLowerCase();
+        const members = filters.tenantId
+          ? new Set(
+              [...membershipStore.values()]
+                .filter(
+                  row =>
+                    row.tenant_id === filters.tenantId && !row.deactivated_at
+                )
+                .map(row => row.portal_user_id)
+            )
+          : null;
         const rows = [...userStore.values()]
-          .filter(row => matches(row, filters))
-          .filter(row => includeDeactivated || !row.deactivated_at)
+          .filter(row => filters.includeArchived || !row.deactivated_at)
+          .filter(row => !needle || row.email.toLowerCase().includes(needle))
+          .filter(row => !members || members.has(row.id))
+          .filter(row => !filters.status || row.status === filters.status)
+          .filter(
+            row =>
+              filters.mustChangePassword === undefined ||
+              row.must_change_password === filters.mustChangePassword
+          )
           .sort((a, b) => (a.id < b.id ? -1 : 1))
-          .filter(row => !cursor?.id || row.id > cursor.id);
+          .filter(row => !after?.id || row.id > after.id);
         const page = rows.slice(0, limit);
         return {
           rows: page,
@@ -769,6 +791,35 @@ describe('users', () => {
   });
 });
 
+describe('POST /users/deactivate (I0002-R013)', () => {
+  it('refuses a batch with the bootstrap login and names it, changing nothing', async () => {
+    const { app, admin, cookie, actorId } = api();
+    const other = seedUser(admin);
+    const response = await request(app)
+      .post('/api/admin-tenancy/v1/accounts/users/deactivate')
+      .set('Cookie', cookie)
+      .set('Origin', ORIGIN)
+      .send({ ids: [other.id, actorId] });
+    expect(response.status).toBe(409);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body.error).toMatchObject({
+      code: 'BULK_FAILED',
+      details: [{ id: actorId, code: 'ROOT_IMMUTABLE' }],
+    });
+  });
+
+  it('rejects a body that is not 1 to 100 distinct IDs', async () => {
+    const { app, cookie } = api();
+    const response = await request(app)
+      .post('/api/admin-tenancy/v1/accounts/users/deactivate')
+      .set('Cookie', cookie)
+      .set('Origin', ORIGIN)
+      .send({ ids: [] });
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('INVALID_INPUT');
+  });
+});
+
 describe('GET /users list', () => {
   function get(app, cookie, query = '') {
     return request(app)
@@ -804,14 +855,38 @@ describe('GET /users list', () => {
     );
   });
 
-  it('includes an archived user, so it remains reachable for Restore', async () => {
+  it('includes an archived user only with includeArchived=true (I0002-R011)', async () => {
     const { app, admin, cookie } = api();
     const user = seedUser(admin, { deactivated_at: new Date() });
-    const response = await get(app, cookie);
-    expect(response.body.data.rows).toContainEqual({
+    const hidden = await get(app, cookie);
+    expect(hidden.body.data.rows.map(row => row.id)).not.toContain(user.id);
+    const shown = await get(app, cookie, '?includeArchived=true');
+    expect(shown.body.data.rows).toContainEqual({
       ...userView(user),
       deactivatedAt: user.deactivated_at.toISOString(),
     });
+    const bad = await get(app, cookie, '?includeArchived=yes');
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.code).toBe('INVALID_INPUT');
+  });
+
+  it('filters by status and must-change-password, refusing other values (I0002-R016)', async () => {
+    const { app, admin, cookie } = api();
+    const disabled = seedUser(admin, { status: 'disabled' });
+    const pending = seedUser(admin, { must_change_password: true });
+    const byStatus = await get(app, cookie, '?status=disabled');
+    expect(byStatus.body.data.rows.map(row => row.id)).toEqual([disabled.id]);
+    const byPassword = await get(app, cookie, '?mustChangePassword=true');
+    expect(byPassword.body.data.rows.map(row => row.id)).toEqual([pending.id]);
+    for (const query of [
+      '?status=archived',
+      '?mustChangePassword=yes',
+      '?tenantId=not-a-uuid',
+    ]) {
+      const bad = await get(app, cookie, query);
+      expect(bad.status).toBe(400);
+      expect(bad.body.error.code).toBe('INVALID_INPUT');
+    }
   });
 
   it('paginates with cursor and limit, the caller included in the count', async () => {

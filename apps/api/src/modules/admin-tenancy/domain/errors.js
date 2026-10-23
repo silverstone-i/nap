@@ -347,6 +347,29 @@ export class AdminAccountError extends Error {
 }
 
 /**
+ * A bulk deactivate or restore in which some users failed (I0002-R013).
+ * `details` names each failed user and its single-user code.
+ */
+export class AdminAccountBulkFailedError extends AdminAccountError {
+  /** @param {{id: string, code: string}[]} details */
+  constructor(details) {
+    super('BULK_FAILED');
+    this.details = details;
+  }
+}
+
+/**
+ * The code a caller would see for `error`, as `withAccountErrors` maps it.
+ * @param {unknown} error
+ * @returns {string}
+ */
+export function accountCode(error) {
+  if (error instanceof AdminAccountError) return error.code;
+  if (CONFLICT_SQLSTATES.has(error?.code)) return 'CONFLICT';
+  return ACCOUNT_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR';
+}
+
+/**
  * Runs `operation` and translates its failures into an `AdminAccountError`.
  *
  * An access, event, session, or account error already carrying an account
@@ -366,11 +389,7 @@ export async function withAccountErrors(operation) {
     return await operation();
   } catch (error) {
     if (error instanceof AdminAccountError) throw error;
-    if (CONFLICT_SQLSTATES.has(error?.code))
-      throw new AdminAccountError('CONFLICT');
-    throw new AdminAccountError(
-      ACCOUNT_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
-    );
+    throw new AdminAccountError(accountCode(error));
   }
 }
 

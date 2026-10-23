@@ -7,11 +7,13 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 
 /**
- * Immutable / Custom badge plus an Archived indicator (M0003-R016).
- * @param {{role: {isImmutable: boolean, archived: boolean}}} props
+ * Immutable / Custom badge plus an Archived indicator (M0003-R016). The
+ * role grid shows Archived next to the name instead (I0001-R030), so it
+ * passes `showArchived={false}`.
+ * @param {{role: {isImmutable: boolean, archived: boolean}, showArchived?: boolean}} props
  * @returns {JSX.Element}
  */
-export function RoleBadges({ role }) {
+export function RoleBadges({ role, showArchived = true }) {
   return (
     <Stack direction="row" spacing={1}>
       <Chip
@@ -20,7 +22,9 @@ export function RoleBadges({ role }) {
         color={role.isImmutable ? 'primary' : 'default'}
         variant="outlined"
       />
-      {role.archived ? <Chip size="small" label="Archived" /> : null}
+      {showArchived && role.archived ? (
+        <Chip size="small" label="Archived" />
+      ) : null}
     </Stack>
   );
 }

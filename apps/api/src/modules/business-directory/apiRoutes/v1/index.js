@@ -29,6 +29,8 @@ import {
 } from '../../domain/details.js';
 import {
   archiveLabel,
+  bulkArchiveLabels,
+  bulkRestoreLabels,
   createLabel,
   listLabels,
   renameLabel,
@@ -266,6 +268,19 @@ export function createLabelsRouter(deps) {
         response,
         await renameLabel(context, request.params.id, request.body)
       )
+    )
+  );
+  // M0005-R032: all-or-nothing bulk archive and restore.
+  router.post(
+    '/archive',
+    ...route(deps, LABELS, async (context, request, response) =>
+      sendData(response, await bulkArchiveLabels(context, request.body))
+    )
+  );
+  router.post(
+    '/restore',
+    ...route(deps, LABELS, async (context, request, response) =>
+      sendData(response, await bulkRestoreLabels(context, request.body))
     )
   );
   router.post(

@@ -225,4 +225,60 @@ export class PortalUsers extends TableModel {
       [email, passwordHash]
     );
   }
+
+  /**
+   * One page of the Portal Users list in ascending `id` order (I0002-R008,
+   * R011, R015, R016). Raw SQL because the tenant filter is a membership
+   * subquery, which the inherited `findAfterCursor` cannot express. Every
+   * value is bound.
+   * @param {object} filters
+   * @param {boolean} [filters.includeArchived] Include deactivated accounts.
+   * @param {string} [filters.email] Case-insensitive substring of the email; `%`, `_`, and `\` match literally.
+   * @param {string} [filters.tenantId] Only accounts with a current membership in this tenant.
+   * @param {'active'|'disabled'} [filters.status]
+   * @param {boolean} [filters.mustChangePassword]
+   * @param {string[]} columns Columns to return; must include `id`.
+   * @param {number} limit Rows per page, 1 to 100.
+   * @param {{id: string}|null} after Position to resume from.
+   * @returns {Promise<{rows: object[], nextCursor: {id: string}|null}>}
+   */
+  async page(filters, columns, limit, after) {
+    const values = [];
+    const bind = value => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+    const where = [];
+    if (!filters.includeArchived) where.push('u.deactivated_at IS NULL');
+    if (filters.email)
+      where.push(
+        `u.email ILIKE ${bind(`%${filters.email.replace(/[\\%_]/g, '\\$&')}%`)}`
+      );
+    if (filters.tenantId)
+      where.push(
+        `u.id IN (SELECT m.portal_user_id
+                    FROM ${this.schemaName}.portal_user_tenants AS m
+                   WHERE m.tenant_id = ${bind(filters.tenantId)}::uuid
+                     AND m.deactivated_at IS NULL)`
+      );
+    if (filters.status) where.push(`u.status = ${bind(filters.status)}`);
+    if (filters.mustChangePassword !== undefined)
+      where.push(
+        `u.must_change_password = ${bind(filters.mustChangePassword)}`
+      );
+    if (after) where.push(`u.id > ${bind(after.id)}::uuid`);
+    const select = columns.map(column => `u.${this.escapeName(column)}`);
+    // One row past the page, so a full page is distinguishable from a last one.
+    const fetched = await this.db.any(
+      `SELECT ${select.join(', ')}
+         FROM ${this.schemaName}.${this.tableName} AS u
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY u.id
+        LIMIT ${bind(limit + 1)}`,
+      values
+    );
+    const hasMore = fetched.length > limit;
+    const rows = hasMore ? fetched.slice(0, limit) : fetched;
+    return { rows, nextCursor: hasMore ? { id: rows.at(-1).id } : null };
+  }
 }

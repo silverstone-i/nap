@@ -7,6 +7,7 @@ import { Router } from 'express';
 import {
   ERROR_STATUS,
   sendData,
+  sendBulkFailed,
   sendNoContent,
   sendError,
 } from '../../../../framework/envelope.js';
@@ -20,6 +21,7 @@ import {
 import {
   archiveMembership,
   archiveUser,
+  deactivateUsers,
   createMembership,
   createOrReuseUser,
   getJob,
@@ -29,6 +31,7 @@ import {
   resetUserPassword,
   restoreMembership,
   restoreUser,
+  restoreUsers,
   retryJob,
   unlockUser,
   updateMembership,
@@ -46,6 +49,11 @@ const NAPSOFT = { target: 'napsoft' };
  */
 function sendAccountError(response, error) {
   const code = error?.code;
+  // I0002-R013: a bulk failure names each failed user and its code.
+  if (code === 'BULK_FAILED' && Array.isArray(error.details)) {
+    sendBulkFailed(response, error.details);
+    return;
+  }
   sendError(
     response,
     typeof code === 'string' && Object.hasOwn(ERROR_STATUS, code)
@@ -110,6 +118,11 @@ export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
             request.query.limit === undefined
               ? undefined
               : Number(request.query.limit),
+          includeArchived: request.query.includeArchived,
+          email: request.query.email,
+          tenantId: request.query.tenantId,
+          status: request.query.status,
+          mustChangePassword: request.query.mustChangePassword,
         });
         sendData(response, result);
       } catch (error) {
@@ -212,6 +225,45 @@ export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
           { requestId: request.requestId }
         );
         sendData(response, user);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
+    }
+  );
+
+  // I0002-R013: all-or-nothing bulk deactivate and restore.
+  router.post(
+    '/users/deactivate',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        await deactivateUsers(admin.db, write, request.body, {
+          requestId: request.requestId,
+          assertDeactivationAllowed: userId =>
+            assertAccountDeactivationAllowed(admin.db, runtime, userId),
+        });
+        sendNoContent(response);
+      } catch (error) {
+        sendAccountError(response, error);
+      }
+    }
+  );
+
+  router.post(
+    '/users/restore',
+    requireSession(),
+    requireCapability('admin-tenancy::accounts::write', NAPSOFT),
+    async (request, response) => {
+      try {
+        const write = requestAuthority(request);
+        sendData(
+          response,
+          await restoreUsers(admin.db, write, request.body, {
+            requestId: request.requestId,
+          })
+        );
       } catch (error) {
         sendAccountError(response, error);
       }

@@ -11,9 +11,14 @@ import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { RolesPage } from '../../src/pages/management/RolesPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
+import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
-import { capabilitiesFixture, installMatchMedia } from '../testUtils.jsx';
+import {
+  capabilitiesFixture,
+  installMatchMedia,
+  installResizeObserver,
+} from '../testUtils.jsx';
 
 vi.mock('../../src/api/endpoints.js', () => ({
   listCapabilities: vi.fn(),
@@ -23,6 +28,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   updateRole: vi.fn(),
   archiveRole: vi.fn(),
   restoreRole: vi.fn(),
+  bulkRoleAction: vi.fn(),
   getUserRoles: vi.fn(),
   assignUserRole: vi.fn(),
   removeUserRole: vi.fn(),
@@ -96,16 +102,19 @@ const CATALOGUE = [
 function renderPage() {
   return render(
     <ThemeModeProvider>
-      <PageHeaderProvider>
-        <ContextualActionHeader />
-        <RolesPage />
-      </PageHeaderProvider>
+      <NoticeProvider>
+        <PageHeaderProvider>
+          <ContextualActionHeader />
+          <RolesPage />
+        </PageHeaderProvider>
+      </NoticeProvider>
     </ThemeModeProvider>
   );
 }
 
 beforeEach(() => {
   installMatchMedia();
+  installResizeObserver();
   useSession.mockReturnValue(sessionFor());
   api.listRoles.mockResolvedValue([ADMIN, CUSTOM]);
   api.listCapabilities.mockResolvedValue(CATALOGUE);
@@ -125,7 +134,13 @@ async function openRole(user, name) {
   return screen.findByRole('dialog');
 }
 
-describe('RolesPage (M0003-R016)', () => {
+/** The ⋮ menu button on the grid row that names `name`. */
+function rowMenu(name) {
+  const row = screen.getByRole('button', { name }).closest('[role="row"]');
+  return within(row).getByRole('menuitem', { name: 'more' });
+}
+
+describe('RolesPage (M0003-R016–R018)', () => {
   it('asks for a tenant when none is selected', () => {
     useSession.mockReturnValue({ ...sessionFor(), selectedTenant: null });
     renderPage();
@@ -138,7 +153,8 @@ describe('RolesPage (M0003-R016)', () => {
   it('lists roles with Immutable / Custom badges and an Archived indicator', async () => {
     api.listRoles.mockResolvedValue([ADMIN, CUSTOM, ARCHIVED]);
     renderPage();
-    const table = await screen.findByRole('table', { name: 'Roles' });
+    await screen.findByText('Auditor');
+    const table = screen.getByRole('grid');
     expect(within(table).getByText('Immutable')).toBeTruthy();
     expect(within(table).getAllByText('Custom')).toHaveLength(2);
     expect(within(table).getByText('Archived')).toBeTruthy();
@@ -148,8 +164,88 @@ describe('RolesPage (M0003-R016)', () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
     await user.click(screen.getByLabelText('Include archived'));
     expect(api.listRoles).toHaveBeenLastCalledWith({ includeArchived: true });
+    await user.keyboard('{Escape}');
+    expect(screen.getByText('Including archived')).toBeTruthy();
+  });
+
+  it('searches roles by name or code in the header', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText('Auditor');
+    await user.type(screen.getByLabelText('Search roles'), 'tenant');
+    expect(await screen.findByText('Tenant admin')).toBeTruthy();
+    await vi.waitFor(() => expect(screen.queryByText('Auditor')).toBeNull());
+  });
+
+  it("offers Edit then Archive in a custom role's row menu, and nothing for an immutable role (I0001-R027)", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText('Auditor');
+    await user.click(rowMenu('Auditor'));
+    const items = (await screen.findAllByRole('menuitem'))
+      .map(item => item.textContent)
+      .filter(text => text === 'Edit' || text === 'Archive');
+    expect(items).toEqual(['Edit', 'Archive']);
+    await user.keyboard('{Escape}');
+    const adminRow = screen
+      .getByRole('button', { name: 'Tenant admin' })
+      .closest('[role="row"]');
+    expect(
+      within(adminRow).queryByRole('menuitem', { name: 'more' })
+    ).toBeNull();
+  });
+
+  it('archives the selected roles in one request, and lists the ones refused (R018)', async () => {
+    const other = {
+      ...CUSTOM,
+      id: 'r4',
+      code: 'clerk',
+      name: 'Clerk',
+      revision: 1,
+    };
+    api.listRoles.mockResolvedValue([ADMIN, CUSTOM, other]);
+    api.bulkRoleAction.mockRejectedValueOnce(
+      new ApiError('BULK_FAILED', 409, null, {
+        details: [{ id: 'r1', code: 'ROLE_IMMUTABLE' }],
+      })
+    );
+    api.bulkRoleAction.mockResolvedValueOnce([]);
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText('Clerk');
+    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    for (const box of boxes) await user.click(box);
+    await user.click(
+      screen.getByRole('button', { name: 'Archive selected (3)' })
+    );
+    let dialog = await screen.findByRole('dialog', {
+      name: 'Archive selected',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
+    expect(api.bulkRoleAction).toHaveBeenCalledWith('archive', [
+      { id: 'r1', revision: 1 },
+      { id: 'r2', revision: 3 },
+      { id: 'r4', revision: 1 },
+    ]);
+    dialog = await screen.findByRole('dialog', { name: 'Nothing was changed' });
+    expect(
+      within(dialog).getByText(
+        'Tenant admin: This role is immutable and cannot be changed.'
+      )
+    ).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+    // The selection is kept; deselect the immutable role and retry.
+    await user.click(boxes[0]);
+    await user.click(
+      screen.getByRole('button', { name: 'Archive selected (2)' })
+    );
+    dialog = await screen.findByRole('dialog', { name: 'Archive selected' });
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
+    expect(await screen.findByText('2 roles archived.')).toBeTruthy();
   });
 
   it('shows grants grouped by module, with * as "All modules"', async () => {
@@ -334,10 +430,14 @@ describe('RolesPage (M0003-R016)', () => {
       );
     });
 
-    it('hides Create role', async () => {
+    it('hides Create role, the checkboxes, and the row menus', async () => {
       renderPage();
       await screen.findByText('Auditor');
       expect(screen.queryByRole('button', { name: 'Create role' })).toBeNull();
+      expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+      expect(screen.queryAllByRole('menuitem', { name: 'more' })).toHaveLength(
+        0
+      );
     });
 
     it('hides Edit and Archive for a custom role', async () => {

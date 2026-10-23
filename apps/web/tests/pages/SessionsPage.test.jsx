@@ -110,13 +110,15 @@ describe('SessionsPage (I0009)', () => {
     renderPage();
     await screen.findByText('ann@example.com');
 
-    await user.type(screen.getByLabelText('User email'), 'ann{Enter}');
+    await user.type(screen.getByLabelText('User email'), 'ann');
     await waitFor(() =>
       expect(api.listSessionsPage).toHaveBeenLastCalledWith(
         expect.objectContaining({ email: 'ann', status: 'active' })
       )
     );
 
+    // The other filters are in the header's filter popover (I0001-R029).
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
     await user.click(screen.getByLabelText('Status'));
     await user.click(await screen.findByRole('option', { name: 'All' }));
     await waitFor(() =>
@@ -143,6 +145,22 @@ describe('SessionsPage (I0009)', () => {
           from: new Date(2026, 9, 1, 0, 0, 0, 0).toISOString(),
           to: new Date(2026, 9, 2, 23, 59, 59, 999).toISOString(),
         })
+      )
+    );
+
+    // Each filter away from its default shows as a removable chip.
+    await user.keyboard('{Escape}');
+    const chips = screen.getByLabelText('Active filters');
+    expect(within(chips).getByText('Status: All')).toBeTruthy();
+    expect(within(chips).getByText('Tenant: ACME')).toBeTruthy();
+    await user.click(
+      within(
+        within(chips).getByText('Status: All').closest('.MuiChip-root')
+      ).getByTestId('CancelIcon')
+    );
+    await waitFor(() =>
+      expect(api.listSessionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: 'active' })
       )
     );
   });
@@ -196,12 +214,11 @@ describe('SessionsPage (I0009)', () => {
     renderPage();
     await screen.findByText('ann@example.com');
     expect(screen.queryAllByRole('menuitem', { name: 'more' })).toHaveLength(0);
+    // I0001-R026: no multi-row action, so no checkbox column.
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
     await userEvent
       .setup()
-      .click(screen.getAllByRole('checkbox', { name: /select row/i })[0]);
-    expect(
-      screen.queryByRole('button', { name: /Revoke selected/ })
-    ).toBeNull();
+      .click(screen.getByRole('button', { name: 'Filters' }));
     expect(screen.queryByLabelText('Tenant')).toBeNull();
   });
 });

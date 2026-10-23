@@ -11,6 +11,7 @@ import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { PortalUsersPage } from '../../src/pages/management/PortalUsersPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
+import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
 import {
@@ -21,6 +22,8 @@ import {
 
 vi.mock('../../src/api/endpoints.js', () => ({
   listUsersPage: vi.fn(),
+  listTenantsPage: vi.fn(),
+  bulkPortalUserAction: vi.fn(),
   createPortalUser: vi.fn(),
   deactivatePortalUser: vi.fn(),
   restorePortalUser: vi.fn(),
@@ -56,10 +59,12 @@ const ARCHIVED_USER = {
 function renderPage() {
   return render(
     <ThemeModeProvider>
-      <PageHeaderProvider>
-        <ContextualActionHeader />
-        <PortalUsersPage />
-      </PageHeaderProvider>
+      <NoticeProvider>
+        <PageHeaderProvider>
+          <ContextualActionHeader />
+          <PortalUsersPage />
+        </PageHeaderProvider>
+      </NoticeProvider>
     </ThemeModeProvider>
   );
 }
@@ -67,6 +72,10 @@ function renderPage() {
 beforeEach(() => {
   installMatchMedia();
   installResizeObserver();
+  api.listTenantsPage.mockResolvedValue({
+    rows: [{ id: 't-acme', code: 'ACME', name: 'Acme' }],
+    nextCursor: null,
+  });
   useSession.mockReturnValue({
     capabilities: capabilitiesFixture(),
     refreshCapabilities: vi.fn(),
@@ -79,6 +88,163 @@ afterEach(() => {
 });
 
 describe('PortalUsersPage', () => {
+  const OTHER = { ...ACTIVE_USER, id: 'u3', email: 'c@example.com' };
+
+  it('deactivates the selected users in one request from the header (I0002-R014)', async () => {
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER, OTHER],
+      nextCursor: null,
+    });
+    api.bulkPortalUserAction.mockResolvedValue(undefined);
+    renderPage();
+    await screen.findByText('c@example.com');
+    const user = userEvent.setup();
+    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await user.click(boxes[0]);
+    await user.click(boxes[1]);
+    await user.click(
+      screen.getByRole('button', { name: 'Deactivate selected (2)' })
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Deactivate selected',
+    });
+    expect(
+      within(dialog).getByText(
+        '2 users will be deactivated. Deactivated users are signed out and cannot sign in until restored.'
+      )
+    ).toBeTruthy();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Deactivate' })
+    );
+    expect(api.bulkPortalUserAction).toHaveBeenCalledWith('archive', [
+      'u1',
+      'u3',
+    ]);
+    expect(await screen.findByText('2 users deactivated.')).toBeTruthy();
+  });
+
+  it('lists each user a bulk deactivate refused, by email', async () => {
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER, OTHER],
+      nextCursor: null,
+    });
+    api.bulkPortalUserAction.mockRejectedValue(
+      new ApiError('BULK_FAILED', 409, null, {
+        details: [{ id: 'u3', code: 'ROOT_IMMUTABLE' }],
+      })
+    );
+    renderPage();
+    await screen.findByText('c@example.com');
+    const user = userEvent.setup();
+    for (const box of screen.getAllByRole('checkbox', { name: /select row/i }))
+      await user.click(box);
+    await user.click(
+      screen.getByRole('button', { name: 'Deactivate selected (2)' })
+    );
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: 'Deactivate selected' })
+      ).getByRole('button', { name: 'Deactivate' })
+    );
+    const failure = await screen.findByRole('dialog', {
+      name: 'Nothing was changed',
+    });
+    expect(
+      within(failure).getByText(
+        'c@example.com: The initial Napsoft user cannot be changed.'
+      )
+    ).toBeTruthy();
+  });
+
+  it('filters by tenant, status, and must-change-password, with chips and Clear all (I0002-R016)', async () => {
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER],
+      nextCursor: null,
+    });
+    renderPage();
+    await screen.findByText('a@example.com');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    const panel = screen.getByRole('dialog', { name: 'Filters' });
+    expect(
+      within(panel).queryByRole('button', { name: 'Clear all' })
+    ).toBeNull();
+
+    await user.click(within(panel).getByLabelText('Tenant'));
+    await user.click(
+      await screen.findByRole('option', { name: 'ACME — Acme' })
+    );
+    await user.click(within(panel).getByLabelText('Status'));
+    await user.click(await screen.findByRole('option', { name: 'Disabled' }));
+    await user.click(within(panel).getByLabelText('Must change password'));
+    await user.click(await screen.findByRole('option', { name: 'Yes' }));
+    await vi.waitFor(() =>
+      expect(api.listUsersPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          tenantId: 't-acme',
+          status: 'disabled',
+          mustChangePassword: 'true',
+        })
+      )
+    );
+    const chips = screen.getByLabelText('Active filters');
+    for (const label of [
+      'Tenant: ACME',
+      'Status: Disabled',
+      'Must change password: Yes',
+    ])
+      expect(within(chips).getByText(label)).toBeTruthy();
+
+    await user.click(within(panel).getByRole('button', { name: 'Clear all' }));
+    await vi.waitFor(() =>
+      expect(api.listUsersPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          tenantId: undefined,
+          status: undefined,
+          mustChangePassword: undefined,
+        })
+      )
+    );
+    expect(screen.queryByLabelText('Active filters')).toBeNull();
+  });
+
+  it('searches by email from the header (I0002-R015)', async () => {
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER],
+      nextCursor: null,
+    });
+    renderPage();
+    await screen.findByText('a@example.com');
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('Search by email'), '  A@ex ');
+    await vi.waitFor(() =>
+      expect(api.listUsersPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ email: 'A@ex', includeArchived: false })
+      )
+    );
+  });
+
+  it('offers Restore selected only for deactivated users', async () => {
+    api.listUsersPage.mockResolvedValue({
+      rows: [ACTIVE_USER, ARCHIVED_USER],
+      nextCursor: null,
+    });
+    renderPage();
+    await screen.findByText('a@example.com');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByLabelText('Include archived'));
+    await user.keyboard('{Escape}');
+    await screen.findByText('b@example.com');
+    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await user.click(boxes[1]);
+    expect(
+      screen.getByRole('button', { name: 'Restore selected (1)' })
+    ).toBeTruthy();
+    await user.click(boxes[0]);
+    expect(screen.queryByRole('button', { name: /selected/ })).toBeNull();
+  });
+
   it('lists portal-user accounts (loading -> populated, I0001-R021)', async () => {
     api.listUsersPage.mockResolvedValue({
       rows: [ACTIVE_USER],
@@ -121,6 +287,29 @@ describe('PortalUsersPage', () => {
       within(dialog).getByRole('button', { name: 'Deactivate' })
     );
     expect(api.deactivatePortalUser).toHaveBeenCalledWith('u1');
+  });
+
+  it('asks for deactivated users only with Include archived on, and tags them (I0002-R012)', async () => {
+    api.listUsersPage.mockImplementation(async ({ includeArchived }) => ({
+      rows: includeArchived ? [ACTIVE_USER, ARCHIVED_USER] : [ACTIVE_USER],
+      nextCursor: null,
+    }));
+    renderPage();
+    await screen.findByText('a@example.com');
+    expect(api.listUsersPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ includeArchived: false })
+    );
+    expect(screen.queryByText('b@example.com')).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByLabelText('Include archived'));
+    await user.keyboard('{Escape}');
+    const row = (await screen.findByText('b@example.com')).closest(
+      '[role="row"]'
+    );
+    expect(within(row).getByText('Archived')).toBeTruthy();
+    expect(screen.getByText('Including archived')).toBeTruthy();
   });
 
   it('offers only Restore for an archived account, firing without confirmation (AC06)', async () => {

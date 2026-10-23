@@ -5,7 +5,12 @@
 
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AdminAccountError, withAccountErrors } from './errors.js';
+import {
+  AdminAccountBulkFailedError,
+  AdminAccountError,
+  accountCode,
+  withAccountErrors,
+} from './errors.js';
 import { parseScope, isTenantPermitted } from './scope.js';
 import { parseUuid, parseNormalizedEmail, parseLimit } from './validation.js';
 import {
@@ -488,12 +493,27 @@ function parseLimitOrAccount(value) {
 }
 
 /**
- * List every portal-user account in ascending `id` order, paginated by opaque cursor (I0002-R008).
+ * The list's raw query values (I0002-R011, R015, R016): `includeArchived`
+ * and `mustChangePassword` are `'true'` or `'false'`, `email` is 1–254
+ * characters once trimmed, `tenantId` a UUID, and `status` a login status.
+ */
+const userListQuerySchema = z.strictObject({
+  includeArchived: z.enum(['true', 'false']).optional(),
+  email: z.string().trim().min(1).max(254).optional(),
+  tenantId: z.uuid().optional(),
+  status: z.enum(['active', 'disabled']).optional(),
+  mustChangePassword: z.enum(['true', 'false']).optional(),
+});
+
+/**
+ * List portal-user accounts in ascending `id` order, paginated by opaque cursor (I0002-R008).
  *
- * Reads with `includeDeactivated: true`: `admin.portal_users` is
- * soft-delete tracked, so an archived account would otherwise vanish from
- * this list entirely — and I0002-R006 requires a Restore action, which has
- * no row to act on if the archived account it targets is unreachable here.
+ * Deactivated accounts are left out unless `includeArchived` is `'true'`
+ * (I0002-R011); the Portal Users screen asks for them when Include archived
+ * is on, which is where its Restore action (I0002-R006) finds them. `email`
+ * keeps only accounts whose email contains it, ignoring case, with `%`,
+ * `_`, and `\` matched literally (I0002-R015). `tenantId`, `status`, and
+ * `mustChangePassword` narrow it further (I0002-R016).
  * `scope.archiveManagement` is granted whenever `platformPortalUserRead` is
  * (both flip together in `accessScope`), so `requirePlatformAuthority`
  * alone is the correct, sufficient gate — no separate archive-specific
@@ -501,20 +521,49 @@ function parseLimitOrAccount(value) {
  * (domain/access.js) requires one for its single-record read.
  * @param {AdminAccountsDb} db
  * @param {unknown} authority `{actorId, scope}`; `scope` built for `admin-tenancy::accounts::read`.
- * @param {{cursor?: unknown, limit?: unknown}} [page]
+ * @param {{cursor?: unknown, limit?: unknown, includeArchived?: unknown, email?: unknown, tenantId?: unknown, status?: unknown, mustChangePassword?: unknown}} [page] Raw query values, checked by `userListQuerySchema`.
  * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe user-list views.
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `INTERNAL_ERROR`
  */
-export async function listUsers(db, authority, { cursor, limit } = {}) {
+export async function listUsers(
+  db,
+  authority,
+  {
+    cursor,
+    limit,
+    includeArchived,
+    email,
+    tenantId,
+    status,
+    mustChangePassword,
+  } = {}
+) {
   requirePlatformAuthority(authority);
   const parsedLimit = parseLimitOrAccount(limit);
+  const query = userListQuerySchema.safeParse({
+    includeArchived,
+    email,
+    tenantId,
+    status,
+    mustChangePassword,
+  });
+  if (!query.success) throw new AdminAccountError('INVALID_INPUT');
   const resumeFrom = parseUserCursor(cursor);
   return withAccountErrors(async () => {
-    const page = await db.portal_users.findAfterCursor(
-      resumeFrom ?? {},
+    const page = await db.portal_users.page(
+      {
+        includeArchived: query.data.includeArchived === 'true',
+        email: query.data.email,
+        tenantId: query.data.tenantId,
+        status: query.data.status,
+        mustChangePassword:
+          query.data.mustChangePassword === undefined
+            ? undefined
+            : query.data.mustChangePassword === 'true',
+      },
+      USER_LIST_COLUMNS,
       parsedLimit,
-      ['id'],
-      { columnWhitelist: USER_LIST_COLUMNS, includeDeactivated: true }
+      resumeFrom
     );
     return {
       rows: page.rows.map(userView),
@@ -904,6 +953,105 @@ export async function unlockUser(
 }
 
 /**
+ * Archive one ordinary portal user inside `tx` (M0001-08-R001): refuse the
+ * bootstrap login and, through `assertDeactivationAllowed`, a holder of an
+ * administrator role; revoke its sessions; record the event. An
+ * already-archived user is left alone, unless `strict` (I0002-R013), which
+ * refuses it with `INVALID_STATE`.
+ * @param {AdminAccountsDb} db
+ * @param {{actorId: string}} granted
+ * @param {string} id
+ * @param {object} tx
+ * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>, strict?: boolean}} [options]
+ * @returns {Promise<{archived: boolean}>}
+ * @throws {AdminAccountError} `NOT_FOUND`, `INVALID_STATE`, `ROOT_IMMUTABLE`, and whatever `assertDeactivationAllowed` throws
+ */
+async function archiveUserIn(
+  db,
+  granted,
+  id,
+  tx,
+  { requestId = null, assertDeactivationAllowed, strict = false } = {}
+) {
+  const current = await db.portal_users.lockById(id, { tx });
+  if (!current) throw new AdminAccountError('NOT_FOUND');
+  if (current.deactivated_at) {
+    if (strict) throw new AdminAccountError('INVALID_STATE');
+    return { archived: true };
+  }
+  const bootstrap = await db.portal_users.lockBootstrapLogin({ tx });
+  if (bootstrap?.id === id) throw new AdminAccountError('ROOT_IMMUTABLE');
+  if (assertDeactivationAllowed) await assertDeactivationAllowed(id);
+
+  const removed = await db.portal_users.removeWhere({ id }, { tx });
+  if (!removed) throw new AdminAccountError('NOT_FOUND');
+  await revokeSessionsForUser(
+    db,
+    {
+      portalUserId: id,
+      code: REVOCATION_CODES.accountIneligible,
+      actorId: granted.actorId,
+      requestId,
+    },
+    { tx }
+  );
+  await appendAccountEvent(
+    db,
+    'user',
+    {
+      event_key: 'user.archived',
+      outcome: 'succeeded',
+      request_id: requestId,
+      actor_id: granted.actorId,
+      target_id: id,
+      details: { code: REVOCATION_CODES.accountIneligible },
+    },
+    tx
+  );
+  await db.cache_revisions.advance([{ domain: 'user', entity: id }], { tx });
+  return { archived: true };
+}
+
+/**
+ * Restore one archived portal user inside `tx`, returning it as `disabled`
+ * (M0001-08 §7), and record the event.
+ * @param {AdminAccountsDb} db
+ * @param {{actorId: string}} granted
+ * @param {string} id
+ * @param {object} tx
+ * @param {{requestId?: string|null}} [options]
+ * @returns {Promise<object>} Safe user view.
+ * @throws {AdminAccountError} `NOT_FOUND`, `INVALID_STATE`
+ */
+async function restoreUserIn(db, granted, id, tx, { requestId = null } = {}) {
+  const current = await db.portal_users.lockById(id, { tx });
+  if (!current) throw new AdminAccountError('NOT_FOUND');
+  if (!current.deactivated_at) throw new AdminAccountError('INVALID_STATE');
+
+  await db.portal_users.restoreWhere({ id }, { tx });
+  const updated = await db.portal_users.update(
+    id,
+    { status: 'disabled' },
+    { tx }
+  );
+  await appendAccountEvent(
+    db,
+    'user',
+    {
+      event_key: 'user.restored',
+      outcome: 'succeeded',
+      request_id: requestId,
+      actor_id: granted.actorId,
+      target_id: id,
+      details: {},
+    },
+    tx
+  );
+  await db.cache_revisions.advance([{ domain: 'user', entity: id }], { tx });
+  return userView(updated);
+}
+
+/**
  * Archive an ordinary portal user.
  *
  * M0001-08-R001. Idempotent: archiving an already-archived user succeeds
@@ -929,44 +1077,12 @@ export async function archiveUser(
       const granted = requirePlatformAuthority(authority);
       actorId = granted.actorId;
       const id = parseUuidOrAccount(userId);
-      return await db.tx(async tx => {
-        const current = await db.portal_users.lockById(id, { tx });
-        if (!current) throw new AdminAccountError('NOT_FOUND');
-        if (current.deactivated_at) return { archived: true };
-        const bootstrap = await db.portal_users.lockBootstrapLogin({ tx });
-        if (bootstrap?.id === id) throw new AdminAccountError('ROOT_IMMUTABLE');
-        if (assertDeactivationAllowed) await assertDeactivationAllowed(id);
-
-        const removed = await db.portal_users.removeWhere({ id }, { tx });
-        if (!removed) throw new AdminAccountError('NOT_FOUND');
-        await revokeSessionsForUser(
-          db,
-          {
-            portalUserId: id,
-            code: REVOCATION_CODES.accountIneligible,
-            actorId: granted.actorId,
-            requestId,
-          },
-          { tx }
-        );
-        await appendAccountEvent(
-          db,
-          'user',
-          {
-            event_key: 'user.archived',
-            outcome: 'succeeded',
-            request_id: requestId,
-            actor_id: granted.actorId,
-            target_id: id,
-            details: { code: REVOCATION_CODES.accountIneligible },
-          },
-          tx
-        );
-        await db.cache_revisions.advance([{ domain: 'user', entity: id }], {
-          tx,
-        });
-        return { archived: true };
-      });
+      return await db.tx(tx =>
+        archiveUserIn(db, granted, id, tx, {
+          requestId,
+          assertDeactivationAllowed,
+        })
+      );
     });
   } catch (error) {
     if (AUDITED_FAILURE_CODES.has(error?.code))
@@ -1006,36 +1122,9 @@ export async function restoreUser(
       const granted = requirePlatformAuthority(authority);
       actorId = granted.actorId;
       const id = parseUuidOrAccount(userId);
-      return await db.tx(async tx => {
-        const current = await db.portal_users.lockById(id, { tx });
-        if (!current) throw new AdminAccountError('NOT_FOUND');
-        if (!current.deactivated_at)
-          throw new AdminAccountError('INVALID_STATE');
-
-        await db.portal_users.restoreWhere({ id }, { tx });
-        const updated = await db.portal_users.update(
-          id,
-          { status: 'disabled' },
-          { tx }
-        );
-        await appendAccountEvent(
-          db,
-          'user',
-          {
-            event_key: 'user.restored',
-            outcome: 'succeeded',
-            request_id: requestId,
-            actor_id: granted.actorId,
-            target_id: id,
-            details: {},
-          },
-          tx
-        );
-        await db.cache_revisions.advance([{ domain: 'user', entity: id }], {
-          tx,
-        });
-        return userView(updated);
-      });
+      return await db.tx(tx =>
+        restoreUserIn(db, granted, id, tx, { requestId })
+      );
     });
   } catch (error) {
     if (AUDITED_FAILURE_CODES.has(error?.code))
@@ -1048,6 +1137,138 @@ export async function restoreUser(
       );
     throw error;
   }
+}
+
+const bulkUsersSchema = z.strictObject({
+  ids: z.array(z.uuid()).min(1).max(100),
+});
+
+/**
+ * Apply a single-user write to every user of a bulk request in one admin
+ * transaction (I0002-R013). Each user runs in a savepoint, so a failure is
+ * recorded against that user alone; if any failed, the whole transaction
+ * rolls back, a failure event is recorded for each failed user, and the
+ * caller gets `BULK_FAILED` naming each failed user and its code, in
+ * request order. Users are locked in ID order, so two bulk requests cannot
+ * deadlock.
+ * @template T
+ * @param {AdminAccountsDb} db
+ * @param {unknown} authority
+ * @param {unknown} body `{ ids: [uuid] }`, 1 to 100 distinct IDs.
+ * @param {string} eventKey The single-user event, such as `user.archived`.
+ * @param {string|null} requestId
+ * @param {(granted: {actorId: string}, id: string, tx: object) => Promise<T>} applyOne
+ * @returns {Promise<T[]>} Each user's result, in request order.
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `BULK_FAILED`
+ */
+async function bulkUsers(db, authority, body, eventKey, requestId, applyOne) {
+  let actorId =
+    typeof authority?.actorId === 'string' ? authority.actorId : null;
+  let failed = [];
+  try {
+    return await withAccountErrors(async () => {
+      const granted = requirePlatformAuthority(authority);
+      actorId = granted.actorId;
+      const parsed = bulkUsersSchema.safeParse(body);
+      if (!parsed.success) throw new AdminAccountError('INVALID_INPUT');
+      const { ids } = parsed.data;
+      if (new Set(ids).size !== ids.length)
+        throw new AdminAccountError('INVALID_INPUT');
+      const ordered = [...ids].sort();
+      return await db.tx(async tx => {
+        const done = new Map();
+        for (const id of ordered) {
+          try {
+            done.set(
+              id,
+              await tx.tx(savepoint => applyOne(granted, id, savepoint))
+            );
+          } catch (error) {
+            failed.push({ id, code: accountCode(error) });
+          }
+        }
+        if (failed.length) {
+          const order = new Map(ids.map((id, index) => [id, index]));
+          failed.sort((a, b) => order.get(a.id) - order.get(b.id));
+          throw new AdminAccountBulkFailedError(failed);
+        }
+        return ids.map(id => done.get(id));
+      });
+    });
+  } catch (error) {
+    // One failure event per refused user, as its single request would write.
+    const audited = error?.code === 'BULK_FAILED' ? failed : [error];
+    for (const item of audited)
+      if (AUDITED_FAILURE_CODES.has(item?.code))
+        await appendFailureEvent(
+          db,
+          'user',
+          eventKey,
+          item.code === 'FORBIDDEN' ? 'denied' : 'failed',
+          { requestId, actorId }
+        );
+    throw error;
+  }
+}
+
+/**
+ * Deactivate several ordinary portal users at once, all or nothing
+ * (I0002-R013). Each gets the single-user rules: not the bootstrap login,
+ * not a holder of an administrator role, sessions revoked. An already
+ * deactivated user fails with `INVALID_STATE`.
+ * @param {AdminAccountsDb} db
+ * @param {unknown} authority
+ * @param {unknown} body `{ ids: [uuid] }`
+ * @param {{requestId?: string|null, assertDeactivationAllowed?: (userId: string) => Promise<void>}} [options]
+ * @returns {Promise<void>}
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `BULK_FAILED`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function deactivateUsers(
+  db,
+  authority,
+  body,
+  { requestId = null, assertDeactivationAllowed } = {}
+) {
+  await bulkUsers(
+    db,
+    authority,
+    body,
+    'user.archived',
+    requestId,
+    (granted, id, tx) =>
+      archiveUserIn(db, granted, id, tx, {
+        requestId,
+        assertDeactivationAllowed,
+        strict: true,
+      })
+  );
+}
+
+/**
+ * Restore several deactivated portal users at once, all or nothing
+ * (I0002-R013). Each returns as `disabled`, as a single restore does.
+ * @param {AdminAccountsDb} db
+ * @param {unknown} authority
+ * @param {unknown} body `{ ids: [uuid] }`
+ * @param {{requestId?: string|null}} [options]
+ * @returns {Promise<{rows: object[]}>} Safe user views, in request order.
+ * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `BULK_FAILED`, `AUDIT_UNAVAILABLE`, `INTERNAL_ERROR`
+ */
+export async function restoreUsers(
+  db,
+  authority,
+  body,
+  { requestId = null } = {}
+) {
+  const rows = await bulkUsers(
+    db,
+    authority,
+    body,
+    'user.restored',
+    requestId,
+    (granted, id, tx) => restoreUserIn(db, granted, id, tx, { requestId })
+  );
+  return { rows };
 }
 
 // ---------------------------------------------------------------------------

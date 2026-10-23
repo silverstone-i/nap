@@ -45,6 +45,8 @@ import {
   PORTAL_MESSAGES,
 } from './directoryErrors.js';
 import { PortalAccessPanel } from './PortalAccess.jsx';
+import { useDirectoryBulk } from './useDirectoryBulk.js';
+import { ActionBar } from '../../shell/ActionBar.jsx';
 
 /**
  * Tax ID shown masked, with a reveal button for `tax-ids::read`. Revealing
@@ -131,6 +133,16 @@ export function RecordDetailDialog({
     setContactsTick(tick => tick + 1);
     onChanged();
   };
+  // I0001-R034: the contacts grid's bulk actions sit in its own toolbar.
+  const contactAbilities = {
+    ...abilities,
+    write: abilities.write && !record?.archived,
+  };
+  const contactsBulk = useDirectoryBulk({
+    collection: 'organization-contacts',
+    abilities: contactAbilities,
+    onDone: changed,
+  });
 
   async function run(action, messages = {}) {
     setError(null);
@@ -383,29 +395,43 @@ export function RecordDetailDialog({
             {record.contacts ? (
               <>
                 <Divider />
-                <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle1">
-                    {record.kind === 'client'
-                      ? 'Buyers and contacts'
-                      : 'Contacts'}
-                  </Typography>
-                  {canEditDetails ? (
-                    <Button size="small" onClick={() => setContactForm(true)}>
-                      Add contact
-                    </Button>
-                  ) : null}
+                <Typography variant="subtitle1">
+                  {record.kind === 'client'
+                    ? 'Buyers and contacts'
+                    : 'Contacts'}
+                </Typography>
+                <Stack
+                  direction="row"
+                  aria-label="Contacts toolbar"
+                  sx={{
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    columnGap: 2,
+                  }}
+                >
+                  <FormControlLabel
+                    sx={{ mr: 'auto' }}
+                    control={
+                      <Switch
+                        checked={contactsArchived}
+                        onChange={event =>
+                          setContactsArchived(event.target.checked)
+                        }
+                      />
+                    }
+                    label="Include archived"
+                  />
+                  <ActionBar
+                    actions={[
+                      ...contactsBulk.actions,
+                      canEditDetails && {
+                        label: 'Add contact',
+                        create: true,
+                        onClick: () => setContactForm(true),
+                      },
+                    ]}
+                  />
                 </Stack>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={contactsArchived}
-                      onChange={event =>
-                        setContactsArchived(event.target.checked)
-                      }
-                    />
-                  }
-                  label="Include archived"
-                />
                 <DirectoryGrid
                   collection="organization-contacts"
                   filters={{
@@ -414,11 +440,9 @@ export function RecordDetailDialog({
                   }}
                   ariaLabel="Contacts"
                   emptyMessage="None."
-                  abilities={{
-                    ...abilities,
-                    write: abilities.write && !record.archived,
-                  }}
+                  abilities={contactAbilities}
                   onOpen={contact => setOpenContact(contact.id)}
+                  onSelectionChange={contactsBulk.onSelectionChange}
                   onChanged={changed}
                   refreshKey={contactsTick}
                   extraActions={(contact, runAction) =>
@@ -444,6 +468,7 @@ export function RecordDetailDialog({
                       : []
                   }
                 />
+                {contactsBulk.dialogs}
               </>
             ) : null}
           </Stack>

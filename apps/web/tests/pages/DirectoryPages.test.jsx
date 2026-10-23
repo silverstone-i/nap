@@ -13,6 +13,7 @@ import { DirectoryRecordsPage } from '../../src/pages/directory/DirectoryRecords
 import { LabelsPage } from '../../src/pages/directory/LabelsPage.jsx';
 import { RecordFormDialog } from '../../src/pages/directory/RecordFormDialog.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
+import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
 import { MemoryRouter } from 'react-router';
@@ -45,6 +46,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   renameContactLabel: vi.fn(),
   archiveContactLabel: vi.fn(),
   restoreContactLabel: vi.fn(),
+  bulkContactLabelAction: vi.fn(),
   listClientTenants: vi.fn(),
   listCellsOverview: vi.fn(),
   provisionTenant: vi.fn(),
@@ -106,10 +108,12 @@ function renderWithHeader(element) {
   return render(
     <MemoryRouter>
       <ThemeModeProvider>
-        <PageHeaderProvider>
-          <ContextualActionHeader />
-          {element}
-        </PageHeaderProvider>
+        <NoticeProvider>
+          <PageHeaderProvider>
+            <ContextualActionHeader />
+            {element}
+          </PageHeaderProvider>
+        </NoticeProvider>
       </ThemeModeProvider>
     </MemoryRouter>
   );
@@ -171,14 +175,49 @@ describe('Employees (M0005-R026)', () => {
     expect(api.revealTaxId).toHaveBeenCalledWith('people', JANE.id);
   });
 
+  it('searches by name and tax ID from the header, with chips for active filters (I0001-R029)', async () => {
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await within(
+      await screen.findByRole('grid', { name: 'Employees' })
+    ).findByText('Jane Doe');
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('Search by name'), 'jan');
+    await vi.waitFor(() =>
+      expect(api.listDirectoryPage).toHaveBeenLastCalledWith(
+        'people',
+        expect.objectContaining({ kind: 'employee', q: 'jan' })
+      )
+    );
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.type(screen.getByLabelText('Tax ID'), '123456789');
+    await user.click(screen.getByLabelText('Include archived'));
+    await vi.waitFor(() =>
+      expect(api.listDirectoryPage).toHaveBeenLastCalledWith(
+        'people',
+        expect.objectContaining({
+          q: 'jan',
+          taxId: '123456789',
+          includeArchived: true,
+        })
+      )
+    );
+    await user.keyboard('{Escape}');
+    const chips = screen.getByLabelText('Active filters');
+    expect(within(chips).getByText('Tax ID')).toBeTruthy();
+    expect(within(chips).getByText('Including archived')).toBeTruthy();
+  });
+
   it('hides tax ID search, reveal, and entry without the tax ID capabilities', async () => {
     useSession.mockReturnValue(sessionFor(NO_TAX));
     renderWithHeader(<DirectoryRecordsPage kind="employee" />);
     await within(
       await screen.findByRole('grid', { name: 'Employees' })
     ).findByText('Jane Doe');
-    expect(screen.queryByLabelText('Search by tax ID')).toBeNull();
     const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(screen.getByLabelText('Include archived')).toBeTruthy();
+    expect(screen.queryByLabelText('Tax ID')).toBeNull();
+    await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Jane Doe' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByRole('button', { name: 'Reveal' })).toBeNull();
@@ -765,28 +804,125 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
   });
 });
 
-describe('Labels (M0005-R017)', () => {
-  it('adds a label and reports a duplicate name', async () => {
-    api.listContactLabels.mockResolvedValue([
-      {
-        id: '44444444-4444-4444-8444-444444444444',
-        appliesTo: 'email',
-        name: 'work',
-        archived: false,
-        revision: 1,
-      },
-    ]);
-    api.createContactLabel.mockRejectedValue(new ApiError('CONFLICT', 409));
+describe('Labels (M0005-R017, R031, R032)', () => {
+  const label = (id, appliesTo, name, revision = 1) => ({
+    id,
+    appliesTo,
+    name,
+    archived: false,
+    revision,
+  });
+  const WORK = label('44444444-4444-4444-8444-444444444444', 'email', 'work');
+  const HOME = label(
+    '55555555-5555-4555-8555-555555555555',
+    'email',
+    'home',
+    2
+  );
+  const MOBILE = label(
+    '66666666-6666-4666-8666-666666666666',
+    'phone',
+    'mobile'
+  );
+
+  beforeEach(() => {
+    api.listContactLabels.mockResolvedValue([WORK, HOME, MOBILE]);
+  });
+
+  async function labelsGrid() {
     renderWithHeader(<LabelsPage />);
-    await screen.findByRole('table', { name: 'Labels' });
+    const table = await screen.findByRole('grid', { name: 'Labels' });
+    await within(table).findByText('work');
+    return table;
+  }
+
+  it('adds a label in a dialog and reports a duplicate name there', async () => {
+    api.createContactLabel.mockRejectedValue(new ApiError('CONFLICT', 409));
+    await labelsGrid();
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/New label/), 'work');
     await user.click(screen.getByRole('button', { name: 'Add label' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add label' });
+    await user.type(within(dialog).getByLabelText(/Name/), 'work');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(api.createContactLabel).toHaveBeenCalledWith({
       appliesTo: 'email',
       name: 'work',
     });
-    expect(await screen.findByText(/already used/)).toBeTruthy();
+    expect(await within(dialog).findByText(/already used/)).toBeTruthy();
+  });
+
+  it('offers Rename then Archive in the row menu, and renames in a dialog', async () => {
+    api.renameContactLabel.mockResolvedValue({ ...WORK, name: 'office' });
+    const table = await labelsGrid();
+    const user = userEvent.setup();
+    const row = within(table).getByText('work').closest('[role="row"]');
+    await user.click(within(row).getByRole('menuitem', { name: 'more' }));
+    const items = (await screen.findAllByRole('menuitem'))
+      .map(item => item.textContent)
+      .filter(text => ['Rename', 'Archive'].includes(text));
+    expect(items).toEqual(['Rename', 'Archive']);
+    await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Rename label' });
+    const name = within(dialog).getByLabelText(/Name/);
+    await user.clear(name);
+    await user.type(name, 'office');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(api.renameContactLabel).toHaveBeenCalledWith(WORK.id, {
+      name: 'office',
+      revision: 1,
+    });
+    expect(await screen.findByText('Renamed to office.')).toBeTruthy();
+  });
+
+  it('searches by name and filters by group in the header (I0001-R029)', async () => {
+    const table = await labelsGrid();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText('Search labels'), 'mob');
+    await vi.waitFor(() =>
+      expect(within(table).queryByText('work')).toBeNull()
+    );
+    expect(within(table).getByText('mobile')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByLabelText('For'));
+    await user.click(await screen.findByRole('option', { name: 'Phone' }));
+    expect(api.listContactLabels).toHaveBeenLastCalledWith({
+      appliesTo: 'phone',
+      includeArchived: false,
+    });
+    await user.keyboard('{Escape}');
+    expect(screen.getByText('For: Phone')).toBeTruthy();
+  });
+
+  it('archives the selected labels in one request (R032)', async () => {
+    api.bulkContactLabelAction.mockResolvedValue([]);
+    await labelsGrid();
+    const user = userEvent.setup();
+    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
+    await user.click(boxes[0]);
+    await user.click(boxes[1]);
+    await user.click(
+      screen.getByRole('button', { name: 'Archive selected (2)' })
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Archive selected',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
+    expect(api.bulkContactLabelAction).toHaveBeenCalledWith('archive', [
+      { id: WORK.id, revision: 1 },
+      { id: HOME.id, revision: 2 },
+    ]);
+    expect(await screen.findByText('2 labels archived.')).toBeTruthy();
+  });
+
+  it('hides Add label, checkboxes, and row menus without labels::write', async () => {
+    useSession.mockReturnValue(
+      sessionFor(['ACME::business-directory::directory::read'])
+    );
+    await labelsGrid();
+    expect(screen.queryByRole('button', { name: 'Add label' })).toBeNull();
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+    expect(screen.queryAllByRole('menuitem', { name: 'more' })).toHaveLength(0);
   });
 });
 
@@ -865,6 +1001,16 @@ describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
     expect(
       screen.queryByRole('button', { name: /Restore selected/ })
     ).toBeNull();
+    // I0001-R028: in the header, left of the create action.
+    const header = screen.getByRole('heading', {
+      name: 'Employees',
+    }).parentElement;
+    expect(
+      within(header)
+        .getAllByRole('button')
+        .map(button => button.textContent)
+        .slice(-2)
+    ).toEqual(['Archive selected (2)', 'New employee']);
     await user.click(
       screen.getByRole('button', { name: 'Archive selected (2)' })
     );
@@ -900,10 +1046,15 @@ describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
         name: 'Archive',
       })
     );
-    expect(await screen.findByText(/Nothing was changed/)).toBeTruthy();
+    const failure = await screen.findByRole('dialog', {
+      name: 'Nothing was changed',
+    });
     expect(
-      screen.getByText(/Jane Doe: This person holds an administrator role/)
+      within(failure).getByText(
+        /Jane Doe: This person holds an administrator role/
+      )
     ).toBeTruthy();
+    await user.click(within(failure).getByRole('button', { name: 'Close' }));
     expect(
       screen.getByRole('button', { name: 'Archive selected (2)' })
     ).toBeTruthy();

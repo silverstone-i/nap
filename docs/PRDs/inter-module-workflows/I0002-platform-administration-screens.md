@@ -4,12 +4,12 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Accepted                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Status               | Draft                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Type                 | Inter-module workflow                                                                                                                                                                                                                                                                                                                                                                                     |
 | Related architecture | [BFF](../../architecture/bff.md)                                                                                                                                                                                                                                                                                                                                                                          |
 | Related PRDs         | [I0001: Application Entry and Shell](I0001-application-entry-and-shell.md), [M0001-06: Cell Management](../modules/M0001-admin-tenancy/M0001-06-cell-management.md), [M0001-07: Tenant Creation](../modules/M0001-admin-tenancy/M0001-07-tenant-creation.md), [M0001-08: Portal-user and Membership Administration](../modules/M0001-admin-tenancy/M0001-08-portal-user-and-membership-administration.md) |
 | Related decisions    | Reuse cursor pagination (the module's existing convention) for every new list endpoint, and bridge it to `StandardDataGrid` with a frontend adapter rather than changing the module's pagination style or the shared grid component                                                                                                                                                                       |
-| Last reviewed        | 2026-09-22                                                                                                                                                                                                                                                                                                                                                                                                |
+| Last reviewed        | 2026-10-23                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ## 2. Purpose
 
@@ -149,6 +149,44 @@ check role names.
   (I0001-R024) match that child's read capability. Neither condition alone
   is sufficient.
 
+### Deactivated portal users (draft additions)
+
+- I0002-R011: `GET /api/admin-tenancy/v1/accounts/users` must also accept
+  `includeArchived` (`true` or `false`, default `false`). Without it the
+  list omits deactivated users; with `true` it includes them. Any other
+  value is `400 INVALID_INPUT`.
+- I0002-R012: The Portal Users screen must hide deactivated users until the
+  user turns on Include archived in the header's filter popover
+  (I0001-R029, R030). A deactivated user then shows an Archived tag next to
+  the email.
+- I0002-R013: `POST /api/admin-tenancy/v1/accounts/users/deactivate` and
+  `POST /api/admin-tenancy/v1/accounts/users/restore` must accept
+  `{ ids: [uuid] }` (1–100 distinct IDs), require
+  `NAP::admin-tenancy::accounts::write`, and apply the single-user
+  deactivate (`DELETE /accounts/users/:id`) or restore rules, events, and
+  session revocation to every ID in one admin transaction. It is
+  all-or-nothing: if any ID fails, nothing changes and the response is
+  `409 BULK_FAILED` with `details: [{ id, code }]` naming each failed ID and
+  its single-user code (such as `ROOT_IMMUTABLE`, `ADMIN_ASSIGNED`,
+  `INVALID_STATE`, `NOT_FOUND`).
+- I0002-R014: The Portal Users grid must have checkboxes (I0001-R026).
+  Selecting rows on the current page must show **Deactivate selected** when
+  every selected user is active and **Restore selected** when every one is
+  deactivated, each in the header (I0001-R028) after one confirmation naming
+  the count. A refused batch must list each failed user by email with the
+  reason and keep the selection.
+- I0002-R015: `GET /api/admin-tenancy/v1/accounts/users` must also accept
+  `email` (1–254 characters, trimmed), returning only users whose email
+  contains it, ignoring case. The Portal Users screen must search by email
+  from the header (I0001-R029), sending the value once typing pauses.
+- I0002-R016: `GET /api/admin-tenancy/v1/accounts/users` must also accept
+  `tenantId` (a UUID; users with a current membership in that tenant),
+  `status` (`active` or `disabled`), and `mustChangePassword` (`true` or
+  `false`); any other value is `400 INVALID_INPUT`. Every filter combines
+  with the others and with `email` and paging. The Portal Users filter
+  popover must hold Tenant, Status, Must change password, and Include
+  archived, each shown as a removable chip while set.
+
 ## 7. Business Rules And Invariants
 
 - Server session resolution and request authorization remain the source of
@@ -228,13 +266,22 @@ error envelopes.
 
 `GET /api/admin-tenancy/v1/accounts/users`
 
-| Field           | Required value                                                                                        |
-| --------------- | ----------------------------------------------------------------------------------------------------- |
-| Query           | `cursor` (opaque, optional), `limit` (1–100, default 50)                                              |
-| Capability      | `NAP::admin-tenancy::accounts::read`                                                                  |
-| Response `data` | `{ rows: [{id, email, status, mustChangePassword, deactivatedAt}], nextCursor }` (reusing `userView`) |
-| Errors          | `401 UNAUTHENTICATED`, `403 FORBIDDEN`, `400 INVALID_INPUT` (bad `limit`)                             |
-| Cache           | `Cache-Control: no-store`                                                                             |
+| Field           | Required value                                                                                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Query           | `cursor` (opaque, optional), `limit` (1–100, default 50), `includeArchived` (`true`/`false`, default `false`, I0002-R011), `email` (substring, I0002-R015), `tenantId`, `status`, `mustChangePassword` (I0002-R016) |
+| Capability      | `NAP::admin-tenancy::accounts::read`                                                                                                                                                                                |
+| Response `data` | `{ rows: [{id, email, status, mustChangePassword, deactivatedAt}], nextCursor }` (reusing `userView`)                                                                                                               |
+| Errors          | `401 UNAUTHENTICATED`, `403 FORBIDDEN`, `400 INVALID_INPUT` (bad `limit`)                                                                                                                                           |
+| Cache           | `Cache-Control: no-store`                                                                                                                                                                                           |
+
+`POST /api/admin-tenancy/v1/accounts/users/deactivate`, `/restore` (I0002-R013)
+
+| Field      | Required value                                                         |
+| ---------- | ---------------------------------------------------------------------- |
+| Body       | `{ ids: [uuid] }`, 1–100 distinct IDs                                  |
+| Capability | `NAP::admin-tenancy::accounts::write`                                  |
+| Response   | `204 No Content` for deactivate; `{ rows: [userView...] }` for restore |
+| Errors     | `400 INVALID_INPUT`, `403 FORBIDDEN`, `409 BULK_FAILED` with `details` |
 
 Both endpoints declare their capability with `requireCapability` per I0005
 and introduce no new error code.
@@ -272,18 +319,22 @@ and introduce no new error code.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                                             | Requirements |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| AC01      | The Tenants screen lists tenants with explicit loading, empty, and error states, and offers no update/suspend/archive/restore action.                                                                       | I0002-R001   |
-| AC02      | Creating a tenant submits code, name, and tier with an idempotency key and surfaces the server's validation and conflict responses unmodified.                                                              | I0002-R002   |
-| AC03      | The Cells screen lists cells with their latest provisioning operation, with explicit loading, empty, and error states.                                                                                      | I0002-R003   |
-| AC04      | Register and Retry fire without confirmation; Disable requires confirmation before it fires.                                                                                                                | I0002-R004   |
-| AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                                                            | I0002-R005   |
-| AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                                                             | I0002-R006   |
-| AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                                                          | I0002-R007   |
-| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userView`, with `Cache-Control: no-store`.                                                                     | I0002-R008   |
-| AC09      | Each screen's grid computes a row-count estimate (rendered via MUI's default footer, not visually distinguished from an exact count) and correctly re-fetches when sort, filter, or tenant context changes. | I0002-R009   |
-| AC10      | Each of the three nav children appears only once both its screen is implemented and the session capabilities match it; neither alone is sufficient.                                                         | I0002-R010   |
+| Criterion | Required result                                                                                                                                                                                               | Requirements           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| AC01      | The Tenants screen lists tenants with explicit loading, empty, and error states, and offers no update/suspend/archive/restore action.                                                                         | I0002-R001             |
+| AC02      | Creating a tenant submits code, name, and tier with an idempotency key and surfaces the server's validation and conflict responses unmodified.                                                                | I0002-R002             |
+| AC03      | The Cells screen lists cells with their latest provisioning operation, with explicit loading, empty, and error states.                                                                                        | I0002-R003             |
+| AC04      | Register and Retry fire without confirmation; Disable requires confirmation before it fires.                                                                                                                  | I0002-R004             |
+| AC05      | The Portal Users screen lists portal-user accounts with explicit loading, empty, and error states, and shows no membership data.                                                                              | I0002-R005             |
+| AC06      | Create and Restore fire without confirmation; Deactivate requires confirmation before it fires.                                                                                                               | I0002-R006             |
+| AC07      | `GET /tenants` returns a cursor-paginated, capability-gated, safe-view list matching `tenantView`, with `Cache-Control: no-store`.                                                                            | I0002-R007             |
+| AC08      | `GET /accounts/users` returns a cursor-paginated, capability-gated, safe-view list matching `userView`, with `Cache-Control: no-store`.                                                                       | I0002-R008             |
+| AC09      | Each screen's grid computes a row-count estimate (rendered via MUI's default footer, not visually distinguished from an exact count) and correctly re-fetches when sort, filter, or tenant context changes.   | I0002-R009             |
+| AC10      | Each of the three nav children appears only once both its screen is implemented and the session capabilities match it; neither alone is sufficient.                                                           | I0002-R010             |
+| AC11      | `GET /accounts/users` omits deactivated users unless `includeArchived=true`; the Portal Users screen shows them only with Include archived on, tagged Archived.                                               | I0002-R011, I0002-R012 |
+| AC12      | Deactivate selected signs out and deactivates every selected user in one request; a batch that includes the root login or a user holding an administrator role changes nothing and names each refused user.   | I0002-R013, I0002-R014 |
+| AC13      | Typing part of an email in the Portal Users header search lists only the users whose email contains it, ignoring case, with `%` and `_` matched literally.                                                    | I0002-R015             |
+| AC14      | Filtering Portal Users by tenant lists only users with a current membership there; by status or must-change-password lists only matching users; filters combine with the email search; Clear all resets them. | I0002-R016, I0001-R029 |
 
 ### Verification Evidence
 

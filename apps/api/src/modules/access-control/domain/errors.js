@@ -39,6 +39,31 @@ export class AccessControlError extends Error {
 }
 
 /**
+ * A bulk archive or restore in which some roles failed (M0003-R018).
+ * `details` names each failed role and its single-role error code.
+ */
+export class AccessControlBulkFailedError extends AccessControlError {
+  /** @param {{id: string, code: string}[]} details */
+  constructor(details) {
+    super('BULK_FAILED');
+    this.details = details;
+  }
+}
+
+/**
+ * The code a caller would see for `error`, as `withAccessControlErrors`
+ * maps it.
+ * @param {unknown} error
+ * @returns {string}
+ */
+export function accessControlCode(error) {
+  if (error instanceof AccessControlError) return error.code;
+  const code = error?.code;
+  if (typeof code === 'string' && PASS_THROUGH.has(code)) return code;
+  return CONFLICT_SQLSTATES.has(code) ? 'CONFLICT' : 'INTERNAL_ERROR';
+}
+
+/**
  * Run `operation` and translate its failures into an `AccessControlError`.
  * A known code passes through; a serialization failure or deadlock becomes
  * `CONFLICT`; anything else becomes `INTERNAL_ERROR`, so database structure
@@ -53,11 +78,6 @@ export async function withAccessControlErrors(operation) {
     return await operation();
   } catch (error) {
     if (error instanceof AccessControlError) throw error;
-    const code = error?.code;
-    if (typeof code === 'string' && PASS_THROUGH.has(code))
-      throw new AccessControlError(code);
-    throw new AccessControlError(
-      CONFLICT_SQLSTATES.has(code) ? 'CONFLICT' : 'INTERNAL_ERROR'
-    );
+    throw new AccessControlError(accessControlCode(error));
   }
 }

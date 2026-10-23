@@ -18,12 +18,14 @@ import {
   archiveUser,
   createMembership,
   createOrReuseUser,
+  deactivateUsers,
   getJob,
   getUser,
   listUsers,
   reportProvisioningResult,
   restoreMembership,
   restoreUser,
+  restoreUsers,
   retryJob,
   updateMembership,
   updateUser,
@@ -194,6 +196,81 @@ describe('users', () => {
     await expect(restoreUser(db, write, userId)).rejects.toMatchObject({
       code: 'INVALID_STATE',
     });
+  });
+});
+
+describe('bulk deactivate and restore (I0002-R013)', () => {
+  /** Whether `id` is currently deactivated. */
+  async function deactivated(id) {
+    const row = await db.portal_users.findOneBy(
+      { id },
+      { columnWhitelist: ['deactivated_at'], includeDeactivated: true }
+    );
+    return row.deactivated_at !== null;
+  }
+
+  it('deactivates and restores several users in one request, with one event each', async () => {
+    const write = authority();
+    const ids = [await seedUser(), await seedUser()];
+    await deactivateUsers(db, write, { ids });
+    for (const id of ids) expect(await deactivated(id)).toBe(true);
+    const archived = await db.managed_events.findWhere(
+      { event_key: 'user.archived', outcome: 'succeeded' },
+      'AND',
+      { columnWhitelist: ['target_id'] }
+    );
+    expect(archived.map(e => e.target_id)).toEqual(expect.arrayContaining(ids));
+
+    const { rows } = await restoreUsers(db, write, { ids });
+    expect(rows.map(row => [row.id, row.status, row.deactivatedAt])).toEqual(
+      ids.map(id => [id, 'disabled', null])
+    );
+  });
+
+  it('changes nothing and names each refused user when any fails', async () => {
+    const write = authority();
+    const fine = await seedUser();
+    const admin = await seedUser();
+    const already = await seedUser();
+    await archiveUser(db, write, already);
+
+    const refused = await deactivateUsers(
+      db,
+      write,
+      { ids: [fine, admin, already] },
+      {
+        assertDeactivationAllowed: async id => {
+          if (id === admin)
+            throw Object.assign(new Error(), {
+              code: 'ADMIN_ASSIGNED',
+            });
+        },
+      }
+    ).catch(error => error);
+    expect(refused).toMatchObject({ code: 'BULK_FAILED' });
+    expect(refused.details).toEqual([
+      { id: admin, code: 'ADMIN_ASSIGNED' },
+      { id: already, code: 'INVALID_STATE' },
+    ]);
+    expect(await deactivated(fine)).toBe(false);
+
+    const active = await restoreUsers(db, write, { ids: [fine] }).catch(
+      error => error
+    );
+    expect(active.details).toEqual([{ id: fine, code: 'INVALID_STATE' }]);
+  });
+
+  it('rejects an empty, oversized, or duplicated ID list', async () => {
+    const write = authority();
+    const id = await seedUser();
+    for (const ids of [
+      [],
+      [id, id],
+      Array.from({ length: 101 }, () => randomUUID()),
+    ])
+      await expect(deactivateUsers(db, write, { ids })).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+      });
   });
 });
 
@@ -382,22 +459,122 @@ describe('reads', () => {
     expect(secondPage.rows[0].id > firstPage.rows[0].id).toBe(true);
   });
 
-  it('includes an archived user, so it remains reachable for Restore', async () => {
+  it('leaves out an archived user unless includeArchived is true (I0002-R011)', async () => {
     const write = authority();
     const userId = await seedUser();
     await archiveUser(db, write, userId);
 
-    const seen = [];
-    let cursor;
-    do {
-      const page = await listUsers(db, write, { cursor, limit: 50 });
-      seen.push(...page.rows);
-      cursor = page.nextCursor;
-    } while (cursor);
+    /** Every row of the list with these options. */
+    async function all(options) {
+      const seen = [];
+      let cursor;
+      do {
+        const page = await listUsers(db, write, {
+          ...options,
+          cursor,
+          limit: 50,
+        });
+        seen.push(...page.rows);
+        cursor = page.nextCursor;
+      } while (cursor);
+      return seen;
+    }
 
-    const found = seen.find(row => row.id === userId);
+    expect((await all({})).some(row => row.id === userId)).toBe(false);
+    expect(
+      (await all({ includeArchived: 'false' })).some(row => row.id === userId)
+    ).toBe(false);
+    const found = (await all({ includeArchived: 'true' })).find(
+      row => row.id === userId
+    );
     expect(found).toBeDefined();
     expect(found.deactivatedAt).not.toBeNull();
+
+    await expect(
+      listUsers(db, write, { includeArchived: 'yes' })
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+  });
+
+  it('finds users by part of their email, ignoring case, with % and _ literal (I0002-R015)', async () => {
+    const write = authority();
+    const tag = randomUUID().slice(0, 8);
+    const lower = await seedUser({ email: `find-${tag}@example.com` });
+    const upper = await seedUser({ email: `FIND-${tag}-two@example.com` });
+    await seedUser({ email: `other-${randomUUID()}@example.com` });
+
+    const page = await listUsers(db, write, {
+      email: `Find-${tag}`,
+      limit: 50,
+    });
+    expect(page.rows.map(row => row.id).sort()).toEqual([lower, upper].sort());
+
+    // `_` would match any one character if it were not escaped.
+    const literal = await listUsers(db, write, {
+      email: `find_${tag}`,
+      limit: 50,
+    });
+    expect(literal.rows).toEqual([]);
+
+    for (const email of ['   ', 'x'.repeat(255)])
+      await expect(listUsers(db, write, { email })).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+      });
+  });
+
+  it('filters by tenant, status, and must-change-password, combined with email and paging (I0002-R016)', async () => {
+    const write = authority();
+    const tag = randomUUID().slice(0, 8);
+    const tenantId = await seedTenant();
+    const member = await seedUser({ email: `flt-${tag}-a@example.com` });
+    const disabledMember = await seedUser({
+      email: `flt-${tag}-b@example.com`,
+    });
+    const outsider = await seedUser({ email: `flt-${tag}-c@example.com` });
+    for (const portalUserId of [member, disabledMember])
+      await createMembership(
+        db,
+        write,
+        { portalUserId, tenantId, memberType: 'employee' },
+        randomUUID()
+      );
+    await updateUser(db, write, disabledMember, { status: 'disabled' });
+
+    /** Every matching id across pages of one row. */
+    async function ids(filters) {
+      const seen = [];
+      let cursor;
+      do {
+        const page = await listUsers(db, write, {
+          ...filters,
+          email: `flt-${tag}`,
+          cursor,
+          limit: 1,
+        });
+        seen.push(...page.rows.map(row => row.id));
+        cursor = page.nextCursor;
+      } while (cursor);
+      return seen.sort();
+    }
+
+    expect(await ids({ tenantId })).toEqual([member, disabledMember].sort());
+    expect(await ids({ tenantId, status: 'disabled' })).toEqual([
+      disabledMember,
+    ]);
+    expect(await ids({ status: 'active' })).toEqual([member, outsider].sort());
+    const pending = await ids({ mustChangePassword: 'true' });
+    const settled = await ids({ mustChangePassword: 'false' });
+    expect([...pending, ...settled].sort()).toEqual(
+      [member, disabledMember, outsider].sort()
+    );
+
+    for (const bad of [
+      { tenantId: 'nope' },
+      { status: 'archived' },
+      { mustChangePassword: 'yes' },
+    ])
+      await expect(listUsers(db, write, bad)).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+      });
   });
 
   it('refuses an actor with no accounts::read capability', async () => {

@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import { encodeCursor, fingerprint, parseCursor } from './cursor.js';
-import { BulkFailedError, DirectoryError, directoryCode } from './errors.js';
+import { DirectoryError } from './errors.js';
 import {
   applyPortalRoles,
   assertCanTurnOff,
@@ -29,6 +29,7 @@ import {
 } from './portalAccess.js';
 import { addressView, contactMethodView } from './details.js';
 import {
+  bulkApply,
   containsPattern,
   mutate,
   parse,
@@ -1019,20 +1020,9 @@ async function restoreOne(
   return { view: after, change: recordChange('restored', name, before, after) };
 }
 
-const bulkBody = z.strictObject({
-  items: z
-    .array(z.strictObject({ id: uuid, revision }))
-    .min(1)
-    .max(100),
-});
-
 /**
  * Apply the single-record archive or restore to every item in one cell
- * transaction (M0005-R030). Each item runs in a savepoint so a failure,
- * including a database error, is recorded against that item alone; if any
- * item failed, the whole transaction rolls back and the caller gets
- * `BULK_FAILED` naming each failed item and its code. Items are locked in ID
- * order, so two bulk requests over the same records cannot deadlock.
+ * transaction (M0005-R030), all or nothing (see `bulkApply`).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name
  * @param {unknown} body `{ items: [{ id, revision }] }`, 1 to 100 distinct IDs.
@@ -1040,44 +1030,17 @@ const bulkBody = z.strictObject({
  * @returns {Promise<{rows: object[]}>}
  * @throws {DirectoryError} `INVALID_INPUT`, `NOT_FOUND`, `BULK_FAILED`
  */
-async function bulk(context, name, body, action) {
+function bulk(context, name, body, action) {
   collection(name);
-  const { items } = parse(bulkBody, body);
-  if (new Set(items.map(item => item.id)).size !== items.length)
-    throw new DirectoryError('INVALID_INPUT');
-  const ordered = [...items].sort((a, b) => a.id.localeCompare(b.id));
-  return mutate(context, async tx => {
-    const done = new Map();
-    const failed = [];
-    for (const item of ordered) {
-      try {
-        done.set(
-          item.id,
-          await tx.tx(savepoint =>
-            action === 'archive'
-              ? archiveOne(context, name, item.id, item, savepoint, {
-                  requireActive: true,
-                })
-              : restoreOne(context, name, item.id, item, savepoint, {
-                  requireArchived: true,
-                })
-          )
-        );
-      } catch (error) {
-        failed.push({ id: item.id, code: directoryCode(error) });
-      }
-    }
-    if (failed.length) {
-      // Report in request order, as the caller listed them.
-      const order = new Map(items.map((item, index) => [item.id, index]));
-      failed.sort((a, b) => order.get(a.id) - order.get(b.id));
-      throw new BulkFailedError(failed);
-    }
-    return {
-      result: { rows: items.map(item => done.get(item.id).view) },
-      changes: items.map(item => done.get(item.id).change),
-    };
-  });
+  return bulkApply(context, body, (item, savepoint) =>
+    action === 'archive'
+      ? archiveOne(context, name, item.id, item, savepoint, {
+          requireActive: true,
+        })
+      : restoreOne(context, name, item.id, item, savepoint, {
+          requireArchived: true,
+        })
+  );
 }
 
 /**
