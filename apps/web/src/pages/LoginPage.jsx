@@ -33,6 +33,13 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    document.title = 'Sign in · nap.';
+    return () => {
+      document.title = 'nap.';
+    };
+  }, []);
+
+  useEffect(() => {
     if (session.status === 'restricted') {
       navigate('/password', { replace: true });
       return;
@@ -134,6 +141,7 @@ export function LoginPage() {
           <TextField
             label="Email"
             type="email"
+            name="email"
             value={email}
             onChange={event => {
               setEmail(event.target.value);
@@ -148,6 +156,7 @@ export function LoginPage() {
           />
           <PasswordField
             label="Password"
+            name="password"
             value={password}
             onChange={event => setPassword(event.target.value)}
             autoComplete="current-password"

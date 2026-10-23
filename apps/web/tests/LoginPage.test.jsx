@@ -119,6 +119,13 @@ describe('LoginPage', () => {
     );
   });
 
+  it('replaces a stale page title in the browser tab', async () => {
+    document.title = 'Portal Users · nap.';
+    renderAt('/login');
+    await screen.findByRole('heading', { name: 'Sign in' });
+    expect(document.title).toBe('Sign in · nap.');
+  });
+
   it('redirects to Home after a successful login with management access', async () => {
     api.login.mockResolvedValue({ restricted: false });
     renderAt('/login');

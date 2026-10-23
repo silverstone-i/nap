@@ -56,7 +56,10 @@ export function usePageHeader({ title, actions = null }) {
   useEffect(() => {
     setHeader({ title, actions });
     document.title = title ? `${title} · nap.` : 'nap.';
-    return () => setHeader({ title: '', actions: null });
+    return () => {
+      setHeader({ title: '', actions: null });
+      document.title = 'nap.';
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, actions]);
 }

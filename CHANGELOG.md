@@ -10,6 +10,11 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- The browser tab no longer keeps the last page's title after you leave it; the sign-in screen shows **Sign in · nap.**, so the tab no longer reads "Portal Users · nap." after a sign-out or an expired session.
+- The sign-in email and password fields carry `name` attributes, so password managers recognize them.
+
 ## [v0.29.2] - 2026-10-11
 
 ### Fixed
