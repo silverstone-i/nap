@@ -104,6 +104,13 @@ const JANE = {
   primaryPhone: null,
 };
 
+/** Jane without portal access, so an edit needs no roles. */
+const STAFF = {
+  ...JANE,
+  isPortalUser: false,
+  portalAccess: { status: 'off', failureCode: null },
+};
+
 function renderWithHeader(element, entry = '/') {
   return render(
     <MemoryRouter initialEntries={[entry]}>
@@ -173,6 +180,83 @@ describe('Employees (M0005-R026)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Reveal' }));
     expect(await within(dialog).findByText('Tax ID: 123456789')).toBeTruthy();
     expect(api.revealTaxId).toHaveBeenCalledWith('people', JANE.id);
+  });
+
+  it('reloads a stale edit into the form and the detail behind it', async () => {
+    const changed = {
+      ...STAFF,
+      lastName: 'Smith',
+      revision: 3,
+      contactMethods: [],
+      addresses: [],
+    };
+    api.updateDirectoryRecord.mockRejectedValueOnce(
+      new ApiError('STALE_REVISION', 409)
+    );
+    listRows = [STAFF];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const table = await screen.findByRole('grid', { name: 'Employees' });
+    const user = userEvent.setup();
+    await user.click(
+      await within(table).findByRole('button', { name: 'Jane Doe' })
+    );
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    await user.click(within(detail).getByRole('button', { name: 'Edit' }));
+    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    api.getDirectoryRecord.mockResolvedValue(changed);
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+
+    expect(
+      await within(form).findByText(/Someone else changed this record/)
+    ).toBeTruthy();
+    expect(within(form).getByDisplayValue('Smith')).toBeTruthy();
+    // The retry carries the reloaded revision.
+    api.updateDirectoryRecord.mockResolvedValueOnce({ ...changed });
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenLastCalledWith(
+      'people',
+      JANE.id,
+      expect.objectContaining({ lastName: 'Smith', revision: 3 })
+    );
+  });
+
+  it('shows the reloaded record after cancelling a stale edit', async () => {
+    api.updateDirectoryRecord.mockRejectedValue(
+      new ApiError('STALE_REVISION', 409)
+    );
+    listRows = [STAFF];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const table = await screen.findByRole('grid', { name: 'Employees' });
+    const user = userEvent.setup();
+    await user.click(
+      await within(table).findByRole('button', { name: 'Jane Doe' })
+    );
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    await user.click(within(detail).getByRole('button', { name: 'Edit' }));
+    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      lastName: 'Smith',
+      revision: 3,
+      contactMethods: [],
+      addresses: [],
+    });
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    await within(form).findByDisplayValue('Smith');
+    await user.click(within(form).getByRole('button', { name: 'Cancel' }));
+    expect(
+      await screen.findByRole('dialog', { name: /Jane Smith/ })
+    ).toBeTruthy();
   });
 
   it('searches by name and tax ID from the header, with chips for active filters (I0001-R029)', async () => {

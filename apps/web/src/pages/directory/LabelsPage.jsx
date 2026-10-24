@@ -43,7 +43,7 @@ import {
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
-import { describeDirectoryError } from './directoryErrors.js';
+import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
 import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 
 const GROUP_LABELS = { email: 'Email', phone: 'Phone', address: 'Address' };
@@ -75,12 +75,20 @@ const COLUMNS = [
 /**
  * Add label or Rename (I0001-R032). A name is unique within its group, so
  * a clash is reported in the dialog, with a link to the archived label when
- * one holds the name (I0011-R008).
- * @param {{label: object|null, defaultGroup: string, onClose: () => void, onSaved: (saved: object) => void}} props
+ * one holds the name (I0011-R008). On `STALE_REVISION`, `onReload`
+ * fetches the label, and the form starts over from it.
+ * @param {{label: object|null, defaultGroup: string, onClose: () => void, onSaved: (saved: object) => void, onReload: () => Promise<object>}} props
  *   `label` is the one to rename, or null to add one.
  * @returns {JSX.Element}
  */
-function LabelDialog({ label, defaultGroup, onClose, onSaved }) {
+function LabelDialog({
+  label: initialLabel,
+  defaultGroup,
+  onClose,
+  onSaved,
+  onReload,
+}) {
+  const [label, setLabel] = useState(initialLabel);
   const [appliesTo, setAppliesTo] = useState(label?.appliesTo ?? defaultGroup);
   const [name, setName] = useState(label?.name ?? '');
   const [error, setError] = useState(null);
@@ -111,6 +119,15 @@ function LabelDialog({ label, defaultGroup, onClose, onSaved }) {
           describeDirectoryError(err)
         )
       );
+      if (label && isStaleRevision(err)) {
+        try {
+          const fresh = await onReload();
+          setLabel(fresh);
+          setName(fresh.name);
+        } catch (reloadErr) {
+          setError(describeDirectoryError(reloadErr));
+        }
+      }
       setSaving(false);
     }
   }
@@ -358,6 +375,22 @@ export function LabelsPage() {
           label={dialog.label}
           defaultGroup={group || 'email'}
           onClose={() => setDialog(null)}
+          onReload={async () => {
+            // An archived label is listed only on the Archived tab.
+            const [active, archivedRows] = await Promise.all([
+              listContactLabels({ appliesTo: dialog.label.appliesTo }),
+              listContactLabels({
+                appliesTo: dialog.label.appliesTo,
+                archived: true,
+              }),
+            ]);
+            reload();
+            const fresh = [...active, ...archivedRows].find(
+              row => row.id === dialog.label.id
+            );
+            if (!fresh) throw new ApiError('NOT_FOUND', 404);
+            return fresh;
+          }}
           onSaved={saved => {
             setDialog(null);
             notify(

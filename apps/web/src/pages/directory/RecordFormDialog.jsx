@@ -27,7 +27,11 @@ import {
   updateDirectoryRecord,
 } from '../../api/endpoints.js';
 import { PasswordField } from '../../components/PasswordField.jsx';
-import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
+import {
+  describeDirectoryError,
+  isStaleRevision,
+  PORTAL_MESSAGES,
+} from './directoryErrors.js';
 import { KIND_LABELS } from './directoryRecords.js';
 
 /**
@@ -124,19 +128,22 @@ const blankBuyer = () => ({ firstName: '', lastName: '', taxId: '' });
  * Create or edit a directory record (M0005-R002–R009, R016). Tax ID fields
  * appear only for a session holding `tax-ids::write`. Portal access and the
  * person's roles appear only for a session that may assign roles
- * (I0010-R001).
- * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object|null, defaults?: {kind?: string, organizationId?: string, organizationKind?: string}, canWriteTaxIds: boolean, canManagePortal?: boolean, onClose: () => void, onSaved: (saved: object) => void}} props
+ * (I0010-R001). Editing sends the record's `revision`; on `STALE_REVISION`
+ * `onReload` fetches the record, and the form starts over from it.
+ * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object|null, defaults?: {kind?: string, organizationId?: string, organizationKind?: string}, canWriteTaxIds: boolean, canManagePortal?: boolean, onClose: () => void, onSaved: (saved: object) => void, onReload?: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
 export function RecordFormDialog({
   collection,
-  record,
+  record: initialRecord,
   defaults = {},
   canWriteTaxIds,
   canManagePortal = false,
   onClose,
   onSaved,
+  onReload,
 }) {
+  const [record, setRecord] = useState(initialRecord);
   const editing = Boolean(record);
   const people = collection === 'people';
   const organizations = collection === 'organizations';
@@ -170,6 +177,22 @@ export function RecordFormDialog({
   );
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  /** Start the edit over from a freshly loaded record. */
+  function resetFrom(fresh) {
+    setRecord(fresh);
+    setFirstName(fresh.firstName ?? '');
+    setLastName(fresh.lastName ?? '');
+    setLegalName(fresh.legalName ?? '');
+    setDbaName(fresh.dbaName ?? '');
+    setIsPortalUser(fresh.isPortalUser ?? false);
+    setTemporaryPassword('');
+    setRoleIds((fresh.roles ?? []).map(role => role.id));
+    setTaxId('');
+    setClearTaxId(false);
+    setIsPrimaryContact(fresh.isPrimaryContact ?? false);
+    setIsBillingContact(fresh.isBillingContact ?? false);
+  }
 
   const contactKind =
     record?.kind ??
@@ -295,6 +318,13 @@ export function RecordFormDialog({
               : {}
         )
       );
+      if (editing && onReload && isStaleRevision(err)) {
+        try {
+          resetFrom(await onReload());
+        } catch (reloadErr) {
+          setError(describeDirectoryError(reloadErr));
+        }
+      }
     } finally {
       setSaving(false);
     }

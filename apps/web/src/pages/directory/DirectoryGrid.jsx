@@ -256,6 +256,12 @@ export function DirectoryGrid({
           canWriteTaxIds={abilities.writeTaxIds}
           canManagePortal={abilities.write && Boolean(abilities.assignRoles)}
           onClose={() => setEditing(null)}
+          onReload={async () => {
+            const fresh = await getDirectoryRecord(collection, editing.id);
+            setEditing(fresh);
+            changed();
+            return fresh;
+          }}
           onSaved={() => {
             setEditing(null);
             changed();
