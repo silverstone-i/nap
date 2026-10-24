@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.30.2] - 2026-10-24
+
 ### Changed
 
 - The web client builds with the React Compiler, which adds memoization automatically in dev and production builds. Components it can't compile yet run unchanged.
