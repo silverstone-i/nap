@@ -1055,6 +1055,35 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     expect(await screen.findByText('Renamed to office.')).toBeTruthy();
   });
 
+  it('reloads a stale rename into the dialog and retries with its revision', async () => {
+    api.renameContactLabel.mockRejectedValueOnce(
+      new ApiError('STALE_REVISION', 409)
+    );
+    await labelsGrid();
+    const user = userEvent.setup();
+    const row = screen.getByText('work').closest('[role="row"]');
+    await user.click(within(row).getByRole('menuitem', { name: 'more' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Rename label' });
+    const changed = { ...WORK, name: 'office', revision: 2 };
+    api.listContactLabels.mockImplementation(async ({ archived }) =>
+      archived ? [] : [changed, HOME]
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(await within(dialog).findByDisplayValue('office')).toBeTruthy();
+    expect(api.listContactLabels).toHaveBeenCalledWith({
+      appliesTo: 'email',
+      archived: true,
+    });
+    api.renameContactLabel.mockResolvedValueOnce(changed);
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(api.renameContactLabel).toHaveBeenLastCalledWith(WORK.id, {
+      name: 'office',
+      revision: 2,
+    });
+  });
+
   it('searches by name and filters by group in the header (I0001-R029)', async () => {
     const table = await labelsGrid();
     const user = userEvent.setup();
