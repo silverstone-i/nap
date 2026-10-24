@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.30.0] - 2026-10-24
+
 ### Added
 
 - Active and Archived tabs on every list of records that can be archived (I0011): Employees, Contacts, Vendors, Clients, an organization's contacts, Labels, Roles, and Portal Users. The tabs sit on their own row under the page header, and the view stays in the URL as `?view=archived`, so reload, back, and a copied link keep it; the contacts grid in a record dialog keeps its view in the dialog and opens on Active. Each view lists one set of records and offers only its actions: Active has the create action, Archive, and Archive selected; Archived has Restore and Restore selected. Switching views clears the selection and keeps the search and filters.
