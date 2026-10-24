@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- When a save fails because someone else changed the record, the edit form now reloads every record type, not only roles: employees, contacts, vendors, clients, organization contacts, emails, phones, addresses, and labels. The form starts over from the current values, the next Save sends the current revision, and the detail and list behind the form show the change, including after Cancel.
+
 ## [v0.30.2] - 2026-10-24
 
 ### Changed

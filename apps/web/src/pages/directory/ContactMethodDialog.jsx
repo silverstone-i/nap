@@ -20,7 +20,11 @@ import {
   listContactLabels,
   updateContactMethod,
 } from '../../api/endpoints.js';
-import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
+import {
+  describeDirectoryError,
+  isStaleRevision,
+  PORTAL_MESSAGES,
+} from './directoryErrors.js';
 
 /**
  * Pick one active label of a group, or none.
@@ -60,18 +64,21 @@ export function LabelSelect({ appliesTo, value, onChange }) {
 
 /**
  * Add or edit an email or phone (M0005-R014). Making it primary replaces
- * the party's current primary of that type.
- * @param {{partyId: string, method: object|null, type: 'email'|'phone', portalUser?: boolean, onClose: () => void, onSaved: () => void}} props
+ * the party's current primary of that type. On `STALE_REVISION`, `onReload`
+ * fetches the method, and the form starts over from it.
+ * @param {{partyId: string, method: object|null, type: 'email'|'phone', portalUser?: boolean, onClose: () => void, onSaved: () => void, onReload?: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
 export function ContactMethodDialog({
   partyId,
-  method,
+  method: initialMethod,
   type,
   portalUser = false,
   onClose,
   onSaved,
+  onReload,
 }) {
+  const [method, setMethod] = useState(initialMethod);
   const [value, setValue] = useState(method?.value ?? '');
   const [labelId, setLabelId] = useState(method?.labelId ?? null);
   const [isPrimary, setIsPrimary] = useState(method?.isPrimary ?? false);
@@ -98,6 +105,17 @@ export function ContactMethodDialog({
       setError(
         describeDirectoryError(err, portalUser ? PORTAL_MESSAGES.email : {})
       );
+      if (method && onReload && isStaleRevision(err)) {
+        try {
+          const fresh = await onReload();
+          setMethod(fresh);
+          setValue(fresh.value);
+          setLabelId(fresh.labelId ?? null);
+          setIsPrimary(fresh.isPrimary);
+        } catch (reloadErr) {
+          setError(describeDirectoryError(reloadErr));
+        }
+      }
     } finally {
       setSaving(false);
     }

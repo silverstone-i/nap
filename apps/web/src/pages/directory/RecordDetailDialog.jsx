@@ -32,6 +32,7 @@ import {
 } from '../../api/endpoints.js';
 import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
+import { ApiError } from '../../api/client.js';
 import { AddressDialog } from './AddressDialog.jsx';
 import { ClientTenantPanel } from './ClientTenantPanel.jsx';
 import { ARCHIVE_TEXT, DirectoryGrid } from './DirectoryGrid.jsx';
@@ -133,6 +134,32 @@ export function RecordDetailDialog({
     setContactsTick(tick => tick + 1);
     onChanged();
   };
+
+  /**
+   * Fetch the record again after a form's save hit `STALE_REVISION`, so
+   * the detail and the grid behind it show the change too.
+   * @returns {Promise<object>}
+   */
+  async function reload() {
+    const fresh = await getDirectoryRecord(collection, id);
+    setRecord(fresh);
+    setContactsTick(tick => tick + 1);
+    onChanged();
+    return fresh;
+  }
+
+  /**
+   * One of the fresh record's emails, phones, or addresses.
+   * @param {'contactMethods'|'addresses'} list
+   * @param {string} itemId
+   * @returns {Promise<object>}
+   * @throws {ApiError} `NOT_FOUND` when it was removed meanwhile.
+   */
+  async function reloadItem(list, itemId) {
+    const found = (await reload())[list].find(item => item.id === itemId);
+    if (!found) throw new ApiError('NOT_FOUND', 404);
+    return found;
+  }
   // I0001-R034: the contacts grid's bulk actions sit in its own toolbar.
   const contactAbilities = {
     ...abilities,
@@ -522,6 +549,7 @@ export function RecordDetailDialog({
           canManagePortal={abilities.write && Boolean(abilities.assignRoles)}
           onClose={() => setEditing(false)}
           onSaved={afterSave}
+          onReload={reload}
         />
       ) : null}
       {contactForm ? (
@@ -549,6 +577,7 @@ export function RecordDetailDialog({
             setMethodForm(null);
             changed();
           }}
+          onReload={() => reloadItem('contactMethods', methodForm.method.id)}
         />
       ) : null}
       {addressForm ? (
@@ -560,6 +589,7 @@ export function RecordDetailDialog({
             setAddressForm(null);
             changed();
           }}
+          onReload={() => reloadItem('addresses', addressForm.address.id)}
         />
       ) : null}
       {openContact ? (

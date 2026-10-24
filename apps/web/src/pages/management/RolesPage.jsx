@@ -299,6 +299,13 @@ export function RolesPage() {
           role={form.role}
           tenantCode={tenant.code}
           onClose={() => setForm(null)}
+          onReload={async () => {
+            const fresh = await getRole(form.role.id);
+            // The detail it was opened from shows the change after Cancel.
+            setSelected(current => (current ? fresh : current));
+            reload();
+            return fresh;
+          }}
           onSaved={saved => {
             setForm(null);
             setSelected(saved);
