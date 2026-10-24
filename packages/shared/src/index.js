@@ -65,8 +65,12 @@ export const apiErrorResponseSchema = z.strictObject({
     capability: z.string().optional(),
     reason: z.string().optional(),
     // M0005-R030: on `BULK_FAILED`, each failed item and its code.
+    // I0011-R010: on `CONFLICT`, the archived record holding the value.
     details: z
-      .array(z.strictObject({ id: z.uuid(), code: z.string() }))
+      .union([
+        z.array(z.strictObject({ id: z.uuid(), code: z.string() })),
+        z.strictObject({ id: z.uuid(), archived: z.literal(true) }),
+      ])
       .optional(),
   }),
 });

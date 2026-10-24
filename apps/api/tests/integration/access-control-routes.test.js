@@ -443,11 +443,22 @@ describe('access-control routes (M0003 §10)', () => {
     expect(
       (await call('get', '/roles')).body.data.map(r => r.code)
     ).not.toContain('auditor');
+    // I0011-R009: the archived view lists only archived roles.
     expect(
-      (await call('get', '/roles?includeArchived=true')).body.data.map(
-        r => r.code
-      )
-    ).toContain('auditor');
+      (await call('get', '/roles?archived=true')).body.data.map(r => r.code)
+    ).toEqual(['auditor']);
+    expect((await call('get', '/roles?includeArchived=true')).status).toBe(400);
+    // I0011-R010: reusing the archived role's code names it.
+    const reused = await call('post', '/roles', {
+      code: 'auditor',
+      name: 'Again',
+      grants: [],
+    });
+    expect(reused.status).toBe(409);
+    expect(reused.body.error).toMatchObject({
+      code: 'CONFLICT',
+      details: { id, archived: true },
+    });
     // R014: an archived role grants nothing, but its assignment is kept.
     expect(
       await resolvePatterns(cell, { tenantId: napsoft.id, portalUserId: user })
@@ -542,11 +553,10 @@ describe('access-control routes (M0003 §10)', () => {
       createRole(context, { code: 'doomed', name: 'Doomed', grants: [] })
     ).rejects.toMatchObject({ code: 'INTERNAL_ERROR' });
     expect(await pendingRoleChanges()).toEqual([]);
-    expect(
-      (await call('get', '/roles?includeArchived=true')).body.data.map(
-        r => r.code
-      )
-    ).not.toContain('doomed');
+    for (const path of ['/roles', '/roles?archived=true'])
+      expect(
+        (await call('get', path)).body.data.map(r => r.code)
+      ).not.toContain('doomed');
   });
 
   it('rejects invalid and uncatalogued grants, immutable codes, and duplicate codes (AC02, R013)', async () => {
@@ -565,6 +575,8 @@ describe('access-control routes (M0003 §10)', () => {
         grants: [],
       });
       expect(response.body.error.code).toBe('CONFLICT');
+      // An active holder is not named (I0011-R010).
+      expect(response.body.error.details).toBeUndefined();
     }
   });
 

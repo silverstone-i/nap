@@ -5,11 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
-import Chip from '@mui/material/Chip';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
-import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import BlockIcon from '@mui/icons-material/Block';
@@ -30,8 +26,10 @@ import {
   setUserStatus,
   unlockUser,
 } from '../../api/endpoints.js';
+import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
+import { useArchiveView } from '../../grid/useArchiveView.js';
 import { useBulkArchive } from '../../grid/useBulkArchive.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
@@ -49,17 +47,6 @@ const COLUMNS = [
     sortable: false,
     filterable: false,
     priority: 'essential',
-    // I0001-R030: a deactivated user, shown only with Include archived.
-    renderCell: ({ row }) => (
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: 'center', height: '100%' }}
-      >
-        <span>{row.email}</span>
-        {row.deactivatedAt ? <Chip size="small" label="Archived" /> : null}
-      </Stack>
-    ),
   },
   {
     field: 'status',
@@ -123,13 +110,13 @@ function describeActionError(err) {
  * `/management/portal-users` (I0002-R005/R006, R012–R016): browse
  * portal-user accounts, searching by email (R015) and filtering by tenant,
  * status, and must-change-password (R016); create one; deactivate
- * or restore one or a page of them. Deactivated accounts show only with Include archived, in the
- * header's filter popover. Napsoft login recovery (I0008-R013–R016): view
+ * or restore one or a page of them. Active and Archived tabs switch between
+ * active and deactivated accounts, kept in the URL (I0011-R001–R005). Napsoft login recovery (I0008-R013–R016): view
  * memberships, reset the password, unlock, and disable or re-enable a
  * login.
  */
 export function PortalUsersPage() {
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [archived, setArchived] = useArchiveView();
   const [filters, setFilters] = useState(NO_FILTERS);
   const [search, setSearch] = useState('');
   const email = useDebouncedValue(search.trim());
@@ -138,17 +125,18 @@ export function PortalUsersPage() {
       createCursorPageAdapter(page =>
         listUsersPage({
           ...page,
-          includeArchived,
+          archived,
           email: email || undefined,
           tenantId: filters.tenantId || undefined,
           status: filters.status || undefined,
           mustChangePassword: filters.mustChangePassword || undefined,
         })
       ),
-    [includeArchived, email, filters]
+    [archived, email, filters]
   );
   const [reloadTick, setReloadTick] = useState(0);
-  const resetKey = `${includeArchived}:${email}:${JSON.stringify(filters)}:${reloadTick}`;
+  // I0011-R006: a view switch clears the selection and returns to page one.
+  const resetKey = `${archived}:${email}:${JSON.stringify(filters)}:${reloadTick}`;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionError, setActionError] = useState(null);
   const { can, onError } = useCapabilities();
@@ -191,11 +179,6 @@ export function PortalUsersPage() {
       label: `Must change password: ${MUST_CHANGE_LABELS[filters.mustChangePassword]}`,
       onDelete: clearFilter('mustChangePassword'),
     },
-    includeArchived && {
-      key: 'archived',
-      label: 'Including archived',
-      onDelete: () => setIncludeArchived(false),
-    },
   ].filter(Boolean);
   const [resetting, setResetting] = useState(null);
 
@@ -203,7 +186,7 @@ export function PortalUsersPage() {
     canWrite,
     noun: ['user', 'users'],
     nameOf: row => row.email,
-    isArchived: row => Boolean(row.deactivatedAt),
+    archived,
     verbs: { archive: ['Deactivate', 'deactivated'] },
     run: (action, items) =>
       bulkPortalUserAction(
@@ -287,26 +270,19 @@ export function PortalUsersPage() {
               </MenuItem>
             ))}
           </TextField>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={includeArchived}
-                onChange={event => setIncludeArchived(event.target.checked)}
-              />
-            }
-            label="Include archived"
-          />
         </>
       ),
       chips,
     },
+    tabs: <ArchiveViewTabs archived={archived} onChange={setArchived} />,
     actions: [
       ...bulk.actions,
-      canWrite && {
-        label: 'Create portal user',
-        create: true,
-        onClick: () => setDialogOpen(true),
-      },
+      canWrite &&
+        !archived && {
+          label: 'Create portal user',
+          create: true,
+          onClick: () => setDialogOpen(true),
+        },
     ],
   });
 

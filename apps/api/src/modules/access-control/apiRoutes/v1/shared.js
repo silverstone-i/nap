@@ -6,6 +6,7 @@
 import {
   ERROR_STATUS,
   sendBulkFailed,
+  sendConflict,
   sendError,
 } from '../../../../framework/envelope.js';
 import { capabilityCatalogue } from '../../domain/catalogue.js';
@@ -24,6 +25,11 @@ export function sendAccessControlError(response, error) {
   // M0003-R018: a bulk failure names each failed role and its code.
   if (code === 'BULK_FAILED' && Array.isArray(error.details)) {
     sendBulkFailed(response, error.details);
+    return;
+  }
+  // I0011-R010: an archived role holds the code.
+  if (code === 'CONFLICT' && error.details) {
+    sendConflict(response, error.details);
     return;
   }
   sendError(

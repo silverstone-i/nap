@@ -19,9 +19,10 @@ const ACTIVE = [
 ];
 
 /** Stands in for a grid: "Select" reports `rows` as the selection. */
-function Harness({ rows, run, onDone = () => {} }) {
+function Harness({ rows, run, onDone = () => {}, archived = false }) {
   const bulk = useBulkArchive({
     canWrite: true,
+    archived,
     noun: ['label', 'labels'],
     nameOf: row => row.name,
     run,
@@ -54,7 +55,7 @@ beforeEach(() => installMatchMedia());
 afterEach(cleanup);
 
 describe('useBulkArchive', () => {
-  it('offers Archive selected for active rows, confirms, sends id and revision, and notifies', async () => {
+  it('offers Archive selected in the Active view, confirms, sends id and revision, and notifies', async () => {
     const user = userEvent.setup();
     const run = vi.fn().mockResolvedValue(undefined);
     const onDone = vi.fn();
@@ -80,14 +81,27 @@ describe('useBulkArchive', () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it('offers neither action for a mixed selection', async () => {
+  it('offers only Restore selected in the Archived view (I0011-R005)', async () => {
     const user = userEvent.setup();
+    const run = vi.fn().mockResolvedValue(undefined);
     renderHarness({
-      rows: [ACTIVE[0], { ...ACTIVE[1], archived: true }],
-      run: vi.fn(),
+      rows: ACTIVE.map(row => ({ ...row, archived: true })),
+      run,
+      archived: true,
     });
-    await user.click(screen.getByRole('button', { name: 'Select' }));
     expect(screen.queryByRole('button', { name: /selected/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Select' }));
+    expect(
+      screen.queryByRole('button', { name: /Archive selected/ })
+    ).toBeNull();
+    await user.click(
+      screen.getByRole('button', { name: 'Restore selected (2)' })
+    );
+    await user.click(screen.getByRole('button', { name: 'Restore' }));
+    expect(run).toHaveBeenCalledWith('restore', [
+      { id: 'a', revision: 1 },
+      { id: 'b', revision: 2 },
+    ]);
   });
 
   it('lists each failed row by name in a dialog and changes nothing on BULK_FAILED', async () => {

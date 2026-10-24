@@ -3,13 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
@@ -23,8 +20,11 @@ import {
 } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
+import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { createListPageAdapter } from '../../grid/listPageAdapter.js';
+import { useArchiveView } from '../../grid/useArchiveView.js';
+import { useSearchFromUrl } from '../../grid/useSearchFromUrl.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import {
   ALREADY_IN_STATE,
@@ -57,16 +57,9 @@ function columnsFor(onOpen) {
       flex: 2,
       priority: 'essential',
       renderCell: ({ row }) => (
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ alignItems: 'center', height: '100%' }}
-        >
-          <Button variant="text" size="small" onClick={() => onOpen(row)}>
-            {row.name}
-          </Button>
-          {row.archived ? <Chip size="small" label="Archived" /> : null}
-        </Stack>
+        <Button variant="text" size="small" onClick={() => onOpen(row)}>
+          {row.name}
+        </Button>
       ),
     },
     {
@@ -103,15 +96,17 @@ function columnsFor(onOpen) {
  * `/settings/roles` (M0003-R016–R018): the selected tenant's roles in a
  * standard grid, their detail, create / edit / archive / restore one or a
  * page of them, and a user's assignments below. The header holds the name
- * search, the filter popover (Include archived), the bulk actions, and
- * Create role. Every call is scoped server-side to the session's selected
- * tenant.
+ * search, the bulk actions, and Create role, with Active and Archived tabs
+ * below that switch the view, kept in the URL (I0011-R001–R005). Every call
+ * is scoped server-side to the session's selected tenant.
  */
 export function RolesPage() {
   const session = useSession();
   const tenant = session.selectedTenant;
   const [search, setSearch] = useState('');
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [archived, setArchived] = useArchiveView();
+  useSearchFromUrl(setSearch);
+  // Active roles, for the user roles section below in either view.
   const [roles, setRoles] = useState([]);
   const [actionError, setActionError] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -127,14 +122,30 @@ export function RolesPage() {
   const adapter = useMemo(
     () =>
       createListPageAdapter(async () => {
-        const rows = await listRoles({ includeArchived });
-        // The full list also feeds the user roles section below.
-        setRoles(rows);
+        const rows = await listRoles({ archived });
+        // The active list also feeds the user roles section below.
+        if (!archived) setRoles(rows);
         return rows;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload or a new tenant loads afresh
-    [includeArchived, reloadKey, tenant?.id]
+    [archived, reloadKey, tenant?.id]
   );
+  // The Archived view's list cannot feed the section, so load active roles.
+  useEffect(() => {
+    if (!archived || !tenant) return;
+    let cancelled = false;
+    listRoles()
+      .then(rows => {
+        if (!cancelled) setRoles(rows);
+      })
+      .catch(err => {
+        if (!cancelled) onError(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload or a new tenant loads afresh
+  }, [archived, reloadKey, tenant?.id]);
   const fetchPage = useMemo(
     () => params =>
       adapter({
@@ -145,7 +156,8 @@ export function RolesPage() {
       }),
     [adapter, needle]
   );
-  const resetKey = `${tenant?.id}:${includeArchived}:${needle}:${reloadKey}`;
+  // I0011-R006: a view switch clears the selection and returns to page one.
+  const resetKey = `${tenant?.id}:${archived}:${needle}:${reloadKey}`;
 
   const bulk = useBulkArchive({
     canWrite,
@@ -160,6 +172,7 @@ export function RolesPage() {
     archiveText: ARCHIVE_TEXT,
     onDone: reload,
     onError,
+    archived,
   });
 
   /** Run a lifecycle action on `role`, then reload or report the failure. */
@@ -221,38 +234,18 @@ export function RolesPage() {
           label: 'Search roles',
         }
       : null,
-    filters: tenant
-      ? {
-          content: (
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={includeArchived}
-                  onChange={event => setIncludeArchived(event.target.checked)}
-                />
-              }
-              label="Include archived"
-            />
-          ),
-          chips: includeArchived
-            ? [
-                {
-                  key: 'archived',
-                  label: 'Including archived',
-                  onDelete: () => setIncludeArchived(false),
-                },
-              ]
-            : [],
-        }
-      : null,
+    tabs: tenant ? (
+      <ArchiveViewTabs archived={archived} onChange={setArchived} />
+    ) : null,
     actions: tenant
       ? [
           ...bulk.actions,
-          canWrite && {
-            label: 'Create role',
-            create: true,
-            onClick: () => setForm({ role: null }),
-          },
+          canWrite &&
+            !archived && {
+              label: 'Create role',
+              create: true,
+              onClick: () => setForm({ role: null }),
+            },
         ]
       : null,
   });

@@ -17,12 +17,14 @@ import { recordName } from './directoryRecords.js';
  *   collection: 'people'|'organizations'|'organization-contacts',
  *   abilities: {write: boolean, onError?: (err: unknown) => void},
  *   onDone: () => void,
- * }} options
+ *   archived: boolean,
+ * }} options `archived` is the grid's view (I0011-R005).
  * @returns {ReturnType<typeof useBulkArchive>}
  */
-export function useDirectoryBulk({ collection, abilities, onDone }) {
+export function useDirectoryBulk({ collection, abilities, onDone, archived }) {
   return useBulkArchive({
     canWrite: abilities.write,
+    archived,
     noun: ['record', 'records'],
     nameOf: recordName,
     run: (action, items) => bulkDirectoryAction(collection, action, items),

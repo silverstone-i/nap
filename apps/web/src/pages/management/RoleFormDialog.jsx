@@ -20,6 +20,11 @@ import {
   listCapabilities,
   updateRole,
 } from '../../api/endpoints.js';
+import { ArchivedConflictMessage } from '../../grid/ArchivedConflictMessage.jsx';
+import {
+  archivedSearchPath,
+  isArchivedConflict,
+} from '../../grid/archivedConflict.js';
 import { describeRoleError, isStaleRevision } from './roleErrors.js';
 
 const CODE_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
@@ -188,7 +193,18 @@ export function RoleFormDialog({ role = null, tenantCode, onClose, onSaved }) {
           });
       onSaved(saved);
     } catch (err) {
-      setError(describeRoleError(err));
+      // I0011-R008: point at the archived role that holds the code.
+      setError(
+        isArchivedConflict(err) ? (
+          <ArchivedConflictMessage
+            message="An archived role already uses this code."
+            to={archivedSearchPath('/settings/roles', code)}
+            onFollow={onClose}
+          />
+        ) : (
+          describeRoleError(err)
+        )
+      );
       if (editing && isStaleRevision(err)) {
         try {
           const fresh = await getRole(current.id);

@@ -10,6 +10,17 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Active and Archived tabs on every list of records that can be archived (I0011): Employees, Contacts, Vendors, Clients, an organization's contacts, Labels, Roles, and Portal Users. The tabs sit on their own row under the page header, and the view stays in the URL as `?view=archived`, so reload, back, and a copied link keep it; the contacts grid in a record dialog keeps its view in the dialog and opens on Active. Each view lists one set of records and offers only its actions: Active has the create action, Archive, and Archive selected; Archived has Restore and Restore selected. Switching views clears the selection and keeps the search and filters.
+- Creating a role with an archived role's code, or adding or renaming a label to an archived label's name, says an archived record holds it and links to the Archived view searched for it. Roles and Labels take their initial search from `?q=`.
+
+### Changed
+
+- The Include archived filter and the Archived tag are gone; the Archived tab replaces them. Archive's confirmation now says archived records move to the Archived tab.
+- `GET /accounts/users`, `/roles`, `/labels`, `/people`, `/organizations`, and `/organization-contacts` take `archived` (`true` lists only archived records) in place of `includeArchived`, which now returns `400 INVALID_INPUT`. A `409 CONFLICT` from `POST /roles`, `POST /labels`, or `PATCH /labels/:id` caused by an archived record carries `details: { id, archived: true }`.
+- I0001-R030, I0002-R011, R012, R014, and R016, M0003-R017, and M0005-R027–R029 and R031 point to I0011. Roadmap Phase 3 adds deliverable #19, and later deliverables are renumbered.
+
 ## [v0.29.4] - 2026-10-23
 
 ### Added

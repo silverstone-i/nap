@@ -5,6 +5,7 @@
 
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/api/client.js';
 import * as api from '../../src/api/endpoints.js';
@@ -99,16 +100,18 @@ const CATALOGUE = [
   },
 ];
 
-function renderPage() {
+function renderPage(entry = '/') {
   return render(
-    <ThemeModeProvider>
-      <NoticeProvider>
-        <PageHeaderProvider>
-          <ContextualActionHeader />
-          <RolesPage />
-        </PageHeaderProvider>
-      </NoticeProvider>
-    </ThemeModeProvider>
+    <MemoryRouter initialEntries={[entry]}>
+      <ThemeModeProvider>
+        <NoticeProvider>
+          <PageHeaderProvider>
+            <ContextualActionHeader />
+            <RolesPage />
+          </PageHeaderProvider>
+        </NoticeProvider>
+      </ThemeModeProvider>
+    </MemoryRouter>
   );
 }
 
@@ -150,25 +153,31 @@ describe('RolesPage (M0003-R016–R018)', () => {
     expect(api.listRoles).not.toHaveBeenCalled();
   });
 
-  it('lists roles with Immutable / Custom badges and an Archived indicator', async () => {
-    api.listRoles.mockResolvedValue([ADMIN, CUSTOM, ARCHIVED]);
+  it('lists roles with Immutable / Custom badges', async () => {
+    api.listRoles.mockResolvedValue([ADMIN, CUSTOM]);
     renderPage();
     await screen.findByText('Auditor');
     const table = screen.getByRole('grid');
     expect(within(table).getByText('Immutable')).toBeTruthy();
-    expect(within(table).getAllByText('Custom')).toHaveLength(2);
-    expect(within(table).getByText('Archived')).toBeTruthy();
+    expect(within(table).getByText('Custom')).toBeTruthy();
   });
 
-  it('requests archived roles when the toggle is on', async () => {
+  it('lists archived roles in the Archived tab, with no filter popover or create action (I0011-R001–R005)', async () => {
+    api.listRoles.mockImplementation(async ({ archived } = {}) =>
+      archived ? [ARCHIVED] : [ADMIN, CUSTOM]
+    );
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
-    await user.click(screen.getByRole('button', { name: 'Filters' }));
-    await user.click(screen.getByLabelText('Include archived'));
-    expect(api.listRoles).toHaveBeenLastCalledWith({ includeArchived: true });
-    await user.keyboard('{Escape}');
-    expect(screen.getByText('Including archived')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Filters' })).toBeNull();
+    await user.click(screen.getByRole('tab', { name: 'Archived' }));
+    const table = screen.getByRole('grid');
+    await within(table).findByText('Old');
+    expect(within(table).queryByText('Auditor')).toBeNull();
+    expect(api.listRoles).toHaveBeenCalledWith({ archived: true });
+    expect(screen.queryByRole('button', { name: 'Create role' })).toBeNull();
+    // The user roles section still gets the active roles.
+    expect(api.listRoles).toHaveBeenLastCalledWith();
   });
 
   it('searches roles by name or code in the header', async () => {
@@ -306,6 +315,33 @@ describe('RolesPage (M0003-R016–R018)', () => {
       name: 'Reader',
       grants: ['ACME::access-control::roles::read', '*::*::*::*'],
     });
+  });
+
+  it('links to the archived role when its code is taken (I0011-R008)', async () => {
+    api.createRole.mockRejectedValue(
+      new ApiError('CONFLICT', 409, null, {
+        details: { id: 'r3', archived: true },
+      })
+    );
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText('Auditor');
+    await user.click(screen.getByRole('button', { name: 'Create role' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/Code/), 'old');
+    await user.type(within(dialog).getByLabelText(/Name/), 'Old');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create role' })
+    );
+    expect(
+      await within(dialog).findByText(/An archived role already uses this code/)
+    ).toBeTruthy();
+    const link = within(dialog).getByRole('link', {
+      name: 'Show it in Archived',
+    });
+    expect(link.getAttribute('href')).toBe(
+      '/settings/roles?view=archived&q=old'
+    );
   });
 
   it('edits a custom role with its revision and reloads it on STALE_REVISION', async () => {

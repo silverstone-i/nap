@@ -222,7 +222,9 @@ function fakeAdmin() {
             )
           : null;
         const rows = [...userStore.values()]
-          .filter(row => filters.includeArchived || !row.deactivated_at)
+          .filter(
+            row => Boolean(filters.archived) === Boolean(row.deactivated_at)
+          )
           .filter(row => !needle || row.email.toLowerCase().includes(needle))
           .filter(row => !members || members.has(row.id))
           .filter(row => !filters.status || row.status === filters.status)
@@ -855,19 +857,22 @@ describe('GET /users list', () => {
     );
   });
 
-  it('includes an archived user only with includeArchived=true (I0002-R011)', async () => {
+  it('lists active users by default and only archived ones with archived=true (I0011-R009)', async () => {
     const { app, admin, cookie } = api();
+    const active = seedUser(admin);
     const user = seedUser(admin, { deactivated_at: new Date() });
     const hidden = await get(app, cookie);
+    expect(hidden.body.data.rows.map(row => row.id)).toContain(active.id);
     expect(hidden.body.data.rows.map(row => row.id)).not.toContain(user.id);
-    const shown = await get(app, cookie, '?includeArchived=true');
-    expect(shown.body.data.rows).toContainEqual({
-      ...userView(user),
-      deactivatedAt: user.deactivated_at.toISOString(),
-    });
-    const bad = await get(app, cookie, '?includeArchived=yes');
-    expect(bad.status).toBe(400);
-    expect(bad.body.error.code).toBe('INVALID_INPUT');
+    const shown = await get(app, cookie, '?archived=true');
+    expect(shown.body.data.rows).toEqual([
+      { ...userView(user), deactivatedAt: user.deactivated_at.toISOString() },
+    ]);
+    for (const query of ['?archived=yes', '?includeArchived=true']) {
+      const bad = await get(app, cookie, query);
+      expect(bad.status).toBe(400);
+      expect(bad.body.error.code).toBe('INVALID_INPUT');
+    }
   });
 
   it('filters by status and must-change-password, refusing other values (I0002-R016)', async () => {

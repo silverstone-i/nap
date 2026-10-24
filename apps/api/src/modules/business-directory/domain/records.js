@@ -128,12 +128,13 @@ const contactUpdate = z.strictObject({
   isBillingContact: z.boolean().optional(),
   revision,
 });
-const listQuery = z.object({
+// Strict, so the old `includeArchived` is refused (I0011-R009).
+const listQuery = z.strictObject({
   kind: z.string().optional(),
   q: z.string().max(160).optional(),
   taxId: z.string().max(32).optional(),
   organizationId: uuid.optional(),
-  includeArchived: z.enum(['true', 'false']).optional(),
+  archived: z.enum(['true', 'false']).optional(),
   cursor: z.string().max(512).optional(),
   // R027: query-string values arrive as text.
   limit: z.coerce.number().int().min(1).max(100).optional(),
@@ -438,7 +439,8 @@ async function insertContact(context, organization, input, tx) {
 }
 
 /**
- * List a collection, filtered by kind, name text, organization, or tax ID.
+ * List a collection's active records, or only its archived ones (I0011-R009),
+ * filtered by kind, name text, organization, or tax ID.
  * Searching by tax ID needs `tax-ids::read` (R013).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name Collection name.
@@ -460,7 +462,7 @@ export async function listRecords(context, name, query) {
     kinds: kindFilter ?? kinds,
     text: containsPattern(input.q),
     taxIdHash,
-    includeArchived: input.includeArchived === 'true',
+    archived: input.archived === 'true',
     ...(name === 'organization-contacts'
       ? { organizationId: input.organizationId ?? null }
       : {}),

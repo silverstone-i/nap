@@ -228,11 +228,11 @@ export class PortalUsers extends TableModel {
 
   /**
    * One page of the Portal Users list in ascending `id` order (I0002-R008,
-   * R011, R015, R016). Raw SQL because the tenant filter is a membership
+   * R015, R016, I0011-R009). Raw SQL because the tenant filter is a membership
    * subquery, which the inherited `findAfterCursor` cannot express. Every
    * value is bound.
    * @param {object} filters
-   * @param {boolean} [filters.includeArchived] Include deactivated accounts.
+   * @param {boolean} [filters.archived] Only deactivated accounts instead of only active ones.
    * @param {string} [filters.email] Case-insensitive substring of the email; `%`, `_`, and `\` match literally.
    * @param {string} [filters.tenantId] Only accounts with a current membership in this tenant.
    * @param {'active'|'disabled'} [filters.status]
@@ -249,7 +249,11 @@ export class PortalUsers extends TableModel {
       return `$${values.length}`;
     };
     const where = [];
-    if (!filters.includeArchived) where.push('u.deactivated_at IS NULL');
+    where.push(
+      filters.archived
+        ? 'u.deactivated_at IS NOT NULL'
+        : 'u.deactivated_at IS NULL'
+    );
     if (filters.email)
       where.push(
         `u.email ILIKE ${bind(`%${filters.email.replace(/[\\%_]/g, '\\$&')}%`)}`

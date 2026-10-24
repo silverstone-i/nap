@@ -50,7 +50,33 @@ describe('orderActions (I0001-R028)', () => {
   });
 });
 
+function TabsPage() {
+  const [tabs] = useState(() => <div role="tablist" aria-label="View" />);
+  usePageHeader({
+    title: 'Roles',
+    filters: {
+      content: null,
+      chips: [{ key: 'k', label: 'Kind: x', onDelete: () => {} }],
+    },
+    tabs,
+  });
+  return null;
+}
+
 describe('ContextualActionHeader', () => {
+  it('renders view tabs on their own row below the title, above the chips (I0011-R002)', () => {
+    installMatchMedia();
+    renderHeader(<TabsPage />);
+    const heading = screen.getByRole('heading', { name: 'Roles' });
+    const tabs = screen.getByRole('tablist', { name: 'View' });
+    const chips = screen.getByLabelText('Active filters');
+    expect(heading.parentElement.contains(tabs)).toBe(false);
+    const follows = (a, b) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(heading, tabs)).toBe(true);
+    expect(follows(tabs, chips)).toBe(true);
+  });
+
   it('renders an action list in order', () => {
     installMatchMedia();
     renderHeader(<ActionsPage actions={ACTIONS} />);

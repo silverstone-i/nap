@@ -31,9 +31,10 @@ const createSchema = z.strictObject({
   name: labelName,
 });
 const updateSchema = z.strictObject({ name: labelName, revision });
-const listQuery = z.object({
+// Strict, so the old `includeArchived` is refused (I0011-R009).
+const listQuery = z.strictObject({
   appliesTo: z.enum(LABEL_GROUPS).optional(),
-  includeArchived: z.enum(['true', 'false']).optional(),
+  archived: z.enum(['true', 'false']).optional(),
 });
 
 /**
@@ -84,12 +85,42 @@ export function listLabels(context, query) {
         input.appliesTo ? { applies_to: input.appliesTo } : {},
         {
           tx,
-          includeArchived: input.includeArchived === 'true',
+          archived: input.archived === 'true',
           orderBy: ['applies_to', 'name'],
         }
       )
     ).map(labelView)
   );
+}
+
+/**
+ * Refuse a name another label in the group already holds, archived labels
+ * included (R017). When an archived label holds it, the `CONFLICT` names
+ * that label so the screen can link to it (I0011-R010). Takes a lock on the
+ * name first, so two writers of the same name cannot both pass.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {object} tx
+ * @param {string} appliesTo
+ * @param {string} name
+ * @param {string|null} self The label being renamed, which may keep its name.
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `CONFLICT`
+ */
+async function requireNameFree(context, tx, appliesTo, name, self) {
+  await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `business-directory:label:${context.tenant.id}:${appliesTo}:${name}`,
+  ]);
+  const holder = (
+    await context.cell.contact_labels.rows(
+      { applies_to: appliesTo, name },
+      { tx, includeArchived: true }
+    )
+  ).find(row => row.id !== self);
+  if (holder)
+    throw new DirectoryError(
+      'CONFLICT',
+      holder.deactivated_at ? { id: holder.id, archived: true } : undefined
+    );
 }
 
 /**
@@ -101,6 +132,7 @@ export function listLabels(context, query) {
 export function createLabel(context, body) {
   const input = parse(createSchema, body);
   return mutate(context, async tx => {
+    await requireNameFree(context, tx, input.appliesTo, input.name, null);
     const row = await context.cell.contact_labels.insert(
       {
         tenant_id: context.tenant.id,
@@ -140,13 +172,13 @@ async function lockLabel(context, id, tx) {
  * @param {number} expected
  * @param {object} changes
  * @param {string} action
- * @param {(locked: object) => void} [guard] Refuses the change, such as archiving an archived label.
+ * @param {(locked: object, tx: object) => void|Promise<void>} [guard] Refuses the change, such as archiving an archived label.
  * @returns {Promise<{view: object, change: import('./shared.js').DirectoryChange}>}
  */
 async function applyLabel(context, tx, id, expected, changes, action, guard) {
   const locked = await lockLabel(context, id, tx);
   requireRevision(locked, expected);
-  guard?.(locked);
+  await guard?.(locked, tx);
   const row = await context.cell.contact_labels.saveRevision(
     locked.id,
     changes,
@@ -164,9 +196,10 @@ async function applyLabel(context, tx, id, expected, changes, action, guard) {
  * @param {number} expected
  * @param {object} changes
  * @param {string} action
+ * @param {(locked: object, tx: object) => void|Promise<void>} [guard] Passed to `applyLabel`.
  * @returns {Promise<object>}
  */
-function saveLabel(context, id, expected, changes, action) {
+function saveLabel(context, id, expected, changes, action, guard) {
   return mutate(context, async tx => {
     const { view, change } = await applyLabel(
       context,
@@ -174,7 +207,8 @@ function saveLabel(context, id, expected, changes, action) {
       id,
       expected,
       changes,
-      action
+      action,
+      guard
     );
     return { result: view, changes: [change] };
   });
@@ -194,7 +228,9 @@ export function renameLabel(context, id, body) {
     id,
     input.revision,
     { name: input.name },
-    'renamed'
+    'renamed',
+    (locked, tx) =>
+      requireNameFree(context, tx, locked.applies_to, input.name, locked.id)
   );
 }
 

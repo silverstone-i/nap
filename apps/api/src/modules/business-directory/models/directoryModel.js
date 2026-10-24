@@ -45,15 +45,20 @@ export class DirectoryModel extends TableModel {
   }
 
   /**
-   * Rows matching an equality filter, active only unless `includeArchived`.
+   * Rows matching an equality filter: active only by default, active and
+   * archived with `includeArchived`, archived only with `archived`.
    * @param {Record<string, unknown>} where
-   * @param {{tx: object, includeArchived?: boolean, lock?: boolean, orderBy?: string[]}} options
+   * @param {{tx: object, includeArchived?: boolean, archived?: boolean, lock?: boolean, orderBy?: string[]}} options
    * @returns {Promise<object[]>}
    */
-  async rows(where, { tx, includeArchived = false, lock = false, orderBy }) {
+  async rows(
+    where,
+    { tx, includeArchived = false, archived = false, lock = false, orderBy }
+  ) {
     const values = [];
     const conditions = this.#conditions(where, values);
-    if (!includeArchived) conditions.push('deactivated_at IS NULL');
+    if (archived) conditions.push('deactivated_at IS NOT NULL');
+    else if (!includeArchived) conditions.push('deactivated_at IS NULL');
     const order = orderBy ?? [this.key];
     this.#columns(order);
     return tx.any(

@@ -110,8 +110,9 @@ same accepted decision model, while the server remains authoritative.
 |    16 | Tenant portal roles              | `I0010: Tenant-Managed Portal Access and Roles`                                                    | Portal access and role selection in the person create/edit dialog for tenant administrators                                                          | Complete    | Implemented in #58; PRD accepted 2026-10-09; unit, DB, and web tests pass locally and in CI; on the dev stack an employee created with access on and Support showed it held, a create without a role was refused, and editing added Tenant administrator to the held set; activation verified by integration tests                                                                                 |
 |    17 | Directory grids and bulk actions | `M0005: Business Directory` (R027–R030)                                                            | Directory lists as standard grids with row actions and all-or-nothing bulk archive and restore                                                       | Complete    | Implemented in #59; PRD additions accepted 2026-10-10; unit, DB, and web tests pass locally and in CI; on the dev stack the Employees grid bulk-archived and restored two records, and a client's contacts grid refused a bulk archive that included its primary tax contact and listed the buyer by name                                                                                          |
 |    18 | List-screen UI conventions       | `I0001` (R025–R034), `M0005` (R031–R032), `M0003` (R017–R018), `I0002` (R011–R016), `I0003` (R043) | Every list screen on the standard grid: ⋮ row menus, header search, filter popover and actions, Labels and Roles grids with bulk archive and restore | Complete    | Implemented in #63; PRD additions accepted 2026-10-23; unit, DB, and web tests pass locally and in CI; on the dev stack Labels bulk-archived and restored two labels, Portal Users refused a bulk deactivate that included root and listed it by email, then bulk-deactivated and restored two test users, and the Filters panel narrowed Portal Users by tenant, status, and must-change-password |
-|    19 | Companies                        |                                                                                                    | Legal-entity and tax-registration management                                                                                                         | Not started |                                                                                                                                                                                                                                                                                                                                                                                                    |
-|    20 | Tenant settings                  |                                                                                                    | Numbering, preference, payment-term, and approval configuration                                                                                      | Not started |                                                                                                                                                                                                                                                                                                                                                                                                    |
+|    19 | Archived records view            | `I0011: Archived Records View`                                                                     | Active and Archived tabs on every archivable list; each view shows one set of records and only its actions                                           | Complete    | Implemented in #64; PRD accepted 2026-10-23; lint, unit (API 582, web 242), and DB (294) tests pass locally and in CI; on the dev stack an archived role appeared only in the Archived tab, creating a role with its code linked to the Archived view searched for it, Restore selected brought it back, and Employees kept `?view=archived` across a reload                                       |
+|    20 | Companies                        |                                                                                                    | Legal-entity and tax-registration management                                                                                                         | Not started |                                                                                                                                                                                                                                                                                                                                                                                                    |
+|    21 | Tenant settings                  |                                                                                                    | Numbering, preference, payment-term, and approval configuration                                                                                      | Not started |                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 Phase 3 is complete when a tenant administrator can establish the organization,
 people, counterparties, legal entities, and settings required by later modules.
@@ -120,9 +121,9 @@ people, counterparties, legal entities, and settings required by later modules.
 
 | Order | Deliverable | PRD | UI increment                                                 | Status      | Evidence |
 | ----: | ----------- | --- | ------------------------------------------------------------ | ----------- | -------- |
-|    21 | Catalog     |     | Products, materials, vendor SKUs, prices, and assemblies     | Not started |          |
-|    22 | Cost codes  |     | Cost-category and activity management                        | Not started |          |
-|    23 | Projects    |     | Project creation, structure, membership, and change tracking | Not started |          |
+|    22 | Catalog     |     | Products, materials, vendor SKUs, prices, and assemblies     | Not started |          |
+|    23 | Cost codes  |     | Cost-category and activity management                        | Not started |          |
+|    24 | Projects    |     | Project creation, structure, membership, and change tracking | Not started |          |
 
 Phase 4 is complete when later commercial and delivery modules can use shared
 catalog, cost, and project records through accepted contracts.
@@ -131,9 +132,9 @@ catalog, cost, and project records through accepted contracts.
 
 | Order | Deliverable | PRD | UI increment                                                       | Status      | Evidence |
 | ----: | ----------- | --- | ------------------------------------------------------------------ | ----------- | -------- |
-|    24 | Estimating  |     | Estimate templates, versions, cost inputs, bids, and approvals     | Not started |          |
-|    25 | Sales       |     | Opportunities, quotes, buyer selections, and approvals             | Not started |          |
-|    26 | Contracts   |     | Agreements, versions, amendments, changes, milestones, and history | Not started |          |
+|    25 | Estimating  |     | Estimate templates, versions, cost inputs, bids, and approvals     | Not started |          |
+|    26 | Sales       |     | Opportunities, quotes, buyer selections, and approvals             | Not started |          |
+|    27 | Contracts   |     | Agreements, versions, amendments, changes, milestones, and history | Not started |          |
 
 Phase 5 is complete when users can move work from estimating and sales through
 an executed contract without bypassing accepted approval and version rules.
@@ -142,8 +143,8 @@ an executed contract without bypassing accepted approval and version rules.
 
 | Order | Deliverable   | PRD | UI increment                                                     | Status      | Evidence |
 | ----: | ------------- | --- | ---------------------------------------------------------------- | ----------- | -------- |
-|    27 | Scheduling    |     | Activities, dependencies, milestones, deliverables, and progress | Not started |          |
-|    28 | Project costs |     | Baselines, approved changes, forecasts, rollups, and variances   | Not started |          |
+|    28 | Scheduling    |     | Activities, dependencies, milestones, deliverables, and progress | Not started |          |
+|    29 | Project costs |     | Baselines, approved changes, forecasts, rollups, and variances   | Not started |          |
 
 Phase 6 is complete when project teams can plan work, record progress, and
 compare approved costs with forecasts and actual outcomes.
@@ -152,9 +153,9 @@ compare approved costs with forecasts and actual outcomes.
 
 | Order | Deliverable         | PRD | UI increment                                                       | Status      | Evidence |
 | ----: | ------------------- | --- | ------------------------------------------------------------------ | ----------- | -------- |
-|    29 | Accounting          |     | Accounts, periods, journals, posting, balances, and intercompany   | Not started |          |
-|    30 | Accounts payable    |     | Purchase orders, vendor invoices, approvals, payments, and credits | Not started |          |
-|    31 | Accounts receivable |     | Customer invoices, receipts, allocations, and credits              | Not started |          |
+|    30 | Accounting          |     | Accounts, periods, journals, posting, balances, and intercompany   | Not started |          |
+|    31 | Accounts payable    |     | Purchase orders, vendor invoices, approvals, payments, and credits | Not started |          |
+|    32 | Accounts receivable |     | Customer invoices, receipts, allocations, and credits              | Not started |          |
 
 Phase 7 is complete when payable and receivable activity posts through the
 accepted accounting rules and can be reconciled to ledger balances.
@@ -163,7 +164,7 @@ accepted accounting rules and can be reconciled to ledger balances.
 
 | Order | Deliverable | PRD | UI increment                                         | Status      | Evidence |
 | ----: | ----------- | --- | ---------------------------------------------------- | ----------- | -------- |
-|    32 | Reporting   |     | Tenant-safe report selection, filtering, and display | Not started |          |
+|    33 | Reporting   |     | Tenant-safe report selection, filtering, and display | Not started |          |
 
 Phase 8 is complete when authorized users can view tenant-safe reports whose
 figures reconcile to the owning modules.
@@ -230,6 +231,9 @@ plan, pull request, test output, or release evidence when available.
 | 2026-10-10 | Directory grids and bulk actions | M0005-R027–R030 implemented; Phase 3 deliverable #17 complete                                                                                               | [M0005](../PRDs/modules/M0005-business-directory.md)                                                                                                                      |
 | 2026-10-23 | List-screen UI conventions       | I0001-R025–R034, M0005-R031–R032, M0003-R017–R018, I0002-R011–R016, and I0003-R043 drafted; Phase 3 deliverable #18 added and later deliverables renumbered | [I0001](../PRDs/inter-module-workflows/I0001-application-entry-and-shell.md)                                                                                              |
 | 2026-10-23 | List-screen UI conventions       | I0001-R025–R034, M0005-R031–R032, M0003-R017–R018, I0002-R011–R016, and I0003-R043 implemented; Phase 3 deliverable #18 complete                            | [I0001](../PRDs/inter-module-workflows/I0001-application-entry-and-shell.md)                                                                                              |
+| 2026-10-23 | Archived records view            | I0011 drafted; Phase 3 deliverable #19 added and later deliverables renumbered                                                                              | [I0011](../PRDs/inter-module-workflows/I0011-archived-records-view.md)                                                                                                    |
+| 2026-10-23 | Archived records view            | I0011 accepted; Phase 3 deliverable #19 in progress                                                                                                         | [I0011](../PRDs/inter-module-workflows/I0011-archived-records-view.md)                                                                                                    |
+| 2026-10-23 | Archived records view            | I0011 implemented; Phase 3 deliverable #19 complete                                                                                                         | [I0011](../PRDs/inter-module-workflows/I0011-archived-records-view.md#verification-evidence)                                                                              |
 
 ## Current Blockers
 

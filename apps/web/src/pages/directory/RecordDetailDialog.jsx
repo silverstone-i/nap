@@ -14,12 +14,10 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -32,6 +30,7 @@ import {
   revealTaxId,
   updateDirectoryRecord,
 } from '../../api/endpoints.js';
+import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { AddressDialog } from './AddressDialog.jsx';
 import { ClientTenantPanel } from './ClientTenantPanel.jsx';
@@ -113,6 +112,7 @@ export function RecordDetailDialog({
   const [contactForm, setContactForm] = useState(false);
   const [openContact, setOpenContact] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  // I0011-R003: the contacts view lives in the dialog and opens on Active.
   const [contactsArchived, setContactsArchived] = useState(false);
   // Bumped on every change, so the contacts grid reloads its page too.
   const [contactsTick, setContactsTick] = useState(0);
@@ -142,6 +142,7 @@ export function RecordDetailDialog({
     collection: 'organization-contacts',
     abilities: contactAbilities,
     onDone: changed,
+    archived: contactsArchived,
   });
 
   async function run(action, messages = {}) {
@@ -409,26 +410,21 @@ export function RecordDetailDialog({
                     columnGap: 2,
                   }}
                 >
-                  <FormControlLabel
-                    sx={{ mr: 'auto' }}
-                    control={
-                      <Switch
-                        checked={contactsArchived}
-                        onChange={event =>
-                          setContactsArchived(event.target.checked)
-                        }
-                      />
-                    }
-                    label="Include archived"
-                  />
+                  <Stack sx={{ mr: 'auto' }}>
+                    <ArchiveViewTabs
+                      archived={contactsArchived}
+                      onChange={setContactsArchived}
+                    />
+                  </Stack>
                   <ActionBar
                     actions={[
                       ...contactsBulk.actions,
-                      canEditDetails && {
-                        label: 'Add contact',
-                        create: true,
-                        onClick: () => setContactForm(true),
-                      },
+                      canEditDetails &&
+                        !contactsArchived && {
+                          label: 'Add contact',
+                          create: true,
+                          onClick: () => setContactForm(true),
+                        },
                     ]}
                   />
                 </Stack>
@@ -436,7 +432,7 @@ export function RecordDetailDialog({
                   collection="organization-contacts"
                   filters={{
                     organizationId: record.id,
-                    includeArchived: contactsArchived,
+                    archived: contactsArchived,
                   }}
                   ariaLabel="Contacts"
                   emptyMessage="None."

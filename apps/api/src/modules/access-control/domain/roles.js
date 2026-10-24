@@ -195,15 +195,26 @@ export function listCapabilities(context) {
 }
 
 /**
- * The tenant's roles with their grants.
- * @param {AccessControlContext} context
- * @param {{includeArchived?: boolean}} [options]
- * @returns {Promise<ReturnType<typeof roleView>[]>}
+ * The list's raw query: `archived` is `'true'` or `'false'`. Strict, so the
+ * old `includeArchived` is refused (I0011-R009).
  */
-export function listRoles(context, { includeArchived = false } = {}) {
+const listQuerySchema = z.strictObject({
+  archived: z.enum(['true', 'false']).optional(),
+});
+
+/**
+ * The tenant's active roles with their grants, or only its archived ones
+ * when `archived` is `'true'` (I0011-R009).
+ * @param {AccessControlContext} context
+ * @param {unknown} [query] Raw query values, checked by `listQuerySchema`.
+ * @returns {Promise<ReturnType<typeof roleView>[]>}
+ * @throws {AccessControlError} `INVALID_INPUT`
+ */
+export async function listRoles(context, query = {}) {
+  const archived = parse(listQuerySchema, query).archived === 'true';
   return withAccessControlErrors(() =>
     withTenantTransaction(context.cell, context.tenant.id, async tx => {
-      const rows = await context.cell.roles.list({ tx, includeArchived });
+      const rows = await context.cell.roles.list({ tx, archived });
       const byRole = await context.cell.role_grants.patternsByRole(
         rows.map(row => row.id),
         { tx }
@@ -256,10 +267,16 @@ export async function createRole(context, body) {
     await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
       `access-control:role:${context.tenant.id}:${input.code}`,
     ]);
-    if (
-      await context.cell.roles.lockByCode(context.tenant.id, input.code, { tx })
-    )
-      throw new AccessControlError('CONFLICT');
+    const holder = await context.cell.roles.lockByCode(
+      context.tenant.id,
+      input.code,
+      { tx }
+    );
+    if (holder)
+      throw new AccessControlError(
+        'CONFLICT',
+        holder.deactivated_at ? { id: holder.id, archived: true } : undefined
+      );
     const row = await context.cell.roles.insert(
       {
         tenant_id: context.tenant.id,
