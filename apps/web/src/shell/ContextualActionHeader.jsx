@@ -97,7 +97,7 @@ export function ContextualActionHeader({ headingRef }) {
         borderBottom: 1,
         borderColor: 'divider',
         minHeight: 64,
-        // A flex child of the scrolling work area: without this a tall
+        // A flex child of the work area: without this a tall
         // grid squeezes the header and its search row overlaps the grid.
         flexShrink: 0,
       }}

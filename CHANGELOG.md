@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- The page header (title, search, filters, actions, and the Active and Archived tabs) stays in place on every page; only the content below it scrolls.
+
 ## [v0.30.0] - 2026-10-24
 
 ### Added
