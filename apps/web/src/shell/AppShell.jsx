@@ -68,11 +68,13 @@ export function AppShell({ children }) {
                 minWidth: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: 'auto',
               }}
             >
+              {/* The header stays put; only the content below it scrolls. */}
               <ContextualActionHeader headingRef={headingRef} />
-              <Box sx={{ flex: 1, p: 3, minWidth: 0 }}>{children}</Box>
+              <Box sx={{ flex: 1, p: 3, minWidth: 0, overflow: 'auto' }}>
+                {children}
+              </Box>
             </Box>
           </Box>
         </Box>
