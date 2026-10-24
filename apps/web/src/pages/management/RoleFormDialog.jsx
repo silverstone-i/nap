@@ -16,7 +16,6 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import {
   createRole,
-  getRole,
   listCapabilities,
   updateRole,
 } from '../../api/endpoints.js';
@@ -141,12 +140,18 @@ function GrantPicker({ tenantCode, catalogue, onAdd }) {
 
 /**
  * Create or edit a custom role (M0003-R016). Editing sends the role's
- * `revision`; on `STALE_REVISION` the role is reloaded into the form.
- * `grants` replaces the full set.
- * @param {{role?: import('../../api/endpoints.js').RoleView|null, tenantCode: string, onClose: () => void, onSaved: (role: object) => void}} props
+ * `revision`; on `STALE_REVISION` `onReload` fetches the role, and the form
+ * starts over from it. `grants` replaces the full set.
+ * @param {{role?: import('../../api/endpoints.js').RoleView|null, tenantCode: string, onClose: () => void, onSaved: (role: object) => void, onReload?: () => Promise<import('../../api/endpoints.js').RoleView>}} props
  * @returns {JSX.Element}
  */
-export function RoleFormDialog({ role = null, tenantCode, onClose, onSaved }) {
+export function RoleFormDialog({
+  role = null,
+  tenantCode,
+  onClose,
+  onSaved,
+  onReload,
+}) {
   const editing = Boolean(role);
   const [current, setCurrent] = useState(role);
   const [code, setCode] = useState('');
@@ -205,9 +210,9 @@ export function RoleFormDialog({ role = null, tenantCode, onClose, onSaved }) {
           describeRoleError(err)
         )
       );
-      if (editing && isStaleRevision(err)) {
+      if (editing && onReload && isStaleRevision(err)) {
         try {
-          const fresh = await getRole(current.id);
+          const fresh = await onReload();
           setCurrent(fresh);
           setName(fresh.name);
           setDescription(fresh.description ?? '');

@@ -17,7 +17,7 @@ import TextField from '@mui/material/TextField';
 import { addAddress, updateAddress } from '../../api/endpoints.js';
 import { CountrySelect } from '../../components/CountrySelect.jsx';
 import { LabelSelect } from './ContactMethodDialog.jsx';
-import { describeDirectoryError } from './directoryErrors.js';
+import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
 
 /** Blank optional text becomes null. */
 const orNull = value => (value.trim() ? value.trim() : null);
@@ -25,10 +25,19 @@ const orNull = value => (value.trim() ? value.trim() : null);
 /**
  * Add or edit an address (M0005-R015). The country comes from the M0004
  * country lookup; making it primary replaces the current primary address.
- * @param {{partyId: string, address: object|null, onClose: () => void, onSaved: () => void}} props
+ * On `STALE_REVISION`, `onReload` fetches the address, and the form starts
+ * over from it.
+ * @param {{partyId: string, address: object|null, onClose: () => void, onSaved: () => void, onReload?: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
-export function AddressDialog({ partyId, address, onClose, onSaved }) {
+export function AddressDialog({
+  partyId,
+  address: initialAddress,
+  onClose,
+  onSaved,
+  onReload,
+}) {
+  const [address, setAddress] = useState(initialAddress);
   const [line1, setLine1] = useState(address?.line1 ?? '');
   const [line2, setLine2] = useState(address?.line2 ?? '');
   const [city, setCity] = useState(address?.city ?? '');
@@ -64,6 +73,22 @@ export function AddressDialog({ partyId, address, onClose, onSaved }) {
       onSaved();
     } catch (err) {
       setError(describeDirectoryError(err));
+      if (address && onReload && isStaleRevision(err)) {
+        try {
+          const fresh = await onReload();
+          setAddress(fresh);
+          setLine1(fresh.line1);
+          setLine2(fresh.line2 ?? '');
+          setCity(fresh.city);
+          setRegion(fresh.region ?? '');
+          setPostalCode(fresh.postalCode ?? '');
+          setCountry(fresh.country);
+          setLabelId(fresh.labelId ?? null);
+          setIsPrimary(fresh.isPrimary);
+        } catch (reloadErr) {
+          setError(describeDirectoryError(reloadErr));
+        }
+      }
     } finally {
       setSaving(false);
     }
