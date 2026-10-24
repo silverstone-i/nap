@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- The web client builds with the React Compiler, which adds memoization automatically in dev and production builds. Components it can't compile yet run unchanged.
+
 ## [v0.30.1] - 2026-10-24
 
 ### Fixed
