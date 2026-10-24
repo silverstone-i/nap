@@ -6,11 +6,11 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import Alert from '@mui/material/Alert';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import { useSession } from '../../auth/SessionContext.jsx';
+import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
+import { useArchiveView } from '../../grid/useArchiveView.js';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 import { DirectoryGrid } from './DirectoryGrid.jsx';
@@ -52,8 +52,10 @@ const PAGES = {
  * `/directory/clients` (M0005-R026–R029): list and search the selected
  * tenant's records of one kind in a standard grid, open, edit, archive, or
  * restore one or a page of them, or create one. The name search, the filter
- * popover (tax ID with `tax-ids::read`, Include archived), the bulk actions,
- * and the create action sit in the page header (I0001-R028, R029).
+ * popover (tax ID with `tax-ids::read`), the bulk actions, and the create
+ * action sit in the page header (I0001-R028, R029). Active and Archived tabs
+ * switch the view, kept in the URL (I0011-R001–R005); Archived has no create
+ * action.
  * @param {{kind: 'employee'|'contact'|'vendor'|'client'}} props
  * @returns {JSX.Element}
  */
@@ -65,7 +67,7 @@ export function DirectoryRecordsPage({ kind }) {
   const abilities = useDirectoryAbilities();
   const [search, setSearch] = useState('');
   const [taxId, setTaxId] = useState('');
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [archived, setArchived] = useArchiveView();
   const query = useDebouncedValue(search.trim());
   const taxIdQuery = useDebouncedValue(taxId.trim());
   const [notice, setNotice] = useState(null);
@@ -76,18 +78,18 @@ export function DirectoryRecordsPage({ kind }) {
   const [creating, setCreating] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey(key => key + 1);
-  const bulk = useDirectoryBulk({ collection, abilities, onDone: reload });
+  const bulk = useDirectoryBulk({
+    collection,
+    abilities,
+    onDone: reload,
+    archived,
+  });
 
   const chips = [
     taxIdQuery && {
       key: 'taxId',
       label: 'Tax ID',
       onDelete: () => setTaxId(''),
-    },
-    includeArchived && {
-      key: 'archived',
-      label: 'Including archived',
-      onDelete: () => setIncludeArchived(false),
     },
   ].filter(Boolean);
 
@@ -101,41 +103,33 @@ export function DirectoryRecordsPage({ kind }) {
           label: 'Search by name',
         }
       : null,
-    filters: tenant
-      ? {
-          content: (
-            <>
-              {abilities.readTaxIds ? (
-                <TextField
-                  label="Tax ID"
-                  value={taxId}
-                  onChange={event => setTaxId(event.target.value)}
-                  size="small"
-                  autoComplete="off"
-                />
-              ) : null}
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={includeArchived}
-                    onChange={event => setIncludeArchived(event.target.checked)}
-                  />
-                }
-                label="Include archived"
+    filters:
+      tenant && abilities.readTaxIds
+        ? {
+            content: (
+              <TextField
+                label="Tax ID"
+                value={taxId}
+                onChange={event => setTaxId(event.target.value)}
+                size="small"
+                autoComplete="off"
               />
-            </>
-          ),
-          chips,
-        }
-      : null,
+            ),
+            chips,
+          }
+        : null,
+    tabs: tenant ? (
+      <ArchiveViewTabs archived={archived} onChange={setArchived} />
+    ) : null,
     actions: tenant
       ? [
           ...bulk.actions,
-          abilities.write && {
-            label: settings.create,
-            create: true,
-            onClick: () => setCreating(true),
-          },
+          abilities.write &&
+            !archived && {
+              label: settings.create,
+              create: true,
+              onClick: () => setCreating(true),
+            },
         ]
       : null,
   });
@@ -160,7 +154,7 @@ export function DirectoryRecordsPage({ kind }) {
           kind,
           q: query || undefined,
           taxId: (abilities.readTaxIds && taxIdQuery) || undefined,
-          includeArchived,
+          archived,
         }}
         ariaLabel={settings.title}
         emptyMessage={settings.empty}
@@ -177,7 +171,15 @@ export function DirectoryRecordsPage({ kind }) {
           abilities={abilities}
           onClose={() => {
             setSelected(null);
-            if (params.has('open')) setParams({}, { replace: true });
+            if (params.has('open'))
+              setParams(
+                current => {
+                  const kept = new URLSearchParams(current);
+                  kept.delete('open');
+                  return kept;
+                },
+                { replace: true }
+              );
           }}
           onChanged={reload}
         />

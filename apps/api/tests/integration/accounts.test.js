@@ -459,7 +459,7 @@ describe('reads', () => {
     expect(secondPage.rows[0].id > firstPage.rows[0].id).toBe(true);
   });
 
-  it('leaves out an archived user unless includeArchived is true (I0002-R011)', async () => {
+  it('lists an archived user only with archived=true (I0011-R009)', async () => {
     const write = authority();
     const userId = await seedUser();
     await archiveUser(db, write, userId);
@@ -482,17 +482,16 @@ describe('reads', () => {
 
     expect((await all({})).some(row => row.id === userId)).toBe(false);
     expect(
-      (await all({ includeArchived: 'false' })).some(row => row.id === userId)
+      (await all({ archived: 'false' })).some(row => row.id === userId)
     ).toBe(false);
-    const found = (await all({ includeArchived: 'true' })).find(
-      row => row.id === userId
-    );
-    expect(found).toBeDefined();
-    expect(found.deactivatedAt).not.toBeNull();
+    const archived = await all({ archived: 'true' });
+    expect(archived.find(row => row.id === userId)).toBeDefined();
+    expect(archived.every(row => row.deactivatedAt !== null)).toBe(true);
 
-    await expect(
-      listUsers(db, write, { includeArchived: 'yes' })
-    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    for (const options of [{ archived: 'yes' }, { includeArchived: 'true' }])
+      await expect(listUsers(db, write, options)).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+      });
   });
 
   it('finds users by part of their email, ignoring case, with % and _ literal (I0002-R015)', async () => {

@@ -6,6 +6,7 @@
 import {
   ERROR_STATUS,
   sendBulkFailed,
+  sendConflict,
   sendError,
 } from '../../../../framework/envelope.js';
 import { authorize } from '../../../../capability/authorize.js';
@@ -29,6 +30,11 @@ export function sendDirectoryError(response, error) {
   // M0005-R030: a bulk failure names each failed item and its code.
   if (code === 'BULK_FAILED' && Array.isArray(error.details)) {
     sendBulkFailed(response, error.details);
+    return;
+  }
+  // I0011-R010: an archived label holds the name.
+  if (code === 'CONFLICT' && error.details) {
+    sendConflict(response, error.details);
     return;
   }
   sendError(

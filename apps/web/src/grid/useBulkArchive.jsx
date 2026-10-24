@@ -32,8 +32,9 @@ export const ALREADY_IN_STATE = {
 /**
  * Archive selected and Restore selected for the rows chosen on a standard
  * grid's current page (I0001-R028, R032; M0005-R029–R030 and the label and
- * role bulk routes). Archive selected is offered only when every selected
- * row is active, Restore selected only when every one is archived. Each asks
+ * role bulk routes). The list's view decides which one is offered: Archive
+ * selected in the Active view, Restore selected in the Archived view
+ * (I0011-R005), since a view holds only one kind of row. Each asks
  * for one confirmation naming the count. A bulk request is all or nothing:
  * on `BULK_FAILED` a dialog names each failed row and why, and the
  * selection is kept so the user can change it and try again.
@@ -50,10 +51,10 @@ export const ALREADY_IN_STATE = {
  *   archiveText?: string,
  *   onDone: () => void,
  *   onError?: (err: unknown) => void,
- *   isArchived?: (row: object) => boolean,
+ *   archived: boolean,
  *   verbs?: {archive?: [string, string], restore?: [string, string]},
  * }} options `noun` is the singular and plural, such as `['label', 'labels']`.
- *   `isArchived` defaults to `row.archived`. `verbs` renames an action, such
+ *   `archived` is the list's view: `true` in the Archived view. `verbs` renames an action, such
  *   as Portal Users' `{ archive: ['Deactivate', 'deactivated'] }`
  *   (I0002-R014). `items` carry `revision` only where rows have one.
  * @returns {{
@@ -72,7 +73,7 @@ export function useBulkArchive({
   archiveText,
   onDone,
   onError,
-  isArchived = row => row.archived,
+  archived,
   verbs,
 }) {
   const notify = useNotice();
@@ -84,8 +85,6 @@ export function useBulkArchive({
 
   const count = selectedRows.length;
   const counted = n => `${n} ${n === 1 ? noun[0] : noun[1]}`;
-  const allActive = count > 0 && selectedRows.every(row => !isArchived(row));
-  const allArchived = count > 0 && selectedRows.every(isArchived);
 
   async function submit(action) {
     const rows = selectedRows;
@@ -102,19 +101,20 @@ export function useBulkArchive({
     }
   }
 
-  const actions = canWrite
-    ? [
-        allActive && {
-          label: `${verb.archive[0]} selected (${count})`,
-          color: 'warning',
-          onClick: () => setConfirming('archive'),
-        },
-        allArchived && {
-          label: `${verb.restore[0]} selected (${count})`,
-          onClick: () => setConfirming('restore'),
-        },
-      ].filter(Boolean)
-    : [];
+  const actions =
+    canWrite && count > 0
+      ? [
+          !archived && {
+            label: `${verb.archive[0]} selected (${count})`,
+            color: 'warning',
+            onClick: () => setConfirming('archive'),
+          },
+          archived && {
+            label: `${verb.restore[0]} selected (${count})`,
+            onClick: () => setConfirming('restore'),
+          },
+        ].filter(Boolean)
+      : [];
 
   const details =
     failure?.err instanceof ApiError &&

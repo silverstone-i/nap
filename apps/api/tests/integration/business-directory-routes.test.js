@@ -372,6 +372,15 @@ describe('people (M0005-R002, R016)', () => {
     expect(archived.body.data.archived).toBe(true);
     const list = (await call('get', '/people?q=Li')).body.data.rows;
     expect(list.some(p => p.id === bob.id)).toBe(false);
+    // I0011-R009: the archived view lists only archived records.
+    const archivedList = (await call('get', '/people?q=Li&archived=true')).body
+      .data.rows;
+    expect(archivedList.some(p => p.id === bob.id)).toBe(true);
+    expect(archivedList.every(p => p.archived)).toBe(true);
+    for (const query of ['includeArchived=true', 'archived=yes'])
+      expect((await call('get', `/people?${query}`)).body.error.code).toBe(
+        'INVALID_INPUT'
+      );
     const restored = await call('post', `/people/${bob.id}/restore`, {
       revision: 3,
     });
@@ -1809,5 +1818,76 @@ describe('directory lists and bulk actions (M0005-R027–R030)', () => {
       (await call('get', `/organization-contacts/${other.id}`)).body.data
         .archived
     ).toBe(false);
+  });
+});
+
+describe('archived labels (I0011-R009, R010)', () => {
+  /** A new Email label with a unique name. */
+  async function label(name = `view-${randomUUID().slice(0, 8)}`) {
+    const response = await call('post', '/labels', {
+      appliesTo: 'email',
+      name,
+    });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    return response.body.data;
+  }
+
+  /** Archive `row` and return its archived view. */
+  async function archive(row) {
+    const response = await call('post', `/labels/${row.id}/archive`, {
+      revision: row.revision,
+    });
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    return response.body.data;
+  }
+
+  it('lists only archived labels with archived=true and refuses includeArchived', async () => {
+    const kept = await label();
+    const gone = await archive(await label());
+    const active = (await call('get', '/labels?appliesTo=email')).body.data;
+    expect(active.map(row => row.id)).toContain(kept.id);
+    expect(active.map(row => row.id)).not.toContain(gone.id);
+    const archived = (
+      await call('get', '/labels?appliesTo=email&archived=true')
+    ).body.data;
+    expect(archived.map(row => row.id)).toContain(gone.id);
+    expect(archived.every(row => row.archived)).toBe(true);
+    expect(
+      (await call('get', '/labels?includeArchived=true')).body.error.code
+    ).toBe('INVALID_INPUT');
+  });
+
+  it('names the archived label that holds a name on create and rename', async () => {
+    const gone = await archive(await label());
+    const created = await call('post', '/labels', {
+      appliesTo: 'email',
+      name: gone.name,
+    });
+    expect(created.status).toBe(409);
+    expect(created.body.error).toMatchObject({
+      code: 'CONFLICT',
+      details: { id: gone.id, archived: true },
+    });
+
+    const other = await label();
+    const renamed = await call('patch', `/labels/${other.id}`, {
+      name: gone.name,
+      revision: other.revision,
+    });
+    expect(renamed.status).toBe(409);
+    expect(renamed.body.error.details).toEqual({ id: gone.id, archived: true });
+
+    // An active holder is refused without details; keeping its own name is not a conflict.
+    const active = await call('patch', `/labels/${other.id}`, {
+      name: (await label()).name,
+      revision: other.revision,
+    });
+    expect(active.body.error).toMatchObject({ code: 'CONFLICT' });
+    expect(active.body.error.details).toBeUndefined();
+    const same = await call('patch', `/labels/${other.id}`, {
+      name: other.name,
+      revision: other.revision,
+    });
+    expect(same.status, JSON.stringify(same.body)).toBe(200);
   });
 });

@@ -128,6 +128,20 @@ export function sendBulkFailed(response, details) {
 }
 
 /**
+ * Send `409 CONFLICT` naming the archived record that already holds the
+ * unique value, so the screen can link to it (I0011-R010).
+ * @param {import('express').Response} response
+ * @param {{id: string, archived: true}} details
+ * @returns {void}
+ */
+export function sendConflict(response, details) {
+  const body = errorEnvelope('CONFLICT');
+  body.error.details = details;
+  response.setHeader('Cache-Control', 'no-store');
+  response.status(ERROR_STATUS.CONFLICT).json(body);
+}
+
+/**
  * Send an error envelope with its mapped status.
  * @param {import('express').Response} response
  * @param {string} code A key of `ERROR_STATUS`.

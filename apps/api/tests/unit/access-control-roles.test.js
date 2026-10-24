@@ -59,9 +59,9 @@ function fakeCell({
       lockById: async id => roleRows.get(id) ?? null,
       byId: async id => roleRows.get(id) ?? null,
       byIds: async ids => ids.map(id => roleRows.get(id)).filter(Boolean),
-      list: async ({ includeArchived }) =>
+      list: async ({ archived }) =>
         [...roleRows.values()]
-          .filter(row => includeArchived || !row.deactivated_at)
+          .filter(row => Boolean(archived) === Boolean(row.deactivated_at))
           .sort((a, b) => a.code.localeCompare(b.code)),
       lockByCode: async (_tenant, code) =>
         [...roleRows.values()].find(row => row.code === code) ?? null,
@@ -168,7 +168,7 @@ function context(
 const READ_ROLES = 'ACME::access-control::roles::read';
 
 describe('reads', () => {
-  it('lists active roles by default and scopes every transaction to the tenant', async () => {
+  it('lists active roles by default, only archived ones with archived=true, and scopes every transaction to the tenant (I0011-R009)', async () => {
     const active = role({ code: 'clerk' });
     const archived = role({ code: 'old', deactivated_at: new Date() });
     const cell = fakeCell({
@@ -177,13 +177,19 @@ describe('reads', () => {
     });
     const ctx = context(cell);
     expect((await listRoles(ctx)).map(r => r.code)).toEqual(['clerk']);
-    const all = await listRoles(ctx, { includeArchived: true });
-    expect(all.map(r => [r.code, r.archived])).toEqual([
-      ['clerk', false],
-      ['old', true],
-    ]);
-    expect(all[0].grants).toEqual([READ_ROLES]);
-    expect(cell.tenantSettings).toEqual([TENANT, TENANT]);
+    expect(
+      (await listRoles(ctx, { archived: 'true' })).map(r => [
+        r.code,
+        r.archived,
+      ])
+    ).toEqual([['old', true]]);
+    const [clerk] = await listRoles(ctx, { archived: 'false' });
+    expect(clerk.grants).toEqual([READ_ROLES]);
+    for (const query of [{ archived: 'yes' }, { includeArchived: 'true' }])
+      await expect(listRoles(ctx, query)).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+      });
+    expect(cell.tenantSettings).toEqual([TENANT, TENANT, TENANT]);
   });
 
   it('reports NOT_FOUND for an unknown or malformed role ID', async () => {
@@ -238,13 +244,20 @@ describe('createRole', () => {
   });
 
   it('rejects an immutable code and an existing code with CONFLICT (R013)', async () => {
-    const cell = fakeCell({
-      roles: [role({ code: 'clerk', deactivated_at: new Date() })],
+    const archived = role({ code: 'clerk', deactivated_at: new Date() });
+    const cell = fakeCell({ roles: [archived, role({ code: 'buyer' })] });
+    const create = code =>
+      createRole(context(cell), { code, name: 'x', grants: [] });
+    for (const code of ['tenant_admin', 'buyer']) {
+      const error = await create(code).catch(caught => caught);
+      expect(error).toMatchObject({ code: 'CONFLICT' });
+      expect(error.details).toBeUndefined();
+    }
+    // I0011-R010: an archived holder is named so the screen can link to it.
+    await expect(create('clerk')).rejects.toMatchObject({
+      code: 'CONFLICT',
+      details: { id: archived.id, archived: true },
     });
-    for (const code of ['tenant_admin', 'clerk'])
-      await expect(
-        createRole(context(cell), { code, name: 'x', grants: [] })
-      ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
 
   it('rejects grants beyond the actor with GRANT_EXCEEDS_ACTOR (R011)', async () => {

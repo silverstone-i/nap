@@ -6,15 +6,12 @@
 import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import EditIcon from '@mui/icons-material/Edit';
@@ -29,7 +26,15 @@ import {
   restoreContactLabel,
 } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
+import { ArchivedConflictMessage } from '../../grid/ArchivedConflictMessage.jsx';
+import {
+  archivedSearchPath,
+  isArchivedConflict,
+} from '../../grid/archivedConflict.js';
+import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
 import { createListPageAdapter } from '../../grid/listPageAdapter.js';
+import { useArchiveView } from '../../grid/useArchiveView.js';
+import { useSearchFromUrl } from '../../grid/useSearchFromUrl.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import {
   ALREADY_IN_STATE,
@@ -44,7 +49,7 @@ import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 const GROUP_LABELS = { email: 'Email', phone: 'Phone', address: 'Address' };
 
 const ARCHIVE_TEXT =
-  'Archived labels are hidden until restored. Emails, phones, and addresses that use a label keep it.';
+  'Archived labels move to the Archived tab. Emails, phones, and addresses that use a label keep it.';
 
 const COLUMNS = [
   {
@@ -64,22 +69,13 @@ const COLUMNS = [
     sortable: false,
     filterable: false,
     priority: 'essential',
-    renderCell: ({ row }) => (
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: 'center', height: '100%' }}
-      >
-        <span>{row.name}</span>
-        {row.archived ? <Chip size="small" label="Archived" /> : null}
-      </Stack>
-    ),
   },
 ];
 
 /**
  * Add label or Rename (I0001-R032). A name is unique within its group, so
- * a clash is reported in the dialog.
+ * a clash is reported in the dialog, with a link to the archived label when
+ * one holds the name (I0011-R008).
  * @param {{label: object|null, defaultGroup: string, onClose: () => void, onSaved: (saved: object) => void}} props
  *   `label` is the one to rename, or null to add one.
  * @returns {JSX.Element}
@@ -104,7 +100,17 @@ function LabelDialog({ label, defaultGroup, onClose, onSaved }) {
           : await createContactLabel({ appliesTo, name })
       );
     } catch (err) {
-      setError(describeDirectoryError(err));
+      setError(
+        isArchivedConflict(err) ? (
+          <ArchivedConflictMessage
+            message="An archived label already uses this name."
+            to={archivedSearchPath('/settings/labels', name.trim())}
+            onFollow={onClose}
+          />
+        ) : (
+          describeDirectoryError(err)
+        )
+      );
       setSaving(false);
     }
   }
@@ -164,8 +170,9 @@ function LabelDialog({ label, defaultGroup, onClose, onSaved }) {
 /**
  * `/settings/labels` (M0005-R017, R031, R032): the tenant's labels for
  * emails, phones, and addresses in a standard grid. The header holds the
- * name search, the filter popover (For, Include archived), the bulk
- * actions, and Add label. A name is unique within its group.
+ * name search, the filter popover (For), the bulk actions, and Add label,
+ * with Active and Archived tabs below that switch the view, kept in the URL
+ * (I0011-R001–R005). A name is unique within its group.
  * @returns {JSX.Element}
  */
 export function LabelsPage() {
@@ -176,7 +183,8 @@ export function LabelsPage() {
   const notify = useNotice();
   const [search, setSearch] = useState('');
   const [group, setGroup] = useState('');
-  const [includeArchived, setIncludeArchived] = useState(false);
+  const [archived, setArchived] = useArchiveView();
+  useSearchFromUrl(setSearch);
   const [dialog, setDialog] = useState(null);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -189,11 +197,11 @@ export function LabelsPage() {
       createListPageAdapter(() =>
         listContactLabels({
           appliesTo: group || undefined,
-          includeArchived,
+          archived,
         })
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload or a new tenant loads afresh
-    [group, includeArchived, reloadKey, tenant?.id]
+    [group, archived, reloadKey, tenant?.id]
   );
   const fetchPage = useMemo(
     () => params =>
@@ -203,7 +211,8 @@ export function LabelsPage() {
       }),
     [adapter, needle]
   );
-  const resetKey = `${tenant?.id}:${group}:${includeArchived}:${needle}:${reloadKey}`;
+  // I0011-R006: a view switch clears the selection and returns to page one.
+  const resetKey = `${tenant?.id}:${group}:${archived}:${needle}:${reloadKey}`;
 
   const bulk = useBulkArchive({
     canWrite: abilities.labels,
@@ -218,6 +227,7 @@ export function LabelsPage() {
     archiveText: ARCHIVE_TEXT,
     onDone: reload,
     onError,
+    archived,
   });
 
   async function run(action, message) {
@@ -272,11 +282,6 @@ export function LabelsPage() {
       label: `For: ${GROUP_LABELS[group]}`,
       onDelete: () => setGroup(''),
     },
-    includeArchived && {
-      key: 'archived',
-      label: 'Including archived',
-      onDelete: () => setIncludeArchived(false),
-    },
   ].filter(Boolean);
 
   usePageHeader({
@@ -292,43 +297,36 @@ export function LabelsPage() {
     filters: tenant
       ? {
           content: (
-            <>
-              <TextField
-                select
-                label="For"
-                value={group}
-                onChange={event => setGroup(event.target.value)}
-                size="small"
-              >
-                <MenuItem value="">All</MenuItem>
-                {Object.entries(GROUP_LABELS).map(([value, text]) => (
-                  <MenuItem key={value} value={value}>
-                    {text}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={includeArchived}
-                    onChange={event => setIncludeArchived(event.target.checked)}
-                  />
-                }
-                label="Include archived"
-              />
-            </>
+            <TextField
+              select
+              label="For"
+              value={group}
+              onChange={event => setGroup(event.target.value)}
+              size="small"
+            >
+              <MenuItem value="">All</MenuItem>
+              {Object.entries(GROUP_LABELS).map(([value, text]) => (
+                <MenuItem key={value} value={value}>
+                  {text}
+                </MenuItem>
+              ))}
+            </TextField>
           ),
           chips,
         }
       : null,
+    tabs: tenant ? (
+      <ArchiveViewTabs archived={archived} onChange={setArchived} />
+    ) : null,
     actions: tenant
       ? [
           ...bulk.actions,
-          abilities.labels && {
-            label: 'Add label',
-            create: true,
-            onClick: () => setDialog({ label: null }),
-          },
+          abilities.labels &&
+            !archived && {
+              label: 'Add label',
+              create: true,
+              onClick: () => setDialog({ label: null }),
+            },
         ]
       : null,
   });

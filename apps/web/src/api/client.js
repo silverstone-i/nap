@@ -18,8 +18,9 @@ export class ApiError extends Error {
    * @param {string} code One of `@nap/shared`'s `apiErrorCodes`.
    * @param {number} status HTTP status.
    * @param {number|null} [retryAfterSeconds] Present only for `THROTTLED`.
-   * @param {{capability?: string, reason?: string, details?: {id: string, code: string}[]}} [denial] Present on a
-   *   capability denial (I0005-R007), or a bulk failure's items (M0005-R030).
+   * @param {{capability?: string, reason?: string, details?: {id: string, code: string}[]|{id: string, archived: true}}} [denial] Present on a
+   *   capability denial (I0005-R007), a bulk failure's items (M0005-R030), or
+   *   the archived record holding a value on `CONFLICT` (I0011-R010).
    */
   constructor(code, status, retryAfterSeconds = null, denial = {}) {
     super(code);

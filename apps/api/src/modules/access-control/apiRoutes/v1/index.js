@@ -76,12 +76,7 @@ export function createRolesRouter(deps) {
   router.get(
     '/',
     ...route(deps, READ, async (context, request, response) =>
-      sendData(
-        response,
-        await listRoles(context, {
-          includeArchived: request.query.includeArchived === 'true',
-        })
-      )
+      sendData(response, await listRoles(context, request.query))
     )
   );
   router.get(

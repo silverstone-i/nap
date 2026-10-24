@@ -41,9 +41,14 @@ const PASS_THROUGH = new Set([
  * database detail or a tax ID — callers report `code` and nothing else.
  */
 export class DirectoryError extends Error {
-  constructor(code) {
+  /**
+   * @param {string} code
+   * @param {{id: string, archived: true}} [details] For `CONFLICT`, the archived record holding the value (I0011-R010).
+   */
+  constructor(code, details) {
     super(code);
     this.code = code;
+    if (details) this.details = details;
   }
 }
 

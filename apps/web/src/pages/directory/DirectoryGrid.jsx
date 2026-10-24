@@ -6,7 +6,6 @@
 import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import EditIcon from '@mui/icons-material/Edit';
@@ -24,9 +23,8 @@ import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
 import { recordName } from './directoryRecords.js';
 
-/** R028: what Archive tells the user before it runs. */
-export const ARCHIVE_TEXT =
-  'Archived records are hidden from lists until restored.';
+/** R028, I0011-R007: what Archive tells the user before it runs. */
+export const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';
 
 /**
  * A contact value followed by its label, such as `a@b.com (Work)`.
@@ -55,13 +53,11 @@ function columnsFor(collection, onOpen) {
       flex: 2,
       priority: 'essential',
       valueGetter: (_value, row) => recordName(row),
+      // I0011-R004: the view says whether a row is archived, so no tag.
       renderCell: ({ row }) => (
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Button variant="text" size="small" onClick={() => onOpen(row)}>
-            {recordName(row)}
-          </Button>
-          {row.archived ? <Chip size="small" label="Archived" /> : null}
-        </Stack>
+        <Button variant="text" size="small" onClick={() => onOpen(row)}>
+          {recordName(row)}
+        </Button>
       ),
     },
     {

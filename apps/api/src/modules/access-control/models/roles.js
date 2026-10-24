@@ -115,15 +115,15 @@ export class Roles extends TableModel {
   }
 
   /**
-   * The tenant's roles ordered by code, optionally including archived ones.
-   * @param {{tx: import('pg-promise').IDatabase<unknown>, includeArchived?: boolean}} options
+   * The tenant's active roles ordered by code, or only its archived ones.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>, archived?: boolean}} options
    * @returns {Promise<object[]>}
    */
-  async list({ tx, includeArchived = false }) {
+  async list({ tx, archived = false }) {
     return tx.any(
       `SELECT * FROM ${this.schemaName}.${this.tableName}
-        WHERE $1 OR deactivated_at IS NULL ORDER BY code, id`,
-      [includeArchived]
+        WHERE (deactivated_at IS NOT NULL) = $1 ORDER BY code, id`,
+      [archived]
     );
   }
 

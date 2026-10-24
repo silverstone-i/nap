@@ -21,7 +21,13 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const PageHeaderContext = createContext(null);
 const SetPageHeaderContext = createContext(null);
 
-const EMPTY_HEADER = { title: '', actions: null, search: null, filters: null };
+const EMPTY_HEADER = {
+  title: '',
+  actions: null,
+  search: null,
+  filters: null,
+  tabs: null,
+};
 
 /**
  * @typedef {object} HeaderSearch
@@ -44,6 +50,7 @@ const EMPTY_HEADER = { title: '', actions: null, search: null, filters: null };
  *   In I0001-R028 order once rendered; falsy entries are dropped.
  * @property {HeaderSearch|null} search
  * @property {HeaderFilters|null} filters
+ * @property {import('react').ReactNode} tabs The list's view tabs, on their own row (I0011-R002).
  */
 
 /** Holds whatever the active page has registered for the contextual action header (I0001 §5). */
@@ -69,14 +76,16 @@ export function usePageHeaderValue() {
 }
 
 /**
- * Register this page's title, search, filters, and actions for the shell's
- * contextual action header to render (I0001-R028, R029). Also sets
+ * Register this page's title, search, filters, actions, and view tabs for
+ * the shell's contextual action header to render (I0001-R028, R029,
+ * I0011-R002). Also sets
  * `document.title`.
  * @param {{
  *   title: string,
  *   actions?: PageHeader['actions'],
  *   search?: HeaderSearch|null,
  *   filters?: HeaderFilters|null,
+ *   tabs?: import('react').ReactNode,
  * }} options
  * @returns {void}
  */
@@ -85,17 +94,18 @@ export function usePageHeader({
   actions = null,
   search = null,
   filters = null,
+  tabs = null,
 }) {
   const setHeader = useContext(SetPageHeaderContext);
   if (!setHeader)
     throw new Error('usePageHeader must be used within PageHeaderProvider');
   useEffect(() => {
-    setHeader({ title, actions, search, filters });
+    setHeader({ title, actions, search, filters, tabs });
     document.title = title ? `${title} · nap.` : 'nap.';
     return () => {
       setHeader(EMPTY_HEADER);
       document.title = 'nap.';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, actions, search, filters]);
+  }, [title, actions, search, filters, tabs]);
 }

@@ -493,12 +493,12 @@ function parseLimitOrAccount(value) {
 }
 
 /**
- * The list's raw query values (I0002-R011, R015, R016): `includeArchived`
+ * The list's raw query values (I0002-R015, R016, I0011-R009): `archived`
  * and `mustChangePassword` are `'true'` or `'false'`, `email` is 1–254
  * characters once trimmed, `tenantId` a UUID, and `status` a login status.
  */
 const userListQuerySchema = z.strictObject({
-  includeArchived: z.enum(['true', 'false']).optional(),
+  archived: z.enum(['true', 'false']).optional(),
   email: z.string().trim().min(1).max(254).optional(),
   tenantId: z.uuid().optional(),
   status: z.enum(['active', 'disabled']).optional(),
@@ -508,9 +508,10 @@ const userListQuerySchema = z.strictObject({
 /**
  * List portal-user accounts in ascending `id` order, paginated by opaque cursor (I0002-R008).
  *
- * Deactivated accounts are left out unless `includeArchived` is `'true'`
- * (I0002-R011); the Portal Users screen asks for them when Include archived
- * is on, which is where its Restore action (I0002-R006) finds them. `email`
+ * Active accounts by default; `archived` `'true'` returns only deactivated
+ * ones (I0011-R009), which the Portal Users screen's Archived view shows and
+ * where its Restore action (I0002-R006) finds them. `includeArchived` is no
+ * longer accepted, so `userListQuerySchema` refuses it. `email`
  * keeps only accounts whose email contains it, ignoring case, with `%`,
  * `_`, and `\` matched literally (I0002-R015). `tenantId`, `status`, and
  * `mustChangePassword` narrow it further (I0002-R016).
@@ -521,7 +522,7 @@ const userListQuerySchema = z.strictObject({
  * (domain/access.js) requires one for its single-record read.
  * @param {AdminAccountsDb} db
  * @param {unknown} authority `{actorId, scope}`; `scope` built for `admin-tenancy::accounts::read`.
- * @param {{cursor?: unknown, limit?: unknown, includeArchived?: unknown, email?: unknown, tenantId?: unknown, status?: unknown, mustChangePassword?: unknown}} [page] Raw query values, checked by `userListQuerySchema`.
+ * @param {{cursor?: unknown, limit?: unknown, archived?: unknown, includeArchived?: unknown, email?: unknown, tenantId?: unknown, status?: unknown, mustChangePassword?: unknown}} [page] Raw query values, checked by `userListQuerySchema`.
  * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe user-list views.
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `INTERNAL_ERROR`
  */
@@ -531,6 +532,7 @@ export async function listUsers(
   {
     cursor,
     limit,
+    archived,
     includeArchived,
     email,
     tenantId,
@@ -541,7 +543,9 @@ export async function listUsers(
   requirePlatformAuthority(authority);
   const parsedLimit = parseLimitOrAccount(limit);
   const query = userListQuerySchema.safeParse({
-    includeArchived,
+    archived,
+    // The old name is refused, not ignored (I0011-R009).
+    ...(includeArchived === undefined ? {} : { includeArchived }),
     email,
     tenantId,
     status,
@@ -552,7 +556,7 @@ export async function listUsers(
   return withAccountErrors(async () => {
     const page = await db.portal_users.page(
       {
-        includeArchived: query.data.includeArchived === 'true',
+        archived: query.data.archived === 'true',
         email: query.data.email,
         tenantId: query.data.tenantId,
         status: query.data.status,

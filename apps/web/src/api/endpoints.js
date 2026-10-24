@@ -250,14 +250,14 @@ export async function rolloutReferenceData() {
 }
 
 /**
- * @param {{cursor?: string, limit?: number, includeArchived?: boolean, email?: string, tenantId?: string, status?: 'active'|'disabled', mustChangePassword?: 'true'|'false'}} [page]
- *   Deactivated users are left out unless `includeArchived` (I0002-R011);
+ * @param {{cursor?: string, limit?: number, archived?: boolean, email?: string, tenantId?: string, status?: 'active'|'disabled', mustChangePassword?: 'true'|'false'}} [page]
+ *   Only active users, or only deactivated ones with `archived` (I0011-R009);
  *   `email` keeps users whose email contains it (I0002-R015); `tenantId`,
  *   `status`, and `mustChangePassword` narrow the list further (I0002-R016).
  * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe portal-user views (I0002-R008).
  */
 export async function listUsersPage({
-  includeArchived,
+  archived,
   email,
   tenantId,
   status,
@@ -265,7 +265,7 @@ export async function listUsersPage({
   ...page
 } = {}) {
   const params = new URLSearchParams(pageQuery(page));
-  if (includeArchived) params.set('includeArchived', 'true');
+  if (archived) params.set('archived', 'true');
   for (const [key, value] of Object.entries({
     email,
     tenantId,
@@ -417,11 +417,11 @@ export async function listCapabilities() {
 }
 
 /**
- * @param {{includeArchived?: boolean}} [options]
- * @returns {Promise<RoleView[]>} Roles in the session's selected tenant.
+ * @param {{archived?: boolean}} [options] `archived` lists only archived roles (I0011-R009).
+ * @returns {Promise<RoleView[]>} Active roles in the session's selected tenant, or its archived ones.
  */
-export async function listRoles({ includeArchived = false } = {}) {
-  const query = includeArchived ? '?includeArchived=true' : '';
+export async function listRoles({ archived = false } = {}) {
+  const query = archived ? '?archived=true' : '';
   return z
     .array(roleViewSchema)
     .parse(await apiGet(`${ACCESS_BASE}/roles${query}`));
@@ -563,7 +563,8 @@ const COLLECTION_SCHEMAS = {
 /**
  * One page of a directory list (M0005-R027).
  * @param {'people'|'organizations'|'organization-contacts'} collection
- * @param {{cursor?: string, limit?: number, kind?: string, q?: string, taxId?: string, organizationId?: string, includeArchived?: boolean}} [page]
+ * @param {{cursor?: string, limit?: number, kind?: string, q?: string, taxId?: string, organizationId?: string, archived?: boolean}} [page]
+ *   `archived` lists only archived records (I0011-R009).
  * @returns {Promise<{rows: object[], nextCursor: string|null}>} Tax IDs masked.
  */
 export async function listDirectoryPage(collection, page = {}) {
@@ -771,13 +772,14 @@ export async function removeAddress(partyId, id) {
 }
 
 /**
- * @param {{appliesTo?: 'email'|'phone'|'address', includeArchived?: boolean}} [filters]
+ * @param {{appliesTo?: 'email'|'phone'|'address', archived?: boolean}} [filters]
+ *   `archived` lists only archived labels (I0011-R009).
  * @returns {Promise<object[]>}
  */
-export async function listContactLabels({ appliesTo, includeArchived } = {}) {
+export async function listContactLabels({ appliesTo, archived } = {}) {
   const params = new URLSearchParams();
   if (appliesTo) params.set('appliesTo', appliesTo);
-  if (includeArchived) params.set('includeArchived', 'true');
+  if (archived) params.set('archived', 'true');
   const query = params.toString();
   return z
     .array(contactLabelViewSchema)

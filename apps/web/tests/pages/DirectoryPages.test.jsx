@@ -104,9 +104,9 @@ const JANE = {
   primaryPhone: null,
 };
 
-function renderWithHeader(element) {
+function renderWithHeader(element, entry = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <ThemeModeProvider>
         <NoticeProvider>
           <PageHeaderProvider>
@@ -189,22 +189,34 @@ describe('Employees (M0005-R026)', () => {
       )
     );
     await user.click(screen.getByRole('button', { name: 'Filters' }));
+    expect(screen.queryByLabelText('Include archived')).toBeNull();
     await user.type(screen.getByLabelText('Tax ID'), '123456789');
-    await user.click(screen.getByLabelText('Include archived'));
     await vi.waitFor(() =>
       expect(api.listDirectoryPage).toHaveBeenLastCalledWith(
         'people',
         expect.objectContaining({
           q: 'jan',
           taxId: '123456789',
-          includeArchived: true,
+          archived: false,
         })
       )
     );
     await user.keyboard('{Escape}');
     const chips = screen.getByLabelText('Active filters');
     expect(within(chips).getByText('Tax ID')).toBeTruthy();
-    expect(within(chips).getByText('Including archived')).toBeTruthy();
+    // I0011-R006: switching views keeps the search and filters.
+    await user.click(screen.getByRole('tab', { name: 'Archived' }));
+    await vi.waitFor(() =>
+      expect(api.listDirectoryPage).toHaveBeenLastCalledWith(
+        'people',
+        expect.objectContaining({
+          q: 'jan',
+          taxId: '123456789',
+          archived: true,
+        })
+      )
+    );
+    expect(screen.queryByRole('button', { name: 'New employee' })).toBeNull();
   });
 
   it('hides tax ID search, reveal, and entry without the tax ID capabilities', async () => {
@@ -214,10 +226,8 @@ describe('Employees (M0005-R026)', () => {
       await screen.findByRole('grid', { name: 'Employees' })
     ).findByText('Jane Doe');
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Filters' }));
-    expect(screen.getByLabelText('Include archived')).toBeTruthy();
-    expect(screen.queryByLabelText('Tax ID')).toBeNull();
-    await user.keyboard('{Escape}');
+    // Tax ID is the only filter, so there is no filter popover.
+    expect(screen.queryByRole('button', { name: 'Filters' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Jane Doe' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByRole('button', { name: 'Reveal' })).toBeNull();
@@ -469,6 +479,57 @@ describe('Portal access (I0008)', () => {
 });
 
 describe('Labels in the record detail (M0005-R014, R015)', () => {
+  it('switches the contacts grid between Active and Archived inside the dialog (I0011-R002, R003)', async () => {
+    const vendor = {
+      id: '44444444-4444-4444-8444-444444444444',
+      kind: 'vendor',
+      legalName: 'Tab Supply LLC',
+      dbaName: null,
+      taxIdLast4: null,
+      archived: false,
+      revision: 1,
+      primaryEmail: null,
+      primaryPhone: null,
+    };
+    listRows = [vendor];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...vendor,
+      contactMethods: [],
+      addresses: [],
+      contacts: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="vendor" />);
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'Tab Supply LLC' })
+    );
+    const dialog = await screen.findByRole('dialog');
+    const toolbar = await within(dialog).findByLabelText('Contacts toolbar');
+    expect(
+      within(toolbar)
+        .getByRole('tab', { name: 'Active' })
+        .getAttribute('aria-selected')
+    ).toBe('true');
+    expect(
+      within(toolbar).getByRole('button', { name: 'Add contact' })
+    ).toBeTruthy();
+    await user.click(within(toolbar).getByRole('tab', { name: 'Archived' }));
+    await vi.waitFor(() =>
+      expect(api.listDirectoryPage).toHaveBeenLastCalledWith(
+        'organization-contacts',
+        expect.objectContaining({ organizationId: vendor.id, archived: true })
+      )
+    );
+    expect(
+      within(toolbar).queryByRole('button', { name: 'Add contact' })
+    ).toBeNull();
+    // The dialog's view stays out of the page URL, so the page stays on Active.
+    const pageTab = screen
+      .getAllByRole('tab', { name: 'Archived', hidden: true })
+      .find(tab => !dialog.contains(tab));
+    expect(pageTab.getAttribute('aria-selected')).toBe('false');
+  });
+
   it('shows each email, phone, address, and contact with its label', async () => {
     const vendor = {
       id: '44444444-4444-4444-8444-444444444444',
@@ -851,6 +912,42 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     expect(await within(dialog).findByText(/already used/)).toBeTruthy();
   });
 
+  it('links an archived-name refusal to the Archived view searched for it (I0011-R008)', async () => {
+    api.createContactLabel.mockRejectedValue(
+      new ApiError('CONFLICT', 409, null, {
+        details: { id: WORK.id, archived: true },
+      })
+    );
+    await labelsGrid();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Add label' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add label' });
+    await user.type(within(dialog).getByLabelText(/Name/), 'gone');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(
+      await within(dialog).findByText(
+        /An archived label already uses this name/
+      )
+    ).toBeTruthy();
+    await user.click(
+      within(dialog).getByRole('link', { name: 'Show it in Archived' })
+    );
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Add label' })).toBeNull()
+    );
+    expect(
+      screen
+        .getByRole('tab', { name: 'Archived' })
+        .getAttribute('aria-selected')
+    ).toBe('true');
+    expect(screen.getByLabelText('Search labels').value).toBe('gone');
+    expect(api.listContactLabels).toHaveBeenLastCalledWith({
+      appliesTo: undefined,
+      archived: true,
+    });
+    expect(screen.queryByRole('button', { name: 'Add label' })).toBeNull();
+  });
+
   it('offers Rename then Archive in the row menu, and renames in a dialog', async () => {
     api.renameContactLabel.mockResolvedValue({ ...WORK, name: 'office' });
     const table = await labelsGrid();
@@ -889,7 +986,7 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     await user.click(await screen.findByRole('option', { name: 'Phone' }));
     expect(api.listContactLabels).toHaveBeenLastCalledWith({
       appliesTo: 'phone',
-      includeArchived: false,
+      archived: false,
     });
     await user.keyboard('{Escape}');
     expect(screen.getByText('For: Phone')).toBeTruthy();
@@ -963,9 +1060,7 @@ describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Archive' }));
     const confirm = await screen.findByRole('dialog');
     expect(
-      within(confirm).getByText(
-        'Archived records are hidden from lists until restored.'
-      )
+      within(confirm).getByText('Archived records move to the Archived tab.')
     ).toBeTruthy();
     await user.click(within(confirm).getByRole('button', { name: 'Archive' }));
     expect(api.archiveDirectoryRecord).toHaveBeenCalledWith(
@@ -1061,17 +1156,34 @@ describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
     ).toBeTruthy();
   });
 
-  it('offers Restore selected only when every selected row is archived', async () => {
-    listRows = [JANE, OLD];
-    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
-    await grid();
+  it('offers only Restore selected in the Archived view, opened from the URL (I0011-R003, R005)', async () => {
+    listRows = [OLD];
+    renderWithHeader(
+      <DirectoryRecordsPage kind="employee" />,
+      '/directory/employees?view=archived'
+    );
+    await within(
+      await screen.findByRole('grid', { name: 'Employees' })
+    ).findByText('Old Timer');
+    expect(
+      screen
+        .getByRole('tab', { name: 'Archived' })
+        .getAttribute('aria-selected')
+    ).toBe('true');
+    expect(api.listDirectoryPage).toHaveBeenLastCalledWith(
+      'people',
+      expect.objectContaining({ archived: true })
+    );
+    expect(screen.queryByRole('button', { name: 'New employee' })).toBeNull();
     const user = userEvent.setup();
-    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
-    await user.click(boxes[1]);
+    await user.click(
+      screen.getAllByRole('checkbox', { name: /select row/i })[0]
+    );
     expect(
       screen.getByRole('button', { name: 'Restore selected (1)' })
     ).toBeTruthy();
-    await user.click(boxes[0]);
-    expect(screen.queryByRole('button', { name: /selected/ })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /Archive selected/ })
+    ).toBeNull();
   });
 });

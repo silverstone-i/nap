@@ -5,6 +5,7 @@
 
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/api/client.js';
 import * as api from '../../src/api/endpoints.js';
@@ -56,16 +57,18 @@ const ARCHIVED_USER = {
   deactivatedAt: new Date('2026-01-01T00:00:00Z'),
 };
 
-function renderPage() {
+function renderPage(entry = '/') {
   return render(
-    <ThemeModeProvider>
-      <NoticeProvider>
-        <PageHeaderProvider>
-          <ContextualActionHeader />
-          <PortalUsersPage />
-        </PageHeaderProvider>
-      </NoticeProvider>
-    </ThemeModeProvider>
+    <MemoryRouter initialEntries={[entry]}>
+      <ThemeModeProvider>
+        <NoticeProvider>
+          <PageHeaderProvider>
+            <ContextualActionHeader />
+            <PortalUsersPage />
+          </PageHeaderProvider>
+        </NoticeProvider>
+      </ThemeModeProvider>
+    </MemoryRouter>
   );
 }
 
@@ -219,30 +222,31 @@ describe('PortalUsersPage', () => {
     await user.type(screen.getByLabelText('Search by email'), '  A@ex ');
     await vi.waitFor(() =>
       expect(api.listUsersPage).toHaveBeenLastCalledWith(
-        expect.objectContaining({ email: 'A@ex', includeArchived: false })
+        expect.objectContaining({ email: 'A@ex', archived: false })
       )
     );
   });
 
-  it('offers Restore selected only for deactivated users', async () => {
+  it('offers only Restore selected in the Archived view, with no create action (I0011-R005)', async () => {
     api.listUsersPage.mockResolvedValue({
-      rows: [ACTIVE_USER, ARCHIVED_USER],
+      rows: [ARCHIVED_USER],
       nextCursor: null,
     });
-    renderPage();
-    await screen.findByText('a@example.com');
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Filters' }));
-    await user.click(screen.getByLabelText('Include archived'));
-    await user.keyboard('{Escape}');
+    renderPage('/?view=archived');
     await screen.findByText('b@example.com');
-    const boxes = screen.getAllByRole('checkbox', { name: /select row/i });
-    await user.click(boxes[1]);
+    expect(
+      screen.queryByRole('button', { name: 'Create portal user' })
+    ).toBeNull();
+    const user = userEvent.setup();
+    await user.click(
+      screen.getAllByRole('checkbox', { name: /select row/i })[0]
+    );
     expect(
       screen.getByRole('button', { name: 'Restore selected (1)' })
     ).toBeTruthy();
-    await user.click(boxes[0]);
-    expect(screen.queryByRole('button', { name: /selected/ })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /Deactivate selected/ })
+    ).toBeNull();
   });
 
   it('lists portal-user accounts (loading -> populated, I0001-R021)', async () => {
@@ -289,27 +293,31 @@ describe('PortalUsersPage', () => {
     expect(api.deactivatePortalUser).toHaveBeenCalledWith('u1');
   });
 
-  it('asks for deactivated users only with Include archived on, and tags them (I0002-R012)', async () => {
-    api.listUsersPage.mockImplementation(async ({ includeArchived }) => ({
-      rows: includeArchived ? [ACTIVE_USER, ARCHIVED_USER] : [ACTIVE_USER],
+  it('lists deactivated users only in the Archived tab, untagged (I0011-R001, R004)', async () => {
+    api.listUsersPage.mockImplementation(async ({ archived }) => ({
+      rows: archived ? [ARCHIVED_USER] : [ACTIVE_USER],
       nextCursor: null,
     }));
     renderPage();
     await screen.findByText('a@example.com');
     expect(api.listUsersPage).toHaveBeenLastCalledWith(
-      expect.objectContaining({ includeArchived: false })
+      expect.objectContaining({ archived: false })
     );
     expect(screen.queryByText('b@example.com')).toBeNull();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Filters' }));
-    await user.click(screen.getByLabelText('Include archived'));
+    expect(screen.queryByLabelText('Include archived')).toBeNull();
     await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('tab', { name: 'Archived' }));
     const row = (await screen.findByText('b@example.com')).closest(
       '[role="row"]'
     );
-    expect(within(row).getByText('Archived')).toBeTruthy();
-    expect(screen.getByText('Including archived')).toBeTruthy();
+    expect(within(row).queryByText('Archived')).toBeNull();
+    expect(screen.queryByText('a@example.com')).toBeNull();
+    expect(api.listUsersPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ archived: true })
+    );
   });
 
   it('offers only Restore for an archived account, firing without confirmation (AC06)', async () => {

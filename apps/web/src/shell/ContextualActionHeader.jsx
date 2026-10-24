@@ -81,11 +81,13 @@ function FilterButton({ filters }) {
  * The row above the work area where the active destination supplies its
  * title, search, filters, and actions (I0001 §5, R009, R028, R029). The
  * search and filter button wrap onto their own full-width line on a phone.
+ * A list's view tabs get their own row below, above the filter chips
+ * (I0011-R002).
  * @param {{headingRef: import('react').Ref<HTMLHeadingElement>}} props
  * @returns {JSX.Element}
  */
 export function ContextualActionHeader({ headingRef }) {
-  const { title, actions, search, filters } = usePageHeaderValue();
+  const { title, actions, search, filters, tabs } = usePageHeaderValue();
   const chips = filters?.chips ?? [];
   return (
     <Box
@@ -153,6 +155,7 @@ export function ContextualActionHeader({ headingRef }) {
         ) : null}
         {actions ? <ActionBar actions={actions} /> : null}
       </Stack>
+      {tabs ? <Box sx={{ mt: 1 }}>{tabs}</Box> : null}
       {chips.length > 0 ? (
         <Stack
           direction="row"

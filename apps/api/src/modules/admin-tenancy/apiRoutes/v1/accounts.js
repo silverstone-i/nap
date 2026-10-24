@@ -118,6 +118,7 @@ export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
             request.query.limit === undefined
               ? undefined
               : Number(request.query.limit),
+          archived: request.query.archived,
           includeArchived: request.query.includeArchived,
           email: request.query.email,
           tenantId: request.query.tenantId,
