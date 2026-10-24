@@ -167,7 +167,7 @@ None.
 
 ## Verification Evidence
 
-Verified on 2026-10-23.
+Verified on 2026-10-23 in [silverstone-i/nap#64](https://github.com/silverstone-i/nap/pull/64); its CI checks (changelog, checks, roadmap) pass.
 
 - `npm run lint` and `npm run format:check` pass. `npm test` passes: API unit 582, web 242, shared 1, toolchain 25. `npm run test:db:local` passes 294, including the new cases for `archived=true` and the refused `includeArchived` on `/accounts/users`, `/roles`, `/people`, and `/labels`, and the archived-holder `details` on role create and label create and rename (AC03, AC07, AC08).
 - Web tests cover the tabs and `?view=archived` (AC01, AC02), create hidden and Restore selected only in Archived (AC04), search and filters kept across a switch (AC05), the dialog's contacts tabs staying out of the page URL (AC02), the new Archive text (AC06), and both conflict links (AC08).
