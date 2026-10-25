@@ -159,12 +159,6 @@ export const generalSettingsViewSchema = z.strictObject({
   revision: z.number().int().positive(),
 });
 
-/**
- * Zod schema for `GET /effective` (R008): every general setting, plus the
- * tenant logo's file ID, or `null`, for the shell (M0006-02-R014), whether
- * storage is connected, which shows the upload controls (R013), and the
- * member's profile image (M0006-03-R004, R007).
- */
 /** Default profile images nap ships, by name (M0006-03-R004). */
 export const DEFAULT_PROFILE_IMAGES = Object.freeze([
   'orbit',
@@ -183,6 +177,12 @@ const profileImageSchema = z
   ])
   .nullable();
 
+/**
+ * Zod schema for `GET /effective` (R008): every general setting, plus the
+ * tenant logo's file ID, or `null`, for the shell (M0006-02-R014), whether
+ * storage is connected, which shows the upload controls (R013), and the
+ * member's profile image (M0006-03-R004, R007).
+ */
 export const effectiveSettingsSchema = z.strictObject({
   ...each(name => GENERAL_SETTINGS[name].schema),
   logoFileId: z.string().uuid().nullable(),
