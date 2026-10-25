@@ -44,6 +44,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'changed_fields',
   'client_id',
   'code',
+  'country',
   'direction',
   'email',
   'failure_code',
@@ -195,6 +196,15 @@ export const EVENT_CATALOGUE = Object.freeze({
       {
         outcomes: ANY_OUTCOME,
         details: ['applies_to', 'before', 'after', 'changed_at'],
+      },
+    ])
+  ),
+  ...Object.fromEntries(
+    ['created', 'updated', 'archived', 'restored'].map(action => [
+      `directory.tax_id_format.${action}`,
+      {
+        outcomes: ANY_OUTCOME,
+        details: ['country', 'before', 'after', 'changed_at'],
       },
     ])
   ),

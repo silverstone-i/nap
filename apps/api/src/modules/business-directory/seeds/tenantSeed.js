@@ -4,9 +4,9 @@
  */
 
 /**
- * @file The directory rows a tenant starts with (M0005-R017, R022): the
- * default labels, and for a customer tenant its first administrator as an
- * employee with a primary email.
+ * @file The directory rows a tenant starts with (M0005-R017, R022, R037):
+ * the default labels and tax ID formats, and for a customer tenant its first
+ * administrator as an employee with a primary email.
  * Tenant provisioning runs it as `nap-admin` inside the seed stage's cell
  * transaction. Every step is idempotent, so a retried stage finds the rows
  * and adds nothing.
@@ -63,6 +63,52 @@ export async function directoryLabelsPresent(db, tx, tenantId) {
   );
 }
 
+/** Default tax ID formats (R037). */
+export const DEFAULT_TAX_ID_FORMATS = Object.freeze([
+  Object.freeze({ country: 'US', name: 'SSN', mask: '###-##-####' }),
+  Object.freeze({ country: 'US', name: 'EIN', mask: '##-#######' }),
+  Object.freeze({ country: 'US', name: 'ITIN', mask: '###-##-####' }),
+]);
+
+/** @param {{country: string, name: string}} format */
+const formatKey = format => `${format.country}:${format.name}`;
+
+/**
+ * Create any default tax ID format the tenant lacks, archived ones included.
+ * @param {object} db Cell repository handle.
+ * @param {import('pg-promise').IDatabase<unknown>} tx
+ * @param {string} tenantId
+ * @returns {Promise<void>}
+ */
+export async function seedTaxIdFormats(db, tx, tenantId) {
+  await setTenant(tx, tenantId);
+  const existing = await db.tax_id_formats.rows(
+    {},
+    { tx, includeArchived: true }
+  );
+  const have = new Set(existing.map(formatKey));
+  for (const format of DEFAULT_TAX_ID_FORMATS)
+    if (!have.has(formatKey(format)))
+      await db.tax_id_formats.insert(
+        { tenant_id: tenantId, ...format },
+        { tx }
+      );
+}
+
+/**
+ * Whether every default tax ID format exists. Writes nothing.
+ * @param {object} db
+ * @param {import('pg-promise').IDatabase<unknown>} tx
+ * @param {string} tenantId
+ * @returns {Promise<boolean>}
+ */
+export async function taxIdFormatsPresent(db, tx, tenantId) {
+  await setTenant(tx, tenantId);
+  const rows = await db.tax_id_formats.rows({}, { tx, includeArchived: true });
+  const have = new Set(rows.map(formatKey));
+  return DEFAULT_TAX_ID_FORMATS.every(format => have.has(formatKey(format)));
+}
+
 /**
  * @typedef {object} FirstAdministrator
  * @property {string} tenantId
@@ -73,7 +119,8 @@ export async function directoryLabelsPresent(db, tx, tenantId) {
  */
 
 /**
- * Seed a customer tenant's directory: the default labels, the first
+ * Seed a customer tenant's directory: the default labels and tax ID
+ * formats, the first
  * administrator as an employee marked as a portal user, and their primary
  * email (R022).
  * @param {object} db Cell repository handle.
@@ -84,6 +131,7 @@ export async function directoryLabelsPresent(db, tx, tenantId) {
 export async function seedDirectoryTenant(db, tx, admin) {
   const { tenantId, partyId, firstName, lastName, email } = admin;
   await seedDirectoryLabels(db, tx, tenantId);
+  await seedTaxIdFormats(db, tx, tenantId);
   if (!(await db.parties.byKey(partyId, { tx })))
     await db.parties.insertWithId(
       { id: partyId, tenant_id: tenantId, kind: 'employee' },
@@ -128,6 +176,7 @@ export async function seedDirectoryTenant(db, tx, admin) {
 export async function directorySeedPresent(db, tx, admin) {
   const { tenantId, partyId, firstName, lastName, email } = admin;
   if (!(await directoryLabelsPresent(db, tx, tenantId))) return false;
+  if (!(await taxIdFormatsPresent(db, tx, tenantId))) return false;
   const party = await db.parties.byKey(partyId, { tx });
   const person = await db.people.byKey(partyId, { tx });
   const [primaryEmail] = await db.contact_methods.rows(

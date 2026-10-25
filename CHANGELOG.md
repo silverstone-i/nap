@@ -10,6 +10,16 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Tax ID formats per country (M0005-R036–R042). Settings → Tax ID Formats lists each tenant's formats with Active and Archived tabs; a format is a country, a name, and a mask where `#` is a digit, `A` is a letter, and anything else is a separator. Every tenant starts with US SSN, EIN, and ITIN. Once a record uses a format, only its name and separators can change. Managing formats needs the new `business-directory::tax-id-formats::write` capability.
+- Each tax ID names its format, chosen in the record dialog, which defaults to US EIN for vendors and clients and US SSN for people (M0005-R038, R043). Tax IDs show in their format's layout, masked as `•••-••-6789` or revealed as `123-45-6789` (R040). Search matches a tax ID typed in any of the tenant's formats, and duplicates are found across formats (R039).
+- Phones are stored in E.164 form (`+12125551234`, with an extension as `;ext=12`) and shown in national form for US numbers and international form otherwise (M0005-R033, R034). A number without a leading `+` is read as a US number, and an invalid number is refused. The API and the web app share one definition of these rules from `@nap/shared`, which now depends on `libphonenumber-js` (R044).
+
+### Changed
+
+- The `business-directory` migration is edited in place to add `app.tax_id_formats` and `app.parties.tax_id_format_id`, so recreate existing cell databases.
+
 ## [v0.30.3] - 2026-10-24
 
 ### Fixed

@@ -4,6 +4,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { formatPhone } from '@nap/shared';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -22,6 +23,7 @@ import { PortalAccessChip } from './PortalAccess.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
 import { recordName } from './directoryRecords.js';
+import { displayTaxId, useTaxIdFormats } from './useTaxIdFormats.js';
 
 /** R028, I0011-R007: what Archive tells the user before it runs. */
 export const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';
@@ -41,9 +43,10 @@ function withLabel(value, label) {
  * The grid's columns for a collection.
  * @param {string} collection
  * @param {(row: object) => void} onOpen
+ * @param {object[]|null} formats The tenant's tax ID formats (M0005-R040).
  * @returns {object[]}
  */
-function columnsFor(collection, onOpen) {
+function columnsFor(collection, onOpen, formats) {
   const plain = { sortable: false, filterable: false };
   const columns = [
     {
@@ -76,7 +79,10 @@ function columnsFor(collection, onOpen) {
       flex: 1,
       priority: 'secondary',
       valueGetter: (_value, row) =>
-        withLabel(row.primaryPhone, row.primaryPhoneLabel),
+        withLabel(
+          row.primaryPhone && formatPhone(row.primaryPhone),
+          row.primaryPhoneLabel
+        ),
     },
     {
       ...plain,
@@ -84,7 +90,7 @@ function columnsFor(collection, onOpen) {
       headerName: 'Tax ID',
       flex: 1,
       priority: 'secondary',
-      valueGetter: value => (value ? `•••••${value}` : '—'),
+      valueGetter: (_value, row) => displayTaxId(row, formats) ?? '—',
     },
   ];
   if (collection === 'organization-contacts')
@@ -150,6 +156,7 @@ export function DirectoryGrid({
 }) {
   const [tick, setTick] = useState(0);
   const [actionError, setActionError] = useState(null);
+  const formats = useTaxIdFormats();
   const [editing, setEditing] = useState(null);
 
   // Keyed by value, so a caller passing a fresh but equal filter object
@@ -239,7 +246,7 @@ export function DirectoryGrid({
         </Alert>
       ) : null}
       <StandardDataGrid
-        columns={columnsFor(collection, onOpen)}
+        columns={columnsFor(collection, onOpen, formats)}
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}

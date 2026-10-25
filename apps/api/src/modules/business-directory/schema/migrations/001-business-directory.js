@@ -6,7 +6,7 @@
 import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
- * Baseline `business-directory` migration (M0005). It creates the six
+ * Baseline `business-directory` migration (M0005). It creates the seven
  * `app` directory tables in dependency order, attaches the existing
  * `app.protect_record()` trigger function from `001-access-control`, enables
  * and forces row-level security with the tenant rule from M0002-01-R006,
@@ -19,6 +19,46 @@ import { defineMigration, TableModel } from 'pg-schemata';
 export const migration = defineMigration({
   id: '001-business-directory',
   up: async ({ db, pgp }) => {
+    const taxIdFormatsSchema = {
+      dbSchema: 'app',
+      table: 'tax_id_formats',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      softDelete: true,
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          notNull: true,
+          default: 'gen_random_uuid()',
+          immutable: true,
+        },
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'country', type: 'char(2)', notNull: true, immutable: true },
+        { name: 'name', type: 'varchar(64)', notNull: true },
+        { name: 'mask', type: 'varchar(64)', notNull: true },
+        { name: 'revision', type: 'integer', notNull: true, default: 1 },
+      ],
+      constraints: {
+        primaryKey: ['id'],
+        unique: [
+          ['tenant_id', 'id'],
+          ['tenant_id', 'country', 'name'],
+        ],
+        checks: ['revision > 0'],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['country'],
+            references: {
+              schema: 'reference',
+              table: 'countries',
+              columns: ['code'],
+            },
+            onDelete: 'RESTRICT',
+          },
+        ],
+      },
+    };
     const partiesSchema = {
       dbSchema: 'app',
       table: 'parties',
@@ -33,6 +73,7 @@ export const migration = defineMigration({
         },
         { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
         { name: 'kind', type: 'varchar(32)', notNull: true, immutable: true },
+        { name: 'tax_id_format_id', type: 'uuid' },
         { name: 'tax_id_encrypted', type: 'text' },
         { name: 'tax_id_hash', type: 'char(64)' },
         { name: 'tax_id_last4', type: 'char(4)' },
@@ -42,12 +83,27 @@ export const migration = defineMigration({
         unique: [['tenant_id', 'id']],
         checks: [
           "kind IN ('employee', 'contact', 'vendor', 'client', 'vendor_contact', 'client_contact')",
-          '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL)',
+          '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL) AND (tax_id_last4 IS NULL) = (tax_id_format_id IS NULL)',
           "tax_id_hash IS NULL OR tax_id_hash ~ '^[0-9a-f]{64}$'",
-          "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9]{4}$'",
+          "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9A-Z]{4}$'",
           "kind <> 'vendor_contact' OR tax_id_hash IS NULL",
         ],
-        indexes: [{ columns: ['tenant_id', 'tax_id_hash'] }],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'tax_id_format_id'],
+            references: {
+              schema: 'app',
+              table: 'tax_id_formats',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+        ],
+        indexes: [
+          { columns: ['tenant_id', 'tax_id_hash'] },
+          { columns: ['tax_id_format_id'] },
+        ],
       },
     };
     const organizationsSchema = {
@@ -316,6 +372,7 @@ export const migration = defineMigration({
       },
     };
     const schemas = [
+      taxIdFormatsSchema,
       partiesSchema,
       organizationsSchema,
       peopleSchema,

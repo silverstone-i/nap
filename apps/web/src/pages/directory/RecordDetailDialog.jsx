@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { formatPhone } from '@nap/shared';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -46,21 +47,22 @@ import {
 } from './directoryErrors.js';
 import { PortalAccessPanel } from './PortalAccess.jsx';
 import { useDirectoryBulk } from './useDirectoryBulk.js';
+import { displayTaxId, useTaxIdFormats } from './useTaxIdFormats.js';
 import { ActionBar } from '../../shell/ActionBar.jsx';
 
 /**
- * Tax ID shown masked, with a reveal button for `tax-ids::read`. Revealing
- * is recorded by the server (M0005-R012).
- * @param {{collection: string, record: object, canReveal: boolean}} props
+ * Tax ID shown masked in its format, with a reveal button for
+ * `tax-ids::read`. Revealing is recorded by the server (M0005-R012, R040).
+ * @param {{collection: string, record: object, formats: object[]|null, canReveal: boolean}} props
  */
-function TaxIdLine({ collection, record, canReveal }) {
+function TaxIdLine({ collection, record, formats, canReveal }) {
   const [full, setFull] = useState(null);
   const [error, setError] = useState(null);
   if (!record.taxIdLast4) return null;
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
       <Typography variant="body2">
-        Tax ID: {full ?? `•••••${record.taxIdLast4}`}
+        Tax ID: {displayTaxId(record, formats, full)}
       </Typography>
       {canReveal && !full ? (
         <Button
@@ -105,6 +107,7 @@ export function RecordDetailDialog({
   onChanged,
 }) {
   const [record, setRecord] = useState(null);
+  const formats = useTaxIdFormats();
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -245,6 +248,7 @@ export function RecordDetailDialog({
             <TaxIdLine
               collection={collection}
               record={record}
+              formats={formats}
               canReveal={abilities.readTaxIds}
             />
             {record.portalAccess ? (
@@ -345,7 +349,11 @@ export function RecordDetailDialog({
                     }
                   >
                     <ListItemText
-                      primary={method.value}
+                      primary={
+                        method.type === 'phone'
+                          ? formatPhone(method.value)
+                          : method.value
+                      }
                       secondary={[
                         method.type === 'email' ? 'Email' : 'Phone',
                         method.labelName,

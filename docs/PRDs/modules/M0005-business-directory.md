@@ -2,14 +2,14 @@
 
 ## 1. Document Control
 
-| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Type                 | Module                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Related architecture | [Module map](../../architecture/module-map.md), [Migrations](../../architecture/migrations.md)                                                                                                                                                                                                                                                                                                                                                                  |
-| Related PRDs         | [M0002-01: Cell Database Foundation](M0002-cell-tenancy/M0002-01-cell-database-foundation.md), [M0003: Access Control](M0003-access-control.md), [M0004: Reference Data](M0004-reference-data.md), [I0004: Admin-Cell Sync](../inter-module-workflows/I0004-admin-cell-sync.md), [I0006: Tenant Provisioning](../inter-module-workflows/I0006-tenant-provisioning.md), [I0011: Archived Records View](../inter-module-workflows/I0011-archived-records-view.md) |
-| Related decisions    | Roles stay in `access-control` and attach to logins; the directory stores people and organizations, not permissions                                                                                                                                                                                                                                                                                                                                             |
-| Last reviewed        | 2026-10-23                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status               | Implemented (R001–R034, R036–R044); R035, R045 withdrawn                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Type                 | Module                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Related architecture | [Module map](../../architecture/module-map.md), [Migrations](../../architecture/migrations.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Related PRDs         | [M0002-01: Cell Database Foundation](M0002-cell-tenancy/M0002-01-cell-database-foundation.md), [M0003: Access Control](M0003-access-control.md), [M0004: Reference Data](M0004-reference-data.md), [I0004: Admin-Cell Sync](../inter-module-workflows/I0004-admin-cell-sync.md), [I0006: Tenant Provisioning](../inter-module-workflows/I0006-tenant-provisioning.md), [I0011: Archived Records View](../inter-module-workflows/I0011-archived-records-view.md), [I0001: Application Entry and Shell](../inter-module-workflows/I0001-application-entry-and-shell.md) |
+| Related decisions    | Roles stay in `access-control` and attach to logins; the directory stores people and organizations, not permissions. Phones and tax IDs are stored unformatted and formatted on display; phones entered without a country code are US; tenants define tax ID formats per country, and a used format can change only its name and separators (2026-10-24). The baseline migration is edited in place for these, so cells are recreated (2026-10-25)                                                                                                                    |
+| Last reviewed        | 2026-10-24                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## 2. Purpose
 
@@ -26,6 +26,8 @@ Provisioning a tenant creates the first administrator as an employee.
 - Employees, contacts, vendors, clients, vendor contacts, and client contacts.
 - Emails, phones, and addresses for any directory record, with user-defined labels.
 - Tax IDs on people, vendors, clients, and client contacts.
+- Tenant-defined tax ID formats by country, and the Settings screen that manages them.
+- Storing phones in one international form and formatting them for display.
 - Primary and billing contact flags on vendor and client contacts.
 - The `is_portal_user` flag on people, vendor contacts, and client contacts.
 - Creating the first administrator's employee record during tenant provisioning.
@@ -37,36 +39,46 @@ Provisioning a tenant creates the first administrator as an employee.
 - Creating, suspending, or linking logins when `is_portal_user` changes:
   [I0008: Portal Access](../inter-module-workflows/I0008-portal-access.md).
 - Roles and role assignments: M0003.
-- Legal entities and tax registrations of the tenant itself: Companies (roadmap 19).
+- Legal entities and tax registrations of the tenant itself: Companies (roadmap 21).
+- Tenant-defined phone formats. Every country's phone format comes from libphonenumber.
+- Formatting phones and tax IDs as the user types, which belongs with the data-entry changes to the directory dialogs.
 
 ## 4. Actors And Permissions
 
-| Required capability                              | Allows                                               |
-| ------------------------------------------------ | ---------------------------------------------------- |
-| `<TENANT>::business-directory::directory::read`  | List and view directory records and labels           |
-| `<TENANT>::business-directory::directory::write` | Create, edit, archive, and restore directory records |
-| `<TENANT>::business-directory::labels::write`    | Create, rename, archive, and restore labels          |
-| `<TENANT>::business-directory::tax-ids::read`    | Read full tax IDs and search by tax ID               |
-| `<TENANT>::business-directory::tax-ids::write`   | Set, change, and clear tax IDs                       |
+| Required capability                                   | Allows                                               |
+| ----------------------------------------------------- | ---------------------------------------------------- |
+| `<TENANT>::business-directory::directory::read`       | List and view directory records and labels           |
+| `<TENANT>::business-directory::directory::write`      | Create, edit, archive, and restore directory records |
+| `<TENANT>::business-directory::labels::write`         | Create, rename, archive, and restore labels          |
+| `<TENANT>::business-directory::tax-ids::read`         | Read full tax IDs and search by tax ID               |
+| `<TENANT>::business-directory::tax-ids::write`        | Set, change, and clear tax IDs                       |
+| `<TENANT>::business-directory::tax-id-formats::write` | Create, edit, archive, and restore tax ID formats    |
 
-`tenant_admin` holds all six through `<CODE>::*::*::*` (M0003-R007).
+`tenant_admin` holds all of them through `<CODE>::*::*::*` (M0003-R007).
 `business-directory` is a foundation module: every tenant can use it, with no
 entitlement row (M0001-10), because provisioning creates its first rows
 (R022).
 
 ## 5. Concepts And Terminology
 
-| Term                 | Meaning                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------- |
-| Party                | Any directory record: a person, an organization, or an organization contact                             |
-| Person               | An employee or a contact                                                                                |
-| Contact              | A person who is not an employee, such as an inspector or a lender                                       |
-| Organization         | A vendor or a client                                                                                    |
-| Organization contact | A person at a vendor (vendor contact) or at a client (client contact)                                   |
-| Client               | The party the tenant sells to. In construction, the unit being sold; the buyers are its client contacts |
-| Contact method       | One email or phone number of a party                                                                    |
-| Label                | A tenant-defined category for a contact method or address, such as spouse, emergency, or billing        |
-| Tax ID               | A Social Security Number (SSN) for a person or an Employer Identification Number (EIN) for a business   |
+| Term                 | Meaning                                                                                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Party                | Any directory record: a person, an organization, or an organization contact                                                                                    |
+| Person               | An employee or a contact                                                                                                                                       |
+| Contact              | A person who is not an employee, such as an inspector or a lender                                                                                              |
+| Organization         | A vendor or a client                                                                                                                                           |
+| Organization contact | A person at a vendor (vendor contact) or at a client (client contact)                                                                                          |
+| Client               | The party the tenant sells to. In construction, the unit being sold; the buyers are its client contacts                                                        |
+| Contact method       | One email or phone number of a party                                                                                                                           |
+| Label                | A tenant-defined category for a contact method or address, such as spouse, emergency, or billing                                                               |
+| Tax ID               | A taxpayer number in a tenant-defined format, such as a US Social Security Number (SSN) for a person or an Employer Identification Number (EIN) for a business |
+| Tax ID format        | A tenant-defined pattern for one kind of tax ID in one country, such as US SSN `###-##-####`                                                                   |
+| Mask                 | A format's pattern. `#` is a digit slot, `A` is a letter slot, and every other character is a separator                                                        |
+| Slot                 | One position in a mask that holds a character of the tax ID                                                                                                    |
+| Separator            | A mask character shown on display but not stored, such as `-` or the `GB` in `GB ### #### ##`                                                                  |
+| Canonical tax ID     | The slot characters alone, uppercased, such as `123456789` for `123-45-6789`                                                                                   |
+| E.164                | The International Telecommunication Union (ITU) phone format: `+`, country code, and number, digits only, such as `+12125551234`                               |
+| libphonenumber       | Google's open-source library of each country's phone numbering and display rules                                                                               |
 
 ## 6. Functional Requirements
 
@@ -84,10 +96,10 @@ entitlement row (M0001-10), because provisioning creates its first rows
 - M0005-R007: A client must have exactly one of a tax ID or a primary tax contact. A business client uses its own EIN. A home buyer client names one of its own client contacts as primary tax contact, whose tax ID is then the client's primary tax ID.
 - M0005-R008: A vendor contact must not have a tax ID. A client contact may.
 - M0005-R009: A client has at most one primary tax contact, flagged on the contact itself. The flagged contact must have a tax ID and cannot be archived while flagged.
-- M0005-R010: A tax ID is never stored in plain text. It is stored encrypted with AES-256-GCM (Advanced Encryption Standard in Galois/Counter Mode) using a fresh random value (nonce) per write, as an HMAC-SHA-256 keyed hash of its digits, and as its last four digits. The plain value must not appear in logs, outbox rows, or events.
+- M0005-R010: A tax ID is never stored in plain text. It is stored encrypted with AES-256-GCM (Advanced Encryption Standard in Galois/Counter Mode) using a fresh random value (nonce) per write, as an HMAC-SHA-256 keyed hash of its digits, and as its last four digits. The plain value must not appear in logs, outbox rows, or events. _Superseded in part by R038 and R039 (canonical value in place of digits)._
 - M0005-R011: The encryption key and the hash key come from deploy secrets `TAX_ID_ENCRYPTION_KEY_<ENV>` and `TAX_ID_HASH_KEY_<ENV>` and are never stored in a database. The API must refuse to start without them. Neither key rotates.
 - M0005-R012: Responses show only `taxIdLast4`. Reading a full tax ID requires `business-directory::tax-ids::read` and writes an event recording who read which record. Setting, changing, or clearing a tax ID requires `business-directory::tax-ids::write`.
-- M0005-R013: Searching by tax ID requires `business-directory::tax-ids::read`. The API hashes the entered digits and matches `tax_id_hash`. Saving a tax ID already held by another active record succeeds and returns `duplicateTaxIds` with those records' IDs, because one buyer can buy several units.
+- M0005-R013: Searching by tax ID requires `business-directory::tax-ids::read`. The API hashes the entered digits and matches `tax_id_hash`. Saving a tax ID already held by another active record succeeds and returns `duplicateTaxIds` with those records' IDs, because one buyer can buy several units. _Superseded in part by R039 (canonical value in place of digits)._
 
 ### Emails, phones, and addresses
 
@@ -129,10 +141,31 @@ entitlement row (M0001-10), because provisioning creates its first rows
 - M0005-R031: The labels screen must be a standard grid (I0001-R025–R034) with For and Name columns. `GET /labels` returns the full list, which the grid pages in the browser. The header holds a name search, a filter popover with For and Include archived, and **Add label** last. Each row's ⋮ menu offers **Rename** and then **Archive** or **Restore**. Add label and Rename open a dialog. Selected rows offer **Archive selected** and **Restore selected** as in R029. _Superseded in part by I0011-R004 and R005 ([I0011](../inter-module-workflows/I0011-archived-records-view.md))._
 - M0005-R032: `POST /labels/archive` and `POST /labels/restore` with `{ items: [{ id, revision }, …] }` (1–100 items) must apply the single-label archive or restore to every item in one cell transaction, all-or-nothing, with the same `409 BULK_FAILED` response and screen behavior as R030.
 
+### Phone formatting
+
+- M0005-R033: A phone must be stored in E.164 form, with an extension stored as a `;ext=` suffix (`+12125551234;ext=12`). Input without a leading `+` is read as a US number. Input that libphonenumber does not accept as a valid number for its country fails with `INVALID_INPUT`.
+- M0005-R034: A phone must be displayed in its country's national format when its country is the US (`(212) 555-1234`) and in international format otherwise (`+44 20 7946 0958`), with an extension shown as ` ext. 12`.
+- M0005-R035: Withdrawn. The baseline migration is edited in place and cell databases are recreated, so no existing phone needs converting.
+
+### Tax ID formats
+
+- M0005-R036: Tax ID formats are stored in `app.tax_id_formats`, each with an M0004 country, a name unique within that country, and a mask with 4 to 32 slots.
+- M0005-R037: The tenant seed creates three US formats: `SSN` `###-##-####`, `EIN` `##-#######`, and `ITIN` `###-##-####` (Individual Taxpayer Identification Number).
+- M0005-R038: Every tax ID must name its format. After spaces and hyphens are removed and letters are uppercased, the entered value must equal either the mask filled in, its other separators included, or the slot characters alone. Each slot must hold its type of character. The canonical tax ID is what is encrypted. A new or changed tax ID must name an active format.
+- M0005-R039: `tax_id_hash` and `tax_id_last4` must be computed from the canonical tax ID, so the same number matches under R013 whichever format it was saved with.
+- M0005-R040: A masked tax ID must be displayed in its format's layout, with every slot except the last four shown as `•` (`•••-••-1234` for an SSN, `••-•••4567` for an EIN). A revealed tax ID must be displayed in its format's layout.
+- M0005-R041: Once any record, active or archived, uses a format, an edit may change only its name and separators; changing its slot count or slot types fails with `INVALID_STATE`. A format can be archived and restored. An archived format keeps formatting the tax IDs that use it.
+- M0005-R042: Settings must offer a Tax ID Formats screen. It follows the labels screen (R031, R032): a standard grid with Country, Name, and Mask columns, Active and Archived tabs (I0011), **Add format** and **Edit** in dialogs, and single and bulk archive and restore.
+- M0005-R043: The tax ID field in the directory dialogs must offer a choice of the tenant's active formats. It defaults to US EIN for a vendor or client and US SSN for a person, when that format is active.
+- M0005-R044: The API's validation and the web app's display must use one shared definition of R033, R034, R038, and R040, so both produce the same result.
+- M0005-R045: Withdrawn with R035. Recreated cells have no existing tax IDs, and every tenant gets the R037 formats from its seed.
+
 ## 7. Business Rules And Invariants
 
 - The database enforces the keys, checks, and unique indexes in section 9.
 - The model layer enforces rules that span tables: R005 and R009's tax ID rule.
+- The database enforces that a tax ID's format, ciphertext, hash, and last four are all set or all null.
+- The module domain enforces R033's phone rule, R038's match against the mask, the active-format rule, and R041's slot lock.
 
 ## 8. Lifecycle And State Transitions
 
@@ -144,6 +177,17 @@ entitlement row (M0001-10), because provisioning creates its first rows
 | Active   | Archive a client's primary tax contact | Reject `PRIMARY_TAX_CONTACT`                     |
 | Archived | Restore                                | Active                                           |
 
+Tax ID formats:
+
+| State    | Action                                  | Result                                         |
+| -------- | --------------------------------------- | ---------------------------------------------- |
+| —        | Create                                  | Active format                                  |
+| Active   | Rename or change separators             | Changed; tax IDs using it display the new form |
+| Active   | Change slots of a format no record uses | Changed                                        |
+| Active   | Change slots of a format a record uses  | Reject `INVALID_STATE`                         |
+| Active   | Archive                                 | Archived; not offered for new tax IDs          |
+| Archived | Restore                                 | Active                                         |
+
 ## 9. Data Requirements
 
 All tables are in each tenant's cell in the `app` schema and follow the rules
@@ -151,28 +195,30 @@ for tenant business tables (M0002-01-R006). Every table also has the standard
 audit fields, soft delete (`deactivated_at`), and `revision`. Row-level
 security (RLS) limits each query to the session's tenant through `tenant_id`.
 
-| Table             | Schema object          | Behavior defined by         |
-| ----------------- | ---------------------- | --------------------------- |
-| `parties`         | `partiesSchema`        | R001, R005, R008, R010–R013 |
-| `people`          | `peopleSchema`         | R002, R004, R007, R009      |
-| `organizations`   | `organizationsSchema`  | R003, R006, R007            |
-| `contact_methods` | `contactMethodsSchema` | R014, R016                  |
-| `addresses`       | `addressesSchema`      | R015                        |
-| `contact_labels`  | `contactLabelsSchema`  | R017                        |
+| Table             | Schema object          | Behavior defined by                     |
+| ----------------- | ---------------------- | --------------------------------------- |
+| `parties`         | `partiesSchema`        | R001, R005, R008, R010–R013, R038, R039 |
+| `people`          | `peopleSchema`         | R002, R004, R007, R009                  |
+| `organizations`   | `organizationsSchema`  | R003, R006, R007                        |
+| `contact_methods` | `contactMethodsSchema` | R014, R016, R033, R034                  |
+| `addresses`       | `addressesSchema`      | R015                                    |
+| `contact_labels`  | `contactLabelsSchema`  | R017                                    |
+| `tax_id_formats`  | `taxIdFormatsSchema`   | R036–R041                               |
 
 ### `app.parties`
 
 One row per directory record. It has audit fields but no soft delete or
 `revision`; a record is archived and versioned through its child row.
 
-| Column             | Type       | Rules                                                                                                 |
-| ------------------ | ---------- | ----------------------------------------------------------------------------------------------------- |
-| `id`               | `uuid`     | Primary key, default `gen_random_uuid()`; immutable                                                   |
-| `tenant_id`        | `uuid`     | Not null; immutable; RLS column                                                                       |
-| `kind`             | `text`     | Not null; `employee`, `contact`, `vendor`, `client`, `vendor_contact`, or `client_contact`; immutable |
-| `tax_id_encrypted` | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID                       |
-| `tax_id_hash`      | `char(64)` | Hex HMAC-SHA-256 of the digits (R010); null with `tax_id_encrypted`; indexed                          |
-| `tax_id_last4`     | `char(4)`  | Last four digits; null with `tax_id_encrypted`                                                        |
+| Column             | Type       | Rules                                                                                                   |
+| ------------------ | ---------- | ------------------------------------------------------------------------------------------------------- |
+| `id`               | `uuid`     | Primary key, default `gen_random_uuid()`; immutable                                                     |
+| `tenant_id`        | `uuid`     | Not null; immutable; RLS column                                                                         |
+| `kind`             | `text`     | Not null; `employee`, `contact`, `vendor`, `client`, `vendor_contact`, or `client_contact`; immutable   |
+| `tax_id_encrypted` | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID                         |
+| `tax_id_format_id` | `uuid`     | References `tax_id_formats.id` (R038); null with `tax_id_encrypted`                                     |
+| `tax_id_hash`      | `char(64)` | Hex HMAC-SHA-256 of the canonical tax ID (R039); null with `tax_id_encrypted`; indexed                  |
+| `tax_id_last4`     | `char(4)`  | Last four characters of the canonical tax ID, digits or uppercase letters; null with `tax_id_encrypted` |
 
 A `vendor_contact` party has no tax ID (R008).
 
@@ -213,7 +259,7 @@ One row per email or phone.
 | `tenant_id`  | `uuid`    | Not null; immutable; RLS column                                                    |
 | `party_id`   | `uuid`    | Not null; references `parties.id`; immutable                                       |
 | `type`       | `text`    | Not null; `email` or `phone`; immutable                                            |
-| `value`      | `text`    | Not null; email lowercased and trimmed, phone as entered                           |
+| `value`      | `text`    | Not null; email lowercased and trimmed; phone in E.164 form (R033)                 |
 | `label_id`   | `uuid`    | Nullable; references `contact_labels.id` with a matching `applies_to`              |
 | `is_primary` | `boolean` | Not null, default `false`; unique per `(party_id, type)` among active primary rows |
 
@@ -246,24 +292,39 @@ One row per label.
 | `applies_to` | `text` | Not null; `email`, `phone`, or `address`; immutable                    |
 | `name`       | `text` | Not null; unique per `(tenant_id, applies_to)`, archived rows included |
 
+### `app.tax_id_formats`
+
+One row per tax ID format.
+
+| Column      | Type      | Rules                                                               |
+| ----------- | --------- | ------------------------------------------------------------------- |
+| `id`        | `uuid`    | Primary key, default `gen_random_uuid()`; immutable                 |
+| `tenant_id` | `uuid`    | Not null; immutable; RLS column                                     |
+| `country`   | `char(2)` | Not null; M0004 country code; immutable                             |
+| `name`      | `text`    | Not null; unique per `(tenant_id, country)`, archived rows included |
+| `mask`      | `text`    | Not null; 4 to 32 slots (R036); slots locked once used (R041)       |
+
 ## 10. API Requirements
 
 Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, which I0005 adds.
 
-| Method and route                                                   | Route capability                       | Errors                                        |
-| ------------------------------------------------------------------ | -------------------------------------- | --------------------------------------------- |
-| `GET /people`, `/organizations`, `/organization-contacts`          | `business-directory::directory::read`  | —                                             |
-| `GET /{collection}/:id`                                            | `business-directory::directory::read`  | `NOT_FOUND`                                   |
-| `POST /{collection}`                                               | `business-directory::directory::write` | `INVALID_INPUT`                               |
-| `PATCH /{collection}/:id`                                          | `business-directory::directory::write` | `INVALID_INPUT`, `STALE_REVISION`             |
-| `POST /{collection}/:id/archive`, `/restore`                       | `business-directory::directory::write` | `STALE_REVISION`, `PRIMARY_TAX_CONTACT`       |
-| `POST`, `PATCH`, `DELETE /parties/:id/contact-methods[/:methodId]` | `business-directory::directory::write` | `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE` |
-| `POST`, `PATCH`, `DELETE /parties/:id/addresses[/:addressId]`      | `business-directory::directory::write` | `NOT_FOUND`, `INVALID_INPUT`                  |
-| `POST /{collection}/archive`, `/restore` (bulk)                    | `business-directory::directory::write` | `INVALID_INPUT`, `BULK_FAILED`                |
-| `GET /{collection}/:id/tax-id`                                     | `business-directory::tax-ids::read`    | `NOT_FOUND`                                   |
-| `GET /labels`                                                      | `business-directory::directory::read`  | —                                             |
-| `POST /labels`, `PATCH /labels/:id`, `/archive`, `/restore`        | `business-directory::labels::write`    | `INVALID_INPUT`, `CONFLICT`                   |
-| `POST /labels/archive`, `/restore` (bulk)                          | `business-directory::labels::write`    | `INVALID_INPUT`, `BULK_FAILED`                |
+| Method and route                                                            | Route capability                            | Errors                                                         |
+| --------------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------- |
+| `GET /people`, `/organizations`, `/organization-contacts`                   | `business-directory::directory::read`       | —                                                              |
+| `GET /{collection}/:id`                                                     | `business-directory::directory::read`       | `NOT_FOUND`                                                    |
+| `POST /{collection}`                                                        | `business-directory::directory::write`      | `INVALID_INPUT`                                                |
+| `PATCH /{collection}/:id`                                                   | `business-directory::directory::write`      | `INVALID_INPUT`, `STALE_REVISION`                              |
+| `POST /{collection}/:id/archive`, `/restore`                                | `business-directory::directory::write`      | `STALE_REVISION`, `PRIMARY_TAX_CONTACT`                        |
+| `POST`, `PATCH`, `DELETE /parties/:id/contact-methods[/:methodId]`          | `business-directory::directory::write`      | `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE`                  |
+| `POST`, `PATCH`, `DELETE /parties/:id/addresses[/:addressId]`               | `business-directory::directory::write`      | `NOT_FOUND`, `INVALID_INPUT`                                   |
+| `POST /{collection}/archive`, `/restore` (bulk)                             | `business-directory::directory::write`      | `INVALID_INPUT`, `BULK_FAILED`                                 |
+| `GET /{collection}/:id/tax-id`                                              | `business-directory::tax-ids::read`         | `NOT_FOUND`                                                    |
+| `GET /labels`                                                               | `business-directory::directory::read`       | —                                                              |
+| `POST /labels`, `PATCH /labels/:id`, `/archive`, `/restore`                 | `business-directory::labels::write`         | `INVALID_INPUT`, `CONFLICT`                                    |
+| `POST /labels/archive`, `/restore` (bulk)                                   | `business-directory::labels::write`         | `INVALID_INPUT`, `BULK_FAILED`                                 |
+| `GET /tax-id-formats`                                                       | `business-directory::directory::read`       | —                                                              |
+| `POST /tax-id-formats`, `PATCH /tax-id-formats/:id`, `/archive`, `/restore` | `business-directory::tax-id-formats::write` | `INVALID_INPUT`, `CONFLICT`, `INVALID_STATE`, `STALE_REVISION` |
+| `POST /tax-id-formats/archive`, `/restore` (bulk)                           | `business-directory::tax-id-formats::write` | `INVALID_INPUT`, `BULK_FAILED`                                 |
 
 - `{collection}` is `people`, `organizations`, or `organization-contacts`. A create request names the `kind`; an organization contact takes its kind from its organization.
 - Creating a client without its own tax ID includes its buyers in `contacts`, one flagged `isPrimaryTaxContact`, so R007 holds when the request commits. `PATCH /organizations/:id` moves a client's tax source with `taxId` and `primaryTaxContactId`.
@@ -273,42 +334,55 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 - List routes return cursor pages (R027). A bulk request's `details` uses the single-record codes: `NOT_FOUND`, `STALE_REVISION`, `PRIMARY_TAX_CONTACT`, `ADMIN_ASSIGNED`, and `INVALID_STATE`.
 - `GET /{collection}?taxId=` searches by tax ID and requires `business-directory::tax-ids::read` (R013).
 - A create or edit that includes a tax ID also requires `business-directory::tax-ids::write`; without it the request fails with `FORBIDDEN`.
+- A request that sets a tax ID also sends `taxIdFormatId` (R038). Record responses include `taxIdFormatId` next to `taxIdLast4`, and phones in their stored form; the web app formats both (R034, R040).
+- `GET /tax-id-formats` returns the full list, archived formats included, so the web app can display tax IDs that use an archived format.
 
 ## 11. Cross-Module Interactions
 
 - I0006 gains the first administrator's name (R021) and creates the directory rows in its seed stage (R022).
 - M0001 and M0002 change `member_type` values and require `member_id` (R023, R024).
-- M0004 supplies country codes and the country lookup control for addresses.
+- M0004 supplies country codes and the country lookup control for addresses and tax ID formats.
 - I0008 reads `is_portal_user` and creates, links, or suspends logins from it.
 - Administrative events follow M0001-12.
 
 ## 12. Security And Audit
 
 - Tax ID protection is R010–R013; change and reveal events are R012 and R025.
+- Tax ID format changes are directory writes and write events under R025. A format holds no tax ID.
 - Future enhancement: key rotation. Storing a key version on each row would let a job re-encrypt rows and recompute hashes under new keys, so a leaked old key stops working.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                                      | Requirements                      |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| AC01      | The cell migration creates the six tables with RLS; reruns are no-ops.                                                                                                                               | M0005-R001–R004, R014, R015, R017 |
-| AC02      | A child row whose party has the wrong `kind` is rejected.                                                                                                                                            | M0005-R005                        |
-| AC03      | A vendor without a tax ID, a client with both or neither of a tax ID and a primary tax contact, and a vendor contact with a tax ID are rejected.                                                     | M0005-R006–R008                   |
-| AC04      | A client has at most one primary tax contact, drawn from its own contacts; the flagged contact must have a tax ID and cannot be archived while flagged.                                              | M0005-R007, R009                  |
-| AC05      | A second primary email, phone, or address for one party is rejected.                                                                                                                                 | M0005-R014, R015                  |
-| AC06      | An organization can have several primary and billing contacts; the database rejects either flag on a person with no organization.                                                                    | M0005-R004                        |
-| AC07      | Provisioning a tenant creates the administrator's employee, primary email, and labels, and links the membership's `member_id`; the Napsoft root membership keeps `member_type` and `member_id` null. | M0005-R021–R023                   |
-| AC08      | `client` is no longer a valid `member_type`; `client_contact` is.                                                                                                                                    | M0005-R024                        |
-| AC09      | Each directory change writes an outbox row; delivery writes an event with the tax ID masked.                                                                                                         | M0005-R025                        |
-| AC10      | A stored tax ID has no plain-text copy in the table, logs, outbox, or events; decrypting it returns the original; the API does not start without both keys.                                          | M0005-R010, R011                  |
-| AC11      | Without `tax-ids::read` a response shows only the last four digits and tax ID search fails; with it the full value returns and an event is written; saving a tax ID without `tax-ids::write` fails.  | M0005-R012, R013                  |
-| AC12      | Searching by a tax ID entered with or without dashes finds the record; saving a duplicate succeeds and returns `duplicateTaxIds`.                                                                    | M0005-R013                        |
-| AC13      | The directory screens support list, search, view, create, edit, archive, and restore, hiding disallowed actions.                                                                                     | M0005-R026                        |
-| AC14      | Each directory list returns cursor pages with its filters intact, and the screens page through them in a standard grid.                                                                              | M0005-R027, R028                  |
-| AC15      | A row's menu offers Edit and Archive on active records and Restore on archived ones, and hides them without `directory::write`.                                                                      | M0005-R028                        |
-| AC16      | Archive selected on a page of active records archives them all, turning off portal access where it was on; Restore selected restores them.                                                           | M0005-R029, R030                  |
-| AC17      | A bulk archive including a `tenant_admin`, the caller, a flagged primary tax contact, or a stale revision changes nothing and lists each failed record with its reason.                              | M0005-R030                        |
-| AC18      | The labels screen follows I0001's list-screen rules; Add label and Rename use dialogs; a bulk archive of labels with one stale revision changes nothing and lists the failed label.                  | M0005-R031, M0005-R032            |
+| Criterion | Required result                                                                                                                                                                                                 | Requirements                      |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| AC01      | The cell migration creates the six tables with RLS; reruns are no-ops.                                                                                                                                          | M0005-R001–R004, R014, R015, R017 |
+| AC02      | A child row whose party has the wrong `kind` is rejected.                                                                                                                                                       | M0005-R005                        |
+| AC03      | A vendor without a tax ID, a client with both or neither of a tax ID and a primary tax contact, and a vendor contact with a tax ID are rejected.                                                                | M0005-R006–R008                   |
+| AC04      | A client has at most one primary tax contact, drawn from its own contacts; the flagged contact must have a tax ID and cannot be archived while flagged.                                                         | M0005-R007, R009                  |
+| AC05      | A second primary email, phone, or address for one party is rejected.                                                                                                                                            | M0005-R014, R015                  |
+| AC06      | An organization can have several primary and billing contacts; the database rejects either flag on a person with no organization.                                                                               | M0005-R004                        |
+| AC07      | Provisioning a tenant creates the administrator's employee, primary email, and labels, and links the membership's `member_id`; the Napsoft root membership keeps `member_type` and `member_id` null.            | M0005-R021–R023                   |
+| AC08      | `client` is no longer a valid `member_type`; `client_contact` is.                                                                                                                                               | M0005-R024                        |
+| AC09      | Each directory change writes an outbox row; delivery writes an event with the tax ID masked.                                                                                                                    | M0005-R025                        |
+| AC10      | A stored tax ID has no plain-text copy in the table, logs, outbox, or events; decrypting it returns the original; the API does not start without both keys.                                                     | M0005-R010, R011                  |
+| AC11      | Without `tax-ids::read` a response shows only the last four digits and tax ID search fails; with it the full value returns and an event is written; saving a tax ID without `tax-ids::write` fails.             | M0005-R012, R013                  |
+| AC12      | Searching by a tax ID entered with or without dashes finds the record; saving a duplicate succeeds and returns `duplicateTaxIds`.                                                                               | M0005-R013                        |
+| AC13      | The directory screens support list, search, view, create, edit, archive, and restore, hiding disallowed actions.                                                                                                | M0005-R026                        |
+| AC14      | Each directory list returns cursor pages with its filters intact, and the screens page through them in a standard grid.                                                                                         | M0005-R027, R028                  |
+| AC15      | A row's menu offers Edit and Archive on active records and Restore on archived ones, and hides them without `directory::write`.                                                                                 | M0005-R028                        |
+| AC16      | Archive selected on a page of active records archives them all, turning off portal access where it was on; Restore selected restores them.                                                                      | M0005-R029, R030                  |
+| AC17      | A bulk archive including a `tenant_admin`, the caller, a flagged primary tax contact, or a stale revision changes nothing and lists each failed record with its reason.                                         | M0005-R030                        |
+| AC18      | The labels screen follows I0001's list-screen rules; Add label and Rename use dialogs; a bulk archive of labels with one stale revision changes nothing and lists the failed label.                             | M0005-R031, M0005-R032            |
+| AC19      | `212-555-1234`, `(212) 555-1234`, and `+1 212 555 1234` all store `+12125551234`; `212 555 1234 x12` stores `+12125551234;ext=12`; `555-1234` fails with `INVALID_INPUT`.                                       | M0005-R033                        |
+| AC20      | `+12125551234` displays as `(212) 555-1234` and `+442079460958` as `+44 20 7946 0958`.                                                                                                                          | M0005-R034                        |
+| AC21      | Withdrawn with R035.                                                                                                                                                                                            | M0005-R035                        |
+| AC22      | A new tenant has the three US formats, and a tax ID saved under SSN shows `•••-••-1234` and under EIN `••-•••4567`.                                                                                             | M0005-R036, R037, R040            |
+| AC23      | Under SSN, `123-45-6789`, `123 45 6789`, and `123456789` all save; `12-3456789A` fails; under `GB ### #### ##`, `GB 123 4567 89` and `123456789` both save as `123456789`; an archived format cannot be chosen. | M0005-R038                        |
+| AC24      | The same digits saved under SSN on one record and EIN on another produce the same hash, and saving the second returns `duplicateTaxIds`.                                                                        | M0005-R039, R013                  |
+| AC25      | Renaming a used format or changing its separators succeeds and changes how its tax IDs display; changing its slots fails with `INVALID_STATE`; an unused format's slots can change.                             | M0005-R040, R041                  |
+| AC26      | The Tax ID Formats screen follows R042 and is hidden without `directory::read`; its write actions are hidden without `tax-id-formats::write`.                                                                   | M0005-R042                        |
+| AC27      | The tax ID field offers only active formats and defaults to EIN for a vendor or client and SSN for a person.                                                                                                    | M0005-R043                        |
+| AC28      | The API and the web app return the same result for every phone and tax ID in AC19, AC20, AC23, and AC25.                                                                                                        | M0005-R044                        |
 
 ## 14. Outstanding Questions
 

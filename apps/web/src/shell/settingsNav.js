@@ -5,7 +5,7 @@
 
 /**
  * @file The `Settings` navigation group's data: the selected tenant's roles
- * (M0003-R016) and its labels (M0005-R017). A child is visible only when the session's resolved
+ * (M0003-R016), its labels (M0005-R017), and its tax ID formats (M0005-R042). A child is visible only when the session's resolved
  * capabilities match its route capability in the selected tenant
  * (I0005-R011).
  */
@@ -23,6 +23,12 @@ export const SETTINGS_CHILDREN = Object.freeze([
     id: 'labels',
     label: 'Labels',
     path: '/settings/labels',
+    capability: 'business-directory::directory::read',
+  }),
+  Object.freeze({
+    id: 'tax-id-formats',
+    label: 'Tax ID Formats',
+    path: '/settings/tax-id-formats',
     capability: 'business-directory::directory::read',
   }),
 ]);

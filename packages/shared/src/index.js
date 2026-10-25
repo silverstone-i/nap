@@ -9,6 +9,9 @@
  */
 import { z } from 'zod';
 
+export * from './phone.js';
+export * from './taxIdFormat.js';
+
 /** Version number carried by every API response envelope. */
 export const transportVersion = 1;
 
@@ -424,13 +427,15 @@ export const currencySchema = z.strictObject({
 });
 
 // Business directory (M0005 §10). A tax ID only ever travels as its last
-// four digits, except from the reveal route (M0005-R012).
+// four characters, except from the reveal route (M0005-R012), with the
+// format the web app displays it in (M0005-R040).
 const directoryRecordBase = {
   id: z.uuid(),
   taxIdLast4: z
     .string()
-    .regex(/^[0-9]{4}$/)
+    .regex(/^[0-9A-Z]{4}$/)
     .nullable(),
+  taxIdFormatId: z.uuid().nullable(),
   archived: z.boolean(),
   revision: z.number().int().positive(),
   primaryEmail: z.string().nullable(),
@@ -567,6 +572,16 @@ export const contactLabelViewSchema = z.strictObject({
   id: z.uuid(),
   appliesTo: z.enum(['email', 'phone', 'address']),
   name: z.string(),
+  archived: z.boolean(),
+  revision: z.number().int().positive(),
+});
+
+/** Zod schema for one tax ID format (M0005-R036). */
+export const taxIdFormatViewSchema = z.strictObject({
+  id: z.uuid(),
+  country: z.string().regex(/^[A-Z]{2}$/),
+  name: z.string(),
+  mask: z.string(),
   archived: z.boolean(),
   revision: z.number().int().positive(),
 });

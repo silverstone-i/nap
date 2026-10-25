@@ -42,6 +42,7 @@ const TABLES = [
   'organizations',
   'parties',
   'people',
+  'tax_id_formats',
 ];
 
 /** Run `operation` as `nap-app` in a transaction scoped to `tenantId`. */
@@ -50,6 +51,16 @@ function inTenant(tenantId, operation) {
     if (tenantId) await setTenant(tx, tenantId);
     return operation(tx);
   });
+}
+
+/** Insert a tax ID format and return its ID. */
+async function taxIdFormat(tx, tenantId = tenant, name = 'SSN') {
+  return (
+    await tx.one(
+      "INSERT INTO app.tax_id_formats (tenant_id, country, name, mask) VALUES ($1, 'US', $2, '###-##-####') RETURNING id",
+      [tenantId, name]
+    )
+  ).id;
 }
 
 /** Insert a party and return its ID. */
@@ -98,7 +109,7 @@ afterAll(async () => {
   );
 });
 
-it('AC01: creates the six directory tables with forced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
+it('AC01: creates the seven directory tables with forced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -151,7 +162,7 @@ it('rejects an unknown kind, a changed kind, and a child pointing at another ten
   ).rejects.toThrow();
 });
 
-it('stores the three tax ID columns together on the party, never on a vendor contact, and requires an organization for a primary tax contact', async () => {
+it('stores the four tax ID columns together on the party, never on a vendor contact, and requires an organization for a primary tax contact', async () => {
   await inTenant(tenant, async tx => {
     const id = await party(tx, 'employee');
     await expect(
@@ -162,8 +173,8 @@ it('stores the three tax ID columns together on the party, never on a vendor con
     const id = await party(tx, 'vendor_contact');
     await expect(
       tx.none(
-        "UPDATE app.parties SET tax_id_encrypted='x', tax_id_hash=$2, tax_id_last4='1234' WHERE id=$1",
-        [id, HASH]
+        "UPDATE app.parties SET tax_id_format_id=$3, tax_id_encrypted='x', tax_id_hash=$2, tax_id_last4='1234' WHERE id=$1",
+        [id, HASH, await taxIdFormat(tx, tenant, 'Vendor contact')]
       )
     ).rejects.toMatchObject({ code: '23514' });
   });
@@ -178,6 +189,44 @@ it('stores the three tax ID columns together on the party, never on a vendor con
   });
 });
 
+it('ties a tax ID to a format of its own tenant, with uppercase letters or digits as its last four (M0005-R036, R038)', async () => {
+  const set = (tx, id, format, last4) =>
+    tx.none(
+      "UPDATE app.parties SET tax_id_format_id=$2, tax_id_encrypted='x', tax_id_hash=$3, tax_id_last4=$4 WHERE id=$1",
+      [id, format, HASH, last4]
+    );
+  await inTenant(tenant, async tx => {
+    const format = await taxIdFormat(tx, tenant, 'Letters');
+    const id = await party(tx, 'employee');
+    await set(tx, id, format, '12AB');
+    await expect(tx.tx(t => set(t, id, format, '12ab'))).rejects.toMatchObject({
+      code: '23514',
+    });
+    await expect(
+      tx.tx(t =>
+        t.none('UPDATE app.parties SET tax_id_format_id=NULL WHERE id=$1', [id])
+      )
+    ).rejects.toMatchObject({ code: '23514' });
+    await expect(
+      tx.tx(t => taxIdFormat(t, tenant, 'Letters'))
+    ).rejects.toMatchObject({ code: '23505' });
+    await expect(
+      tx.tx(t =>
+        t.none(
+          "INSERT INTO app.tax_id_formats (tenant_id, country, name, mask) VALUES ($1, 'ZZ', 'X', '####')",
+          [tenant]
+        )
+      )
+    ).rejects.toMatchObject({ code: '23503' });
+  });
+  const foreign = await inTenant(other, tx => taxIdFormat(tx, other, 'Other'));
+  await expect(
+    inTenant(tenant, async tx =>
+      set(tx, await party(tx, 'employee'), foreign, '1234')
+    )
+  ).rejects.toMatchObject({ code: '23503' });
+});
+
 it('AC04, AC05: allows one active primary tax contact per client and one primary email, phone, and address per party', async () => {
   await inTenant(tenant, async tx => {
     const client = await party(tx, 'client');
@@ -185,11 +234,12 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
       "INSERT INTO app.organizations (party_id, tenant_id, legal_name) VALUES ($1,$2,'Lot 14')",
       [client, tenant]
     );
+    const format = await taxIdFormat(tx, tenant, 'Buyer');
     const insertBuyer = async name => {
       const id = await party(tx, 'client_contact');
       await tx.none(
-        "UPDATE app.parties SET tax_id_encrypted='x', tax_id_hash=$2, tax_id_last4='1234' WHERE id=$1",
-        [id, HASH]
+        "UPDATE app.parties SET tax_id_format_id=$3, tax_id_encrypted='x', tax_id_hash=$2, tax_id_last4='1234' WHERE id=$1",
+        [id, HASH, format]
       );
       await tx.none(
         "INSERT INTO app.people (party_id, tenant_id, organization_id, first_name, last_name, is_primary_tax_contact) VALUES ($1,$2,$3,$4,'Smith',true)",
@@ -213,7 +263,7 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
         [tenant, person, type, value]
       );
     await method('email', 'bob@city.test');
-    await method('phone', '555-0100');
+    await method('phone', '+15125550100');
     await expect(
       tx.tx(() => method('email', 'bob2@city.test'))
     ).rejects.toMatchObject({ code: '23505' });

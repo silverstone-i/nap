@@ -10,6 +10,7 @@
  * keeps a primary email (R016).
  */
 
+import { normalizePhone } from '@nap/shared';
 import { z } from 'zod';
 import { DirectoryError } from './errors.js';
 import {
@@ -22,10 +23,8 @@ import {
 } from './shared.js';
 
 const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
-const phone = z
-  .string()
-  .trim()
-  .regex(/^[0-9+().\- x]{3,32}$/);
+// R033: stored in E.164 form; input without `+` is a US number.
+const phone = z.string().transform(normalizePhone).pipe(z.string());
 const labelId = uuid.nullable();
 
 const methodCreate = z.strictObject({

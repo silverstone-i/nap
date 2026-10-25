@@ -8,13 +8,14 @@ import { useCapabilities } from '../../auth/useCapabilities.js';
 /**
  * What the session may do in the business directory (M0005 §4). Hiding is
  * cosmetic; the server decides every request.
- * @returns {{write: boolean, labels: boolean, readTaxIds: boolean, writeTaxIds: boolean, assignRoles: boolean, onError: (err: unknown) => void}} `assignRoles` gates portal access and roles in the person dialog (I0010-R001).
+ * @returns {{write: boolean, labels: boolean, taxIdFormats: boolean, readTaxIds: boolean, writeTaxIds: boolean, assignRoles: boolean, onError: (err: unknown) => void}} `assignRoles` gates portal access and roles in the person dialog (I0010-R001).
  */
 export function useDirectoryAbilities() {
   const { can, onError } = useCapabilities();
   return {
     write: can('business-directory::directory::write'),
     labels: can('business-directory::labels::write'),
+    taxIdFormats: can('business-directory::tax-id-formats::write'),
     readTaxIds: can('business-directory::tax-ids::read'),
     writeTaxIds: can('business-directory::tax-ids::write'),
     assignRoles: can('access-control::assignments::write'),

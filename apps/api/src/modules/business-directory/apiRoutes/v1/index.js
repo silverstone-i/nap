@@ -36,12 +36,22 @@ import {
   renameLabel,
   restoreLabel,
 } from '../../domain/labels.js';
+import {
+  archiveTaxIdFormat,
+  bulkArchiveTaxIdFormats,
+  bulkRestoreTaxIdFormats,
+  createTaxIdFormat,
+  listTaxIdFormats,
+  restoreTaxIdFormat,
+  updateTaxIdFormat,
+} from '../../domain/taxIdFormats.js';
 import { directoryContext, sendDirectoryError } from './shared.js';
 
 const READ = 'business-directory::directory::read';
 const WRITE = 'business-directory::directory::write';
 const LABELS = 'business-directory::labels::write';
 const TAX_IDS_READ = 'business-directory::tax-ids::read';
+const TAX_ID_FORMATS = 'business-directory::tax-id-formats::write';
 
 /**
  * Wrap a handler: require a session and `capability` (I0005-R001), build the
@@ -305,6 +315,68 @@ export function createLabelsRouter(deps) {
 }
 
 /**
+ * Build the `tax-id-formats` router (M0005-R036–R042).
+ * @param {object} deps
+ * @returns {import('express').Router}
+ */
+export function createTaxIdFormatsRouter(deps) {
+  const router = Router();
+  router.get(
+    '/',
+    ...route(deps, READ, async (context, request, response) =>
+      sendData(response, await listTaxIdFormats(context, request.query))
+    )
+  );
+  router.post(
+    '/',
+    ...route(deps, TAX_ID_FORMATS, async (context, request, response) =>
+      sendData(response, await createTaxIdFormat(context, request.body), 201)
+    )
+  );
+  router.patch(
+    '/:id',
+    ...route(deps, TAX_ID_FORMATS, async (context, request, response) =>
+      sendData(
+        response,
+        await updateTaxIdFormat(context, request.params.id, request.body)
+      )
+    )
+  );
+  // M0005-R042: all-or-nothing bulk archive and restore.
+  router.post(
+    '/archive',
+    ...route(deps, TAX_ID_FORMATS, async (context, request, response) =>
+      sendData(response, await bulkArchiveTaxIdFormats(context, request.body))
+    )
+  );
+  router.post(
+    '/restore',
+    ...route(deps, TAX_ID_FORMATS, async (context, request, response) =>
+      sendData(response, await bulkRestoreTaxIdFormats(context, request.body))
+    )
+  );
+  router.post(
+    '/:id/archive',
+    ...route(deps, TAX_ID_FORMATS, async (context, request, response) =>
+      sendData(
+        response,
+        await archiveTaxIdFormat(context, request.params.id, request.body)
+      )
+    )
+  );
+  router.post(
+    '/:id/restore',
+    ...route(deps, TAX_ID_FORMATS, async (context, request, response) =>
+      sendData(
+        response,
+        await restoreTaxIdFormat(context, request.params.id, request.body)
+      )
+    )
+  );
+  return router;
+}
+
+/**
  * Version 1 route registrations for `business-directory`, mounted at
  * `/api/business-directory/v1/<router>` against the selected tenant's cell.
  */
@@ -317,6 +389,7 @@ export const businessDirectoryRoutesV1 = [
   },
   { router: 'parties', factory: createPartiesRouter },
   { router: 'labels', factory: createLabelsRouter },
+  { router: 'tax-id-formats', factory: createTaxIdFormatsRouter },
 ].map(entry => ({
   module: 'business-directory',
   version: 1,
