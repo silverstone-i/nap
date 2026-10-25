@@ -5,15 +5,14 @@
 
 /**
  * @file Browser-local preference storage. Every key here is one the PRD
- * explicitly allows to survive logout (I0001 §9): display mode and the
- * standard-grid page size. Never store session, credential, tenant, or
- * role data through this module.
+ * explicitly allows to survive logout (I0001 §9): display mode. The
+ * standard-grid page size moved to the member's profile (M0006-03-R008).
+ * Never store session, credential, tenant, or role data through this module.
  */
 
 /** Namespaced localStorage keys. */
 export const STORAGE_KEYS = Object.freeze({
   displayMode: 'nap.displayMode',
-  gridPageSize: 'nap.gridPageSize',
 });
 
 /**

@@ -25,6 +25,8 @@ export const tenantMembersSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    // Lets a tenant table key to a membership of the same tenant (M0006-03).
+    unique: [['tenant_id', 'id']],
     checks: [
       "member_type IS NULL OR member_type IN ('employee', 'contact', 'vendor_contact', 'client_contact')",
       "status IN ('pending', 'active', 'suspended')",
@@ -98,5 +100,23 @@ export class TenantMembers extends CopyTableModel {
       [tenantId, portalUserId]
     );
     return row?.status ?? null;
+  }
+
+  /**
+   * A portal user's active, unarchived membership in the tenant, or `null`
+   * (M0006-03-R001). Cell tables have no row-level security, so the tenant
+   * is filtered here.
+   * @param {string} tenantId
+   * @param {string} portalUserId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<{id: string, member_id: string|null}|null>}
+   */
+  async activeByPortalUser(tenantId, portalUserId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT id, member_id FROM ${this.schemaName}.${this.tableName}
+        WHERE tenant_id=$1 AND portal_user_id=$2 AND status = 'active'
+          AND deactivated_at IS NULL`,
+      [tenantId, portalUserId]
+    );
   }
 }

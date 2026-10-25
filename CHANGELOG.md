@@ -17,12 +17,15 @@ when a pull request with a release label merges into `main`.
 - Settings → Storage connects a tenant's own S3-compatible bucket, such as Amazon S3, Cloudflare R2, Backblaze B2, or MinIO (M0006-02). Saving writes, reads back, and deletes a test object first and names why a failed test failed. The secret access key is stored only encrypted, bound to the tenant, and never returned, logged, or recorded. Viewing needs `tenant-settings::storage::read` and changing needs `tenant-settings::storage::write`.
 - Settings → General uploads, replaces, and removes the tenant logo once storage is connected, and the header shows it beside the tenant name. Uploads go through the API, which accepts only PNG, JPEG, WebP, or GIF images of at most 2 MB whose content matches their type, and names each object itself. The bucket stays private: files are shown through signed links that expire after 15 minutes. Storage and logo changes are recorded as `tenant_settings.storage_connected`, `storage_changed`, `storage_disconnected`, and `logo_changed` administrative events.
 - The API needs a new deploy secret, `FILE_STORAGE_ENCRYPTION_KEY_<ENV>`, base64 for 32 random bytes (`openssl rand -base64 32`), and refuses to start without it.
+- Each member has a profile in each tenant (M0006-03). The account menu's new Profile screen shows the tenant's time zone, date format, language, and records per page beside the member's own choice, and "Use tenant setting" returns to the tenant's value. A member can pick one of six bundled animated images, upload their own once storage is connected, or keep their initials; the account button shows the choice. Members read and change only their own profile, through `/api/tenant-settings/v1/profile`, and profile changes record no administrative event.
 
 ### Changed
 
 - Phones use the tenant's default country instead of the US (M0005-R046): a number without a leading `+` is read as that country's number, and that country's numbers show in national form while others show in international form.
 - Migration `001-cell-tenancy` is edited in place to allow the new `settings_change` outbox topic, and the new `tenant-settings` module adds `app.tenant_settings`, `app.file_storage`, and `app.files`, so recreate existing cell databases.
-- `GET /api/tenant-settings/v1/effective` also returns `logoFileId` and `storageConnected`.
+- `GET /api/tenant-settings/v1/effective` applies the member's own settings and also returns `logoFileId`, `storageConnected`, and `profileImage`.
+- Standard grids start at the member's records per page, and choosing another page size saves it to their profile, so it applies in every grid and every browser (M0006-03-R008). The browser-local page-size preference is gone; without a selected tenant, a choice lasts only for the page.
+- Migrations `001-cell-tenancy` and `001-tenant-settings` are edited in place again to add `app.member_profiles` and the keys it references, so recreate existing cell databases.
 
 ## [v0.31.0] - 2026-10-25
 

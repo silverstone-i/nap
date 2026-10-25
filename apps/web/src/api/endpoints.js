@@ -40,6 +40,7 @@ import {
   effectiveSettingsSchema,
   fileLinkSchema,
   logoViewSchema,
+  profileViewSchema,
   storageViewSchema,
 } from '@nap/shared';
 import { z } from 'zod';
@@ -1023,5 +1024,50 @@ export async function deleteLogo() {
 export async function getFileLink(id) {
   return fileLinkSchema.parse(
     await apiGet(`${TENANT_SETTINGS_BASE}/files/${encodeURIComponent(id)}/link`)
+  );
+}
+
+/**
+ * The signed-in member's own profile in the selected tenant (M0006-03 §10).
+ * @returns {Promise<object>}
+ */
+export async function getProfile() {
+  return profileViewSchema.parse(
+    await apiGet(`${TENANT_SETTINGS_BASE}/profile`)
+  );
+}
+
+/**
+ * Save or remove overrides, or choose a default image or none
+ * (M0006-03-R002, R004).
+ * @param {{overrides?: Record<string, unknown>, defaultImage?: string|null, revision: number}} input
+ * @returns {Promise<object>}
+ */
+export async function updateProfile(input) {
+  return profileViewSchema.parse(
+    await apiPatch(`${TENANT_SETTINGS_BASE}/profile`, input)
+  );
+}
+
+/**
+ * Upload or replace the member's profile image (M0006-03-R004).
+ * @param {File} file
+ * @returns {Promise<object>}
+ */
+export async function uploadProfileImage(file) {
+  const form = new FormData();
+  form.append('file', file);
+  return profileViewSchema.parse(
+    await apiPut(`${TENANT_SETTINGS_BASE}/profile/image`, form)
+  );
+}
+
+/**
+ * Remove the member's uploaded profile image (M0006-03-R005).
+ * @returns {Promise<object>}
+ */
+export async function deleteProfileImage() {
+  return profileViewSchema.parse(
+    await apiDelete(`${TENANT_SETTINGS_BASE}/profile/image`)
   );
 }

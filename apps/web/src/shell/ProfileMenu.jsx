@@ -16,13 +16,17 @@ import MenuItem from '@mui/material/MenuItem';
 import { useTheme } from '@mui/material/styles';
 import { useSession } from '../auth/SessionContext.jsx';
 import { useThemeMode } from '../theme/ThemeModeContext.jsx';
+import { useEffectiveSettings } from './EffectiveSettingsContext.jsx';
 import { initialsFromEmail } from './initials.js';
+import { useProfileImage } from './useProfileImage.js';
 
 const MODE_LABELS = { dark: 'Dark', light: 'Light', system: 'System' };
 
 /**
- * Avatar-triggered profile menu: Change password, Logout, and a Settings
- * submenu for the display mode (I0001-R011).
+ * Avatar-triggered profile menu: Profile, Change password, Logout, and a
+ * Settings submenu for the display mode (I0001-R011, M0006-03-R006). The
+ * avatar shows the member's profile image, else their initials; an image
+ * that fails to load falls back to initials (M0006-03-R007).
  * @returns {JSX.Element}
  */
 export function ProfileMenu() {
@@ -32,6 +36,7 @@ export function ProfileMenu() {
   const { mode, setMode } = useThemeMode();
   const [anchor, setAnchor] = useState(null);
   const [settingsAnchor, setSettingsAnchor] = useState(null);
+  const image = useProfileImage(useEffectiveSettings().settings.profileImage);
 
   const close = () => {
     setAnchor(null);
@@ -47,6 +52,8 @@ export function ProfileMenu() {
         aria-expanded={Boolean(anchor)}
       >
         <Avatar
+          src={image ?? undefined}
+          alt=""
           sx={{
             width: 32,
             height: 32,
@@ -58,6 +65,17 @@ export function ProfileMenu() {
         </Avatar>
       </IconButton>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={close}>
+        {/* A profile belongs to a tenant membership (M0006-03-R001). */}
+        {session.selectedTenant ? (
+          <MenuItem
+            onClick={() => {
+              close();
+              navigate('/profile');
+            }}
+          >
+            Profile
+          </MenuItem>
+        ) : null}
         <MenuItem
           onClick={() => {
             close();

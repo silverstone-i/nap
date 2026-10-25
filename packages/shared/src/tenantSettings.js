@@ -98,15 +98,42 @@ export function resolveGeneralSettings(stored) {
   });
 }
 
+/** Settings a member may override (M0006-01-R004, M0006-03-R002). */
+export const OVERRIDABLE_SETTINGS = Object.freeze(
+  NAMES.filter(name => GENERAL_SETTINGS[name].overridable)
+);
+
 /**
- * The effective value of every general setting for a tenant, before member
- * overrides (M0006-01-R008).
- * @param {Record<string, unknown>} stored
+ * The member's overrides that still fit the schema: only overridable
+ * settings, each with a value the schema allows (M0006-03-R002). A stored
+ * override that no longer fits is dropped, as a stale tenant value is.
+ * @param {Record<string, unknown>} overrides
  * @returns {Record<string, unknown>}
  */
-export function effectiveGeneralSettings(stored) {
+export function validOverrides(overrides) {
+  return Object.fromEntries(
+    OVERRIDABLE_SETTINGS.filter(
+      name =>
+        Object.hasOwn(overrides, name) &&
+        GENERAL_SETTINGS[name].schema.safeParse(overrides[name]).success
+    ).map(name => [name, overrides[name]])
+  );
+}
+
+/**
+ * The effective value of every general setting: the member's override,
+ * else the tenant's stored value, else the schema default (M0006-01-R008,
+ * M0006-03-R003).
+ * @param {Record<string, unknown>} stored The tenant's stored settings.
+ * @param {Record<string, unknown>} [overrides] The member's overrides.
+ * @returns {Record<string, unknown>}
+ */
+export function effectiveGeneralSettings(stored, overrides = {}) {
   const resolved = resolveGeneralSettings(stored);
-  return each(name => resolved[name].value);
+  const own = validOverrides(overrides);
+  return each(name =>
+    Object.hasOwn(own, name) ? own[name] : resolved[name].value
+  );
 }
 
 /**
@@ -134,11 +161,73 @@ export const generalSettingsViewSchema = z.strictObject({
 
 /**
  * Zod schema for `GET /effective` (R008): every general setting, plus the
- * tenant logo's file ID, or `null`, for the shell (M0006-02-R014), and
- * whether storage is connected, which shows the logo control (R013).
+ * tenant logo's file ID, or `null`, for the shell (M0006-02-R014), whether
+ * storage is connected, which shows the upload controls (R013), and the
+ * member's profile image (M0006-03-R004, R007).
  */
+/** Default profile images nap ships, by name (M0006-03-R004). */
+export const DEFAULT_PROFILE_IMAGES = Object.freeze([
+  'orbit',
+  'pulse',
+  'wave',
+  'spark',
+  'bloom',
+  'tide',
+]);
+
+/** A member's profile image: a default image, an uploaded file, or none. */
+const profileImageSchema = z
+  .union([
+    z.strictObject({ defaultImage: z.enum(DEFAULT_PROFILE_IMAGES) }),
+    z.strictObject({ fileId: z.string().uuid() }),
+  ])
+  .nullable();
+
 export const effectiveSettingsSchema = z.strictObject({
   ...each(name => GENERAL_SETTINGS[name].schema),
   logoFileId: z.string().uuid().nullable(),
   storageConnected: z.boolean(),
+  profileImage: profileImageSchema,
 });
+
+const overridesShape = Object.fromEntries(
+  OVERRIDABLE_SETTINGS.map(name => [name, GENERAL_SETTINGS[name].schema])
+);
+
+/**
+ * `GET /profile` and its writes (M0006-03 §10); `revision` 0 before the
+ * profile exists. `tenantValues` holds the tenant's value of each
+ * overridable setting, shown beside the member's override (R006).
+ */
+export const profileViewSchema = z.strictObject({
+  overrides: z.strictObject(overridesShape).partial(),
+  tenantValues: z.strictObject(overridesShape),
+  defaultImage: z.enum(DEFAULT_PROFILE_IMAGES).nullable(),
+  imageFileId: z.string().uuid().nullable(),
+  revision: z.number().int().nonnegative(),
+});
+
+/**
+ * `PATCH /profile` (M0006-03-R002, R004): overrides of overridable settings
+ * only, each a value or `null` to remove it, and a default image or `null`.
+ */
+export const profileChangeSchema = z
+  .strictObject({
+    overrides: z
+      .strictObject(
+        Object.fromEntries(
+          Object.entries(overridesShape).map(([name, schema]) => [
+            name,
+            schema.nullable().optional(),
+          ])
+        )
+      )
+      .refine(change => Object.keys(change).length > 0)
+      .optional(),
+    defaultImage: z.enum(DEFAULT_PROFILE_IMAGES).nullable().optional(),
+    revision: z.number().int().nonnegative(),
+  })
+  .refine(
+    change =>
+      change.overrides !== undefined || change.defaultImage !== undefined
+  );

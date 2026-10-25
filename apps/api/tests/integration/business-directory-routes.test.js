@@ -243,7 +243,11 @@ async function staff(roleCode) {
     { tenant: napsoft.id },
     { runtime: registry }
   );
-  return { id: user.id, cookie: `nap_session=${selected.token}` };
+  return {
+    id: user.id,
+    memberId: membership.id,
+    cookie: `nap_session=${selected.token}`,
+  };
 }
 
 beforeAll(async () => {
@@ -2694,5 +2698,254 @@ describe('file storage and tenant logo (M0006-02)', () => {
       { columnWhitelist: ['details'] }
     );
     expect(event.details.revision).toBe(2);
+  });
+});
+
+/** Upload `body` as the signed-in member's profile image. */
+function uploadProfileImage(body, as = cookie) {
+  return request(app)
+    .put(`${SETTINGS}/profile/image`)
+    .set('Origin', ORIGIN)
+    .set('Cookie', as)
+    .attach('file', body, { filename: 'me.png', contentType: 'image/png' });
+}
+
+describe('member profiles (M0006-03)', () => {
+  let member;
+  const outboxCount = () =>
+    cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return (
+        await tx.one(
+          "SELECT count(*)::int AS n FROM cell.outbox WHERE topic = 'settings_change'"
+        )
+      ).n;
+    });
+
+  it('AC01: a member overrides a setting for themselves only', async () => {
+    member = await staff(null);
+    const before = (await settings('get', '/effective')).body.data;
+    expect(before.timeZone).toBe('America/New_York');
+    expect(before.profileImage).toBeNull();
+    const empty = (await settings('get', '/profile')).body.data;
+    expect(empty).toMatchObject({
+      overrides: {},
+      defaultImage: null,
+      imageFileId: null,
+      revision: 0,
+    });
+    expect(empty.tenantValues.timeZone).toBe('America/New_York');
+
+    const events = await outboxCount();
+    const saved = await settings('patch', '/profile', {
+      overrides: { timeZone: 'Europe/London', recordsPerPage: 100 },
+      revision: 0,
+    });
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(saved.body.data).toMatchObject({
+      overrides: { timeZone: 'Europe/London', recordsPerPage: 100 },
+      tenantValues: { timeZone: 'America/New_York', recordsPerPage: 25 },
+      revision: 1,
+    });
+    // §12: profile changes record no administrative event.
+    expect(await outboxCount()).toBe(events);
+
+    const mine = (await settings('get', '/effective')).body.data;
+    expect(mine).toMatchObject({
+      timeZone: 'Europe/London',
+      recordsPerPage: 100,
+      defaultCountry: 'US',
+    });
+    const theirs = (
+      await settings('get', '/effective', undefined, member.cookie)
+    ).body.data;
+    expect(theirs).toMatchObject({
+      timeZone: 'America/New_York',
+      recordsPerPage: 25,
+    });
+  });
+
+  it('AC02: refuses non-overridable settings and bad values; null returns the tenant value', async () => {
+    const refuse = async body =>
+      (await settings('patch', '/profile', body)).body.error.code;
+    expect(
+      await refuse({ overrides: { defaultCountry: 'GB' }, revision: 1 })
+    ).toBe('INVALID_INPUT');
+    expect(await refuse({ overrides: { currency: 'EUR' }, revision: 1 })).toBe(
+      'INVALID_INPUT'
+    );
+    expect(
+      await refuse({ overrides: { recordsPerPage: 30 }, revision: 1 })
+    ).toBe('INVALID_INPUT');
+    expect(await refuse({ overrides: { timeZone: 'UTC' }, revision: 0 })).toBe(
+      'STALE_REVISION'
+    );
+    const reset = await settings('patch', '/profile', {
+      overrides: { timeZone: null },
+      revision: 1,
+    });
+    expect(reset.body.data.overrides).toEqual({ recordsPerPage: 100 });
+    expect((await settings('get', '/effective')).body.data.timeZone).toBe(
+      'America/New_York'
+    );
+  });
+
+  it('AC07: each member reads and changes only their own profile', async () => {
+    const theirs = await settings('get', '/profile', undefined, member.cookie);
+    expect(theirs.body.data.revision).toBe(0);
+    const saved = await settings(
+      'patch',
+      '/profile',
+      { overrides: { dateFormat: 'YYYY-MM-DD' }, revision: 0 },
+      member.cookie
+    );
+    expect(saved.body.data.overrides).toEqual({ dateFormat: 'YYYY-MM-DD' });
+    const mine = (await settings('get', '/profile')).body.data;
+    expect(mine.overrides).toEqual({ recordsPerPage: 100 });
+    expect(mine.revision).toBe(2);
+    expect((await settings('get', `/profile/${member.memberId}`)).status).toBe(
+      404
+    );
+    const rows = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.any('SELECT membership_id FROM app.member_profiles');
+    });
+    expect(rows.map(r => r.membership_id)).toContain(member.memberId);
+    expect(rows).toHaveLength(2);
+  });
+
+  it('AC04: with no storage, uploads are refused and default images work', async () => {
+    expect((await uploadProfileImage(png())).body.error.code).toBe(
+      'STORAGE_NOT_CONFIGURED'
+    );
+    const chosen = await settings('patch', '/profile', {
+      defaultImage: 'orbit',
+      revision: 2,
+    });
+    expect(chosen.body.data.defaultImage).toBe('orbit');
+    expect(
+      (await settings('get', '/effective')).body.data.profileImage
+    ).toEqual({ defaultImage: 'orbit' });
+    expect(
+      (
+        await settings('patch', '/profile', {
+          defaultImage: 'unknown',
+          revision: 3,
+        })
+      ).body.error.code
+    ).toBe('INVALID_INPUT');
+  });
+
+  it('AC03, R005: uploads, replaces, and removes an uploaded image, deleting old objects', async () => {
+    const { revision } = (
+      await settings('put', '/storage', {
+        ...CONNECTION,
+        secretAccessKey: 'bucket-secret',
+        revision: null,
+      })
+    ).body.data;
+    expect(revision).toBe(1);
+    const first = await uploadProfileImage(png(100));
+    expect(first.status, JSON.stringify(first.body)).toBe(200);
+    expect(first.body.data.defaultImage).toBeNull();
+    const firstId = first.body.data.imageFileId;
+    const firstKey = `acme-files/${napsoft.id}/profile_image/${firstId}`;
+    expect(bucket.objects.has(firstKey)).toBe(true);
+    expect(
+      (await settings('get', '/effective')).body.data.profileImage
+    ).toEqual({ fileId: firstId });
+    // Any member gets a signed link to another member's image (§4).
+    expect(
+      (
+        await settings(
+          'get',
+          `/files/${firstId}/link`,
+          undefined,
+          member.cookie
+        )
+      ).status
+    ).toBe(200);
+
+    const second = await uploadProfileImage(png(120));
+    const secondId = second.body.data.imageFileId;
+    expect(bucket.objects.has(firstKey)).toBe(false);
+
+    const toDefault = await settings('patch', '/profile', {
+      defaultImage: 'wave',
+      revision: second.body.data.revision,
+    });
+    expect(toDefault.body.data).toMatchObject({
+      defaultImage: 'wave',
+      imageFileId: null,
+    });
+    expect(
+      bucket.objects.has(`acme-files/${napsoft.id}/profile_image/${secondId}`)
+    ).toBe(false);
+
+    const third = await uploadProfileImage(png(140));
+    const thirdId = third.body.data.imageFileId;
+    expect(third.body.data.defaultImage).toBeNull();
+    const removed = await settings('delete', '/profile/image');
+    expect(removed.body.data.imageFileId).toBeNull();
+    expect(
+      bucket.objects.has(`acme-files/${napsoft.id}/profile_image/${thirdId}`)
+    ).toBe(false);
+    expect((await settings('delete', '/profile/image')).body.error.code).toBe(
+      'NOT_FOUND'
+    );
+    expect(
+      (await settings('get', '/effective')).body.data.profileImage
+    ).toBeNull();
+    const archived = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.one(
+        "SELECT count(*)::int AS n FROM app.files WHERE purpose = 'profile_image' AND deactivated_at IS NOT NULL"
+      );
+    });
+    expect(archived.n).toBe(3);
+  });
+
+  it('AC04: after disconnecting, an uploaded image is not offered', async () => {
+    const uploaded = await uploadProfileImage(png(160));
+    expect(uploaded.status).toBe(200);
+    const { revision } = (await settings('get', '/storage')).body.data;
+    await settings('delete', `/storage?revision=${revision}`);
+    expect(
+      (await settings('get', '/effective')).body.data.profileImage
+    ).toBeNull();
+  });
+
+  it('the database refuses a profile pointing at a logo or another tenant member', async () => {
+    const logo = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.one(
+        "SELECT id FROM app.files WHERE purpose = 'logo' ORDER BY created_at LIMIT 1"
+      );
+    });
+    const attempt = sql =>
+      cell
+        .tx(async tx => {
+          await setTenant(tx, napsoft.id);
+          await tx.none(sql, [logo.id, member.memberId, randomUUID()]);
+        })
+        .then(
+          () => null,
+          error => error.code
+        );
+    expect(
+      await attempt(
+        'UPDATE app.member_profiles SET image_file_id = $1, default_image = NULL WHERE membership_id = $2'
+      )
+    ).toBe('23503');
+    expect(
+      await attempt(
+        "INSERT INTO app.member_profiles (membership_id, tenant_id) VALUES ($3, current_setting('nap.tenant_id')::uuid)"
+      )
+    ).toBe('23503');
+    expect(
+      await attempt(
+        "UPDATE app.member_profiles SET default_image = 'orbit', image_file_id = $1 WHERE membership_id = $2"
+      )
+    ).toMatch(/^23/);
   });
 });

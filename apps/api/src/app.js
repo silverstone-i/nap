@@ -74,8 +74,7 @@ function mountApi(app, api) {
     jsonBodyOnly({
       uploadPaths: registry
         .registrations()
-        .filter(entry => entry.uploads)
-        .map(routePath),
+        .flatMap(entry => entry.uploads.map(path => routePath(entry) + path)),
     })
   );
   app.use('/api', express.json({ limit: JSON_BODY_LIMIT }));
