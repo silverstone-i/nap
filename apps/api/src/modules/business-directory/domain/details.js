@@ -12,6 +12,7 @@
 
 import { normalizePhone } from '@nap/shared';
 import { z } from 'zod';
+import { effectiveSettings } from '../../tenant-settings/domain/general.js';
 import { DirectoryError } from './errors.js';
 import {
   mutate,
@@ -23,8 +24,16 @@ import {
 } from './shared.js';
 
 const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
-// R033: stored in E.164 form; input without `+` is a US number.
-const phone = z.string().transform(normalizePhone).pipe(z.string());
+/**
+ * R033, R046: stored in E.164 form; input without `+` is a number of the
+ * tenant's default country.
+ * @param {string} country
+ */
+const phone = country =>
+  z
+    .string()
+    .transform(value => normalizePhone(value, country))
+    .pipe(z.string());
 const labelId = uuid.nullable();
 
 const methodCreate = z.strictObject({
@@ -127,13 +136,22 @@ export function addressView(row) {
 }
 
 /**
- * Parse an email or phone value for its type.
+ * Parse an email or phone value for its type. A phone is read in the
+ * tenant's effective default country (M0005-R046), inside `tx`.
+ * @param {object} context
  * @param {'email'|'phone'} type
  * @param {string} value
- * @returns {string}
+ * @param {object} tx
+ * @returns {Promise<string>}
  */
-function parseValue(type, value) {
-  return parse(type === 'email' ? email : phone, value);
+async function parseValue(context, type, value, tx) {
+  if (type === 'email') return parse(email, value);
+  const { defaultCountry } = await effectiveSettings(
+    context.cell,
+    context.tenant.id,
+    tx
+  );
+  return parse(phone(defaultCountry), value);
 }
 
 /**
@@ -269,8 +287,8 @@ function detailChange(eventKey, party, before, after) {
  */
 export function addContactMethod(context, partyId, body) {
   const input = parse(methodCreate, body);
-  const value = parseValue(input.type, input.value);
   return mutate(context, async tx => {
+    const value = await parseValue(context, input.type, input.value, tx);
     const party = await lockParty(context, partyId, tx);
     const portalEmail = await lockPortalEmail(context, party, tx);
     await requireLabel(context, input.labelId, input.type, tx);
@@ -346,7 +364,7 @@ export function updateContactMethod(context, partyId, methodId, body) {
     requireRevision(locked, input.revision);
     const changes = {};
     if (input.value !== undefined)
-      changes.value = parseValue(locked.type, input.value);
+      changes.value = await parseValue(context, locked.type, input.value, tx);
     if (input.labelId !== undefined) {
       await requireLabel(context, input.labelId, locked.type, tx);
       changes.label_id = input.labelId;

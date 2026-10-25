@@ -10,6 +10,16 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Settings → General lets a tenant set its default country, currency, time zone, date format, language, and records per page (M0006-01). Each setting starts at a default, shows when it is the default, and can be reset to it. Viewing needs `tenant-settings::general::read` and changing needs `tenant-settings::general::write`; without write the screen is read-only. Every change is recorded as a `tenant_settings.updated` administrative event.
+- Settings live in one JSON row per tenant, checked by one shared schema in `@nap/shared`, so a new setting needs no migration. Any member of a tenant can read its effective settings from `GET /api/tenant-settings/v1/effective`, and the web app loads them for every page.
+
+### Changed
+
+- Phones use the tenant's default country instead of the US (M0005-R046): a number without a leading `+` is read as that country's number, and that country's numbers show in national form while others show in international form.
+- Migration `001-cell-tenancy` is edited in place to allow the new `settings_change` outbox topic, and the new `tenant-settings` module adds `app.tenant_settings`, so recreate existing cell databases.
+
 ## [v0.31.0] - 2026-10-25
 
 ### Added

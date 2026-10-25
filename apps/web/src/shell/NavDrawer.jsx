@@ -9,6 +9,7 @@ import ContactsIcon from '@mui/icons-material/Contacts';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import DevicesIcon from '@mui/icons-material/Devices';
 import LabelIcon from '@mui/icons-material/Label';
+import TuneIcon from '@mui/icons-material/Tune';
 import PinIcon from '@mui/icons-material/Pin';
 import StoreIcon from '@mui/icons-material/Store';
 import BadgeIcon from '@mui/icons-material/Badge';
@@ -62,6 +63,7 @@ const DIRECTORY_ICONS = {
 
 /** Icon for each `Settings` child, by id. */
 const SETTINGS_ICONS = {
+  general: <TuneIcon fontSize="small" />,
   roles: <SecurityIcon fontSize="small" />,
   labels: <LabelIcon fontSize="small" />,
   'tax-id-formats': <PinIcon fontSize="small" />,

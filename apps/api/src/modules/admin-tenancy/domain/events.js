@@ -199,6 +199,12 @@ export const EVENT_CATALOGUE = Object.freeze({
       },
     ])
   ),
+  // M0006-01: a tenant's general settings changed. `before` and `after` are
+  // JSON objects of the changed settings' values.
+  'tenant_settings.updated': {
+    outcomes: ANY_OUTCOME,
+    details: ['changed_fields', 'before', 'after', 'revision', 'changed_at'],
+  },
   ...Object.fromEntries(
     ['created', 'updated', 'archived', 'restored'].map(action => [
       `directory.tax_id_format.${action}`,

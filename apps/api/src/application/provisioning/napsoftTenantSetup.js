@@ -15,6 +15,10 @@ import {
   taxIdFormatsPresent,
 } from '../../modules/business-directory/seeds/tenantSeed.js';
 import {
+  seedTenantSettings,
+  tenantSettingsPresent,
+} from '../../modules/tenant-settings/seeds/tenantSeed.js';
+import {
   napsoftSeedPresent,
   seedNapsoft,
 } from '../../modules/access-control/seeds/napsoftSeed.js';
@@ -149,12 +153,15 @@ export async function runNapsoftTenantSetup(
         // M0005-R017, R037. The root membership has no employee record (R023).
         await seedDirectoryLabels(handle.db, tx, tenant.id);
         await seedTaxIdFormats(handle.db, tx, tenant.id);
+        // M0006-01-R009.
+        await seedTenantSettings(handle.db, tx, tenant.id);
       });
       const seeded = await handle.db.tx(
         async tx =>
           (await napsoftSeedPresent(handle.db, tx, seed)) &&
           (await directoryLabelsPresent(handle.db, tx, tenant.id)) &&
-          (await taxIdFormatsPresent(handle.db, tx, tenant.id))
+          (await taxIdFormatsPresent(handle.db, tx, tenant.id)) &&
+          (await tenantSettingsPresent(handle.db, tx, tenant.id))
       );
       const [storedTenant, storedMember] = await Promise.all([
         handle.db.tenants.findOneBy(

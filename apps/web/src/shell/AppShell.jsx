@@ -10,9 +10,11 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { ContextualActionHeader } from './ContextualActionHeader.jsx';
 import { NavDrawer } from './NavDrawer.jsx';
+import { EffectiveSettingsProvider } from './EffectiveSettingsContext.jsx';
 import { NoticeProvider } from './NoticeContext.jsx';
 import { PageHeaderProvider } from './PageHeaderContext.jsx';
 import { TopHeader } from './TopHeader.jsx';
+import { useSession } from '../auth/SessionContext.jsx';
 
 /**
  * The application shell (I0001-R009): a full-width top header above a
@@ -31,6 +33,7 @@ export function AppShell({ children }) {
   const [navExpanded, setNavExpanded] = useState(true);
   const location = useLocation();
   const headingRef = useRef(null);
+  const tenantId = useSession().selectedTenant?.id;
 
   // Close the phone modal nav on every navigation. Adjusted directly
   // during render (React's "adjusting state when a prop changes" pattern)
@@ -52,32 +55,36 @@ export function AppShell({ children }) {
   return (
     <PageHeaderProvider>
       <NoticeProvider>
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-          <TopHeader onMenuClick={toggleNav} />
-          <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
-            <NavDrawer
-              variant={isPhone ? 'temporary' : 'rail'}
-              expanded={navExpanded}
-              open={phoneNavOpen}
-              onClose={() => setPhoneNavOpen(false)}
-            />
-            <Box
-              component="main"
-              sx={{
-                flex: 1,
-                minWidth: 0,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              {/* The header stays put; only the content below it scrolls. */}
-              <ContextualActionHeader headingRef={headingRef} />
-              <Box sx={{ flex: 1, p: 3, minWidth: 0, overflow: 'auto' }}>
-                {children}
+        <EffectiveSettingsProvider tenantId={tenantId}>
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}
+          >
+            <TopHeader onMenuClick={toggleNav} />
+            <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+              <NavDrawer
+                variant={isPhone ? 'temporary' : 'rail'}
+                expanded={navExpanded}
+                open={phoneNavOpen}
+                onClose={() => setPhoneNavOpen(false)}
+              />
+              <Box
+                component="main"
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                {/* The header stays put; only the content below it scrolls. */}
+                <ContextualActionHeader headingRef={headingRef} />
+                <Box sx={{ flex: 1, p: 3, minWidth: 0, overflow: 'auto' }}>
+                  {children}
+                </Box>
               </Box>
             </Box>
           </Box>
-        </Box>
+        </EffectiveSettingsProvider>
       </NoticeProvider>
     </PageHeaderProvider>
   );

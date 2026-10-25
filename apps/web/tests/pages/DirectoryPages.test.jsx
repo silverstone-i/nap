@@ -14,6 +14,7 @@ import { LabelsPage } from '../../src/pages/directory/LabelsPage.jsx';
 import { TaxIdFormatsPage } from '../../src/pages/directory/TaxIdFormatsPage.jsx';
 import { RecordFormDialog } from '../../src/pages/directory/RecordFormDialog.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
+import { EffectiveSettingsProvider } from '../../src/shell/EffectiveSettingsContext.jsx';
 import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
@@ -49,6 +50,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   restoreContactLabel: vi.fn(),
   bulkContactLabelAction: vi.fn(),
   listTaxIdFormats: vi.fn(),
+  getEffectiveSettings: vi.fn(),
   createTaxIdFormat: vi.fn(),
   updateTaxIdFormat: vi.fn(),
   archiveTaxIdFormat: vi.fn(),
@@ -184,6 +186,36 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+describe('Phones in the tenant default country (M0005-R046)', () => {
+  it('AC29: shows a GB phone in national form and a US phone internationally', async () => {
+    api.getEffectiveSettings.mockResolvedValue({
+      defaultCountry: 'GB',
+      currency: 'GBP',
+      timeZone: 'Europe/London',
+      dateFormat: 'DD/MM/YYYY',
+      language: 'en',
+      recordsPerPage: 25,
+    });
+    listRows = [
+      { ...JANE, primaryPhone: '+442079460958' },
+      {
+        ...JANE,
+        id: '22222222-2222-4222-8222-222222222222',
+        firstName: 'Sam',
+        primaryPhone: '+12125551234',
+      },
+    ];
+    renderWithHeader(
+      <EffectiveSettingsProvider tenantId={TENANT.id}>
+        <DirectoryRecordsPage kind="employee" />
+      </EffectiveSettingsProvider>
+    );
+    const table = await screen.findByRole('grid', { name: 'Employees' });
+    expect(await within(table).findByText('020 7946 0958')).toBeTruthy();
+    expect(within(table).getByText('+1 212 555 1234')).toBeTruthy();
+  });
 });
 
 describe('Employees (M0005-R026)', () => {

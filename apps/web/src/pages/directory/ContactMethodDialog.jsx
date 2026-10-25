@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatPhone, normalizePhone } from '@nap/shared';
+import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -80,8 +81,12 @@ export function ContactMethodDialog({
   onReload,
 }) {
   const [method, setMethod] = useState(initialMethod);
+  // M0005-R046: phones are read and shown in the tenant's default country.
+  const { defaultCountry } = useEffectiveSettings().settings;
   const shown = stored =>
-    type === 'phone' && stored ? formatPhone(stored) : (stored ?? '');
+    type === 'phone' && stored
+      ? formatPhone(stored, defaultCountry)
+      : (stored ?? '');
   const [value, setValue] = useState(shown(method?.value));
   const [touched, setTouched] = useState(false);
   const [labelId, setLabelId] = useState(method?.labelId ?? null);
@@ -91,7 +96,9 @@ export function ContactMethodDialog({
   const noun = type === 'email' ? 'email' : 'phone';
   // M0005-R033: the same rule the server applies; it still decides.
   const invalidPhone =
-    type === 'phone' && value.trim() !== '' && normalizePhone(value) === null;
+    type === 'phone' &&
+    value.trim() !== '' &&
+    normalizePhone(value, defaultCountry) === null;
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -161,7 +168,7 @@ export function ContactMethodDialog({
               type === 'phone'
                 ? touched && invalidPhone
                   ? 'Not a valid phone number.'
-                  : 'Without a leading +, read as a US number.'
+                  : `Without a leading +, read as a ${defaultCountry} number.`
                 : ''
             }
           />

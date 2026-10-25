@@ -36,6 +36,8 @@ import {
   addressViewSchema,
   contactLabelViewSchema,
   taxIdFormatViewSchema,
+  generalSettingsViewSchema,
+  effectiveSettingsSchema,
 } from '@nap/shared';
 import { z } from 'zod';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client.js';
@@ -914,4 +916,42 @@ export async function bulkTaxIdFormatAction(action, items) {
   });
   return z.strictObject({ rows: z.array(taxIdFormatViewSchema) }).parse(data)
     .rows;
+}
+
+// ---------------------------------------------------------------------------
+// Tenant settings (M0006)
+// ---------------------------------------------------------------------------
+
+const TENANT_SETTINGS_BASE = '/api/tenant-settings/v1';
+
+/**
+ * Every general setting with its stored value or default (M0006-01-R005).
+ * @returns {Promise<{settings: Record<string, {value: unknown, stored: boolean}>, revision: number}>}
+ */
+export async function getGeneralSettings() {
+  return generalSettingsViewSchema.parse(
+    await apiGet(`${TENANT_SETTINGS_BASE}/general`)
+  );
+}
+
+/**
+ * Save or reset general settings; `null` returns one to its default
+ * (M0006-01-R006).
+ * @param {{settings: Record<string, unknown>, revision: number}} input
+ * @returns {Promise<{settings: object, revision: number}>}
+ */
+export async function updateGeneralSettings(input) {
+  return generalSettingsViewSchema.parse(
+    await apiPatch(`${TENANT_SETTINGS_BASE}/general`, input)
+  );
+}
+
+/**
+ * The values to apply in the selected tenant (M0006-01-R008).
+ * @returns {Promise<Record<string, unknown>>}
+ */
+export async function getEffectiveSettings() {
+  return effectiveSettingsSchema.parse(
+    await apiGet(`${TENANT_SETTINGS_BASE}/effective`)
+  );
 }

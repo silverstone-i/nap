@@ -5,6 +5,7 @@
 
 import { useMemo, useState } from 'react';
 import { formatPhone } from '@nap/shared';
+import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -44,9 +45,10 @@ function withLabel(value, label) {
  * @param {string} collection
  * @param {(row: object) => void} onOpen
  * @param {object[]|null} formats The tenant's tax ID formats (M0005-R040).
+ * @param {string} country The tenant's default country, for phones (M0005-R046).
  * @returns {object[]}
  */
-function columnsFor(collection, onOpen, formats) {
+function columnsFor(collection, onOpen, formats, country) {
   const plain = { sortable: false, filterable: false };
   const columns = [
     {
@@ -80,7 +82,7 @@ function columnsFor(collection, onOpen, formats) {
       priority: 'secondary',
       valueGetter: (_value, row) =>
         withLabel(
-          row.primaryPhone && formatPhone(row.primaryPhone),
+          row.primaryPhone && formatPhone(row.primaryPhone, country),
           row.primaryPhoneLabel
         ),
     },
@@ -157,6 +159,7 @@ export function DirectoryGrid({
   const [tick, setTick] = useState(0);
   const [actionError, setActionError] = useState(null);
   const formats = useTaxIdFormats();
+  const { defaultCountry } = useEffectiveSettings().settings;
   const [editing, setEditing] = useState(null);
 
   // Keyed by value, so a caller passing a fresh but equal filter object
@@ -246,7 +249,7 @@ export function DirectoryGrid({
         </Alert>
       ) : null}
       <StandardDataGrid
-        columns={columnsFor(collection, onOpen, formats)}
+        columns={columnsFor(collection, onOpen, formats, defaultCountry)}
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}

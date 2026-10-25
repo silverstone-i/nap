@@ -20,7 +20,7 @@ and shows which modules must work together to provide a product area.
 | `business-directory`  | `cell/app`       | Owns employees, clients, vendors, vendor contacts, contacts, addresses, and contact methods.                                                           |
 | `companies`           | `cell/app`       | Owns legal entities and their tax registrations.                                                                                                       |
 | `access-control`      | `cell/app`       | Owns tenant-local role definitions, permissions, and access scopes.                                                                                    |
-| `tenant-settings`     | `cell/app`       | Owns numbering, preferences, payment terms, and approval configuration.                                                                                |
+| `tenant-settings`     | `cell/app`       | Owns general settings, member profiles, file storage and the tenant logo, numbering, payment terms, and approval configuration.                        |
 | `catalog`             | `cell/app`       | Owns products, materials, vendor SKUs and prices, SKU matching, and material assemblies.                                                               |
 | `projects`            | `cell/app`       | Owns projects, project components, memberships, and operational project changes.                                                                       |
 | `cost-codes`          | `cell/app`       | Owns the categories and activities used to classify project work and costs.                                                                            |
@@ -49,7 +49,8 @@ tenant's cell. Immutable roles are seeded into the same role table as custom
 roles: `tenant_admin` for every tenant, and `platform_admin` and `support` only
 for the Napsoft tenant. A user's role always comes from their own tenant's cell.
 `admin-tenancy` handles authentication only and stores no roles. `tenant-settings`
-owns tenant-wide configuration used by business modules.
+owns tenant-wide configuration used by business modules, each member's
+overrides of it, and the tenant's file storage connection.
 
 `catalog` and `cost-codes` provide reusable product and cost definitions.
 `estimating` uses those definitions to build and approve estimates.

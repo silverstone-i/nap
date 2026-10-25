@@ -28,7 +28,7 @@ async function catalog(db, schema, order) {
 /**
  * Verify that the connected cell database's `app` schema matches the
  * contract of every registered `app` module (`access-control`,
- * `business-directory`). `access-control` owns the schema-wide parts: the
+ * `business-directory`, `tenant-settings`). `access-control` owns the schema-wide parts: the
  * `protect_record()` function and the grant rules.
  *
  * Checks `app` schema ownership and grants, the table set, row-level

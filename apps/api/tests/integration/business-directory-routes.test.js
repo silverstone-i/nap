@@ -28,12 +28,16 @@ import { createStages } from '../../src/application/provisioning/stages.js';
 import { createProvisioningWorker } from '../../src/application/provisioning/worker.js';
 import { accessControlRoutesV1 } from '../../src/modules/access-control/apiRoutes/v1/index.js';
 import { businessDirectoryRoutesV1 } from '../../src/modules/business-directory/apiRoutes/v1/index.js';
+import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
+import { tenantSettingsRoutesV1 } from '../../src/modules/tenant-settings/apiRoutes/v1/index.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import { randomBytes } from 'node:crypto';
 import {
   organizationDetailSchema,
   personDetailSchema,
   taxIdFormatViewSchema,
+  generalSettingsViewSchema,
+  effectiveSettingsSchema,
 } from '@nap/shared';
 import { createSyncWorker } from '../../src/application/sync/worker.js';
 import { withTenantTransaction } from '../../src/infrastructure/runtime/tenantTransaction.js';
@@ -61,6 +65,7 @@ const sessionPolicy = {
 const ORIGIN = 'http://localhost:5173';
 const BASE = '/api/business-directory/v1';
 const ACL = '/api/access-control/v1';
+const SETTINGS = '/api/tenant-settings/v1';
 const taxIdPolicy = {
   encryptionKey: randomBytes(32),
   hashKey: 'integration-tax-id-hash-key-of-ample-length',
@@ -104,6 +109,21 @@ function withFormats(body) {
       ? formats.EIN
       : formats.SSN;
   return out;
+}
+
+/**
+ * Send a tenant-settings request, as the bootstrap login unless `as` says.
+ * @param {string} method
+ * @param {string} path Path below `SETTINGS`.
+ * @param {object} [body]
+ * @param {string} [as] Session cookie.
+ */
+function settings(method, path, body, as = cookie) {
+  const pending = request(app)
+    [method](SETTINGS + path)
+    .set('Origin', ORIGIN)
+    .set('Cookie', as);
+  return body === undefined ? pending : pending.send(body);
 }
 
 /**
@@ -273,6 +293,7 @@ beforeAll(async () => {
         ...adminTenancyRoutesV1,
         ...accessControlRoutesV1,
         ...businessDirectoryRoutesV1,
+        ...tenantSettingsRoutesV1,
       ],
     },
   });
@@ -2201,5 +2222,125 @@ describe('tax ID formats (M0005-R036–R042)', () => {
         },
       ])
     );
+  });
+});
+
+describe('general settings (M0006-01)', () => {
+  it('AC01: the Napsoft tenant starts with a settings row of defaults', async () => {
+    const row = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.one('SELECT settings FROM app.tenant_settings');
+    });
+    expect(row.settings).toEqual({});
+    const general = await settings('get', '/general');
+    expect(general.status).toBe(200);
+    expect(generalSettingsViewSchema.safeParse(general.body.data).success).toBe(
+      true
+    );
+    expect(general.body.data.settings.recordsPerPage).toEqual({
+      value: 25,
+      stored: false,
+    });
+  });
+
+  it('AC02, AC03, AC07: saves, refuses, resets, and drives the phone country', async () => {
+    const { revision } = (await settings('get', '/general')).body.data;
+    const refuse = async body =>
+      (await settings('patch', '/general', body)).body.error.code;
+    expect(await refuse({ settings: { unknown: 1 }, revision })).toBe(
+      'INVALID_INPUT'
+    );
+    expect(await refuse({ settings: { recordsPerPage: 30 }, revision })).toBe(
+      'INVALID_INPUT'
+    );
+    expect(
+      await refuse({ settings: { timeZone: 'Mars/Olympus' }, revision })
+    ).toBe('INVALID_INPUT');
+    expect(await refuse({ settings: { defaultCountry: 'ZZ' }, revision })).toBe(
+      'INVALID_INPUT'
+    );
+    expect(await refuse({ settings: { currency: 'ZZZ' }, revision })).toBe(
+      'INVALID_INPUT'
+    );
+    expect(
+      await refuse({ settings: { timeZone: 'UTC' }, revision: revision + 5 })
+    ).toBe('STALE_REVISION');
+
+    const saved = await settings('patch', '/general', {
+      settings: { defaultCountry: 'GB', timeZone: 'America/Chicago' },
+      revision,
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.revision).toBe(revision + 1);
+    expect(saved.body.data.settings.timeZone).toEqual({
+      value: 'America/Chicago',
+      stored: true,
+    });
+    expect(saved.body.data.settings.dateFormat.stored).toBe(false);
+
+    // M0005-R046: a phone without `+` is read in the tenant's country.
+    const person = await create('people', {
+      kind: 'contact',
+      firstName: 'Brit',
+      lastName: 'Phone',
+    });
+    const phone = await call('post', `/parties/${person.id}/contact-methods`, {
+      type: 'phone',
+      value: '020 7946 0958',
+    });
+    expect(phone.body.data.value).toBe('+442079460958');
+
+    const reset = await settings('patch', '/general', {
+      settings: { defaultCountry: null, timeZone: null },
+      revision: saved.body.data.revision,
+    });
+    expect(reset.body.data.settings.timeZone).toEqual({
+      value: 'America/New_York',
+      stored: false,
+    });
+    expect(
+      (
+        await call('post', `/parties/${person.id}/contact-methods`, {
+          type: 'phone',
+          value: '020 7946 0958',
+        })
+      ).body.error.code
+    ).toBe('INVALID_INPUT');
+
+    await sync.tick();
+    const events = await db.managed_events.findWhere(
+      { event_key: 'tenant_settings.updated', tenant_id: napsoft.id },
+      'AND',
+      { columnWhitelist: ['target_type', 'details'] }
+    );
+    expect(events.length).toBeGreaterThanOrEqual(2);
+    expect(events[0].target_type).toBe('tenant_settings');
+    expect(events.map(e => e.details.changed_fields)).toContain(
+      'defaultCountry,timeZone'
+    );
+  });
+
+  it('AC05: any member reads effective values; general routes need the capabilities', async () => {
+    const effective = await settings('get', '/effective');
+    expect(effectiveSettingsSchema.safeParse(effective.body.data).success).toBe(
+      true
+    );
+    const member = await staff(null);
+    const seen = await settings('get', '/effective', undefined, member.cookie);
+    expect(seen.status).toBe(200);
+    expect(seen.body.data.defaultCountry).toBe('US');
+    expect(
+      (await settings('get', '/general', undefined, member.cookie)).status
+    ).toBe(403);
+    expect(
+      (
+        await settings(
+          'patch',
+          '/general',
+          { settings: { language: 'en' }, revision: 1 },
+          member.cookie
+        )
+      ).status
+    ).toBe(403);
   });
 });

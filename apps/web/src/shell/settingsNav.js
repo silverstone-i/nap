@@ -4,15 +4,22 @@
  */
 
 /**
- * @file The `Settings` navigation group's data: the selected tenant's roles
- * (M0003-R016), its labels (M0005-R017), and its tax ID formats (M0005-R042). A child is visible only when the session's resolved
- * capabilities match its route capability in the selected tenant
+ * @file The `Settings` navigation group's data: the selected tenant's general
+ * settings (M0006-01-R010), roles (M0003-R016), labels (M0005-R017), and tax
+ * ID formats (M0005-R042). A child is visible only when the session's
+ * resolved capabilities match its route capability in the selected tenant
  * (I0005-R011).
  */
 
 import { can } from '../auth/capabilities.js';
 
 export const SETTINGS_CHILDREN = Object.freeze([
+  Object.freeze({
+    id: 'general',
+    label: 'General',
+    path: '/settings/general',
+    capability: 'tenant-settings::general::read',
+  }),
   Object.freeze({
     id: 'roles',
     label: 'Roles',

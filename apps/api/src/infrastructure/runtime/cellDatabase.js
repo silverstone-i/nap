@@ -8,6 +8,7 @@ import { repositories as cellTenancy } from '../../modules/cell-tenancy/reposito
 import { repositories as accessControl } from '../../modules/access-control/repositories.js';
 import { repositories as referenceData } from '../../modules/reference-data/repositories.js';
 import { repositories as businessDirectory } from '../../modules/business-directory/repositories.js';
+import { repositories as tenantSettings } from '../../modules/tenant-settings/repositories.js';
 
 /** Every cell module's table name to model map. */
 const repositories = {
@@ -15,6 +16,7 @@ const repositories = {
   ...referenceData,
   ...accessControl,
   ...businessDirectory,
+  ...tenantSettings,
 };
 /**
  * Create an unconnected pg-schemata handle for one cell database with a pool
