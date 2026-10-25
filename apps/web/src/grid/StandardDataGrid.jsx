@@ -12,18 +12,16 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { DataGrid, GridActionsCellItem } from '@mui/x-data-grid';
 import { ConfirmDialog } from './ConfirmDialog.jsx';
-import {
-  GRID_PAGE_SIZE_OPTIONS,
-  readGridPageSize,
-  writeGridPageSize,
-} from './gridPreferences.js';
+import { useEffectiveSettings } from '../shell/EffectiveSettingsContext.jsx';
+import { GRID_PAGE_SIZE_OPTIONS } from './gridPreferences.js';
 
 const EMPTY_SELECTION = { type: 'include', ids: new Set() };
 
 /**
  * Shared behavior for ordinary data grids (I0001-R015–R017): server-side
- * pagination with one browser-local page-size preference shared across
- * every grid instance, a leading checkbox column whose selection clears on
+ * pagination starting at the member's effective `recordsPerPage`, where a
+ * page-size choice is saved as their override for every grid in every
+ * browser (M0006-03-R008), a leading checkbox column whose selection clears on
  * page/sort/filter/tenant change (only when `selectable`, I0001-R026), and a
  * trailing row-action menu that
  * routes a destructive action through a confirmation dialog.
@@ -65,10 +63,20 @@ export function StandardDataGrid({
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
 
+  const { settings, saveRecordsPerPage } = useEffectiveSettings();
+  const memberPageSize = settings.recordsPerPage;
   const [paginationModel, setPaginationModel] = useState(() => ({
     page: 0,
-    pageSize: readGridPageSize(),
+    pageSize: memberPageSize,
   }));
+  // M0006-03-R008: follow the member's page size when it loads or changes.
+  // Same render-time-adjustment pattern as the reset below.
+  const [seenPageSize, setSeenPageSize] = useState(memberPageSize);
+  if (seenPageSize !== memberPageSize) {
+    setSeenPageSize(memberPageSize);
+    if (paginationModel.pageSize !== memberPageSize)
+      setPaginationModel({ page: 0, pageSize: memberPageSize });
+  }
   const [sortModel, setSortModel] = useState([]);
   const [filterModel, setFilterModel] = useState({ items: [] });
   const [rowSelectionModel, setRowSelectionModel] = useState(EMPTY_SELECTION);
@@ -159,7 +167,7 @@ export function StandardDataGrid({
 
   const handlePaginationModelChange = next => {
     if (next.pageSize !== paginationModel.pageSize)
-      writeGridPageSize(next.pageSize);
+      void saveRecordsPerPage(next.pageSize);
     setPaginationModel(next);
   };
 

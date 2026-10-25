@@ -75,7 +75,7 @@ export function imageType(upload) {
  * @returns {Promise<object>} An object store.
  * @throws {SettingsError} `STORAGE_NOT_CONFIGURED` or `STORAGE_UNAVAILABLE`.
  */
-async function openStore(context, tx) {
+export async function openStore(context, tx) {
   const row = await context.cell.file_storage.byTenant(context.tenant.id, {
     tx,
   });
@@ -101,7 +101,7 @@ async function openStore(context, tx) {
  * @param {string} key
  * @returns {Promise<void>}
  */
-async function discardObject(store, key) {
+export async function discardObject(store, key) {
   try {
     if (!store) throw new Error('storage unavailable');
     await store.delete(key);
@@ -138,6 +138,52 @@ export function fileLink(context, params, query) {
 }
 
 /**
+ * Check an upload and write it to the tenant's bucket under a key nap names,
+ * `<tenant_id>/<purpose>/<file_id>` (R007–R009). The caller records the
+ * returned row in its own transaction, and discards the object if that
+ * transaction fails.
+ * @param {import('./shared.js').SettingsContext} context
+ * @param {'logo'|'profile_image'} purpose
+ * @param {{buffer: Buffer, declaredType: string, truncated: boolean} | undefined} upload
+ * @returns {Promise<{store: object, file: object}>}
+ * @throws {SettingsError} `INVALID_INPUT`, `STORAGE_NOT_CONFIGURED`, or `STORAGE_UNAVAILABLE`.
+ */
+export async function storeImage(context, purpose, upload) {
+  const contentType = imageType(upload);
+  const tenantId = context.tenant.id;
+  const store = await read(context, tx => openStore(context, tx));
+  const id = randomUUID();
+  const file = {
+    id,
+    tenant_id: tenantId,
+    purpose,
+    object_key: `${tenantId}/${purpose}/${id}`,
+    content_type: contentType,
+    size_bytes: upload.buffer.length,
+  };
+  try {
+    await store.put(file.object_key, upload.buffer, contentType);
+  } catch {
+    throw new SettingsError('STORAGE_UNAVAILABLE');
+  }
+  return { store, file };
+}
+
+/**
+ * Delete the object of a file already archived, opening the bucket only to
+ * do so (R011). With no storage, or storage failing, the key is logged.
+ * @param {import('./shared.js').SettingsContext} context
+ * @param {string} key
+ * @returns {Promise<void>}
+ */
+export async function discardArchived(context, key) {
+  const store = await read(context, tx => openStore(context, tx)).catch(
+    () => null
+  );
+  await discardObject(store, key);
+}
+
+/**
  * Upload or replace the tenant logo (R008, R009, R011, R013). The object is
  * written before the row, and deleted again if the row cannot be saved; the
  * replaced logo's object is deleted after the change commits.
@@ -146,50 +192,33 @@ export function fileLink(context, params, query) {
  * @returns {Promise<{logoFileId: string}>}
  */
 export async function putLogo(context, upload) {
-  const contentType = imageType(upload);
-  const tenantId = context.tenant.id;
-  const store = await read(context, tx => openStore(context, tx));
-  const id = randomUUID();
-  const key = `${tenantId}/logo/${id}`;
-  try {
-    await store.put(key, upload.buffer, contentType);
-  } catch {
-    throw new SettingsError('STORAGE_UNAVAILABLE');
-  }
+  const { store, file } = await storeImage(context, 'logo', upload);
   let previous;
   try {
     previous = await mutate(context, async tx => {
       const old = await context.cell.files.activeLogo({ tx, lock: true });
       if (old)
         await context.cell.files.archive(old.id, context.actorId, { tx });
-      await context.cell.files.record(
-        {
-          id,
-          tenant_id: tenantId,
-          purpose: 'logo',
-          object_key: key,
-          content_type: contentType,
-          size_bytes: upload.buffer.length,
-        },
-        context.actorId,
-        { tx }
-      );
+      await context.cell.files.record(file, context.actorId, { tx });
       return {
         result: old,
         changes: [
           {
             eventKey: 'tenant_settings.logo_changed',
-            details: { action: old ? 'replaced' : 'uploaded', file_id: id },
+            details: {
+              action: old ? 'replaced' : 'uploaded',
+              file_id: file.id,
+            },
           },
         ],
       };
     });
   } catch (error) {
-    await discardObject(store, key);
+    await discardObject(store, file.object_key);
     throw error;
   }
   if (previous) await discardObject(store, previous.object_key);
-  return { logoFileId: id };
+  return { logoFileId: file.id };
 }
 
 /**
@@ -213,9 +242,6 @@ export async function deleteLogo(context) {
       ],
     };
   });
-  const store = await read(context, tx => openStore(context, tx)).catch(
-    () => null
-  );
-  await discardObject(store, removed.object_key);
+  await discardArchived(context, removed.object_key);
   return null;
 }

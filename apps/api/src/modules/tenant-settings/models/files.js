@@ -27,7 +27,11 @@ export const filesSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
-    unique: [['tenant_id', 'object_key']],
+    unique: [
+      ['tenant_id', 'object_key'],
+      // Lets a profile key to a `profile_image` file of its tenant (M0006-03).
+      ['tenant_id', 'id', 'purpose'],
+    ],
     checks: [
       "purpose IN ('logo', 'profile_image')",
       "content_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/gif')",

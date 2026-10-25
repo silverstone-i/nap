@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_PROFILE_IMAGES,
   effectiveGeneralSettings,
   effectiveSettingsSchema,
   formatPhone,
@@ -12,6 +13,8 @@ import {
   generalSettingsChangeSchema,
   generalSettingsViewSchema,
   normalizePhone,
+  OVERRIDABLE_SETTINGS,
+  profileChangeSchema,
   resolveGeneralSettings,
   settingDefaults,
   TIME_ZONES,
@@ -49,7 +52,12 @@ describe('general settings schema (M0006-01-R002–R006)', () => {
     expect(resolved).not.toHaveProperty('retired');
     const effective = effectiveGeneralSettings({ defaultCountry: 'GB' });
     expect(effective.defaultCountry).toBe('GB');
-    const view = { ...effective, logoFileId: null, storageConnected: false };
+    const view = {
+      ...effective,
+      logoFileId: null,
+      storageConnected: false,
+      profileImage: null,
+    };
     expect(effectiveSettingsSchema.safeParse(view).success).toBe(true);
   });
 
@@ -82,5 +90,46 @@ describe('phones with the tenant default country (M0005-R046)', () => {
     expect(formatPhone('+442079460958', 'GB')).toBe('020 7946 0958');
     expect(formatPhone('+12125551234', 'GB')).toBe('+1 212 555 1234');
     expect(formatPhone('+12125551234')).toBe('(212) 555-1234');
+  });
+});
+
+describe('member overrides (M0006-03-R002, R003)', () => {
+  it('lays valid overrides of overridable settings over tenant values', () => {
+    const effective = effectiveGeneralSettings(
+      { timeZone: 'America/Chicago', defaultCountry: 'GB' },
+      {
+        timeZone: 'Europe/London',
+        recordsPerPage: 100,
+        defaultCountry: 'FR',
+        dateFormat: 'not-a-format',
+      }
+    );
+    expect(effective.timeZone).toBe('Europe/London');
+    expect(effective.recordsPerPage).toBe(100);
+    expect(effective.defaultCountry).toBe('GB');
+    expect(effective.dateFormat).toBe('MM/DD/YYYY');
+    expect(OVERRIDABLE_SETTINGS).toEqual([
+      'timeZone',
+      'dateFormat',
+      'language',
+      'recordsPerPage',
+    ]);
+  });
+
+  it('accepts only overridable settings, allowed values, and known images', () => {
+    const ok = value => profileChangeSchema.safeParse(value).success;
+    expect(ok({ overrides: { timeZone: 'UTC' }, revision: 0 })).toBe(true);
+    expect(ok({ overrides: { timeZone: null }, revision: 2 })).toBe(true);
+    expect(ok({ defaultImage: 'orbit', revision: 1 })).toBe(true);
+    expect(ok({ defaultImage: null, revision: 1 })).toBe(true);
+    expect(ok({ overrides: { defaultCountry: 'GB' }, revision: 0 })).toBe(
+      false
+    );
+    expect(ok({ overrides: { currency: 'EUR' }, revision: 0 })).toBe(false);
+    expect(ok({ overrides: { recordsPerPage: 30 }, revision: 0 })).toBe(false);
+    expect(ok({ overrides: {}, revision: 0 })).toBe(false);
+    expect(ok({ defaultImage: 'unknown', revision: 0 })).toBe(false);
+    expect(ok({ revision: 0 })).toBe(false);
+    expect(DEFAULT_PROFILE_IMAGES).toHaveLength(6);
   });
 });

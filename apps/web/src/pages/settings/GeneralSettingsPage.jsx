@@ -4,21 +4,12 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  DATE_FORMATS,
-  LANGUAGES,
-  RECORDS_PER_PAGE,
-  settingDefaults,
-  TIME_ZONES,
-} from '@nap/shared';
+import { settingDefaults } from '@nap/shared';
 import Alert from '@mui/material/Alert';
-import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { ApiError } from '../../api/client.js';
 import {
@@ -27,26 +18,14 @@ import {
 } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
-import { CountrySelect } from '../../components/CountrySelect.jsx';
-import { CurrencySelect } from '../../components/CurrencySelect.jsx';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { LogoSettings } from './LogoSettings.jsx';
-
-const LANGUAGE_NAMES = { en: 'English' };
+import { SettingControl } from './SettingControl.jsx';
+import { SETTING_LABELS as LABELS } from './settingLabels.js';
 
 const DEFAULTS = settingDefaults();
-
-/** Display name of each setting, in screen order. */
-const LABELS = {
-  defaultCountry: 'Default country',
-  currency: 'Currency',
-  timeZone: 'Time zone',
-  dateFormat: 'Date format',
-  language: 'Language',
-  recordsPerPage: 'Records per page',
-};
 
 const MESSAGES = {
   STALE_REVISION:
@@ -64,94 +43,6 @@ function describe(err) {
     (err instanceof ApiError && MESSAGES[err.code]) ||
     'The settings could not be saved. Try again.'
   );
-}
-
-/**
- * The control for one setting.
- * @param {{name: string, value: unknown, onChange: (value: unknown) => void, disabled: boolean}} props
- * @returns {JSX.Element}
- */
-function SettingControl({ name, value, onChange, disabled }) {
-  switch (name) {
-    case 'defaultCountry':
-      return (
-        <CountrySelect
-          label="Default country"
-          value={value}
-          onChange={code => code && onChange(code)}
-          disabled={disabled}
-        />
-      );
-    case 'currency':
-      return (
-        <CurrencySelect
-          value={value}
-          onChange={code => code && onChange(code)}
-          disabled={disabled}
-        />
-      );
-    case 'timeZone':
-      return (
-        <Autocomplete
-          options={TIME_ZONES}
-          value={value}
-          onChange={(_event, zone) => zone && onChange(zone)}
-          disableClearable
-          disabled={disabled}
-          renderInput={params => <TextField {...params} label="Time zone" />}
-        />
-      );
-    case 'dateFormat':
-      return (
-        <TextField
-          select
-          label="Date format"
-          value={value}
-          onChange={event => onChange(event.target.value)}
-          disabled={disabled}
-        >
-          {DATE_FORMATS.map(format => (
-            <MenuItem key={format} value={format}>
-              {format}
-            </MenuItem>
-          ))}
-        </TextField>
-      );
-    case 'language':
-      return (
-        <TextField
-          select
-          label="Language"
-          value={value}
-          onChange={event => onChange(event.target.value)}
-          disabled={disabled}
-        >
-          {LANGUAGES.map(code => (
-            <MenuItem key={code} value={code}>
-              {LANGUAGE_NAMES[code] ?? code}
-            </MenuItem>
-          ))}
-        </TextField>
-      );
-    case 'recordsPerPage':
-      return (
-        <TextField
-          select
-          label="Records per page"
-          value={value}
-          onChange={event => onChange(Number(event.target.value))}
-          disabled={disabled}
-        >
-          {RECORDS_PER_PAGE.map(size => (
-            <MenuItem key={size} value={size}>
-              {size}
-            </MenuItem>
-          ))}
-        </TextField>
-      );
-    default:
-      return null;
-  }
 }
 
 const ORDER = Object.keys(LABELS);

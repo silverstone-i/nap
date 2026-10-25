@@ -11,9 +11,10 @@ const SQLSTATE_CODES = Object.freeze({
   '40P01': 'CONFLICT',
 });
 
-/** Codes a caller may see unchanged (M0006-01 §10, M0006-02 §10). */
+/** Codes a caller may see unchanged (M0006-01 §10, M0006-02 §10, M0006-03 §10). */
 const PASS_THROUGH = new Set([
   'INVALID_INPUT',
+  'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
   'STALE_REVISION',

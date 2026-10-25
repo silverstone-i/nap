@@ -17,6 +17,12 @@ import {
 } from '../../domain/general.js';
 import { deleteLogo, fileLink, putLogo } from '../../domain/files.js';
 import {
+  deleteProfileImage,
+  getProfile,
+  putProfileImage,
+  updateProfile,
+} from '../../domain/profile.js';
+import {
   deleteStorage,
   getStorage,
   saveStorage,
@@ -176,6 +182,51 @@ export function createFilesRouter(deps) {
 }
 
 /**
+ * Build the `profile` router (M0006-03 §10): the signed-in member's own
+ * profile in the selected tenant. No route takes a member ID; the member
+ * comes from the session (§7). Only `PUT /image` takes an upload.
+ * @param {object} deps
+ * @returns {import('express').Router}
+ */
+export function createProfileRouter(deps) {
+  const router = Router();
+  router.get(
+    '/',
+    requireSession(),
+    sessionOnly,
+    handle(deps, async (context, request, response) =>
+      sendData(response, await getProfile(context, request.query))
+    )
+  );
+  router.patch(
+    '/',
+    requireSession(),
+    sessionOnly,
+    handle(deps, async (context, request, response) =>
+      sendData(response, await updateProfile(context, request.body))
+    )
+  );
+  router.put(
+    '/image',
+    requireSession(),
+    sessionOnly,
+    uploadedFile(),
+    handle(deps, async (context, request, response) =>
+      sendData(response, await putProfileImage(context, request.upload))
+    )
+  );
+  router.delete(
+    '/image',
+    requireSession(),
+    sessionOnly,
+    handle(deps, async (context, _request, response) =>
+      sendData(response, await deleteProfileImage(context))
+    )
+  );
+  return router;
+}
+
+/**
  * Version 1 route registrations for `tenant-settings`, mounted at
  * `/api/tenant-settings/v1/<router>` against the selected tenant's cell.
  */
@@ -185,6 +236,7 @@ export const tenantSettingsRoutesV1 = [
   { router: 'storage', factory: createStorageRouter },
   { router: 'logo', factory: createLogoRouter, uploads: true },
   { router: 'files', factory: createFilesRouter },
+  { router: 'profile', factory: createProfileRouter, uploads: ['/image'] },
 ].map(entry => ({
   module: 'tenant-settings',
   version: 1,

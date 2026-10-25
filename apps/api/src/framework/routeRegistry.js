@@ -39,7 +39,7 @@ export function createRouteRegistry() {
      * @param {number} registration.version Major API version.
      * @param {'admin'|'cell'} registration.database Database this router reads and writes.
      * @param {(context: object) => import('express').Router} registration.factory
-     * @param {boolean} [registration.uploads] Whether the router takes `multipart/form-data` file uploads instead of JSON bodies.
+     * @param {boolean|string[]} [registration.uploads] Paths within the router that take `multipart/form-data` file uploads instead of JSON bodies, such as `['/image']`; `true` means the router's own path.
      * @returns {void}
      * @throws {Error} When a field is missing, malformed, or already registered.
      */
@@ -63,7 +63,8 @@ export function createRouteRegistry() {
         version,
         database,
         factory,
-        uploads: uploads === true,
+        uploads:
+          uploads === true ? [''] : Array.isArray(uploads) ? [...uploads] : [],
       });
     },
     /**

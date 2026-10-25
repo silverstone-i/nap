@@ -95,6 +95,7 @@ export const migration = defineMigration({
       ],
       constraints: {
         primaryKey: ['id'],
+        unique: [['tenant_id', 'id']],
         checks: [
           "member_type IS NULL OR member_type IN ('employee', 'contact', 'vendor_contact', 'client_contact')",
           "status IN ('pending', 'active', 'suspended')",
