@@ -29,12 +29,16 @@ export const ERROR_STATUS = Object.freeze({
   // M0005 §10 directory rules.
   PRIMARY_TAX_CONTACT: 409,
   BULK_FAILED: 409,
+  // M0006-02 §10 storage rules.
+  STORAGE_NOT_CONFIGURED: 409,
   UNSUPPORTED_MEDIA_TYPE: 415,
+  STORAGE_TEST_FAILED: 422,
   THROTTLED: 429,
   INTERNAL_ERROR: 500,
   AUDIT_UNAVAILABLE: 503,
   SERVICE_UNAVAILABLE: 503,
   CELL_UNAVAILABLE: 503,
+  STORAGE_UNAVAILABLE: 503,
 });
 
 /**
@@ -60,12 +64,15 @@ export const ERROR_MESSAGE = Object.freeze({
   GRANT_EXCEEDS_ACTOR: 'Grant exceeds your access',
   PRIMARY_TAX_CONTACT: 'Primary tax contact cannot be removed',
   BULK_FAILED: 'One or more items failed; nothing was changed',
+  STORAGE_NOT_CONFIGURED: 'File storage is not connected',
+  STORAGE_TEST_FAILED: 'File storage connection test failed',
   UNSUPPORTED_MEDIA_TYPE: 'Unsupported media type',
   THROTTLED: 'Too many requests',
   INTERNAL_ERROR: 'Internal error',
   AUDIT_UNAVAILABLE: 'Service unavailable',
   SERVICE_UNAVAILABLE: 'Service unavailable',
   CELL_UNAVAILABLE: 'Service unavailable',
+  STORAGE_UNAVAILABLE: 'File storage is unavailable',
 });
 
 /**
@@ -139,6 +146,20 @@ export function sendConflict(response, details) {
   body.error.details = details;
   response.setHeader('Cache-Control', 'no-store');
   response.status(ERROR_STATUS.CONFLICT).json(body);
+}
+
+/**
+ * Send `422 STORAGE_TEST_FAILED` with the one reason the connection test
+ * failed (M0006-02-R004).
+ * @param {import('express').Response} response
+ * @param {'UNREACHABLE'|'ACCESS_DENIED'|'BUCKET_NOT_FOUND'|'UNEXPECTED_RESPONSE'} reason
+ * @returns {void}
+ */
+export function sendStorageTestFailed(response, reason) {
+  const body = errorEnvelope('STORAGE_TEST_FAILED');
+  body.error.reason = reason;
+  response.setHeader('Cache-Control', 'no-store');
+  response.status(ERROR_STATUS.STORAGE_TEST_FAILED).json(body);
 }
 
 /**

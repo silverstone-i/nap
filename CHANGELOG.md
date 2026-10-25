@@ -14,11 +14,15 @@ when a pull request with a release label merges into `main`.
 
 - Settings → General lets a tenant set its default country, currency, time zone, date format, language, and records per page (M0006-01). Each setting starts at a default, shows when it is the default, and can be reset to it. Viewing needs `tenant-settings::general::read` and changing needs `tenant-settings::general::write`; without write the screen is read-only. Every change is recorded as a `tenant_settings.updated` administrative event.
 - Settings live in one JSON row per tenant, checked by one shared schema in `@nap/shared`, so a new setting needs no migration. Any member of a tenant can read its effective settings from `GET /api/tenant-settings/v1/effective`, and the web app loads them for every page.
+- Settings → Storage connects a tenant's own S3-compatible bucket, such as Amazon S3, Cloudflare R2, Backblaze B2, or MinIO (M0006-02). Saving writes, reads back, and deletes a test object first and names why a failed test failed. The secret access key is stored only encrypted, bound to the tenant, and never returned, logged, or recorded. Viewing needs `tenant-settings::storage::read` and changing needs `tenant-settings::storage::write`.
+- Settings → General uploads, replaces, and removes the tenant logo once storage is connected, and the header shows it beside the tenant name. Uploads go through the API, which accepts only PNG, JPEG, WebP, or GIF images of at most 2 MB whose content matches their type, and names each object itself. The bucket stays private: files are shown through signed links that expire after 15 minutes. Storage and logo changes are recorded as `tenant_settings.storage_connected`, `storage_changed`, `storage_disconnected`, and `logo_changed` administrative events.
+- The API needs a new deploy secret, `FILE_STORAGE_ENCRYPTION_KEY_<ENV>`, base64 for 32 random bytes (`openssl rand -base64 32`), and refuses to start without it.
 
 ### Changed
 
 - Phones use the tenant's default country instead of the US (M0005-R046): a number without a leading `+` is read as that country's number, and that country's numbers show in national form while others show in international form.
-- Migration `001-cell-tenancy` is edited in place to allow the new `settings_change` outbox topic, and the new `tenant-settings` module adds `app.tenant_settings`, so recreate existing cell databases.
+- Migration `001-cell-tenancy` is edited in place to allow the new `settings_change` outbox topic, and the new `tenant-settings` module adds `app.tenant_settings`, `app.file_storage`, and `app.files`, so recreate existing cell databases.
+- `GET /api/tenant-settings/v1/effective` also returns `logoFileId` and `storageConnected`.
 
 ## [v0.31.0] - 2026-10-25
 

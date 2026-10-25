@@ -12,12 +12,15 @@ import IconButton from '@mui/material/IconButton';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { useSession } from '../auth/SessionContext.jsx';
+import { useEffectiveSettings } from './EffectiveSettingsContext.jsx';
 import { ProfileMenu } from './ProfileMenu.jsx';
+import { TenantLogo } from './TenantLogo.jsx';
 
 /**
  * The shell's top header: a hamburger control that toggles navigation at
  * every width, the tenant control immediately to its right, and the
- * profile menu (I0001-R009). Spans the full width, with the nav and work
+ * profile menu (I0001-R009). The tenant control shows the tenant logo
+ * beside its name when there is one (M0006-02-R014). Spans the full width, with the nav and work
  * area sitting in the row below it — see `AppShell`.
  * @param {{onMenuClick: () => void}} props
  * @returns {JSX.Element}
@@ -25,6 +28,7 @@ import { ProfileMenu } from './ProfileMenu.jsx';
 export function TopHeader({ onMenuClick }) {
   const navigate = useNavigate();
   const session = useSession();
+  const { logoFileId, storageConnected } = useEffectiveSettings().settings;
 
   return (
     <AppBar
@@ -50,7 +54,10 @@ export function TopHeader({ onMenuClick }) {
             variant="text"
             onClick={() => navigate('/tenants')}
             aria-label={`Selected tenant: ${session.selectedTenant.name}. Open tenant selection.`}
+            sx={{ gap: 1 }}
           >
+            {/* Disconnected storage shows the name alone (M0006-02-R014). */}
+            <TenantLogo fileId={storageConnected ? logoFileId : null} />
             {session.selectedTenant.name}
           </Button>
         ) : session.entryPoints?.tenant ? (

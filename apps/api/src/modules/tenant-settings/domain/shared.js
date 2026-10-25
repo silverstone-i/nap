@@ -24,6 +24,8 @@ import { SettingsError, withSettingsErrors } from './errors.js';
  * @property {{id: string}} tenant Target tenant.
  * @property {string} actorId Acting portal user.
  * @property {(change: SettingsChange, tx: object) => Promise<void>} record Writes the change's outbox row inside `tx`.
+ * @property {{seal: Function, open: Function}|null} secrets Encrypts storage secrets (M0006-02-R002); null without the key.
+ * @property {(connection: object) => object} objectStores Opens a tenant's bucket (M0006-02).
  */
 
 /**

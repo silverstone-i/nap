@@ -54,7 +54,7 @@ export function setUnauthenticatedHandler(handler) {
  * Send one request and unwrap the envelope.
  * @param {string} method
  * @param {string} path Same-origin path, e.g. `/api/admin-tenancy/v1/auth/login`.
- * @param {unknown} [body]
+ * @param {unknown} [body] JSON-encoded, unless it is `FormData`, which is sent as `multipart/form-data`.
  * @param {Record<string, string>} [extraHeaders] Additional request headers, e.g. `Idempotency-Key`.
  * @returns {Promise<unknown>} The envelope's `data`, or `null` for a `204`.
  * @throws {ApiError}
@@ -62,14 +62,18 @@ export function setUnauthenticatedHandler(handler) {
 async function request(method, path, body, extraHeaders = {}) {
   let response;
   try {
+    // A form, such as a file upload, sets its own multipart content type.
+    const form = body instanceof FormData;
     response = await fetch(path, {
       method,
       credentials: 'same-origin',
       headers: {
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(body !== undefined && !form
+          ? { 'Content-Type': 'application/json' }
+          : {}),
         ...extraHeaders,
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: form ? body : body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
     throw new ApiError('SERVICE_UNAVAILABLE', 0);

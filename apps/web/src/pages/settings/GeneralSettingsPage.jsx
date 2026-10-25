@@ -32,6 +32,7 @@ import { CurrencySelect } from '../../components/CurrencySelect.jsx';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
+import { LogoSettings } from './LogoSettings.jsx';
 
 const LANGUAGE_NAMES = { en: 'English' };
 
@@ -160,6 +161,7 @@ const ORDER = Object.keys(LABELS);
  * setting shows its value and says when it is the default. A member with
  * `general::write` edits and saves them, or resets one to its default;
  * without it the screen is read-only. On `STALE_REVISION` the form reloads.
+ * The same member manages the tenant logo above the form (M0006-02-R013).
  * @returns {JSX.Element}
  */
 export function GeneralSettingsPage() {
@@ -246,57 +248,60 @@ export function GeneralSettingsPage() {
   }
 
   return (
-    <Box component="form" onSubmit={save} sx={{ maxWidth: 560 }}>
-      <Stack spacing={2.5}>
-        {error ? <Alert severity="error">{error}</Alert> : null}
-        {!canWrite ? (
-          <Alert severity="info">
-            You can view these settings but not change them.
-          </Alert>
-        ) : null}
-        {ORDER.map(name => (
-          <Stack key={name} spacing={0.5}>
-            <SettingControl
-              name={name}
-              value={valueOf(name)}
-              onChange={value => setDraft(d => ({ ...d, [name]: value }))}
-              disabled={!canWrite || saving}
-            />
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ alignItems: 'center', minHeight: 28 }}
-            >
-              {isDefault(name) ? (
-                <Typography variant="caption" color="text.secondary">
-                  Default
-                </Typography>
-              ) : null}
-              {canWrite && !isDefault(name) ? (
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setDraft(d => ({ ...d, [name]: null }))}
-                  aria-label={`Reset ${LABELS[name]} to default`}
-                >
-                  Reset to default
-                </Button>
-              ) : null}
+    <>
+      {canWrite ? <LogoSettings /> : null}
+      <Box component="form" onSubmit={save} sx={{ maxWidth: 560 }}>
+        <Stack spacing={2.5}>
+          {error ? <Alert severity="error">{error}</Alert> : null}
+          {!canWrite ? (
+            <Alert severity="info">
+              You can view these settings but not change them.
+            </Alert>
+          ) : null}
+          {ORDER.map(name => (
+            <Stack key={name} spacing={0.5}>
+              <SettingControl
+                name={name}
+                value={valueOf(name)}
+                onChange={value => setDraft(d => ({ ...d, [name]: value }))}
+                disabled={!canWrite || saving}
+              />
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ alignItems: 'center', minHeight: 28 }}
+              >
+                {isDefault(name) ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Default
+                  </Typography>
+                ) : null}
+                {canWrite && !isDefault(name) ? (
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => setDraft(d => ({ ...d, [name]: null }))}
+                    aria-label={`Reset ${LABELS[name]} to default`}
+                  >
+                    Reset to default
+                  </Button>
+                ) : null}
+              </Stack>
             </Stack>
-          </Stack>
-        ))}
-        {canWrite ? (
-          <Box>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={!dirty || saving}
-            >
-              Save
-            </Button>
-          </Box>
-        ) : null}
-      </Stack>
-    </Box>
+          ))}
+          {canWrite ? (
+            <Box>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={!dirty || saving}
+              >
+                Save
+              </Button>
+            </Box>
+          ) : null}
+        </Stack>
+      </Box>
+    </>
   );
 }

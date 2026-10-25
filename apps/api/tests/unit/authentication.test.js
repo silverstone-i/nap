@@ -1068,6 +1068,8 @@ describe('authentication configuration', () => {
     AUTH_THROTTLE_SECRET_TEST: 'test-throttle-secret-of-ample-length-here',
     KNOWN_DEVICE_SECRET_TEST: 'test-known-device-secret-of-ample-length',
     TAX_ID_ENCRYPTION_KEY_TEST: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=',
+    FILE_STORAGE_ENCRYPTION_KEY_TEST:
+      'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8=',
     TAX_ID_HASH_KEY_TEST: 'test-tax-id-hash-key-of-ample-length',
     APP_ORIGIN_TEST: 'http://localhost:5173',
   };

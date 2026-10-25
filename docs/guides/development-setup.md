@@ -59,6 +59,12 @@ Edit the DEV values in this private file:
 - `KNOWN_DEVICE_SECRET_DEV`: a third, independently generated value of at
   least 32 characters. It signs the cookie that exempts a returning browser
   from the account login throttle.
+- `TAX_ID_ENCRYPTION_KEY_DEV` and `TAX_ID_HASH_KEY_DEV`: the encryption key
+  is `openssl rand -base64 32`; the hash key is at least 32 characters and
+  differs from every other secret. They protect stored tax IDs and never rotate.
+- `FILE_STORAGE_ENCRYPTION_KEY_DEV`: another `openssl rand -base64 32`, different
+  from every other secret. It encrypts each tenant's storage secret access key
+  and never rotates; the API refuses to start without it.
 - `ROOT_TENANT_CODE_DEV`, `ROOT_COMPANY_DEV`, `ROOT_EMAIL_DEV`, and
   `ROOT_PASSWORD_DEV`: the Napsoft tenant and its first login
   that `npm run db:bootstrap -- --env dev` creates. The login gets `platform_admin` when Napsoft tenant setup seeds

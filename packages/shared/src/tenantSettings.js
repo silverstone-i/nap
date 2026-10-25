@@ -132,7 +132,13 @@ export const generalSettingsViewSchema = z.strictObject({
   revision: z.number().int().positive(),
 });
 
-/** Zod schema for `GET /effective` (R008). */
-export const effectiveSettingsSchema = z.strictObject(
-  each(name => GENERAL_SETTINGS[name].schema)
-);
+/**
+ * Zod schema for `GET /effective` (R008): every general setting, plus the
+ * tenant logo's file ID, or `null`, for the shell (M0006-02-R014), and
+ * whether storage is connected, which shows the logo control (R013).
+ */
+export const effectiveSettingsSchema = z.strictObject({
+  ...each(name => GENERAL_SETTINGS[name].schema),
+  logoFileId: z.string().uuid().nullable(),
+  storageConnected: z.boolean(),
+});

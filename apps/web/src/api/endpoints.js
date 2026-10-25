@@ -38,6 +38,9 @@ import {
   taxIdFormatViewSchema,
   generalSettingsViewSchema,
   effectiveSettingsSchema,
+  fileLinkSchema,
+  logoViewSchema,
+  storageViewSchema,
 } from '@nap/shared';
 import { z } from 'zod';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client.js';
@@ -953,5 +956,72 @@ export async function updateGeneralSettings(input) {
 export async function getEffectiveSettings() {
   return effectiveSettingsSchema.parse(
     await apiGet(`${TENANT_SETTINGS_BASE}/effective`)
+  );
+}
+
+/**
+ * The tenant's storage connection without its secret, or `null`
+ * (M0006-02-R003).
+ * @returns {Promise<object|null>}
+ */
+export async function getStorage() {
+  return storageViewSchema.parse(
+    await apiGet(`${TENANT_SETTINGS_BASE}/storage`)
+  );
+}
+
+/**
+ * Test and save the storage connection (M0006-02-R004, R005). Leave out
+ * `secretAccessKey` to keep the saved one.
+ * @param {{endpoint: string, region: string, bucket: string, accessKeyId: string, secretAccessKey?: string, revision: number|null}} input
+ * @returns {Promise<object>}
+ */
+export async function saveStorage(input) {
+  return storageViewSchema.parse(
+    await apiPut(`${TENANT_SETTINGS_BASE}/storage`, input)
+  );
+}
+
+/**
+ * Disconnect storage; files stay in the bucket (M0006-02-R006).
+ * @param {number} revision
+ * @returns {Promise<void>}
+ */
+export async function deleteStorage(revision) {
+  await apiDelete(
+    `${TENANT_SETTINGS_BASE}/storage?revision=${encodeURIComponent(revision)}`
+  );
+}
+
+/**
+ * Upload or replace the tenant logo (M0006-02-R013).
+ * @param {File} file
+ * @returns {Promise<{logoFileId: string}>}
+ */
+export async function uploadLogo(file) {
+  const form = new FormData();
+  form.append('file', file);
+  return logoViewSchema.parse(
+    await apiPut(`${TENANT_SETTINGS_BASE}/logo`, form)
+  );
+}
+
+/**
+ * Remove the tenant logo (M0006-02-R013).
+ * @returns {Promise<void>}
+ */
+export async function deleteLogo() {
+  await apiDelete(`${TENANT_SETTINGS_BASE}/logo`);
+}
+
+/**
+ * A signed link to one stored file, valid for at most 15 minutes
+ * (M0006-02-R010).
+ * @param {string} id
+ * @returns {Promise<{url: string, expiresAt: string}>}
+ */
+export async function getFileLink(id) {
+  return fileLinkSchema.parse(
+    await apiGet(`${TENANT_SETTINGS_BASE}/files/${encodeURIComponent(id)}/link`)
   );
 }

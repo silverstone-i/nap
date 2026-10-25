@@ -215,6 +215,36 @@ function taxIdConfiguration(env, suffix, otherSecrets) {
 }
 
 /**
+ * Resolve the key that encrypts each tenant's storage secret
+ * (M0006-02-R002).
+ *
+ * `FILE_STORAGE_ENCRYPTION_KEY_<ENV>` is base64 for exactly 32 random bytes,
+ * the AES-256-GCM key. It must differ from every other secret, never
+ * rotates, and the API refuses to start without it.
+ * @param {Record<string, string | undefined>} env
+ * @param {string} suffix Environment suffix, `DEV`, `TEST`, or `PROD`.
+ * @param {string[]} otherSecrets Secrets the key must not repeat.
+ * @returns {{encryptionKey: Buffer}}
+ * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the setting.
+ */
+function fileStorageConfiguration(env, suffix, otherSecrets) {
+  const setting = `FILE_STORAGE_ENCRYPTION_KEY_${suffix}`;
+  const encoded = secret(env[setting], setting).trim();
+  requireCondition(
+    /^[A-Za-z0-9+/]+={0,2}$/.test(encoded) && !otherSecrets.includes(encoded),
+    'INVALID_CONFIGURATION',
+    setting
+  );
+  const encryptionKey = Buffer.from(encoded, 'base64');
+  requireCondition(
+    encryptionKey.length === 32,
+    'INVALID_CONFIGURATION',
+    setting
+  );
+  return { encryptionKey };
+}
+
+/**
  * Resolve the public application origin used by browser request protection.
  *
  * It must be configured, never derived from `Host` or a forwarded header,
@@ -343,7 +373,7 @@ export function provisioningConfiguration(env, suffix, adminEntry) {
  * `ADMIN_DATABASE_PROD` entry and serves the built web client; other
  * environments read the plain endpoint and `NAP_APP_PSWD_*` values.
  * @param {Record<string, string | undefined>} env
- * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, knownDeviceSecret: string, memoryKib: number, timeCost: number, parallelism: number}, taxIds: {encryptionKey: Buffer, hashKey: string}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, cells: Record<string, {endpoint: string, appPassword: string}>, provisioning: object | null, webRoot: string | undefined}} `admin` is the `nap-app` connection string; `provisioning` is `null` in `test`.
+ * @returns {{port: number, trustProxyHops: number, environment: 'dev'|'test'|'prod', admin: string, cache: {enabled: boolean, url: string|undefined, namespace: string}, session: {secret: string, idleMinutes: number, absoluteHours: number}, authentication: {throttleSecret: string, knownDeviceSecret: string, memoryKib: number, timeCost: number, parallelism: number}, taxIds: {encryptionKey: Buffer, hashKey: string}, fileStorage: {encryptionKey: Buffer}, cookie: {secure: boolean, sameSite: 'lax'|'strict'}, applicationOrigin: string, cells: Record<string, {endpoint: string, appPassword: string}>, provisioning: object | null, webRoot: string | undefined}} `admin` is the `nap-app` connection string; `provisioning` is `null` in `test`.
  * @throws {MaintenanceError} `INVALID_CONFIGURATION` naming the offending setting.
  */
 export function runtimeConfiguration(env) {
@@ -395,6 +425,11 @@ export function runtimeConfiguration(env) {
     suffix,
     session.secret
   );
+  const taxIds = taxIdConfiguration(env, suffix, [
+    session.secret,
+    authentication.throttleSecret,
+    authentication.knownDeviceSecret,
+  ]);
   return {
     port,
     trustProxyHops,
@@ -403,10 +438,13 @@ export function runtimeConfiguration(env) {
     cache: cacheConfiguration(env, suffix),
     session: session,
     authentication,
-    taxIds: taxIdConfiguration(env, suffix, [
+    taxIds,
+    fileStorage: fileStorageConfiguration(env, suffix, [
       session.secret,
       authentication.throttleSecret,
       authentication.knownDeviceSecret,
+      taxIds.hashKey,
+      taxIds.encryptionKey.toString('base64'),
     ]),
     cookie: cookieConfiguration(env, suffix),
     applicationOrigin: originConfiguration(env, suffix),

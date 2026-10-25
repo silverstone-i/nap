@@ -17,7 +17,12 @@ import {
 import { settingDefaults } from '@nap/shared';
 import { getEffectiveSettings } from '../api/endpoints.js';
 
-const DEFAULTS = Object.freeze(settingDefaults());
+// No logo and no storage until the tenant's values load (M0006-02-R014).
+const DEFAULTS = Object.freeze({
+  ...settingDefaults(),
+  logoFileId: null,
+  storageConnected: false,
+});
 
 const EffectiveSettingsContext = createContext({
   settings: DEFAULTS,
