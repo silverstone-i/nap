@@ -150,15 +150,22 @@ export function updateGeneral(context, body) {
 }
 
 /**
- * The values to apply for the signed-in member (R008). Until M0006-03, the
- * stored value or the default.
+ * The values to apply for the signed-in member (R008), the tenant logo's
+ * file ID, and whether storage is connected. Until M0006-03, the stored
+ * value or the default.
  * @param {import('./shared.js').SettingsContext} context
  * @param {object} query
  * @returns {Promise<Record<string, unknown>>}
  */
 export function getEffective(context, query) {
   parse(noQuery, query);
-  return read(context, tx =>
-    effectiveSettings(context.cell, context.tenant.id, tx)
-  );
+  return read(context, async tx => ({
+    ...(await effectiveSettings(context.cell, context.tenant.id, tx)),
+    // M0006-02-R014: the shell asks for the logo's link by this ID.
+    logoFileId: (await context.cell.files.activeLogo({ tx }))?.id ?? null,
+    // M0006-02-R013: the logo control shows only when storage is connected.
+    storageConnected: Boolean(
+      await context.cell.file_storage.byTenant(context.tenant.id, { tx })
+    ),
+  }));
 }

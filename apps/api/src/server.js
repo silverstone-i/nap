@@ -85,6 +85,7 @@ try {
         runtime: cells,
         cache,
         taxIdPolicy: config.taxIds,
+        fileStoragePolicy: config.fileStorage,
         registrations: [
           ...adminTenancyRoutesV1,
           ...accessControlRoutesV1,

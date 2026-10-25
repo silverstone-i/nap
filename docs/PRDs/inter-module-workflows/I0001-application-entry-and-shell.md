@@ -125,6 +125,7 @@ visibility improve the user experience but do not grant access.
   none is selected, and open tenant selection when the user has eligible
   tenants. A user with no eligible tenants sees the platform operator's own
   company name instead.
+  _Superseded in part by [M0006-02](../modules/M0006-tenant-settings/M0006-02-file-storage-and-logo.md)-R014: the tenant control shows the tenant logo beside the name._
 - I0001-R010: Navigation must have no more than two levels and must not use
   breadcrumbs. The NAP `nap.` wordmark must appear at the bottom of the
   navigation area.

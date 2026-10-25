@@ -11,7 +11,7 @@ import {
   notFoundResponse,
   transportVersion,
 } from '@nap/shared';
-import { createRouteRegistry } from './framework/routeRegistry.js';
+import { createRouteRegistry, routePath } from './framework/routeRegistry.js';
 import { errorEnvelope, sendError } from './framework/envelope.js';
 import { correlation } from './middleware/correlation.js';
 import { browserRequestProtection } from './middleware/browserRequestProtection.js';
@@ -43,6 +43,8 @@ const JSON_BODY_LIMIT = '64kb';
  * @param {{readiness: Function, markDisabled: Function}} [api.runtime] Runtime cell registry (I0003-R020).
  * @param {{getOrLoad: Function}} [api.cache] Revision cache for resolved patterns (I0005-R008).
  * @param {{encryptionKey: Buffer, hashKey: string}} [api.taxIdPolicy] Tax ID keys (M0005-R011).
+ * @param {{encryptionKey: Buffer}} [api.fileStoragePolicy] Storage secret key (M0006-02-R002).
+ * @param {Function} [api.objectStoreFactory] Builds a tenant's object store; tests inject a fake (M0006-02).
  * @param {object[]} [api.registrations] Route registrations to mount.
  * @returns {void}
  * @throws {Error} When the application origin or a registration is invalid,
@@ -59,13 +61,23 @@ function mountApi(app, api) {
     runtime,
     cache,
     taxIdPolicy,
+    fileStoragePolicy,
+    objectStoreFactory,
     registrations = [],
   } = api;
   const registry = createRouteRegistry();
   for (const registration of registrations) registry.register(registration);
   app.use('/api', correlation());
   app.use('/api', browserRequestProtection(applicationOrigin));
-  app.use('/api', jsonBodyOnly());
+  app.use(
+    '/api',
+    jsonBodyOnly({
+      uploadPaths: registry
+        .registrations()
+        .filter(entry => entry.uploads)
+        .map(routePath),
+    })
+  );
   app.use('/api', express.json({ limit: JSON_BODY_LIMIT }));
   // A malformed or oversized body is the caller's mistake, not a server
   // failure, so it must not reach the 500 handler at the bottom of the app.
@@ -88,6 +100,8 @@ function mountApi(app, api) {
       cookiePolicy,
       runtime,
       taxIdPolicy,
+      fileStoragePolicy,
+      objectStoreFactory,
       // Cell routers mount only when the runtime cell registry is present.
       cells: runtime,
     },

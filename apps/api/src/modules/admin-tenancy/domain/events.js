@@ -32,6 +32,7 @@ const DENIED = Object.freeze(['denied']);
  * a later Work Unit cannot widen it into a leak.
  */
 export const EVENT_DETAIL_KEYS = Object.freeze([
+  'action',
   'after',
   'applies_to',
   'attempt',
@@ -48,6 +49,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'direction',
   'email',
   'failure_code',
+  'file_id',
   'forced',
   'from_enabled',
   'from_status',
@@ -204,6 +206,24 @@ export const EVENT_CATALOGUE = Object.freeze({
   'tenant_settings.updated': {
     outcomes: ANY_OUTCOME,
     details: ['changed_fields', 'before', 'after', 'revision', 'changed_at'],
+  },
+  // M0006-02: the tenant's storage connection changed. `changed_fields` names
+  // the changed columns; the secret is named, never recorded (R003).
+  ...Object.fromEntries(
+    ['storage_connected', 'storage_changed', 'storage_disconnected'].map(
+      key => [
+        `tenant_settings.${key}`,
+        {
+          outcomes: ANY_OUTCOME,
+          details: ['changed_fields', 'revision', 'changed_at'],
+        },
+      ]
+    )
+  ),
+  // M0006-02: the tenant logo was uploaded, replaced, or removed.
+  'tenant_settings.logo_changed': {
+    outcomes: ANY_OUTCOME,
+    details: ['action', 'file_id', 'changed_at'],
   },
   ...Object.fromEntries(
     ['created', 'updated', 'archived', 'restored'].map(action => [

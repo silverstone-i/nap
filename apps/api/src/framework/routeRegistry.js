@@ -39,11 +39,13 @@ export function createRouteRegistry() {
      * @param {number} registration.version Major API version.
      * @param {'admin'|'cell'} registration.database Database this router reads and writes.
      * @param {(context: object) => import('express').Router} registration.factory
+     * @param {boolean} [registration.uploads] Whether the router takes `multipart/form-data` file uploads instead of JSON bodies.
      * @returns {void}
      * @throws {Error} When a field is missing, malformed, or already registered.
      */
     register(registration) {
-      const { module, router, version, database, factory } = registration ?? {};
+      const { module, router, version, database, factory, uploads } =
+        registration ?? {};
       if (!NAME_PATTERN.test(module ?? '') || !NAME_PATTERN.test(router ?? ''))
         throw new Error('Invalid route registration name');
       if (!Number.isInteger(version) || version < 1)
@@ -55,7 +57,14 @@ export function createRouteRegistry() {
       const path = routePath(registration);
       if (entries.some(entry => routePath(entry) === path))
         throw new Error('Duplicate route registration');
-      entries.push({ module, router, version, database, factory });
+      entries.push({
+        module,
+        router,
+        version,
+        database,
+        factory,
+        uploads: uploads === true,
+      });
     },
     /**
      * The registered routers, in registration order.

@@ -91,6 +91,15 @@ startup refuses any two that match. Changing the session secret invalidates
 every existing session, changing the throttle secret resets every open failure
 window, and changing the known-device secret makes every browser unknown again.
 
+Also set `TAX_ID_ENCRYPTION_KEY_PROD`, `TAX_ID_HASH_KEY_PROD`, and
+`FILE_STORAGE_ENCRYPTION_KEY_PROD`. Each encryption key is base64 for 32 random
+bytes (`openssl rand -base64 32`), and the hash key is at least 32 characters;
+all must differ from each other and from the secrets above. They never rotate:
+changing a tax ID key makes stored tax IDs unreadable or unsearchable, and
+changing the file storage key makes every saved storage connection unreadable,
+so each tenant must enter its bucket secret again. The API refuses to start
+without them.
+
 Verify `/health/live` and `/health/ready` return HTTP 200, `/` serves the React
 app, and `/api/unknown` returns a JSON 404 rather than the SPA page. A browser
 navigation to an application route must also serve the SPA. Static assets come

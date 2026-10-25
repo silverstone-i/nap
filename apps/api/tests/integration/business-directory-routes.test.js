@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { beforeAll, afterAll, describe, it, expect } from 'vitest';
+import { beforeAll, afterAll, describe, it, expect, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -69,6 +69,58 @@ const SETTINGS = '/api/tenant-settings/v1';
 const taxIdPolicy = {
   encryptionKey: randomBytes(32),
   hashKey: 'integration-tax-id-hash-key-of-ample-length',
+};
+const fileStoragePolicy = { encryptionKey: randomBytes(32) };
+
+/**
+ * An in-memory stand-in for S3-compatible buckets (M0006-02). The bucket
+ * `acme-files` exists and accepts access key `AKIDEXAMPLE` with secret
+ * `bucket-secret`; `https://down.example` is unreachable. `objects` holds
+ * every stored object by bucket and key, and `failing.delete` makes
+ * deletions fail.
+ */
+const bucket = {
+  objects: new Map(),
+  failing: { delete: false, all: false },
+  factory(connection) {
+    const fail = (name, status) =>
+      Object.assign(new Error(name), {
+        name,
+        $metadata: { httpStatusCode: status },
+      });
+    const check = () => {
+      if (bucket.failing.all || connection.endpoint === 'https://down.example')
+        throw Object.assign(new Error('connect ECONNREFUSED'), {
+          code: 'ECONNREFUSED',
+        });
+      if (connection.bucket !== 'acme-files') throw fail('NoSuchBucket', 404);
+      if (
+        connection.accessKeyId !== 'AKIDEXAMPLE' ||
+        connection.secretAccessKey !== 'bucket-secret'
+      )
+        throw fail('SignatureDoesNotMatch', 403);
+    };
+    const id = key => `${connection.bucket}/${key}`;
+    return {
+      async put(key, body) {
+        check();
+        bucket.objects.set(id(key), Buffer.from(body));
+      },
+      async get(key) {
+        check();
+        if (!bucket.objects.has(id(key))) throw fail('NoSuchKey', 404);
+        return bucket.objects.get(id(key));
+      },
+      async delete(key) {
+        check();
+        if (bucket.failing.delete) throw fail('InternalError', 500);
+        bucket.objects.delete(id(key));
+      },
+      async signedGetUrl(key, seconds) {
+        return `https://bucket.example/${id(key)}?X-Amz-Expires=${seconds}`;
+      },
+    };
+  },
 };
 const created = new Set();
 let handle, db, dir, registry, cell, app, napsoft, rootId, cookie;
@@ -284,6 +336,8 @@ beforeAll(async () => {
       applicationOrigin: ORIGIN,
       runtime: registry,
       taxIdPolicy,
+      fileStoragePolicy,
+      objectStoreFactory: bucket.factory,
       authenticationPolicy: {
         throttleSecret: 'integration-throttle-secret-of-ample-length',
         knownDeviceSecret: 'integration-known-device-secret-of-ample-length',
@@ -2342,5 +2396,303 @@ describe('general settings (M0006-01)', () => {
         )
       ).status
     ).toBe(403);
+  });
+});
+
+/** A tiny valid PNG header followed by `size - 8` bytes. */
+function png(size = 64) {
+  const body = Buffer.alloc(size);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(body);
+  return body;
+}
+
+/** Upload `body` as the logo with `contentType`. */
+function uploadLogo(body, contentType = 'image/png', as = cookie) {
+  return request(app)
+    .put(`${SETTINGS}/logo`)
+    .set('Origin', ORIGIN)
+    .set('Cookie', as)
+    .attach('file', body, { filename: '../../evil name.png', contentType });
+}
+
+const CONNECTION = {
+  endpoint: 'https://bucket.example',
+  region: 'auto',
+  bucket: 'acme-files',
+  accessKeyId: 'AKIDEXAMPLE',
+};
+
+describe('file storage and tenant logo (M0006-02)', () => {
+  it('AC05, AC08: with no storage, uploads are refused and the shell gets no logo', async () => {
+    expect((await settings('get', '/storage')).body.data).toBeNull();
+    const upload = await uploadLogo(png());
+    expect(upload.body.error.code).toBe('STORAGE_NOT_CONFIGURED');
+    const effective = (await settings('get', '/effective')).body.data;
+    expect(effective.logoFileId).toBeNull();
+    expect(effective.storageConnected).toBe(false);
+  });
+
+  it('AC03: a wrong key, a missing bucket, and an unreachable endpoint fail the test and save nothing', async () => {
+    const attempt = async change =>
+      (
+        await settings('put', '/storage', {
+          ...CONNECTION,
+          secretAccessKey: 'bucket-secret',
+          revision: null,
+          ...change,
+        })
+      ).body.error;
+    expect(await attempt({ secretAccessKey: 'wrong' })).toMatchObject({
+      code: 'STORAGE_TEST_FAILED',
+      reason: 'ACCESS_DENIED',
+    });
+    expect(await attempt({ bucket: 'missing' })).toMatchObject({
+      code: 'STORAGE_TEST_FAILED',
+      reason: 'BUCKET_NOT_FOUND',
+    });
+    expect(await attempt({ endpoint: 'https://down.example' })).toMatchObject({
+      code: 'STORAGE_TEST_FAILED',
+      reason: 'UNREACHABLE',
+    });
+    expect((await attempt({ endpoint: 'http://bucket.example' })).code).toBe(
+      'INVALID_INPUT'
+    );
+    expect((await attempt({ secretAccessKey: undefined })).code).toBe(
+      'INVALID_INPUT'
+    );
+    expect((await settings('get', '/storage')).body.data).toBeNull();
+  });
+
+  it('AC01, AC02: connects after a test, stores the secret only encrypted, and never returns it', async () => {
+    const saved = await settings('put', '/storage', {
+      ...CONNECTION,
+      secretAccessKey: 'bucket-secret',
+      revision: null,
+    });
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect(saved.body.data).toEqual({
+      ...CONNECTION,
+      secretSet: true,
+      revision: 1,
+    });
+    // The test object was written and deleted.
+    expect(
+      [...bucket.objects.keys()].some(key => key.includes('_connection-test'))
+    ).toBe(false);
+    const row = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.one('SELECT * FROM app.file_storage');
+    });
+    expect(row.secret_encrypted).not.toContain('bucket-secret');
+    expect(
+      Buffer.from(row.secret_encrypted, 'base64').includes('bucket-secret')
+    ).toBe(false);
+    expect(JSON.stringify(await settings('get', '/storage'))).not.toContain(
+      'bucket-secret'
+    );
+    const outbox = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.any(
+        "SELECT payload::text AS payload FROM cell.outbox WHERE topic = 'settings_change'"
+      );
+    });
+    expect(outbox.some(r => r.payload.includes('storage_connected'))).toBe(
+      true
+    );
+    expect(outbox.every(r => !r.payload.includes('bucket-secret'))).toBe(true);
+    await sync.tick();
+    const [event] = await db.managed_events.findWhere(
+      {
+        event_key: 'tenant_settings.storage_connected',
+        tenant_id: napsoft.id,
+      },
+      'AND',
+      { columnWhitelist: ['target_type', 'details'] }
+    );
+    expect(event.target_type).toBe('tenant_settings');
+    expect(event.details.changed_fields).toBe(
+      'endpoint,region,bucket,access_key_id,secret_access_key'
+    );
+    expect(JSON.stringify(event)).not.toContain('bucket-secret');
+    expect(
+      (await settings('get', '/effective')).body.data.storageConnected
+    ).toBe(true);
+  });
+
+  it('AC04: a region change keeps the secret; an access key change needs it', async () => {
+    const changed = await settings('put', '/storage', {
+      ...CONNECTION,
+      region: 'us-east-1',
+      revision: 1,
+    });
+    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    expect(changed.body.data.revision).toBe(2);
+    const refused = await settings('put', '/storage', {
+      ...CONNECTION,
+      accessKeyId: 'AKIDOTHER',
+      revision: 2,
+    });
+    expect(refused.body.error.code).toBe('INVALID_INPUT');
+    const stale = await settings('put', '/storage', {
+      ...CONNECTION,
+      revision: 1,
+    });
+    expect(stale.body.error.code).toBe('STALE_REVISION');
+  });
+
+  it('AC05: stores a 1 MB PNG under its own key and refuses large, fake, and mistyped files', async () => {
+    const upload = await uploadLogo(png(1024 * 1024));
+    expect(upload.status, JSON.stringify(upload.body)).toBe(200);
+    const id = upload.body.data.logoFileId;
+    const file = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.one('SELECT * FROM app.files WHERE id = $1', [id]);
+    });
+    expect(file.object_key).toBe(`${napsoft.id}/logo/${id}`);
+    expect(file).toMatchObject({
+      purpose: 'logo',
+      content_type: 'image/png',
+      size_bytes: 1024 * 1024,
+    });
+    expect(bucket.objects.has(`acme-files/${file.object_key}`)).toBe(true);
+    expect((await settings('get', '/effective')).body.data.logoFileId).toBe(id);
+
+    expect((await uploadLogo(png(3 * 1024 * 1024))).body.error.code).toBe(
+      'INVALID_INPUT'
+    );
+    expect(
+      (await uploadLogo(Buffer.from('not an image'))).body.error.code
+    ).toBe('INVALID_INPUT');
+    expect((await uploadLogo(png(), 'image/gif')).body.error.code).toBe(
+      'INVALID_INPUT'
+    );
+    const json = await settings('put', '/logo', { file: 'x' });
+    expect(json.body.error.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+  });
+
+  it('AC06: gives any member a 15-minute signed link to the logo', async () => {
+    const { logoFileId } = (await settings('get', '/effective')).body.data;
+    const member = await staff(null);
+    const link = await settings(
+      'get',
+      `/files/${logoFileId}/link`,
+      undefined,
+      member.cookie
+    );
+    expect(link.status).toBe(200);
+    expect(link.body.data.url).toContain('X-Amz-Expires=900');
+    expect(
+      new Date(link.body.data.expiresAt).getTime() - Date.now()
+    ).toBeLessThanOrEqual(15 * 60 * 1000);
+    expect(
+      (await settings('get', `/files/${randomUUID()}/link`)).body.error.code
+    ).toBe('NOT_FOUND');
+    expect((await uploadLogo(png(), 'image/png', member.cookie)).status).toBe(
+      403
+    );
+    expect(
+      (await settings('get', '/storage', undefined, member.cookie)).status
+    ).toBe(403);
+  });
+
+  it('AC07: replacing deletes the old object; a failed deletion still saves and logs the key', async () => {
+    const first = (await settings('get', '/effective')).body.data.logoFileId;
+    const firstKey = `acme-files/${napsoft.id}/logo/${first}`;
+    const replaced = await uploadLogo(png(128));
+    expect(replaced.status).toBe(200);
+    expect(bucket.objects.has(firstKey)).toBe(false);
+
+    const secondKey = `${napsoft.id}/logo/${replaced.body.data.logoFileId}`;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    bucket.failing.delete = true;
+    try {
+      const again = await uploadLogo(png(256));
+      expect(again.status).toBe(200);
+      expect((await settings('get', '/effective')).body.data.logoFileId).toBe(
+        again.body.data.logoFileId
+      );
+      expect(warn).toHaveBeenCalledWith(
+        JSON.stringify({ event: 'file.delete_failed', object_key: secondKey })
+      );
+    } finally {
+      bucket.failing.delete = false;
+      warn.mockRestore();
+    }
+    const archived = await cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.one(
+        "SELECT count(*)::int AS n FROM app.files WHERE purpose = 'logo' AND deactivated_at IS NOT NULL"
+      );
+    });
+    expect(archived.n).toBe(2);
+    await sync.tick();
+    const events = await db.managed_events.findWhere(
+      { event_key: 'tenant_settings.logo_changed', tenant_id: napsoft.id },
+      'AND',
+      { columnWhitelist: ['details'] }
+    );
+    expect(events.map(e => e.details.action).sort()).toEqual([
+      'replaced',
+      'replaced',
+      'uploaded',
+    ]);
+  });
+
+  it('AC08: with storage down the link fails; after disconnecting the logo is kept but unavailable', async () => {
+    const { logoFileId } = (await settings('get', '/effective')).body.data;
+    bucket.failing.all = true;
+    try {
+      expect((await uploadLogo(png())).body.error.code).toBe(
+        'STORAGE_UNAVAILABLE'
+      );
+    } finally {
+      bucket.failing.all = false;
+    }
+    const { revision } = (await settings('get', '/storage')).body.data;
+    const gone = await settings('delete', `/storage?revision=${revision}`);
+    expect(gone.status).toBe(204);
+    expect((await settings('get', '/storage')).body.data).toBeNull();
+    const effective = (await settings('get', '/effective')).body.data;
+    expect(effective).toMatchObject({ logoFileId, storageConnected: false });
+    expect(
+      (await settings('get', `/files/${logoFileId}/link`)).body.error.code
+    ).toBe('STORAGE_NOT_CONFIGURED');
+    // R006: the object stays in the bucket.
+    expect(
+      bucket.objects.has(`acme-files/${napsoft.id}/logo/${logoFileId}`)
+    ).toBe(true);
+  });
+
+  it('R011, R013: removing the logo archives it even with no storage, and logs the key', async () => {
+    const { logoFileId } = (await settings('get', '/effective')).body.data;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const removed = await settings('delete', '/logo');
+      expect(removed.status).toBe(204);
+      expect(warn).toHaveBeenCalledWith(
+        JSON.stringify({
+          event: 'file.delete_failed',
+          object_key: `${napsoft.id}/logo/${logoFileId}`,
+        })
+      );
+    } finally {
+      warn.mockRestore();
+    }
+    expect(
+      (await settings('get', '/effective')).body.data.logoFileId
+    ).toBeNull();
+    expect((await settings('delete', '/logo')).body.error.code).toBe(
+      'NOT_FOUND'
+    );
+    await sync.tick();
+    const [event] = await db.managed_events.findWhere(
+      {
+        event_key: 'tenant_settings.storage_disconnected',
+        tenant_id: napsoft.id,
+      },
+      'AND',
+      { columnWhitelist: ['details'] }
+    );
+    expect(event.details.revision).toBe(2);
   });
 });

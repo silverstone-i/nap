@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 export * from './phone.js';
 export * from './taxIdFormat.js';
+export * from './fileStorage.js';
 export * from './tenantSettings.js';
 
 /** Version number carried by every API response envelope. */

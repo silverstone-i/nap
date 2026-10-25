@@ -49,7 +49,8 @@ describe('general settings schema (M0006-01-R002–R006)', () => {
     expect(resolved).not.toHaveProperty('retired');
     const effective = effectiveGeneralSettings({ defaultCountry: 'GB' });
     expect(effective.defaultCountry).toBe('GB');
-    expect(effectiveSettingsSchema.safeParse(effective).success).toBe(true);
+    const view = { ...effective, logoFileId: null, storageConnected: false };
+    expect(effectiveSettingsSchema.safeParse(view).success).toBe(true);
   });
 
   it('AC03: accepts known settings with allowed values or null, and nothing else', () => {

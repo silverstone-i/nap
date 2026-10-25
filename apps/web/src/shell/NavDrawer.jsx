@@ -5,6 +5,7 @@
 
 import { useLocation, useNavigate } from 'react-router';
 import BusinessIcon from '@mui/icons-material/Business';
+import CloudIcon from '@mui/icons-material/Cloud';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import DevicesIcon from '@mui/icons-material/Devices';
@@ -64,6 +65,7 @@ const DIRECTORY_ICONS = {
 /** Icon for each `Settings` child, by id. */
 const SETTINGS_ICONS = {
   general: <TuneIcon fontSize="small" />,
+  storage: <CloudIcon fontSize="small" />,
   roles: <SecurityIcon fontSize="small" />,
   labels: <LabelIcon fontSize="small" />,
   'tax-id-formats': <PinIcon fontSize="small" />,

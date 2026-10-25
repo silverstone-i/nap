@@ -1,0 +1,124 @@
+/*
+ * Copyright (c) 2026–present NapSoft, LLC.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+import { useState } from 'react';
+import { IMAGE_TYPES, MAX_FILE_BYTES } from '@nap/shared';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { ApiError } from '../../api/client.js';
+import { deleteLogo, uploadLogo } from '../../api/endpoints.js';
+import { useCapabilities } from '../../auth/useCapabilities.js';
+import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
+import { useNotice } from '../../shell/NoticeContext.jsx';
+import { TenantLogo } from '../../shell/TenantLogo.jsx';
+
+const INVALID =
+  'The logo must be a PNG, JPEG, WebP, or GIF image of at most 2 MB.';
+
+const MESSAGES = {
+  INVALID_INPUT: INVALID,
+  STORAGE_NOT_CONFIGURED: 'Connect file storage before uploading a logo.',
+  STORAGE_UNAVAILABLE:
+    'File storage could not be reached. Check Settings → Storage and try again.',
+  NOT_FOUND: 'The logo was already removed.',
+  FORBIDDEN: 'You do not have permission to change the logo.',
+};
+
+/**
+ * @param {unknown} err
+ * @returns {string}
+ */
+function describe(err) {
+  return (
+    (err instanceof ApiError && MESSAGES[err.code]) ||
+    'The logo could not be changed. Try again.'
+  );
+}
+
+/**
+ * The tenant logo control on Settings → General (M0006-02-R013), for a
+ * member with `general::write`. Upload and replace appear only when file
+ * storage is connected.
+ * @returns {JSX.Element}
+ */
+export function LogoSettings() {
+  const { settings, refresh } = useEffectiveSettings();
+  const { onError } = useCapabilities();
+  const notify = useNotice();
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const { logoFileId, storageConnected } = settings;
+
+  async function change(operation, message) {
+    setBusy(true);
+    setError(null);
+    try {
+      await operation();
+      refresh();
+      notify(message);
+    } catch (err) {
+      onError(err);
+      setError(describe(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function choose(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!IMAGE_TYPES.includes(file.type) || file.size > MAX_FILE_BYTES) {
+      setError(INVALID);
+      return;
+    }
+    void change(() => uploadLogo(file), 'Logo saved.');
+  }
+
+  return (
+    <Stack spacing={1} sx={{ maxWidth: 560, mb: 3 }}>
+      <Typography variant="subtitle2">Logo</Typography>
+      {error ? <Alert severity="error">{error}</Alert> : null}
+      {logoFileId && storageConnected ? (
+        <Box>
+          <TenantLogo fileId={logoFileId} height={64} alt="Tenant logo" />
+        </Box>
+      ) : null}
+      {storageConnected ? (
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" component="label" disabled={busy}>
+            {logoFileId ? 'Replace logo' : 'Upload logo'}
+            <input
+              hidden
+              type="file"
+              accept={IMAGE_TYPES.join(',')}
+              aria-label="Logo file"
+              onChange={choose}
+            />
+          </Button>
+          {logoFileId ? (
+            <Button
+              color="error"
+              disabled={busy}
+              onClick={() => change(deleteLogo, 'Logo removed.')}
+            >
+              Remove logo
+            </Button>
+          ) : null}
+        </Stack>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Connect file storage in Settings → Storage to upload a logo.
+        </Typography>
+      )}
+      <Typography variant="caption" color="text.secondary">
+        PNG, JPEG, WebP, or GIF, up to 2 MB.
+      </Typography>
+    </Stack>
+  );
+}
