@@ -138,6 +138,7 @@ const DIRECTORY_TARGETS = Object.freeze({
   address: 'address',
   label: 'contact_label',
   tax_id_format: 'tax_id_format',
+  tenant_settings: 'tenant_settings',
 });
 
 /**
@@ -160,19 +161,22 @@ function directoryEventValid(snapshot) {
 }
 
 /**
- * Apply one `directory_change` row (M0005-R025): append its administrative
- * event. The row's `entity_id` is the deduplication key, so a redelivery
- * changes nothing.
+ * Apply one `directory_change` (M0005-R025) or `settings_change` (M0006-01)
+ * row: append its administrative event. The row's `entity_id` is the
+ * deduplication key, so a redelivery changes nothing.
  * @param {object} admin Admin repository handle.
  * @param {object} row
- * @param {object} snapshot Parsed `directory_change` payload.
+ * @param {object} snapshot Parsed payload.
  * @param {{tx: object}} options
  * @returns {Promise<void>}
  */
 async function applyDirectoryChange(admin, row, snapshot, { tx }) {
   if (await admin.managed_events.hasDeduplicationKey(row.entity_id, { tx }))
     return;
-  const group = snapshot.event_key.split('.')[1];
+  const group =
+    row.topic === 'settings_change'
+      ? 'tenant_settings'
+      : snapshot.event_key.split('.')[1];
   await admin.managed_events.append(
     {
       deduplication_key: row.entity_id,
@@ -249,7 +253,10 @@ export function cellToAdmin({ admin, cellId, tenantId }) {
           delivered.push(row.id);
           continue;
         }
-        if (row.topic === 'directory_change') {
+        if (
+          row.topic === 'directory_change' ||
+          row.topic === 'settings_change'
+        ) {
           if (!directoryEventValid(snapshot)) {
             await fail(row, 'INVALID_PAYLOAD');
             continue;

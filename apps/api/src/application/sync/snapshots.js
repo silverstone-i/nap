@@ -84,6 +84,17 @@ const SNAPSHOTS = Object.freeze({
     request_id: z.uuid().nullable(),
     details: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
   }),
+  // M0006-01: one tenant settings change, checked against the event
+  // catalogue like a directory change.
+  settings_change: z.strictObject({
+    tenant_id: z.uuid(),
+    event_key: z.string().regex(/^tenant_settings\.[a-z_]+$/),
+    record_id: z.uuid(),
+    actor_id: z.uuid(),
+    session_id: z.uuid().nullable(),
+    request_id: z.uuid().nullable(),
+    details: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
+  }),
 });
 
 /**

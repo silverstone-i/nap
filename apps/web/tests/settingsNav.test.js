@@ -13,8 +13,9 @@ import { NO_CAPABILITIES, capabilitiesFixture } from './testUtils.jsx';
 const ACME = { id: 'acme', code: 'ACME' };
 
 describe('visibleSettingsChildren', () => {
-  it('lists Roles, Labels, and Tax ID Formats', () => {
+  it('lists General, Roles, Labels, and Tax ID Formats', () => {
     expect(SETTINGS_CHILDREN.map(child => child.path)).toEqual([
+      '/settings/general',
       '/settings/roles',
       '/settings/labels',
       '/settings/tax-id-formats',
@@ -45,6 +46,17 @@ describe('visibleSettingsChildren', () => {
         })
       ).map(child => child.id)
     ).toEqual(['labels', 'tax-id-formats']);
+  });
+
+  it('shows General for the general settings read capability (M0006-01-R010)', () => {
+    expect(
+      visibleSettingsChildren(
+        capabilitiesFixture({
+          patterns: ['ACME::tenant-settings::general::read'],
+          targetTenant: ACME,
+        })
+      ).map(child => child.id)
+    ).toEqual(['general']);
   });
 
   it('checks the target tenant, not Napsoft', () => {

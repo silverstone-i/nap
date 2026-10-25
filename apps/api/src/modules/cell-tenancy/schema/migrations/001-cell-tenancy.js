@@ -180,7 +180,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "topic IN ('portal_access', 'role_change', 'directory_change')",
+          "topic IN ('portal_access', 'role_change', 'directory_change', 'settings_change')",
           "status IN ('pending', 'delivered', 'failed')",
           'revision > 0',
           'attempts >= 0',

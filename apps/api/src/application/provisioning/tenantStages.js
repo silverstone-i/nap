@@ -13,6 +13,10 @@ import {
   directorySeedPresent,
   seedDirectoryTenant,
 } from '../../modules/business-directory/seeds/tenantSeed.js';
+import {
+  seedTenantSettings,
+  tenantSettingsPresent,
+} from '../../modules/tenant-settings/seeds/tenantSeed.js';
 import { enqueueTenantSnapshots } from '../sync/backfill.js';
 import { StageError, stage, withCellAdmin } from './stages.js';
 
@@ -159,11 +163,14 @@ export function createTenantStages({
             );
             await seedCustomerTenant(handle.db, tx, seedInput);
             await seedDirectoryTenant(handle.db, tx, directoryInput);
+            // M0006-01-R009: every setting starts at its default.
+            await seedTenantSettings(handle.db, tx, tenant.id);
           });
           const seeded = await handle.db.tx(
             async tx =>
               (await customerSeedPresent(handle.db, tx, seedInput)) &&
-              (await directorySeedPresent(handle.db, tx, directoryInput))
+              (await directorySeedPresent(handle.db, tx, directoryInput)) &&
+              (await tenantSettingsPresent(handle.db, tx, tenant.id))
           );
           const [storedTenant, storedMember] = await Promise.all([
             handle.db.tenants.findOneBy(

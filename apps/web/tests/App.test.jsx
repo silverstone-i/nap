@@ -25,6 +25,8 @@ vi.mock('../src/api/endpoints.js', () => ({
   getSessionCapabilities: vi.fn(),
   listTenants: vi.fn(),
   selectTenant: vi.fn(),
+  // M0006-01-R008: the shell loads the tenant's effective settings.
+  getEffectiveSettings: vi.fn(async () => ({})),
 }));
 
 beforeEach(() => {

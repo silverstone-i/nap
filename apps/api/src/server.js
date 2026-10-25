@@ -17,6 +17,7 @@ import { adminTenancyRoutesV1 } from './modules/admin-tenancy/apiRoutes/v1/index
 import { accessControlRoutesV1 } from './modules/access-control/apiRoutes/v1/index.js';
 import { referenceDataRoutesV1 } from './modules/reference-data/apiRoutes/v1/index.js';
 import { businessDirectoryRoutesV1 } from './modules/business-directory/apiRoutes/v1/index.js';
+import { tenantSettingsRoutesV1 } from './modules/tenant-settings/apiRoutes/v1/index.js';
 import { createCellRegistry } from './infrastructure/runtime/cellRegistry.js';
 import { createLocalCellDriver } from './infrastructure/provisioning/localCells.js';
 import { createRenderCellDriver } from './infrastructure/provisioning/renderCells.js';
@@ -89,6 +90,7 @@ try {
           ...accessControlRoutesV1,
           ...referenceDataRoutesV1,
           ...businessDirectoryRoutesV1,
+          ...tenantSettingsRoutesV1,
         ],
       },
     }

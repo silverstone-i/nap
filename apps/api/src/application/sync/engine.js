@@ -21,6 +21,8 @@ const TOPIC_ORDER = Object.freeze({
   entitlement: 2,
   portal_access: 3,
   role_change: 4,
+  directory_change: 5,
+  settings_change: 6,
 });
 
 /**

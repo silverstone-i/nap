@@ -215,6 +215,9 @@ async function cellRoles(cellId, tenantId) {
         formats: await tx.one(
           'SELECT count(*)::int AS n FROM app.tax_id_formats'
         ),
+        settings: await tx.one(
+          'SELECT count(*)::int AS n FROM app.tenant_settings'
+        ),
       };
     });
   } finally {
@@ -396,6 +399,7 @@ describe('tenant provisioning (I0006)', () => {
       designations,
       labels,
       formats,
+      settings,
     } = await cellRoles(cellId, tenant.id);
     expect(roles).toEqual([
       {
@@ -422,6 +426,7 @@ describe('tenant provisioning (I0006)', () => {
     expect(designations).toEqual([]);
     expect(labels.n).toBe(13);
     expect(formats.n).toBe(3);
+    expect(settings.n).toBe(1);
   });
 
   it('AC06: rejects an unknown client, a non-client, a client or code already used, and a cell that is not ready', async () => {
