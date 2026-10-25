@@ -9,6 +9,7 @@ import {
   createHmac,
   randomBytes,
 } from 'node:crypto';
+import { canonicalTaxId } from '@nap/shared';
 import { DirectoryError } from './errors.js';
 
 const ALGORITHM = 'aes-256-gcm';
@@ -16,21 +17,35 @@ const NONCE_BYTES = 12;
 const TAG_BYTES = 16;
 
 /**
- * Reduce an entered tax ID to its digits. An SSN or EIN has nine digits in
- * any formatting (`123-45-6789`, `12-3456789`, `123456789`); anything else is
- * rejected. The digits are what gets encrypted, hashed, and masked, so the
- * same number always hashes the same way (M0005-R010, R013).
+ * Reduce an entered tax ID to its canonical form under its format's mask:
+ * the slot characters alone, uppercased (M0005-R038). The canonical value is
+ * what gets encrypted, hashed, and masked, so the same number always hashes
+ * the same way whatever format it was saved with (R039).
  * @param {unknown} value
- * @returns {string} Nine digits.
+ * @param {string} mask
+ * @returns {string}
  * @throws {DirectoryError} `INVALID_INPUT`
  */
-export function normalizeTaxId(value) {
-  if (typeof value !== 'string') throw new DirectoryError('INVALID_INPUT');
-  const trimmed = value.trim();
-  if (!/^[0-9 -]+$/.test(trimmed)) throw new DirectoryError('INVALID_INPUT');
-  const digits = trimmed.replace(/[ -]/g, '');
-  if (!/^[0-9]{9}$/.test(digits)) throw new DirectoryError('INVALID_INPUT');
-  return digits;
+export function normalizeTaxId(value, mask) {
+  const canonical = canonicalTaxId(value, mask);
+  if (canonical === null) throw new DirectoryError('INVALID_INPUT');
+  return canonical;
+}
+
+/**
+ * The canonical values a tax ID search could mean: the input under each of
+ * the tenant's masks, and its letters and digits alone (R013, R039).
+ * @param {string} value Entered search text.
+ * @param {string[]} masks
+ * @returns {string[]}
+ */
+export function searchCandidates(value, masks) {
+  const candidates = new Set(
+    masks.map(mask => canonicalTaxId(value, mask)).filter(Boolean)
+  );
+  const bare = value.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+  if (bare.length >= 4) candidates.add(bare);
+  return [...candidates];
 }
 
 /**
@@ -57,39 +72,48 @@ export function createTaxIdProtector({ encryptionKey, hashKey }) {
     throw new TypeError('hashKey must be at least 32 characters');
 
   /**
-   * HMAC-SHA-256 of the normalized digits, as 64 lowercase hex characters.
-   * @param {unknown} value Entered tax ID.
+   * HMAC-SHA-256 of a canonical tax ID, as 64 lowercase hex characters.
+   * @param {string} canonical
    * @returns {string}
    */
-  function hash(value) {
-    return createHmac('sha256', hashKey)
-      .update(normalizeTaxId(value))
-      .digest('hex');
+  function hash(canonical) {
+    return createHmac('sha256', hashKey).update(canonical).digest('hex');
   }
 
   /**
-   * The three stored columns for a tax ID, or all null when `value` is null.
+   * The four stored columns for a tax ID, or all null when `value` is null.
    * Each call uses a fresh random nonce.
    * @param {unknown} value Entered tax ID, or null to clear it.
+   * @param {{id: string, mask: string}|null} format The format it was entered in (R038).
    * @param {{tenantId: string, partyId: string}} row
-   * @returns {{tax_id_encrypted: string|null, tax_id_hash: string|null, tax_id_last4: string|null}}
+   * @returns {{tax_id_format_id: string|null, tax_id_encrypted: string|null, tax_id_hash: string|null, tax_id_last4: string|null}}
+   * @throws {DirectoryError} `INVALID_INPUT` when the value does not fit the format.
    */
-  function protect(value, { tenantId, partyId }) {
+  function protect(value, format, { tenantId, partyId }) {
     if (value === null)
-      return { tax_id_encrypted: null, tax_id_hash: null, tax_id_last4: null };
-    const digits = normalizeTaxId(value);
+      return {
+        tax_id_format_id: null,
+        tax_id_encrypted: null,
+        tax_id_hash: null,
+        tax_id_last4: null,
+      };
+    const canonical = normalizeTaxId(value, format.mask);
     const nonce = randomBytes(NONCE_BYTES);
     const cipher = createCipheriv(ALGORITHM, encryptionKey, nonce);
     cipher.setAAD(context(tenantId, partyId));
-    const body = Buffer.concat([cipher.update(digits, 'utf8'), cipher.final()]);
+    const body = Buffer.concat([
+      cipher.update(canonical, 'utf8'),
+      cipher.final(),
+    ]);
     return {
+      tax_id_format_id: format.id,
       tax_id_encrypted: Buffer.concat([
         nonce,
         cipher.getAuthTag(),
         body,
       ]).toString('base64'),
-      tax_id_hash: hash(digits),
-      tax_id_last4: digits.slice(-4),
+      tax_id_hash: hash(canonical),
+      tax_id_last4: canonical.slice(-4),
     };
   }
 
@@ -97,7 +121,7 @@ export function createTaxIdProtector({ encryptionKey, hashKey }) {
    * Decrypt a stored tax ID for the row it belongs to.
    * @param {string} stored `tax_id_encrypted`.
    * @param {{tenantId: string, partyId: string}} row
-   * @returns {string} Nine digits.
+   * @returns {string} The canonical tax ID.
    * @throws {Error} When the value was altered, belongs to another row, or the key is wrong.
    */
   function reveal(stored, { tenantId, partyId }) {

@@ -28,6 +28,8 @@ import {
   temporaryPassword,
 } from './portalAccess.js';
 import { addressView, contactMethodView } from './details.js';
+import { searchCandidates } from './taxIds.js';
+import { activeTaxIdFormat } from './taxIdFormats.js';
 import {
   bulkApply,
   containsPattern,
@@ -63,9 +65,14 @@ const CONTACT_KIND = Object.freeze({
 const personName = z.string().trim().min(1).max(160);
 const longName = z.string().trim().min(1).max(255);
 
-/** Tax ID columns, which live on the party (R010). */
-const TAX_COLUMNS = ['tax_id_encrypted', 'tax_id_hash', 'tax_id_last4'];
-const taxId = z.string().max(32).nullable();
+/** Tax ID columns, which live on the party (R010, R038). */
+const TAX_COLUMNS = [
+  'tax_id_format_id',
+  'tax_id_encrypted',
+  'tax_id_hash',
+  'tax_id_last4',
+];
+const taxId = z.string().max(64).nullable();
 const email = z.string().trim().toLowerCase().max(254).pipe(z.email());
 /** I0010-R002: a person's role set, one or more distinct roles. */
 const roleIds = z.array(uuid).min(1).max(50);
@@ -75,6 +82,7 @@ const personCreate = z.strictObject({
   firstName: personName,
   lastName: personName,
   taxId: taxId.optional(),
+  taxIdFormatId: uuid.optional(),
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
   roleIds: roleIds.optional(),
@@ -84,6 +92,7 @@ const personUpdate = z.strictObject({
   firstName: personName.optional(),
   lastName: personName.optional(),
   taxId: taxId.optional(),
+  taxIdFormatId: uuid.optional(),
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
   roleIds: roleIds.optional(),
@@ -93,6 +102,7 @@ const contactFields = {
   firstName: personName,
   lastName: personName,
   taxId: taxId.optional(),
+  taxIdFormatId: uuid.optional(),
   isPortalUser: z.boolean().optional(),
   isPrimaryContact: z.boolean().optional(),
   isBillingContact: z.boolean().optional(),
@@ -103,12 +113,14 @@ const organizationCreate = z.strictObject({
   legalName: longName,
   dbaName: longName.nullable().optional(),
   taxId: taxId.optional(),
+  taxIdFormatId: uuid.optional(),
   contacts: z.array(z.strictObject(contactFields)).max(20).optional(),
 });
 const organizationUpdate = z.strictObject({
   legalName: longName.optional(),
   dbaName: longName.nullable().optional(),
   taxId: taxId.optional(),
+  taxIdFormatId: uuid.optional(),
   primaryTaxContactId: uuid.nullable().optional(),
   revision,
 });
@@ -121,6 +133,7 @@ const contactUpdate = z.strictObject({
   firstName: personName.optional(),
   lastName: personName.optional(),
   taxId: taxId.optional(),
+  taxIdFormatId: uuid.optional(),
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
   roleIds: roleIds.optional(),
@@ -132,7 +145,7 @@ const contactUpdate = z.strictObject({
 const listQuery = z.strictObject({
   kind: z.string().optional(),
   q: z.string().max(160).optional(),
-  taxId: z.string().max(32).optional(),
+  taxId: z.string().max(64).optional(),
   organizationId: uuid.optional(),
   archived: z.enum(['true', 'false']).optional(),
   cursor: z.string().max(512).optional(),
@@ -223,6 +236,7 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
     id: row.party_id,
     kind: row.kind,
     taxIdLast4: row.tax_id_last4 ?? null,
+    taxIdFormatId: row.tax_id_format_id ?? null,
     archived: row.deactivated_at != null,
     revision: row.revision,
     primaryEmail: primary.email,
@@ -309,13 +323,20 @@ async function viewOf(context, name, row, tx) {
  * Save a record's tax ID on its party, checking the write capability first.
  * @param {object} context
  * @param {string|null} value Entered tax ID, or null to clear it.
+ * @param {string|undefined} formatId Its format, given exactly when `value` is.
  * @param {string} partyId
  * @param {object} tx
- * @returns {Promise<object>} The three tax ID columns as stored.
+ * @returns {Promise<object>} The four tax ID columns as stored.
+ * @throws {DirectoryError} `FORBIDDEN`, `INVALID_INPUT`
  */
-async function saveTaxId(context, value, partyId, tx) {
+async function saveTaxId(context, value, formatId, partyId, tx) {
   await requireCapability(context, TAX_IDS_WRITE);
-  const columns = context.taxIds.protect(value, {
+  // R038: a tax ID names its active format; clearing it names none.
+  if ((value === null) !== (formatId === undefined))
+    throw new DirectoryError('INVALID_INPUT');
+  const format =
+    value === null ? null : await activeTaxIdFormat(context, tx, formatId);
+  const columns = context.taxIds.protect(value, format, {
     tenantId: context.tenant.id,
     partyId,
   });
@@ -340,14 +361,14 @@ function duplicates(context, row, tx) {
 }
 
 /**
- * Insert a party and, when `taxIdValue` is given, its tax ID.
+ * Insert a party and, when the input carries one, its tax ID.
  * @param {object} context
  * @param {string} kind
- * @param {string|null|undefined} taxIdValue
+ * @param {{taxId?: string|null, taxIdFormatId?: string}} input
  * @param {object} tx
  * @returns {Promise<object>} The party as stored.
  */
-async function insertParty(context, kind, taxIdValue, tx) {
+async function insertParty(context, kind, input, tx) {
   const party = await context.cell.parties.insert(
     {
       tenant_id: context.tenant.id,
@@ -357,10 +378,20 @@ async function insertParty(context, kind, taxIdValue, tx) {
     },
     { tx }
   );
-  if (taxIdValue == null) return party;
+  if (input.taxId == null) {
+    if (input.taxIdFormatId !== undefined)
+      throw new DirectoryError('INVALID_INPUT');
+    return party;
+  }
   return {
     ...party,
-    ...(await saveTaxId(context, taxIdValue, party.id, tx)),
+    ...(await saveTaxId(
+      context,
+      input.taxId,
+      input.taxIdFormatId,
+      party.id,
+      tx
+    )),
   };
 }
 
@@ -407,7 +438,7 @@ async function insertContact(context, organization, input, tx) {
   // I0008-R003: a contact is created without an email, so its portal
   // access can only be turned on by editing it once it has one.
   if (input.isPortalUser) throw new DirectoryError('INVALID_INPUT');
-  const party = await insertParty(context, kind, input.taxId, tx);
+  const party = await insertParty(context, kind, input, tx);
   if (input.isPrimaryTaxContact)
     for (const row of await context.cell.people.rows(
       { organization_id: organization.party_id, is_primary_tax_contact: true },
@@ -453,15 +484,22 @@ export async function listRecords(context, name, query) {
   const kindFilter = input.kind ? input.kind.split(',') : null;
   if (kindFilter && !kindFilter.every(kind => kinds.includes(kind)))
     throw new DirectoryError('INVALID_INPUT');
-  let taxIdHash = null;
+  let taxIdHashes = null;
   if (input.taxId !== undefined) {
     await requireCapability(context, TAX_IDS_READ);
-    taxIdHash = context.taxIds.hash(input.taxId);
+    // R039: the entered text may be in any of the tenant's formats.
+    const formats = await read(context, tx =>
+      context.cell.tax_id_formats.rows({}, { tx, includeArchived: true })
+    );
+    taxIdHashes = searchCandidates(
+      input.taxId,
+      formats.map(format => format.mask)
+    ).map(context.taxIds.hash);
   }
   const filters = {
     kinds: kindFilter ?? kinds,
     text: containsPattern(input.q),
-    taxIdHash,
+    taxIdHashes,
     archived: input.archived === 'true',
     ...(name === 'organization-contacts'
       ? { organizationId: input.organizationId ?? null }
@@ -607,7 +645,7 @@ async function createPerson(context, body) {
   if (input.kind === 'employee' && !input.primaryEmail)
     throw new DirectoryError('INVALID_INPUT');
   return mutate(context, async tx => {
-    const party = await insertParty(context, input.kind, input.taxId, tx);
+    const party = await insertParty(context, input.kind, input, tx);
     const partyId = party.id;
     const row = withParty(
       await context.cell.people.insert(
@@ -666,7 +704,7 @@ async function createOrganization(context, body) {
   if (input.kind === 'vendor' && input.contacts?.length)
     throw new DirectoryError('INVALID_INPUT');
   return mutate(context, async tx => {
-    const party = await insertParty(context, input.kind, input.taxId, tx);
+    const party = await insertParty(context, input.kind, input, tx);
     const organization = withParty(
       await context.cell.organizations.insert(
         {
@@ -789,8 +827,15 @@ export async function updateRecord(context, name, id, body) {
         throw new DirectoryError('INVALID_INPUT');
       if (input.taxId === null && locked.is_primary_tax_contact)
         throw new DirectoryError('PRIMARY_TAX_CONTACT');
-      taxColumns = await saveTaxId(context, input.taxId, locked.party_id, tx);
-    }
+      taxColumns = await saveTaxId(
+        context,
+        input.taxId,
+        input.taxIdFormatId,
+        locked.party_id,
+        tx
+      );
+    } else if (input.taxIdFormatId !== undefined)
+      throw new DirectoryError('INVALID_INPUT');
     const extra = [];
     if (name === 'organizations' && input.primaryTaxContactId !== undefined) {
       if (locked.kind !== 'client') throw new DirectoryError('INVALID_INPUT');

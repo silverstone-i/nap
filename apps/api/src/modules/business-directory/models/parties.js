@@ -7,7 +7,7 @@ import { DirectoryModel } from './directoryModel.js';
 
 /**
  * Schema object for `app.parties`: one row per directory record (M0005-R001). `kind` never changes.
- * A record's tax ID lives here, only in its protected form (R010); a vendor contact never has one (R008).
+ * A record's tax ID lives here, only in its protected form, with the format it was entered in (R010, R038); a vendor contact never has one (R008).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
 export const partiesSchema = {
@@ -24,6 +24,7 @@ export const partiesSchema = {
     },
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'kind', type: 'varchar(32)', notNull: true, immutable: true },
+    { name: 'tax_id_format_id', type: 'uuid' },
     { name: 'tax_id_encrypted', type: 'text' },
     { name: 'tax_id_hash', type: 'char(64)' },
     { name: 'tax_id_last4', type: 'char(4)' },
@@ -33,12 +34,27 @@ export const partiesSchema = {
     unique: [['tenant_id', 'id']],
     checks: [
       "kind IN ('employee', 'contact', 'vendor', 'client', 'vendor_contact', 'client_contact')",
-      '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL)',
+      '(tax_id_encrypted IS NULL) = (tax_id_hash IS NULL) AND (tax_id_hash IS NULL) = (tax_id_last4 IS NULL) AND (tax_id_last4 IS NULL) = (tax_id_format_id IS NULL)',
       "tax_id_hash IS NULL OR tax_id_hash ~ '^[0-9a-f]{64}$'",
-      "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9]{4}$'",
+      "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9A-Z]{4}$'",
       "kind <> 'vendor_contact' OR tax_id_hash IS NULL",
     ],
-    indexes: [{ columns: ['tenant_id', 'tax_id_hash'] }],
+    foreignKeys: [
+      {
+        type: 'ForeignKey',
+        columns: ['tenant_id', 'tax_id_format_id'],
+        references: {
+          schema: 'app',
+          table: 'tax_id_formats',
+          columns: ['tenant_id', 'id'],
+        },
+        onDelete: 'RESTRICT',
+      },
+    ],
+    indexes: [
+      { columns: ['tenant_id', 'tax_id_hash'] },
+      { columns: ['tax_id_format_id'] },
+    ],
   },
 };
 
@@ -76,12 +92,13 @@ export class Parties extends DirectoryModel {
   async setTaxId(id, columns, actorId, { tx }) {
     return tx.one(
       `UPDATE ${this.schemaName}.${this.tableName}
-          SET tax_id_encrypted = $2, tax_id_hash = $3, tax_id_last4 = $4,
-              updated_by = $5
+          SET tax_id_format_id = $2, tax_id_encrypted = $3, tax_id_hash = $4,
+              tax_id_last4 = $5, updated_by = $6
         WHERE id = $1
         RETURNING *`,
       [
         id,
+        columns.tax_id_format_id,
         columns.tax_id_encrypted,
         columns.tax_id_hash,
         columns.tax_id_last4,

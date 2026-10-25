@@ -11,6 +11,8 @@ import { enqueueTenantSnapshots } from '../sync/backfill.js';
 import {
   directoryLabelsPresent,
   seedDirectoryLabels,
+  seedTaxIdFormats,
+  taxIdFormatsPresent,
 } from '../../modules/business-directory/seeds/tenantSeed.js';
 import {
   napsoftSeedPresent,
@@ -144,13 +146,15 @@ export async function runNapsoftTenantSetup(
           tx,
         });
         await seedNapsoft(handle.db, tx, seed);
-        // M0005-R017. The root membership has no employee record (R023).
+        // M0005-R017, R037. The root membership has no employee record (R023).
         await seedDirectoryLabels(handle.db, tx, tenant.id);
+        await seedTaxIdFormats(handle.db, tx, tenant.id);
       });
       const seeded = await handle.db.tx(
         async tx =>
           (await napsoftSeedPresent(handle.db, tx, seed)) &&
-          (await directoryLabelsPresent(handle.db, tx, tenant.id))
+          (await directoryLabelsPresent(handle.db, tx, tenant.id)) &&
+          (await taxIdFormatsPresent(handle.db, tx, tenant.id))
       );
       const [storedTenant, storedMember] = await Promise.all([
         handle.db.tenants.findOneBy(

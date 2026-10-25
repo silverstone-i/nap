@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { formatPhone, normalizePhone } from '@nap/shared';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -79,12 +80,18 @@ export function ContactMethodDialog({
   onReload,
 }) {
   const [method, setMethod] = useState(initialMethod);
-  const [value, setValue] = useState(method?.value ?? '');
+  const shown = stored =>
+    type === 'phone' && stored ? formatPhone(stored) : (stored ?? '');
+  const [value, setValue] = useState(shown(method?.value));
+  const [touched, setTouched] = useState(false);
   const [labelId, setLabelId] = useState(method?.labelId ?? null);
   const [isPrimary, setIsPrimary] = useState(method?.isPrimary ?? false);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const noun = type === 'email' ? 'email' : 'phone';
+  // M0005-R033: the same rule the server applies; it still decides.
+  const invalidPhone =
+    type === 'phone' && value.trim() !== '' && normalizePhone(value) === null;
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -109,7 +116,7 @@ export function ContactMethodDialog({
         try {
           const fresh = await onReload();
           setMethod(fresh);
-          setValue(fresh.value);
+          setValue(shown(fresh.value));
           setLabelId(fresh.labelId ?? null);
           setIsPrimary(fresh.isPrimary);
         } catch (reloadErr) {
@@ -146,8 +153,17 @@ export function ContactMethodDialog({
             type={type === 'email' ? 'email' : 'tel'}
             value={value}
             onChange={event => setValue(event.target.value)}
+            onBlur={() => setTouched(true)}
             required
             fullWidth
+            error={touched && invalidPhone}
+            helperText={
+              type === 'phone'
+                ? touched && invalidPhone
+                  ? 'Not a valid phone number.'
+                  : 'Without a leading +, read as a US number.'
+                : ''
+            }
           />
           <LabelSelect appliesTo={type} value={labelId} onChange={setLabelId} />
           <FormControlLabel

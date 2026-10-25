@@ -35,6 +35,7 @@ import {
   contactMethodViewSchema,
   addressViewSchema,
   contactLabelViewSchema,
+  taxIdFormatViewSchema,
 } from '@nap/shared';
 import { z } from 'zod';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './client.js';
@@ -687,11 +688,11 @@ export async function bulkDirectoryAction(collection, action, items) {
  * Reveal a full tax ID; the server records who read it (M0005-R012).
  * @param {'people'|'organizations'|'organization-contacts'} collection
  * @param {string} id
- * @returns {Promise<string>} Nine digits.
+ * @returns {Promise<string>} The canonical tax ID, which the caller lays out in its format (M0005-R040).
  */
 export async function revealTaxId(collection, id) {
   return z
-    .strictObject({ taxId: z.string().regex(/^[0-9]{9}$/) })
+    .strictObject({ taxId: z.string().regex(/^[0-9A-Z]{4,32}$/) })
     .parse(await apiGet(`${DIRECTORY_BASE}/${collection}/${id}/tax-id`)).taxId;
 }
 
@@ -839,5 +840,78 @@ export async function restoreContactLabel(id, revision) {
 export async function bulkContactLabelAction(action, items) {
   const data = await apiPost(`${DIRECTORY_BASE}/labels/${action}`, { items });
   return z.strictObject({ rows: z.array(contactLabelViewSchema) }).parse(data)
+    .rows;
+}
+
+/**
+ * The tenant's tax ID formats, archived ones included, since those still
+ * format the tax IDs that use them (M0005-R041).
+ * @returns {Promise<object[]>}
+ */
+export async function listTaxIdFormats() {
+  return z
+    .array(taxIdFormatViewSchema)
+    .parse(await apiGet(`${DIRECTORY_BASE}/tax-id-formats`));
+}
+
+/**
+ * @param {{country: string, name: string, mask: string}} input
+ * @returns {Promise<object>}
+ */
+export async function createTaxIdFormat(input) {
+  return taxIdFormatViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/tax-id-formats`, input)
+  );
+}
+
+/**
+ * @param {string} id
+ * @param {{name: string, mask: string, revision: number}} input
+ * @returns {Promise<object>}
+ */
+export async function updateTaxIdFormat(id, input) {
+  return taxIdFormatViewSchema.parse(
+    await apiPatch(`${DIRECTORY_BASE}/tax-id-formats/${id}`, input)
+  );
+}
+
+/**
+ * @param {string} id
+ * @param {number} revision
+ * @returns {Promise<object>}
+ */
+export async function archiveTaxIdFormat(id, revision) {
+  return taxIdFormatViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/tax-id-formats/${id}/archive`, {
+      revision,
+    })
+  );
+}
+
+/**
+ * @param {string} id
+ * @param {number} revision
+ * @returns {Promise<object>}
+ */
+export async function restoreTaxIdFormat(id, revision) {
+  return taxIdFormatViewSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/tax-id-formats/${id}/restore`, {
+      revision,
+    })
+  );
+}
+
+/**
+ * Archive or restore several tax ID formats at once, all or nothing
+ * (M0005-R042).
+ * @param {'archive'|'restore'} action
+ * @param {{id: string, revision: number}[]} items
+ * @returns {Promise<object[]>} The changed formats.
+ */
+export async function bulkTaxIdFormatAction(action, items) {
+  const data = await apiPost(`${DIRECTORY_BASE}/tax-id-formats/${action}`, {
+    items,
+  });
+  return z.strictObject({ rows: z.array(taxIdFormatViewSchema) }).parse(data)
     .rows;
 }

@@ -104,25 +104,25 @@ export class People extends DirectoryModel {
    * With `limit`, returns one page in name order, resuming after the row
    * `after` names (R027); the sort keys are read from that row, so a cursor
    * carries only its ID. With no `limit`, returns every match.
-   * @param {{tx: object, kinds?: string[]|null, text?: string|null, taxIdHash?: string|null, archived?: boolean, organizationId?: string|null, limit?: number|null, after?: string|null}} options
+   * @param {{tx: object, kinds?: string[]|null, text?: string|null, taxIdHashes?: string[]|null, archived?: boolean, organizationId?: string|null, limit?: number|null, after?: string|null}} options
    * @returns {Promise<object[]>}
    */
   async search({
     tx,
     kinds = null,
     text = null,
-    taxIdHash = null,
+    taxIdHashes = null,
     archived = false,
     organizationId = null,
     limit = null,
     after = null,
   }) {
     return tx.any(
-      `SELECT x.*, p.kind, p.tax_id_encrypted, p.tax_id_hash, p.tax_id_last4 FROM app.people x JOIN app.parties p ON p.id = x.party_id
+      `SELECT x.*, p.kind, p.tax_id_format_id, p.tax_id_encrypted, p.tax_id_hash, p.tax_id_last4 FROM app.people x JOIN app.parties p ON p.id = x.party_id
         WHERE ($1::text[] IS NULL OR p.kind = ANY($1::text[]))
           AND ($2::text IS NULL OR x.first_name ILIKE $2 OR x.last_name ILIKE $2
                OR (x.first_name || ' ' || x.last_name) ILIKE $2)
-          AND ($3::text IS NULL OR p.tax_id_hash = $3)
+          AND ($3::text[] IS NULL OR p.tax_id_hash = ANY($3))
           AND (x.deactivated_at IS NOT NULL) = $4
           AND ($5::uuid IS NULL OR x.organization_id = $5::uuid)
           AND ($6::uuid IS NULL OR (x.last_name, x.first_name, x.party_id) >
@@ -130,7 +130,7 @@ export class People extends DirectoryModel {
                   FROM app.people a WHERE a.party_id = $6::uuid))
         ORDER BY x.last_name, x.first_name, x.party_id
         LIMIT $7`,
-      [kinds, text, taxIdHash, archived, organizationId, after, limit]
+      [kinds, text, taxIdHashes, archived, organizationId, after, limit]
     );
   }
 }

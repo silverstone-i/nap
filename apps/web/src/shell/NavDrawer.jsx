@@ -9,6 +9,7 @@ import ContactsIcon from '@mui/icons-material/Contacts';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import DevicesIcon from '@mui/icons-material/Devices';
 import LabelIcon from '@mui/icons-material/Label';
+import PinIcon from '@mui/icons-material/Pin';
 import StoreIcon from '@mui/icons-material/Store';
 import BadgeIcon from '@mui/icons-material/Badge';
 import CorporateFareIcon from '@mui/icons-material/CorporateFare';
@@ -63,6 +64,7 @@ const DIRECTORY_ICONS = {
 const SETTINGS_ICONS = {
   roles: <SecurityIcon fontSize="small" />,
   labels: <LabelIcon fontSize="small" />,
+  'tax-id-formats': <PinIcon fontSize="small" />,
 };
 
 /**

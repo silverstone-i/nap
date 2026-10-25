@@ -30,7 +30,11 @@ import { accessControlRoutesV1 } from '../../src/modules/access-control/apiRoute
 import { businessDirectoryRoutesV1 } from '../../src/modules/business-directory/apiRoutes/v1/index.js';
 import { adminTenancyRoutesV1 } from '../../src/modules/admin-tenancy/apiRoutes/v1/index.js';
 import { randomBytes } from 'node:crypto';
-import { organizationDetailSchema, personDetailSchema } from '@nap/shared';
+import {
+  organizationDetailSchema,
+  personDetailSchema,
+  taxIdFormatViewSchema,
+} from '@nap/shared';
 import { createSyncWorker } from '../../src/application/sync/worker.js';
 import { withTenantTransaction } from '../../src/infrastructure/runtime/tenantTransaction.js';
 
@@ -77,7 +81,29 @@ function call(method, path, body, as = cookie) {
     [method](BASE + path)
     .set('Origin', ORIGIN)
     .set('Cookie', as);
-  return body === undefined ? pending : pending.send(body);
+  return body === undefined ? pending : pending.send(withFormats(body));
+}
+
+/** Seeded US tax ID format IDs by name (M0005-R037), read once the app runs. */
+let formats = {};
+
+/**
+ * Name a format for every tax ID a body sets without one (M0005-R038): EIN
+ * for `12-3456789`, SSN otherwise. A test that names its own keeps it.
+ * @param {unknown} body
+ * @returns {unknown}
+ */
+function withFormats(body) {
+  if (Array.isArray(body)) return body.map(withFormats);
+  if (!body || typeof body !== 'object') return body;
+  const out = Object.fromEntries(
+    Object.entries(body).map(([key, value]) => [key, withFormats(value)])
+  );
+  if (typeof out.taxId === 'string' && !('taxIdFormatId' in out))
+    out.taxIdFormatId = /^[0-9]{2}-[0-9]{7}$/.test(out.taxId)
+      ? formats.EIN
+      : formats.SSN;
+  return out;
 }
 
 /**
@@ -250,6 +276,9 @@ beforeAll(async () => {
       ],
     },
   });
+  const listed = await call('get', '/tax-id-formats');
+  expect(listed.status).toBe(200);
+  formats = Object.fromEntries(listed.body.data.map(f => [f.name, f.id]));
 }, 120000);
 
 afterAll(async () => {
@@ -1889,5 +1918,288 @@ describe('archived labels (I0011-R009, R010)', () => {
       revision: other.revision,
     });
     expect(same.status, JSON.stringify(same.body)).toBe(200);
+  });
+});
+
+describe('phones (M0005-R033)', () => {
+  it('AC19: stores entered numbers in E.164 form and refuses invalid ones', async () => {
+    const person = await create('people', {
+      kind: 'contact',
+      firstName: 'Phone',
+      lastName: 'Owner',
+    });
+    const add = value =>
+      call('post', `/parties/${person.id}/contact-methods`, {
+        type: 'phone',
+        value,
+      });
+    const plain = await add('(212) 555-1234');
+    expect(plain.status).toBe(201);
+    expect(plain.body.data.value).toBe('+12125551234');
+    expect((await add('212 555 1234 x12')).body.data.value).toBe(
+      '+12125551234;ext=12'
+    );
+    expect((await add('+44 20 7946 0958')).body.data.value).toBe(
+      '+442079460958'
+    );
+    const invalid = await add('555-1234');
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe('INVALID_INPUT');
+    const edited = await call(
+      'patch',
+      `/parties/${person.id}/contact-methods/${plain.body.data.id}`,
+      { value: '212.555.9876', revision: plain.body.data.revision }
+    );
+    expect(edited.body.data.value).toBe('+12125559876');
+  });
+});
+
+describe('tax ID formats (M0005-R036–R042)', () => {
+  const unique = () => randomUUID().slice(0, 6);
+
+  it('AC22: seeds the US formats', async () => {
+    const listed = (await call('get', '/tax-id-formats')).body.data;
+    const us = listed
+      .filter(f => f.country === 'US')
+      .map(f => [f.name, f.mask]);
+    expect(us).toEqual(
+      expect.arrayContaining([
+        ['SSN', '###-##-####'],
+        ['EIN', '##-#######'],
+        ['ITIN', '###-##-####'],
+      ])
+    );
+    expect(listed.every(f => taxIdFormatViewSchema.safeParse(f).success)).toBe(
+      true
+    );
+  });
+
+  it('creates a format, refusing a duplicate name, a bad mask, an unknown country, or a caller without the capability', async () => {
+    const name = 'VAT ' + unique();
+    const made = await call('post', '/tax-id-formats', {
+      country: 'GB',
+      name,
+      mask: 'GB ### #### ##',
+    });
+    expect(made.status).toBe(201);
+    expect(made.body.data).toMatchObject({ country: 'GB', archived: false });
+    const again = await call('post', '/tax-id-formats', {
+      country: 'GB',
+      name,
+      mask: '#########',
+    });
+    expect(again.body.error.code).toBe('CONFLICT');
+    for (const body of [
+      { country: 'GB', name: 'x' + unique(), mask: '###' },
+      { country: 'ZZ', name: 'x' + unique(), mask: '####' },
+      { country: 'gb', name: 'x' + unique(), mask: '####' },
+    ])
+      expect(
+        (await call('post', '/tax-id-formats', body)).body.error.code
+      ).toBe('INVALID_INPUT');
+    const limited = await staff(
+      await role([
+        'business-directory::directory::read',
+        'business-directory::directory::write',
+      ])
+    );
+    expect(
+      (await call('get', '/tax-id-formats', undefined, limited.cookie)).status
+    ).toBe(200);
+    expect(
+      (
+        await call(
+          'post',
+          '/tax-id-formats',
+          { country: 'GB', name: 'x' + unique(), mask: '####' },
+          limited.cookie
+        )
+      ).status
+    ).toBe(403);
+  });
+
+  it('AC23: saves, reveals, and finds a tax ID in its format, and needs an active format', async () => {
+    const vat = (
+      await call('post', '/tax-id-formats', {
+        country: 'GB',
+        name: 'VAT ' + unique(),
+        mask: 'GB ### #### ##',
+      })
+    ).body.data;
+    const person = await create('people', {
+      kind: 'contact',
+      firstName: 'Vat',
+      lastName: 'Payer',
+      taxId: 'GB 731 4567 89',
+      taxIdFormatId: vat.id,
+    });
+    expect(person).toMatchObject({
+      taxIdLast4: '6789',
+      taxIdFormatId: vat.id,
+    });
+    expect(
+      (await call('get', `/people/${person.id}/tax-id`)).body.data
+    ).toEqual({ taxId: '731456789' });
+    for (const query of ['GB 731 4567 89', '731456789', '731-45-6789']) {
+      const found = (
+        await call('get', `/people?taxId=${encodeURIComponent(query)}`)
+      ).body.data.rows.map(row => row.id);
+      expect(found, query).toContain(person.id);
+    }
+    const refuse = async body =>
+      (
+        await call('post', '/people', {
+          kind: 'contact',
+          firstName: 'No',
+          lastName: 'Format',
+          ...body,
+        })
+      ).body.error.code;
+    expect(await refuse({ taxId: '731456789', taxIdFormatId: undefined })).toBe(
+      'INVALID_INPUT'
+    );
+    expect(await refuse({ taxIdFormatId: vat.id })).toBe('INVALID_INPUT');
+    expect(await refuse({ taxId: '12-34', taxIdFormatId: vat.id })).toBe(
+      'INVALID_INPUT'
+    );
+    const archived = await call('post', `/tax-id-formats/${vat.id}/archive`, {
+      revision: vat.revision,
+    });
+    expect(archived.body.data.archived).toBe(true);
+    expect(await refuse({ taxId: '731456780', taxIdFormatId: vat.id })).toBe(
+      'INVALID_INPUT'
+    );
+    // R041: an archived format keeps formatting the tax IDs that use it.
+    expect(
+      (await call('get', `/people/${person.id}`)).body.data.taxIdFormatId
+    ).toBe(vat.id);
+  });
+
+  it('AC24: matches the same digits saved under SSN and EIN', async () => {
+    const first = await create('people', {
+      kind: 'contact',
+      firstName: 'Same',
+      lastName: 'Digits',
+      taxId: '613-57-9135',
+    });
+    const second = await call('post', '/organizations', {
+      kind: 'vendor',
+      legalName: 'Same Digits LLC',
+      taxId: '61-3579135',
+    });
+    expect(second.status).toBe(201);
+    expect(second.body.data.taxIdFormatId).toBe(formats.EIN);
+    expect(second.body.data.duplicateTaxIds).toEqual([first.id]);
+  });
+
+  it('AC25: lets a used format change its name and separators but not its slots', async () => {
+    const used = (
+      await call('post', '/tax-id-formats', {
+        country: 'CA',
+        name: 'SIN ' + unique(),
+        mask: '###-###-###',
+      })
+    ).body.data;
+    await create('people', {
+      kind: 'contact',
+      firstName: 'Can',
+      lastName: 'Ada',
+      taxId: '046 454 286',
+      taxIdFormatId: used.id,
+    });
+    const renamed = await call('patch', `/tax-id-formats/${used.id}`, {
+      name: used.name + ' renamed',
+      mask: '### ### ###',
+      revision: used.revision,
+    });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data.mask).toBe('### ### ###');
+    const resized = await call('patch', `/tax-id-formats/${used.id}`, {
+      name: renamed.body.data.name,
+      mask: '####-#####',
+      revision: renamed.body.data.revision,
+    });
+    expect(resized.status).toBe(200);
+    const retyped = await call('patch', `/tax-id-formats/${used.id}`, {
+      name: renamed.body.data.name,
+      mask: 'A##-###-###',
+      revision: resized.body.data.revision,
+    });
+    expect(retyped.status).toBe(409);
+    expect(retyped.body.error.code).toBe('INVALID_STATE');
+    const unused = (
+      await call('post', '/tax-id-formats', {
+        country: 'CA',
+        name: 'BN ' + unique(),
+        mask: '#########',
+      })
+    ).body.data;
+    expect(
+      (
+        await call('patch', `/tax-id-formats/${unused.id}`, {
+          name: unused.name,
+          mask: '#########AA####',
+          revision: unused.revision,
+        })
+      ).status
+    ).toBe(200);
+  });
+
+  it('archives and restores formats in bulk, all or nothing, and delivers their events', async () => {
+    const make = async () =>
+      (
+        await call('post', '/tax-id-formats', {
+          country: 'FR',
+          name: 'SIREN ' + unique(),
+          mask: '### ### ###',
+        })
+      ).body.data;
+    const [a, b] = [await make(), await make()];
+    const items = [a, b].map(({ id, revision }) => ({ id, revision }));
+    const archived = await call('post', '/tax-id-formats/archive', { items });
+    expect(archived.status).toBe(200);
+    expect(archived.body.data.rows.map(row => row.archived)).toEqual([
+      true,
+      true,
+    ]);
+    const again = await call('post', '/tax-id-formats/archive', {
+      items: archived.body.data.rows.map(({ id, revision }) => ({
+        id,
+        revision,
+      })),
+    });
+    expect(again.body.error.code).toBe('BULK_FAILED');
+    const restored = await call('post', '/tax-id-formats/restore', {
+      items: archived.body.data.rows.map(({ id, revision }) => ({
+        id,
+        revision,
+      })),
+    });
+    expect(restored.body.data.rows.map(row => row.archived)).toEqual([
+      false,
+      false,
+    ]);
+    await sync.tick();
+    const events = await db.managed_events.findWhere(
+      { target_id: a.id },
+      'AND',
+      { columnWhitelist: ['event_key', 'target_type'] }
+    );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          event_key: 'directory.tax_id_format.created',
+          target_type: 'tax_id_format',
+        },
+        {
+          event_key: 'directory.tax_id_format.archived',
+          target_type: 'tax_id_format',
+        },
+        {
+          event_key: 'directory.tax_id_format.restored',
+          target_type: 'tax_id_format',
+        },
+      ])
+    );
   });
 });

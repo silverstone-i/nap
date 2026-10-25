@@ -11,6 +11,7 @@ import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { DirectoryRecordsPage } from '../../src/pages/directory/DirectoryRecordsPage.jsx';
 import { LabelsPage } from '../../src/pages/directory/LabelsPage.jsx';
+import { TaxIdFormatsPage } from '../../src/pages/directory/TaxIdFormatsPage.jsx';
 import { RecordFormDialog } from '../../src/pages/directory/RecordFormDialog.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
@@ -47,6 +48,12 @@ vi.mock('../../src/api/endpoints.js', () => ({
   archiveContactLabel: vi.fn(),
   restoreContactLabel: vi.fn(),
   bulkContactLabelAction: vi.fn(),
+  listTaxIdFormats: vi.fn(),
+  createTaxIdFormat: vi.fn(),
+  updateTaxIdFormat: vi.fn(),
+  archiveTaxIdFormat: vi.fn(),
+  restoreTaxIdFormat: vi.fn(),
+  bulkTaxIdFormatAction: vi.fn(),
   listClientTenants: vi.fn(),
   listCellsOverview: vi.fn(),
   provisionTenant: vi.fn(),
@@ -90,12 +97,30 @@ function sessionFor(patterns = ALL) {
   };
 }
 
+const SSN = {
+  id: '5a5a5a5a-5a5a-4a5a-8a5a-5a5a5a5a5a5a',
+  country: 'US',
+  name: 'SSN',
+  mask: '###-##-####',
+  archived: false,
+  revision: 1,
+};
+const EIN = {
+  id: '5b5b5b5b-5b5b-4b5b-8b5b-5b5b5b5b5b5b',
+  country: 'US',
+  name: 'EIN',
+  mask: '##-#######',
+  archived: false,
+  revision: 1,
+};
+
 const JANE = {
   id: '11111111-1111-4111-8111-111111111111',
   kind: 'employee',
   firstName: 'Jane',
   lastName: 'Doe',
   taxIdLast4: '6789',
+  taxIdFormatId: SSN.id,
   isPortalUser: true,
   portalAccess: { status: 'on', failureCode: null },
   archived: false,
@@ -134,6 +159,7 @@ beforeEach(() => {
   installMatchMedia();
   installResizeObserver();
   useSession.mockReturnValue(sessionFor());
+  api.listTaxIdFormats.mockResolvedValue([SSN, EIN]);
   listRows = [JANE];
   contactRows = [];
   // M0005-R027: lists are cursor pages; an organization's contacts come
@@ -165,12 +191,13 @@ describe('Employees (M0005-R026)', () => {
     api.revealTaxId.mockResolvedValue('123456789');
     renderWithHeader(<DirectoryRecordsPage kind="employee" />);
     const table = await screen.findByRole('grid', { name: 'Employees' });
-    expect(await within(table).findByText('•••••6789')).toBeTruthy();
+    // M0005-R040: masked in its format's layout.
+    expect(await within(table).findByText('•••-••-6789')).toBeTruthy();
     expect(api.listDirectoryPage).toHaveBeenCalledWith(
       'people',
       expect.objectContaining({ kind: 'employee' })
     );
-    expect(within(table).getByText('•••••6789')).toBeTruthy();
+    expect(within(table).getByText('•••-••-6789')).toBeTruthy();
     expect(within(table).queryByText('123456789')).toBeNull();
     expect(within(table).getByText('On')).toBeTruthy();
 
@@ -178,7 +205,7 @@ describe('Employees (M0005-R026)', () => {
     await user.click(within(table).getByRole('button', { name: 'Jane Doe' }));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Reveal' }));
-    expect(await within(dialog).findByText('Tax ID: 123456789')).toBeTruthy();
+    expect(await within(dialog).findByText('Tax ID: 123-45-6789')).toBeTruthy();
     expect(api.revealTaxId).toHaveBeenCalledWith('people', JANE.id);
   });
 
@@ -337,7 +364,14 @@ describe('Employees (M0005-R026)', () => {
       within(form).getByLabelText(/Primary email/),
       'jane@acme.test'
     );
-    await user.type(within(form).getByLabelText(/SSN/), '123-45-6789');
+    // M0005-R043: a person's tax ID defaults to US SSN.
+    expect(
+      within(form).getByRole('combobox', { name: 'Tax ID format' }).textContent
+    ).toBe('US SSN');
+    await user.type(
+      within(form).getByRole('textbox', { name: 'Tax ID' }),
+      '123-45-6789'
+    );
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.createDirectoryRecord).toHaveBeenCalledWith('people', {
       kind: 'employee',
@@ -346,6 +380,7 @@ describe('Employees (M0005-R026)', () => {
       isPortalUser: false,
       primaryEmail: 'jane@acme.test',
       taxId: '123-45-6789',
+      taxIdFormatId: SSN.id,
     });
     expect(
       await screen.findByText(/1 other record\(s\) have the same tax ID/)
@@ -641,7 +676,7 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
         {
           id: 'm2',
           type: 'phone',
-          value: '512-555-0100',
+          value: '+15125550100',
           labelId: null,
           labelName: null,
           isPrimary: false,
@@ -693,6 +728,8 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
         within(dialog).getByRole('list', { name: 'Emails and phones' })
       ).getByText('Phone')
     ).toBeTruthy();
+    // M0005-R034: a stored US phone shows in national form.
+    expect(within(dialog).getByText('(512) 555-0100')).toBeTruthy();
     expect(
       within(dialog).getByText('Austin TX 78701 US · Location · primary')
     ).toBeTruthy();
@@ -743,7 +780,7 @@ describe('Clients (M0005-R007)', () => {
     );
     await user.type(within(form).getByLabelText(/Buyer first name/), 'Ann');
     await user.type(within(form).getByLabelText(/Buyer last name/), 'Smith');
-    await user.type(within(form).getByLabelText(/Buyer SSN/), '222-33-4444');
+    await user.type(within(form).getByLabelText(/Buyer tax ID/), '222-33-4444');
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.createDirectoryRecord).toHaveBeenCalledWith('organizations', {
       kind: 'client',
@@ -754,6 +791,7 @@ describe('Clients (M0005-R007)', () => {
           firstName: 'Ann',
           lastName: 'Smith',
           taxId: '222-33-4444',
+          taxIdFormatId: SSN.id,
           isPrimaryTaxContact: true,
         },
       ],
@@ -1298,5 +1336,101 @@ describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
     expect(
       screen.queryByRole('button', { name: /Archive selected/ })
     ).toBeNull();
+  });
+});
+
+describe('Tax ID formats (M0005-R036–R042)', () => {
+  const VAT = {
+    id: '5c5c5c5c-5c5c-4c5c-8c5c-5c5c5c5c5c5c',
+    country: 'GB',
+    name: 'VAT',
+    mask: 'GB ### #### ##',
+    archived: true,
+    revision: 2,
+  };
+
+  beforeEach(() => {
+    api.listTaxIdFormats.mockResolvedValue([SSN, EIN, VAT]);
+  });
+
+  async function formatsGrid(entry) {
+    renderWithHeader(<TaxIdFormatsPage />, entry);
+    const table = await screen.findByRole('grid', { name: 'Tax ID formats' });
+    await within(table).findByText('SSN');
+    return table;
+  }
+
+  it('lists active formats with their masks, and archived ones on the Archived tab', async () => {
+    const table = await formatsGrid();
+    expect(within(table).getByText('###-##-####')).toBeTruthy();
+    expect(within(table).getByText('EIN')).toBeTruthy();
+    expect(within(table).queryByText('VAT')).toBeNull();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Archived' }));
+    expect(await within(table).findByText('VAT')).toBeTruthy();
+    expect(within(table).queryByText('SSN')).toBeNull();
+  });
+
+  it('adds a format, previewing its mask', async () => {
+    api.createTaxIdFormat.mockResolvedValue({
+      ...VAT,
+      id: '5d5d5d5d-5d5d-4d5d-8d5d-5d5d5d5d5d5d',
+      country: 'US',
+      name: 'PTIN',
+      mask: 'P########',
+      archived: false,
+      revision: 1,
+    });
+    await formatsGrid();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Add format' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add format' });
+    await user.type(within(dialog).getByLabelText(/Name/), 'PTIN');
+    const mask = within(dialog).getByLabelText(/Mask/);
+    await user.type(mask, '##');
+    expect(within(dialog).getByRole('button', { name: 'Save' }).disabled).toBe(
+      true
+    );
+    await user.clear(mask);
+    await user.type(mask, 'P########');
+    expect(within(dialog).getByText('Example: P12345678')).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(api.createTaxIdFormat).toHaveBeenCalledWith({
+      country: 'US',
+      name: 'PTIN',
+      mask: 'P########',
+    });
+    expect(await screen.findByText('Added PTIN.')).toBeTruthy();
+  });
+
+  it('explains a refused slot change to a format in use (R041)', async () => {
+    api.updateTaxIdFormat.mockRejectedValue(new ApiError('INVALID_STATE', 409));
+    const table = await formatsGrid();
+    const user = userEvent.setup();
+    const row = within(table).getByText('SSN').closest('[role="row"]');
+    await user.click(within(row).getByRole('menuitem', { name: 'more' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit format' });
+    const mask = within(dialog).getByLabelText(/Mask/);
+    await user.clear(mask);
+    await user.type(mask, '##-####');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(api.updateTaxIdFormat).toHaveBeenCalledWith(SSN.id, {
+      name: 'SSN',
+      mask: '##-####',
+      revision: 1,
+    });
+    expect(
+      await within(dialog).findByText(/only its name and separators can change/)
+    ).toBeTruthy();
+  });
+
+  it('hides write actions without tax-id-formats::write', async () => {
+    useSession.mockReturnValue(
+      sessionFor(['ACME::business-directory::directory::read'])
+    );
+    const table = await formatsGrid();
+    expect(screen.queryByRole('button', { name: 'Add format' })).toBeNull();
+    expect(within(table).queryByRole('menuitem', { name: 'more' })).toBeNull();
   });
 });

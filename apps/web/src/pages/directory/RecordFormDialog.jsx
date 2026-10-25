@@ -33,38 +33,87 @@ import {
   PORTAL_MESSAGES,
 } from './directoryErrors.js';
 import { KIND_LABELS } from './directoryRecords.js';
+import {
+  defaultTaxIdFormatId,
+  displayTaxId,
+  useTaxIdFormats,
+} from './useTaxIdFormats.js';
 
 /**
- * A tax ID input. On edit it starts empty: blank keeps the stored value,
- * and a checkbox clears it (M0005-R012).
- * @param {{label: string, value: string, onChange: (v: string) => void, editing: boolean, stored: string|null, clear: boolean, onClear: (v: boolean) => void, required?: boolean}} props
+ * A choice of the tenant's active tax ID formats (M0005-R043).
+ * @param {{formats: object[]|null, value: string, onChange: (id: string) => void, label?: string, disabled?: boolean}} props
  */
-function TaxIdInput({
-  label,
+function TaxIdFormatSelect({
+  formats,
   value,
   onChange,
+  label = 'Tax ID format',
+  disabled,
+}) {
+  const options = (formats ?? []).filter(f => !f.archived);
+  return (
+    <TextField
+      select
+      label={label}
+      value={options.some(f => f.id === value) ? value : ''}
+      onChange={event => onChange(event.target.value)}
+      disabled={disabled || formats === null}
+      sx={{ minWidth: 160 }}
+    >
+      {options.map(f => (
+        <MenuItem key={f.id} value={f.id}>
+          {`${f.country} ${f.name}`}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+}
+
+/**
+ * A tax ID input with its format (M0005-R038, R043). On edit it starts
+ * empty: blank keeps the stored value, and a checkbox clears it (M0005-R012).
+ * @param {{value: string, onChange: (v: string) => void, formats: object[]|null, formatId: string, onFormatChange: (id: string) => void, editing: boolean, stored: string|null, clear: boolean, onClear: (v: boolean) => void, required?: boolean}} props
+ *   `stored` is how the stored tax ID displays, masked.
+ */
+function TaxIdInput({
+  value,
+  onChange,
+  formats,
+  formatId,
+  onFormatChange,
   editing,
   stored,
   clear,
   onClear,
   required,
 }) {
+  const mask = formats?.find(f => f.id === formatId)?.mask;
   return (
     <Stack spacing={1}>
-      <TextField
-        label={label}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        required={required && !(editing && stored)}
-        disabled={clear}
-        fullWidth
-        autoComplete="off"
-        helperText={
-          editing && stored
-            ? `Stored: •••••${stored}. Leave blank to keep it.`
-            : 'Nine digits; dashes optional.'
-        }
-      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+        <TaxIdFormatSelect
+          formats={formats}
+          value={formatId}
+          onChange={onFormatChange}
+          disabled={clear}
+        />
+        <TextField
+          label="Tax ID"
+          value={value}
+          onChange={event => onChange(event.target.value)}
+          required={required && !(editing && stored)}
+          disabled={clear}
+          fullWidth
+          autoComplete="off"
+          helperText={
+            editing && stored
+              ? `Stored: ${stored}. Leave blank to keep it.`
+              : mask
+                ? `As ${mask}; separators optional.`
+                : ''
+          }
+        />
+      </Stack>
       {editing && stored && !required ? (
         <FormControlLabel
           control={
@@ -122,7 +171,12 @@ function RolesSelect({ value, onChange, current }) {
 }
 
 /** One buyer row in a new client's contact list. */
-const blankBuyer = () => ({ firstName: '', lastName: '', taxId: '' });
+const blankBuyer = () => ({
+  firstName: '',
+  lastName: '',
+  taxId: '',
+  taxIdFormatId: '',
+});
 
 /**
  * Create or edit a directory record (M0005-R002–R009, R016). Tax ID fields
@@ -163,7 +217,9 @@ export function RecordFormDialog({
   const [roleIds, setRoleIds] = useState(() =>
     currentRoles.map(role => role.id)
   );
+  const formats = useTaxIdFormats();
   const [taxId, setTaxId] = useState('');
+  const [chosenFormatId, setTaxIdFormatId] = useState(null);
   const [clearTaxId, setClearTaxId] = useState(false);
   const [buyers, setBuyers] = useState([blankBuyer()]);
   const [primaryBuyer, setPrimaryBuyer] = useState(0);
@@ -189,6 +245,7 @@ export function RecordFormDialog({
     setTemporaryPassword('');
     setRoleIds((fresh.roles ?? []).map(role => role.id));
     setTaxId('');
+    setTaxIdFormatId(null);
     setClearTaxId(false);
     setIsPrimaryContact(fresh.isPrimaryContact ?? false);
     setIsBillingContact(fresh.isBillingContact ?? false);
@@ -207,6 +264,16 @@ export function RecordFormDialog({
   const showTaxId =
     canWriteTaxIds &&
     (people || (organizations && !newClientWithBuyers) || isClientContact);
+  // R043: until the user picks one, the record's own active format or the
+  // default for its kind.
+  const ownFormat = formats?.find(
+    f => f.id === record?.taxIdFormatId && !f.archived
+  );
+  const taxIdFormatId =
+    chosenFormatId ??
+    ownFormat?.id ??
+    defaultTaxIdFormatId(formats, organizations);
+  const personFormatId = defaultTaxIdFormatId(formats, false);
 
   const wasPortalUser = record?.isPortalUser ?? false;
   // I0008-R001: turning access on sends a temporary password; a contact is
@@ -236,7 +303,7 @@ export function RecordFormDialog({
   function taxIdField() {
     if (!showTaxId) return {};
     if (clearTaxId) return { taxId: null };
-    return taxId.trim() ? { taxId: taxId.trim() } : {};
+    return taxId.trim() ? { taxId: taxId.trim(), taxIdFormatId } : {};
   }
 
   function body() {
@@ -267,7 +334,12 @@ export function RecordFormDialog({
         contacts: buyers.map((buyer, index) => ({
           firstName: buyer.firstName,
           lastName: buyer.lastName,
-          ...(buyer.taxId.trim() ? { taxId: buyer.taxId.trim() } : {}),
+          ...(buyer.taxId.trim()
+            ? {
+                taxId: buyer.taxId.trim(),
+                taxIdFormatId: buyer.taxIdFormatId || personFormatId,
+              }
+            : {}),
           isPrimaryTaxContact: index === primaryBuyer,
         })),
       };
@@ -448,8 +520,22 @@ export function RecordFormDialog({
                     />
                   ))}
                   {canWriteTaxIds ? (
+                    <TaxIdFormatSelect
+                      formats={formats}
+                      label="Format"
+                      value={buyer.taxIdFormatId || personFormatId}
+                      onChange={id =>
+                        setBuyers(list =>
+                          list.map((b, i) =>
+                            i === index ? { ...b, taxIdFormatId: id } : b
+                          )
+                        )
+                      }
+                    />
+                  ) : null}
+                  {canWriteTaxIds ? (
                     <TextField
-                      label="Buyer SSN"
+                      label="Buyer tax ID"
                       value={buyer.taxId}
                       onChange={event =>
                         setBuyers(list =>
@@ -498,11 +584,13 @@ export function RecordFormDialog({
           ) : null}
           {showTaxId ? (
             <TaxIdInput
-              label={people || isClientContact ? 'SSN' : 'EIN'}
               value={taxId}
               onChange={setTaxId}
+              formats={formats}
+              formatId={taxIdFormatId}
+              onFormatChange={setTaxIdFormatId}
               editing={editing}
-              stored={record?.taxIdLast4 ?? null}
+              stored={record ? displayTaxId(record, formats) : null}
               clear={clearTaxId}
               onClear={setClearTaxId}
               required={organizations && kind === 'vendor'}

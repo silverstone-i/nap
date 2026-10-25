@@ -51,30 +51,30 @@ export class Organizations extends DirectoryModel {
    * (M0005 §10 list routes). `text` is an already escaped ILIKE pattern.
    * With `limit`, returns one page in name order, resuming after the row
    * `after` names (R027). With no `limit`, returns every match.
-   * @param {{tx: object, kinds?: string[]|null, text?: string|null, taxIdHash?: string|null, archived?: boolean, limit?: number|null, after?: string|null}} options
+   * @param {{tx: object, kinds?: string[]|null, text?: string|null, taxIdHashes?: string[]|null, archived?: boolean, limit?: number|null, after?: string|null}} options
    * @returns {Promise<object[]>}
    */
   async search({
     tx,
     kinds = null,
     text = null,
-    taxIdHash = null,
+    taxIdHashes = null,
     archived = false,
     limit = null,
     after = null,
   }) {
     return tx.any(
-      `SELECT x.*, p.kind, p.tax_id_encrypted, p.tax_id_hash, p.tax_id_last4 FROM app.organizations x JOIN app.parties p ON p.id = x.party_id
+      `SELECT x.*, p.kind, p.tax_id_format_id, p.tax_id_encrypted, p.tax_id_hash, p.tax_id_last4 FROM app.organizations x JOIN app.parties p ON p.id = x.party_id
         WHERE ($1::text[] IS NULL OR p.kind = ANY($1::text[]))
           AND ($2::text IS NULL OR x.legal_name ILIKE $2 OR x.dba_name ILIKE $2)
-          AND ($3::text IS NULL OR p.tax_id_hash = $3)
+          AND ($3::text[] IS NULL OR p.tax_id_hash = ANY($3))
           AND (x.deactivated_at IS NOT NULL) = $4
           AND ($5::uuid IS NULL OR (x.legal_name, x.party_id) >
                (SELECT a.legal_name, a.party_id
                   FROM app.organizations a WHERE a.party_id = $5::uuid))
         ORDER BY x.legal_name, x.party_id
         LIMIT $6`,
-      [kinds, text, taxIdHash, archived, after, limit]
+      [kinds, text, taxIdHashes, archived, after, limit]
     );
   }
 }
