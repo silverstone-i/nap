@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.31.0] - 2026-10-25
+
 ### Added
 
 - Tax ID formats per country (M0005-R036–R042). Settings → Tax ID Formats lists each tenant's formats with Active and Archived tabs; a format is a country, a name, and a mask where `#` is a digit, `A` is a letter, and anything else is a separator. Every tenant starts with US SSN, EIN, and ITIN. Once a record uses a format, only its name and separators can change. Managing formats needs the new `business-directory::tax-id-formats::write` capability.
