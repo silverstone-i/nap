@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.32.0] - 2026-10-25
+
 ### Added
 
 - Settings → General lets a tenant set its default country, currency, time zone, date format, language, and records per page (M0006-01). Each setting starts at a default, shows when it is the default, and can be reset to it. Viewing needs `tenant-settings::general::read` and changing needs `tenant-settings::general::write`; without write the screen is read-only. Every change is recorded as a `tenant_settings.updated` administrative event.
