@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.34.1] - 2026-10-26
+
 ### Fixed
 
 - A pencil dialog that fails `STALE_REVISION` now refills from the reloaded record: Edit name on a directory record, and Edit name and Edit grants on a role. Edit portal access refills only when the other change touched access or roles, and Edit tax ID keeps the typed value, since the stored one is never shown. Before, the form kept its old values and took the new revision, so the next Save overwrote the other change. The directory list behind the dialog also refreshes.
