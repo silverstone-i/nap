@@ -587,16 +587,8 @@ export function listMemberships(context) {
         { tx }
       );
       const partyIds = members.map(row => row.member_id).filter(Boolean);
-      const people = partyIds.length
-        ? await context.cell.people.findWhere(
-            { party_id: { $in: partyIds } },
-            'AND',
-            {
-              columnWhitelist: ['party_id', 'first_name', 'last_name'],
-              includeDeactivated: true,
-            }
-          )
-        : [];
+      // In the tenant transaction, so row-level security returns the rows.
+      const people = await context.cell.people.byKeys(partyIds, { tx });
       const names = new Map(
         people.map(row => [row.party_id, `${row.first_name} ${row.last_name}`])
       );

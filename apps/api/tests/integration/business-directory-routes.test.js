@@ -1193,6 +1193,18 @@ describe('portal access (I0008)', () => {
       ).member_label;
     expect(await labelOf()).toBe('Vendor · Black Plumbing LLC');
 
+    // I0012-R017: the Roles screen's picker names the person and the party,
+    // read under the tenant's row-level security.
+    const members = await acl('get', '/memberships');
+    expect(members.status).toBe(200);
+    expect(members.body.data).toContainEqual(
+      expect.objectContaining({
+        memberType: 'vendor_contact',
+        label: 'Vendor · Black Plumbing LLC',
+        name: 'Jack Black',
+      })
+    );
+
     const renamed = await call('patch', `/organizations/${vendor.id}`, {
       dbaName: 'Black Plumbing',
       revision: vendor.revision,
