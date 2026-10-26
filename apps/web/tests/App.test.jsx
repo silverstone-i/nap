@@ -82,7 +82,7 @@ it('sends management access with eligible tenants to tenant selection (I0001-R00
   api.listTenants.mockResolvedValue([napsoftEntry]);
   renderAt('/');
   expect(await screen.findByText('Napsoft')).toBeTruthy();
-  expect(screen.queryByText('No tenant selected.')).toBeNull();
+  expect(screen.queryByText('Your dashboard will appear here.')).toBeNull();
 });
 
 it('lands management access with no eligible tenant on Home (one shell)', async () => {
@@ -95,7 +95,9 @@ it('lands management access with no eligible tenant on Home (one shell)', async 
   });
   api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
   renderAt('/');
-  expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+  expect(
+    await screen.findByText('Your dashboard will appear here.')
+  ).toBeTruthy();
   expect(screen.getByText('Tenant Management')).toBeTruthy();
 });
 
@@ -109,7 +111,9 @@ it('keeps Tenant Management in the one shell with a tenant selected', async () =
   });
   api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
   renderAt('/');
-  expect(await screen.findByText('Napsoft workspace.')).toBeTruthy();
+  expect(
+    await screen.findByText('Your dashboard will appear here.')
+  ).toBeTruthy();
   expect(screen.getByText('Tenant Management')).toBeTruthy();
 });
 
@@ -177,7 +181,9 @@ it('leaves /password for the destination after a required change (I0001-R002)', 
   );
   api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
   await user.click(screen.getByRole('button', { name: 'Change password' }));
-  expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+  expect(
+    await screen.findByText('Your dashboard will appear here.')
+  ).toBeTruthy();
   expect(screen.queryByRole('heading', { name: 'Change password' })).toBeNull();
 });
 
@@ -202,7 +208,9 @@ it('offers Cancel, not Log out, on a voluntary password change', async () => {
   );
   await user.click(await screen.findByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
-  expect(await screen.findByText('No tenant selected.')).toBeTruthy();
+  expect(
+    await screen.findByText('Your dashboard will appear here.')
+  ).toBeTruthy();
   expect(api.changePassword).not.toHaveBeenCalled();
 });
 

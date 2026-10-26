@@ -12,15 +12,15 @@ import {
 } from '@nap/shared';
 import Alert from '@mui/material/Alert';
 import Avatar from '@mui/material/Avatar';
-import Box from '@mui/material/Box';
+import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import ButtonBase from '@mui/material/ButtonBase';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { ApiError } from '../api/client.js';
 import {
-  deleteProfileImage,
   getProfile,
   updateProfile,
   uploadProfileImage,
@@ -29,6 +29,7 @@ import { useSession } from '../auth/SessionContext.jsx';
 import { useEffectiveSettings } from '../shell/EffectiveSettingsContext.jsx';
 import { useNotice } from '../shell/NoticeContext.jsx';
 import { usePageHeader } from '../shell/PageHeaderContext.jsx';
+import { useThemeMode } from '../theme/ThemeModeContext.jsx';
 import { initialsFromEmail } from '../shell/initials.js';
 import { defaultImageUrl, useProfileImage } from '../shell/useProfileImage.js';
 import { SettingControl } from './settings/SettingControl.jsx';
@@ -68,11 +69,37 @@ function imageOf(profile, storageConnected) {
   return null;
 }
 
+const MODE_LABELS = { dark: 'Dark', light: 'Light', system: 'System' };
+
 /**
- * `/profile` (M0006-03-R006): the signed-in member's profile in the selected
- * tenant. Each overridable setting shows the tenant's value beside the
- * member's own; "Use tenant setting" removes an override. The profile image
- * is a default image, an upload when storage is connected, or none.
+ * The display mode, kept in this browser (I0001-R044, R012). It changes the
+ * display at once, so it needs no notice.
+ * @returns {JSX.Element}
+ */
+function ThemeField() {
+  const { mode, setMode } = useThemeMode();
+  return (
+    <TextField
+      select
+      label="Theme"
+      value={mode}
+      onChange={event => setMode(event.target.value)}
+    >
+      {Object.entries(MODE_LABELS).map(([value, text]) => (
+        <MenuItem key={value} value={value}>
+          {text}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+}
+
+/**
+ * `/profile` (M0006-03-R006, R009–R011, I0001-R044): the display mode, and
+ * the signed-in member's profile in the selected tenant. Each overridable
+ * setting shows the tenant's value beside the member's own and saves when it
+ * changes; "Use tenant setting" removes an override. The profile image is a
+ * default image, an upload when storage is connected, or none.
  * @returns {JSX.Element}
  */
 export function ProfilePage() {
@@ -81,7 +108,6 @@ export function ProfilePage() {
   const { settings, refresh } = useEffectiveSettings();
   const notify = useNotice();
   const [profile, setProfile] = useState(null);
-  const [draft, setDraft] = useState({});
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const image = useProfileImage(
@@ -101,8 +127,15 @@ export function ProfilePage() {
 
   usePageHeader({ title: 'Profile' });
 
+  // I0001-R044: the theme belongs to the browser, so it shows without a
+  // tenant too.
   if (!tenant)
-    return <Alert severity="info">Select a tenant to see your profile.</Alert>;
+    return (
+      <Stack spacing={3} sx={{ maxWidth: 560 }}>
+        <ThemeField />
+        <Alert severity="info">Select a tenant to see your profile.</Alert>
+      </Stack>
+    );
   if (!profile)
     return error ? (
       <Alert severity="error">{error}</Alert>
@@ -116,7 +149,6 @@ export function ProfilePage() {
     setError(null);
     try {
       setProfile(await operation());
-      setDraft({});
       refresh();
       notify(message);
     } catch (err) {
@@ -130,23 +162,19 @@ export function ProfilePage() {
     }
   }
 
-  // A draft entry is a new override, or `null` to use the tenant's value.
-  const overrideOf = name =>
-    name in draft ? draft[name] : (profile.overrides[name] ?? null);
-  const changes = Object.fromEntries(
-    Object.entries(draft).filter(
-      ([name, value]) => value !== (profile.overrides[name] ?? null)
-    )
-  );
-  const dirty = Object.keys(changes).length > 0;
-
-  function save(event) {
-    event.preventDefault();
-    void change(
-      () => updateProfile({ overrides: changes, revision: profile.revision }),
+  /**
+   * M0006-03-R011: save one setting as soon as it changes; `null` returns it
+   * to the tenant's value.
+   */
+  const saveSetting = (name, value) =>
+    change(
+      () =>
+        updateProfile({
+          overrides: { [name]: value },
+          revision: profile.revision,
+        }),
       'Profile saved.'
     );
-  }
 
   function choose(event) {
     const file = event.target.files?.[0];
@@ -191,26 +219,19 @@ export function ProfilePage() {
                 />
               </Button>
             ) : null}
-            {profile.imageFileId ? (
+            {/* M0006-03-R009: one control returns to initials; choosing no
+                default image also drops an uploaded one (R005). */}
+            {profile.imageFileId || profile.defaultImage ? (
               <Button
                 color="error"
                 disabled={busy}
-                onClick={() =>
-                  change(deleteProfileImage, 'Profile image removed.')
-                }
+                onClick={() => pickDefault(null)}
               >
                 Remove image
-              </Button>
-            ) : profile.defaultImage ? (
-              <Button disabled={busy} onClick={() => pickDefault(null)}>
-                Use initials
               </Button>
             ) : null}
           </Stack>
         </Stack>
-        <Typography variant="body2" color="text.secondary">
-          Or choose one of these:
-        </Typography>
         <Stack
           direction="row"
           spacing={1}
@@ -245,51 +266,47 @@ export function ProfilePage() {
           })}
         </Stack>
       </Stack>
-      <Box component="form" onSubmit={save}>
-        <Stack spacing={2.5}>
-          <Typography variant="subtitle2">Your settings</Typography>
-          {OVERRIDABLE_SETTINGS.map(name => {
-            const own = overrideOf(name);
-            const tenantValue = profile.tenantValues[name];
-            return (
-              <Stack key={name} spacing={0.5}>
-                <SettingControl
-                  name={name}
-                  value={own ?? tenantValue}
-                  onChange={value => setDraft(d => ({ ...d, [name]: value }))}
-                  disabled={busy}
-                />
+      <Stack spacing={2.5}>
+        <ThemeField />
+        {OVERRIDABLE_SETTINGS.map(name => {
+          const own = profile.overrides[name] ?? null;
+          const tenantValue = profile.tenantValues[name];
+          return (
+            <Stack key={name} spacing={0.5}>
+              <SettingControl
+                name={name}
+                value={own ?? tenantValue}
+                onChange={value => {
+                  if (value !== own) void saveSetting(name, value);
+                }}
+                disabled={busy}
+              />
+              {/* M0006-03-R010: the tenant's value shows only beside an
+                  override, with the way back to it. */}
+              {own !== null ? (
                 <Stack
                   direction="row"
                   spacing={1}
-                  sx={{ alignItems: 'center', minHeight: 28 }}
+                  sx={{ alignItems: 'center' }}
                 >
                   <Typography variant="caption" color="text.secondary">
-                    {own === null
-                      ? 'Using the tenant setting'
-                      : `Tenant setting: ${describeSetting(name, tenantValue)}`}
+                    Tenant setting: {describeSetting(name, tenantValue)}
                   </Typography>
-                  {own !== null ? (
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setDraft(d => ({ ...d, [name]: null }))}
-                      aria-label={`Use tenant setting for ${SETTING_LABELS[name]}`}
-                    >
-                      Use tenant setting
-                    </Button>
-                  ) : null}
+                  <Button
+                    size="small"
+                    variant="text"
+                    disabled={busy}
+                    onClick={() => void saveSetting(name, null)}
+                    aria-label={`Use tenant setting for ${SETTING_LABELS[name]}`}
+                  >
+                    Use tenant setting
+                  </Button>
                 </Stack>
-              </Stack>
-            );
-          })}
-          <Box>
-            <Button type="submit" variant="contained" disabled={!dirty || busy}>
-              Save
-            </Button>
-          </Box>
-        </Stack>
-      </Box>
+              ) : null}
+            </Stack>
+          );
+        })}
+      </Stack>
     </Stack>
   );
 }

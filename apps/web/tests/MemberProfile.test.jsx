@@ -156,34 +156,61 @@ describe('account button (M0006-03-R007)', () => {
     renderWith(<ProfileMenu />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Account menu' }));
-    expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeTruthy();
+    // I0001-R044: the display mode lives on Profile, not in a submenu.
+    expect(
+      screen.getAllByRole('menuitem').map(item => item.textContent)
+    ).toEqual(['Profile', 'Change password', 'Log out']);
   });
 });
 
 describe('Profile screen (M0006-03-R006)', () => {
-  it('AC05: shows tenant values beside overrides and saves a change', async () => {
+  it('AC05, AC09, AC10: shows the tenant value beside an override and saves each change at once (M0006-03-R010, R011)', async () => {
     api.getProfile.mockResolvedValue(
       profile({ overrides: { timeZone: 'Europe/London' }, revision: 3 })
     );
-    api.updateProfile.mockResolvedValue(profile({ revision: 4 }));
+    api.updateProfile
+      .mockResolvedValueOnce(profile({ revision: 4 }))
+      .mockResolvedValue(
+        profile({ overrides: { recordsPerPage: 100 }, revision: 5 })
+      );
     renderWith(<ProfilePage />);
     const user = userEvent.setup();
     expect(
       await screen.findByText('Tenant setting: America/New_York')
     ).toBeTruthy();
     expect(screen.getByLabelText('Time zone').value).toBe('Europe/London');
-    expect(screen.getAllByText('Using the tenant setting')).toHaveLength(3);
+    for (const text of [
+      'Using the tenant setting',
+      'Your settings',
+      'Or choose one of these:',
+    ])
+      expect(screen.queryByText(text)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+
     await user.click(
       screen.getByRole('button', { name: 'Use tenant setting for Time zone' })
     );
-    await user.click(screen.getByLabelText('Records per page'));
-    await user.click(screen.getByRole('option', { name: '100' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(api.updateProfile).toHaveBeenCalledWith({
-      overrides: { timeZone: null, recordsPerPage: 100 },
+    expect(api.updateProfile).toHaveBeenLastCalledWith({
+      overrides: { timeZone: null },
       revision: 3,
     });
     expect(await screen.findByText('Profile saved.')).toBeTruthy();
+
+    await user.click(screen.getByLabelText('Records per page'));
+    await user.click(screen.getByRole('option', { name: '100' }));
+    expect(api.updateProfile).toHaveBeenLastCalledWith({
+      overrides: { recordsPerPage: 100 },
+      revision: 4,
+    });
+  });
+
+  it('AC27: sets the theme from Profile without saving the profile (I0001-R044)', async () => {
+    renderWith(<ProfilePage />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByLabelText('Theme'));
+    await user.click(screen.getByRole('option', { name: 'Dark' }));
+    expect(screen.getByLabelText('Theme').textContent).toBe('Dark');
+    expect(api.updateProfile).not.toHaveBeenCalled();
   });
 
   it('AC03, AC04: chooses a default image; upload shows only with storage', async () => {
@@ -206,6 +233,8 @@ describe('Profile screen (M0006-03-R006)', () => {
     expect(
       await screen.findByRole('radio', { name: 'Default image wave' })
     ).toHaveProperty('ariaChecked', 'true');
+    // AC08: a default image is removed with the same single control.
+    expect(screen.getByRole('button', { name: 'Remove image' })).toBeTruthy();
   });
 
   it('AC03: uploads an image when storage is connected, then removes it', async () => {
@@ -215,7 +244,7 @@ describe('Profile screen (M0006-03-R006)', () => {
     api.uploadProfileImage.mockResolvedValue(
       profile({ imageFileId: FILE, revision: 1 })
     );
-    api.deleteProfileImage.mockResolvedValue(profile({ revision: 2 }));
+    api.updateProfile.mockResolvedValue(profile({ revision: 2 }));
     renderWith(<ProfilePage />);
     const user = userEvent.setup();
     const input = await screen.findByLabelText('Profile image file');
@@ -224,10 +253,15 @@ describe('Profile screen (M0006-03-R006)', () => {
     });
     await user.upload(input, file);
     expect(api.uploadProfileImage).toHaveBeenCalledWith(file);
+    // M0006-03-R009: one control, which also drops an uploaded image.
+    expect(screen.queryByRole('button', { name: 'Use initials' })).toBeNull();
     await user.click(
       await screen.findByRole('button', { name: 'Remove image' })
     );
-    expect(api.deleteProfileImage).toHaveBeenCalled();
+    expect(api.updateProfile).toHaveBeenCalledWith({
+      defaultImage: null,
+      revision: 1,
+    });
     expect(await screen.findByText('Profile image removed.')).toBeTruthy();
   });
 });

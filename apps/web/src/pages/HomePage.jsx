@@ -4,21 +4,17 @@
  */
 
 import Typography from '@mui/material/Typography';
-import { useSession } from '../auth/SessionContext.jsx';
 import { usePageHeader } from '../shell/PageHeaderContext.jsx';
 
 /**
- * `/home` (I0001-R014): the one Home work area. It names the selected
- * tenant, or says none is selected; it shows no invented metrics.
+ * `/home` (I0001-R014, R045): the landing page after sign-in, holding the
+ * dashboard's place until it exists. The header already names the tenant.
  */
 export function HomePage() {
-  const session = useSession();
   usePageHeader({ title: 'Home' });
   return (
     <Typography variant="body1" color="text.secondary">
-      {session.selectedTenant
-        ? `${session.selectedTenant.name} workspace.`
-        : 'No tenant selected.'}
+      Your dashboard will appear here.
     </Typography>
   );
 }

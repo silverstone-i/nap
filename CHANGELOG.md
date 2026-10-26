@@ -29,6 +29,9 @@ when a pull request with a release label merges into `main`.
 - Sessions shows status as plain text, hides Ended while the filter is Active, asks "Revoke N sessions?", and reports revokes as notices (I0009-R015–R017).
 - A provisioning conflict names the value that is taken: `CONFLICT` now carries `details.field` (`code`, `client`, or `email`), and the Provision tenant dialog says which. The dialog's helper texts are gone except for an invalid code (I0006-R022, R023).
 - `GET /api/admin-tenancy/v1/accounts/users` rows add `tenantCodes` and `locked` (I0002-R017, R021).
+- The display mode is a Theme field on Profile; the account menu holds only Profile, Change password, and Log out (I0001-R044).
+- Profile saves each setting when it changes, with a notice, and has one **Remove image** control in place of Remove image and Use initials; its "Your settings" heading and explanatory captions are gone (M0006-03-R009–R011).
+- Home shows "Your dashboard will appear here." until the dashboard exists, and sign-in shows one notice, "Session ended. Sign in again.", however a session ended (I0001-R045, R046).
 
 ### Removed
 

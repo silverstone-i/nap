@@ -67,6 +67,9 @@ settings to the web app, so screens apply them.
 - M0006-03-R006: The account menu must offer Profile, which shows each overridable setting with the tenant's value and the member's override, if any, and the profile image. Choosing "Use tenant setting" removes an override.
 - M0006-03-R007: The shell's account button must show the member's profile image, else their initials. With storage failing, an uploaded image falls back to initials and the page still loads.
 - M0006-03-R008: A standard grid must start at the member's effective `recordsPerPage`. Choosing another page size in a grid must save it as the member's override, so it applies in every standard grid and every browser.
+- M0006-03-R009: The Profile screen must offer one **Remove image** control while an uploaded or default image is chosen. It returns the account button to initials and deletes an uploaded file (R005). "Use initials" is removed.
+- M0006-03-R010: The Profile screen must not explain itself (I0001-R043): no "Your settings" heading, no "Or choose one of these:" line, and no "Using the tenant setting" caption. An overridden setting still shows "Tenant setting: {value}" beside **Use tenant setting** (R006).
+- M0006-03-R011: Each setting on the Profile screen must save when it changes and report a notice that closes on its own, as the image does (I0001-R040). There is no Save button. The Theme field (I0001-R044) changes the display at once and is kept in the browser.
 
 ## 7. Business Rules And Invariants
 
@@ -143,6 +146,9 @@ Base: `/api/tenant-settings/v1`.
 | AC05      | The Profile screen shows tenant values beside the member's overrides, and "Use tenant setting" removes an override.                                                      | M0006-03-R006             |
 | AC06      | Grids start at the member's `recordsPerPage`; choosing 100 in one grid makes every standard grid start at 100 in another browser.                                        | M0006-03-R008             |
 | AC07      | A member cannot read or change another member's profile through any route.                                                                                               | M0006-03-R001             |
+| AC08      | With a default or uploaded image chosen, Remove image returns the account button to initials and deletes an uploaded file; there is no Use initials control.             | M0006-03-R009             |
+| AC09      | Profile has no "Your settings" heading, "Or choose one of these:" line, or "Using the tenant setting" caption.                                                           | M0006-03-R010             |
+| AC10      | Changing a setting saves it at once with a notice; there is no Save button.                                                                                              | M0006-03-R011             |
 
 ## 14. Outstanding Questions
 

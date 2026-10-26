@@ -116,14 +116,10 @@ export function LoginPage() {
         >
           Sign in
         </Typography>
-        {session.notice === 'sessionExpired' ? (
+        {/* I0001-R046: one notice, however the session ended. */}
+        {session.notice ? (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Your session has expired. Please sign in again.
-          </Alert>
-        ) : null}
-        {session.notice === 'sessionEnded' ? (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Your session ended. Please sign in again.
+            Session ended. Sign in again.
           </Alert>
         ) : null}
         {retryAfterSeconds != null ? (
