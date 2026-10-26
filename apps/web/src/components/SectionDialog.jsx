@@ -19,9 +19,11 @@ import { FormCheck } from './formCheck.js';
  * part (I0001-R036, M0005-R049, M0003-R019). `onSave` throws a `FormCheck` to report a
  * check the form makes itself, or the API's error; `describe` turns the
  * API's error into a message, which may be an element with a link. On
- * `STALE_REVISION` it calls `onStale` so the detail reloads the record.
+ * `STALE_REVISION` it awaits `onStale`, which reloads the record and
+ * refills the form from it, so the next Save neither sends the old
+ * revision nor overwrites the other change with the old values.
  * `secondary` adds one more action, such as Clear, run the same way.
- * @param {{title: string, children: import('react').ReactNode, onClose: () => void, onSave: () => Promise<void>, describe: (err: unknown) => import('react').ReactNode, onStale?: () => void, secondary?: {label: string, onRun: () => Promise<void>}}} props
+ * @param {{title: string, children: import('react').ReactNode, onClose: () => void, onSave: () => Promise<void>, describe: (err: unknown) => import('react').ReactNode, onStale?: () => Promise<void>, secondary?: {label: string, onRun: () => Promise<void>}}} props
  * @returns {JSX.Element}
  */
 export function SectionDialog({
@@ -44,7 +46,12 @@ export function SectionDialog({
       await action();
     } catch (err) {
       setError(err instanceof FormCheck ? err.message : describe(err));
-      if (err instanceof ApiError && err.code === 'STALE_REVISION') onStale?.();
+      if (err instanceof ApiError && err.code === 'STALE_REVISION' && onStale)
+        try {
+          await onStale();
+        } catch (reloadErr) {
+          setError(describe(reloadErr));
+        }
     } finally {
       setSaving(false);
     }

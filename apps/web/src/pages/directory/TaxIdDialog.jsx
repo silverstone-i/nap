@@ -20,7 +20,7 @@ import { defaultTaxIdFormatId } from './useTaxIdFormats.js';
  * **Clear** when the record may have none. The stored value stays masked
  * on the detail; this dialog never shows it. A duplicate shows R048's
  * message with its link.
- * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object, formats: object[]|null, onClose: () => void, onSaved: () => void, onStale: () => void}} props
+ * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object, formats: object[]|null, onClose: () => void, onSaved: () => void, onStale: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
 export function TaxIdDialog({
@@ -63,6 +63,8 @@ export function TaxIdDialog({
       title="Edit tax ID"
       onClose={onClose}
       onSave={() => send(value.trim())}
+      // The stored tax ID is never shown, so a stale save keeps the typed
+      // value and format; the retry takes the reloaded record's revision.
       onStale={onStale}
       describe={err =>
         err instanceof ApiError &&

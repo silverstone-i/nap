@@ -280,16 +280,16 @@ describe('Employees (M0005-R026)', () => {
     });
 
     expect(await within(form).findByText(/This record changed/)).toBeTruthy();
-    // The retry carries the reloaded revision.
+    // The form refills from the reloaded record, so the retry carries its
+    // revision and keeps the other change instead of overwriting it.
+    expect(await within(form).findByDisplayValue('Smith')).toBeTruthy();
+    expect(within(form).getByText(/This record changed/)).toBeTruthy();
     api.updateDirectoryRecord.mockResolvedValueOnce({ ...changed });
-    await vi.waitFor(() =>
-      expect(api.getDirectoryRecord).toHaveBeenCalledTimes(2)
-    );
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.updateDirectoryRecord).toHaveBeenLastCalledWith(
       'people',
       JANE.id,
-      expect.objectContaining({ revision: 3 })
+      { firstName: 'Jane', lastName: 'Smith', revision: 3 }
     );
   });
 
@@ -449,6 +449,32 @@ describe('Employees (M0005-R026)', () => {
     return form;
   }
 
+  it('keeps the typed tax ID after a stale save and retries with the reloaded revision', async () => {
+    const fresh = { ...STAFF, revision: 3, contactMethods: [], addresses: [] };
+    // Someone else saved meanwhile, so the reload returns revision 3.
+    api.updateDirectoryRecord.mockImplementationOnce(async () => {
+      api.getDirectoryRecord.mockResolvedValue(fresh);
+      throw new ApiError('STALE_REVISION', 409);
+    });
+    const form = await saveSsnOnJane();
+    expect(await within(form).findByText(/This record changed/)).toBeTruthy();
+    await vi.waitFor(() =>
+      expect(api.getDirectoryRecord).toHaveBeenCalledTimes(2)
+    );
+    // The stored value is never shown, so nothing replaces the draft.
+    expect(within(form).getByRole('textbox', { name: 'Tax ID' }).value).toBe(
+      '123-45-6789'
+    );
+    api.updateDirectoryRecord.mockResolvedValueOnce(fresh);
+    const user = userEvent.setup();
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenLastCalledWith(
+      'people',
+      JANE.id,
+      { taxId: '123-45-6789', taxIdFormatId: SSN.id, revision: 3 }
+    );
+  });
+
   const HOLDER = '22222222-2222-4222-8222-222222222222';
 
   it('names the employee already holding the tax ID, with a link to open it (M0005-R048, R052)', async () => {
@@ -537,7 +563,7 @@ describe('Portal access (I0008)', () => {
   });
 
   /** Render the portal access dialog for `record`. */
-  function portalDialog(record) {
+  function portalDialog(record, onStale = vi.fn()) {
     render(
       <ThemeModeProvider>
         <PortalAccessDialog
@@ -545,12 +571,70 @@ describe('Portal access (I0008)', () => {
           record={record}
           onClose={vi.fn()}
           onSaved={vi.fn()}
-          onStale={vi.fn()}
+          onStale={onStale}
         />
       </ThemeModeProvider>
     );
     return screen.findByRole('dialog', { name: 'Portal access' });
   }
+
+  const CLERK_HELD = { id: CLERK.id, code: 'clerk', name: 'Clerk', held: true };
+
+  /** Add Manager to Jane's roles and save into a stale revision. */
+  async function staleRoleChange(onStale) {
+    api.updateDirectoryRecord.mockRejectedValueOnce(
+      new ApiError('STALE_REVISION', 409)
+    );
+    const form = await portalDialog({ ...JANE, roles: [CLERK_HELD] }, onStale);
+    const user = userEvent.setup();
+    await user.click(within(form).getByLabelText('Roles'));
+    await user.click(await screen.findByRole('option', { name: 'Manager' }));
+    await user.keyboard('{Escape}');
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    return { form, user };
+  }
+
+  it('keeps the role draft after a stale save when access and roles did not change', async () => {
+    const onStale = vi
+      .fn()
+      .mockResolvedValue({ ...JANE, roles: [CLERK_HELD], revision: 3 });
+    const { form, user } = await staleRoleChange(onStale);
+    expect(await within(form).findByText(/This record changed/)).toBeTruthy();
+    expect(onStale).toHaveBeenCalledTimes(1);
+    api.updateDirectoryRecord.mockResolvedValueOnce({ ...JANE });
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledTimes(2);
+    expect(api.updateDirectoryRecord).toHaveBeenLastCalledWith(
+      'people',
+      JANE.id,
+      expect.objectContaining({ roleIds: [CLERK.id, MANAGER.id] })
+    );
+  });
+
+  it('refills the roles after a stale save when the other change touched them', async () => {
+    const managerHeld = { ...CLERK_HELD, id: MANAGER.id, name: 'Manager' };
+    const onStale = vi
+      .fn()
+      .mockResolvedValue({ ...JANE, roles: [managerHeld], revision: 3 });
+    const { form, user } = await staleRoleChange(onStale);
+    expect(await within(form).findByText(/This record changed/)).toBeTruthy();
+    api.updateDirectoryRecord.mockResolvedValueOnce({ ...JANE });
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledTimes(2);
+    expect(api.updateDirectoryRecord).toHaveBeenLastCalledWith(
+      'people',
+      JANE.id,
+      expect.objectContaining({ roleIds: [MANAGER.id] })
+    );
+  });
+
+  it('shows why the reload failed after a stale save', async () => {
+    const onStale = vi.fn().mockRejectedValue(new ApiError('NOT_FOUND', 404));
+    const { form } = await staleRoleChange(onStale);
+    expect(
+      await within(form).findByText('That record no longer exists.')
+    ).toBeTruthy();
+  });
 
   it('asks for a temporary password and a role when access is turned on (I0010-R013, R014)', async () => {
     api.updateDirectoryRecord.mockResolvedValue({ ...JANE });

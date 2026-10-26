@@ -12,7 +12,7 @@ import { SectionDialog } from '../../components/SectionDialog.jsx';
 /**
  * The name pencil's dialog (M0005-R049): a person's first and last name, or
  * an organization's legal name and DBA name (R053).
- * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object, onClose: () => void, onSaved: () => void, onStale: () => void}} props
+ * @param {{collection: 'people'|'organizations'|'organization-contacts', record: object, onClose: () => void, onSaved: () => void, onStale: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
 export function EditNameDialog({
@@ -44,7 +44,13 @@ export function EditNameDialog({
       onClose={onClose}
       onSave={save}
       describe={err => describeDirectoryError(err)}
-      onStale={onStale}
+      onStale={async () => {
+        const fresh = await onStale();
+        setFirstName(fresh.firstName ?? '');
+        setLastName(fresh.lastName ?? '');
+        setLegalName(fresh.legalName ?? '');
+        setDbaName(fresh.dbaName ?? '');
+      }}
     >
       {organization ? (
         <>
