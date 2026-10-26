@@ -542,26 +542,26 @@ export function restoreRole(context, id, body) {
 }
 
 /**
- * Validate a user-ID path argument.
+ * Validate a membership-ID path argument.
  * @param {unknown} value
  * @returns {string}
  * @throws {AccessControlError} `NOT_FOUND`
  */
-function parseUserId(value) {
+function parseMembershipId(value) {
   const parsed = uuid.safeParse(value);
   if (!parsed.success) throw new AccessControlError('NOT_FOUND');
   return parsed.data;
 }
 
 /**
- * The roles a user actively holds, read inside `tx`.
+ * The roles a membership actively holds, read inside `tx`.
  * @param {AccessControlContext} context
- * @param {string} userId
+ * @param {string} membershipId
  * @param {object} tx
- * @returns {Promise<{userId: string, roles: ReturnType<typeof roleView>[]}>}
+ * @returns {Promise<{membershipId: string, roles: ReturnType<typeof roleView>[]}>}
  */
-async function assignedRoles(context, userId, tx) {
-  const ids = await context.cell.role_assignments.activeRoleIds(userId, {
+async function assignedRoles(context, membershipId, tx) {
+  const ids = await context.cell.role_assignments.activeRoleIds(membershipId, {
     tx,
   });
   const byRole = await context.cell.role_grants.patternsByRole(ids, { tx });
@@ -569,52 +569,90 @@ async function assignedRoles(context, userId, tx) {
   const roles = rows
     .map(row => roleView(row, byRole.get(row.id)))
     .sort((a, b) => a.code.localeCompare(b.code));
-  return { userId, roles };
+  return { membershipId, roles };
 }
 
 /**
- * The roles a tenant member holds (M0003 §10 `GET /users/:userId/roles`).
+ * The tenant's pending and active memberships, each with the person's name
+ * when it has a party, for choosing whose roles to change (I0012-R017).
  * @param {AccessControlContext} context
- * @param {unknown} userId
- * @returns {Promise<{userId: string, roles: ReturnType<typeof roleView>[]}>}
- * @throws {AccessControlError} `NOT_FOUND` when the user has no membership in the tenant.
+ * @returns {Promise<{id: string, memberType: string|null, label: string|null, name: string|null, status: string}[]>}
  */
-export function userRoles(context, userId) {
+export function listMemberships(context) {
   return withAccessControlErrors(() =>
     withTenantTransaction(context.cell, context.tenant.id, async tx => {
-      const id = parseUserId(userId);
-      const status = await context.cell.tenant_members.membershipStatus(
+      const members = await context.cell.tenant_members.byStatus(
+        context.tenant.id,
+        ['pending', 'active'],
+        { tx }
+      );
+      const partyIds = members.map(row => row.member_id).filter(Boolean);
+      // In the tenant transaction, so row-level security returns the rows.
+      const people = await context.cell.people.byKeys(partyIds, { tx });
+      const names = new Map(
+        people.map(row => [row.party_id, `${row.first_name} ${row.last_name}`])
+      );
+      return members
+        .map(row => ({
+          id: row.id,
+          memberType: row.member_type,
+          label: row.member_label,
+          name: names.get(row.member_id) ?? null,
+          status: row.status,
+        }))
+        .sort(
+          (a, b) =>
+            (a.name ?? '').localeCompare(b.name ?? '') ||
+            (a.label ?? '').localeCompare(b.label ?? '')
+        );
+    })
+  );
+}
+
+/**
+ * The roles a tenant membership holds (M0003 §10, I0012-R013
+ * `GET /memberships/:membershipId/roles`).
+ * @param {AccessControlContext} context
+ * @param {unknown} membershipId
+ * @returns {Promise<{membershipId: string, roles: ReturnType<typeof roleView>[]}>}
+ * @throws {AccessControlError} `NOT_FOUND` when the tenant has no such membership.
+ */
+export function membershipRoles(context, membershipId) {
+  return withAccessControlErrors(() =>
+    withTenantTransaction(context.cell, context.tenant.id, async tx => {
+      const id = parseMembershipId(membershipId);
+      const member = await context.cell.tenant_members.byId(
         context.tenant.id,
         id,
         { tx }
       );
-      if (!status) throw new AccessControlError('NOT_FOUND');
+      if (!member) throw new AccessControlError('NOT_FOUND');
       return assignedRoles(context, id, tx);
     })
   );
 }
 
 /**
- * Assign a role to a tenant member (M0003 §8 Assign). The user must be an
- * active member, the role must be active, and the actor must cover every
+ * Assign a role to a tenant membership (M0003 §8 Assign). The membership
+ * must be active, the role must be active, and the actor must cover every
  * grant on it (R011). Repeating an assignment returns it unchanged.
  * @param {AccessControlContext} context
- * @param {unknown} userId
+ * @param {unknown} membershipId
  * @param {unknown} roleId
- * @returns {Promise<{userId: string, roles: ReturnType<typeof roleView>[]}>}
+ * @returns {Promise<{membershipId: string, roles: ReturnType<typeof roleView>[]}>}
  * @throws {AccessControlError} `NOT_FOUND`, `NOT_MEMBER`, `INVALID_STATE`, `GRANT_EXCEEDS_ACTOR`
  */
-export function assignRole(context, userId, roleId) {
+export function assignRole(context, membershipId, roleId) {
   return mutate(context, async tx => {
-    const id = parseUserId(userId);
+    const id = parseMembershipId(membershipId);
     const role = await lockRole(context, roleId, tx);
     if (role.deactivated_at) throw new AccessControlError('INVALID_STATE');
-    const status = await context.cell.tenant_members.membershipStatus(
+    const member = await context.cell.tenant_members.byId(
       context.tenant.id,
       id,
       { tx }
     );
-    if (status !== 'active') throw new AccessControlError('NOT_MEMBER');
+    if (member?.status !== 'active') throw new AccessControlError('NOT_MEMBER');
     await requireCovered(
       context,
       await context.cell.role_grants.patternsFor(role.id, { tx })
@@ -628,7 +666,7 @@ export function assignRole(context, userId, roleId) {
       await context.cell.role_assignments.insert(
         {
           tenant_id: context.tenant.id,
-          portal_user_id: id,
+          membership_id: id,
           role_id: role.id,
           created_by: context.actorId,
           updated_by: context.actorId,
@@ -644,7 +682,8 @@ export function assignRole(context, userId, roleId) {
             roleId: role.id,
             details: {
               role: role.code,
-              portal_user_id: id,
+              portal_user_id: member.portal_user_id,
+              membership_id: id,
               from_status: 'unassigned',
               to_status: 'assigned',
             },
@@ -668,21 +707,21 @@ export function isGuardedAdminRole(role, tenant) {
 }
 
 /**
- * Remove a role from a user (M0003 §8 Remove). The actor must cover every
+ * Remove a role from a membership (M0003 §8 Remove). The actor must cover every
  * grant on the role (R011), and the last administrator assignment cannot be
  * removed (R012). Only assignments of active members count, so removing an
  * inactive member's assignment is never blocked. The role row is locked
  * first, so two removals of the same role serialize and the count each sees
  * is current.
  * @param {AccessControlContext} context
- * @param {unknown} userId
+ * @param {unknown} membershipId
  * @param {unknown} roleId
- * @returns {Promise<{userId: string, roles: ReturnType<typeof roleView>[]}>}
+ * @returns {Promise<{membershipId: string, roles: ReturnType<typeof roleView>[]}>}
  * @throws {AccessControlError} `NOT_FOUND`, `GRANT_EXCEEDS_ACTOR`, `LAST_ADMIN`, `ROOT_IMMUTABLE`
  */
-export function removeRole(context, userId, roleId) {
+export function removeRole(context, membershipId, roleId) {
   return mutate(context, async tx => {
-    const id = parseUserId(userId);
+    const id = parseMembershipId(membershipId);
     const role = await lockRole(context, roleId, tx);
     const assignment = await context.cell.role_assignments.lockActive(
       id,
@@ -690,10 +729,15 @@ export function removeRole(context, userId, roleId) {
       { tx }
     );
     if (!assignment) throw new AccessControlError('NOT_FOUND');
+    const member = await context.cell.tenant_members.byId(
+      context.tenant.id,
+      id,
+      { tx }
+    );
     if (
       role.code === 'platform_admin' &&
       context.tenant.isNapsoft &&
-      id === context.bootstrapUserId
+      member?.portal_user_id === context.bootstrapUserId
     )
       throw new AccessControlError('ROOT_IMMUTABLE');
     await requireCovered(
@@ -702,11 +746,7 @@ export function removeRole(context, userId, roleId) {
     );
     if (
       isGuardedAdminRole(role, context.tenant) &&
-      (await context.cell.tenant_members.membershipStatus(
-        context.tenant.id,
-        id,
-        { tx }
-      )) === 'active' &&
+      member?.status === 'active' &&
       (await context.cell.role_assignments.countActive(
         role.id,
         context.tenant.id,
@@ -728,7 +768,8 @@ export function removeRole(context, userId, roleId) {
         roleId: role.id,
         details: {
           role: role.code,
-          portal_user_id: id,
+          portal_user_id: member?.portal_user_id ?? null,
+          membership_id: id,
           from_status: 'assigned',
           to_status: 'unassigned',
         },

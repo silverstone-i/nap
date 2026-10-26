@@ -36,8 +36,9 @@ const config = {
 const napsoft = {
   tenantId: randomUUID(),
   tenantCode: 'NAP',
-  portalUserId: randomUUID(),
+  membershipId: randomUUID(),
 };
+const rootLogin = randomUUID();
 const other = randomUUID();
 let handle, app;
 
@@ -183,6 +184,18 @@ it('rejects a malformed pattern and a change to is_immutable (M0003-R003, §7)',
 });
 
 it('seeds the Napsoft roles and assignment once, and a rerun changes nothing (M0003 AC04)', async () => {
+  // The assignment keys to the bootstrap login's membership copy (I0012-R013).
+  await handle.db.none(
+    `INSERT INTO cell.tenants (id, tenant_code, status, revision)
+       VALUES ($1, $2, 'active', 1)`,
+    [napsoft.tenantId, napsoft.tenantCode]
+  );
+  await handle.db.none(
+    `INSERT INTO cell.tenant_members
+       (id, tenant_id, portal_user_id, member_type, member_id, status, revision)
+       VALUES ($1, $2, $3, NULL, NULL, 'active', 1)`,
+    [napsoft.membershipId, napsoft.tenantId, rootLogin]
+  );
   const first = await inTenant(handle, napsoft.tenantId, tx =>
     seedNapsoft(handle.db, tx, napsoft)
   );
@@ -210,11 +223,11 @@ it('seeds the Napsoft roles and assignment once, and a rerun changes nothing (M0
   expect(
     await inTenant(handle, napsoft.tenantId, tx =>
       tx.any(
-        `SELECT a.portal_user_id,r.code FROM app.role_assignments a
+        `SELECT a.membership_id,r.code FROM app.role_assignments a
            JOIN app.roles r ON r.id=a.role_id WHERE a.deactivated_at IS NULL`
       )
     )
-  ).toEqual([{ portal_user_id: napsoft.portalUserId, code: 'platform_admin' }]);
+  ).toEqual([{ membership_id: napsoft.membershipId, code: 'platform_admin' }]);
   expect(
     await inTenant(handle, null, tx =>
       napsoftSeedPresent(handle.db, tx, napsoft)

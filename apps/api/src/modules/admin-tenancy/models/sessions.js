@@ -6,7 +6,7 @@
 import { TableModel } from 'pg-schemata';
 
 /**
- * Schema object for `admin.sessions`: hashed session credentials, expiry, and selected tenant.
+ * Schema object for `admin.sessions`: hashed session credentials, expiry, and selected tenant and membership.
  * Kept identical to the copy frozen in migration `001-admin-tenancy`.
  */
 export const sessionsSchema = {
@@ -25,6 +25,7 @@ export const sessionsSchema = {
     { name: 'portal_user_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'token_hash', type: 'text', notNull: true },
     { name: 'tenant_id', type: 'uuid' },
+    { name: 'membership_id', type: 'uuid' },
     {
       name: 'last_seen_at',
       type: 'timestamptz',
@@ -51,10 +52,21 @@ export const sessionsSchema = {
         references: { schema: 'admin', table: 'tenants', columns: ['id'] },
         onDelete: 'RESTRICT',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['membership_id'],
+        references: {
+          schema: 'admin',
+          table: 'portal_user_tenants',
+          columns: ['id'],
+        },
+        onDelete: 'RESTRICT',
+      },
     ],
     indexes: [
       { columns: ['portal_user_id'] },
       { columns: ['tenant_id'] },
+      { columns: ['membership_id'] },
       { columns: ['absolute_expires_at'] },
     ],
   },
@@ -69,6 +81,7 @@ export const SESSION_VIEW_COLUMNS = Object.freeze([
   'id',
   'portal_user_id',
   'tenant_id',
+  'membership_id',
   'last_seen_at',
   'idle_expires_at',
   'absolute_expires_at',
@@ -77,7 +90,13 @@ export const SESSION_VIEW_COLUMNS = Object.freeze([
   'deactivated_at',
 ]);
 
-const viewColumns = SESSION_VIEW_COLUMNS.map(column => `s.${column}`).join(',');
+// The selected membership's type and label ride along for the session view
+// (I0012 §10); a scalar subquery works in both SELECT and RETURNING.
+const viewColumns = [
+  ...SESSION_VIEW_COLUMNS.map(column => `s.${column}`),
+  `(SELECT json_build_object('id', m.id, 'memberType', m.member_type, 'label', m.member_label)
+      FROM admin.portal_user_tenants m WHERE m.id = s.membership_id) AS membership`,
+].join(',');
 
 /**
  * Qualified table name for a model instance.
@@ -231,27 +250,35 @@ export class Sessions extends TableModel {
   }
 
   /**
-   * Select a tenant for normal work, replacing the token in the same
-   * statement as `rotate`.
+   * Select a membership for normal work, replacing the token in the same
+   * statement as `rotate`. The session stores the membership and its tenant
+   * (I0012-R009).
    * @param {string} currentHash
    * @param {string} nextHash
-   * @param {string} tenantId
+   * @param {{tenantId: string, membershipId: string}} selection
    * @param {number} idleMinutes
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<object|null>} Safe session view, or `null` when the
    *   token was already replaced/expired/revoked.
    */
-  async selectTenant(currentHash, nextHash, tenantId, idleMinutes, { tx }) {
+  async selectTenant(
+    currentHash,
+    nextHash,
+    { tenantId, membershipId },
+    idleMinutes,
+    { tx }
+  ) {
     return tx.oneOrNone(
       `UPDATE ${table(this)} AS s
           SET token_hash=$2,
               tenant_id=$3,
+              membership_id=$4,
               last_seen_at=now(),
-              idle_expires_at=LEAST(now() + ($4::integer * interval '1 minute'),s.absolute_expires_at)
+              idle_expires_at=LEAST(now() + ($5::integer * interval '1 minute'),s.absolute_expires_at)
         WHERE s.token_hash=$1 AND s.deactivated_at IS NULL
           AND s.idle_expires_at > now() AND s.absolute_expires_at > now()
         RETURNING ${viewColumns}`,
-      [currentHash, nextHash, tenantId, idleMinutes]
+      [currentHash, nextHash, tenantId, membershipId, idleMinutes]
     );
   }
 
@@ -303,22 +330,21 @@ export class Sessions extends TableModel {
   }
 
   /**
-   * Archive every live session a portal user holds for one tenant.
+   * Archive every live session acting as one membership.
    *
    * The membership-scoped sibling of `archiveForUser`: a suspended or
-   * archived membership must revoke only the sessions that selected its
-   * tenant, leaving any session the user holds in a different tenant alone.
-   * @param {string} portalUserId
-   * @param {string} tenantId
+   * archived membership revokes only the sessions that selected it, leaving
+   * the user's sessions as their other parties or tenants alone (I0012-R006).
+   * @param {string} membershipId
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<{id: string, tenant_id: string|null}[]>} The sessions this call archived.
    */
-  async archiveForUserAndTenant(portalUserId, tenantId, { tx }) {
+  async archiveForMembership(membershipId, { tx }) {
     return tx.any(
       `UPDATE ${table(this)} AS s SET deactivated_at=now()
-        WHERE s.portal_user_id=$1 AND s.tenant_id=$2 AND s.deactivated_at IS NULL
+        WHERE s.membership_id=$1 AND s.deactivated_at IS NULL
         RETURNING s.id,s.tenant_id`,
-      [portalUserId, tenantId]
+      [membershipId]
     );
   }
 

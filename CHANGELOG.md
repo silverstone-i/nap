@@ -10,6 +10,14 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- One login can hold a membership for each of its parties in a tenant, such as an employee who is also a vendor contact (I0012). Sign-in lists one entry per tenant and party, labelled "Employee", "Contact", "Vendor · {name}", or "Client · {name}"; a session acts as exactly one membership, and roles are assigned per membership, so a vendor session never gets the employee's access.
+
+### Changed
+
+- Migrations `001-admin-tenancy`, `001-cell-tenancy`, and `001-access-control` are edited in place for I0012 (membership uniqueness per party, `member_label`, `sessions.membership_id`, role assignments keyed by membership), so recreate existing admin and cell databases.
+
 ## [v0.32.0] - 2026-10-25
 
 ### Added

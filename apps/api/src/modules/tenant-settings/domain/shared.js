@@ -23,6 +23,7 @@ import { SettingsError, withSettingsErrors } from './errors.js';
  * @property {object} cell Target tenant's cell repository handle.
  * @property {{id: string}} tenant Target tenant.
  * @property {string} actorId Acting portal user.
+ * @property {string|null} membershipId The membership the session acts as in this tenant (I0012).
  * @property {(change: SettingsChange, tx: object) => Promise<void>} record Writes the change's outbox row inside `tx`.
  * @property {{seal: Function, open: Function}|null} secrets Encrypts storage secrets (M0006-02-R002); null without the key.
  * @property {(connection: object) => object} objectStores Opens a tenant's bucket (M0006-02).

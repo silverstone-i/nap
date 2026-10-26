@@ -28,7 +28,10 @@ import { createStages } from '../../src/application/provisioning/stages.js';
 import { createProvisioningWorker } from '../../src/application/provisioning/worker.js';
 import { createSyncWorker } from '../../src/application/sync/worker.js';
 import { deliverTenant } from '../../src/application/sync/engine.js';
-import { requestPortalAccess } from '../../src/modules/cell-tenancy/domain/portalAccess.js';
+import {
+  requestMemberLabel,
+  requestPortalAccess,
+} from '../../src/modules/cell-tenancy/domain/portalAccess.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -86,7 +89,14 @@ const membershipOf = (portalUserId, tenantId) =>
   );
 
 /** Append a portal-access request in its own cell transaction. */
-function request(tenantId, memberId, email, enabled, memberType = 'employee') {
+function request(
+  tenantId,
+  memberId,
+  email,
+  enabled,
+  memberType = 'employee',
+  memberLabel = null
+) {
   return cell.tx(tx =>
     requestPortalAccess(
       tx,
@@ -94,6 +104,7 @@ function request(tenantId, memberId, email, enabled, memberType = 'employee') {
         tenantId,
         memberId,
         memberType,
+        memberLabel,
         email,
         enabled,
         ...(enabled ? { temporaryPassword: PASSWORD } : {}),
@@ -333,17 +344,17 @@ describe('admin-cell sync (I0004)', () => {
       expect(event.details.invitation_pending).toBe(true);
     });
 
-    it('AC12: an off request suspends the membership and revokes only that tenant’s sessions', async () => {
+    it('AC12: an off request suspends the membership and revokes only the sessions acting as it', async () => {
       const here = await createSession(db, sessionPolicy, {
         portalUserId: login.id,
       });
       const there = await createSession(db, sessionPolicy, {
         portalUserId: login.id,
       });
-      await db.none('UPDATE admin.sessions SET tenant_id=$2 WHERE id=$1', [
-        here.session.id,
-        napsoftId,
-      ]);
+      await db.none(
+        'UPDATE admin.sessions SET tenant_id=$2, membership_id=$3 WHERE id=$1',
+        [here.session.id, napsoftId, membership.id]
+      );
       await db.none('UPDATE admin.sessions SET tenant_id=$2 WHERE id=$1', [
         there.session.id,
         otherId,
@@ -373,9 +384,19 @@ describe('admin-cell sync (I0004)', () => {
         [disabled.id]
       );
 
+      // I0012-R004: a party another login already holds conflicts.
+      const heldParty = randomUUID();
+      await request(
+        otherId,
+        heldParty,
+        `holder-${randomUUID().slice(0, 8)}@nap.test`,
+        true
+      );
+      await drain();
+
       const cases = [
         [otherId, randomUUID(), disabledEmail, 'LOGIN_UNAVAILABLE'],
-        [otherId, randomUUID(), email, 'MEMBER_CONFLICT'],
+        [otherId, heldParty, email, 'MEMBER_CONFLICT'],
       ];
       for (const [tenantId, id, address] of cases)
         await request(tenantId, id, address, true);
@@ -401,7 +422,7 @@ describe('admin-cell sync (I0004)', () => {
       await drain();
 
       for (const [, id, , code] of cases)
-        expect((await requestRows(id))[0]).toMatchObject({
+        expect((await requestRows(id)).at(-1)).toMatchObject({
           status: 'failed',
           failure_code: code,
         });
@@ -411,6 +432,67 @@ describe('admin-cell sync (I0004)', () => {
       });
       expect((await requestRows(good))[0].status).toBe('delivered');
       expect(await loginByEmail(goodEmail)).not.toBeNull();
+    });
+
+    it('I0012 AC01: a second party of an active login gets its own active membership', async () => {
+      const vendorParty = randomUUID();
+      await request(
+        otherId,
+        vendorParty,
+        email,
+        true,
+        'vendor_contact',
+        'Vendor · Black Plumbing'
+      );
+      await drain();
+      expect((await requestRows(vendorParty)).at(-1).status).toBe('delivered');
+      const rows = await db.any(
+        `SELECT * FROM admin.portal_user_tenants
+          WHERE portal_user_id=$1 AND tenant_id=$2 AND deactivated_at IS NULL
+          ORDER BY created_at`,
+        [login.id, otherId]
+      );
+      expect(rows.map(row => row.member_id)).toEqual([memberId, vendorParty]);
+      const vendor = rows[1];
+      expect(vendor).toMatchObject({
+        status: 'active',
+        ready: true,
+        member_type: 'vendor_contact',
+        member_label: 'Vendor · Black Plumbing',
+      });
+      expect(await copy('tenant_members', vendor.id)).toMatchObject({
+        status: 'active',
+        member_label: 'Vendor · Black Plumbing',
+      });
+
+      // I0012-R007: a renamed vendor relabels the party's membership.
+      await cell.tx(tx =>
+        requestMemberLabel(tx, {
+          tenantId: otherId,
+          memberId: vendorParty,
+          label: 'Vendor · Black & Sons',
+        })
+      );
+      await drain();
+      expect(
+        (await adminRow('portal_user_tenants', vendor.id)).member_label
+      ).toBe('Vendor · Black & Sons');
+      expect((await copy('tenant_members', vendor.id)).member_label).toBe(
+        'Vendor · Black & Sons'
+      );
+    });
+
+    it('I0012-R015: a login cannot hold a second Napsoft membership', async () => {
+      const pendingEmail = `napsoft-${randomUUID().slice(0, 8)}@nap.test`;
+      await request(napsoftId, randomUUID(), pendingEmail, true);
+      await drain();
+      const second = randomUUID();
+      await request(napsoftId, second, pendingEmail, true, 'contact');
+      await drain();
+      expect((await requestRows(second)).at(-1)).toMatchObject({
+        status: 'failed',
+        failure_code: 'MEMBER_CONFLICT',
+      });
     });
 
     it('AC14: an on then off request before delivery applies only the off', async () => {

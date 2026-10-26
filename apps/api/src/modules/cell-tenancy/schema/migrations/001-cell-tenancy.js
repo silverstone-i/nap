@@ -90,6 +90,7 @@ export const migration = defineMigration({
         },
         { name: 'member_type', type: 'text' },
         { name: 'member_id', type: 'uuid' },
+        { name: 'member_label', type: 'text' },
         { name: 'status', type: 'text', notNull: true },
         { name: 'revision', type: 'integer', notNull: true },
       ],
@@ -111,9 +112,14 @@ export const migration = defineMigration({
         ],
         indexes: [
           {
-            columns: ['portal_user_id', 'tenant_id'],
+            columns: ['portal_user_id', 'tenant_id', 'member_id'],
             unique: true,
             where: 'deactivated_at IS NULL',
+          },
+          {
+            columns: ['portal_user_id', 'tenant_id'],
+            unique: true,
+            where: 'member_id IS NULL AND deactivated_at IS NULL',
           },
           { columns: ['tenant_id', 'member_id'] },
         ],
@@ -181,7 +187,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "topic IN ('portal_access', 'role_change', 'directory_change', 'settings_change')",
+          "topic IN ('portal_access', 'member_label', 'role_change', 'directory_change', 'settings_change')",
           "status IN ('pending', 'delivered', 'failed')",
           'revision > 0',
           'attempts >= 0',

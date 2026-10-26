@@ -41,15 +41,18 @@ async function isEntitled(admin, tenantId, module) {
 }
 
 /**
- * The user's home tenant (I0005 §5) and the membership that makes it home:
- * the Napsoft tenant for an active Napsoft member, otherwise the target
- * tenant when the user is an active member of it.
+ * The user's home tenant (I0005 §5) and the membership whose roles apply
+ * (I0012-R014, R015): the login's active Napsoft membership when it has one,
+ * otherwise the session's selected membership when it is active and in the
+ * target tenant. A login that is several parties in a tenant gets only the
+ * selected party's roles.
  * @param {object} admin
  * @param {string} userId
+ * @param {string|null} membershipId The session's selected membership.
  * @param {{id: string}|null} target
  * @returns {Promise<{tenant: object, membershipId: string}|null>}
  */
-async function homeTenant(admin, userId, target) {
+async function homeTenant(admin, userId, membershipId, target) {
   const memberships = await admin.portal_user_tenants.findWhere(
     { portal_user_id: userId, status: 'active' },
     'AND',
@@ -57,17 +60,21 @@ async function homeTenant(admin, userId, target) {
   );
   if (memberships.length === 0) return null;
   const tenants = await admin.tenants.findWhere(
-    { id: { $in: memberships.map(row => row.tenant_id) } },
+    { id: { $in: [...new Set(memberships.map(row => row.tenant_id))] } },
     'AND',
     { columnWhitelist: TENANT_COLUMNS }
   );
-  const home =
-    tenants.find(tenant => tenant.is_napsoft) ??
-    tenants.find(tenant => tenant.id === target?.id);
-  if (!home) return null;
+  const napsoft = tenants.find(tenant => tenant.is_napsoft);
+  if (napsoft)
+    return {
+      tenant: napsoft,
+      membershipId: memberships.find(row => row.tenant_id === napsoft.id).id,
+    };
+  const selected = memberships.find(row => row.id === membershipId);
+  if (!selected || selected.tenant_id !== target?.id) return null;
   return {
-    tenant: home,
-    membershipId: memberships.find(row => row.tenant_id === home.id).id,
+    tenant: tenants.find(tenant => tenant.id === selected.tenant_id),
+    membershipId: selected.id,
   };
 }
 
@@ -90,7 +97,7 @@ async function loadPatterns({ runtime, cache }, userId, home) {
     try {
       return await resolvePatterns(runtime.dbFor(tenant.cell_id), {
         tenantId: tenant.id,
-        portalUserId: userId,
+        membershipId,
       });
     } catch {
       throw new AuthorizationError('CELL_UNAVAILABLE');
@@ -98,7 +105,7 @@ async function loadPatterns({ runtime, cache }, userId, home) {
   };
   if (!cache) return load();
   return cache.getOrLoad(
-    `patterns:${tenant.id}:${userId}`,
+    `patterns:${tenant.id}:${membershipId}`,
     [
       { domain: 'roles', entity: tenant.id },
       { domain: 'membership', entity: membershipId },
@@ -113,7 +120,7 @@ async function loadPatterns({ runtime, cache }, userId, home) {
  * the home tenant, and the resolved set. A restricted session, an inactive
  * user, or a user with no home tenant resolves to no patterns.
  * @param {{admin: object, runtime?: object, cache?: object}} deps `admin` is the repository handle (`admin.db`).
- * @param {{user: string, restricted?: boolean}} session
+ * @param {{user: string, membership?: {id: string}|null, restricted?: boolean}} session
  * @param {object|null} targetTenant
  * @returns {Promise<{active: boolean, patterns: string[], homeTenant: object|null}>}
  * @throws {AuthorizationError} `CELL_UNAVAILABLE`
@@ -124,7 +131,14 @@ export async function resolveCaller(deps, session, targetTenant) {
     { id: session.user, status: 'active' },
     { columnWhitelist: ['id'] }
   );
-  const home = user ? await homeTenant(admin, user.id, targetTenant) : null;
+  const home = user
+    ? await homeTenant(
+        admin,
+        user.id,
+        session.membership?.id ?? null,
+        targetTenant
+      )
+    : null;
   const patterns =
     home && session.restricted !== true
       ? await loadPatterns(deps, user.id, home)

@@ -64,14 +64,14 @@ async function matches(db, tx, row, role) {
  * transaction first, so the writes pass the row-level security rule.
  * @param {object} db Cell repository handle with `roles`, `role_grants`, and `role_assignments`.
  * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {{tenantId: string, portalUserId: string, roles: {code: string, name: string, grants: string[]}[], assign: string}} seed
+ * @param {{tenantId: string, membershipId: string, roles: {code: string, name: string, grants: string[]}[], assign: string}} seed
  * @returns {Promise<{created: string[], assignmentId: string}>} Codes of roles created by this run.
  * @throws {NapsoftSeedError} `SEED_DRIFT`
  */
 export async function seedRoles(
   db,
   tx,
-  { tenantId, portalUserId, roles, assign }
+  { tenantId, membershipId, roles, assign }
 ) {
   await setTenant(tx, tenantId);
   const created = [];
@@ -102,13 +102,13 @@ export async function seedRoles(
     created.push(role.code);
   }
   const assignment =
-    (await db.role_assignments.lockActive(portalUserId, ids[assign], {
+    (await db.role_assignments.lockActive(membershipId, ids[assign], {
       tx,
     })) ??
     (await db.role_assignments.insert(
       {
         tenant_id: tenantId,
-        portal_user_id: portalUserId,
+        membership_id: membershipId,
         role_id: ids[assign],
       },
       { tx }
@@ -122,13 +122,13 @@ export async function seedRoles(
  * active assignment to `assign`. Writes nothing.
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {{tenantId: string, portalUserId: string, roles: {code: string, grants: string[]}[], assign: string}} seed
+ * @param {{tenantId: string, membershipId: string, roles: {code: string, grants: string[]}[], assign: string}} seed
  * @returns {Promise<boolean>}
  */
 export async function rolesPresent(
   db,
   tx,
-  { tenantId, portalUserId, roles, assign }
+  { tenantId, membershipId, roles, assign }
 ) {
   await setTenant(tx, tenantId);
   let assigned = null;
@@ -138,7 +138,7 @@ export async function rolesPresent(
     if (role.code === assign) assigned = row;
   }
   const assignment = await db.role_assignments.lockActive(
-    portalUserId,
+    membershipId,
     assigned.id,
     { tx }
   );
@@ -147,21 +147,22 @@ export async function rolesPresent(
 
 /**
  * Run the Napsoft seed (M0003-R008, R010): `platform_admin`, `support`, and
- * `tenant_admin`, with `platform_admin` assigned to the bootstrap login.
+ * `tenant_admin`, with `platform_admin` assigned to the bootstrap login's
+ * Napsoft membership.
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {{tenantId: string, tenantCode: string, portalUserId: string}} napsoft
+ * @param {{tenantId: string, tenantCode: string, membershipId: string}} napsoft
  * @returns {Promise<{created: string[], assignmentId: string}>}
  * @throws {NapsoftSeedError} `SEED_DRIFT`
  */
 export async function seedNapsoft(
   db,
   tx,
-  { tenantId, tenantCode, portalUserId }
+  { tenantId, tenantCode, membershipId }
 ) {
   return seedRoles(db, tx, {
     tenantId,
-    portalUserId,
+    membershipId,
     roles: napsoftRoles(tenantCode),
     assign: 'platform_admin',
   });
@@ -171,17 +172,17 @@ export async function seedNapsoft(
  * Read the Napsoft seed back and confirm it is complete and unchanged.
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {{tenantId: string, tenantCode: string, portalUserId: string}} napsoft
+ * @param {{tenantId: string, tenantCode: string, membershipId: string}} napsoft
  * @returns {Promise<boolean>}
  */
 export async function napsoftSeedPresent(
   db,
   tx,
-  { tenantId, tenantCode, portalUserId }
+  { tenantId, tenantCode, membershipId }
 ) {
   return rolesPresent(db, tx, {
     tenantId,
-    portalUserId,
+    membershipId,
     roles: napsoftRoles(tenantCode),
     assign: 'platform_admin',
   });

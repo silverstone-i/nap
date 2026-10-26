@@ -41,6 +41,7 @@ import {
 } from '../../src/application/provisioning/stages.js';
 import { createProvisioningWorker } from '../../src/application/provisioning/worker.js';
 import { seedRollout } from '../../src/application/maintenance/seedRollout.js';
+import { membershipIn } from './helpers/tenantRows.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -115,7 +116,7 @@ async function select(registry) {
     sessionPolicy,
     token,
     session,
-    { tenant: napsoftId },
+    { membership: await membershipIn(db, bootstrapLogin.id, napsoftId) },
     { runtime: registry }
   );
 }
@@ -233,7 +234,8 @@ describe('cell provisioning (I0003)', () => {
         return {
           roles: await tx.any('SELECT id, code FROM app.roles ORDER BY code'),
           assignments: await tx.any(
-            'SELECT portal_user_id, role_id FROM app.role_assignments'
+            `SELECT m.portal_user_id, a.role_id FROM app.role_assignments a
+               JOIN cell.tenant_members m ON m.id=a.membership_id`
           ),
         };
       });

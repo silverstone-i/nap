@@ -14,7 +14,7 @@ import {
   removeRole,
   restoreRole,
   updateRole,
-  userRoles,
+  membershipRoles,
 } from '../../src/modules/access-control/domain/roles.js';
 import { capabilityCatalogue } from '../../src/modules/access-control/domain/catalogue.js';
 
@@ -46,7 +46,7 @@ function fakeCell({
   const activeAssignment = (userId, roleId) =>
     assignmentRows.find(
       row =>
-        row.portal_user_id === userId &&
+        row.membership_id === userId &&
         row.role_id === roleId &&
         !row.deactivated_at
     ) ?? null;
@@ -97,14 +97,14 @@ function fakeCell({
       lockActive: async (userId, roleId) => activeAssignment(userId, roleId),
       activeRoleIds: async userId =>
         assignmentRows
-          .filter(row => row.portal_user_id === userId && !row.deactivated_at)
+          .filter(row => row.membership_id === userId && !row.deactivated_at)
           .map(row => row.role_id),
       countActive: async roleId =>
         assignmentRows.filter(
           row =>
             row.role_id === roleId &&
             !row.deactivated_at &&
-            members[row.portal_user_id] === 'active'
+            members[row.membership_id] === 'active'
         ).length,
       insert: async dto => {
         const row = { id: randomUUID(), deactivated_at: null, ...dto };
@@ -116,7 +116,9 @@ function fakeCell({
       },
     },
     tenant_members: {
-      membershipStatus: async (_tenant, userId) => members[userId] ?? null,
+      // The fake's membership IDs double as their logins' IDs.
+      byId: async (_tenant, id) =>
+        members[id] ? { id, status: members[id], portal_user_id: id } : null,
     },
   };
 }
@@ -344,7 +346,7 @@ describe('updateRole, archiveRole, restoreRole', () => {
       roles: [clerk],
       grants: { [clerk.id]: [READ_ROLES] },
       assignments: [
-        { id: randomUUID(), portal_user_id: user, role_id: clerk.id },
+        { id: randomUUID(), membership_id: user, role_id: clerk.id },
       ],
     });
     const ctx = context(cell);
@@ -401,7 +403,7 @@ describe('assignRole and removeRole', () => {
         grants: { [wide.id]: ['*::*::*::read'] },
         members: { [user]: 'active' },
         assignments: [
-          { id: randomUUID(), portal_user_id: user, role_id: wide.id },
+          { id: randomUUID(), membership_id: user, role_id: wide.id },
         ],
       })
     );
@@ -421,7 +423,7 @@ describe('assignRole and removeRole', () => {
       grants: { [admin.id]: ['ACME::*::*::*'] },
       members: { [first]: 'active', [second]: 'active' },
       assignments: [
-        { id: randomUUID(), portal_user_id: first, role_id: admin.id },
+        { id: randomUUID(), membership_id: first, role_id: admin.id },
       ],
     });
     const ctx = context(cell);
@@ -430,7 +432,7 @@ describe('assignRole and removeRole', () => {
     });
     await assignRole(ctx, second, admin.id);
     await expect(removeRole(ctx, first, admin.id)).resolves.toEqual({
-      userId: first,
+      membershipId: first,
       roles: [],
     });
     expect(ctx.record.mock.calls.at(-1)[0].eventKey).toBe('role.revoked');
@@ -446,7 +448,7 @@ describe('assignRole and removeRole', () => {
         members: { [active]: 'active', [suspended]: 'suspended' },
         assignments: [active, suspended].map(user => ({
           id: randomUUID(),
-          portal_user_id: user,
+          membership_id: user,
           role_id: admin.id,
         })),
       });
@@ -467,7 +469,7 @@ describe('assignRole and removeRole', () => {
         grants: { [platform.id]: ['*::*::*::*', 'NAP::*::*::*'] },
         members: { [user]: 'active' },
         assignments: [
-          { id: randomUUID(), portal_user_id: user, role_id: platform.id },
+          { id: randomUUID(), membership_id: user, role_id: platform.id },
         ],
       });
     const own = ['*::*::*::*', 'NAP::*::*::*'];
@@ -493,7 +495,7 @@ describe('assignRole and removeRole', () => {
       members: { [root]: 'active', [other]: 'active' },
       assignments: [root, other].map(user => ({
         id: randomUUID(),
-        portal_user_id: user,
+        membership_id: user,
         role_id: platform.id,
       })),
     });
@@ -514,7 +516,7 @@ describe('assignRole and removeRole', () => {
     await expect(removeRole(ctx, randomUUID(), clerk.id)).rejects.toMatchObject(
       { code: 'NOT_FOUND' }
     );
-    await expect(userRoles(ctx, randomUUID())).rejects.toMatchObject({
+    await expect(membershipRoles(ctx, randomUUID())).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
   });

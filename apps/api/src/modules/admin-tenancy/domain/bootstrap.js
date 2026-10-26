@@ -139,16 +139,14 @@ async function resolveBootstrapLogin(
  * @throws {AdminBootstrapError} `MEMBERSHIP_CONFLICT`
  */
 async function resolveMembership(db, tx, tenantId, portalUserId) {
-  const existing = await db.portal_user_tenants.lockByUserAndTenant(
+  const rows = await db.portal_user_tenants.lockByUserAndTenant(
     portalUserId,
     tenantId,
     { tx }
   );
-  if (existing) {
-    if (existing.member_type !== null)
-      throw new AdminBootstrapError(CONFLICT_CODES.membership);
-    return { row: existing, created: false };
-  }
+  const existing = rows.find(row => row.member_type === null);
+  if (existing) return { row: existing, created: false };
+  if (rows.length) throw new AdminBootstrapError(CONFLICT_CODES.membership);
   const row = await db.portal_user_tenants.insert(
     {
       portal_user_id: portalUserId,

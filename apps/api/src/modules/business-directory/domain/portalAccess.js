@@ -19,7 +19,10 @@ import {
   memberRoleViews,
   setMemberRoles,
 } from '../../access-control/domain/memberRoles.js';
-import { requestPortalAccess } from '../../cell-tenancy/domain/portalAccess.js';
+import {
+  requestMemberLabel,
+  requestPortalAccess,
+} from '../../cell-tenancy/domain/portalAccess.js';
 import { DirectoryError } from './errors.js';
 import { requireCapability } from './shared.js';
 
@@ -56,6 +59,72 @@ async function primaryEmail(context, partyId, tx) {
   return row?.value ?? null;
 }
 
+/** Party labels for the kinds that are not an organization's contact (I0012). */
+const KIND_LABELS = Object.freeze({ employee: 'Employee', contact: 'Contact' });
+
+/** Label prefix for an organization's contacts, by kind. */
+const CONTACT_PREFIX = Object.freeze({
+  vendor_contact: 'Vendor',
+  client_contact: 'Client',
+});
+
+/**
+ * The name the picker shows for an organization: its DBA name when set,
+ * otherwise its legal name.
+ * @param {{legal_name: string, dba_name?: string|null}} organization
+ * @returns {string}
+ */
+export function organizationLabelName(organization) {
+  return organization.dba_name?.trim() || organization.legal_name;
+}
+
+/**
+ * The party label of `person` (I0012 §5): "Employee", "Contact", or
+ * "Vendor · {name}" / "Client · {name}" for an organization's contact.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {object} person `app.people` row joined with its party `kind`.
+ * @param {object} tx
+ * @returns {Promise<string>}
+ */
+export async function memberLabel(context, person, tx) {
+  const prefix = CONTACT_PREFIX[person.kind];
+  if (!prefix) return KIND_LABELS[person.kind];
+  const organization = await context.cell.organizations.byKey(
+    person.organization_id,
+    { tx }
+  );
+  return `${prefix} · ${organizationLabelName(organization)}`;
+}
+
+/**
+ * Queue a new party label for every contact of `organization` that has a
+ * membership, after its name changed (I0012-R007).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {object} organization The saved `app.organizations` row with `kind`.
+ * @param {object} tx
+ * @returns {Promise<void>}
+ */
+export async function relabelContacts(context, organization, tx) {
+  const prefix = CONTACT_PREFIX[`${organization.kind}_contact`];
+  if (!prefix) return;
+  const contacts = await context.cell.people.rows(
+    { organization_id: organization.party_id },
+    { tx, includeArchived: true }
+  );
+  const members = await context.cell.tenant_members.byMemberIds(
+    context.tenant.id,
+    contacts.map(row => row.party_id),
+    { tx }
+  );
+  const label = `${prefix} · ${organizationLabelName(organization)}`;
+  for (const memberId of new Set(members.map(row => row.member_id)))
+    await requestMemberLabel(tx, {
+      tenantId: context.tenant.id,
+      memberId,
+      label,
+    });
+}
+
 /**
  * Write a portal-access request for `person` in the caller's transaction
  * (I0008-R001, R002). Turning access on needs a primary email and a
@@ -79,6 +148,7 @@ export async function sendPortalAccess(context, person, enabled, password, tx) {
       tenantId: context.tenant.id,
       memberId: person.party_id,
       memberType: person.kind,
+      memberLabel: await memberLabel(context, person, tx),
       email,
       enabled,
       ...(enabled ? { temporaryPassword: password } : {}),
@@ -88,9 +158,9 @@ export async function sendPortalAccess(context, person, enabled, password, tx) {
 }
 
 /**
- * Refuse turning off `person`'s access, or archiving them, when it is the
- * caller's own login (I0008-R006) or a login holding an administrator role
- * in this tenant (R005).
+ * Refuse turning off `person`'s access, or archiving them, when its
+ * membership is the caller's own (I0008-R006, I0012-R019) or holds an
+ * administrator role in this tenant (R005, I0012-R018).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {object} person
  * @param {object} tx
@@ -103,10 +173,9 @@ export async function assertCanTurnOff(context, person, tx) {
     [person.party_id],
     { tx }
   );
-  const logins = memberships
-    .filter(row => row.status !== 'suspended')
-    .map(row => row.portal_user_id);
-  if (logins.includes(context.actorId))
+  const live = memberships.filter(row => row.status !== 'suspended');
+  // I0012-R019: none of the caller's own parties.
+  if (live.some(row => row.portal_user_id === context.actorId))
     throw new DirectoryError('INVALID_STATE');
   for (const code of ADMIN_ROLES) {
     if (code === 'platform_admin' && !context.tenant.isNapsoft) continue;
@@ -114,9 +183,12 @@ export async function assertCanTurnOff(context, person, tx) {
       tx,
     });
     if (!role || role.deactivated_at) continue;
-    for (const login of logins)
+    // I0012-R018: only this party's membership's roles count.
+    for (const membership of live)
       if (
-        await context.cell.role_assignments.lockActive(login, role.id, { tx })
+        await context.cell.role_assignments.lockActive(membership.id, role.id, {
+          tx,
+        })
       )
         throw new DirectoryError('ADMIN_ASSIGNED');
   }

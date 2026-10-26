@@ -162,7 +162,7 @@ describe('Napsoft tenant setup (I0003-R023–R026)', () => {
     expect(seedNapsoft).toHaveBeenCalledWith(cell.handle.db, writeTx, {
       tenantId: TENANT,
       tenantCode: 'NAPSOFT',
-      portalUserId: LOGIN,
+      membershipId: MEMBERSHIP,
     });
     expect(
       cell.handle.db.tenant_members.upsert.mock.invocationCallOrder[0]
@@ -170,7 +170,7 @@ describe('Napsoft tenant setup (I0003-R023–R026)', () => {
     expect(napsoftSeedPresent).toHaveBeenCalledWith(
       cell.handle.db,
       cell.handle.transactions[1],
-      { tenantId: TENANT, tenantCode: 'NAPSOFT', portalUserId: LOGIN }
+      { tenantId: TENANT, tenantCode: 'NAPSOFT', membershipId: MEMBERSHIP }
     );
     expect(db.tenant).toMatchObject({ provisioned: true, rbac_ready: true });
     expect(db.events.map(e => e.event_key)).toEqual([

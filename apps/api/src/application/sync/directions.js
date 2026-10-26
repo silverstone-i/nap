@@ -5,7 +5,10 @@
 
 import { randomUUID } from 'node:crypto';
 import { applyHeldRoles } from '../../modules/access-control/domain/memberRoles.js';
-import { applyPortalAccess } from '../../modules/admin-tenancy/domain/accounts.js';
+import {
+  applyMemberLabel,
+  applyPortalAccess,
+} from '../../modules/admin-tenancy/domain/accounts.js';
 import {
   EVENT_CATALOGUE,
   parseDetails,
@@ -82,6 +85,7 @@ export function adminToCell({ admin, registry, tenantId }) {
           await applyHeldRoles(cell, tx, {
             tenantId: snapshot.tenant_id,
             partyId: snapshot.member_id,
+            membershipId: snapshot.id,
             portalUserId: snapshot.portal_user_id,
           });
       }
@@ -199,8 +203,8 @@ async function applyDirectoryChange(admin, row, snapshot, { tx }) {
 
 /**
  * Build the cell-to-admin apply step for one tenant's requests: portal
- * access (I0004-R024–R030), role changes (M0003-R015), and directory
- * changes (M0005-R025). The tenant is the
+ * access (I0004-R024–R030), party labels (I0012-R007), role changes
+ * (M0003-R015), and directory changes (M0005-R025). The tenant is the
  * source row's, and it must be one the source cell holds; a payload naming
  * another tenant fails that row.
  * @param {{admin: object, cellId: string, tenantId: string}} options
@@ -246,6 +250,19 @@ export function cellToAdmin({ admin, cellId, tenantId }) {
         }
         if (!ownsTenant || snapshot.tenant_id !== tenantId) {
           await fail(row, 'TENANT_MISMATCH');
+          continue;
+        }
+        if (row.topic === 'member_label') {
+          await applyMemberLabel(
+            admin,
+            {
+              tenantId,
+              memberId: snapshot.member_id,
+              label: snapshot.member_label,
+            },
+            { tx }
+          );
+          delivered.push(row.id);
           continue;
         }
         if (row.topic === 'role_change') {

@@ -136,8 +136,9 @@ it('provisions the first cell and runs Napsoft tenant setup with the seed (I0003
     const rows = await cell.db.tx(async tx => {
       await setTenant(tx, boot.tenant.id);
       return tx.any(
-        `SELECT r.code, a.portal_user_id FROM app.roles r
+        `SELECT r.code, m.portal_user_id FROM app.roles r
            LEFT JOIN app.role_assignments a ON a.role_id=r.id
+           LEFT JOIN cell.tenant_members m ON m.id=a.membership_id
           ORDER BY r.code`
       );
     });

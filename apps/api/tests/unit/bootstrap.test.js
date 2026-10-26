@@ -48,7 +48,7 @@ function fakeDb({ tenant = null, login = null, membership = null } = {}) {
       }),
     },
     portal_user_tenants: {
-      lockByUserAndTenant: async () => membership,
+      lockByUserAndTenant: async () => (membership ? [membership] : []),
       insert: async dto => ({ id: 'new-membership', ...dto }),
     },
     managed_events: {

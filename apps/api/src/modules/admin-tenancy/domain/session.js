@@ -172,6 +172,7 @@ export function sessionView(row) {
     id: row.id,
     user: row.portal_user_id,
     tenant: row.tenant_id ?? null,
+    membership: row.membership ?? null,
     restricted: row.must_change_password === true,
     lastSeenAt: row.last_seen_at,
     idleExpiresAt: row.idle_expires_at,
@@ -469,6 +470,7 @@ export async function rotateSession(db, policy, token, { requestId, tx } = {}) {
  * @param {unknown} token Current token.
  * @param {object} request
  * @param {string} request.tenantId
+ * @param {string} request.membershipId The caller's membership in that tenant (I0012-R009).
  * @param {string|null} [request.requestId]
  * @param {{tx?: object}} [context]
  * @returns {Promise<{token: string, session: object}>}
@@ -478,12 +480,14 @@ export async function selectSessionTenant(
   db,
   policy,
   token,
-  { tenantId, requestId = null },
+  { tenantId, membershipId, requestId = null },
   { tx } = {}
 ) {
   const parsed = parseSessionPolicy(policy);
   const presented = parseSessionToken(token);
   if (!z.uuid().safeParse(tenantId).success)
+    throw new AdminSessionError('INVALID_INPUT');
+  if (!z.uuid().safeParse(membershipId).success)
     throw new AdminSessionError('INVALID_INPUT');
   return withSessionErrors(async () => {
     const run = async transaction => {
@@ -491,7 +495,7 @@ export async function selectSessionTenant(
       const row = await db.sessions.selectTenant(
         hashSessionToken(parsed, presented),
         hashSessionToken(parsed, next),
-        tenantId,
+        { tenantId, membershipId },
         parsed.idleMinutes,
         { tx: transaction }
       );
@@ -506,7 +510,7 @@ export async function selectSessionTenant(
           tenant_id: row.tenant_id,
           target_id: row.id,
           session_id: row.id,
-          details: {},
+          details: { membership_id: membershipId },
         },
         transaction
       );
@@ -842,14 +846,14 @@ export async function revokeSessionsForUser(
 /**
  * Revoke every live session a portal user holds for one tenant.
  *
- * The seam M0001-08 uses when a membership is suspended or archived: only
- * sessions that selected the affected tenant are revoked, unlike
+ * The seam M0001-08 and I0012-R006 use when a membership is suspended or
+ * archived: only sessions acting as that membership are revoked, unlike
  * `revokeSessionsForUser`, which ends every session the account holds. Pass
  * `tx` so the membership change and the revocations commit together.
  * @param {AdminSessionDb} db
  * @param {object} request
- * @param {string} request.portalUserId
- * @param {string} request.tenantId
+ * @param {string} request.membershipId
+ * @param {string} request.portalUserId The membership's login, the default actor.
  * @param {string} [request.code] A value of `REVOCATION_CODES`.
  * @param {string|null} [request.actorId] Operator responsible, when it is not the account holder.
  * @param {string|null} [request.requestId]
@@ -860,27 +864,25 @@ export async function revokeSessionsForUser(
 export async function revokeSessionsForMembership(
   db,
   {
+    membershipId,
     portalUserId,
-    tenantId,
     code = REVOCATION_CODES.accountIneligible,
     actorId = null,
     requestId = null,
   },
   { tx } = {}
 ) {
-  if (!z.uuid().safeParse(portalUserId).success)
+  if (!z.uuid().safeParse(membershipId).success)
     throw new AdminSessionError('INVALID_INPUT');
-  if (!z.uuid().safeParse(tenantId).success)
+  if (!z.uuid().safeParse(portalUserId).success)
     throw new AdminSessionError('INVALID_INPUT');
   if (!Object.values(REVOCATION_CODES).includes(code))
     throw new AdminSessionError('INVALID_INPUT');
   return withSessionErrors(async () => {
     const run = async transaction => {
-      const rows = await db.sessions.archiveForUserAndTenant(
-        portalUserId,
-        tenantId,
-        { tx: transaction }
-      );
+      const rows = await db.sessions.archiveForMembership(membershipId, {
+        tx: transaction,
+      });
       for (const row of rows)
         await appendSessionEvent(
           db,

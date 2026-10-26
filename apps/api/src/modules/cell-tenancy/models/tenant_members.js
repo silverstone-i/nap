@@ -20,6 +20,7 @@ export const tenantMembersSchema = {
     { name: 'portal_user_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'member_type', type: 'text' },
     { name: 'member_id', type: 'uuid' },
+    { name: 'member_label', type: 'text' },
     { name: 'status', type: 'text', notNull: true },
     { name: 'revision', type: 'integer', notNull: true },
   ],
@@ -42,9 +43,14 @@ export const tenantMembersSchema = {
     ],
     indexes: [
       {
-        columns: ['portal_user_id', 'tenant_id'],
+        columns: ['portal_user_id', 'tenant_id', 'member_id'],
         unique: true,
         where: 'deactivated_at IS NULL',
+      },
+      {
+        columns: ['portal_user_id', 'tenant_id'],
+        unique: true,
+        where: 'member_id IS NULL AND deactivated_at IS NULL',
       },
       { columns: ['tenant_id', 'member_id'] },
     ],
@@ -59,6 +65,7 @@ export class TenantMembers extends CopyTableModel {
     'portal_user_id',
     'member_type',
     'member_id',
+    'member_label',
     'status',
   ];
   constructor(db, pgp, logger) {
@@ -71,12 +78,12 @@ export class TenantMembers extends CopyTableModel {
    * @param {string} tenantId
    * @param {string[]} memberIds
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
-   * @returns {Promise<{member_id: string, portal_user_id: string, status: string}[]>}
+   * @returns {Promise<{id: string, member_id: string, portal_user_id: string, status: string}[]>}
    */
   async byMemberIds(tenantId, memberIds, { tx }) {
     if (memberIds.length === 0) return [];
     return tx.any(
-      `SELECT member_id, portal_user_id, status
+      `SELECT id, member_id, portal_user_id, status
          FROM ${this.schemaName}.${this.tableName}
         WHERE tenant_id=$1 AND member_id = ANY($2::uuid[])
           AND deactivated_at IS NULL`,
@@ -85,38 +92,38 @@ export class TenantMembers extends CopyTableModel {
   }
 
   /**
-   * A portal user's membership status in the tenant (`pending`, `active`, or
-   * `suspended`), or `null` when there is no unarchived membership. Read
-   * inside the caller's transaction (M0003 §10).
+   * One unarchived membership of the tenant by ID, or `null`. Cell tables
+   * have no row-level security, so the tenant is filtered here.
    * @param {string} tenantId
-   * @param {string} portalUserId
+   * @param {string} id The membership ID.
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
-   * @returns {Promise<string|null>}
+   * @returns {Promise<{id: string, portal_user_id: string, member_type: string|null, member_id: string|null, member_label: string|null, status: string}|null>}
    */
-  async membershipStatus(tenantId, portalUserId, { tx }) {
-    const row = await tx.oneOrNone(
-      `SELECT status FROM ${this.schemaName}.${this.tableName}
-        WHERE tenant_id=$1 AND portal_user_id=$2 AND deactivated_at IS NULL`,
-      [tenantId, portalUserId]
+  async byId(tenantId, id, { tx }) {
+    return tx.oneOrNone(
+      `SELECT id, portal_user_id, member_type, member_id, member_label, status
+         FROM ${this.schemaName}.${this.tableName}
+        WHERE tenant_id=$1 AND id=$2 AND deactivated_at IS NULL`,
+      [tenantId, id]
     );
-    return row?.status ?? null;
   }
 
   /**
-   * A portal user's active, unarchived membership in the tenant, or `null`
-   * (M0006-03-R001). Cell tables have no row-level security, so the tenant
-   * is filtered here.
+   * The tenant's unarchived memberships in a status, oldest first, for
+   * pickers such as the Roles screen's (I0012-R017).
    * @param {string} tenantId
-   * @param {string} portalUserId
+   * @param {string[]} statuses
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
-   * @returns {Promise<{id: string, member_id: string|null}|null>}
+   * @returns {Promise<{id: string, portal_user_id: string, member_type: string|null, member_id: string|null, member_label: string|null, status: string}[]>}
    */
-  async activeByPortalUser(tenantId, portalUserId, { tx }) {
-    return tx.oneOrNone(
-      `SELECT id, member_id FROM ${this.schemaName}.${this.tableName}
-        WHERE tenant_id=$1 AND portal_user_id=$2 AND status = 'active'
-          AND deactivated_at IS NULL`,
-      [tenantId, portalUserId]
+  async byStatus(tenantId, statuses, { tx }) {
+    return tx.any(
+      `SELECT id, portal_user_id, member_type, member_id, member_label, status
+         FROM ${this.schemaName}.${this.tableName}
+        WHERE tenant_id=$1 AND status = ANY($2::text[])
+          AND deactivated_at IS NULL
+        ORDER BY created_at, id`,
+      [tenantId, statuses]
     );
   }
 }

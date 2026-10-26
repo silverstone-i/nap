@@ -18,9 +18,11 @@ import { useSession } from '../auth/SessionContext.jsx';
 import { Wordmark } from '../shell/Wordmark.jsx';
 
 /**
- * `/tenants` — lists the caller's eligible tenants (I0001-R007) and applies
- * the caller's selection. `entryPoints.tenant` only signals "at least one
- * exists"; the actual list always comes from `GET /access/tenants`.
+ * `/tenants` — lists the caller's entries, one per tenant and party
+ * (I0001-R007, I0012-R010), and applies the caller's selection. The API
+ * sorts them by tenant, so a person's parties in one tenant sit together.
+ * `entryPoints.tenant` only signals "at least one exists"; the actual list
+ * always comes from `GET /access/tenants`.
  */
 export function TenantsPage() {
   const session = useSession();
@@ -57,11 +59,11 @@ export function TenantsPage() {
 
   const load = () => setRetryTick(tick => tick + 1);
 
-  async function handleSelect(tenant) {
+  async function handleSelect(entry) {
     setSelectError(null);
-    setSelectingId(tenant.id);
+    setSelectingId(entry.membershipId);
     try {
-      await session.selectTenant(tenant.id, tenant);
+      await session.selectTenant(entry.membershipId);
       navigate('/home', { replace: true });
     } catch {
       setSelectError(
@@ -106,20 +108,20 @@ export function TenantsPage() {
         <Alert severity="info">You do not have access to any tenant yet.</Alert>
       ) : (
         <Stack spacing={1.5}>
-          {state.tenants.map(tenant => (
-            <Card key={tenant.id} variant="outlined">
+          {state.tenants.map(entry => (
+            <Card key={entry.membershipId} variant="outlined">
               <CardActionArea
-                onClick={() => handleSelect(tenant)}
+                onClick={() => handleSelect(entry)}
                 disabled={selectingId !== null}
                 sx={{ p: 2, display: 'flex', justifyContent: 'space-between' }}
               >
                 <Box>
-                  <Typography variant="body1">{tenant.name}</Typography>
+                  <Typography variant="body1">{entry.tenant.name}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {tenant.code} · {tenant.tier}
+                    {entry.label ?? entry.tenant.code}
                   </Typography>
                 </Box>
-                {selectingId === tenant.id ? (
+                {selectingId === entry.membershipId ? (
                   <CircularProgress size={20} />
                 ) : null}
               </CardActionArea>

@@ -30,10 +30,10 @@ vi.mock('../../src/api/endpoints.js', () => ({
   archiveRole: vi.fn(),
   restoreRole: vi.fn(),
   bulkRoleAction: vi.fn(),
-  getUserRoles: vi.fn(),
-  assignUserRole: vi.fn(),
-  removeUserRole: vi.fn(),
-  listUsersPage: vi.fn(),
+  getMembershipRoles: vi.fn(),
+  assignMembershipRole: vi.fn(),
+  removeMembershipRole: vi.fn(),
+  listTenantMemberships: vi.fn(),
 }));
 
 vi.mock('../../src/auth/SessionContext.jsx', () => ({
@@ -121,10 +121,15 @@ beforeEach(() => {
   useSession.mockReturnValue(sessionFor());
   api.listRoles.mockResolvedValue([ADMIN, CUSTOM]);
   api.listCapabilities.mockResolvedValue(CATALOGUE);
-  api.listUsersPage.mockResolvedValue({
-    rows: [{ id: 'u1', email: 'a@example.com' }],
-    nextCursor: null,
-  });
+  api.listTenantMemberships.mockResolvedValue([
+    {
+      id: 'm1',
+      memberType: 'vendor_contact',
+      label: 'Vendor · Black Plumbing',
+      name: 'Jack Black',
+      status: 'active',
+    },
+  ]);
 });
 
 afterEach(() => {
@@ -409,18 +414,26 @@ describe('RolesPage (M0003-R016–R018)', () => {
   });
 
   it("assigns and removes a user's role", async () => {
-    api.getUserRoles.mockResolvedValue({ userId: 'u1', roles: [ADMIN] });
-    api.assignUserRole.mockResolvedValue({
-      userId: 'u1',
+    api.getMembershipRoles.mockResolvedValue({
+      membershipId: 'm1',
+      roles: [ADMIN],
+    });
+    api.assignMembershipRole.mockResolvedValue({
+      membershipId: 'm1',
       roles: [ADMIN, CUSTOM],
     });
-    api.removeUserRole.mockResolvedValue({ userId: 'u1', roles: [ADMIN] });
+    api.removeMembershipRole.mockResolvedValue({
+      membershipId: 'm1',
+      roles: [ADMIN],
+    });
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
     const section = screen.getByRole('region', { name: 'User roles' });
-    await within(section).findByRole('option', { name: 'a@example.com' });
-    await user.selectOptions(within(section).getByLabelText('User'), 'u1');
+    await within(section).findByRole('option', {
+      name: 'Jack Black · Vendor · Black Plumbing',
+    });
+    await user.selectOptions(within(section).getByLabelText('User'), 'm1');
     await within(section).findByRole('button', { name: 'Tenant admin' });
 
     await user.selectOptions(
@@ -430,7 +443,7 @@ describe('RolesPage (M0003-R016–R018)', () => {
     await user.click(
       within(section).getByRole('button', { name: 'Assign role' })
     );
-    expect(api.assignUserRole).toHaveBeenCalledWith('u1', 'r2');
+    expect(api.assignMembershipRole).toHaveBeenCalledWith('m1', 'r2');
     const chip = await within(section).findByRole('button', {
       name: 'Auditor',
     });
@@ -438,18 +451,23 @@ describe('RolesPage (M0003-R016–R018)', () => {
     await user.click(within(chip).getByTestId('CancelIcon'));
     const confirm = await screen.findByRole('dialog', { name: 'Remove role?' });
     await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
-    expect(api.removeUserRole).toHaveBeenCalledWith('u1', 'r2');
+    expect(api.removeMembershipRole).toHaveBeenCalledWith('m1', 'r2');
   });
 
   it('shows LAST_ADMIN readably when removal is refused', async () => {
-    api.getUserRoles.mockResolvedValue({ userId: 'u1', roles: [ADMIN] });
-    api.removeUserRole.mockRejectedValue(new ApiError('LAST_ADMIN', 409));
+    api.getMembershipRoles.mockResolvedValue({
+      membershipId: 'm1',
+      roles: [ADMIN],
+    });
+    api.removeMembershipRole.mockRejectedValue(new ApiError('LAST_ADMIN', 409));
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
     const section = screen.getByRole('region', { name: 'User roles' });
-    await within(section).findByRole('option', { name: 'a@example.com' });
-    await user.selectOptions(within(section).getByLabelText('User'), 'u1');
+    await within(section).findByRole('option', {
+      name: 'Jack Black · Vendor · Black Plumbing',
+    });
+    await user.selectOptions(within(section).getByLabelText('User'), 'm1');
     const chip = await within(section).findByRole('button', {
       name: 'Tenant admin',
     });

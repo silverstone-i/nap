@@ -155,33 +155,57 @@ describe('LoginPage', () => {
     expect(screen.getByText('Tenant Management')).toBeTruthy();
   });
   describe('auto-selects a single tenant after login (I0001-R003)', () => {
-    const napsoft = { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' };
-    const other = { id: 't2', code: 'ACME', name: 'Acme', tier: 'starter' };
+    const napsoftTenant = {
+      id: 't1',
+      code: 'NAP',
+      name: 'Napsoft',
+      tier: 'starter',
+    };
+    const napsoft = {
+      membershipId: 'm1',
+      tenant: napsoftTenant,
+      memberType: null,
+      label: null,
+    };
+    const other = {
+      membershipId: 'm2',
+      tenant: { id: 't2', code: 'ACME', name: 'Acme', tier: 'starter' },
+      memberType: 'employee',
+      label: null,
+    };
     const context = {
       session: { restricted: false },
       user: { id: 'u1', email: 'root@example.com' },
       selectedTenant: null,
-      operator: napsoft,
+      operator: napsoftTenant,
       entryPoints: { tenant: true },
     };
 
-    async function signIn() {
+    /** Sign in; `reloaded` is the context read after a selection. */
+    async function signIn(reloaded) {
       api.login.mockResolvedValue({ restricted: false });
       renderAt('/login');
       await screen.findByRole('heading', { name: 'Sign in' });
       api.getAccessContext.mockResolvedValueOnce(context);
+      if (reloaded) api.getAccessContext.mockResolvedValueOnce(reloaded);
       const user = userEvent.setup();
       await user.type(screen.getByLabelText(/Email/), 'root@example.com');
       await user.type(screen.getByLabelText(/^Password/), 'password');
       await user.click(screen.getByRole('button', { name: 'Sign in' }));
     }
 
-    it('selects the only eligible tenant and lands on its Home', async () => {
+    it('selects the only entry and lands on its Home (I0012-R010)', async () => {
       api.listTenants.mockResolvedValue([napsoft]);
       api.selectTenant.mockResolvedValue({ restricted: false, tenant: 't1' });
-      await signIn();
+      // Selection reloads the context, which now names the tenant.
+      await signIn({
+        ...context,
+        selectedTenant: napsoftTenant,
+        membership: { id: 'm1', memberType: null, label: null },
+        membershipsInTenant: 1,
+      });
       expect(await screen.findByText('Napsoft workspace.')).toBeTruthy();
-      expect(api.selectTenant).toHaveBeenCalledWith('t1');
+      expect(api.selectTenant).toHaveBeenCalledWith('m1');
     });
 
     it('leaves the choice to the user when several tenants are eligible', async () => {

@@ -59,17 +59,20 @@ async function tenantSettings(context, tx) {
 }
 
 /**
- * The session's active membership in the selected tenant, or null.
+ * The membership the session acts as in the selected tenant, when it is
+ * active, or null (I0012: a login that is two parties has two profiles).
  * @param {import('./shared.js').SettingsContext} context
  * @param {object} tx
  * @returns {Promise<{id: string}|null>}
  */
-function membership(context, tx) {
-  return context.cell.tenant_members.activeByPortalUser(
+async function membership(context, tx) {
+  if (!context.membershipId) return null;
+  const member = await context.cell.tenant_members.byId(
     context.tenant.id,
-    context.actorId,
+    context.membershipId,
     { tx }
   );
+  return member?.status === 'active' ? member : null;
 }
 
 /**

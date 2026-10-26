@@ -11,27 +11,36 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import {
-  assignUserRole,
-  getUserRoles,
-  listUsersPage,
-  removeUserRole,
+  assignMembershipRole,
+  getMembershipRoles,
+  listTenantMemberships,
+  removeMembershipRole,
 } from '../../api/endpoints.js';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
 import { describeRoleError } from './roleErrors.js';
 
-/** One page is enough for the picker; the portal-user listing is not tenant-filtered. */
-const USER_PAGE_LIMIT = 100;
+/**
+ * How a membership reads in the picker: the person and their party label,
+ * such as "Jack Black · Vendor · Black Plumbing" (I0012-R017).
+ * @param {{name: string|null, label: string|null}} member
+ * @returns {string}
+ */
+function memberText(member) {
+  const parts = [member.name, member.label].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'Initial Napsoft login';
+}
 
 /**
- * A user's role assignments in the selected tenant (M0003-R016): pick a
- * portal user, see their active roles, assign or remove one.
+ * A membership's role assignments in the selected tenant (M0003-R016,
+ * I0012-R013): pick a member, see their active roles, assign or remove one.
+ * A person who is two parties appears once per party.
  * @param {{roles: import('../../api/endpoints.js').RoleView[]}} props Active roles offered for assignment.
  * @returns {JSX.Element}
  */
 export function UserRolesSection({ roles }) {
-  const [users, setUsers] = useState([]);
-  const [userId, setUserId] = useState('');
+  const [members, setMembers] = useState([]);
+  const [membershipId, setMembershipId] = useState('');
   const [assigned, setAssigned] = useState(null);
   const [roleToAssign, setRoleToAssign] = useState('');
   const [pendingRemove, setPendingRemove] = useState(null);
@@ -41,9 +50,9 @@ export function UserRolesSection({ roles }) {
 
   useEffect(() => {
     let cancelled = false;
-    listUsersPage({ limit: USER_PAGE_LIMIT })
-      .then(page => {
-        if (!cancelled) setUsers(page.rows);
+    listTenantMemberships()
+      .then(rows => {
+        if (!cancelled) setMembers(rows);
       })
       .catch(err => {
         if (!cancelled) setError(describeRoleError(err));
@@ -54,9 +63,9 @@ export function UserRolesSection({ roles }) {
   }, []);
 
   useEffect(() => {
-    if (!userId) return undefined;
+    if (!membershipId) return undefined;
     let cancelled = false;
-    getUserRoles(userId)
+    getMembershipRoles(membershipId)
       .then(result => {
         if (!cancelled) setAssigned(result.roles);
       })
@@ -66,12 +75,12 @@ export function UserRolesSection({ roles }) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [membershipId]);
 
   async function handleAssign() {
     setError(null);
     try {
-      const result = await assignUserRole(userId, roleToAssign);
+      const result = await assignMembershipRole(membershipId, roleToAssign);
       setAssigned(result.roles);
       setRoleToAssign('');
     } catch (err) {
@@ -85,7 +94,7 @@ export function UserRolesSection({ roles }) {
     if (!role) return;
     setError(null);
     try {
-      const result = await removeUserRole(userId, role.id);
+      const result = await removeMembershipRole(membershipId, role.id);
       setAssigned(result.roles);
     } catch (err) {
       onError(err);
@@ -111,23 +120,23 @@ export function UserRolesSection({ roles }) {
       <TextField
         select
         label="User"
-        value={userId}
+        value={membershipId}
         onChange={event => {
           setAssigned(null);
-          setUserId(event.target.value);
+          setMembershipId(event.target.value);
         }}
         slotProps={{ select: { native: true }, inputLabel: { shrink: true } }}
         size="small"
         sx={{ maxWidth: 360 }}
       >
         <option value="">Choose a user</option>
-        {users.map(user => (
-          <option key={user.id} value={user.id}>
-            {user.email}
+        {members.map(member => (
+          <option key={member.id} value={member.id}>
+            {memberText(member)}
           </option>
         ))}
       </TextField>
-      {userId && assigned ? (
+      {membershipId && assigned ? (
         <>
           {assigned.length === 0 ? (
             <Typography variant="body2" color="text.secondary">

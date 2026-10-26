@@ -27,6 +27,7 @@ const MEMBER_COPY = [
   'portal_user_id',
   'member_type',
   'member_id',
+  'member_label',
   'status',
   'revision',
 ];
@@ -137,7 +138,7 @@ export function createTenantStages({
       const seedInput = {
         tenantId: tenant.id,
         tenantCode: tenant.tenant_code,
-        portalUserId: membership.portal_user_id,
+        membershipId: membership.id,
       };
       // M0005-R022: the first administrator's employee record.
       const directoryInput = {

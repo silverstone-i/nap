@@ -9,7 +9,15 @@ import { AdminAccountError } from '../../admin-tenancy/domain/errors.js';
 /** Roles that must be removed before their holder's account becomes ineligible. */
 const ADMIN_ROLES = Object.freeze(['tenant_admin', 'platform_admin']);
 
-async function hasAdminAssignment(runtime, tenant, userId) {
+/**
+ * Whether a membership holds an administrator role in its tenant's cell
+ * (I0012-R018: only that membership's roles count).
+ * @param {{dbFor: (cellId: string) => object}} runtime
+ * @param {{id: string, cell_id: string|null, is_napsoft: boolean}|null} tenant
+ * @param {string} membershipId
+ * @returns {Promise<boolean>}
+ */
+async function hasAdminAssignment(runtime, tenant, membershipId) {
   if (!tenant?.cell_id) return false;
   if (!runtime) throw new AdminAccountError('CELL_UNAVAILABLE');
   let cell;
@@ -25,7 +33,7 @@ async function hasAdminAssignment(runtime, tenant, userId) {
       if (
         role &&
         !role.deactivated_at &&
-        (await cell.role_assignments.lockActive(userId, role.id, { tx }))
+        (await cell.role_assignments.lockActive(membershipId, role.id, { tx }))
       )
         return true;
     }
@@ -47,14 +55,14 @@ export async function assertAccountDeactivationAllowed(admin, runtime, userId) {
   const memberships = await admin.portal_user_tenants.findWhere(
     { portal_user_id: userId, status: 'active' },
     'AND',
-    { columnWhitelist: ['tenant_id'] }
+    { columnWhitelist: ['id', 'tenant_id'] }
   );
   for (const membership of memberships) {
     const tenant = await admin.tenants.findOneBy(
       { id: membership.tenant_id },
       { columnWhitelist: ['id', 'cell_id', 'is_napsoft'] }
     );
-    if (await hasAdminAssignment(runtime, tenant, userId))
+    if (await hasAdminAssignment(runtime, tenant, membership.id))
       throw new AdminAccountError('ADMIN_ASSIGNED');
   }
 }
@@ -69,6 +77,6 @@ export async function assertMembershipDeactivationAllowed(
     { id: membership.tenant_id },
     { columnWhitelist: ['id', 'cell_id', 'is_napsoft'] }
   );
-  if (await hasAdminAssignment(runtime, tenant, membership.portal_user_id))
+  if (await hasAdminAssignment(runtime, tenant, membership.id))
     throw new AdminAccountError('ADMIN_ASSIGNED');
 }

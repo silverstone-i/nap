@@ -58,6 +58,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'kind',
   'login_created',
   'member_type',
+  'membership_id',
   'method',
   'module_key',
   'name',
@@ -114,7 +115,8 @@ export const EVENT_CATALOGUE = Object.freeze({
 
   'role.initialized': { outcomes: ANY_OUTCOME, details: ['role'] },
   // M0003-R015. `role.granted` and `role.revoked` record a role assignment
-  // added to or removed from `portal_user_id`; the role keys record changes
+  // added to or removed from membership `membership_id` of login
+  // `portal_user_id` (I0012); the role keys record changes
   // to a role itself, with `before` and `after` as JSON snapshots of its
   // name, description, archived state, and grants.
   'role.granted': {
@@ -122,6 +124,7 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: [
       'role',
       'portal_user_id',
+      'membership_id',
       'from_status',
       'to_status',
       'changed_at',
@@ -132,6 +135,7 @@ export const EVENT_CATALOGUE = Object.freeze({
     details: [
       'role',
       'portal_user_id',
+      'membership_id',
       'from_status',
       'to_status',
       'changed_at',
@@ -361,7 +365,7 @@ export const EVENT_CATALOGUE = Object.freeze({
     outcomes: FAILED,
     details: ['direction', 'failure_code'],
   },
-  'tenant.selected': { outcomes: ANY_OUTCOME, details: [] },
+  'tenant.selected': { outcomes: ANY_OUTCOME, details: ['membership_id'] },
   // I0005-R007: a write refused by the capability check.
   'access.denied': { outcomes: DENIED, details: ['capability', 'method'] },
 

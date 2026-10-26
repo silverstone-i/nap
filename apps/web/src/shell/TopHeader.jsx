@@ -30,6 +30,13 @@ export function TopHeader({ onMenuClick }) {
   const session = useSession();
   const { logoFileId, storageConnected } = useEffectiveSettings().settings;
 
+  // I0012-R012: name the party only when the user has more than one here.
+  const partyLabel =
+    session.membershipsInTenant > 1 ? session.membership?.label : null;
+  const tenantText = partyLabel
+    ? `${session.selectedTenant?.name} · ${partyLabel}`
+    : session.selectedTenant?.name;
+
   return (
     <AppBar
       position="static"
@@ -53,12 +60,12 @@ export function TopHeader({ onMenuClick }) {
           <Button
             variant="text"
             onClick={() => navigate('/tenants')}
-            aria-label={`Selected tenant: ${session.selectedTenant.name}. Open tenant selection.`}
+            aria-label={`Selected tenant: ${tenantText}. Open tenant selection.`}
             sx={{ gap: 1 }}
           >
             {/* Disconnected storage shows the name alone (M0006-02-R014). */}
             <TenantLogo fileId={storageConnected ? logoFileId : null} />
-            {session.selectedTenant.name}
+            {tenantText}
           </Button>
         ) : session.entryPoints?.tenant ? (
           <Button

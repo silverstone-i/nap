@@ -7,7 +7,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { supersede } from '../../src/application/sync/engine.js';
 import { parseSnapshot } from '../../src/application/sync/snapshots.js';
-import { requestPortalAccess } from '../../src/modules/cell-tenancy/domain/portalAccess.js';
+import {
+  requestMemberLabel,
+  requestPortalAccess,
+} from '../../src/modules/cell-tenancy/domain/portalAccess.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 
 const row = (topic, entity_id, revision) => ({
@@ -119,11 +122,71 @@ describe('requestPortalAccess (I0004-R020–R023)', () => {
       'email',
       'enabled',
       'member_id',
+      'member_label',
       'member_type',
       'password_hash',
       'tenant_id',
     ]);
     expect(dto.payload.email).toBe('person@nap.test');
     expect(JSON.stringify(dto)).not.toContain(input.temporaryPassword);
+  });
+
+  it('carries the party label (I0012-R007)', async () => {
+    const tx = fakeTx();
+    await requestPortalAccess(
+      tx,
+      { ...valid(), memberLabel: 'Vendor · Black Plumbing' },
+      options
+    );
+    expect(tx.inserted[0].payload.member_label).toBe('Vendor · Black Plumbing');
+  });
+});
+
+describe('requestMemberLabel (I0012-R007)', () => {
+  function fakeTx() {
+    const inserted = [];
+    return {
+      inserted,
+      one: vi.fn(async () => ({})),
+      outbox: {
+        nextRevision: vi.fn(async () => 1),
+        insert: vi.fn(async dto => inserted.push(dto)),
+      },
+    };
+  }
+
+  it('queues the new label keyed by party', async () => {
+    const tx = fakeTx();
+    const tenantId = randomUUID();
+    const memberId = randomUUID();
+    await requestMemberLabel(tx, {
+      tenantId,
+      memberId,
+      label: 'Client · Oak Homes',
+    });
+    expect(tx.inserted[0]).toMatchObject({
+      topic: 'member_label',
+      entity_id: memberId,
+      payload: {
+        tenant_id: tenantId,
+        member_id: memberId,
+        member_label: 'Client · Oak Homes',
+      },
+    });
+    expect(
+      parseSnapshot('member_label', tx.inserted[0].payload)
+    ).not.toBeNull();
+  });
+
+  it('rejects an empty label', async () => {
+    const tx = fakeTx();
+    await expect(
+      requestMemberLabel(tx, {
+        tenantId: randomUUID(),
+        memberId: randomUUID(),
+        label: '',
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    expect(tx.inserted).toHaveLength(0);
   });
 });

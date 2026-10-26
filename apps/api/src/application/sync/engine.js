@@ -20,9 +20,10 @@ const TOPIC_ORDER = Object.freeze({
   membership: 1,
   entitlement: 2,
   portal_access: 3,
-  role_change: 4,
-  directory_change: 5,
-  settings_change: 6,
+  member_label: 4,
+  role_change: 5,
+  directory_change: 6,
+  settings_change: 7,
 });
 
 /**

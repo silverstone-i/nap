@@ -71,6 +71,9 @@ export async function settingsContext(request, deps) {
     cell,
     tenant: { id: tenantId },
     actorId,
+    // I0012: the profile belongs to the membership the session acts as.
+    membershipId:
+      session.tenant === tenantId ? (session.membership?.id ?? null) : null,
     record: settingsChangeRecorder(cell, {
       tenantId,
       actorId,

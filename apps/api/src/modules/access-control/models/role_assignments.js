@@ -6,10 +6,11 @@
 import { TableModel } from 'pg-schemata';
 
 /**
- * Schema object for `app.role_assignments`: a portal user holding a role in
- * the tenant (M0003-R006). `portal_user_id` is the admin portal user ID;
- * there is no cross-database foreign key. Kept identical to the copy frozen
- * in migration `001-access-control`.
+ * Schema object for `app.role_assignments`: a membership holding a role in
+ * the tenant (M0003-R006, I0012-R013). `membership_id` is the membership
+ * copy in `cell.tenant_members`, so a login that is two parties in the
+ * tenant holds each party's roles separately. Kept identical to the copy
+ * frozen in migration `001-access-control`.
  */
 export const roleAssignmentsSchema = {
   dbSchema: 'app',
@@ -25,7 +26,7 @@ export const roleAssignmentsSchema = {
       immutable: true,
     },
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-    { name: 'portal_user_id', type: 'uuid', notNull: true, immutable: true },
+    { name: 'membership_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'role_id', type: 'uuid', notNull: true, immutable: true },
   ],
   constraints: {
@@ -41,10 +42,20 @@ export const roleAssignmentsSchema = {
         },
         onDelete: 'RESTRICT',
       },
+      {
+        type: 'ForeignKey',
+        columns: ['tenant_id', 'membership_id'],
+        references: {
+          schema: 'cell',
+          table: 'tenant_members',
+          columns: ['tenant_id', 'id'],
+        },
+        onDelete: 'RESTRICT',
+      },
     ],
     indexes: [
       {
-        columns: ['portal_user_id', 'role_id'],
+        columns: ['membership_id', 'role_id'],
         unique: true,
         where: 'deactivated_at IS NULL',
       },
@@ -61,32 +72,32 @@ export class RoleAssignments extends TableModel {
   }
 
   /**
-   * Lock and return a user's active assignment of a role, if any.
-   * @param {string} portalUserId
+   * Lock and return a membership's active assignment of a role, if any.
+   * @param {string} membershipId
    * @param {string} roleId
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<object|null>}
    */
-  async lockActive(portalUserId, roleId, { tx }) {
+  async lockActive(membershipId, roleId, { tx }) {
     return tx.oneOrNone(
       `SELECT * FROM ${this.schemaName}.${this.tableName}
-        WHERE portal_user_id=$1 AND role_id=$2 AND deactivated_at IS NULL
+        WHERE membership_id=$1 AND role_id=$2 AND deactivated_at IS NULL
         FOR UPDATE`,
-      [portalUserId, roleId]
+      [membershipId, roleId]
     );
   }
 
   /**
-   * IDs of the roles a user actively holds, archived roles included.
-   * @param {string} portalUserId
+   * IDs of the roles a membership actively holds, archived roles included.
+   * @param {string} membershipId
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<string[]>}
    */
-  async activeRoleIds(portalUserId, { tx }) {
+  async activeRoleIds(membershipId, { tx }) {
     const rows = await tx.any(
       `SELECT role_id FROM ${this.schemaName}.${this.tableName}
-        WHERE portal_user_id=$1 AND deactivated_at IS NULL`,
-      [portalUserId]
+        WHERE membership_id=$1 AND deactivated_at IS NULL`,
+      [membershipId]
     );
     return rows.map(row => row.role_id);
   }
@@ -107,7 +118,7 @@ export class RoleAssignments extends TableModel {
          FROM ${this.schemaName}.${this.tableName} AS assignment
          JOIN cell.tenant_members AS member
            ON member.tenant_id = assignment.tenant_id
-          AND member.portal_user_id = assignment.portal_user_id
+          AND member.id = assignment.membership_id
         WHERE assignment.role_id=$1 AND assignment.tenant_id=$2
           AND assignment.deactivated_at IS NULL
           AND member.status='active' AND member.deactivated_at IS NULL`,

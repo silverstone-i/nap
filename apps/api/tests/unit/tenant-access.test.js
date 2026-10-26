@@ -171,11 +171,11 @@ function fakeAdmin({
         return found && !found.deactivated_at ? { ...found } : null;
       },
       touch: async () => null,
-      selectTenant: async (currentHash, nextHash, tenantId) =>
+      selectTenant: async (currentHash, nextHash, { tenantId, membershipId }) =>
         rotateStored(
           currentHash,
           nextHash,
-          { tenant_id: tenantId },
+          { tenant_id: tenantId, membership_id: membershipId },
           () => true
         ),
     },
@@ -276,18 +276,29 @@ afterEach(() => {
 });
 
 describe('GET /access/tenants', () => {
-  it('lists only active, ready memberships joined to eligible tenants', async () => {
+  it('lists one entry per active, ready membership in an eligible tenant', async () => {
     const actorId = randomUUID();
     const eligible = tenantRow();
     const ineligible = tenantRow({ status: 'suspended' });
     const notReady = tenantRow();
+    const employee = membershipRow({
+      portal_user_id: actorId,
+      tenant_id: eligible.id,
+      member_id: randomUUID(),
+      member_label: 'Employee',
+    });
+    const vendor = membershipRow({
+      portal_user_id: actorId,
+      tenant_id: eligible.id,
+      member_type: 'vendor_contact',
+      member_id: randomUUID(),
+      member_label: 'Vendor · Black Plumbing',
+    });
     const { app, admin } = api({
       tenants: [eligible, ineligible, notReady],
       memberships: [
-        membershipRow({
-          portal_user_id: actorId,
-          tenant_id: eligible.id,
-        }),
+        vendor,
+        employee,
         membershipRow({
           portal_user_id: actorId,
           tenant_id: ineligible.id,
@@ -304,12 +315,24 @@ describe('GET /access/tenants', () => {
       .get('/api/admin-tenancy/v1/access/tenants')
       .set('Cookie', `nap_session=${token}`);
     expect(response.status).toBe(200);
+    const tenant = {
+      id: eligible.id,
+      code: eligible.tenant_code,
+      name: eligible.name,
+      tier: eligible.tier,
+    };
     expect(response.body.data).toEqual([
       {
-        id: eligible.id,
-        code: eligible.tenant_code,
-        name: eligible.name,
-        tier: eligible.tier,
+        membershipId: employee.id,
+        tenant,
+        memberType: 'employee',
+        label: 'Employee',
+      },
+      {
+        membershipId: vendor.id,
+        tenant,
+        memberType: 'vendor_contact',
+        label: 'Vendor · Black Plumbing',
       },
     ]);
   });
@@ -328,12 +351,14 @@ describe('POST /access/select', () => {
     const actorId = randomUUID();
     const cell = cellRow();
     const tenant = tenantRow({ cell_id: cell.id });
+    const membership = membershipRow({
+      portal_user_id: actorId,
+      tenant_id: tenant.id,
+    });
     const { admin } = api({
       tenants: [tenant],
       cells: [cell],
-      memberships: [
-        membershipRow({ portal_user_id: actorId, tenant_id: tenant.id }),
-      ],
+      memberships: [membership],
     });
     const { token, session } = live(admin, { portal_user_id: actorId });
     const result = await selectTenant(
@@ -341,62 +366,70 @@ describe('POST /access/select', () => {
       policy,
       token,
       { user: session.portal_user_id },
-      { tenant: tenant.id },
+      { membership: membership.id },
       { runtime: { readiness: () => ({ ready: true }) } }
     );
     expect(result.session.tenant).toBe(tenant.id);
+    expect(session.membership_id).toBe(membership.id);
     expect(result.token).not.toBe(token);
     expect(admin.events).toContainEqual(
       expect.objectContaining({
         event_key: 'tenant.selected',
         outcome: 'succeeded',
         tenant_id: tenant.id,
+        details: { membership_id: membership.id },
       })
     );
   });
 
-  it('refuses an ineligible membership or tenant, and an unavailable cell', async () => {
+  it("refuses another login's or an ineligible membership, an ineligible tenant, and an unavailable cell", async () => {
     const actorId = randomUUID();
     const readyTenant = tenantRow();
-    const notMemberTenant = tenantRow();
     const suspendedTenant = tenantRow({ status: 'suspended' });
-    const noCellTenant = tenantRow();
+    const ready = membershipRow({
+      portal_user_id: actorId,
+      tenant_id: readyTenant.id,
+    });
+    const othersLogin = membershipRow({ tenant_id: readyTenant.id });
+    const notReady = membershipRow({
+      portal_user_id: actorId,
+      tenant_id: readyTenant.id,
+      ready: false,
+    });
+    const inSuspended = membershipRow({
+      portal_user_id: actorId,
+      tenant_id: suspendedTenant.id,
+    });
     const { app, admin } = api({
-      tenants: [readyTenant, notMemberTenant, suspendedTenant, noCellTenant],
-      memberships: [
-        membershipRow({ portal_user_id: actorId, tenant_id: readyTenant.id }),
-        membershipRow({
-          portal_user_id: actorId,
-          tenant_id: suspendedTenant.id,
-        }),
-        membershipRow({
-          portal_user_id: actorId,
-          tenant_id: noCellTenant.id,
-        }),
-      ],
+      tenants: [readyTenant, suspendedTenant],
+      memberships: [ready, othersLogin, notReady, inSuspended],
     });
     const { token } = live(admin, { portal_user_id: actorId });
+    const select = membership =>
+      request(app)
+        .post('/api/admin-tenancy/v1/access/select')
+        .set('Origin', ORIGIN)
+        .set('Cookie', `nap_session=${token}`)
+        .send({ membership });
 
-    const notAMember = await request(app)
+    expect((await select(othersLogin.id)).status).toBe(403);
+    expect((await select(notReady.id)).status).toBe(403);
+    expect((await select(randomUUID())).status).toBe(403);
+    expect((await select(inSuspended.id)).status).toBe(403);
+    expect((await select(ready.id)).status).toBe(503);
+  });
+
+  it('refuses the old tenant-only body', async () => {
+    const actorId = randomUUID();
+    const tenant = tenantRow();
+    const { app, admin } = api({ tenants: [tenant] });
+    const { token } = live(admin, { portal_user_id: actorId });
+    const response = await request(app)
       .post('/api/admin-tenancy/v1/access/select')
       .set('Origin', ORIGIN)
       .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: notMemberTenant.id });
-    expect(notAMember.status).toBe(403);
-
-    const ineligibleTenant = await request(app)
-      .post('/api/admin-tenancy/v1/access/select')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: suspendedTenant.id });
-    expect(ineligibleTenant.status).toBe(403);
-
-    const noRuntime = await request(app)
-      .post('/api/admin-tenancy/v1/access/select')
-      .set('Origin', ORIGIN)
-      .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: readyTenant.id });
-    expect(noRuntime.status).toBe(503);
+      .send({ tenant: tenant.id });
+    expect(response.status).toBe(400);
   });
 
   it('leaves the session unchanged on a failed selection', async () => {
@@ -408,7 +441,7 @@ describe('POST /access/select', () => {
       .post('/api/admin-tenancy/v1/access/select')
       .set('Origin', ORIGIN)
       .set('Cookie', `nap_session=${token}`)
-      .send({ tenant: tenant.id });
+      .send({ membership: randomUUID() });
     expect(session.tenant_id).toBeNull();
     const current = await request(app)
       .get('/api/admin-tenancy/v1/session/current')
