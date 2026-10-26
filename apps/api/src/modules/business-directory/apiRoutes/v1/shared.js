@@ -32,9 +32,10 @@ export function sendDirectoryError(response, error) {
     sendBulkFailed(response, error.details);
     return;
   }
-  // I0011-R010: an archived label holds the name.
-  if (code === 'CONFLICT' && error.details) {
-    sendConflict(response, error.details);
+  // I0011-R010: an archived label holds the name. M0005-R048: another
+  // record of the kind holds the tax ID.
+  if ((code === 'CONFLICT' || code === 'DUPLICATE_TAX_ID') && error.details) {
+    sendConflict(response, error.details, code);
     return;
   }
   sendError(

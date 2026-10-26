@@ -190,10 +190,10 @@ it('stores the four tax ID columns together on the party, never on a vendor cont
 });
 
 it('ties a tax ID to a format of its own tenant, with uppercase letters or digits as its last four (M0005-R036, R038)', async () => {
-  const set = (tx, id, format, last4) =>
+  const set = (tx, id, format, last4, hash = HASH) =>
     tx.none(
       "UPDATE app.parties SET tax_id_format_id=$2, tax_id_encrypted='x', tax_id_hash=$3, tax_id_last4=$4 WHERE id=$1",
-      [id, format, HASH, last4]
+      [id, format, hash, last4]
     );
   await inTenant(tenant, async tx => {
     const format = await taxIdFormat(tx, tenant, 'Letters');
@@ -222,9 +222,30 @@ it('ties a tax ID to a format of its own tenant, with uppercase letters or digit
   const foreign = await inTenant(other, tx => taxIdFormat(tx, other, 'Other'));
   await expect(
     inTenant(tenant, async tx =>
-      set(tx, await party(tx, 'employee'), foreign, '1234')
+      // Another number, so the per-kind unique index (R047) stays out of it.
+      set(tx, await party(tx, 'employee'), foreign, '1234', 'f'.repeat(64))
     )
   ).rejects.toMatchObject({ code: '23503' });
+});
+
+it('allows a tax ID once per tenant and kind, except for client contacts (M0005-R047)', async () => {
+  const hash = 'e'.repeat(64);
+  const set = (tx, id, format) =>
+    tx.none(
+      "UPDATE app.parties SET tax_id_format_id=$2, tax_id_encrypted='x', tax_id_hash=$3, tax_id_last4='1234' WHERE id=$1",
+      [id, format, hash]
+    );
+  await inTenant(tenant, async tx => {
+    const format = await taxIdFormat(tx, tenant, 'Unique');
+    await set(tx, await party(tx, 'vendor'), format);
+    await expect(
+      tx.tx(async t => set(t, await party(t, 'vendor'), format))
+    ).rejects.toMatchObject({ code: '23505' });
+    // Another kind, and client contacts, may share it.
+    await set(tx, await party(tx, 'client'), format);
+    await set(tx, await party(tx, 'client_contact'), format);
+    await set(tx, await party(tx, 'client_contact'), format);
+  });
 });
 
 it('AC04, AC05: allows one active primary tax contact per client and one primary email, phone, and address per party', async () => {

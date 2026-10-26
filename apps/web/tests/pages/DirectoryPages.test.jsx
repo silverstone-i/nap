@@ -379,11 +379,8 @@ describe('Employees (M0005-R026)', () => {
     expect(within(form).queryByLabelText(/SSN/)).toBeNull();
   });
 
-  it('creates an employee with a primary email and warns about a duplicate tax ID', async () => {
-    api.createDirectoryRecord.mockResolvedValue({
-      ...JANE,
-      duplicateTaxIds: ['22222222-2222-4222-8222-222222222222'],
-    });
+  /** Fill and save the New employee form with an SSN. */
+  async function saveEmployeeWithSsn() {
     renderWithHeader(<DirectoryRecordsPage kind="employee" />);
     const user = userEvent.setup();
     await user.click(
@@ -405,6 +402,18 @@ describe('Employees (M0005-R026)', () => {
       '123-45-6789'
     );
     await user.click(within(form).getByRole('button', { name: 'Save' }));
+    return form;
+  }
+
+  const HOLDER = '22222222-2222-4222-8222-222222222222';
+
+  it('names the employee already holding the tax ID, with a link to open it (M0005-R048)', async () => {
+    api.createDirectoryRecord.mockRejectedValue(
+      new ApiError('DUPLICATE_TAX_ID', 409, null, {
+        details: { id: HOLDER, archived: false },
+      })
+    );
+    const form = await saveEmployeeWithSsn();
     expect(api.createDirectoryRecord).toHaveBeenCalledWith('people', {
       kind: 'employee',
       firstName: 'Jane',
@@ -415,8 +424,42 @@ describe('Employees (M0005-R026)', () => {
       taxIdFormatId: SSN.id,
     });
     expect(
-      await screen.findByText(/1 other record\(s\) have the same tax ID/)
+      await within(form).findByText(/Another employee already has this tax ID/)
     ).toBeTruthy();
+    expect(
+      within(form).getByRole('link', { name: 'Open it' }).getAttribute('href')
+    ).toBe(`/directory/employees?open=${HOLDER}`);
+    // Following it closes the form and opens the holder on this page.
+    api.getDirectoryRecord.mockResolvedValue({
+      ...JANE,
+      id: HOLDER,
+      contactMethods: [],
+      addresses: [],
+    });
+    await userEvent
+      .setup()
+      .click(within(form).getByRole('link', { name: 'Open it' }));
+    expect(screen.queryByRole('dialog', { name: 'New employee' })).toBeNull();
+    await vi.waitFor(() =>
+      expect(api.getDirectoryRecord).toHaveBeenCalledWith('people', HOLDER)
+    );
+    expect(
+      screen.queryByText(/other record\(s\) have the same tax ID/)
+    ).toBeNull();
+  });
+
+  it('links an archived holder to the Archived view, where it can be restored (M0005-R048)', async () => {
+    api.createDirectoryRecord.mockRejectedValue(
+      new ApiError('DUPLICATE_TAX_ID', 409, null, {
+        details: { id: HOLDER, archived: true },
+      })
+    );
+    const form = await saveEmployeeWithSsn();
+    expect(
+      within(form)
+        .getByRole('link', { name: 'Show it in Archived' })
+        .getAttribute('href')
+    ).toBe(`/directory/employees?view=archived&open=${HOLDER}`);
   });
 });
 

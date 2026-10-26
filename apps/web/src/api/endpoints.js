@@ -624,7 +624,7 @@ export async function getDirectoryRecord(collection, id) {
 /**
  * @param {'people'|'organizations'|'organization-contacts'} collection
  * @param {object} input
- * @returns {Promise<object>} The created record, with `duplicateTaxIds` when a tax ID was saved.
+ * @returns {Promise<object>} The created record. A tax ID another record of the kind holds fails with `DUPLICATE_TAX_ID` (M0005-R048).
  */
 export async function createDirectoryRecord(collection, input) {
   return COLLECTION_SCHEMAS[collection].view.parse(

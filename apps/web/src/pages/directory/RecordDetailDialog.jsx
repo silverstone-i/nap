@@ -111,7 +111,6 @@ export function RecordDetailDialog({
   const formats = useTaxIdFormats();
   const { defaultCountry } = useEffectiveSettings().settings;
   const [error, setError] = useState(null);
-  const [notice, setNotice] = useState(null);
   const [editing, setEditing] = useState(false);
   const [methodForm, setMethodForm] = useState(null);
   const [addressForm, setAddressForm] = useState(null);
@@ -188,14 +187,9 @@ export function RecordDetailDialog({
     }
   }
 
-  function afterSave(saved) {
+  function afterSave() {
     setEditing(false);
     setContactForm(false);
-    setNotice(
-      saved?.duplicateTaxIds?.length
-        ? `Saved. ${saved.duplicateTaxIds.length} other record(s) have the same tax ID.`
-        : null
-    );
     changed();
   }
 
@@ -237,11 +231,6 @@ export function RecordDetailDialog({
             {error ? (
               <Alert severity="error" onClose={() => setError(null)}>
                 {error}
-              </Alert>
-            ) : null}
-            {notice ? (
-              <Alert severity="warning" onClose={() => setNotice(null)}>
-                {notice}
               </Alert>
             ) : null}
             {record.dbaName ? (
