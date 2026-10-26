@@ -20,10 +20,12 @@ import { DirectoryError } from './errors.js';
 import {
   applyPortalRoles,
   assertCanTurnOff,
+  organizationLabelName,
   PORTAL_OFF,
   portalFacts,
   portalRolesView,
   portalStatus,
+  relabelContacts,
   sendPortalAccess,
   temporaryPassword,
 } from './portalAccess.js';
@@ -883,7 +885,11 @@ export async function updateRecord(context, name, id, body) {
       );
     if (portal !== null)
       await sendPortalAccess(context, row, portal, input.temporaryPassword, tx);
-    if (name === 'organizations') await requireTaxSource(context, row, tx);
+    if (name === 'organizations') {
+      await requireTaxSource(context, row, tx);
+      if (organizationLabelName(row) !== organizationLabelName(locked))
+        await relabelContacts(context, row, tx);
+    }
     const after = await viewOf(context, name, row, tx);
     return {
       result: withDuplicates(

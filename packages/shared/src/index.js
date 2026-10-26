@@ -93,6 +93,14 @@ export const sessionViewSchema = z.strictObject({
   id: z.uuid(),
   user: z.uuid(),
   tenant: z.uuid().nullable(),
+  // The membership the session acts as (I0012); null until one is selected.
+  membership: z
+    .strictObject({
+      id: z.uuid(),
+      memberType: z.string().nullable(),
+      label: z.string().nullable(),
+    })
+    .nullable(),
   restricted: z.boolean(),
   lastSeenAt: z.coerce.date(),
   idleExpiresAt: z.coerce.date(),
@@ -116,10 +124,21 @@ export const eligibleTenantSchema = z.strictObject({
   tier: z.string(),
 });
 
+/**
+ * Zod schema for one entry of the sign-in picker: a membership the caller
+ * may select, with its tenant and party label (I0012-R008).
+ */
+export const eligibleEntrySchema = z.strictObject({
+  membershipId: z.uuid(),
+  tenant: eligibleTenantSchema,
+  memberType: z.string().nullable(),
+  label: z.string().nullable(),
+});
+
 /** Zod schema for the success envelope returned by `GET /access/tenants`. */
 export const eligibleTenantsResponseSchema = z.strictObject({
   version: z.literal(transportVersion),
-  data: z.array(eligibleTenantSchema),
+  data: z.array(eligibleEntrySchema),
 });
 
 /**
@@ -133,6 +152,10 @@ export const accessContextSchema = z.strictObject({
   user: z.strictObject({ id: z.uuid(), email: z.string() }),
   selectedTenant: eligibleTenantSchema.nullable(),
   operator: eligibleTenantSchema.nullable(),
+  membership: sessionViewSchema.shape.membership,
+  // How many entries the caller has in the selected tenant; the shell shows
+  // the party label when there is more than one (I0012-R012).
+  membershipsInTenant: z.number().int().nonnegative(),
   // Whether the user has an eligible tenant to select. What the user may
   // do comes from `GET /session/capabilities` (I0005-R010).
   entryPoints: z.strictObject({ tenant: z.boolean() }),
@@ -264,6 +287,7 @@ export const userMembershipSchema = z.strictObject({
   tenantCode: z.string(),
   tenantName: z.string(),
   memberType: z.string().nullable(),
+  label: z.string().nullable(),
   status: z.enum(['pending', 'active', 'suspended']),
 });
 
@@ -398,10 +422,22 @@ export const roleViewSchema = z.strictObject({
   grants: z.array(z.string()),
 });
 
-/** Zod schema for a user's active role assignments (M0003 §10). */
-export const userRolesSchema = z.strictObject({
-  userId: z.uuid(),
+/** Zod schema for a membership's active role assignments (M0003 §10, I0012-R013). */
+export const membershipRolesSchema = z.strictObject({
+  membershipId: z.uuid(),
   roles: z.array(roleViewSchema),
+});
+
+/**
+ * Zod schema for one of the tenant's memberships, as the Roles screen lists
+ * them (I0012-R017). `name` is null for a membership without a party.
+ */
+export const tenantMembershipSchema = z.strictObject({
+  id: z.uuid(),
+  memberType: z.string().nullable(),
+  label: z.string().nullable(),
+  name: z.string().nullable(),
+  status: z.enum(['pending', 'active']),
 });
 
 /** Zod schema for one capability catalogue entry (M0003-R005). */

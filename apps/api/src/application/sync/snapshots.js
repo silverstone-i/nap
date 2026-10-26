@@ -12,6 +12,9 @@ const MEMBER_TYPE = z.enum([
   'client_contact',
 ]);
 const TIMESTAMP = z.union([z.string(), z.date()]).nullable();
+// I0012-R007: the party label; optional so rows queued before it existed
+// still apply.
+const MEMBER_LABEL = z.string().max(400).nullable().optional();
 
 /** Snapshot shape per topic (I0004-R013, R023). Extra fields are rejected. */
 const SNAPSHOTS = Object.freeze({
@@ -27,6 +30,7 @@ const SNAPSHOTS = Object.freeze({
     portal_user_id: z.uuid(),
     member_type: MEMBER_TYPE.nullable(),
     member_id: z.uuid().nullable(),
+    member_label: MEMBER_LABEL,
     status: z.enum(['pending', 'active', 'suspended']),
     deactivated_at: TIMESTAMP,
   }),
@@ -41,6 +45,7 @@ const SNAPSHOTS = Object.freeze({
       tenant_id: z.uuid(),
       member_id: z.uuid(),
       member_type: MEMBER_TYPE,
+      member_label: MEMBER_LABEL,
       email: z.email(),
       enabled: z.literal(true),
       password_hash: z.string().startsWith('$argon2'),
@@ -49,10 +54,17 @@ const SNAPSHOTS = Object.freeze({
       tenant_id: z.uuid(),
       member_id: z.uuid(),
       member_type: MEMBER_TYPE,
+      member_label: MEMBER_LABEL,
       email: z.email(),
       enabled: z.literal(false),
     }),
   ]),
+  // I0012-R007: a party's new label after its organization is renamed.
+  member_label: z.strictObject({
+    tenant_id: z.uuid(),
+    member_id: z.uuid(),
+    member_label: z.string().max(400),
+  }),
   // M0003-R015: one role, grant, or assignment change. `details` is checked
   // against the event key's registered fields when the event is appended.
   role_change: z.strictObject({

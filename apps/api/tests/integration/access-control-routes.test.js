@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto';
 import {
   capabilityEntrySchema,
   roleViewSchema,
-  userRolesSchema,
+  membershipRolesSchema,
 } from '@nap/shared';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -38,6 +38,7 @@ import { createSyncWorker } from '../../src/application/sync/worker.js';
 import { createRole } from '../../src/modules/access-control/domain/roles.js';
 import { roleChangeRecorder } from '../../src/modules/access-control/domain/events.js';
 import { capabilityCatalogue } from '../../src/modules/access-control/domain/catalogue.js';
+import { membershipIn } from './helpers/tenantRows.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -86,17 +87,17 @@ function call(method, path, body, as = cookie) {
  * @returns {Promise<string>} The portal user ID.
  */
 async function member(status = 'active') {
-  const portalUserId = randomUUID();
+  const membershipId = randomUUID();
   await cell.tenant_members.insert({
-    id: randomUUID(),
+    id: membershipId,
     tenant_id: napsoft.id,
-    portal_user_id: portalUserId,
+    portal_user_id: randomUUID(),
     member_type: 'employee',
     member_id: randomUUID(),
     status,
     revision: 1,
   });
-  return portalUserId;
+  return membershipId;
 }
 
 /** Events recorded against a role, oldest first. */
@@ -141,7 +142,7 @@ async function staff(roleCode) {
       { tx }
     )
   );
-  await db.portal_user_tenants.insert({
+  const membership = await db.portal_user_tenants.insert({
     portal_user_id: user.id,
     tenant_id: napsoft.id,
     member_type: 'employee',
@@ -150,7 +151,7 @@ async function staff(roleCode) {
     ready: true,
   });
   await cell.tenant_members.insert({
-    id: randomUUID(),
+    id: membership.id,
     tenant_id: napsoft.id,
     portal_user_id: user.id,
     member_type: 'employee',
@@ -162,7 +163,8 @@ async function staff(roleCode) {
     const roles = (await call('get', '/roles')).body.data;
     const role = roles.find(r => r.code === roleCode);
     expect(
-      (await call('put', `/users/${user.id}/roles/${role.id}`)).status
+      (await call('put', `/memberships/${membership.id}/roles/${role.id}`))
+        .status
     ).toBe(200);
   }
   const session = await createSession(db, sessionPolicy, {
@@ -173,10 +175,14 @@ async function staff(roleCode) {
     sessionPolicy,
     session.token,
     { user: user.id },
-    { tenant: napsoft.id },
+    { membership: membership.id },
     { runtime: registry }
   );
-  return { id: user.id, cookie: `nap_session=${selected.token}` };
+  return {
+    id: user.id,
+    membershipId: membership.id,
+    cookie: `nap_session=${selected.token}`,
+  };
 }
 
 beforeAll(async () => {
@@ -256,7 +262,7 @@ beforeAll(async () => {
     sessionPolicy,
     other.token,
     { user: rootId },
-    { tenant: napsoft.id },
+    { membership: await membershipIn(db, rootId, napsoft.id) },
     { runtime: registry }
   );
   cookie = `nap_session=${selected.token}`;
@@ -294,7 +300,7 @@ describe('caller pattern set (I0005-R004)', () => {
     expect(
       await resolvePatterns(cell, {
         tenantId: napsoft.id,
-        portalUserId: rootId,
+        membershipId: await membershipIn(db, rootId, napsoft.id),
       })
     ).toEqual(['*::*::*::*', `${napsoft.tenant_code}::*::*::*`].sort());
   });
@@ -303,7 +309,7 @@ describe('caller pattern set (I0005-R004)', () => {
     expect(
       await resolvePatterns(cell, {
         tenantId: napsoft.id,
-        portalUserId: randomUUID(),
+        membershipId: randomUUID(),
       })
     ).toEqual([]);
   });
@@ -366,7 +372,7 @@ describe('capability decisions (I0005)', () => {
     );
     const roles = (await call('get', '/roles')).body.data;
     const role = roles.find(r => r.code === 'tenant_admin');
-    await call('put', `/users/${later.id}/roles/${role.id}`);
+    await call('put', `/memberships/${later.membershipId}/roles/${role.id}`);
     expect((await call('get', '/roles', undefined, later.cookie)).status).toBe(
       200
     );
@@ -434,7 +440,9 @@ describe('access-control routes (M0003 §10)', () => {
     expect(stale.body.error.code).toBe('STALE_REVISION');
 
     const user = await member();
-    expect((await call('put', `/users/${user}/roles/${id}`)).status).toBe(200);
+    expect((await call('put', `/memberships/${user}/roles/${id}`)).status).toBe(
+      200
+    );
 
     const archived = await call('post', `/roles/${id}/archive`, {
       revision: 2,
@@ -461,10 +469,10 @@ describe('access-control routes (M0003 §10)', () => {
     });
     // R014: an archived role grants nothing, but its assignment is kept.
     expect(
-      await resolvePatterns(cell, { tenantId: napsoft.id, portalUserId: user })
+      await resolvePatterns(cell, { tenantId: napsoft.id, membershipId: user })
     ).toEqual([]);
     expect(
-      (await call('get', `/users/${user}/roles`)).body.data.roles.map(
+      (await call('get', `/memberships/${user}/roles`)).body.data.roles.map(
         r => r.code
       )
     ).toEqual(['auditor']);
@@ -480,7 +488,7 @@ describe('access-control routes (M0003 §10)', () => {
       ],
     });
     expect(
-      await resolvePatterns(cell, { tenantId: napsoft.id, portalUserId: user })
+      await resolvePatterns(cell, { tenantId: napsoft.id, membershipId: user })
     ).toEqual([
       '*::access-control::roles::read',
       '*::admin-tenancy::events::read',
@@ -669,48 +677,68 @@ describe('access-control routes (M0003 §10)', () => {
   it('assigns only active members and preserves the bootstrap platform_admin (R008, R012)', async () => {
     const roles = (await call('get', '/roles')).body.data;
     const platform = roles.find(r => r.code === 'platform_admin');
+    const rootMembership = await membershipIn(db, rootId, napsoft.id);
     const suspended = await member('suspended');
     expect(
-      (await call('put', `/users/${suspended}/roles/${platform.id}`)).body.error
-        .code
+      (await call('put', `/memberships/${suspended}/roles/${platform.id}`)).body
+        .error.code
     ).toBe('NOT_MEMBER');
     expect(
-      (await call('delete', `/users/${rootId}/roles/${platform.id}`)).body.error
-        .code
+      (
+        await call(
+          'delete',
+          `/memberships/${rootMembership}/roles/${platform.id}`
+        )
+      ).body.error.code
     ).toBe('ROOT_IMMUTABLE');
 
     const second = await member();
-    const assigned = await call('put', `/users/${second}/roles/${platform.id}`);
-    userRolesSchema.parse(assigned.body.data);
+    const assigned = await call(
+      'put',
+      `/memberships/${second}/roles/${platform.id}`
+    );
+    membershipRolesSchema.parse(assigned.body.data);
     expect(assigned.body.data.roles.map(r => r.code)).toEqual([
       'platform_admin',
     ]);
-    const repeat = await call('put', `/users/${second}/roles/${platform.id}`);
+    const repeat = await call(
+      'put',
+      `/memberships/${second}/roles/${platform.id}`
+    );
     expect(repeat.status).toBe(200);
     const removed = await call(
       'delete',
-      `/users/${second}/roles/${platform.id}`
+      `/memberships/${second}/roles/${platform.id}`
     );
-    expect(removed.body.data).toEqual({ userId: second, roles: [] });
+    expect(removed.body.data).toEqual({ membershipId: second, roles: [] });
     expect(
-      (await call('delete', `/users/${rootId}/roles/${platform.id}`)).body.error
-        .code
+      (
+        await call(
+          'delete',
+          `/memberships/${rootMembership}/roles/${platform.id}`
+        )
+      ).body.error.code
     ).toBe('ROOT_IMMUTABLE');
 
     // A suspended member's assignment does not count toward the last admin.
     const lapsed = await member();
-    await call('put', `/users/${lapsed}/roles/${platform.id}`);
+    await call('put', `/memberships/${lapsed}/roles/${platform.id}`);
     await cell.none(
       `UPDATE cell.tenant_members SET status='suspended'
-        WHERE tenant_id=$1 AND portal_user_id=$2`,
+        WHERE tenant_id=$1 AND id=$2`,
       [napsoft.id, lapsed]
     );
     expect(
-      (await call('delete', `/users/${rootId}/roles/${platform.id}`)).body.error
-        .code
+      (
+        await call(
+          'delete',
+          `/memberships/${rootMembership}/roles/${platform.id}`
+        )
+      ).body.error.code
     ).toBe('ROOT_IMMUTABLE');
     expect(
-      (await call('delete', `/users/${lapsed}/roles/${platform.id}`)).status
+      (await call('delete', `/memberships/${lapsed}/roles/${platform.id}`))
+        .status
     ).toBe(200);
   });
 

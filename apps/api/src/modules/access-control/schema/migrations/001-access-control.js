@@ -108,12 +108,7 @@ export const migration = defineMigration({
           immutable: true,
         },
         { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
-        {
-          name: 'portal_user_id',
-          type: 'uuid',
-          notNull: true,
-          immutable: true,
-        },
+        { name: 'membership_id', type: 'uuid', notNull: true, immutable: true },
         { name: 'role_id', type: 'uuid', notNull: true, immutable: true },
       ],
       constraints: {
@@ -129,10 +124,20 @@ export const migration = defineMigration({
             },
             onDelete: 'RESTRICT',
           },
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'membership_id'],
+            references: {
+              schema: 'cell',
+              table: 'tenant_members',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
         ],
         indexes: [
           {
-            columns: ['portal_user_id', 'role_id'],
+            columns: ['membership_id', 'role_id'],
             unique: true,
             where: 'deactivated_at IS NULL',
           },

@@ -128,6 +128,7 @@ export async function runNapsoftTenantSetup(
       portal_user_id: membership.portal_user_id,
       member_type: null,
       member_id: null,
+      member_label: null,
       status: membership.status,
       revision: membership.revision,
     };
@@ -135,7 +136,7 @@ export async function runNapsoftTenantSetup(
     const seed = {
       tenantId: tenant.id,
       tenantCode: tenant.tenant_code,
-      portalUserId: membership.portal_user_id,
+      membershipId: membership.id,
     };
 
     const target = await driver.connection({ cell });

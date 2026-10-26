@@ -112,23 +112,23 @@ export class RoleGrants extends TableModel {
   }
 
   /**
-   * A portal user's resolved pattern set in this tenant (I0005-R004): the
-   * distinct grants of the user's active assignments on active roles.
-   * Archived roles and archived assignments contribute nothing.
-   * @param {string} portalUserId
+   * A membership's resolved pattern set in this tenant (I0005-R004,
+   * I0012-R014): the distinct grants of its active assignments on active
+   * roles. Archived roles and archived assignments contribute nothing.
+   * @param {string} membershipId
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<string[]>} Sorted patterns.
    */
-  async patternsForUser(portalUserId, { tx }) {
+  async patternsForMembership(membershipId, { tx }) {
     const rows = await tx.any(
       `SELECT DISTINCT g.pattern
          FROM ${this.schemaName}.${this.tableName} g
          JOIN app.roles r ON r.id = g.role_id AND r.deactivated_at IS NULL
          JOIN app.role_assignments a
            ON a.role_id = r.id AND a.deactivated_at IS NULL
-        WHERE a.portal_user_id = $1
+        WHERE a.membership_id = $1
         ORDER BY g.pattern`,
-      [portalUserId]
+      [membershipId]
     );
     return rows.map(row => row.pattern);
   }

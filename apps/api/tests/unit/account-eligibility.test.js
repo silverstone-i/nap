@@ -11,6 +11,7 @@ import {
 } from '../../src/modules/access-control/domain/accountEligibility.js';
 
 const USER = randomUUID();
+const MEMBERSHIP = randomUUID();
 const TENANT = randomUUID();
 const CELL = randomUUID();
 
@@ -35,8 +36,8 @@ function fixture({
       lockByCode: async (_tenantId, code) => roles.get(code) ?? null,
     },
     role_assignments: {
-      lockActive: async (userId, roleId) =>
-        userId === USER && roles.get(assignedRole)?.id === roleId
+      lockActive: async (membershipId, roleId) =>
+        membershipId === MEMBERSHIP && roles.get(assignedRole)?.id === roleId
           ? { id: randomUUID() }
           : null,
     },
@@ -44,7 +45,7 @@ function fixture({
   return {
     admin: {
       portal_user_tenants: {
-        findWhere: async () => [{ tenant_id: TENANT }],
+        findWhere: async () => [{ id: MEMBERSHIP, tenant_id: TENANT }],
       },
       tenants: {
         findOneBy: async () => ({
@@ -92,9 +93,21 @@ describe('account deactivation eligibility', () => {
     const { admin, runtime } = fixture({ assignedRole: 'tenant_admin' });
     await expect(
       assertMembershipDeactivationAllowed(admin, runtime, {
+        id: MEMBERSHIP,
         tenant_id: TENANT,
         portal_user_id: USER,
       })
     ).rejects.toMatchObject({ code: 'ADMIN_ASSIGNED' });
+  });
+
+  it("ignores the login's administrator role on another membership (I0012-R018)", async () => {
+    const { admin, runtime } = fixture({ assignedRole: 'tenant_admin' });
+    await expect(
+      assertMembershipDeactivationAllowed(admin, runtime, {
+        id: randomUUID(),
+        tenant_id: TENANT,
+        portal_user_id: USER,
+      })
+    ).resolves.toBeUndefined();
   });
 });

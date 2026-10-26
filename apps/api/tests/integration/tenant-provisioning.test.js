@@ -29,6 +29,7 @@ import { createLocalCellDriver } from '../../src/infrastructure/provisioning/loc
 import { createStages } from '../../src/application/provisioning/stages.js';
 import { createTenantStages } from '../../src/application/provisioning/tenantStages.js';
 import { createProvisioningWorker } from '../../src/application/provisioning/worker.js';
+import { membershipIn } from './helpers/tenantRows.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -165,7 +166,7 @@ async function select(portalUserId, tenant) {
     sessionPolicy,
     token,
     session,
-    { tenant },
+    { membership: await membershipIn(db, portalUserId, tenant) },
     { runtime: registry }
   );
 }
@@ -191,8 +192,9 @@ async function cellRoles(cellId, tenantId) {
              JOIN app.role_grants g ON g.role_id=r.id ORDER BY r.code`
         ),
         assignments: await tx.any(
-          `SELECT a.portal_user_id, r.code FROM app.role_assignments a
-             JOIN app.roles r ON r.id=a.role_id`
+          `SELECT m.portal_user_id, r.code FROM app.role_assignments a
+             JOIN app.roles r ON r.id=a.role_id
+             JOIN cell.tenant_members m ON m.id=a.membership_id`
         ),
         // M0005-R022: the first administrator's directory rows.
         people: await tx.any(

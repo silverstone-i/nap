@@ -28,6 +28,7 @@ export const portalUserTenantsSchema = {
     { name: 'status', type: 'text', notNull: true, default: 'pending' },
     { name: 'member_id', type: 'uuid' },
     { name: 'ready', type: 'boolean', notNull: true, default: false },
+    { name: 'member_label', type: 'text' },
     { name: 'revision', type: 'integer', notNull: true, default: 1 },
   ],
   constraints: {
@@ -54,9 +55,19 @@ export const portalUserTenantsSchema = {
     ],
     indexes: [
       {
-        columns: ['portal_user_id', 'tenant_id'],
+        columns: ['portal_user_id', 'tenant_id', 'member_id'],
         unique: true,
         where: 'deactivated_at IS NULL',
+      },
+      {
+        columns: ['portal_user_id', 'tenant_id'],
+        unique: true,
+        where: 'member_id IS NULL AND deactivated_at IS NULL',
+      },
+      {
+        columns: ['tenant_id', 'member_id'],
+        unique: true,
+        where: "status IN ('pending', 'active') AND deactivated_at IS NULL",
       },
       { columns: ['tenant_id', 'status'] },
     ],
@@ -73,7 +84,7 @@ function table(model) {
   return `${model.schemaName}.${model.tableName}`;
 }
 
-/** Model for `admin.portal_user_tenants`. Adds the locked read bootstrap needs. */
+/** Model for `admin.portal_user_tenants`, with the locked reads membership changes need. */
 export class PortalUserTenants extends RevisionedTableModel {
   static schema = portalUserTenantsSchema;
   static revisionedColumns = [
@@ -81,6 +92,7 @@ export class PortalUserTenants extends RevisionedTableModel {
     'tenant_id',
     'member_type',
     'member_id',
+    'member_label',
     'status',
   ];
   static outboxTopic = 'membership';
@@ -91,6 +103,7 @@ export class PortalUserTenants extends RevisionedTableModel {
       portal_user_id: row.portal_user_id,
       member_type: row.member_type,
       member_id: row.member_id,
+      member_label: row.member_label ?? null,
       status: row.status,
       deactivated_at: row.deactivated_at ?? null,
     };
@@ -100,16 +113,70 @@ export class PortalUserTenants extends RevisionedTableModel {
   }
 
   /**
-   * Lock and return the active membership linking a portal user and tenant, if any.
+   * Lock and return a portal user's unarchived membership for one party in a
+   * tenant (I0012-R003).
+   * @param {string} portalUserId
+   * @param {string} tenantId
+   * @param {string} memberId The party ID.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockByParty(portalUserId, tenantId, memberId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)}
+        WHERE portal_user_id=$1 AND tenant_id=$2 AND member_id=$3
+          AND deactivated_at IS NULL FOR UPDATE`,
+      [portalUserId, tenantId, memberId]
+    );
+  }
+
+  /**
+   * Lock and return the pending or active membership holding a party, of any
+   * login (I0012-R002).
+   * @param {string} tenantId
+   * @param {string} memberId The party ID.
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object|null>}
+   */
+  async lockHolderOfParty(tenantId, memberId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT * FROM ${table(this)}
+        WHERE tenant_id=$1 AND member_id=$2 AND status IN ('pending', 'active')
+          AND deactivated_at IS NULL FOR UPDATE`,
+      [tenantId, memberId]
+    );
+  }
+
+  /**
+   * Lock and return a portal user's unarchived membership in a tenant that
+   * has no party yet: the bootstrap login's, or an M0001-08 membership
+   * before provisioning reports its member.
    * @param {string} portalUserId
    * @param {string} tenantId
    * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
    * @returns {Promise<object|null>}
    */
-  async lockByUserAndTenant(portalUserId, tenantId, { tx }) {
+  async lockWithoutParty(portalUserId, tenantId, { tx }) {
     return tx.oneOrNone(
       `SELECT * FROM ${table(this)}
-        WHERE portal_user_id=$1 AND tenant_id=$2 AND deactivated_at IS NULL FOR UPDATE`,
+        WHERE portal_user_id=$1 AND tenant_id=$2 AND member_id IS NULL
+          AND deactivated_at IS NULL FOR UPDATE`,
+      [portalUserId, tenantId]
+    );
+  }
+
+  /**
+   * Lock and return every unarchived membership of a portal user in a tenant.
+   * @param {string} portalUserId
+   * @param {string} tenantId
+   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
+   * @returns {Promise<object[]>}
+   */
+  async lockByUserAndTenant(portalUserId, tenantId, { tx }) {
+    return tx.any(
+      `SELECT * FROM ${table(this)}
+        WHERE portal_user_id=$1 AND tenant_id=$2 AND deactivated_at IS NULL
+        ORDER BY id FOR UPDATE`,
       [portalUserId, tenantId]
     );
   }

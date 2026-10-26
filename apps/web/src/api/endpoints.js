@@ -21,7 +21,8 @@ import {
   sessionCapabilitiesSchema,
   sessionResponseSchema,
   tenantsListResponseSchema,
-  userRolesSchema,
+  membershipRolesSchema,
+  tenantMembershipSchema,
   userMembershipsResponseSchema,
   userResponseSchema,
   usersListResponseSchema,
@@ -97,18 +98,20 @@ export async function getAccessContext() {
   return accessContextResponseSchema.parse({ version: 1, data }).data;
 }
 
-/** @returns {Promise<object[]>} The caller's eligible tenants. */
+/** @returns {Promise<object[]>} The caller's picker entries: one per membership (I0012-R008). */
 export async function listTenants() {
   const data = await apiGet(`${BASE}/access/tenants`);
   return eligibleTenantsResponseSchema.parse({ version: 1, data }).data;
 }
 
 /**
- * @param {string} tenantId
- * @returns {Promise<object>} Safe session view with `tenant` set.
+ * @param {string} membershipId The picker entry's membership (I0012-R009).
+ * @returns {Promise<object>} Safe session view with `tenant` and `membership` set.
  */
-export async function selectTenant(tenantId) {
-  const data = await apiPost(`${BASE}/access/select`, { tenant: tenantId });
+export async function selectTenant(membershipId) {
+  const data = await apiPost(`${BASE}/access/select`, {
+    membership: membershipId,
+  });
   return sessionResponseSchema.parse({ version: 1, data }).data;
 }
 
@@ -357,7 +360,7 @@ export async function bulkPortalUserAction(action, ids) {
 /**
  * A login's memberships across tenants (I0008-R013).
  * @param {string} id Portal-user UUID.
- * @returns {Promise<object[]>} `{id, tenantId, tenantCode, tenantName, memberType, status}` rows.
+ * @returns {Promise<object[]>} `{id, tenantId, tenantCode, tenantName, memberType, label, status}` rows.
  */
 export async function listUserMemberships(id) {
   const data = await apiGet(`${BASE}/accounts/users/${id}/memberships`);
@@ -486,24 +489,36 @@ export async function bulkRoleAction(action, items) {
   return z.strictObject({ rows: z.array(roleViewSchema) }).parse(data).rows;
 }
 
-/** @param {string} userId @returns {Promise<{userId: string, roles: RoleView[]}>} Active assignments only. */
-export async function getUserRoles(userId) {
-  return userRolesSchema.parse(
-    await apiGet(`${ACCESS_BASE}/users/${userId}/roles`)
+/** @returns {Promise<object[]>} The tenant's pending and active memberships (I0012-R017). */
+export async function listTenantMemberships() {
+  return z
+    .array(tenantMembershipSchema)
+    .parse(await apiGet(`${ACCESS_BASE}/memberships`));
+}
+
+/** @param {string} membershipId @returns {Promise<{membershipId: string, roles: RoleView[]}>} Active assignments only. */
+export async function getMembershipRoles(membershipId) {
+  return membershipRolesSchema.parse(
+    await apiGet(`${ACCESS_BASE}/memberships/${membershipId}/roles`)
   );
 }
 
-/** @param {string} userId @param {string} roleId @returns {Promise<{userId: string, roles: RoleView[]}>} */
-export async function assignUserRole(userId, roleId) {
-  return userRolesSchema.parse(
-    await apiPut(`${ACCESS_BASE}/users/${userId}/roles/${roleId}`, {})
+/** @param {string} membershipId @param {string} roleId @returns {Promise<{membershipId: string, roles: RoleView[]}>} */
+export async function assignMembershipRole(membershipId, roleId) {
+  return membershipRolesSchema.parse(
+    await apiPut(
+      `${ACCESS_BASE}/memberships/${membershipId}/roles/${roleId}`,
+      {}
+    )
   );
 }
 
-/** @param {string} userId @param {string} roleId @returns {Promise<{userId: string, roles: RoleView[]}>} */
-export async function removeUserRole(userId, roleId) {
-  return userRolesSchema.parse(
-    await apiDelete(`${ACCESS_BASE}/users/${userId}/roles/${roleId}`)
+/** @param {string} membershipId @param {string} roleId @returns {Promise<{membershipId: string, roles: RoleView[]}>} */
+export async function removeMembershipRole(membershipId, roleId) {
+  return membershipRolesSchema.parse(
+    await apiDelete(
+      `${ACCESS_BASE}/memberships/${membershipId}/roles/${roleId}`
+    )
   );
 }
 

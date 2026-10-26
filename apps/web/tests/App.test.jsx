@@ -52,6 +52,13 @@ it('sends an unauthenticated visitor to /login', async () => {
 });
 
 const napsoft = { id: 't1', code: 'NAP', name: 'Napsoft', tier: 'starter' };
+/** Napsoft as a picker entry (I0012-R008). */
+const napsoftEntry = {
+  membershipId: 'm1',
+  tenant: napsoft,
+  memberType: null,
+  label: null,
+};
 
 function renderAt(path) {
   return render(
@@ -72,7 +79,7 @@ it('sends management access with eligible tenants to tenant selection (I0001-R00
     entryPoints: { tenant: true },
   });
   api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
-  api.listTenants.mockResolvedValue([napsoft]);
+  api.listTenants.mockResolvedValue([napsoftEntry]);
   renderAt('/');
   expect(await screen.findByText('Napsoft')).toBeTruthy();
   expect(screen.queryByText('No tenant selected.')).toBeNull();
@@ -114,7 +121,7 @@ it('lets a user with a tenant selected open tenant selection to switch', async (
     operator: napsoft,
     entryPoints: { tenant: true },
   });
-  api.listTenants.mockResolvedValue([napsoft]);
+  api.listTenants.mockResolvedValue([napsoftEntry]);
   renderAt('/tenants');
   expect(
     await screen.findByRole('heading', { name: 'Choose a tenant' })
@@ -129,7 +136,7 @@ it('sends a tenant-only user with no selection to tenant selection', async () =>
     operator: napsoft,
     entryPoints: { tenant: true },
   });
-  api.listTenants.mockResolvedValue([napsoft]);
+  api.listTenants.mockResolvedValue([napsoftEntry]);
   renderAt('/home');
   expect(
     await screen.findByRole('heading', { name: 'Choose a tenant' })

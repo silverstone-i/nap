@@ -32,3 +32,22 @@ export function insertTenant(db, overrides = {}) {
     )
   );
 }
+
+/**
+ * The ID of a login's unarchived membership in a tenant, for selecting it
+ * (I0012-R009). Tests that give a login one party per tenant use this; it
+ * takes the oldest when there are several.
+ * @param {object} db Admin repository handle.
+ * @param {string} portalUserId
+ * @param {string} tenantId
+ * @returns {Promise<string>}
+ */
+export async function membershipIn(db, portalUserId, tenantId) {
+  const row = await db.one(
+    `SELECT id FROM admin.portal_user_tenants
+      WHERE portal_user_id=$1 AND tenant_id=$2 AND deactivated_at IS NULL
+      ORDER BY created_at, id LIMIT 1`,
+    [portalUserId, tenantId]
+  );
+  return row.id;
+}

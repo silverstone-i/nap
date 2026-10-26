@@ -51,14 +51,15 @@ afterEach(() => {
 });
 
 describe('TenantsPage', () => {
-  it('lists eligible tenants and selects one', async () => {
+  it('lists eligible tenants and selects one by membership (I0012-R009)', async () => {
+    const tenant = {
+      id: 'tenant-1',
+      code: 'ACME',
+      name: 'Acme Construction',
+      tier: 'starter',
+    };
     api.listTenants.mockResolvedValue([
-      {
-        id: 'tenant-1',
-        code: 'ACME',
-        name: 'Acme Construction',
-        tier: 'starter',
-      },
+      { membershipId: 'm-1', tenant, memberType: 'employee', label: null },
     ]);
     api.selectTenant.mockResolvedValue({
       tenant: 'tenant-1',
@@ -69,11 +70,70 @@ describe('TenantsPage', () => {
     const user = userEvent.setup();
 
     await screen.findByText('Acme Construction');
+    api.getAccessContext.mockResolvedValueOnce({
+      ...READY_MULTI_TENANT,
+      selectedTenant: tenant,
+      membership: { id: 'm-1', memberType: 'employee', label: null },
+      membershipsInTenant: 1,
+    });
     await user.click(screen.getByText('Acme Construction'));
 
+    expect(api.selectTenant).toHaveBeenCalledWith('m-1');
     await waitFor(() =>
       expect(screen.getByText('Acme Construction workspace.')).toBeTruthy()
     );
+  });
+
+  it('lists each party in a tenant and names the selected one in the header (I0012-R010, R012)', async () => {
+    const tenant = {
+      id: 'tenant-1',
+      code: 'ACME',
+      name: 'Acme Construction',
+      tier: 'starter',
+    };
+    const vendor = {
+      id: 'm-2',
+      memberType: 'vendor_contact',
+      label: 'Vendor · Black Plumbing',
+    };
+    api.listTenants.mockResolvedValue([
+      {
+        membershipId: 'm-1',
+        tenant,
+        memberType: 'employee',
+        label: 'Employee',
+      },
+      {
+        membershipId: vendor.id,
+        tenant,
+        memberType: vendor.memberType,
+        label: vendor.label,
+      },
+    ]);
+    api.selectTenant.mockResolvedValue({
+      tenant: 'tenant-1',
+      restricted: false,
+    });
+
+    renderAt('/tenants');
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Employee')).toBeTruthy();
+    expect(screen.getAllByText('Acme Construction')).toHaveLength(2);
+    api.getAccessContext.mockResolvedValueOnce({
+      ...READY_MULTI_TENANT,
+      selectedTenant: tenant,
+      membership: vendor,
+      membershipsInTenant: 2,
+    });
+    await user.click(screen.getByText('Vendor · Black Plumbing'));
+
+    expect(api.selectTenant).toHaveBeenCalledWith('m-2');
+    expect(
+      await screen.findByRole('button', {
+        name: /Selected tenant: Acme Construction · Vendor · Black Plumbing/,
+      })
+    ).toBeTruthy();
   });
 
   it('shows an empty state when there are no tenants', async () => {

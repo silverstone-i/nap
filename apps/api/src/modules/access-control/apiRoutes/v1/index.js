@@ -14,12 +14,13 @@ import {
   createRole,
   getRole,
   listCapabilities,
+  listMemberships,
   listRoles,
+  membershipRoles,
   removeRole,
   restoreRole,
   restoreRoles,
   updateRole,
-  userRoles,
 } from '../../domain/roles.js';
 import { accessControlContext, sendAccessControlError } from './shared.js';
 
@@ -135,33 +136,51 @@ export function createRolesRouter(deps) {
 }
 
 /**
- * Build the `users` router: a tenant member's role assignments (M0003 §10).
+ * Build the `memberships` router: the tenant's memberships and each one's
+ * role assignments (M0003 §10, I0012-R013, R017).
  * @param {object} deps
  * @returns {import('express').Router}
  */
-export function createUsersRouter(deps) {
+export function createMembershipsRouter(deps) {
   const router = Router();
   router.get(
-    '/:userId/roles',
+    '/',
     ...route(deps, READ, async (context, request, response) =>
-      sendData(response, await userRoles(context, request.params.userId))
+      sendData(response, await listMemberships(context))
+    )
+  );
+  router.get(
+    '/:membershipId/roles',
+    ...route(deps, READ, async (context, request, response) =>
+      sendData(
+        response,
+        await membershipRoles(context, request.params.membershipId)
+      )
     )
   );
   router.put(
-    '/:userId/roles/:roleId',
+    '/:membershipId/roles/:roleId',
     ...route(deps, ASSIGN, async (context, request, response) =>
       sendData(
         response,
-        await assignRole(context, request.params.userId, request.params.roleId)
+        await assignRole(
+          context,
+          request.params.membershipId,
+          request.params.roleId
+        )
       )
     )
   );
   router.delete(
-    '/:userId/roles/:roleId',
+    '/:membershipId/roles/:roleId',
     ...route(deps, ASSIGN, async (context, request, response) =>
       sendData(
         response,
-        await removeRole(context, request.params.userId, request.params.roleId)
+        await removeRole(
+          context,
+          request.params.membershipId,
+          request.params.roleId
+        )
       )
     )
   );
@@ -175,7 +194,7 @@ export function createUsersRouter(deps) {
 export const accessControlRoutesV1 = [
   { router: 'capabilities', factory: createCapabilitiesRouter },
   { router: 'roles', factory: createRolesRouter },
-  { router: 'users', factory: createUsersRouter },
+  { router: 'memberships', factory: createMembershipsRouter },
 ].map(entry => ({
   module: 'access-control',
   version: 1,

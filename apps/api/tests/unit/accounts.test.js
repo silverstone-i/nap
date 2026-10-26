@@ -247,15 +247,15 @@ function fakeAdmin() {
         [...membershipStore.values()]
           .filter(row => !row.deactivated_at && matches(row, conditions))
           .map(row => ({ ...row })),
-      lockByUserAndTenant: async (portalUserId, tenantId) => {
-        const found = [...membershipStore.values()].find(
-          row =>
-            row.portal_user_id === portalUserId &&
-            row.tenant_id === tenantId &&
-            !row.deactivated_at
-        );
-        return found ? { ...found } : null;
-      },
+      lockByUserAndTenant: async (portalUserId, tenantId) =>
+        [...membershipStore.values()]
+          .filter(
+            row =>
+              row.portal_user_id === portalUserId &&
+              row.tenant_id === tenantId &&
+              !row.deactivated_at
+          )
+          .map(row => ({ ...row })),
       lockById: async id => {
         const found = membershipStore.get(id);
         return found ? { ...found } : null;
@@ -336,14 +336,10 @@ function fakeAdmin() {
         }
         return archived;
       },
-      archiveForUserAndTenant: async (portalUserId, tenantId) => {
+      archiveForMembership: async membershipId => {
         const archived = [];
         for (const row of sessionStore.values()) {
-          if (
-            row.portal_user_id === portalUserId &&
-            row.tenant_id === tenantId &&
-            !row.deactivated_at
-          ) {
+          if (row.membership_id === membershipId && !row.deactivated_at) {
             row.deactivated_at = new Date();
             archived.push({ id: row.id, tenant_id: row.tenant_id });
           }
@@ -1039,7 +1035,7 @@ describe('memberships', () => {
     expect(second.body.data).toEqual(first.body.data);
   });
 
-  it('suspends an active membership, clears readiness, and revokes tenant sessions', async () => {
+  it('suspends an active membership, clears readiness, and revokes its sessions', async () => {
     const { app, admin, cookie } = api();
     const membership = seedMembership(admin, {
       status: 'active',
@@ -1050,6 +1046,7 @@ describe('memberships', () => {
       id: randomUUID(),
       portal_user_id: membership.portal_user_id,
       tenant_id: membership.tenant_id,
+      membership_id: membership.id,
       deactivated_at: null,
     });
     const response = await request(app)

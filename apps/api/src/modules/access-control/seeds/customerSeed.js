@@ -26,18 +26,18 @@ export function customerRoles(tenantCode) {
  * (M0003-R009, I0006-R007).
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {{tenantId: string, tenantCode: string, portalUserId: string}} tenant
+ * @param {{tenantId: string, tenantCode: string, membershipId: string}} tenant
  * @returns {Promise<{created: string[], assignmentId: string}>}
  * @throws {import('./napsoftSeed.js').NapsoftSeedError} `SEED_DRIFT`
  */
 export async function seedCustomerTenant(
   db,
   tx,
-  { tenantId, tenantCode, portalUserId }
+  { tenantId, tenantCode, membershipId }
 ) {
   return seedRoles(db, tx, {
     tenantId,
-    portalUserId,
+    membershipId,
     roles: customerRoles(tenantCode),
     assign: 'tenant_admin',
   });
@@ -48,17 +48,17 @@ export async function seedCustomerTenant(
  * unchanged. Writes nothing.
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {{tenantId: string, tenantCode: string, portalUserId: string}} tenant
+ * @param {{tenantId: string, tenantCode: string, membershipId: string}} tenant
  * @returns {Promise<boolean>}
  */
 export async function customerSeedPresent(
   db,
   tx,
-  { tenantId, tenantCode, portalUserId }
+  { tenantId, tenantCode, membershipId }
 ) {
   return rolesPresent(db, tx, {
     tenantId,
-    portalUserId,
+    membershipId,
     roles: customerRoles(tenantCode),
     assign: 'tenant_admin',
   });

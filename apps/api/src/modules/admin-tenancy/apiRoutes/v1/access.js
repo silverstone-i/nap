@@ -52,7 +52,7 @@ export function createAccessRouter({
     async (request, response) => {
       try {
         const { session } = request;
-        const [user, tenants, selectedTenant, operator] = await Promise.all([
+        const [user, entries, selectedTenant, operator] = await Promise.all([
           admin.db.portal_users.findOneBy(
             { id: session.user, status: 'active' },
             { columnWhitelist: ['id', 'email'] }
@@ -82,7 +82,13 @@ export function createAccessRouter({
           operator: operator ? eligibleTenantView(operator) : null,
           // What the user may do comes from `GET /session/capabilities`
           // (I0005-R010).
-          entryPoints: { tenant: tenants.length > 0 },
+          // I0012-R012: the shell shows the party label only when the
+          // caller has more than one entry in the selected tenant.
+          membership: session.membership ?? null,
+          membershipsInTenant: session.tenant
+            ? entries.filter(entry => entry.tenant.id === session.tenant).length
+            : 0,
+          entryPoints: { tenant: entries.length > 0 },
         });
       } catch (error) {
         sendSessionError(response, error);

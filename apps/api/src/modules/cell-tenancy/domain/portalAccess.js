@@ -29,6 +29,7 @@ const requestSchema = z.strictObject({
     'vendor_contact',
     'client_contact',
   ]),
+  memberLabel: z.string().max(400).nullable().optional(),
   email: z.email(),
   enabled: z.boolean(),
   temporaryPassword: z.unknown().optional(),
@@ -44,7 +45,7 @@ const requestSchema = z.strictObject({
  * only the hash is written.
  * @param {object} tx The caller's cell transaction (a pg-schemata task, so it
  *   carries the cell models).
- * @param {{tenantId: string, memberId: string, memberType: string, email: string, enabled: boolean, temporaryPassword?: string}} request
+ * @param {{tenantId: string, memberId: string, memberType: string, memberLabel?: string|null, email: string, enabled: boolean, temporaryPassword?: string}} request
  * @param {{hashingPolicy?: {memoryKib: number, timeCost: number, parallelism: number}}} [options]
  * @returns {Promise<{revision: number}>}
  * @throws {PortalAccessError} `INVALID_INPUT`
@@ -56,13 +57,21 @@ export async function requestPortalAccess(
 ) {
   const parsed = requestSchema.safeParse(request);
   if (!parsed.success) throw new PortalAccessError('INVALID_INPUT');
-  const { tenantId, memberId, memberType, email, enabled, temporaryPassword } =
-    parsed.data;
+  const {
+    tenantId,
+    memberId,
+    memberType,
+    memberLabel,
+    email,
+    enabled,
+    temporaryPassword,
+  } = parsed.data;
 
   const payload = {
     tenant_id: tenantId,
     member_id: memberId,
     member_type: memberType,
+    member_label: memberLabel ?? null,
     email: email.trim().toLowerCase(),
     enabled,
   };
@@ -94,6 +103,48 @@ export async function requestPortalAccess(
       entity_id: memberId,
       revision,
       payload,
+    },
+    { tx }
+  );
+  return { revision };
+}
+
+const labelSchema = z.strictObject({
+  tenantId: z.uuid(),
+  memberId: z.uuid(),
+  label: z.string().min(1).max(400),
+});
+
+/**
+ * Ask the admin database to relabel every membership of one party
+ * (I0012-R007), in the caller's cell transaction. Admin's change comes back
+ * to the cell as a membership copy.
+ * @param {object} tx The caller's cell transaction.
+ * @param {{tenantId: string, memberId: string, label: string}} request
+ * @returns {Promise<{revision: number}>}
+ * @throws {PortalAccessError} `INVALID_INPUT`
+ */
+export async function requestMemberLabel(tx, request) {
+  const parsed = labelSchema.safeParse(request);
+  if (!parsed.success) throw new PortalAccessError('INVALID_INPUT');
+  const { tenantId, memberId, label } = parsed.data;
+  await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `cell.outbox|member_label|${memberId}`,
+  ]);
+  const revision = await tx.outbox.nextRevision('member_label', memberId, {
+    tx,
+  });
+  await tx.outbox.insert(
+    {
+      tenant_id: tenantId,
+      topic: 'member_label',
+      entity_id: memberId,
+      revision,
+      payload: {
+        tenant_id: tenantId,
+        member_id: memberId,
+        member_label: label,
+      },
     },
     { tx }
   );

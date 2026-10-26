@@ -419,7 +419,7 @@ describe('PortalUsersPage', () => {
       return user;
     }
 
-    it("shows a login's memberships", async () => {
+    it("shows a login's memberships, one row per party (I0012-R020)", async () => {
       api.listUserMemberships.mockResolvedValue([
         {
           id: 'm1',
@@ -427,14 +427,25 @@ describe('PortalUsersPage', () => {
           tenantCode: 'ACME',
           tenantName: 'Acme',
           memberType: 'employee',
+          label: 'Employee',
           status: 'pending',
+        },
+        {
+          id: 'm2',
+          tenantId: 't1',
+          tenantCode: 'ACME',
+          tenantName: 'Acme',
+          memberType: 'vendor_contact',
+          label: 'Vendor · Black Plumbing',
+          status: 'active',
         },
       ]);
       await openAction('Memberships');
       const dialog = await screen.findByRole('dialog', {
         name: 'Memberships of a@example.com',
       });
-      expect(await within(dialog).findByText('Acme (ACME)')).toBeTruthy();
+      expect(await within(dialog).findAllByText('Acme (ACME)')).toHaveLength(2);
+      expect(within(dialog).getByText('Vendor · Black Plumbing')).toBeTruthy();
       expect(within(dialog).getByText('pending')).toBeTruthy();
       expect(api.listUserMemberships).toHaveBeenCalledWith('u1');
     });

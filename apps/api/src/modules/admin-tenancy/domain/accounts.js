@@ -750,7 +750,7 @@ export async function updateUser(
  * @param {AdminAccountsDb} db
  * @param {unknown} authority `{actorId, scope}` built for `admin-tenancy::accounts::read`.
  * @param {unknown} userId
- * @returns {Promise<object[]>} `{id, tenantId, tenantCode, tenantName, memberType, status}` rows.
+ * @returns {Promise<object[]>} `{id, tenantId, tenantCode, tenantName, memberType, label, status}` rows, one per party (I0012-R020).
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `INTERNAL_ERROR`
  */
 export async function listUserMemberships(db, authority, userId) {
@@ -764,11 +764,12 @@ export async function listUserMemberships(db, authority, userId) {
     if (!user) throw new AdminAccountError('NOT_FOUND');
     const rows = await db.tx(tx =>
       tx.any(
-        `SELECT m.id, m.tenant_id, t.tenant_code, t.name, m.member_type, m.status
+        `SELECT m.id, m.tenant_id, t.tenant_code, t.name, m.member_type,
+                m.member_label, m.status
            FROM admin.portal_user_tenants m
            JOIN admin.tenants t ON t.id = m.tenant_id
           WHERE m.portal_user_id = $1 AND m.deactivated_at IS NULL
-          ORDER BY t.tenant_code`,
+          ORDER BY t.tenant_code, m.member_label NULLS FIRST, m.id`,
         [id]
       )
     );
@@ -778,6 +779,7 @@ export async function listUserMemberships(db, authority, userId) {
       tenantCode: row.tenant_code,
       tenantName: row.name,
       memberType: row.member_type,
+      label: row.member_label,
       status: row.status,
     }));
   });
@@ -1409,13 +1411,13 @@ export async function createMembership(
         );
         if (!tenant) throw new AdminAccountError('NOT_FOUND');
 
-        const existingMembership =
+        const existingMemberships =
           await db.portal_user_tenants.lockByUserAndTenant(
             normalized.portalUserId,
             normalized.tenantId,
             { tx }
           );
-        if (existingMembership) throw new AdminAccountError('CONFLICT');
+        if (existingMemberships.length) throw new AdminAccountError('CONFLICT');
 
         const membership = await db.portal_user_tenants.insert(
           {
@@ -1544,8 +1546,8 @@ export async function updateMembership(
           await revokeSessionsForMembership(
             db,
             {
+              membershipId: membership.id,
               portalUserId: membership.portal_user_id,
-              tenantId: membership.tenant_id,
               code: REVOCATION_CODES.accountIneligible,
               actorId: resolvedActorId,
               requestId,
@@ -1666,8 +1668,8 @@ export async function archiveMembership(
         await revokeSessionsForMembership(
           db,
           {
+            membershipId: membership.id,
             portalUserId: membership.portal_user_id,
-            tenantId: membership.tenant_id,
             code: REVOCATION_CODES.accountIneligible,
             actorId: resolvedActorId,
             requestId,
@@ -2053,13 +2055,14 @@ export async function createFirstAdministrator(
     tenantId,
     { tx }
   );
-  if (existing) throw new AdminAccountError('CONFLICT');
+  if (existing.length) throw new AdminAccountError('CONFLICT');
   const membership = await db.portal_user_tenants.insert(
     {
       portal_user_id: login.id,
       tenant_id: tenantId,
       member_type: 'employee',
       member_id: randomUUID(),
+      member_label: 'Employee',
       status: 'pending',
       ready: false,
     },
@@ -2076,6 +2079,42 @@ export async function createFirstAdministrator(
 }
 
 /**
+ * Relabel every unarchived membership of one party after its organization
+ * is renamed (I0012-R007), in the caller's admin transaction. Each changed
+ * membership writes its own outbox row, so the cell copies follow.
+ * @param {AdminAccountsDb} db
+ * @param {{tenantId: string, memberId: string, label: string}} request
+ * @param {{tx: object}} options
+ * @returns {Promise<number>} How many memberships changed.
+ */
+export async function applyMemberLabel(
+  db,
+  { tenantId, memberId, label },
+  { tx }
+) {
+  await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY_MEMBERSHIPS})`);
+  const rows = await tx.any(
+    `SELECT id FROM admin.portal_user_tenants
+      WHERE tenant_id=$1 AND member_id=$2 AND deactivated_at IS NULL
+        AND member_label IS DISTINCT FROM $3
+      ORDER BY id FOR UPDATE`,
+    [tenantId, memberId, label]
+  );
+  for (const row of rows)
+    await db.portal_user_tenants.update(
+      row.id,
+      { member_label: label },
+      { tx }
+    );
+  if (rows.length)
+    await db.cache_revisions.advance(
+      rows.map(row => ({ domain: 'membership', entity: row.id })),
+      { tx }
+    );
+  return rows.length;
+}
+
+/**
  * Apply a tenant's portal-access request to the login and membership
  * (I0004-R024–R029), in the caller's admin transaction. The tenant comes
  * from the cell the request was read from, never from the payload.
@@ -2084,7 +2123,7 @@ export async function createFirstAdministrator(
  * that request `failed`. Membership writes go through the revisioned model,
  * so each change writes its own `admin.outbox` row (R030).
  * @param {AdminAccountsDb} db
- * @param {{tenantId: string, payload: {member_id: string, member_type: string, email: string, enabled: boolean, password_hash?: string}}} request
+ * @param {{tenantId: string, payload: {member_id: string, member_type: string, member_label?: string|null, email: string, enabled: boolean, password_hash?: string}}} request
  * @param {{tx: object}} options
  * @returns {Promise<{failureCode: string} | {failureCode: null, invitationPending: boolean}>}
  */
@@ -2092,29 +2131,30 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
   await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY_USERS})`);
   await tx.one(`SELECT pg_advisory_xact_lock(${LOCK_KEY_MEMBERSHIPS})`);
   const email = payload.email.trim().toLowerCase();
+  const label = payload.member_label ?? null;
   const login = await db.portal_users.lockActiveByEmail(email, { tx });
 
   if (!payload.enabled) {
     if (!login) return { failureCode: null, invitationPending: false };
-    const membership = await db.portal_user_tenants.lockByUserAndTenant(
+    const membership = await db.portal_user_tenants.lockByParty(
       login.id,
       tenantId,
+      payload.member_id,
       { tx }
     );
     if (!membership || membership.status === 'suspended')
       return { failureCode: null, invitationPending: false };
-    if (membership.member_id !== payload.member_id)
-      return { failureCode: 'MEMBER_CONFLICT' };
     await db.portal_user_tenants.update(
       membership.id,
       { status: 'suspended', ready: false },
       { tx }
     );
+    // I0012-R006: only sessions acting as this party end.
     await revokeSessionsForMembership(
       db,
       {
+        membershipId: membership.id,
         portalUserId: login.id,
-        tenantId,
         code: REVOCATION_CODES.accountIneligible,
       },
       { tx }
@@ -2125,6 +2165,15 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
     );
     return { failureCode: null, invitationPending: false };
   }
+
+  // I0012-R002, R004: a party belongs to at most one login.
+  const holder = await db.portal_user_tenants.lockHolderOfParty(
+    tenantId,
+    payload.member_id,
+    { tx }
+  );
+  if (holder && holder.portal_user_id !== login?.id)
+    return { failureCode: 'MEMBER_CONFLICT' };
 
   if (!login) {
     const created = await createLoginFromHash(
@@ -2138,6 +2187,7 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
         tenant_id: tenantId,
         member_type: payload.member_type,
         member_id: payload.member_id,
+        member_label: label,
         status: 'pending',
         ready: false,
       },
@@ -2155,25 +2205,44 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
 
   if (login.status === 'disabled') return { failureCode: 'LOGIN_UNAVAILABLE' };
 
-  const membership = await db.portal_user_tenants.lockByUserAndTenant(
+  // I0012-R015: a login holds at most one Napsoft membership.
+  const tenant = await db.tenants.findOneBy(
+    { id: tenantId },
+    { tx, columnWhitelist: ['is_napsoft'] }
+  );
+  if (tenant?.is_napsoft) {
+    const others = await db.portal_user_tenants.lockByUserAndTenant(
+      login.id,
+      tenantId,
+      { tx }
+    );
+    if (
+      others.some(
+        row => row.member_id !== payload.member_id && row.status !== 'suspended'
+      )
+    )
+      return { failureCode: 'MEMBER_CONFLICT' };
+  }
+
+  const membership = await db.portal_user_tenants.lockByParty(
     login.id,
     tenantId,
+    payload.member_id,
     { tx }
   );
-  if (membership && membership.member_id !== payload.member_id)
-    return { failureCode: 'MEMBER_CONFLICT' };
 
-  const activeElsewhere = await tx.oneOrNone(
+  // I0012-R005: any active membership, in this tenant or another, means the
+  // login is already in use, so the new one is active at once.
+  const activeMembership = await tx.oneOrNone(
     `SELECT id FROM admin.portal_user_tenants
-      WHERE portal_user_id=$1 AND tenant_id<>$2 AND status='active'
-        AND deactivated_at IS NULL
+      WHERE portal_user_id=$1 AND status='active' AND deactivated_at IS NULL
       LIMIT 1`,
-    [login.id, tenantId]
+    [login.id]
   );
-  const status = activeElsewhere ? 'active' : 'pending';
+  const status = activeMembership ? 'active' : 'pending';
 
   let invitationPending = false;
-  if (!activeElsewhere) {
+  if (!activeMembership) {
     if (login.must_change_password) invitationPending = true;
     else
       await db.portal_users.update(
@@ -2190,6 +2259,7 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
         tenant_id: tenantId,
         member_type: payload.member_type,
         member_id: payload.member_id,
+        member_label: label,
         status,
         ready: status === 'active',
       },
@@ -2198,7 +2268,18 @@ export async function applyPortalAccess(db, { tenantId, payload }, { tx }) {
   else if (membership.status === 'suspended')
     await db.portal_user_tenants.update(
       membership.id,
-      { status, member_type: payload.member_type, ready: status === 'active' },
+      {
+        status,
+        member_type: payload.member_type,
+        member_label: label,
+        ready: status === 'active',
+      },
+      { tx }
+    );
+  else if (membership.member_label !== label)
+    await db.portal_user_tenants.update(
+      membership.id,
+      { member_label: label },
       { tx }
     );
   if (!membership || membership.status === 'suspended')

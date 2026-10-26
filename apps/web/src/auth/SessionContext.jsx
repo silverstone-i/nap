@@ -37,6 +37,8 @@ const EMPTY = {
   session: null,
   user: null,
   selectedTenant: null,
+  membership: null,
+  membershipsInTenant: 0,
   operator: null,
   entryPoints: null,
   capabilities: null,
@@ -90,6 +92,10 @@ export function SessionProvider({ children }) {
       session: context.session,
       user: context.user,
       selectedTenant: context.selectedTenant,
+      // I0012: the party the session acts as, and how many parties the user
+      // has in this tenant, for the shell's label (R012).
+      membership: context.membership,
+      membershipsInTenant: context.membershipsInTenant,
       operator: context.operator,
       entryPoints: context.entryPoints,
       capabilities,
@@ -124,7 +130,8 @@ export function SessionProvider({ children }) {
   /**
    * Enter the application after login or a required password change
    * (I0001-R003): load the access context and, when no tenant is selected
-   * and exactly one is eligible, select it. Selection goes through the
+   * and the user has exactly one entry (tenant and party, I0012-R010),
+   * select it. Selection goes through the
    * normal server contract, so an unavailable cell simply leaves the user
    * unselected, and they can pick a tenant from the tenant control.
    * @param {{quiet?: boolean}} [options] `quiet` keeps the current status
@@ -143,11 +150,10 @@ export function SessionProvider({ children }) {
     }
     if (!context.selectedTenant && context.entryPoints?.tenant) {
       try {
-        const tenants = await api.listTenants();
-        if (tenants.length === 1) {
-          const session = await api.selectTenant(tenants[0].id);
-          context = { ...context, session, selectedTenant: tenants[0] };
-          capabilities = await api.getSessionCapabilities();
+        const entries = await api.listTenants();
+        if (entries.length === 1) {
+          await api.selectTenant(entries[0].membershipId);
+          [context, capabilities] = await loadContext();
         }
       } catch {
         // Stay unselected; tenant selection remains available.
@@ -257,18 +263,12 @@ export function SessionProvider({ children }) {
   );
 
   const selectTenant = useCallback(
-    async (tenantId, tenantSummary) => {
+    async membershipId => {
       try {
-        const session = await api.selectTenant(tenantId);
-        // I0005 §8: a new target tenant means new capabilities.
-        const capabilities = await api.getSessionCapabilities();
-        setState(prev => ({
-          ...prev,
-          status: 'ready',
-          session,
-          selectedTenant: tenantSummary,
-          capabilities,
-        }));
+        await api.selectTenant(membershipId);
+        // I0005 §8, I0012: a new tenant or party means new capabilities and
+        // a new label, so reload both.
+        applyContext(await loadContext());
       } catch (error) {
         if (error instanceof ApiError && error.code === 'UNAUTHENTICATED')
           return expire();

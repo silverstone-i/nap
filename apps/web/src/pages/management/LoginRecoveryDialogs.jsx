@@ -31,7 +31,8 @@ const MEMBER_TYPES = Object.freeze({
 });
 
 /**
- * A login's memberships across tenants (I0008-R013).
+ * A login's memberships across tenants, one row per party (I0008-R013,
+ * I0012-R020).
  * @param {{user: {id: string, email: string}, describeError: (err: unknown) => string, onClose: () => void}} props
  * @returns {import('react').JSX.Element}
  */
@@ -69,7 +70,7 @@ export function MembershipsDialog({ user, describeError, onClose }) {
               <TableHead>
                 <TableRow>
                   <TableCell>Tenant</TableCell>
-                  <TableCell>Member type</TableCell>
+                  <TableCell>Party</TableCell>
                   <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
@@ -80,7 +81,9 @@ export function MembershipsDialog({ user, describeError, onClose }) {
                       {row.tenantName} ({row.tenantCode})
                     </TableCell>
                     <TableCell>
-                      {MEMBER_TYPES[row.memberType] ?? 'Initial Napsoft login'}
+                      {row.label ??
+                        MEMBER_TYPES[row.memberType] ??
+                        'Initial Napsoft login'}
                     </TableCell>
                     <TableCell>{row.status}</TableCell>
                   </TableRow>

@@ -52,15 +52,16 @@ function RootRedirect() {
 
 /**
  * Every signed-in page renders inside the one application shell (I0001-R009).
- * The shell is keyed by the selected tenant, so switching tenants remounts
- * it and clears tenant-specific UI state by construction (I0001-R007).
+ * The shell is keyed by the selected membership, so switching tenant or
+ * party remounts it and clears tenant- and member-specific UI state by
+ * construction (I0001-R007, I0012-R011).
  * @param {{guard: import('react').ComponentType<{children: import('react').ReactNode}>, children: import('react').ReactNode}} props
  */
 function ShellRoute({ guard: Guard, children }) {
   const session = useSession();
   return (
     <Guard>
-      <AppShell key={session.selectedTenant?.id ?? 'none'}>{children}</AppShell>
+      <AppShell key={session.membership?.id ?? 'none'}>{children}</AppShell>
     </Guard>
   );
 }

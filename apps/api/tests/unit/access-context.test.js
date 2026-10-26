@@ -351,7 +351,34 @@ describe('GET /session/capabilities (I0005-R010)', () => {
     });
   });
 
-  it('uses the target tenant as home for a customer member', async () => {
+  it("uses the session's membership in the target tenant for a customer member", async () => {
+    const actorId = randomUUID();
+    const acme = tenantRow({ cell_id: randomUUID() });
+    const employee = membershipRow({
+      portal_user_id: actorId,
+      tenant_id: acme.id,
+    });
+    const data = await capabilities(
+      {
+        users: [{ id: actorId, email: 'user@example.com' }],
+        tenants: [napsoft, acme],
+        memberships: [
+          employee,
+          membershipRow({ portal_user_id: actorId, tenant_id: acme.id }),
+        ],
+      },
+      ['ACME::*::*::*'],
+      {
+        tenant_id: acme.id,
+        membership_id: employee.id,
+        membership: { id: employee.id, memberType: 'employee', label: null },
+      }
+    );
+    expect(data.homeTenant).toEqual({ id: acme.id, code: 'ACME' });
+    expect(data.patterns).toEqual(['ACME::*::*::*']);
+  });
+
+  it('resolves nothing in a customer tenant without a selected membership (I0012-R014)', async () => {
     const actorId = randomUUID();
     const acme = tenantRow({ cell_id: randomUUID() });
     const data = await capabilities(
@@ -365,8 +392,8 @@ describe('GET /session/capabilities (I0005-R010)', () => {
       ['ACME::*::*::*'],
       { tenant_id: acme.id }
     );
-    expect(data.homeTenant).toEqual({ id: acme.id, code: 'ACME' });
-    expect(data.patterns).toEqual(['ACME::*::*::*']);
+    expect(data.homeTenant).toBeNull();
+    expect(data.patterns).toEqual([]);
   });
 
   it('resolves nothing for a user with no active membership', async () => {

@@ -27,6 +27,7 @@ const OTHER = {
   cell_id: randomUUID(),
 };
 const TENANTS = [NAPSOFT, ACME, OTHER];
+const HOME_MEMBERSHIP = randomUUID();
 
 /**
  * Deps for `authorize` where `userId` is an active member of `homeTenantId`
@@ -48,7 +49,7 @@ function deps(userId, homeTenantId, patterns) {
     portal_user_tenants: {
       findWhere: async ({ portal_user_id }) =>
         portal_user_id === userId
-          ? [{ id: randomUUID(), tenant_id: homeTenantId }]
+          ? [{ id: HOME_MEMBERSHIP, tenant_id: homeTenantId }]
           : [],
     },
     module_entitlements: { findOneBy: async () => null },
@@ -67,7 +68,7 @@ describe('authorize with orTenantParam (M0001-10 §4)', () => {
     const user = randomUUID();
     const result = await authorize(
       deps(user, ACME.id, ['ACME::*::*::*']),
-      { user },
+      { user, membership: { id: HOME_MEMBERSHIP } },
       READ,
       { ...OPTIONS, params: { tenant: ACME.id } }
     );
@@ -80,7 +81,7 @@ describe('authorize with orTenantParam (M0001-10 §4)', () => {
     const user = randomUUID();
     const result = await authorize(
       deps(user, ACME.id, ['ACME::*::*::*']),
-      { user },
+      { user, membership: { id: HOME_MEMBERSHIP } },
       READ,
       { ...OPTIONS, params: { tenant: OTHER.id } }
     );
@@ -92,7 +93,7 @@ describe('authorize with orTenantParam (M0001-10 §4)', () => {
     const user = randomUUID();
     const result = await authorize(
       deps(user, ACME.id, ['ACME::*::*::*']),
-      { user },
+      { user, membership: { id: HOME_MEMBERSHIP } },
       READ,
       { ...OPTIONS, params: { tenant: NAPSOFT.id } }
     );
@@ -103,7 +104,7 @@ describe('authorize with orTenantParam (M0001-10 §4)', () => {
     const user = randomUUID();
     const result = await authorize(
       deps(user, NAPSOFT.id, ['NAP::admin-tenancy::entitlements::read']),
-      { user },
+      { user, membership: { id: HOME_MEMBERSHIP } },
       READ,
       { ...OPTIONS, params: { tenant: ACME.id } }
     );
@@ -116,7 +117,7 @@ describe('authorize with orTenantParam (M0001-10 §4)', () => {
     const user = randomUUID();
     const result = await authorize(
       deps(user, ACME.id, ['ACME::*::*::*']),
-      { user },
+      { user, membership: { id: HOME_MEMBERSHIP } },
       READ,
       { ...OPTIONS, params: { tenant: 'not-a-uuid' } }
     );

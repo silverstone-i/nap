@@ -30,17 +30,18 @@ import { isGuardedAdminRole } from './roles.js';
  * @property {(change: import('./roles.js').RoleChange, tx: object) => Promise<void>} record Writes a `role_change` outbox row.
  */
 
-/** Membership statuses, best first: a person's most useful login wins. */
+/** Membership statuses, best first: a person's most useful membership wins. */
 const MEMBERSHIP_RANK = { active: 0, pending: 1, suspended: 2 };
 
 /**
- * The person's login in this tenant, if a membership copy exists.
+ * The person's membership in this tenant, if a membership copy exists. Its
+ * roles are the person's (I0012-R017).
  * @param {MemberRolesContext} context
  * @param {string} partyId
  * @param {object} tx
- * @returns {Promise<{portal_user_id: string, status: string}|null>}
+ * @returns {Promise<{id: string, portal_user_id: string, status: string}|null>}
  */
-async function loginOf(context, partyId, tx) {
+async function membershipOf(context, partyId, tx) {
   const rows = await context.cell.tenant_members.byMemberIds(
     context.tenant.id,
     [partyId],
@@ -52,24 +53,22 @@ async function loginOf(context, partyId, tx) {
 
 /**
  * A person's current roles (I0010-R003): held roles while any are held,
- * otherwise the login's assignments, including roles kept while access is
- * off (R010).
+ * otherwise the membership's assignments, including roles kept while access
+ * is off (R010).
  * @param {MemberRolesContext} context
  * @param {string} partyId
  * @param {object} tx
- * @returns {Promise<{held: boolean, roleIds: string[], login: {portal_user_id: string, status: string}|null}>}
+ * @returns {Promise<{held: boolean, roleIds: string[], membership: {id: string, portal_user_id: string, status: string}|null}>}
  */
 export async function memberRoles(context, partyId, tx) {
-  const login = await loginOf(context, partyId, tx);
+  const membership = await membershipOf(context, partyId, tx);
   const held = await context.cell.held_roles.activeFor([partyId], { tx });
-  if (held.length > 0 && login?.status !== 'active')
-    return { held: true, roleIds: held.map(row => row.role_id), login };
-  const roleIds = login
-    ? await context.cell.role_assignments.activeRoleIds(login.portal_user_id, {
-        tx,
-      })
+  if (held.length > 0 && membership?.status !== 'active')
+    return { held: true, roleIds: held.map(row => row.role_id), membership };
+  const roleIds = membership
+    ? await context.cell.role_assignments.activeRoleIds(membership.id, { tx })
     : [];
-  return { held: false, roleIds, login };
+  return { held: false, roleIds, membership };
 }
 
 /**
@@ -138,9 +137,9 @@ export async function setMemberRoles(context, partyId, roleIds, tx) {
   }
   for (const id of dropped) await requireCovered(context, roles.get(id), tx);
 
-  const active = current.login?.status === 'active';
+  const active = current.membership?.status === 'active';
   if (active) {
-    const userId = current.login.portal_user_id;
+    const { membership } = current;
     for (const id of dropped) {
       const role = roles.get(id);
       if (
@@ -153,7 +152,7 @@ export async function setMemberRoles(context, partyId, roleIds, tx) {
       )
         throw new AccessControlError('LAST_ADMIN');
       const assignment = await context.cell.role_assignments.lockActive(
-        userId,
+        membership.id,
         role.id,
         { tx }
       );
@@ -162,26 +161,29 @@ export async function setMemberRoles(context, partyId, roleIds, tx) {
         context.actorId,
         { tx }
       );
-      await context.record(assignmentChange(role, userId, false), tx);
+      await context.record(assignmentChange(role, membership, false), tx);
     }
     for (const id of added) {
       await context.cell.role_assignments.insert(
         {
           tenant_id: context.tenant.id,
-          portal_user_id: userId,
+          membership_id: membership.id,
           role_id: id,
           created_by: context.actorId,
           updated_by: context.actorId,
         },
         { tx }
       );
-      await context.record(assignmentChange(roles.get(id), userId, true), tx);
+      await context.record(
+        assignmentChange(roles.get(id), membership, true),
+        tx
+      );
     }
     return;
   }
 
   // Not an active member: the wanted set becomes the held set, even when the
-  // login keeps assignments from before access was turned off; activation
+  // membership keeps assignments from before access was turned off; activation
   // makes the assignments match it (R007).
   const held = await context.cell.held_roles.lockActive(partyId, { tx });
   const heldIds = held.map(row => row.role_id);
@@ -218,17 +220,18 @@ export async function setMemberRoles(context, partyId, roleIds, tx) {
 /**
  * The `role.granted` or `role.revoked` change for one assignment (M0003-R015).
  * @param {{id: string, code: string}} role
- * @param {string} portalUserId
+ * @param {{id: string, portal_user_id: string}} membership
  * @param {boolean} granted
  * @returns {import('./roles.js').RoleChange}
  */
-function assignmentChange(role, portalUserId, granted) {
+function assignmentChange(role, membership, granted) {
   return {
     eventKey: granted ? 'role.granted' : 'role.revoked',
     roleId: role.id,
     details: {
       role: role.code,
-      portal_user_id: portalUserId,
+      portal_user_id: membership.portal_user_id,
+      membership_id: membership.id,
       from_status: granted ? 'unassigned' : 'assigned',
       to_status: granted ? 'assigned' : 'unassigned',
     },
@@ -257,29 +260,30 @@ function heldChange(role, partyId, held) {
 
 /**
  * I0010-R007: when a person's membership copy arrives active, assign their
- * held roles to the login and clear the held set, in the same cell
- * transaction as the copy. The login's assignments end up exactly the held
+ * held roles to that membership (I0012-R016) and clear the held set, in the
+ * same cell transaction as the copy. Its assignments end up exactly the held
  * set, so roles kept from before access was turned off and not chosen again
  * are removed. A held role archived meanwhile is still assigned and grants
  * nothing until restored (R008). Each change is recorded with the user who
  * chose the roles as its actor (I0010 §12).
  * @param {object} cell The cell repository handle `tx` came from.
  * @param {object} tx The sync apply's cell transaction.
- * @param {{tenantId: string, partyId: string, portalUserId: string}} membership
+ * @param {{tenantId: string, partyId: string, membershipId: string, portalUserId: string}} membership
  * @returns {Promise<number>} How many held roles were applied.
  */
 export async function applyHeldRoles(
   cell,
   tx,
-  { tenantId, partyId, portalUserId }
+  { tenantId, partyId, membershipId, portalUserId }
 ) {
+  const membership = { id: membershipId, portal_user_id: portalUserId };
   // The sync apply runs outside a tenant transaction; the `app` tables need
   // the tenant setting for row-level security.
   await setTenant(tx, tenantId);
   const held = await cell.held_roles.lockActive(partyId, { tx });
   if (held.length === 0) return 0;
   const chooser = held.at(-1).created_by ?? portalUserId;
-  const assigned = await cell.role_assignments.activeRoleIds(portalUserId, {
+  const assigned = await cell.role_assignments.activeRoleIds(membershipId, {
     tx,
   });
   const heldIds = held.map(row => row.role_id);
@@ -305,12 +309,12 @@ export async function applyHeldRoles(
   for (const roleId of assigned.filter(id => !heldIds.includes(id))) {
     const role = await cell.roles.lockById(roleId, { tx });
     const assignment = await cell.role_assignments.lockActive(
-      portalUserId,
+      membershipId,
       roleId,
       { tx }
     );
     await cell.role_assignments.archive(assignment.id, chooser, { tx });
-    await record(assignmentChange(role, portalUserId, false), chooser);
+    await record(assignmentChange(role, membership, false), chooser);
   }
   for (const row of held) {
     const actorId = row.created_by ?? portalUserId;
@@ -319,14 +323,14 @@ export async function applyHeldRoles(
       await cell.role_assignments.insert(
         {
           tenant_id: tenantId,
-          portal_user_id: portalUserId,
+          membership_id: membershipId,
           role_id: row.role_id,
           created_by: actorId,
           updated_by: actorId,
         },
         { tx }
       );
-      await record(assignmentChange(role, portalUserId, true), actorId);
+      await record(assignmentChange(role, membership, true), actorId);
     }
     await cell.held_roles.release(row.id, actorId, { tx });
   }

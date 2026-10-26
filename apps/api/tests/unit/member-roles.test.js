@@ -10,6 +10,7 @@ import { applyPortalRoles } from '../../src/modules/business-directory/domain/po
 const TENANT = '11111111-1111-4111-8111-111111111111';
 const PARTY = '22222222-2222-4222-8222-222222222222';
 const LOGIN = '33333333-3333-4333-8333-333333333333';
+const MEMBERSHIP = '66666666-6666-4666-8666-666666666666';
 const ADMIN_ROLE = {
   id: '44444444-4444-4444-8444-444444444444',
   code: 'tenant_admin',
@@ -32,7 +33,12 @@ function cellWith({ adminHolders }) {
   return {
     tenant_members: {
       byMemberIds: async () => [
-        { member_id: PARTY, portal_user_id: LOGIN, status: 'active' },
+        {
+          id: MEMBERSHIP,
+          member_id: PARTY,
+          portal_user_id: LOGIN,
+          status: 'active',
+        },
       ],
     },
     held_roles: { activeFor: async () => [] },
@@ -78,7 +84,7 @@ describe('setMemberRoles (I0010-R009)', () => {
     expect(cell.role_assignments.archive).toHaveBeenCalledTimes(1);
     expect(cell.role_assignments.insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        portal_user_id: LOGIN,
+        membership_id: MEMBERSHIP,
         role_id: CLERK_ROLE.id,
       }),
       { tx: {} }

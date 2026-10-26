@@ -33,6 +33,7 @@ import {
   seedReferenceData,
 } from '../../src/modules/reference-data/seeds/referenceSeed.js';
 import snapshot from '../../src/modules/reference-data/seeds/snapshot.json' with { type: 'json' };
+import { membershipIn } from './helpers/tenantRows.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -117,7 +118,7 @@ async function staff() {
     sessionPolicy,
     session.token,
     { user: user.id },
-    { tenant: napsoft.id },
+    { membership: await membershipIn(db, user.id, napsoft.id) },
     { runtime: registry }
   );
   return { id: user.id, cookie: `nap_session=${selected.token}` };
@@ -198,7 +199,7 @@ beforeAll(async () => {
     sessionPolicy,
     other.token,
     { user: rootId },
-    { tenant: napsoft.id },
+    { membership: await membershipIn(db, rootId, napsoft.id) },
     { runtime: registry }
   );
   cookie = `nap_session=${selected.token}`;

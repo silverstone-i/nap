@@ -80,15 +80,20 @@ async function eligibleTenant({
  * @param {string} tenantId
  * @returns {Promise<void>}
  */
-async function readyMembership(portalUserId, tenantId) {
-  await db.portal_user_tenants.insert({
+async function readyMembership(
+  portalUserId,
+  tenantId,
+  memberType = 'employee'
+) {
+  const row = await db.portal_user_tenants.insert({
     portal_user_id: portalUserId,
     tenant_id: tenantId,
-    member_type: 'employee',
+    member_type: memberType,
     status: 'active',
     ready: true,
     member_id: randomUUID(),
   });
+  return row.id;
 }
 
 /**
@@ -179,7 +184,19 @@ describe('listEligibleTenants', () => {
       ready: false,
     });
     const rows = await listEligibleTenants(db, user);
-    expect(rows.map(row => row.id)).toEqual([eligible]);
+    expect(rows.map(row => row.tenant.id)).toEqual([eligible]);
+  });
+
+  it('lists one entry per party in the same tenant (I0012-R008)', async () => {
+    const user = await portalUser();
+    const tenant = await eligibleTenant();
+    const employee = await readyMembership(user, tenant);
+    const vendor = await readyMembership(user, tenant, 'vendor_contact');
+    const rows = await listEligibleTenants(db, user);
+    expect(rows.map(row => row.membershipId).sort()).toEqual(
+      [employee, vendor].sort()
+    );
+    expect(new Set(rows.map(row => row.tenant.id))).toEqual(new Set([tenant]));
   });
 });
 
@@ -187,7 +204,7 @@ describe('selectTenant', () => {
   it('rotates the token and sets the tenant when everything is eligible', async () => {
     const user = await portalUser();
     const tenant = await eligibleTenant();
-    await readyMembership(user, tenant);
+    const membership = await readyMembership(user, tenant);
     await assignedEnabledCell(tenant);
     const created = await createSession(db, policy, { portalUserId: user });
 
@@ -196,14 +213,19 @@ describe('selectTenant', () => {
       policy,
       created.token,
       { user },
-      { tenant },
+      { membership },
       { runtime: readyRuntime }
     );
     expect(result.token).not.toBe(created.token);
     expect(result.session.tenant).toBe(tenant);
+    expect(result.session.membership).toMatchObject({
+      id: membership,
+      memberType: 'employee',
+    });
 
     const row = await stored(created.session.id);
     expect(row.tenant_id).toBe(tenant);
+    expect(row.membership_id).toBe(membership);
     expect(await eventsFor(created.session.id)).toContainEqual(
       expect.objectContaining({
         event_key: 'tenant.selected',
@@ -218,8 +240,13 @@ describe('selectTenant', () => {
     const notMyTenant = await eligibleTenant();
     const suspended = await eligibleTenant({ status: 'suspended' });
     const noCell = await eligibleTenant();
-    await readyMembership(user, suspended);
-    await readyMembership(user, noCell);
+    // I0012-R009: another login's membership is refused like a missing one.
+    const othersMembership = await readyMembership(
+      await portalUser(),
+      notMyTenant
+    );
+    const inSuspended = await readyMembership(user, suspended);
+    const inNoCell = await readyMembership(user, noCell);
     const created = await createSession(db, policy, { portalUserId: user });
 
     await expect(
@@ -228,7 +255,7 @@ describe('selectTenant', () => {
         policy,
         created.token,
         { user },
-        { tenant: notMyTenant },
+        { membership: othersMembership },
         { runtime: readyRuntime }
       )
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -239,7 +266,7 @@ describe('selectTenant', () => {
         policy,
         created.token,
         { user },
-        { tenant: suspended },
+        { membership: inSuspended },
         { runtime: readyRuntime }
       )
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
@@ -250,7 +277,7 @@ describe('selectTenant', () => {
         policy,
         created.token,
         { user },
-        { tenant: noCell },
+        { membership: inNoCell },
         { runtime: readyRuntime }
       )
     ).rejects.toMatchObject({ code: 'CELL_UNAVAILABLE' });
@@ -261,18 +288,18 @@ describe('selectTenant', () => {
   it('reports the cell unavailable without a runtime collaborator, even when the cell is enabled', async () => {
     const user = await portalUser();
     const tenant = await eligibleTenant();
-    await readyMembership(user, tenant);
+    const membership = await readyMembership(user, tenant);
     await assignedEnabledCell(tenant);
     const created = await createSession(db, policy, { portalUserId: user });
     await expect(
-      selectTenant(db, policy, created.token, { user }, { tenant })
+      selectTenant(db, policy, created.token, { user }, { membership })
     ).rejects.toMatchObject({ code: 'CELL_UNAVAILABLE' });
   });
 
   it('produces exactly one winner for concurrent selections of the same token', async () => {
     const user = await portalUser();
     const tenant = await eligibleTenant();
-    await readyMembership(user, tenant);
+    const membership = await readyMembership(user, tenant);
     await assignedEnabledCell(tenant);
     const created = await createSession(db, policy, { portalUserId: user });
     const attempts = await Promise.allSettled(
@@ -282,7 +309,7 @@ describe('selectTenant', () => {
           policy,
           created.token,
           { user },
-          { tenant },
+          { membership },
           { runtime: readyRuntime }
         )
       )

@@ -178,6 +178,7 @@ export const migration = defineMigration({
         { name: 'status', type: 'text', notNull: true, default: 'pending' },
         { name: 'member_id', type: 'uuid' },
         { name: 'ready', type: 'boolean', notNull: true, default: false },
+        { name: 'member_label', type: 'text' },
         { name: 'revision', type: 'integer', notNull: true, default: 1 },
       ],
       constraints: {
@@ -208,9 +209,19 @@ export const migration = defineMigration({
         ],
         indexes: [
           {
-            columns: ['portal_user_id', 'tenant_id'],
+            columns: ['portal_user_id', 'tenant_id', 'member_id'],
             unique: true,
             where: 'deactivated_at IS NULL',
+          },
+          {
+            columns: ['portal_user_id', 'tenant_id'],
+            unique: true,
+            where: 'member_id IS NULL AND deactivated_at IS NULL',
+          },
+          {
+            columns: ['tenant_id', 'member_id'],
+            unique: true,
+            where: "status IN ('pending', 'active') AND deactivated_at IS NULL",
           },
           { columns: ['tenant_id', 'status'] },
         ],
@@ -237,6 +248,7 @@ export const migration = defineMigration({
         },
         { name: 'token_hash', type: 'text', notNull: true },
         { name: 'tenant_id', type: 'uuid' },
+        { name: 'membership_id', type: 'uuid' },
         {
           name: 'last_seen_at',
           type: 'timestamptz',
@@ -267,10 +279,21 @@ export const migration = defineMigration({
             references: { schema: 'admin', table: 'tenants', columns: ['id'] },
             onDelete: 'RESTRICT',
           },
+          {
+            type: 'ForeignKey',
+            columns: ['membership_id'],
+            references: {
+              schema: 'admin',
+              table: 'portal_user_tenants',
+              columns: ['id'],
+            },
+            onDelete: 'RESTRICT',
+          },
         ],
         indexes: [
           { columns: ['portal_user_id'] },
           { columns: ['tenant_id'] },
+          { columns: ['membership_id'] },
           { columns: ['absolute_expires_at'] },
         ],
       },

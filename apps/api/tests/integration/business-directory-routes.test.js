@@ -41,6 +41,7 @@ import {
 } from '@nap/shared';
 import { createSyncWorker } from '../../src/application/sync/worker.js';
 import { withTenantTransaction } from '../../src/infrastructure/runtime/tenantTransaction.js';
+import { membershipIn } from './helpers/tenantRows.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -229,7 +230,8 @@ async function staff(roleCode) {
     const roles = (await acl('get', '/roles')).body.data;
     const role = roles.find(r => r.code === roleCode);
     expect(
-      (await acl('put', `/users/${user.id}/roles/${role.id}`)).status
+      (await acl('put', `/memberships/${membership.id}/roles/${role.id}`))
+        .status
     ).toBe(200);
   }
   const session = await createSession(db, sessionPolicy, {
@@ -240,7 +242,7 @@ async function staff(roleCode) {
     sessionPolicy,
     session.token,
     { user: user.id },
-    { tenant: napsoft.id },
+    { membership: membership.id },
     { runtime: registry }
   );
   return {
@@ -323,7 +325,7 @@ beforeAll(async () => {
     sessionPolicy,
     other.token,
     { user: rootId },
-    { tenant: napsoft.id },
+    { membership: await membershipIn(db, rootId, napsoft.id) },
     { runtime: registry }
   );
   cookie = `nap_session=${selected.token}`;
@@ -1154,6 +1156,52 @@ describe('portal access (I0008)', () => {
     expect(restored.body.data.portalAccess.status).toBe('off');
   }, 30_000);
 
+  it('I0012-R007: a vendor contact carries its vendor label, and renaming the vendor relabels it', async () => {
+    const vendor = await create('organizations', {
+      kind: 'vendor',
+      legalName: 'Black Plumbing LLC',
+      taxId: '12-3456780',
+    });
+    const contact = await create('organization-contacts', {
+      organizationId: vendor.id,
+      firstName: 'Jack',
+      lastName: 'Black',
+    });
+    const address = `jack-${randomUUID().slice(0, 6)}@example.test`;
+    await call('post', `/parties/${contact.id}/contact-methods`, {
+      type: 'email',
+      value: address,
+      isPrimary: true,
+    });
+    const current = (await call('get', `/organization-contacts/${contact.id}`))
+      .body.data;
+    const on = await call('patch', `/organization-contacts/${contact.id}`, {
+      isPortalUser: true,
+      temporaryPassword: TEMP,
+      roleIds,
+      revision: current.revision,
+    });
+    expect(on.status).toBe(200);
+    await drain();
+    const labelOf = async () =>
+      (
+        await db.one(
+          `SELECT member_label FROM admin.portal_user_tenants
+            WHERE tenant_id=$1 AND member_id=$2 AND deactivated_at IS NULL`,
+          [napsoft.id, contact.id]
+        )
+      ).member_label;
+    expect(await labelOf()).toBe('Vendor · Black Plumbing LLC');
+
+    const renamed = await call('patch', `/organizations/${vendor.id}`, {
+      dbaName: 'Black Plumbing',
+      revision: vendor.revision,
+    });
+    expect(renamed.status).toBe(200);
+    await drain();
+    expect(await labelOf()).toBe('Vendor · Black Plumbing');
+  }, 30_000);
+
   it('AC04: refuses turning off or archiving a tenant_admin, or oneself', async () => {
     const admin = await staff('tenant_admin');
     const adminPerson = await link(await employee(), admin.id);
@@ -1331,9 +1379,11 @@ describe('tenant-managed portal access and roles (I0010)', () => {
     return user.id;
   }
 
-  /** The login's assigned role IDs, sorted. */
+  /** The role IDs assigned to the login's Napsoft membership, sorted. */
   async function assigned(loginId) {
-    const roles = (await acl('get', `/users/${loginId}/roles`)).body.data.roles;
+    const membershipId = await membershipIn(db, loginId, napsoft.id);
+    const roles = (await acl('get', `/memberships/${membershipId}/roles`)).body
+      .data.roles;
     return roles.map(role => role.id).sort();
   }
 
