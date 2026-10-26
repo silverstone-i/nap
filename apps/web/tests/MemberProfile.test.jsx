@@ -33,7 +33,6 @@ vi.mock('../src/api/endpoints.js', () => ({
   getProfile: vi.fn(),
   updateProfile: vi.fn(),
   uploadProfileImage: vi.fn(),
-  deleteProfileImage: vi.fn(),
 }));
 
 vi.mock('../src/auth/SessionContext.jsx', () => ({
@@ -202,6 +201,33 @@ describe('Profile screen (M0006-03-R006)', () => {
       overrides: { recordsPerPage: 100 },
       revision: 4,
     });
+  });
+
+  it('AC27: offers Profile and its Theme field without a selected tenant (I0001-R044)', async () => {
+    useSession.mockReturnValue({
+      user: { email: 'jane.doe@acme.test' },
+      selectedTenant: null,
+      capabilities: capabilitiesFixture({ patterns: [] }),
+      refreshCapabilities: vi.fn(),
+    });
+    renderWith(<ProfileMenu />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Account menu' }));
+    expect(screen.getByRole('menuitem', { name: 'Profile' })).toBeTruthy();
+    cleanup();
+
+    renderWith(<ProfilePage />);
+    expect(await screen.findByLabelText('Theme')).toBeTruthy();
+    expect(api.getProfile).not.toHaveBeenCalled();
+  });
+
+  it('keeps the Theme field when the profile fails to load (I0001-R044)', async () => {
+    api.getProfile.mockRejectedValue(new ApiError('CELL_UNAVAILABLE', 503));
+    renderWith(<ProfilePage />);
+    expect(
+      await screen.findByText('Your profile could not be saved. Try again.')
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Theme')).toBeTruthy();
   });
 
   it('AC27: sets the theme from Profile without saving the profile (I0001-R044)', async () => {

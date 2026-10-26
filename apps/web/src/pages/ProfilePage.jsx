@@ -127,20 +127,20 @@ export function ProfilePage() {
 
   usePageHeader({ title: 'Profile' });
 
-  // I0001-R044: the theme belongs to the browser, so it shows without a
-  // tenant too.
-  if (!tenant)
+  // I0001-R044: the theme belongs to the browser, so it stays in one place
+  // without a tenant, while the profile loads, and when it fails to load.
+  if (!tenant || !profile)
     return (
       <Stack spacing={3} sx={{ maxWidth: 560 }}>
         <ThemeField />
-        <Alert severity="info">Select a tenant to see your profile.</Alert>
+        {!tenant ? (
+          <Alert severity="info">Select a tenant to see your profile.</Alert>
+        ) : error ? (
+          <Alert severity="error">{error}</Alert>
+        ) : (
+          <CircularProgress aria-label="Loading profile" />
+        )}
       </Stack>
-    );
-  if (!profile)
-    return error ? (
-      <Alert severity="error">{error}</Alert>
-    ) : (
-      <CircularProgress aria-label="Loading profile" />
     );
 
   /** Run a profile change, show the result, and reload effective values. */
@@ -195,6 +195,7 @@ export function ProfilePage() {
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 560 }}>
+      <ThemeField />
       {error ? <Alert severity="error">{error}</Alert> : null}
       <Stack spacing={1.5}>
         <Typography variant="subtitle2">Profile image</Typography>
@@ -267,7 +268,6 @@ export function ProfilePage() {
         </Stack>
       </Stack>
       <Stack spacing={2.5}>
-        <ThemeField />
         {OVERRIDABLE_SETTINGS.map(name => {
           const own = profile.overrides[name] ?? null;
           const tenantValue = profile.tenantValues[name];

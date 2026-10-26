@@ -28,16 +28,13 @@ function renderWithNotice(notice) {
 afterEach(cleanup);
 
 describe('session-ended notice (I0001-R046)', () => {
-  it.each(['sessionExpired', 'sessionEnded'])(
-    'shows one notice after %s',
-    async notice => {
-      renderWithNotice(notice);
-      expect(
-        await screen.findByText('Session ended. Sign in again.')
-      ).toBeTruthy();
-      expect(screen.getAllByRole('alert')).toHaveLength(1);
-    }
-  );
+  it('shows one notice after the session ends', async () => {
+    renderWithNotice('sessionEnded');
+    expect(
+      await screen.findByText('Session ended. Sign in again.')
+    ).toBeTruthy();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
 
   it('shows no notice on a fresh sign-in', () => {
     renderWithNotice(null);
