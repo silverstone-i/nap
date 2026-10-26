@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.33.1] - 2026-10-26
+
 ### Changed
 
 - A tax ID can belong to only one employee, contact, vendor, or client per tenant, archived records included (M0005-R047). Saving a duplicate fails with `409 DUPLICATE_TAX_ID` naming the record that holds it, and the directory dialog links to that record, or to it in the Archived view where it can be restored (R048). Client contacts are exempt, since one buyer can be a contact on several clients, and records of different kinds may share a number. The `duplicateTaxIds` warning is removed.
