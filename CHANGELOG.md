@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.34.0] - 2026-10-26
+
 ### Changed
 
 - A directory record and a role are edited only from their detail dialog (I0001-R035–R038, M0005-R049, M0003-R019). Pencils change the name, the tax ID, and portal access with roles, each in its own small dialog; the footer **Edit** and the separate edit form are gone, and a row's ⋮ **Edit** opens the detail.
