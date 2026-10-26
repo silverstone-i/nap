@@ -145,22 +145,20 @@ export function CellsPage() {
   // The rows of the page last fetched, so an open detail follows the
   // refresh (I0001-R038) instead of showing the row as it was when opened.
   const [pageRows, setPageRows] = useState([]);
-  const fetchPage = useMemo(() => {
-    const adapter = createCursorPageAdapter(
-      async page => {
-        const result = await listCellsOverview(page);
-        setActive(result.anyActive);
-        setSeed(result.referenceSeed);
-        return result;
-      },
-      { mapRow }
-    );
-    return async params => {
-      const page = await adapter(params);
-      setPageRows(page.rows);
-      return page;
-    };
-  }, []);
+  const fetchPage = useMemo(
+    () =>
+      createCursorPageAdapter(
+        async page => {
+          const result = await listCellsOverview(page);
+          // I0003-R030: `anyActive` covers every page, not just the one shown.
+          setActive(result.anyActive);
+          setSeed(result.referenceSeed);
+          return result;
+        },
+        { mapRow }
+      ),
+    []
+  );
   const [resetKey, setResetKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -307,6 +305,7 @@ export function CellsPage() {
         columns={columnsFor(setSelected)}
         fetchPage={fetchPage}
         resetKey={resetKey}
+        onRowsLoaded={setPageRows}
         rowActions={actionsFor}
         selectable={false}
         emptyMessage="No cells registered yet."

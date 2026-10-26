@@ -1117,49 +1117,55 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
     });
   });
 
-  it('names the taken value on a conflict, with no helper text unless the code is invalid (I0006-R022, R023)', async () => {
-    api.listClientTenants.mockResolvedValue([]);
-    api.provisionTenant.mockRejectedValue(
-      new ApiError('CONFLICT', 409, null, { details: { field: 'code' } })
-    );
-    renderWithHeader(<DirectoryRecordsPage kind="client" />);
-    const user = userEvent.setup();
-    const table = await screen.findByRole('grid', { name: 'Clients' });
-    await user.click(
-      await within(table).findByRole('button', { name: 'Acme Builders' })
-    );
-    const dialog = await screen.findByRole('dialog');
-    await user.click(
-      await within(dialog).findByRole('button', { name: 'Provision tenant' })
-    );
-    const form = await screen.findByRole('dialog', {
-      name: 'Provision tenant for Acme Builders',
-    });
-    expect(form.querySelector('.MuiFormHelperText-root')).toBeNull();
-    const code = within(form).getByLabelText(/^Code/);
-    await user.type(code, '9x');
-    expect(
-      within(form).getByText(
-        'Use letters, digits, and _, starting with a letter.'
-      )
-    ).toBeTruthy();
-    await user.clear(code);
-    await user.type(code, 'acme');
-    await user.type(within(form).getByLabelText(/^First name/), 'Rita');
-    await user.type(within(form).getByLabelText(/^Last name/), 'Moss');
-    await user.type(
-      within(form).getByLabelText(/Administrator email/),
-      'rita@acme.test'
-    );
-    await user.type(
-      within(form).getByLabelText(/Temporary password/),
-      'temporary'
-    );
-    await user.click(within(form).getByRole('button', { name: 'Provision' }));
-    expect(
-      await within(form).findByText('Another tenant uses this code.')
-    ).toBeTruthy();
-  });
+  it.each([
+    [{ field: 'code' }, 'Another tenant uses this code.'],
+    [{ field: 'client' }, 'This client already has a tenant.'],
+    [{ field: 'email' }, 'This email belongs to a login that cannot be used.'],
+    [undefined, 'Another change got there first. Try again.'],
+  ])(
+    'names the taken value on a conflict (%o), with no helper text unless the code is invalid (I0006-R022, R023)',
+    async (details, message) => {
+      api.listClientTenants.mockResolvedValue([]);
+      api.provisionTenant.mockRejectedValue(
+        new ApiError('CONFLICT', 409, null, { details })
+      );
+      renderWithHeader(<DirectoryRecordsPage kind="client" />);
+      const user = userEvent.setup();
+      const table = await screen.findByRole('grid', { name: 'Clients' });
+      await user.click(
+        await within(table).findByRole('button', { name: 'Acme Builders' })
+      );
+      const dialog = await screen.findByRole('dialog');
+      await user.click(
+        await within(dialog).findByRole('button', { name: 'Provision tenant' })
+      );
+      const form = await screen.findByRole('dialog', {
+        name: 'Provision tenant for Acme Builders',
+      });
+      expect(form.querySelector('.MuiFormHelperText-root')).toBeNull();
+      const code = within(form).getByLabelText(/^Code/);
+      await user.type(code, '9x');
+      expect(
+        within(form).getByText(
+          'Use letters, digits, and _, starting with a letter.'
+        )
+      ).toBeTruthy();
+      await user.clear(code);
+      await user.type(code, 'acme');
+      await user.type(within(form).getByLabelText(/^First name/), 'Rita');
+      await user.type(within(form).getByLabelText(/^Last name/), 'Moss');
+      await user.type(
+        within(form).getByLabelText(/Administrator email/),
+        'rita@acme.test'
+      );
+      await user.type(
+        within(form).getByLabelText(/Temporary password/),
+        'temporary'
+      );
+      await user.click(within(form).getByRole('button', { name: 'Provision' }));
+      expect(await within(form).findByText(message)).toBeTruthy();
+    }
+  );
 
   it('shows the existing tenant instead of the Provision action', async () => {
     api.listClientTenants.mockResolvedValue([

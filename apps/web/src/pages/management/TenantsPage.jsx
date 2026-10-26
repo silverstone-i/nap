@@ -97,21 +97,19 @@ export function TenantsPage() {
   // The rows of the page last fetched, so an open detail follows the
   // refresh (I0001-R038) instead of showing the row as it was when opened.
   const [pageRows, setPageRows] = useState([]);
-  const fetchPage = useMemo(() => {
-    const adapter = createCursorPageAdapter(
-      async page => {
-        const result = await listTenantsPage(page);
-        setActive(result.anyActive);
-        return result;
-      },
-      { mapRow }
-    );
-    return async params => {
-      const page = await adapter(params);
-      setPageRows(page.rows);
-      return page;
-    };
-  }, []);
+  const fetchPage = useMemo(
+    () =>
+      createCursorPageAdapter(
+        async page => {
+          const result = await listTenantsPage(page);
+          // I0006-R011: `anyActive` covers every page, not just the one shown.
+          setActive(result.anyActive);
+          return result;
+        },
+        { mapRow }
+      ),
+    []
+  );
   const [resetKey, setResetKey] = useState(0);
   const [actionError, setActionError] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -191,6 +189,7 @@ export function TenantsPage() {
         columns={columnsFor(setSelected)}
         fetchPage={fetchPage}
         resetKey={resetKey}
+        onRowsLoaded={setPageRows}
         rowActions={rowActions}
         selectable={false}
         emptyMessage="No tenants yet."
