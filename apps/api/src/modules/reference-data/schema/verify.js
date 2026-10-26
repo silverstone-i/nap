@@ -46,12 +46,12 @@ export async function verifyReferenceData(handle, modules) {
     'SCHEMA_CONTRACT_MISMATCH'
   );
   const tables = await db.any(
-    `SELECT c.relname AS name,pg_get_userbyid(c.relowner) AS owner,c.relrowsecurity AS rls FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='reference' AND c.relkind IN ('r','p') ORDER BY c.relname`
+    `SELECT c.relname AS name,pg_get_userbyid(c.relowner) AS owner,c.relrowsecurity AS rls,c.relforcerowsecurity AS force FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='reference' AND c.relkind IN ('r','p') ORDER BY c.relname`
   );
   requireCondition(
     JSON.stringify(tables.map(t => t.name)) ===
       JSON.stringify([...order, 'schema_migrations'].sort()) &&
-      tables.every(t => t.owner === 'nap-admin' && !t.rls),
+      tables.every(t => t.owner === 'nap-admin' && !t.rls && !t.force),
     'TABLE_CONTRACT_MISMATCH'
   );
   for (const table of tables) {

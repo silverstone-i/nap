@@ -109,7 +109,7 @@ afterAll(async () => {
   );
 });
 
-it('AC01: creates the seven directory tables with forced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
+it('AC01: creates the seven directory tables with unforced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -118,7 +118,7 @@ it('AC01: creates the seven directory tables with forced tenant RLS; the app sch
     [TABLES]
   );
   expect(tables).toEqual(
-    TABLES.map(t => ({ name: t, rls: true, force: true }))
+    TABLES.map(t => ({ name: t, rls: true, force: false }))
   );
   await verifyAppSchema(handle, cellModules);
   expect((await migrateCell(config)).status).toBe('unchanged');

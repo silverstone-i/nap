@@ -34,7 +34,7 @@ export const DEFAULT_LABELS = Object.freeze({
 export async function seedDirectoryLabels(db, tx, tenantId) {
   await setTenant(tx, tenantId);
   const existing = await db.contact_labels.rows(
-    {},
+    { tenant_id: tenantId },
     { tx, includeArchived: true }
   );
   const have = new Set(existing.map(row => `${row.applies_to}:${row.name}`));
@@ -56,7 +56,10 @@ export async function seedDirectoryLabels(db, tx, tenantId) {
  */
 export async function directoryLabelsPresent(db, tx, tenantId) {
   await setTenant(tx, tenantId);
-  const rows = await db.contact_labels.rows({}, { tx, includeArchived: true });
+  const rows = await db.contact_labels.rows(
+    { tenant_id: tenantId },
+    { tx, includeArchived: true }
+  );
   const have = new Set(rows.map(row => `${row.applies_to}:${row.name}`));
   return Object.entries(DEFAULT_LABELS).every(([appliesTo, names]) =>
     names.every(name => have.has(`${appliesTo}:${name}`))
@@ -83,7 +86,7 @@ const formatKey = format => `${format.country}:${format.name}`;
 export async function seedTaxIdFormats(db, tx, tenantId) {
   await setTenant(tx, tenantId);
   const existing = await db.tax_id_formats.rows(
-    {},
+    { tenant_id: tenantId },
     { tx, includeArchived: true }
   );
   const have = new Set(existing.map(formatKey));
@@ -104,7 +107,10 @@ export async function seedTaxIdFormats(db, tx, tenantId) {
  */
 export async function taxIdFormatsPresent(db, tx, tenantId) {
   await setTenant(tx, tenantId);
-  const rows = await db.tax_id_formats.rows({}, { tx, includeArchived: true });
+  const rows = await db.tax_id_formats.rows(
+    { tenant_id: tenantId },
+    { tx, includeArchived: true }
+  );
   const have = new Set(rows.map(formatKey));
   return DEFAULT_TAX_ID_FORMATS.every(format => have.has(formatKey(format)));
 }
