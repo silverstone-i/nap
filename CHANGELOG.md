@@ -23,6 +23,12 @@ when a pull request with a release label merges into `main`.
 - A new address and a new tax ID format start in the tenant's default country (M0005-R058).
 - Screens drop text that only explains them: helper text appears only for an invalid value, the record detail loses its kind chip and dividers, Roles loses the Custom chip and Type column, General loses its "Default" captions, and Storage loses its introduction (M0005-R059, R061, M0003-R025, R026, M0006-01-R013, M0006-02-R018).
 - An empty directory list says which view or search is empty, and errors name the rule to fix, including the administrator-role message that pointed at the removed Roles section (M0005-R060, R062).
+- Tenants, Cells, and Portal Users open a detail dialog from each row's code, database, or email, and their grids show only Code, Name, and Status; Environment, Database, Enabled, and Status; or Email, Status, and Tenants. The cell detail replaces View progress, and the portal user's detail holds the memberships (I0006-R020, I0003-R044, I0002-R017, R018, I0008-R019).
+- Portal Users names Deactivate **Archive**, asks before Disable, offers Unlock only while the login is locked, and reports every action as a notice. **Create portal user** and **Register cell** are **New portal user** and **New cell** (I0002-R019–R021, I0003-R045, R046, I0008-R020).
+- Roll out reference data is a Cells header action, its panel lists only counts above zero, and its result is a notice (I0007-R021, R022).
+- Sessions shows status as plain text, hides Ended while the filter is Active, asks "Revoke N sessions?", and reports revokes as notices (I0009-R015–R017).
+- A provisioning conflict names the value that is taken: `CONFLICT` now carries `details.field` (`code`, `client`, or `email`), and the Provision tenant dialog says which. The dialog's helper texts are gone except for an invalid code (I0006-R022, R023).
+- `GET /api/admin-tenancy/v1/accounts/users` rows add `tenantCodes` and `locked` (I0002-R017, R021).
 
 ### Removed
 

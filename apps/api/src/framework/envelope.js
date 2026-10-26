@@ -139,9 +139,10 @@ export function sendBulkFailed(response, details) {
 /**
  * Send a 409 naming the record that already holds a unique value, so the
  * screen can link to it: an archived holder under `CONFLICT` (I0011-R010),
- * or a tax ID's holder under `DUPLICATE_TAX_ID` (M0005-R048).
+ * or a tax ID's holder under `DUPLICATE_TAX_ID` (M0005-R048); or naming the
+ * provisioning value that is taken (I0006-R023).
  * @param {import('express').Response} response
- * @param {{id: string, archived: boolean}} details
+ * @param {{id: string, archived: boolean}|{field: string}} details
  * @param {'CONFLICT'|'DUPLICATE_TAX_ID'} [code]
  * @returns {void}
  */

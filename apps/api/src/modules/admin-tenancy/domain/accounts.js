@@ -29,6 +29,7 @@ import {
   parseThrottlePolicy,
   throttleKey,
   THROTTLE_KINDS,
+  THROTTLE_LIMITS,
 } from './throttle.js';
 import { COLLECTION_ENTITY } from './cache.js';
 
@@ -523,7 +524,9 @@ const userListQuerySchema = z.strictObject({
  * @param {AdminAccountsDb} db
  * @param {unknown} authority `{actorId, scope}`; `scope` built for `admin-tenancy::accounts::read`.
  * @param {{cursor?: unknown, limit?: unknown, archived?: unknown, includeArchived?: unknown, email?: unknown, tenantId?: unknown, status?: unknown, mustChangePassword?: unknown}} [page] Raw query values, checked by `userListQuerySchema`.
- * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe user-list views.
+ * @param {{throttlePolicy?: unknown}} [options] The throttle secret, to tell
+ *   whether each login is locked (I0002-R021). Without one, no row is locked.
+ * @returns {Promise<{rows: object[], nextCursor: string|null}>} A page of safe user-list views, each with `tenantCodes` and `locked` (I0002-R017).
  * @throws {AdminAccountError} `INVALID_INPUT`, `FORBIDDEN`, `INTERNAL_ERROR`
  */
 export async function listUsers(
@@ -538,9 +541,18 @@ export async function listUsers(
     tenantId,
     status,
     mustChangePassword,
-  } = {}
+  } = {},
+  { throttlePolicy } = {}
 ) {
   requirePlatformAuthority(authority);
+  let policy = null;
+  if (throttlePolicy !== undefined) {
+    try {
+      policy = parseThrottlePolicy(throttlePolicy);
+    } catch {
+      throw new AdminAccountError('INTERNAL_ERROR');
+    }
+  }
   const parsedLimit = parseLimitOrAccount(limit);
   const query = userListQuerySchema.safeParse({
     archived,
@@ -569,8 +581,31 @@ export async function listUsers(
       parsedLimit,
       resumeFrom
     );
+    // I0002-R021: a login is locked while its account key is hard-locked.
+    const keys = policy
+      ? page.rows.map(row =>
+          throttleKey(
+            policy,
+            THROTTLE_KINDS.account,
+            normalizeAccountInput(row.email)
+          )
+        )
+      : [];
+    const [codes, locked] = await Promise.all([
+      db.portal_user_tenants.tenantCodesByUser(page.rows.map(row => row.id)),
+      policy
+        ? db.login_throttles.hardLocked(
+            keys,
+            THROTTLE_LIMITS.account.maxFailures
+          )
+        : new Set(),
+    ]);
     return {
-      rows: page.rows.map(userView),
+      rows: page.rows.map((row, index) => ({
+        ...userView(row),
+        tenantCodes: codes.get(row.id) ?? [],
+        locked: locked.has(keys[index]),
+      })),
       nextCursor: encodeUserCursor(page.nextCursor),
     };
   });
@@ -2039,7 +2074,7 @@ export async function createFirstAdministrator(
     tx,
   });
   if (login && login.status !== 'active')
-    throw new AdminAccountError('CONFLICT');
+    throw new AdminAccountError('CONFLICT', { field: 'email' });
   const loginCreated = !login;
   if (!login) {
     const policy = parseHashingPolicy(hashingPolicy);
@@ -2055,7 +2090,8 @@ export async function createFirstAdministrator(
     tenantId,
     { tx }
   );
-  if (existing.length) throw new AdminAccountError('CONFLICT');
+  if (existing.length)
+    throw new AdminAccountError('CONFLICT', { field: 'email' });
   const membership = await db.portal_user_tenants.insert(
     {
       portal_user_id: login.id,

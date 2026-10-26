@@ -17,7 +17,7 @@ import { ApiError } from '../../api/client.js';
 import { createPortalUser } from '../../api/endpoints.js';
 
 /**
- * "Create portal user" (I0002-R006): submits `{email, password}` with a
+ * New portal user (I0002-R006, R020): submits `{email, password}` with a
  * client-generated `Idempotency-Key`. The password is a temporary one the
  * new account must replace at next login (M0001-08 §7).
  * @param {{onClose: () => void, onCreated: () => void}} props
@@ -61,9 +61,7 @@ export function CreatePortalUserDialog({ onClose, onCreated }) {
       fullWidth
       maxWidth="xs"
     >
-      <DialogTitle id="create-portal-user-title">
-        Create portal user
-      </DialogTitle>
+      <DialogTitle id="create-portal-user-title">New portal user</DialogTitle>
       <DialogContent>
         {error ? (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -84,7 +82,6 @@ export function CreatePortalUserDialog({ onClose, onCreated }) {
             label="Temporary password"
             value={password}
             onChange={event => setPassword(event.target.value)}
-            helperText="The new account must replace this at next login."
             required
             fullWidth
           />
@@ -95,7 +92,7 @@ export function CreatePortalUserDialog({ onClose, onCreated }) {
           Cancel
         </Button>
         <Button type="submit" variant="contained" disabled={submitting}>
-          Create portal user
+          Save
         </Button>
       </DialogActions>
     </Dialog>

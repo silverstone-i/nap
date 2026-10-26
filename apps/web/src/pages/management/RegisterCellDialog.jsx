@@ -14,14 +14,19 @@ import TextField from '@mui/material/TextField';
 import { ApiError } from '../../api/client.js';
 import { registerCell } from '../../api/endpoints.js';
 
+/** The server's suffix rule (`domain/cells.js`). */
+const SUFFIX_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
+
 /**
- * "Register cell" (I0002-R004): submits `{operation: 'cell', suffix}` to
+ * New cell (I0002-R004, I0003-R045): submits `{operation: 'cell', suffix}` to
  * the existing registry contract. Non-destructive — no confirmation.
  * @param {{onClose: () => void, onRegistered: () => void}} props
  * @returns {JSX.Element}
  */
 export function RegisterCellDialog({ onClose, onRegistered }) {
   const [suffix, setSuffix] = useState('');
+  // I0003-R045: the helper shows only while the suffix is invalid.
+  const suffixInvalid = suffix !== '' && !SUFFIX_PATTERN.test(suffix);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -57,7 +62,7 @@ export function RegisterCellDialog({ onClose, onRegistered }) {
       fullWidth
       maxWidth="xs"
     >
-      <DialogTitle id="register-cell-title">Register cell</DialogTitle>
+      <DialogTitle id="register-cell-title">New cell</DialogTitle>
       <DialogContent>
         {error ? (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -68,7 +73,12 @@ export function RegisterCellDialog({ onClose, onRegistered }) {
           label="Suffix"
           value={suffix}
           onChange={event => setSuffix(event.target.value)}
-          helperText="Lowercase letters, digits, and hyphens. Must start and end with a letter or digit."
+          error={suffixInvalid}
+          helperText={
+            suffixInvalid
+              ? 'Use lowercase letters, digits, and hyphens, starting and ending with a letter or digit.'
+              : ''
+          }
           autoFocus
           required
           fullWidth
@@ -80,7 +90,7 @@ export function RegisterCellDialog({ onClose, onRegistered }) {
           Cancel
         </Button>
         <Button type="submit" variant="contained" disabled={submitting}>
-          Register
+          Save
         </Button>
       </DialogActions>
     </Dialog>

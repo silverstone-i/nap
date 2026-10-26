@@ -226,11 +226,11 @@ export async function provisionTenant(
       await tx.one(`SELECT pg_advisory_xact_lock(${REGISTRY_LOCK})`);
       const raced = await resolveReplay(db, key.data, request, { tx });
       if (raced) return raced;
-      if (
-        (await db.tenants.lockActiveByCode(command.code, { tx })) ||
-        (await db.tenants.lockActiveByClient(command.client, { tx }))
-      )
-        throw new AdminControlError('CONFLICT');
+      // I0006-R023: name the value that is taken.
+      if (await db.tenants.lockActiveByCode(command.code, { tx }))
+        throw new AdminControlError('CONFLICT', { field: 'code' });
+      if (await db.tenants.lockActiveByClient(command.client, { tx }))
+        throw new AdminControlError('CONFLICT', { field: 'client' });
       const cell = await db.cells.findOneBy(
         { id: command.cell },
         { columnWhitelist: ['id', 'enabled'], tx }

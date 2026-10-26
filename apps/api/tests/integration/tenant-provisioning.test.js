@@ -447,12 +447,13 @@ describe('tenant provisioning (I0006)', () => {
         'x@nap.test'
       )
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    // I0006-R023: each conflict names the value that is taken.
     await expect(
       provision({ ...fresh, client: tenant.client }, cellId, 'y@nap.test')
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { field: 'client' } });
     await expect(
       provision({ ...fresh, code: tenant.code }, cellId, 'y@nap.test')
-    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { field: 'code' } });
     await expect(
       provision(fresh, randomUUID(), 'z@nap.test')
     ).rejects.toMatchObject({ code: 'CELL_UNAVAILABLE' });
@@ -462,6 +463,18 @@ describe('tenant provisioning (I0006)', () => {
     expect(await db.portal_users.countAll({ includeDeactivated: true })).toBe(
       before
     );
+  });
+
+  it('AC13: refuses an administrator email whose login is not active, naming the email (I0006-R023)', async () => {
+    const blocked = `blocked-${randomUUID()}@nap.test`;
+    await db.portal_users.insert({
+      email: blocked,
+      password_hash: 'not-a-real-hash',
+      status: 'disabled',
+    });
+    await expect(
+      provision(await newTenant(), cellId, blocked)
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { field: 'email' } });
   });
 
   it('AC04, AC08: a failed stage keeps the tenant pending; retry completes without duplicates and reuses the login', async () => {

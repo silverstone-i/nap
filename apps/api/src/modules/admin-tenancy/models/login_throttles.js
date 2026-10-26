@@ -181,6 +181,26 @@ export class LoginThrottles extends TableModel {
   }
 
   /**
+   * The keys among `keyHashes` that are hard-locked now: they reached
+   * `maxFailures` and their lock has not expired. A short delay before the
+   * limit is not a hard lock (I0002-R021).
+   * @param {string[]} keyHashes
+   * @param {number} maxFailures
+   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
+   * @returns {Promise<Set<string>>}
+   */
+  async hardLocked(keyHashes, maxFailures, { tx } = {}) {
+    if (!keyHashes.length) return new Set();
+    const rows = await (tx ?? this.db).manyOrNone(
+      `SELECT key_hash FROM ${table(this)}
+        WHERE key_hash = ANY($1::text[]) AND failures >= $2
+          AND locked_until > now()`,
+      [keyHashes, maxFailures]
+    );
+    return new Set(rows.map(row => row.key_hash));
+  }
+
+  /**
    * Delete spent rows older than `hours`.
    *
    * This table has no soft deletion, so rows can simply go. A live lock is

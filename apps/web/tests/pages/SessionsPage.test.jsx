@@ -16,6 +16,7 @@ import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { SessionsPage } from '../../src/pages/management/SessionsPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
+import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
 import {
@@ -59,10 +60,12 @@ const ENDED = {
 function renderPage() {
   return render(
     <ThemeModeProvider>
-      <PageHeaderProvider>
-        <ContextualActionHeader />
-        <SessionsPage />
-      </PageHeaderProvider>
+      <NoticeProvider>
+        <PageHeaderProvider>
+          <ContextualActionHeader />
+          <SessionsPage />
+        </PageHeaderProvider>
+      </NoticeProvider>
     </ThemeModeProvider>
   );
 }
@@ -97,9 +100,13 @@ describe('SessionsPage (I0009)', () => {
     expect(await screen.findByText('ann@example.com')).toBeTruthy();
     const grid = screen.getByRole('grid');
     expect(within(grid).getByText('ACME')).toBeTruthy();
-    const chip = { selector: '.MuiChip-label' };
-    expect(within(grid).getByText('Active', chip)).toBeTruthy();
-    expect(within(grid).getByText('Ended', chip)).toBeTruthy();
+    // I0009-R015: plain text, and no Ended column while the filter is Active.
+    expect(within(grid).getByText('Active')).toBeTruthy();
+    expect(within(grid).getByText('Ended')).toBeTruthy();
+    expect(grid.querySelector('.MuiChip-root')).toBeNull();
+    expect(
+      within(grid).queryByRole('columnheader', { name: 'Ended' })
+    ).toBeNull();
     expect(api.listSessionsPage).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'active', limit: 25 })
     );
@@ -110,7 +117,7 @@ describe('SessionsPage (I0009)', () => {
     renderPage();
     await screen.findByText('ann@example.com');
 
-    await user.type(screen.getByLabelText('User email'), 'ann');
+    await user.type(screen.getByLabelText('Search by email'), 'ann');
     await waitFor(() =>
       expect(api.listSessionsPage).toHaveBeenLastCalledWith(
         expect.objectContaining({ email: 'ann', status: 'active' })
@@ -196,12 +203,16 @@ describe('SessionsPage (I0009)', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Revoke selected (2)' })
     );
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Revoke 2 sessions?',
+    });
     expect(
-      within(dialog).getByText('2 sessions will be signed out.')
+      within(dialog).getByText('These users are signed out of these sessions.')
     ).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Revoke' }));
     expect(api.revokeSessions).toHaveBeenCalledWith(['s1', 's2']);
+    // I0009-R017
+    expect(await screen.findByText('2 sessions revoked.')).toBeTruthy();
   });
 
   it('hides revoking without sessions::revoke', async () => {

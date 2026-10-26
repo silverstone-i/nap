@@ -112,19 +112,24 @@ export function createAccountsRouter({ admin, authenticationPolicy, runtime }) {
     async (request, response) => {
       try {
         const read = requestAuthority(request);
-        const result = await listUsers(admin.db, read, {
-          cursor: request.query.cursor,
-          limit:
-            request.query.limit === undefined
-              ? undefined
-              : Number(request.query.limit),
-          archived: request.query.archived,
-          includeArchived: request.query.includeArchived,
-          email: request.query.email,
-          tenantId: request.query.tenantId,
-          status: request.query.status,
-          mustChangePassword: request.query.mustChangePassword,
-        });
+        const result = await listUsers(
+          admin.db,
+          read,
+          {
+            cursor: request.query.cursor,
+            limit:
+              request.query.limit === undefined
+                ? undefined
+                : Number(request.query.limit),
+            archived: request.query.archived,
+            includeArchived: request.query.includeArchived,
+            email: request.query.email,
+            tenantId: request.query.tenantId,
+            status: request.query.status,
+            mustChangePassword: request.query.mustChangePassword,
+          },
+          { throttlePolicy: { secret: authenticationPolicy?.throttleSecret } }
+        );
         sendData(response, result);
       } catch (error) {
         sendAccountError(response, error);

@@ -5,7 +5,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
-import Chip from '@mui/material/Chip';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -20,6 +19,7 @@ import {
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
+import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 
@@ -66,13 +66,8 @@ const COLUMNS = [
     sortable: false,
     filterable: false,
     priority: 'essential',
-    renderCell: ({ value }) => (
-      <Chip
-        size="small"
-        label={value === 'active' ? 'Active' : 'Ended'}
-        color={value === 'active' ? 'success' : 'default'}
-      />
-    ),
+    // I0009-R015: plain text, not a chip.
+    valueGetter: value => (value === 'active' ? 'Active' : 'Ended'),
   },
   {
     field: 'endedAt',
@@ -122,6 +117,7 @@ const STATUS_LABELS = { active: 'Active', ended: 'Ended', all: 'All' };
  */
 export function SessionsPage() {
   const { can, onError } = useCapabilities();
+  const notify = useNotice();
   const canRevoke = can('admin-tenancy::sessions::revoke', 'napsoft');
   const canListTenants = can('admin-tenancy::control::read', 'napsoft');
 
@@ -166,11 +162,19 @@ export function SessionsPage() {
   );
   const resetKey = `${JSON.stringify(filters)}:${email}:${refreshTick}`;
 
-  /** Revoke sessions, then reload the page or report the failure (R012). */
+  /**
+   * Revoke sessions, then report it as a notice (R017) and reload the page,
+   * or report the failure (R012).
+   */
   async function revoke(ids) {
     setActionError(null);
     try {
       await revokeSessions(ids);
+      notify(
+        ids.length === 1
+          ? 'Session revoked.'
+          : `${ids.length} sessions revoked.`
+      );
       setRefreshTick(tick => tick + 1);
     } catch (err) {
       onError(err);
@@ -229,7 +233,7 @@ export function SessionsPage() {
       value: emailInput,
       onChange: setEmailInput,
       placeholder: 'Search by email',
-      label: 'User email',
+      label: 'Search by email',
     },
     filters: {
       content: (
@@ -305,7 +309,12 @@ export function SessionsPage() {
         </Alert>
       ) : null}
       <StandardDataGrid
-        columns={COLUMNS}
+        // I0009-R015: an Active list has no Ended time to show.
+        columns={
+          filters.status === 'active'
+            ? COLUMNS.filter(column => column.field !== 'endedAt')
+            : COLUMNS
+        }
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}
@@ -316,10 +325,16 @@ export function SessionsPage() {
       {confirmingBulk ? (
         <ConfirmDialog
           open
-          title="Revoke selected"
-          description={`${selected.length} session${
-            selected.length === 1 ? '' : 's'
-          } will be signed out.`}
+          title={
+            selected.length === 1
+              ? 'Revoke session?'
+              : `Revoke ${selected.length} sessions?`
+          }
+          description={
+            selected.length === 1
+              ? REVOKE_TEXT
+              : 'These users are signed out of these sessions.'
+          }
           confirmLabel="Revoke"
           onCancel={() => setConfirmingBulk(false)}
           onConfirm={() => {

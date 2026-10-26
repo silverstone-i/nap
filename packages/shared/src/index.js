@@ -72,10 +72,12 @@ export const apiErrorResponseSchema = z.strictObject({
     // M0005-R030: on `BULK_FAILED`, each failed item and its code.
     // I0011-R010: on `CONFLICT`, the archived record holding the value.
     // M0005-R048: on `DUPLICATE_TAX_ID`, the record holding the tax ID.
+    // I0006-R023: on a provisioning `CONFLICT`, the value that is taken.
     details: z
       .union([
         z.array(z.strictObject({ id: z.uuid(), code: z.string() })),
         z.strictObject({ id: z.uuid(), archived: z.boolean() }),
+        z.strictObject({ field: z.enum(['code', 'client', 'email']) }),
       ])
       .optional(),
   }),
@@ -246,7 +248,8 @@ export const userResponseSchema = z.strictObject({
 
 /**
  * Zod schema for one `GET /accounts/users` row — `userView`
- * (`apps/api` `domain/accounts.js`).
+ * (`apps/api` `domain/accounts.js`) plus the user's tenant codes and whether
+ * the login is locked (I0002-R017, R021).
  */
 export const userListRowSchema = z.strictObject({
   id: z.uuid(),
@@ -254,6 +257,8 @@ export const userListRowSchema = z.strictObject({
   status: z.string(),
   mustChangePassword: z.boolean(),
   deactivatedAt: z.coerce.date().nullable(),
+  tenantCodes: z.array(z.string()),
+  locked: z.boolean(),
 });
 
 /** Zod schema for the success envelope returned by `GET /accounts/users`. */

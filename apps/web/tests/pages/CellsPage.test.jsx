@@ -10,6 +10,7 @@ import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { CellsPage } from '../../src/pages/management/CellsPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
+import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
 import {
@@ -66,10 +67,12 @@ function overviewRow(overrides = {}) {
 function renderPage() {
   return render(
     <ThemeModeProvider>
-      <PageHeaderProvider>
-        <ContextualActionHeader />
-        <CellsPage />
-      </PageHeaderProvider>
+      <NoticeProvider>
+        <PageHeaderProvider>
+          <ContextualActionHeader />
+          <CellsPage />
+        </PageHeaderProvider>
+      </NoticeProvider>
     </ThemeModeProvider>
   );
 }
@@ -89,7 +92,7 @@ afterEach(() => {
 });
 
 describe('CellsPage', () => {
-  it('flattens the overview row into environment/database/enabled/stage/status columns', async () => {
+  it('shows Environment, Database, Enabled, and Status, with the stage in the detail (I0003-R044)', async () => {
     api.listCellsOverview.mockResolvedValue({
       rows: [overviewRow()],
       nextCursor: null,
@@ -97,8 +100,13 @@ describe('CellsPage', () => {
     renderPage();
     expect(await screen.findByText('dev')).toBeTruthy();
     expect(screen.getByText('nap_dev_cell_acme')).toBeTruthy();
-    expect(screen.getByText('registered')).toBeTruthy();
     expect(screen.getByText('queued')).toBeTruthy();
+    expect(screen.queryByText('registered')).toBeNull();
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map(header => header.textContent)
+      .filter(Boolean);
+    expect(headers).toEqual(['Environment', 'Database', 'Enabled', 'Status']);
   });
 
   it('shows an explicit empty state', async () => {
@@ -132,6 +140,10 @@ describe('CellsPage', () => {
     expect(api.retryCellProvisioning).toHaveBeenCalledWith({ cell: 'c1' });
     // Non-destructive: fires immediately, no confirmation dialog.
     expect(screen.queryByRole('dialog')).toBeNull();
+    // I0003-R046
+    expect(
+      await screen.findByText('nap_dev_cell_acme retry queued.')
+    ).toBeTruthy();
   });
 
   it('hides Retry when the operation is not failed', async () => {
@@ -161,7 +173,7 @@ describe('CellsPage', () => {
     await user.click(screen.getByRole('menuitem', { name: 'more' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Disable' }));
 
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', { name: 'Disable cell?' });
     expect(
       within(dialog).getByText(
         'The cell stops serving until you activate it again.'
@@ -179,13 +191,11 @@ describe('CellsPage', () => {
     });
     renderPage();
     await screen.findByText('dev');
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('menuitem', { name: 'more' }));
-    await screen.findByRole('menuitem', { name: 'View progress' });
-    expect(screen.queryByRole('menuitem', { name: 'Disable' })).toBeNull();
+    // Nothing applies to a disabled cell whose job is still queued.
+    expect(screen.queryByRole('menuitem', { name: 'more' })).toBeNull();
   });
 
-  it('shows the failure code column (I0003 AC11)', async () => {
+  it('shows the failure code in the detail (I0003 AC11, R044)', async () => {
     api.listCellsOverview.mockResolvedValue({
       rows: [
         overviewRow({
@@ -200,7 +210,12 @@ describe('CellsPage', () => {
       nextCursor: null,
     });
     renderPage();
-    expect(await screen.findByText('MIGRATION_FAILED')).toBeTruthy();
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'nap_dev_cell_acme' })
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('MIGRATION_FAILED')).toBeTruthy();
   });
 
   it('refreshes every 2 seconds while a job is active, and stops after (I0003 AC11)', async () => {
@@ -237,6 +252,37 @@ describe('CellsPage', () => {
     }
   });
 
+  it('keeps an open detail in step with the refresh (I0003-R044)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const failed = overviewRow({
+        operation: { ...overviewRow().operation, status: 'failed' },
+      });
+      api.listCellsOverview
+        .mockResolvedValueOnce({
+          rows: [overviewRow()],
+          nextCursor: null,
+          anyActive: true,
+        })
+        .mockResolvedValue({ rows: [failed], nextCursor: null });
+      renderPage();
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(
+        await screen.findByRole('button', { name: 'nap_dev_cell_acme' })
+      );
+      const dialog = await screen.findByRole('dialog');
+      expect(
+        within(dialog).queryByRole('button', { name: 'Retry' })
+      ).toBeNull();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(
+        await within(dialog).findByRole('button', { name: 'Retry' })
+      ).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps refreshing while a job on another page is active (I0003-R030)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -264,7 +310,7 @@ describe('CellsPage', () => {
     }
   });
 
-  it('opens progress details with the next action (I0003 AC11)', async () => {
+  it('opens the cell detail from its database name, with the next action and its actions (I0003 AC11, R044)', async () => {
     api.listCellsOverview.mockResolvedValue({
       rows: [
         overviewRow({
@@ -282,11 +328,15 @@ describe('CellsPage', () => {
     renderPage();
     await screen.findByText('dev');
     const user = userEvent.setup();
-    await user.click(screen.getByRole('menuitem', { name: 'more' }));
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'View progress' })
-    );
-    const dialog = await screen.findByRole('dialog');
+    await user.click(screen.getByRole('button', { name: 'nap_dev_cell_acme' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'nap_dev_cell_acme',
+    });
+    expect(within(dialog).getByText('setup')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(
+      within(dialog).getByRole('button', { name: 'Disable' })
+    ).toBeTruthy();
     expect(within(dialog).getByText('c1')).toBeTruthy();
     expect(within(dialog).getByText('TARGET_NOT_OWNED')).toBeTruthy();
     expect(within(dialog).getByText('2')).toBeTruthy();
@@ -332,24 +382,31 @@ describe('CellsPage', () => {
     expect(screen.queryByRole('menuitem', { name: 'Activate' })).toBeNull();
   });
 
-  it('registers a cell and reloads the grid', async () => {
+  it('adds a cell with New cell, shows a notice, and reloads the grid (I0003-R045, R046)', async () => {
     api.listCellsOverview.mockResolvedValue({ rows: [], nextCursor: null });
     api.registerCell.mockResolvedValue({});
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('No cells registered yet.');
 
-    await user.click(screen.getByRole('button', { name: 'Register cell' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText(/Suffix/), 'testcell');
-    await user.click(within(dialog).getByRole('button', { name: 'Register' }));
+    await user.click(screen.getByRole('button', { name: 'New cell' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New cell' });
+    const suffix = within(dialog).getByLabelText(/Suffix/);
+    // I0003-R045: the helper shows only while the suffix is invalid.
+    expect(within(dialog).queryByText(/lowercase letters/)).toBeNull();
+    await user.type(suffix, 'Bad_');
+    expect(within(dialog).getByText(/lowercase letters/)).toBeTruthy();
+    await user.clear(suffix);
+    await user.type(suffix, 'testcell');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(api.registerCell).toHaveBeenCalledWith({ suffix: 'testcell' });
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await screen.findByText('Cell registered.')).toBeTruthy();
     expect(api.listCellsOverview).toHaveBeenCalledTimes(2);
   });
 
-  it('hides Register cell and write row actions without control write (I0005-R011)', async () => {
+  it('hides New cell and the write actions without control write (I0005-R011)', async () => {
     useSession.mockReturnValue({
       capabilities: capabilitiesFixture({
         patterns: ['NAP::admin-tenancy::control::read'],
@@ -366,12 +423,12 @@ describe('CellsPage', () => {
     });
     renderPage();
     await screen.findByText('dev');
-    expect(screen.queryByRole('button', { name: 'Register cell' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New cell' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'more' })).toBeNull();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('menuitem', { name: 'more' }));
-    await screen.findByRole('menuitem', { name: 'View progress' });
-    expect(screen.queryByRole('menuitem', { name: 'Retry' })).toBeNull();
-    expect(screen.queryByRole('menuitem', { name: 'Disable' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'nap_dev_cell_acme' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 
   describe('reference-data rollout (I0007)', () => {
@@ -405,7 +462,7 @@ describe('CellsPage', () => {
       expect(screen.queryByText(/Reference data version/)).toBeNull();
     });
 
-    it('confirms and runs a rollout, then reports the result (R011, R012)', async () => {
+    it('confirms and runs a rollout from the header, then reports the result as a notice (R011, R012, R021, R022)', async () => {
       api.listCellsOverview.mockResolvedValue({
         rows: [missingRow()],
         nextCursor: null,
@@ -418,21 +475,23 @@ describe('CellsPage', () => {
       });
       renderPage();
       expect(await screen.findByText('Reference data version 3')).toBeTruthy();
+      // R021: only the counts above zero.
+      expect(screen.getByText('Current 1 · Missing 2')).toBeTruthy();
       const user = userEvent.setup();
       await user.click(
-        screen.getByRole('button', { name: 'Roll out reference data' })
+        await screen.findByRole('button', { name: 'Roll out reference data' })
       );
-      const dialog = await screen.findByRole('dialog');
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Roll out reference data?',
+      });
       expect(
-        within(dialog).getByText('Load reference data version 3 into 2 cells?')
+        within(dialog).getByText('Version 3 loads into 2 cells.')
       ).toBeTruthy();
       await user.click(
         within(dialog).getByRole('button', { name: 'Roll out' })
       );
       expect(api.rolloutReferenceData).toHaveBeenCalledTimes(1);
-      expect(
-        await screen.findByText('Queued 2 cells; skipped 0.')
-      ).toBeTruthy();
+      expect(await screen.findByText('Queued 2 cells.')).toBeTruthy();
     });
 
     it('offers Load reference data for a missing cell (R013)', async () => {
@@ -470,12 +529,7 @@ describe('CellsPage', () => {
       expect(
         screen.queryByRole('button', { name: 'Roll out reference data' })
       ).toBeNull();
-      const user = userEvent.setup();
-      await user.click(screen.getByRole('menuitem', { name: 'more' }));
-      await screen.findByRole('menuitem', { name: 'View progress' });
-      expect(
-        screen.queryByRole('menuitem', { name: 'Load reference data' })
-      ).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'more' })).toBeNull();
     });
   });
 });

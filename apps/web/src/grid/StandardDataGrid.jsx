@@ -38,6 +38,7 @@ const EMPTY_SELECTION = { type: 'include', ids: new Set() };
  *   rowActions?: (row: object) => Array<{label: string, icon?: import('react').ReactNode, onClick: (row: object) => void, destructive?: boolean, confirmTitle?: string, confirmDescription?: string}>,
  *   emptyMessage?: string,
  *   onSelectionChange?: (ids: Array<string|number>, rows: object[]) => void,
+ *   onRowsLoaded?: (rows: object[]) => void,
  *   ariaLabel?: string,
  *   describeError?: (error: unknown) => string,
  *   selectable?: boolean,
@@ -46,6 +47,8 @@ const EMPTY_SELECTION = { type: 'include', ids: new Set() };
  *   selected rows from the current page, whenever the
  *   selection changes, including when a page, sort, filter, or reset clears
  *   it, so a page can offer bulk actions on the current page (I0001-R016).
+ *   `onRowsLoaded` receives each fetched page's rows, so an open detail can
+ *   follow a refresh (I0001-R038).
  * @returns {JSX.Element}
  */
 export function StandardDataGrid({
@@ -56,6 +59,7 @@ export function StandardDataGrid({
   rowActions,
   emptyMessage = 'No rows to show.',
   onSelectionChange,
+  onRowsLoaded,
   ariaLabel,
   describeError,
   selectable = true,
@@ -150,6 +154,7 @@ export function StandardDataGrid({
       result => {
         if (cancelled) return;
         setRows(result.rows);
+        onRowsLoaded?.(result.rows);
         setRowCount(result.rowCount);
         setLoading(false);
       },

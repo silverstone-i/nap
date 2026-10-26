@@ -102,7 +102,7 @@ cannot list sessions.
   out of this session."
 - I0009-R008: Selecting rows on the current page must enable **Revoke
   selected**, which revokes them through R009 after one confirmation naming
-  the count.
+  the count. _Superseded in part by R016 (confirmation title)._
 
 ### Revoking
 
@@ -136,6 +136,12 @@ cannot list sessions.
 - I0009-R014: A tab reset by R013 must remember its location as the return
   path, the same as a mid-use expiry (I0001), so signing in again returns
   there.
+
+### Plain status and notices
+
+- I0009-R015: The Status column must show "Active" or "Ended" as plain text, and the Ended column is hidden while the status filter is Active (I0001-R043). The search field reads "Search by email".
+- I0009-R016: Revoke selected must ask "Revoke {count} sessions?" with "These users are signed out of these sessions." (I0001-R039).
+- I0009-R017: Revoke and Revoke selected must report success as a notice that closes on its own: "Session revoked." or "{count} sessions revoked." (I0001-R040).
 
 ## 7. Business Rules And Invariants
 
@@ -202,6 +208,8 @@ Admin Tenancy, base `/api/admin-tenancy/v1`:
 | AC06      | Revoking one's own session through either route clears the cookie and returns every tab of that browser to `/login`.                                                              | I0009-R011, R013       |
 | AC07      | Logging out in one tab returns every other tab of the browser to `/login` with no further network request; signing in again in a reset tab returns it to its remembered location. | I0009-R013, R014       |
 | AC08      | No response, log, event, or same-browser message contains a session token or token hash.                                                                                          | I0009 §12              |
+| AC09      | Status reads as plain text; Ended is hidden while the filter is Active; the search reads "Search by email".                                                                       | I0009-R015             |
+| AC10      | Revoke selected asks "Revoke {count} sessions?"; each revoke shows a notice.                                                                                                      | I0009-R016, R017       |
 
 ## 14. Outstanding Questions
 

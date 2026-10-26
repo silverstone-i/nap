@@ -218,12 +218,18 @@ const CONTROL_CODES = new Set([
  *
  * Kept separate from `AdminAccessError` because only a cell-provisioning
  * operation reports `INVALID_STATE`, for a transition the current stage or
- * status does not permit.
+ * status does not permit. A provisioning `CONFLICT` may carry `details`
+ * naming the value that is taken (I0006-R023).
  */
 export class AdminControlError extends Error {
-  constructor(code) {
+  /**
+   * @param {string} code
+   * @param {{field: 'code'|'client'|'email'}} [details]
+   */
+  constructor(code, details) {
     super(code);
     this.code = code;
+    if (details) this.details = details;
   }
 }
 
@@ -248,9 +254,10 @@ export async function withControlErrors(operation) {
     if (error instanceof AdminControlError) throw error;
     if (CONFLICT_SQLSTATES.has(error?.code))
       throw new AdminControlError('CONFLICT');
-    throw new AdminControlError(
-      CONTROL_CODES.has(error?.code) ? error.code : 'INTERNAL_ERROR'
-    );
+    // I0006-R023: an account conflict keeps the field it names.
+    if (CONTROL_CODES.has(error?.code))
+      throw new AdminControlError(error.code, error.details);
+    throw new AdminControlError('INTERNAL_ERROR');
   }
 }
 
@@ -340,9 +347,15 @@ const ACCOUNT_CODES = new Set([
  * `NOT_FOUND`/`INVALID_STATE`).
  */
 export class AdminAccountError extends Error {
-  constructor(code) {
+  /**
+   * @param {string} code
+   * @param {{field: 'email'}} [details] Which value a `CONFLICT` refuses
+   *   (I0006-R023).
+   */
+  constructor(code, details) {
     super(code);
     this.code = code;
+    if (details) this.details = details;
   }
 }
 

@@ -44,6 +44,8 @@ const ACTIVE_USER = {
   status: 'active',
   mustChangePassword: true,
   deactivatedAt: null,
+  tenantCodes: ['ACME'],
+  locked: false,
 };
 
 const ARCHIVED_USER = {
@@ -93,7 +95,7 @@ afterEach(() => {
 describe('PortalUsersPage', () => {
   const OTHER = { ...ACTIVE_USER, id: 'u3', email: 'c@example.com' };
 
-  it('deactivates the selected users in one request from the header (I0002-R014)', async () => {
+  it('archives the selected users in one request from the header (I0002-R014, R019)', async () => {
     api.listUsersPage.mockResolvedValue({
       rows: [ACTIVE_USER, OTHER],
       nextCursor: null,
@@ -106,27 +108,23 @@ describe('PortalUsersPage', () => {
     await user.click(boxes[0]);
     await user.click(boxes[1]);
     await user.click(
-      screen.getByRole('button', { name: 'Deactivate selected (2)' })
+      screen.getByRole('button', { name: 'Archive selected (2)' })
     );
     const dialog = await screen.findByRole('dialog', {
-      name: 'Deactivate 2 users?',
+      name: 'Archive 2 users?',
     });
     expect(
-      within(dialog).getByText(
-        'Deactivated users are signed out and cannot sign in until restored.'
-      )
+      within(dialog).getByText('Archived records move to the Archived tab.')
     ).toBeTruthy();
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Deactivate' })
-    );
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
     expect(api.bulkPortalUserAction).toHaveBeenCalledWith('archive', [
       'u1',
       'u3',
     ]);
-    expect(await screen.findByText('2 users deactivated.')).toBeTruthy();
+    expect(await screen.findByText('2 users archived.')).toBeTruthy();
   });
 
-  it('lists each user a bulk deactivate refused, by email', async () => {
+  it('lists each user a bulk archive refused, by email', async () => {
     api.listUsersPage.mockResolvedValue({
       rows: [ACTIVE_USER, OTHER],
       nextCursor: null,
@@ -142,12 +140,12 @@ describe('PortalUsersPage', () => {
     for (const box of screen.getAllByRole('checkbox', { name: /select row/i }))
       await user.click(box);
     await user.click(
-      screen.getByRole('button', { name: 'Deactivate selected (2)' })
+      screen.getByRole('button', { name: 'Archive selected (2)' })
     );
     await user.click(
       within(
-        await screen.findByRole('dialog', { name: 'Deactivate 2 users?' })
-      ).getByRole('button', { name: 'Deactivate' })
+        await screen.findByRole('dialog', { name: 'Archive 2 users?' })
+      ).getByRole('button', { name: 'Archive' })
     );
     const failure = await screen.findByRole('dialog', {
       name: 'Nothing was changed',
@@ -270,7 +268,7 @@ describe('PortalUsersPage', () => {
     expect(await screen.findByText('Could not load data.')).toBeTruthy();
   });
 
-  it('offers only Deactivate for an active account, requiring confirmation (AC06)', async () => {
+  it('archives an active account after "Archive portal user?", with a notice (AC06, I0002-R019, R020)', async () => {
     api.listUsersPage.mockResolvedValue({
       rows: [ACTIVE_USER],
       nextCursor: null,
@@ -281,16 +279,15 @@ describe('PortalUsersPage', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('menuitem', { name: 'more' }));
     expect(screen.queryByRole('menuitem', { name: 'Restore' })).toBeNull();
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'Deactivate' })
-    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }));
 
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Archive portal user?',
+    });
     expect(api.deactivatePortalUser).not.toHaveBeenCalled();
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Deactivate' })
-    );
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
     expect(api.deactivatePortalUser).toHaveBeenCalledWith('u1');
+    expect(await screen.findByText('a@example.com archived.')).toBeTruthy();
   });
 
   it('lists deactivated users only in the Archived tab, untagged (I0011-R001, R004)', async () => {
@@ -344,24 +341,23 @@ describe('PortalUsersPage', () => {
     const user = userEvent.setup();
     await screen.findByText('No portal users yet.');
 
-    await user.click(
-      screen.getByRole('button', { name: 'Create portal user' })
-    );
-    const dialog = await screen.findByRole('dialog');
+    await user.click(screen.getByRole('button', { name: 'New portal user' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'New portal user',
+    });
     await user.type(within(dialog).getByLabelText(/Email/), 'a@example.com');
     await user.type(
       within(dialog).getByLabelText(/Temporary password/),
       'a-temp-password'
     );
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create portal user' })
-    );
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(api.createPortalUser).toHaveBeenCalledWith({
       email: 'a@example.com',
       password: 'a-temp-password',
     });
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await screen.findByText('Portal user created.')).toBeTruthy();
     expect(api.listUsersPage).toHaveBeenCalledTimes(2);
   });
 
@@ -372,18 +368,14 @@ describe('PortalUsersPage', () => {
     const user = userEvent.setup();
     await screen.findByText('No portal users yet.');
 
-    await user.click(
-      screen.getByRole('button', { name: 'Create portal user' })
-    );
+    await user.click(screen.getByRole('button', { name: 'New portal user' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/Email/), 'a@example.com');
     await user.type(
       within(dialog).getByLabelText(/Temporary password/),
       'a-temp-password'
     );
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create portal user' })
-    );
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(
       await within(dialog).findByText(
@@ -392,14 +384,19 @@ describe('PortalUsersPage', () => {
     ).toBeTruthy();
   });
 
-  it('shows no membership data on the grid, per I0002-R005', async () => {
+  it('shows Email, Status, and Tenants in the grid (I0002-R017)', async () => {
     api.listUsersPage.mockResolvedValue({
       rows: [ACTIVE_USER],
       nextCursor: null,
     });
     renderPage();
     await screen.findByText('a@example.com');
-    expect(screen.queryByText(/membership/i)).toBeNull();
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map(header => header.textContent)
+      .filter(Boolean);
+    expect(headers).toEqual(['Email', 'Status', 'Tenants']);
+    expect(screen.getByText('ACME')).toBeTruthy();
   });
 
   describe('login recovery (I0008)', () => {
@@ -419,7 +416,7 @@ describe('PortalUsersPage', () => {
       return user;
     }
 
-    it("shows a login's memberships, one row per party (I0012-R020)", async () => {
+    it("opens the user's detail from the email, with its memberships, one row per party (I0002-R018, I0008-R019, I0012-R020)", async () => {
       api.listUserMemberships.mockResolvedValue([
         {
           id: 'm1',
@@ -440,10 +437,25 @@ describe('PortalUsersPage', () => {
           status: 'active',
         },
       ]);
-      await openAction('Memberships');
+      renderPage();
+      const user = userEvent.setup();
+      await user.click(
+        await screen.findByRole('button', { name: 'a@example.com' })
+      );
       const dialog = await screen.findByRole('dialog', {
-        name: 'Memberships of a@example.com',
+        name: 'a@example.com',
       });
+      expect(within(dialog).getByText('Must change password')).toBeTruthy();
+      expect(
+        within(dialog).getByRole('button', { name: 'Disable' })
+      ).toBeTruthy();
+      // I0008-R020: no Unlock for a login that is not locked.
+      expect(
+        within(dialog).queryByRole('button', { name: 'Unlock' })
+      ).toBeNull();
+      expect(
+        screen.queryByRole('menuitem', { name: 'Memberships' })
+      ).toBeNull();
       expect(await within(dialog).findAllByText('Acme (ACME)')).toHaveLength(2);
       expect(within(dialog).getByText('Vendor · Black Plumbing')).toBeTruthy();
       expect(within(dialog).getByText('pending')).toBeTruthy();
@@ -460,23 +472,74 @@ describe('PortalUsersPage', () => {
         within(dialog).getByLabelText(/Temporary password/),
         'temp-pass'
       );
+      expect(within(dialog).queryByText(/signed out everywhere/)).toBeNull();
       await user.click(
         within(dialog).getByRole('button', { name: 'Reset password' })
       );
       expect(api.resetUserPassword).toHaveBeenCalledWith('u1', 'temp-pass');
+      expect(
+        await screen.findByText('Password reset for a@example.com.')
+      ).toBeTruthy();
     });
 
-    it('unlocks and disables a login', async () => {
+    it('unlocks a locked login, and disables a login after "Disable portal user?" (I0002-R019, I0008-R020)', async () => {
+      api.listUsersPage.mockResolvedValue({
+        rows: [{ ...ACTIVE_USER, locked: true }],
+        nextCursor: null,
+      });
       api.unlockUser.mockResolvedValue(ACTIVE_USER);
       api.setUserStatus.mockResolvedValue(ACTIVE_USER);
       await openAction('Unlock');
       expect(api.unlockUser).toHaveBeenCalledWith('u1');
+      expect(await screen.findByText('a@example.com unlocked.')).toBeTruthy();
       cleanup();
-      await openAction('Disable');
+      const user = await openAction('Disable');
+      const confirm = await screen.findByRole('dialog', {
+        name: 'Disable portal user?',
+      });
+      expect(api.setUserStatus).not.toHaveBeenCalled();
+      await user.click(
+        within(confirm).getByRole('button', { name: 'Disable' })
+      );
       expect(api.setUserStatus).toHaveBeenCalledWith('u1', 'disabled');
     });
 
+    it('asks before Disable from the detail (I0002-R019)', async () => {
+      api.setUserStatus.mockResolvedValue(ACTIVE_USER);
+      renderPage();
+      const user = userEvent.setup();
+      await user.click(
+        await screen.findByRole('button', { name: 'a@example.com' })
+      );
+      const detail = await screen.findByRole('dialog', {
+        name: 'a@example.com',
+      });
+      await user.click(within(detail).getByRole('button', { name: 'Disable' }));
+      const confirm = await screen.findByRole('dialog', {
+        name: 'Disable portal user?',
+      });
+      expect(api.setUserStatus).not.toHaveBeenCalled();
+      await user.click(
+        within(confirm).getByRole('button', { name: 'Disable' })
+      );
+      expect(api.setUserStatus).toHaveBeenCalledWith('u1', 'disabled');
+      expect(await screen.findByText('a@example.com disabled.')).toBeTruthy();
+    });
+
+    it('offers Unlock only while the login is locked (I0008-R020)', async () => {
+      renderPage();
+      await screen.findByText('a@example.com');
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('menuitem', { name: 'more' }));
+      await screen.findByRole('menuitem', { name: 'Reset password' });
+      expect(screen.queryByRole('menuitem', { name: 'Unlock' })).toBeNull();
+    });
+
     it('explains a refusal on the initial Napsoft login', async () => {
+      api.listUsersPage.mockResolvedValue({
+        rows: [{ ...ACTIVE_USER, locked: true }],
+        nextCursor: null,
+      });
       api.unlockUser.mockRejectedValue(new ApiError('ROOT_IMMUTABLE', 409));
       await openAction('Unlock');
       expect(

@@ -83,7 +83,7 @@ failures. No terminal, no restart, and no cell is recreated.
 ### Cells screen
 
 - I0007-R011: The Cells screen must show a rollout panel with the declared version and the R009 counts. The panel shows only when any count other than `current` is nonzero.
-- I0007-R012: The panel must offer **Roll out reference data** when `missing` is above zero. It asks for confirmation naming the version and cell count, then calls R007 and reports queued and skipped cells.
+- I0007-R012: The panel must offer **Roll out reference data** when `missing` is above zero. It asks for confirmation naming the version and cell count, then calls R007 and reports queued and skipped cells. _Superseded in part by R021 and R022 (header action; result as a notice)._
 - I0007-R013: Each row must show its `seedState`, and its menu must offer **Load reference data** for an eligible cell, calling R006.
 - I0007-R014: A failed `seed` job's row must show its failure code and offer the existing **Retry** (I0003-R031 shows the next action).
 - I0007-R015: The screen must refresh while any `seed` job is `queued` or `running`, as it does for provisioning (I0003-R030).
@@ -91,6 +91,11 @@ failures. No terminal, no restart, and no cell is recreated.
 ### Maintenance command
 
 - I0007-R020: `npm run db:seed:rollout -- --env <dev|prod>` must, with maintenance credentials and no running API, retry every failed `seed` job, queue every eligible cell (R007), run the jobs, and print one JSON line with `declaredVersion`, `completed`, `failed`, and `skipped`. It exits nonzero when any cell fails. It exists because the Napsoft cell can itself be `SEED_MISSING`, and then no operator can reach the Cells screen. A running API sees the result after it restarts.
+
+### Rollout from the header
+
+- I0007-R021: **Roll out reference data** must be a Cells page header action (I0001-R028), shown when `missing` is above zero to an operator with `control::write`. It asks "Roll out reference data?" with "Version {version} loads into {count} cells." The rollout panel shows the declared version and only the counts above zero.
+- I0007-R022: A rollout must report its result as a notice that closes on its own: "Queued {count} cells.", followed by "Skipped {count}." only when cells were skipped (I0001-R040).
 
 ## 7. Business Rules And Invariants
 
@@ -146,18 +151,19 @@ Base: `/api/admin-tenancy/v1`.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                                                 | Requirements                      |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| AC01      | On a `dev` stack with two cells seeded at version N, raising the declared version to N+1 and restarting leaves both cells not ready with `SEED_MISSING`, and the overview reports `missing: 2`. | I0007-R009, R010                  |
-| AC02      | **Roll out reference data** queues both cells; with no restart, both reach `complete/completed`, record version N+1, and are ready; a user of each cell's tenant can select it again.           | I0007-R002–R004, R007, R012, R015 |
-| AC03      | **Load reference data** on one eligible cell queues and completes only that cell; on a ready cell it returns `409 INVALID_STATE`.                                                               | I0007-R006, R013, R016            |
-| AC04      | A seed job whose seed step fails shows `SEED_FAILED` on its row with the cell disabled; after the cause is fixed, **Retry** runs seed and activation only and the cell becomes ready.           | I0007-R005, R014, R017            |
-| AC05      | A second rollout while jobs are queued lists those cells as skipped with `ALREADY_QUEUED`; one after they complete queues nothing. Rerunning a completed seed changes no reference rows.        | I0007-R007, R018                  |
-| AC06      | A `seed` job does not run setup or migration and does not fail with `PUBLISH_CONFLICT` for its own saved connection.                                                                            | I0007-R002, R003                  |
-| AC07      | Each queued job and each rollout records a managed event; no response, event, or failure code contains a secret or endpoint.                                                                    | I0007-R008, R019                  |
-| AC08      | An operator without `control::write` gets `403` from both operations and sees no rollout actions; one with only `control::read` sees the panel and row states.                                  | I0007-R006, R007, R011–R013       |
-| AC09      | The admin migration accepts `seed` in `requested_action`; the check still rejects other values.                                                                                                 | I0007-R001                        |
-| AC10      | With the Napsoft cell missing the declared version, `db:seed:rollout` loads it and the cell becomes ready.                                                                                      | I0007-R020                        |
+| Criterion | Required result                                                                                                                                                                                           | Requirements                      |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| AC01      | On a `dev` stack with two cells seeded at version N, raising the declared version to N+1 and restarting leaves both cells not ready with `SEED_MISSING`, and the overview reports `missing: 2`.           | I0007-R009, R010                  |
+| AC02      | **Roll out reference data** queues both cells; with no restart, both reach `complete/completed`, record version N+1, and are ready; a user of each cell's tenant can select it again.                     | I0007-R002–R004, R007, R012, R015 |
+| AC03      | **Load reference data** on one eligible cell queues and completes only that cell; on a ready cell it returns `409 INVALID_STATE`.                                                                         | I0007-R006, R013, R016            |
+| AC04      | A seed job whose seed step fails shows `SEED_FAILED` on its row with the cell disabled; after the cause is fixed, **Retry** runs seed and activation only and the cell becomes ready.                     | I0007-R005, R014, R017            |
+| AC05      | A second rollout while jobs are queued lists those cells as skipped with `ALREADY_QUEUED`; one after they complete queues nothing. Rerunning a completed seed changes no reference rows.                  | I0007-R007, R018                  |
+| AC06      | A `seed` job does not run setup or migration and does not fail with `PUBLISH_CONFLICT` for its own saved connection.                                                                                      | I0007-R002, R003                  |
+| AC07      | Each queued job and each rollout records a managed event; no response, event, or failure code contains a secret or endpoint.                                                                              | I0007-R008, R019                  |
+| AC08      | An operator without `control::write` gets `403` from both operations and sees no rollout actions; one with only `control::read` sees the panel and row states.                                            | I0007-R006, R007, R011–R013       |
+| AC09      | The admin migration accepts `seed` in `requested_action`; the check still rejects other values.                                                                                                           | I0007-R001                        |
+| AC10      | With the Napsoft cell missing the declared version, `db:seed:rollout` loads it and the cell becomes ready.                                                                                                | I0007-R020                        |
+| AC11      | Roll out reference data sits in the page header and asks "Roll out reference data?"; the panel lists only counts above zero; the result is a notice that mentions skipped cells only when there are some. | I0007-R021, R022                  |
 
 ## 14. Implementation Notes
 

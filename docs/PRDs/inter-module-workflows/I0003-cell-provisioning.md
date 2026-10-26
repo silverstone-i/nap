@@ -146,12 +146,18 @@ maintenance command (I0003-R042), not through the API.
 
 ### Cells screen
 
-- I0003-R029: The Cells screen must show each cell's failure code.
+- I0003-R029: The Cells screen must show each cell's failure code. _Superseded in part by R044 (in the detail)._
 - I0003-R030: The Cells screen must refresh the list every 2 seconds while any cell is `queued` or `running`, and stop when none is.
-- I0003-R031: Each row's menu must offer **View progress**, which opens a dialog with the cell ID, stage, status, attempts, failure code, and the next action an operator can take.
+- I0003-R031: Each row's menu must offer **View progress**, which opens a dialog with the cell ID, stage, status, attempts, failure code, and the next action an operator can take. _Superseded by R044 (the cell detail)._
 - I0003-R032: Each row's menu must offer **Activate** for a disabled cell whose last job is `completed`, calling R027.
 - I0003-R033: Disable must ask for confirmation before it runs.
 - I0003-R043: Every Cells screen action applies to one cell at a time, so the grid has no checkbox column. This is a deliberate exception to I0001-R026: one cell serves many tenants, and a multi-cell Disable risks taking down hundreds of tenants on one misclick.
+
+### Cells detail
+
+- I0003-R044: The Cells grid must show Environment, Database, Enabled, and Status. Selecting a cell's database name opens its detail dialog (I0001-R038), which replaces **View progress**: cell ID, stage, status, attempts, failure code, reference data state (I0007-R013), and the next action. The detail offers **Retry**, **Activate**, **Load reference data**, and **Disable** as buttons when each applies, and the row's ⋮ menu offers the same actions, each with an icon.
+- I0003-R045: The create action must be **New cell** (I0001-R041). Its suffix field shows helper text only when the suffix is invalid.
+- I0003-R046: New cell, Retry, Activate, Disable, and Load reference data must each report success as a notice that closes on its own (I0001-R040).
 
 ## 7. Business Rules And Invariants
 
@@ -261,6 +267,8 @@ public route.
 | AC12      | No response, log, event, failure code, or not-ready reason contains a secret or endpoint.                                                                                                                              | I0003-R039, R040                                   |
 | AC13      | `prod` setup creates one Render instance per cell and publishes to `CELL_DATABASES_PROD`, verified against a mocked Render API.                                                                                        | I0003-R007, R011, R037                             |
 | AC14      | `db:provision:napsoft` provisions the first cell and runs Napsoft tenant setup on a new install, and refuses once the Napsoft tenant has a cell.                                                                       | I0003-R042                                         |
+| AC15      | The Cells grid shows Environment, Database, Enabled, and Status; selecting a database name opens the detail with stage, attempts, failure code, reference data, next action, and the actions that apply.               | I0003-R044                                         |
+| AC16      | The header offers New cell; the suffix helper shows only for an invalid suffix; each cell action shows a notice.                                                                                                       | I0003-R045, R046                                   |
 
 ## 14. Implementation Notes
 
