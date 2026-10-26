@@ -581,26 +581,30 @@ export async function listUsers(
       parsedLimit,
       resumeFrom
     );
-    const ids = page.rows.map(row => row.id);
-    const codes = await db.portal_user_tenants.tenantCodesByUser(ids);
     // I0002-R021: a login is locked while its account key is hard-locked.
-    const keyOf = row =>
-      throttleKey(
-        policy,
-        THROTTLE_KINDS.account,
-        normalizeAccountInput(row.email)
-      );
-    const locked = policy
-      ? await db.login_throttles.hardLocked(
-          page.rows.map(keyOf),
-          THROTTLE_LIMITS.account.maxFailures
+    const keys = policy
+      ? page.rows.map(row =>
+          throttleKey(
+            policy,
+            THROTTLE_KINDS.account,
+            normalizeAccountInput(row.email)
+          )
         )
-      : new Set();
+      : [];
+    const [codes, locked] = await Promise.all([
+      db.portal_user_tenants.tenantCodesByUser(page.rows.map(row => row.id)),
+      policy
+        ? db.login_throttles.hardLocked(
+            keys,
+            THROTTLE_LIMITS.account.maxFailures
+          )
+        : new Set(),
+    ]);
     return {
-      rows: page.rows.map(row => ({
+      rows: page.rows.map((row, index) => ({
         ...userView(row),
         tenantCodes: codes.get(row.id) ?? [],
-        locked: policy ? locked.has(keyOf(row)) : false,
+        locked: locked.has(keys[index]),
       })),
       nextCursor: encodeUserCursor(page.nextCursor),
     };

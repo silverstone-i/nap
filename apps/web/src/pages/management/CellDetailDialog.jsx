@@ -4,6 +4,7 @@
  */
 
 import { DetailDialog } from './DetailDialog.jsx';
+import { yesNo } from './yesNo.js';
 
 /**
  * The next thing an operator can do for a cell, from its job and enabled
@@ -27,7 +28,9 @@ function nextAction(row) {
 /**
  * A cell's detail (I0003-R044), in place of View progress: its job, its
  * reference data (I0007-R013), the next action, and the actions that apply.
- * @param {{row: object, actions: Array<{label: string, onClick: () => void, color?: string}>, onClose: () => void}} props
+ * @param {{row: object, actions: object[], onClose: () => void}} props `actions`
+ *   are the row's actions with `onClick` bound to it; a destructive one asks
+ *   first (`DetailDialog`).
  * @returns {JSX.Element}
  */
 export function CellDetailDialog({ row, actions, onClose }) {
@@ -38,7 +41,7 @@ export function CellDetailDialog({ row, actions, onClose }) {
       rows={[
         ['Cell ID', row.id],
         ['Environment', row.environment],
-        ['Enabled', row.enabled ? 'Yes' : 'No'],
+        ['Enabled', yesNo(row.enabled)],
         ['Stage', row.stage],
         ['Status', row.status],
         ['Attempts', row.attempts],

@@ -27,7 +27,6 @@ import {
   unlockUser,
 } from '../../api/endpoints.js';
 import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
-import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { useArchiveView } from '../../grid/useArchiveView.js';
@@ -145,8 +144,6 @@ export function PortalUsersPage() {
   const canListTenants = can('admin-tenancy::control::read', 'napsoft');
   const [tenants, setTenants] = useState([]);
   const [selected, setSelected] = useState(null);
-  // I0002-R019: a Disable or Archive from the detail, waiting on its confirm.
-  const [confirming, setConfirming] = useState(null);
   const notify = useNotice();
 
   useEffect(() => {
@@ -388,28 +385,11 @@ export function PortalUsersPage() {
         <PortalUserDetailDialog
           user={selected}
           actions={actionsFor(selected).map(action => ({
-            label: action.label,
-            onClick: () =>
-              action.destructive
-                ? setConfirming(action)
-                : action.onClick(selected),
+            ...action,
+            onClick: () => action.onClick(selected),
           }))}
           describeError={describeActionError}
           onClose={() => setSelected(null)}
-        />
-      ) : null}
-      {confirming ? (
-        <ConfirmDialog
-          open
-          title={confirming.confirmTitle}
-          description={confirming.confirmDescription}
-          confirmLabel={confirming.label}
-          onConfirm={() => {
-            const action = confirming;
-            setConfirming(null);
-            action.onClick(selected);
-          }}
-          onCancel={() => setConfirming(null)}
         />
       ) : null}
       {resetting ? (

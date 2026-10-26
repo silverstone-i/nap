@@ -6,8 +6,7 @@
 import { useEffect, useState } from 'react';
 import { listCellsOverview } from '../../api/endpoints.js';
 import { DetailDialog } from './DetailDialog.jsx';
-
-const yesNo = value => (value ? 'Yes' : 'No');
+import { yesNo } from './yesNo.js';
 
 /**
  * A tenant's detail (I0006-R020): tier, cell, readiness, and its
@@ -22,12 +21,19 @@ export function TenantDetailDialog({ tenant, onViewClient, onRetry, onClose }) {
   useEffect(() => {
     if (!tenant.cellId) return undefined;
     let live = true;
-    listCellsOverview({ limit: 100 })
-      .then(page => {
+    // Follow the cursor: the tenant's cell may be past the first page.
+    (async () => {
+      let cursor;
+      do {
+        const page = await listCellsOverview({ cursor, limit: 100 });
         const found = page.rows.find(row => row.cell.id === tenant.cellId);
-        if (live && found) setCellName(found.cell.database_name);
-      })
-      .catch(() => {});
+        if (found) {
+          if (live) setCellName(found.cell.database_name);
+          return;
+        }
+        cursor = page.nextCursor;
+      } while (cursor && live);
+    })().catch(() => {});
     return () => {
       live = false;
     };

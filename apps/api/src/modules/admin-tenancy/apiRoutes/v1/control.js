@@ -24,12 +24,13 @@ import {
 const NAPSOFT = { target: 'napsoft' };
 
 /**
- * Report a control failure through the shared error envelope.
+ * Report a control failure through the shared error envelope. A provisioning
+ * `CONFLICT` keeps the `details` naming the taken value (I0006-R023).
  * @param {import('express').Response} response
  * @param {unknown} error
  * @returns {void}
  */
-function sendControlError(response, error) {
+export function sendControlError(response, error) {
   const code = error?.code;
   // I0006-R023: a provisioning conflict names the taken value.
   if (code === 'CONFLICT' && error.details)

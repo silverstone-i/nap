@@ -504,6 +504,28 @@ describe('PortalUsersPage', () => {
       expect(api.setUserStatus).toHaveBeenCalledWith('u1', 'disabled');
     });
 
+    it('asks before Disable from the detail (I0002-R019)', async () => {
+      api.setUserStatus.mockResolvedValue(ACTIVE_USER);
+      renderPage();
+      const user = userEvent.setup();
+      await user.click(
+        await screen.findByRole('button', { name: 'a@example.com' })
+      );
+      const detail = await screen.findByRole('dialog', {
+        name: 'a@example.com',
+      });
+      await user.click(within(detail).getByRole('button', { name: 'Disable' }));
+      const confirm = await screen.findByRole('dialog', {
+        name: 'Disable portal user?',
+      });
+      expect(api.setUserStatus).not.toHaveBeenCalled();
+      await user.click(
+        within(confirm).getByRole('button', { name: 'Disable' })
+      );
+      expect(api.setUserStatus).toHaveBeenCalledWith('u1', 'disabled');
+      expect(await screen.findByText('a@example.com disabled.')).toBeTruthy();
+    });
+
     it('offers Unlock only while the login is locked (I0008-R020)', async () => {
       renderPage();
       await screen.findByText('a@example.com');

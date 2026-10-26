@@ -160,6 +160,30 @@ describe('TenantsPage', () => {
     expect(await screen.findByRole('menuitem', { name: 'Retry' })).toBeTruthy();
   });
 
+  it("finds the tenant's cell name past the first page of cells", async () => {
+    api.listTenantsPage.mockResolvedValue(
+      page([{ ...TENANT, cellId: 'c2', job: null }])
+    );
+    api.listCellsOverview
+      .mockResolvedValueOnce({
+        rows: [{ cell: { id: 'c1', database_name: 'nap_dev_cell_a' } }],
+        nextCursor: 'next',
+      })
+      .mockResolvedValueOnce({
+        rows: [{ cell: { id: 'c2', database_name: 'nap_dev_cell_b' } }],
+        nextCursor: null,
+      });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'ACME' }));
+    const detail = await screen.findByRole('dialog');
+    expect(await within(detail).findByText('nap_dev_cell_b')).toBeTruthy();
+    expect(api.listCellsOverview).toHaveBeenLastCalledWith({
+      cursor: 'next',
+      limit: 100,
+    });
+  });
+
   it('shows only Code, Name, and Status in the grid (I0006-R020)', async () => {
     api.listTenantsPage.mockResolvedValue(page([TENANT]));
     renderPage();

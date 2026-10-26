@@ -4,9 +4,8 @@
  */
 
 import { DetailDialog } from './DetailDialog.jsx';
+import { yesNo } from './yesNo.js';
 import { MembershipsTable } from './LoginRecoveryDialogs.jsx';
-
-const yesNo = value => (value ? 'Yes' : 'No');
 
 /**
  * A portal user's detail (I0002-R018, I0008-R019): status, password,

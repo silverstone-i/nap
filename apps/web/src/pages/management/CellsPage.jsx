@@ -141,25 +141,32 @@ export function CellsPage() {
   const [active, setActive] = useState(false);
   const [seed, setSeed] = useState(null);
   const [confirmRollout, setConfirmRollout] = useState(false);
-  const [confirmDisable, setConfirmDisable] = useState(null);
   const notify = useNotice();
-  // I0003-R030: `anyActive` covers every page, not just the one shown.
-  const fetchPage = useMemo(
-    () =>
-      createCursorPageAdapter(
-        async page => {
-          const result = await listCellsOverview(page);
-          setActive(result.anyActive);
-          setSeed(result.referenceSeed);
-          return result;
-        },
-        { mapRow }
-      ),
-    []
-  );
+  // The rows of the page last fetched, so an open detail follows the
+  // refresh (I0001-R038) instead of showing the row as it was when opened.
+  const [pageRows, setPageRows] = useState([]);
+  const fetchPage = useMemo(() => {
+    const adapter = createCursorPageAdapter(
+      async page => {
+        const result = await listCellsOverview(page);
+        setActive(result.anyActive);
+        setSeed(result.referenceSeed);
+        return result;
+      },
+      { mapRow }
+    );
+    return async params => {
+      const page = await adapter(params);
+      setPageRows(page.rows);
+      return page;
+    };
+  }, []);
   const [resetKey, setResetKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  // The open record as of the latest refresh.
+  const current =
+    selected && (pageRows.find(row => row.id === selected.id) ?? selected);
   const [actionError, setActionError] = useState(null);
   const { can, onError } = useCapabilities();
   const canWrite = can('admin-tenancy::control::write', 'napsoft');
@@ -304,31 +311,16 @@ export function CellsPage() {
         selectable={false}
         emptyMessage="No cells registered yet."
       />
-      {selected ? (
+      {current ? (
         <CellDetailDialog
-          row={selected}
-          actions={actionsFor(selected).map(action => ({
-            label: action.label,
-            onClick: () =>
-              action.destructive
-                ? setConfirmDisable(selected)
-                : action.onClick(selected),
+          row={current}
+          actions={actionsFor(current).map(action => ({
+            ...action,
+            onClick: () => action.onClick(current),
           }))}
           onClose={() => setSelected(null)}
         />
       ) : null}
-      <ConfirmDialog
-        open={Boolean(confirmDisable)}
-        title="Disable cell?"
-        description={DISABLE_TEXT}
-        confirmLabel="Disable"
-        onConfirm={() => {
-          const row = confirmDisable;
-          setConfirmDisable(null);
-          void run(disableCell, row, 'disabled');
-        }}
-        onCancel={() => setConfirmDisable(null)}
-      />
       {dialogOpen ? (
         <RegisterCellDialog
           onClose={() => setDialogOpen(false)}

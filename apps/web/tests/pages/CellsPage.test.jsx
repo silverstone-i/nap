@@ -252,6 +252,37 @@ describe('CellsPage', () => {
     }
   });
 
+  it('keeps an open detail in step with the refresh (I0003-R044)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const failed = overviewRow({
+        operation: { ...overviewRow().operation, status: 'failed' },
+      });
+      api.listCellsOverview
+        .mockResolvedValueOnce({
+          rows: [overviewRow()],
+          nextCursor: null,
+          anyActive: true,
+        })
+        .mockResolvedValue({ rows: [failed], nextCursor: null });
+      renderPage();
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(
+        await screen.findByRole('button', { name: 'nap_dev_cell_acme' })
+      );
+      const dialog = await screen.findByRole('dialog');
+      expect(
+        within(dialog).queryByRole('button', { name: 'Retry' })
+      ).toBeNull();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(
+        await within(dialog).findByRole('button', { name: 'Retry' })
+      ).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps refreshing while a job on another page is active (I0003-R030)', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
