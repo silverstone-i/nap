@@ -152,14 +152,14 @@ export function RoleDetailDialog({
           {role.name}{' '}
           <Typography component="span" color="text.secondary">
             ({role.code})
-          </Typography>
+          </Typography>{' '}
+          <RoleBadges role={role} />
           {canEdit ? (
             <Pencil label="Edit name" onClick={() => setSection('name')} />
           ) : null}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2}>
-            <RoleBadges role={role} />
             {role.description ? (
               <Typography variant="body2">{role.description}</Typography>
             ) : null}

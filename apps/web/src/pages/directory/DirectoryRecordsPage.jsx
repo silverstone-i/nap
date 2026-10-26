@@ -11,11 +11,13 @@ import TextField from '@mui/material/TextField';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
 import { useArchiveView } from '../../grid/useArchiveView.js';
+import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 import { DirectoryGrid } from './DirectoryGrid.jsx';
 import { RecordDetailDialog } from './RecordDetailDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
+import { emptyListMessage, recordName } from './directoryRecords.js';
 import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 import { useDirectoryBulk } from './useDirectoryBulk.js';
 
@@ -25,25 +27,25 @@ const PAGES = {
     collection: 'people',
     title: 'Employees',
     create: 'New employee',
-    empty: 'No employees yet.',
+    noun: ['employee', 'employees'],
   },
   contact: {
     collection: 'people',
     title: 'Contacts',
     create: 'New contact',
-    empty: 'No contacts yet.',
+    noun: ['contact', 'contacts'],
   },
   vendor: {
     collection: 'organizations',
     title: 'Vendors',
     create: 'New vendor',
-    empty: 'No vendors yet.',
+    noun: ['vendor', 'vendors'],
   },
   client: {
     collection: 'organizations',
     title: 'Clients',
     create: 'New client',
-    empty: 'No clients yet.',
+    noun: ['client', 'clients'],
   },
 };
 
@@ -86,11 +88,13 @@ export function DirectoryRecordsPage({ kind }) {
   const [creating, setCreating] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey(key => key + 1);
+  const notify = useNotice();
   const bulk = useDirectoryBulk({
     collection,
     abilities,
     onDone: reload,
     archived,
+    noun: settings.noun,
   });
 
   const chips = [
@@ -160,7 +164,11 @@ export function DirectoryRecordsPage({ kind }) {
           archived,
         }}
         ariaLabel={settings.title}
-        emptyMessage={settings.empty}
+        emptyMessage={emptyListMessage(
+          settings.noun[1],
+          archived,
+          Boolean(query || (abilities.readTaxIds && taxIdQuery))
+        )}
         abilities={abilities}
         onOpen={row => setSelected(row.id)}
         refreshKey={reloadKey}
@@ -196,6 +204,7 @@ export function DirectoryRecordsPage({ kind }) {
           onClose={() => setCreating(false)}
           onSaved={saved => {
             setCreating(false);
+            notify(`${recordName(saved)} created.`);
             setSelected(saved.id);
             reload();
           }}

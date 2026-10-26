@@ -131,7 +131,7 @@ export function PasswordPage() {
           </Button>
           {forced ? (
             <Button variant="text" onClick={() => session.logout()} fullWidth>
-              Logout
+              Log out
             </Button>
           ) : (
             <Button variant="text" onClick={handleCancel} fullWidth>

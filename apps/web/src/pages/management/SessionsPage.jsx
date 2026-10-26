@@ -185,6 +185,7 @@ export function SessionsPage() {
         label: 'Revoke',
         icon: <LogoutIcon fontSize="small" />,
         destructive: true,
+        confirmTitle: 'Revoke session?',
         confirmDescription: REVOKE_TEXT,
         onClick: target => revoke([target.id]),
       },

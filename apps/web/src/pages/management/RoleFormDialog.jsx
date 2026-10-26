@@ -70,7 +70,7 @@ export function RoleFormDialog({ onClose, onSaved }) {
       fullWidth
       maxWidth="sm"
     >
-      <DialogTitle id="role-form-title">Create role</DialogTitle>
+      <DialogTitle id="role-form-title">New role</DialogTitle>
       <DialogContent>
         {error ? (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -83,7 +83,11 @@ export function RoleFormDialog({ onClose, onSaved }) {
             value={code}
             onChange={event => setCode(event.target.value)}
             error={codeInvalid}
-            helperText="Lowercase letters, digits, and underscores; starts with a letter."
+            helperText={
+              codeInvalid
+                ? 'Use lowercase letters, digits, and underscores, starting with a letter.'
+                : ''
+            }
             autoFocus
             required
             fullWidth
@@ -106,7 +110,7 @@ export function RoleFormDialog({ onClose, onSaved }) {
           variant="contained"
           disabled={submitting || codeInvalid}
         >
-          Create role
+          Save
         </Button>
       </DialogActions>
     </Dialog>

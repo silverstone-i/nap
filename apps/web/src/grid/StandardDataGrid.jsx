@@ -35,7 +35,7 @@ const EMPTY_SELECTION = { type: 'include', ids: new Set() };
  *   fetchPage: (params: {page: number, pageSize: number, sortModel: object[], filterModel: object}) => Promise<{rows: object[], rowCount: number}>,
  *   getRowId?: (row: object) => string|number,
  *   resetKey?: unknown,
- *   rowActions?: (row: object) => Array<{label: string, icon?: import('react').ReactNode, onClick: (row: object) => void, destructive?: boolean, confirmDescription?: string}>,
+ *   rowActions?: (row: object) => Array<{label: string, icon?: import('react').ReactNode, onClick: (row: object) => void, destructive?: boolean, confirmTitle?: string, confirmDescription?: string}>,
  *   emptyMessage?: string,
  *   onSelectionChange?: (ids: Array<string|number>, rows: object[]) => void,
  *   ariaLabel?: string,
@@ -253,11 +253,11 @@ export function StandardDataGrid({
       {confirmAction ? (
         <ConfirmDialog
           open
-          title={confirmAction.action.label}
-          description={
-            confirmAction.action.confirmDescription ??
-            'This action cannot be undone.'
+          title={
+            confirmAction.action.confirmTitle ??
+            `${confirmAction.action.label}?`
           }
+          description={confirmAction.action.confirmDescription}
           confirmLabel={confirmAction.action.label}
           onCancel={() => setConfirmAction(null)}
           onConfirm={() => {

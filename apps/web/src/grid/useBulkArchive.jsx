@@ -34,8 +34,9 @@ export const ALREADY_IN_STATE = {
  * grid's current page (I0001-R028, R032; M0005-R029–R030 and the label and
  * role bulk routes). The list's view decides which one is offered: Archive
  * selected in the Active view, Restore selected in the Archived view
- * (I0011-R005), since a view holds only one kind of row. Each asks
- * for one confirmation naming the count. A bulk request is all or nothing:
+ * (I0011-R005), since a view holds only one kind of row. Archive selected
+ * asks "Archive {count} {things}?"; Restore selected runs at once
+ * (I0001-R039). A bulk request is all or nothing:
  * on `BULK_FAILED` a dialog names each failed row and why, and the
  * selection is kept so the user can change it and try again.
  *
@@ -111,7 +112,7 @@ export function useBulkArchive({
           },
           archived && {
             label: `${verb.restore[0]} selected (${count})`,
-            onClick: () => setConfirming('restore'),
+            onClick: () => void submit('restore'),
           },
         ].filter(Boolean)
       : [];
@@ -128,10 +129,8 @@ export function useBulkArchive({
       {confirming ? (
         <ConfirmDialog
           open
-          title={`${verb[confirming][0]} selected`}
-          description={`${counted(count)} will be ${past(confirming)}.${
-            confirming === 'archive' && archiveText ? ` ${archiveText}` : ''
-          }`}
+          title={`${verb[confirming][0]} ${counted(count)}?`}
+          description={archiveText}
           confirmLabel={verb[confirming][0]}
           onCancel={() => setConfirming(null)}
           onConfirm={() => {

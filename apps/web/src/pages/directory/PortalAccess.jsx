@@ -33,8 +33,7 @@ const STATUS = Object.freeze({
 });
 
 /** Shown while a person has not signed in yet (I0008-R010). */
-const INVITED_NOTE =
-  'Waiting for first sign-in. If this person already had a pending invitation from another organization, they sign in with that earlier temporary password.';
+const INVITED_NOTE = 'Waiting for first sign-in.';
 
 /**
  * A small chip naming a person's portal-access status.
@@ -147,7 +146,6 @@ export function PortalAccessPanel({
               label="Temporary password"
               value={password}
               onChange={event => setPassword(event.target.value)}
-              helperText="Give this to the person. They must replace it when they first sign in."
               required
             />
           </Stack>

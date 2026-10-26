@@ -14,7 +14,6 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
@@ -22,6 +21,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -45,7 +45,11 @@ import { EditNameDialog } from './EditNameDialog.jsx';
 import { PortalAccessDialog } from './PortalAccessDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { TaxIdDialog } from './TaxIdDialog.jsx';
-import { KIND_LABELS, recordName } from './directoryRecords.js';
+import {
+  emptyListMessage,
+  KIND_LABELS,
+  recordName,
+} from './directoryRecords.js';
 import {
   describeDirectoryError,
   isStaleRevision,
@@ -55,6 +59,7 @@ import { PortalAccessPanel } from './PortalAccess.jsx';
 import { useDirectoryBulk } from './useDirectoryBulk.js';
 import { displayTaxId, useTaxIdFormats } from './useTaxIdFormats.js';
 import { ActionBar } from '../../shell/ActionBar.jsx';
+import { useNotice } from '../../shell/NoticeContext.jsx';
 
 /**
  * A pencil that opens one section's dialog (I0001-R036, M0005-R049).
@@ -140,6 +145,9 @@ export function RecordDetailDialog({
   const [contactForm, setContactForm] = useState(false);
   const [openContact, setOpenContact] = useState(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  // M0005-R054: the email, phone, or address waiting on "Remove …?".
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const notify = useNotice();
   // I0011-R003: the contacts view lives in the dialog and opens on Active.
   const [contactsArchived, setContactsArchived] = useState(false);
   // Bumped on every change, so the contacts grid reloads its page too.
@@ -197,12 +205,18 @@ export function RecordDetailDialog({
     abilities: contactAbilities,
     onDone: changed,
     archived: contactsArchived,
+    noun: ['contact', 'contacts'],
   });
 
-  async function run(action, messages = {}) {
+  /**
+   * Run one change, then reload and, when `done` is given, report it as a
+   * notice (M0005-R055).
+   */
+  async function run(action, messages = {}, done) {
     setError(null);
     try {
       await action();
+      if (done) notify(done);
       changed();
     } catch (err) {
       setError(describeDirectoryError(err, messages));
@@ -276,7 +290,6 @@ export function RecordDetailDialog({
               onClick={() => setSection('name')}
             />
           ) : null}
-          <Chip size="small" label={KIND_LABELS[record.kind]} />
           {record.archived ? (
             <Chip size="small" label="Archived" sx={{ ml: 1 }} />
           ) : null}
@@ -317,14 +330,19 @@ export function RecordDetailDialog({
                 sx={{ alignItems: 'center', flexWrap: 'wrap' }}
               >
                 <Typography variant="body2">Roles:</Typography>
-                {record.roles.map(role => (
-                  <Chip key={role.id} size="small" label={role.name} />
-                ))}
-                {record.roles.some(role => role.held) ? (
-                  <Typography variant="caption" color="text.secondary">
-                    Applies when this person first signs in.
-                  </Typography>
-                ) : null}
+                {record.roles.map(role =>
+                  role.held ? (
+                    // M0005-R059: the held-role note is the chip's tooltip.
+                    <Tooltip
+                      key={role.id}
+                      title="Applies when this person first signs in."
+                    >
+                      <Chip size="small" variant="outlined" label={role.name} />
+                    </Tooltip>
+                  ) : (
+                    <Chip key={role.id} size="small" label={role.name} />
+                  )
+                )}
               </Stack>
             ) : null}
             {record.isPrimaryTaxContact ? (
@@ -376,7 +394,6 @@ export function RecordDetailDialog({
               <ClientTenantPanel client={record} />
             ) : null}
 
-            <Divider />
             <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
               <Typography variant="subtitle1">Emails and phones</Typography>
               {canEditDetails ? (
@@ -387,7 +404,7 @@ export function RecordDetailDialog({
                       setMethodForm({ type: 'email', method: null })
                     }
                   >
-                    Add email
+                    New email
                   </Button>
                   <Button
                     size="small"
@@ -395,7 +412,7 @@ export function RecordDetailDialog({
                       setMethodForm({ type: 'phone', method: null })
                     }
                   >
-                    Add phone
+                    New phone
                   </Button>
                 </Stack>
               ) : null}
@@ -423,10 +440,17 @@ export function RecordDetailDialog({
                           <IconButton
                             aria-label={`Remove ${method.value}`}
                             onClick={() =>
-                              run(
-                                () => removeContactMethod(record.id, method.id),
-                                record.isPortalUser ? PORTAL_MESSAGES.email : {}
-                              )
+                              setConfirmRemove({
+                                thing: method.type,
+                                remove: () =>
+                                  run(
+                                    () =>
+                                      removeContactMethod(record.id, method.id),
+                                    record.isPortalUser
+                                      ? PORTAL_MESSAGES.email
+                                      : {}
+                                  ),
+                              })
                             }
                           >
                             <DeleteIcon fontSize="small" />
@@ -454,7 +478,6 @@ export function RecordDetailDialog({
               </List>
             )}
 
-            <Divider />
             <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
               <Typography variant="subtitle1">Addresses</Typography>
               {canEditDetails ? (
@@ -462,7 +485,7 @@ export function RecordDetailDialog({
                   size="small"
                   onClick={() => setAddressForm({ address: null })}
                 >
-                  Add address
+                  New address
                 </Button>
               ) : null}
             </Stack>
@@ -487,7 +510,13 @@ export function RecordDetailDialog({
                           <IconButton
                             aria-label={`Remove ${address.line1}`}
                             onClick={() =>
-                              run(() => removeAddress(record.id, address.id))
+                              setConfirmRemove({
+                                thing: 'address',
+                                remove: () =>
+                                  run(() =>
+                                    removeAddress(record.id, address.id)
+                                  ),
+                              })
                             }
                           >
                             <DeleteIcon fontSize="small" />
@@ -517,7 +546,6 @@ export function RecordDetailDialog({
 
             {record.contacts ? (
               <>
-                <Divider />
                 <Typography variant="subtitle1">
                   {record.kind === 'client'
                     ? 'Buyers and contacts'
@@ -557,7 +585,11 @@ export function RecordDetailDialog({
                     archived: contactsArchived,
                   }}
                   ariaLabel="Contacts"
-                  emptyMessage="None."
+                  emptyMessage={emptyListMessage(
+                    'contacts',
+                    contactsArchived,
+                    false
+                  )}
                   abilities={contactAbilities}
                   onOpen={contact => setOpenContact(contact.id)}
                   onSelectionChange={contactsBulk.onSelectionChange}
@@ -596,12 +628,15 @@ export function RecordDetailDialog({
             record.archived ? (
               <Button
                 onClick={() =>
-                  run(() =>
-                    restoreDirectoryRecord(
-                      collection,
-                      record.id,
-                      record.revision
-                    )
+                  run(
+                    () =>
+                      restoreDirectoryRecord(
+                        collection,
+                        record.id,
+                        record.revision
+                      ),
+                    {},
+                    `${recordName(record)} restored.`
                   )
                 }
               >
@@ -620,19 +655,32 @@ export function RecordDetailDialog({
       </Dialog>
       <ConfirmDialog
         open={confirmArchive}
-        title="Archive record?"
-        description={`${ARCHIVE_TEXT} Its emails, phones, and addresses are kept.`}
+        title={`Archive ${KIND_LABELS[record.kind].toLowerCase()}?`}
+        description={ARCHIVE_TEXT}
         confirmLabel="Archive"
         onConfirm={() => {
           setConfirmArchive(false);
           void run(
             () =>
               archiveDirectoryRecord(collection, record.id, record.revision),
-            PORTAL_MESSAGES.archive
+            PORTAL_MESSAGES.archive,
+            `${recordName(record)} archived.`
           );
         }}
         onCancel={() => setConfirmArchive(false)}
       />
+      {confirmRemove ? (
+        <ConfirmDialog
+          open
+          title={`Remove ${confirmRemove.thing}?`}
+          confirmLabel="Remove"
+          onConfirm={() => {
+            setConfirmRemove(null);
+            void confirmRemove.remove();
+          }}
+          onCancel={() => setConfirmRemove(null)}
+        />
+      ) : null}
       {section === 'name' ? (
         <EditNameDialog
           collection={collection}
@@ -672,6 +720,7 @@ export function RecordDetailDialog({
           onClose={() => setContactForm(false)}
           onSaved={saved => {
             setContactForm(false);
+            notify(`${recordName(saved)} created.`);
             changed();
             // M0005-R050: a new contact opens on save.
             setOpenContact(saved.id);

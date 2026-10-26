@@ -18,14 +18,23 @@ import { recordName } from './directoryRecords.js';
  *   abilities: {write: boolean, onError?: (err: unknown) => void},
  *   onDone: () => void,
  *   archived: boolean,
- * }} options `archived` is the grid's view (I0011-R005).
+ *   noun: [string, string],
+ * }} options `archived` is the grid's view (I0011-R005). `noun` names the
+ *   rows, such as `['vendor', 'vendors']`, for the confirmation and notice
+ *   (M0005-R054, R055).
  * @returns {ReturnType<typeof useBulkArchive>}
  */
-export function useDirectoryBulk({ collection, abilities, onDone, archived }) {
+export function useDirectoryBulk({
+  collection,
+  abilities,
+  onDone,
+  archived,
+  noun,
+}) {
   return useBulkArchive({
     canWrite: abilities.write,
     archived,
-    noun: ['record', 'records'],
+    noun,
     nameOf: recordName,
     run: (action, items) => bulkDirectoryAction(collection, action, items),
     describeError: err => describeDirectoryError(err),

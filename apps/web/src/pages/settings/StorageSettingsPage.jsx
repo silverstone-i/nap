@@ -8,11 +8,6 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -21,6 +16,7 @@ import { deleteStorage, getStorage, saveStorage } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
 import { PasswordField } from '../../components/PasswordField.jsx';
+import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
@@ -189,109 +185,97 @@ export function StorageSettingsPage() {
     }
   }
 
-  const disabled = !canWrite || saving;
+  // M0006-02-R017: without write access, the connection is plain text.
+  if (!canWrite)
+    return (
+      <Stack spacing={1} sx={{ maxWidth: 560 }}>
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        {view ? (
+          [
+            ['Endpoint', view.endpoint],
+            ['Region', view.region],
+            ['Bucket', view.bucket],
+            ['Access key ID', view.accessKeyId],
+          ].map(([label, value]) => (
+            <Typography key={label} variant="body2">
+              {label}: {value}
+            </Typography>
+          ))
+        ) : (
+          <Typography variant="body2">No file storage is connected.</Typography>
+        )}
+      </Stack>
+    );
+
   return (
     <Box component="form" onSubmit={save} sx={{ maxWidth: 560 }}>
       <Stack spacing={2.5}>
-        <Typography variant="body2" color="text.secondary">
-          nap stores this tenant&apos;s files, such as its logo, in a bucket you
-          control on any S3-compatible service. The bucket stays private; nap
-          shows files through links that expire after 15 minutes.
-        </Typography>
         {error ? <Alert severity="error">{error}</Alert> : null}
-        {!canWrite ? (
-          <Alert severity="info">
-            {view
-              ? 'You can view the storage connection but not change it.'
-              : 'No file storage is connected.'}
-          </Alert>
-        ) : null}
-        {canWrite || view ? (
-          <>
-            <TextField
-              label="Endpoint"
-              value={form.endpoint}
-              onChange={set('endpoint')}
-              placeholder="https://<account>.r2.cloudflarestorage.com"
-              required
-              disabled={disabled}
-            />
-            <TextField
-              label="Region"
-              value={form.region}
-              onChange={set('region')}
-              helperText="Such as us-east-1, or auto for Cloudflare R2."
-              required
-              disabled={disabled}
-            />
-            <TextField
-              label="Bucket"
-              value={form.bucket}
-              onChange={set('bucket')}
-              required
-              disabled={disabled}
-            />
-            <TextField
-              label="Access key ID"
-              value={form.accessKeyId}
-              onChange={set('accessKeyId')}
-              autoComplete="off"
-              required
-              disabled={disabled}
-            />
-            {canWrite ? (
-              <PasswordField
-                label="Secret access key"
-                value={form.secretAccessKey}
-                onChange={set('secretAccessKey')}
-                autoComplete="new-password"
-                required={secretRequired}
-                disabled={disabled}
-                helperText={
-                  secretRequired
-                    ? view
-                      ? 'Enter the secret again: the endpoint or access key ID changed.'
-                      : 'It is stored encrypted and never shown again.'
-                    : 'Leave blank to keep the saved secret.'
-                }
-              />
-            ) : (
-              <TextField label="Secret access key" value="Saved" disabled />
-            )}
-          </>
-        ) : null}
-        {canWrite ? (
-          <Stack direction="row" spacing={1}>
-            <Button type="submit" variant="contained" disabled={saving}>
-              {view ? 'Test and save' : 'Test and connect'}
-            </Button>
-            {view ? (
-              <Button
-                color="error"
-                onClick={() => setConfirming(true)}
-                disabled={saving}
-              >
-                Disconnect
-              </Button>
-            ) : null}
-          </Stack>
-        ) : null}
-      </Stack>
-      <Dialog open={confirming} onClose={() => setConfirming(false)}>
-        <DialogTitle>Disconnect file storage?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            nap stops showing this tenant&apos;s logo and uploaded files. The
-            files stay in the bucket and come back when it is connected again.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirming(false)}>Cancel</Button>
-          <Button color="error" onClick={disconnect}>
-            Disconnect
+        <TextField
+          label="Endpoint"
+          value={form.endpoint}
+          onChange={set('endpoint')}
+          placeholder="https://<account>.r2.cloudflarestorage.com"
+          required
+          disabled={saving}
+        />
+        <TextField
+          label="Region"
+          value={form.region}
+          onChange={set('region')}
+          required
+          disabled={saving}
+        />
+        <TextField
+          label="Bucket"
+          value={form.bucket}
+          onChange={set('bucket')}
+          required
+          disabled={saving}
+        />
+        <TextField
+          label="Access key ID"
+          value={form.accessKeyId}
+          onChange={set('accessKeyId')}
+          autoComplete="off"
+          required
+          disabled={saving}
+        />
+        {/* M0006-02-R018: a saved secret shows as a placeholder; R005 alone asks for it again. */}
+        <PasswordField
+          label="Secret access key"
+          value={form.secretAccessKey}
+          onChange={set('secretAccessKey')}
+          autoComplete="new-password"
+          required={secretRequired}
+          disabled={saving}
+          placeholder={view && !secretRequired ? 'Saved' : undefined}
+          helperText={view && secretRequired ? 'Enter the secret again.' : ''}
+        />
+        <Stack direction="row" spacing={1}>
+          <Button type="submit" variant="contained" disabled={saving}>
+            {view ? 'Test and save' : 'Test and connect'}
           </Button>
-        </DialogActions>
-      </Dialog>
+          {view ? (
+            <Button
+              color="error"
+              onClick={() => setConfirming(true)}
+              disabled={saving}
+            >
+              Disconnect
+            </Button>
+          ) : null}
+        </Stack>
+      </Stack>
+      {/* M0006-02-R016: the shared confirmation. */}
+      <ConfirmDialog
+        open={confirming}
+        title="Disconnect storage?"
+        description="Files stay in the bucket."
+        confirmLabel="Disconnect"
+        onConfirm={disconnect}
+        onCancel={() => setConfirming(false)}
+      />
     </Box>
   );
 }

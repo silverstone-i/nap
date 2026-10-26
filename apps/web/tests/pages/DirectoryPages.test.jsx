@@ -279,9 +279,7 @@ describe('Employees (M0005-R026)', () => {
       revision: 2,
     });
 
-    expect(
-      await within(form).findByText(/Someone else changed this record/)
-    ).toBeTruthy();
+    expect(await within(form).findByText(/This record changed/)).toBeTruthy();
     // The retry carries the reloaded revision.
     api.updateDirectoryRecord.mockResolvedValueOnce({ ...changed });
     await vi.waitFor(() =>
@@ -322,7 +320,7 @@ describe('Employees (M0005-R026)', () => {
       addresses: [],
     });
     await user.click(within(form).getByRole('button', { name: 'Save' }));
-    await within(form).findByText(/Someone else changed this record/);
+    await within(form).findByText(/This record changed/);
     await user.click(within(form).getByRole('button', { name: 'Cancel' }));
     expect(
       await screen.findByRole('dialog', { name: /Jane Smith/ })
@@ -683,9 +681,14 @@ describe('Portal access (I0008)', () => {
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('Clerk')).toBeTruthy();
     expect(within(dialog).getByText('Manager')).toBeTruthy();
+    // M0005-R059: the held-role note is the chip's tooltip, not a caption.
     expect(
-      within(dialog).getByText('Applies when this person first signs in.')
-    ).toBeTruthy();
+      within(dialog).queryByText('Applies when this person first signs in.')
+    ).toBeNull();
+    expect(
+      screen.getAllByLabelText('Applies when this person first signs in.')
+        .length
+    ).toBeGreaterThan(0);
     expect(
       within(dialog).queryByRole('checkbox', { name: 'Portal access' })
     ).toBeNull();
@@ -703,7 +706,7 @@ describe('Portal access (I0008)', () => {
     await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
     const dialog = await screen.findByRole('dialog');
     expect(
-      await within(dialog).findByText(/earlier temporary password/)
+      await within(dialog).findByText('Waiting for first sign-in.')
     ).toBeTruthy();
   });
 });
@@ -1074,7 +1077,10 @@ describe('Provision a tenant from a Napsoft client (I0006-R010)', () => {
     expect(
       within(contacts).getByText('Primary contact · Billing contact')
     ).toBeTruthy();
-    expect(await within(dialog).findByText('Tenant: none')).toBeTruthy();
+    expect(
+      await within(dialog).findByRole('button', { name: 'Provision tenant' })
+    ).toBeTruthy();
+    expect(within(dialog).queryByText('Tenant: none')).toBeNull();
     expect(api.listClientTenants).toHaveBeenCalledWith(ACME_BUILDERS.id);
 
     await user.click(
@@ -1180,8 +1186,8 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     api.createContactLabel.mockRejectedValue(new ApiError('CONFLICT', 409));
     await labelsGrid();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Add label' });
+    await user.click(screen.getByRole('button', { name: 'New label' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New label' });
     await user.type(within(dialog).getByLabelText(/Name/), 'work');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(api.createContactLabel).toHaveBeenCalledWith({
@@ -1199,8 +1205,8 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     );
     await labelsGrid();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Add label' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Add label' });
+    await user.click(screen.getByRole('button', { name: 'New label' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New label' });
     await user.type(within(dialog).getByLabelText(/Name/), 'gone');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(
@@ -1212,22 +1218,22 @@ describe('Labels (M0005-R017, R031, R032)', () => {
       within(dialog).getByRole('link', { name: 'Show it in Archived' })
     );
     await vi.waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Add label' })).toBeNull()
+      expect(screen.queryByRole('dialog', { name: 'New label' })).toBeNull()
     );
     expect(
       screen
         .getByRole('tab', { name: 'Archived' })
         .getAttribute('aria-selected')
     ).toBe('true');
-    expect(screen.getByLabelText('Search labels').value).toBe('gone');
+    expect(screen.getByLabelText('Search by name').value).toBe('gone');
     expect(api.listContactLabels).toHaveBeenLastCalledWith({
       appliesTo: undefined,
       archived: true,
     });
-    expect(screen.queryByRole('button', { name: 'Add label' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New label' })).toBeNull();
   });
 
-  it('offers Rename then Archive in the row menu, and renames in a dialog', async () => {
+  it('offers Edit then Archive in the row menu, and edits in a dialog with For as text (M0005-R056, R057)', async () => {
     api.renameContactLabel.mockResolvedValue({ ...WORK, name: 'office' });
     const table = await labelsGrid();
     const user = userEvent.setup();
@@ -1235,10 +1241,12 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     await user.click(within(row).getByRole('menuitem', { name: 'more' }));
     const items = (await screen.findAllByRole('menuitem'))
       .map(item => item.textContent)
-      .filter(text => ['Rename', 'Archive'].includes(text));
-    expect(items).toEqual(['Rename', 'Archive']);
-    await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Rename label' });
+      .filter(text => ['Edit', 'Archive'].includes(text));
+    expect(items).toEqual(['Edit', 'Archive']);
+    await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit label' });
+    expect(within(dialog).getByText('For: Email')).toBeTruthy();
+    expect(within(dialog).queryByLabelText('For')).toBeNull();
     const name = within(dialog).getByLabelText(/Name/);
     await user.clear(name);
     await user.type(name, 'office');
@@ -1247,7 +1255,7 @@ describe('Labels (M0005-R017, R031, R032)', () => {
       name: 'office',
       revision: 1,
     });
-    expect(await screen.findByText('Renamed to office.')).toBeTruthy();
+    expect(await screen.findByText('office saved.')).toBeTruthy();
   });
 
   it('reloads a stale rename into the dialog and retries with its revision', async () => {
@@ -1258,8 +1266,8 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     const user = userEvent.setup();
     const row = screen.getByText('work').closest('[role="row"]');
     await user.click(within(row).getByRole('menuitem', { name: 'more' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Rename' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Rename label' });
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit label' });
     const changed = { ...WORK, name: 'office', revision: 2 };
     api.listContactLabels.mockImplementation(async ({ archived }) =>
       archived ? [] : [changed, HOME]
@@ -1282,7 +1290,7 @@ describe('Labels (M0005-R017, R031, R032)', () => {
   it('searches by name and filters by group in the header (I0001-R029)', async () => {
     const table = await labelsGrid();
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText('Search labels'), 'mob');
+    await user.type(screen.getByLabelText('Search by name'), 'mob');
     await vi.waitFor(() =>
       expect(within(table).queryByText('work')).toBeNull()
     );
@@ -1311,7 +1319,7 @@ describe('Labels (M0005-R017, R031, R032)', () => {
       screen.getByRole('button', { name: 'Archive selected (2)' })
     );
     const dialog = await screen.findByRole('dialog', {
-      name: 'Archive selected',
+      name: 'Archive 2 labels?',
     });
     await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
     expect(api.bulkContactLabelAction).toHaveBeenCalledWith('archive', [
@@ -1326,7 +1334,7 @@ describe('Labels (M0005-R017, R031, R032)', () => {
       sessionFor(['ACME::business-directory::directory::read'])
     );
     await labelsGrid();
-    expect(screen.queryByRole('button', { name: 'Add label' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New label' })).toBeNull();
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
     expect(screen.queryAllByRole('menuitem', { name: 'more' })).toHaveLength(0);
   });
@@ -1437,9 +1445,11 @@ describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
     await user.click(
       screen.getByRole('button', { name: 'Archive selected (2)' })
     );
-    const confirm = await screen.findByRole('dialog');
+    const confirm = await screen.findByRole('dialog', {
+      name: 'Archive 2 employees?',
+    });
     expect(
-      within(confirm).getByText(/2 records will be archived/)
+      within(confirm).getByText('Archived records move to the Archived tab.')
     ).toBeTruthy();
     await user.click(within(confirm).getByRole('button', { name: 'Archive' }));
     expect(api.bulkDirectoryAction).toHaveBeenCalledWith('people', 'archive', [
@@ -1547,7 +1557,7 @@ describe('Tax ID formats (M0005-R036–R042)', () => {
     expect(within(table).queryByText('SSN')).toBeNull();
   });
 
-  it('adds a format, previewing its mask', async () => {
+  it('adds a format, explaining the mask only while it is invalid', async () => {
     api.createTaxIdFormat.mockResolvedValue({
       ...VAT,
       id: '5d5d5d5d-5d5d-4d5d-8d5d-5d5d5d5d5d5d',
@@ -1559,24 +1569,26 @@ describe('Tax ID formats (M0005-R036–R042)', () => {
     });
     await formatsGrid();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Add format' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Add format' });
+    await user.click(screen.getByRole('button', { name: 'New format' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New format' });
     await user.type(within(dialog).getByLabelText(/Name/), 'PTIN');
     const mask = within(dialog).getByLabelText(/Mask/);
     await user.type(mask, '##');
     expect(within(dialog).getByRole('button', { name: 'Save' }).disabled).toBe(
       true
     );
+    // M0005-R059: helper text only while the mask is invalid.
+    expect(within(dialog).getByText(/# is a digit/)).toBeTruthy();
     await user.clear(mask);
     await user.type(mask, 'P########');
-    expect(within(dialog).getByText('Example: P12345678')).toBeTruthy();
+    expect(within(dialog).queryByText(/# is a digit/)).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(api.createTaxIdFormat).toHaveBeenCalledWith({
       country: 'US',
       name: 'PTIN',
       mask: 'P########',
     });
-    expect(await screen.findByText('Added PTIN.')).toBeTruthy();
+    expect(await screen.findByText('PTIN created.')).toBeTruthy();
   });
 
   it('explains a refused slot change to a format in use (R041)', async () => {
@@ -1606,7 +1618,208 @@ describe('Tax ID formats (M0005-R036–R042)', () => {
       sessionFor(['ACME::business-directory::directory::read'])
     );
     const table = await formatsGrid();
-    expect(screen.queryByRole('button', { name: 'Add format' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New format' })).toBeNull();
     expect(within(table).queryByRole('menuitem', { name: 'more' })).toBeNull();
+  });
+});
+
+describe('Consistent patterns (M0005-R054–R062)', () => {
+  const OLD = {
+    ...STAFF,
+    id: '33333333-3333-4333-8333-333333333333',
+    firstName: 'Old',
+    lastName: 'Timer',
+    archived: true,
+  };
+  const GB = {
+    defaultCountry: 'GB',
+    currency: 'GBP',
+    timeZone: 'Europe/London',
+    dateFormat: 'DD/MM/YYYY',
+    language: 'en',
+    recordsPerPage: 25,
+  };
+
+  it('AC36, AC37: archives a row after "Archive employee?" and restores one without asking, each with a notice', async () => {
+    listRows = [STAFF, OLD];
+    api.archiveDirectoryRecord.mockResolvedValue({ ...STAFF, archived: true });
+    api.restoreDirectoryRecord.mockResolvedValue({ ...OLD, archived: false });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const table = await screen.findByRole('grid', { name: 'Employees' });
+    await within(table).findByText('Jane Doe');
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('menuitem', { name: 'more' })[0]);
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }));
+    const confirm = await screen.findByRole('dialog', {
+      name: 'Archive employee?',
+    });
+    await user.click(within(confirm).getByRole('button', { name: 'Archive' }));
+    expect(await screen.findByText('Jane Doe archived.')).toBeTruthy();
+
+    await user.click(screen.getAllByRole('menuitem', { name: 'more' })[1]);
+    await user.click(await screen.findByRole('menuitem', { name: 'Restore' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(api.restoreDirectoryRecord).toHaveBeenCalledWith(
+      'people',
+      OLD.id,
+      OLD.revision
+    );
+    expect(await screen.findByText('Old Timer restored.')).toBeTruthy();
+  });
+
+  it('AC36, AC38, AC41: the detail has no kind chip, names New email, phone, and address, and asks before a remove or an archive', async () => {
+    listRows = [STAFF];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [
+        {
+          id: 'm1',
+          type: 'email',
+          value: 'jane@acme.test',
+          isPrimary: false,
+          archived: false,
+        },
+      ],
+      addresses: [],
+    });
+    api.removeContactMethod.mockResolvedValue();
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    expect(within(detail).queryByText('Employee')).toBeNull();
+    for (const name of ['New email', 'New phone', 'New address'])
+      expect(within(detail).getByRole('button', { name })).toBeTruthy();
+
+    await user.click(
+      within(detail).getByRole('button', { name: 'Remove jane@acme.test' })
+    );
+    expect(api.removeContactMethod).not.toHaveBeenCalled();
+    const remove = await screen.findByRole('dialog', { name: 'Remove email?' });
+    await user.click(within(remove).getByRole('button', { name: 'Remove' }));
+    expect(api.removeContactMethod).toHaveBeenCalledWith(STAFF.id, 'm1');
+
+    await user.click(within(detail).getByRole('button', { name: 'Archive' }));
+    const archive = await screen.findByRole('dialog', {
+      name: 'Archive employee?',
+    });
+    expect(
+      within(archive).getByText('Archived records move to the Archived tab.')
+    ).toBeTruthy();
+  });
+
+  it('AC41: an empty list says why, by view and search (M0005-R062)', async () => {
+    listRows = [];
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    expect(await screen.findByText('No employees yet.')).toBeTruthy();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Archived' }));
+    expect(await screen.findByText('No archived employees.')).toBeTruthy();
+    await user.type(screen.getByLabelText('Search by name'), 'zed');
+    expect(await screen.findByText('No employees match.')).toBeTruthy();
+  });
+
+  it('AC37: a create shows a notice (M0005-R055)', async () => {
+    api.createDirectoryRecord.mockResolvedValue({ ...STAFF });
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'New employee' })
+    );
+    const form = await screen.findByRole('dialog', { name: 'New employee' });
+    await user.type(within(form).getByLabelText(/First name/), 'Jane');
+    await user.type(within(form).getByLabelText(/Last name/), 'Doe');
+    await user.type(within(form).getByLabelText(/Primary email/), 'j@a.test');
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Jane Doe created.')).toBeTruthy();
+  });
+
+  it('AC40: a refused vendor create names its tax ID (M0005-R060)', async () => {
+    api.createDirectoryRecord.mockRejectedValue(
+      new ApiError('INVALID_INPUT', 400)
+    );
+    // The dialog returns focus to its opener when it closes.
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    renderWithHeader(
+      <RecordFormDialog
+        collection="organizations"
+        defaults={{ kind: 'vendor' }}
+        canWriteTaxIds
+        onClose={() => {}}
+        onSaved={() => {}}
+      />
+    );
+    const user = userEvent.setup();
+    const vendor = await screen.findByRole('dialog', { name: 'New vendor' });
+    await user.type(within(vendor).getByLabelText(/Legal name/), 'Pine');
+    await user.type(
+      within(vendor).getByRole('textbox', { name: /^Tax ID/ }),
+      '12-3456789'
+    );
+    await user.click(within(vendor).getByRole('button', { name: 'Save' }));
+    expect(
+      await within(vendor).findByText('A vendor needs a tax ID.')
+    ).toBeTruthy();
+    cleanup();
+    opener.remove();
+  });
+
+  /** M0005-R058: the tenant's default country is GB. */
+  function inGB(element) {
+    api.getEffectiveSettings.mockResolvedValue(GB);
+    api.listCountries.mockResolvedValue([
+      { code: 'GB', alpha3: 'GBR', numericCode: '826', name: 'United Kingdom' },
+      { code: 'US', alpha3: 'USA', numericCode: '840', name: 'United States' },
+    ]);
+    renderWithHeader(
+      <EffectiveSettingsProvider tenantId={TENANT.id}>
+        {element}
+      </EffectiveSettingsProvider>
+    );
+  }
+
+  it('AC39: a new address starts at the tenant country', async () => {
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    inGB(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    await user.click(
+      within(detail).getByRole('button', { name: 'New address' })
+    );
+    const address = await screen.findByRole('dialog', { name: 'New address' });
+    expect(
+      await within(address).findByDisplayValue('United Kingdom (GB)')
+    ).toBeTruthy();
+  });
+
+  it('AC39: a new format starts at the tenant country; an edited one shows its country as text', async () => {
+    inGB(<TaxIdFormatsPage />);
+    const table = await screen.findByRole('grid', { name: 'Tax ID formats' });
+    await within(table).findByText('SSN');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'New format' }));
+    const format = await screen.findByRole('dialog', { name: 'New format' });
+    expect(
+      await within(format).findByDisplayValue('United Kingdom (GB)')
+    ).toBeTruthy();
+    await user.click(within(format).getByRole('button', { name: 'Cancel' }));
+
+    await user.click(screen.getAllByRole('menuitem', { name: 'more' })[0]);
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const edit = await screen.findByRole('dialog', { name: 'Edit format' });
+    expect(within(edit).getByText('Country: US')).toBeTruthy();
+    expect(within(edit).queryByLabelText(/Country/)).toBeNull();
   });
 });

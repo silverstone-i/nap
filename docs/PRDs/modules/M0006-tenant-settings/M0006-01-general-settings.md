@@ -87,8 +87,10 @@ change them on a Settings screen.
 - M0006-01-R007: A country or currency must be a code in M0004's lists, checked when it is saved.
 - M0006-01-R008: Any signed-in member of the tenant must be able to read the tenant's effective settings. Until M0006-03 adds member overrides, the effective value is the stored value or the schema default.
 - M0006-01-R009: Tenant provisioning and Napsoft tenant setup must create the tenant's `app.tenant_settings` row with no stored values, in the same transaction as the other seeded directory rows (M0005-R022).
-- M0006-01-R010: Settings must offer a General screen to members with `tenant-settings::general::read`. It shows every setting with its current value and marks values that are schema defaults. Members with `general::write` can edit and save them, or reset one to its default. Members without it see the values read-only.
+- M0006-01-R010: Settings must offer a General screen to members with `tenant-settings::general::read`. It shows every setting with its current value and marks values that are schema defaults. Members with `general::write` can edit and save them, or reset one to its default. Members without it see the values read-only. _Superseded in part by R012 and R013 (read-only values as text; no "Default" caption)._
 - M0006-01-R011: The phone rules in M0005 must read `defaultCountry` as the tenant's effective value (M0005-R046).
+- M0006-01-R012: A member without `general::write` must see each setting as plain text, with no disabled inputs and no notice that they cannot change it (I0001-R042).
+- M0006-01-R013: A setting at its schema default carries no caption. A member with `general::write` sees **Reset to default** only beside a stored value (I0001-R043).
 
 ## 7. Business Rules And Invariants
 
@@ -153,15 +155,16 @@ which I0005 adds.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                             | Requirements                    |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| AC01      | A newly provisioned tenant, and the Napsoft tenant, have a settings row with no stored values, and `GET /general` returns every R004 default marked as not stored.          | M0006-01-R001, R004, R005, R009 |
-| AC02      | Saving `timeZone` `America/Chicago` stores it, writes an event, and leaves the other settings at their defaults; resetting it with `null` returns it to `America/New_York`. | M0006-01-R001, R005, R006       |
-| AC03      | An unknown setting, `recordsPerPage` 30, an unknown time zone, an unknown country, and a stale revision are refused, and nothing is saved.                                  | M0006-01-R006, R007             |
-| AC04      | A new setting added only to the settings schema appears with its default for every tenant, with no migration.                                                               | M0006-01-R002, R003             |
-| AC05      | A member with no settings capability reads `GET /effective`; `GET /general` and `PATCH /general` are denied to them.                                                        | M0006-01-R008                   |
-| AC06      | The General screen shows defaults as defaults, saves and resets values with `general::write`, and is read-only without it.                                                  | M0006-01-R010                   |
-| AC07      | With `defaultCountry` `GB`, a phone entered as `020 7946 0958` is stored as `+442079460958`.                                                                                | M0006-01-R011, M0005-R046       |
+| Criterion | Required result                                                                                                                                                                       | Requirements                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| AC01      | A newly provisioned tenant, and the Napsoft tenant, have a settings row with no stored values, and `GET /general` returns every R004 default marked as not stored.                    | M0006-01-R001, R004, R005, R009 |
+| AC02      | Saving `timeZone` `America/Chicago` stores it, writes an event, and leaves the other settings at their defaults; resetting it with `null` returns it to `America/New_York`.           | M0006-01-R001, R005, R006       |
+| AC03      | An unknown setting, `recordsPerPage` 30, an unknown time zone, an unknown country, and a stale revision are refused, and nothing is saved.                                            | M0006-01-R006, R007             |
+| AC04      | A new setting added only to the settings schema appears with its default for every tenant, with no migration.                                                                         | M0006-01-R002, R003             |
+| AC05      | A member with no settings capability reads `GET /effective`; `GET /general` and `PATCH /general` are denied to them.                                                                  | M0006-01-R008                   |
+| AC06      | The General screen shows defaults as defaults, saves and resets values with `general::write`, and is read-only without it.                                                            | M0006-01-R010                   |
+| AC07      | With `defaultCountry` `GB`, a phone entered as `020 7946 0958` is stored as `+442079460958`.                                                                                          | M0006-01-R011, M0005-R046       |
+| AC08      | Without `general::write`, the General screen shows every value as text with no notice; no value carries a "Default" caption, and Reset to default appears only beside a stored value. | M0006-01-R012, R013             |
 
 ## 14. Outstanding Questions
 

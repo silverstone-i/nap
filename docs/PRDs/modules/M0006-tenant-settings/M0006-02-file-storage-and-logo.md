@@ -93,6 +93,9 @@ logo. Member profile images (M0006-03) use the same storage.
 ### Screen
 
 - M0006-02-R015: Settings must offer a Storage screen to members with `storage::read`. It shows the connection without the secret, and lets members with `storage::write` connect, test, change, or disconnect it.
+- M0006-02-R016: Disconnecting storage must confirm through the shared confirmation dialog with the title "Disconnect storage?" and the one sentence "Files stay in the bucket." Removing the logo confirms with "Remove logo?" and no text (I0001-R039).
+- M0006-02-R017: A member without `storage::write` must see the connection as plain text, or "No file storage is connected." when there is none, with no disabled inputs and no notice that they cannot change it (I0001-R042).
+- M0006-02-R018: The Storage and logo controls must not explain themselves (I0001-R043). The Storage screen has no introduction, the region has no helper text, and a saved secret shows as the placeholder "Saved" in its field. The secret field says "Enter the secret again." only when R005 requires it. The logo control states the allowed types and size only in the error for a refused file.
 
 ## 7. Business Rules And Invariants
 
@@ -182,17 +185,19 @@ Base: `/api/tenant-settings/v1`.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                            | Requirements              |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| AC01      | Connecting a reachable bucket tests it, saves it, and stores the secret only encrypted; the API does not start without the encryption key.                 | M0006-02-R001, R002, R004 |
-| AC02      | No response, log, outbox row, or event contains the secret; `GET /storage` shows `secretSet: true`.                                                        | M0006-02-R003             |
-| AC03      | A wrong key, a missing bucket, and an unreachable endpoint each fail with `STORAGE_TEST_FAILED` and the matching reason, and nothing is saved.             | M0006-02-R004             |
-| AC04      | Changing the region without a secret keeps the secret; changing the access key ID without one is refused.                                                  | M0006-02-R005             |
-| AC05      | Uploading a 1 MB PNG logo stores it under `<tenant_id>/logo/<file_id>`; a 3 MB image, a text file named `.png`, and an upload with no storage are refused. | M0006-02-R007–R009, R012  |
-| AC06      | The logo's link fetches the image and stops working after it expires; the bucket allows no anonymous read.                                                 | M0006-02-R010             |
-| AC07      | Replacing the logo deletes the old object; a failed deletion still saves the new logo and logs the key.                                                    | M0006-02-R011             |
-| AC08      | The shell shows the logo; with no logo, after disconnecting, or with storage down, it shows the tenant name and the page loads.                            | M0006-02-R006, R014       |
-| AC09      | The Storage screen shows the connection without the secret, is read-only without `storage::write`, and the logo control appears only when connected.       | M0006-02-R013, R015       |
+| Criterion | Required result                                                                                                                                                                                    | Requirements              |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| AC01      | Connecting a reachable bucket tests it, saves it, and stores the secret only encrypted; the API does not start without the encryption key.                                                         | M0006-02-R001, R002, R004 |
+| AC02      | No response, log, outbox row, or event contains the secret; `GET /storage` shows `secretSet: true`.                                                                                                | M0006-02-R003             |
+| AC03      | A wrong key, a missing bucket, and an unreachable endpoint each fail with `STORAGE_TEST_FAILED` and the matching reason, and nothing is saved.                                                     | M0006-02-R004             |
+| AC04      | Changing the region without a secret keeps the secret; changing the access key ID without one is refused.                                                                                          | M0006-02-R005             |
+| AC05      | Uploading a 1 MB PNG logo stores it under `<tenant_id>/logo/<file_id>`; a 3 MB image, a text file named `.png`, and an upload with no storage are refused.                                         | M0006-02-R007–R009, R012  |
+| AC06      | The logo's link fetches the image and stops working after it expires; the bucket allows no anonymous read.                                                                                         | M0006-02-R010             |
+| AC07      | Replacing the logo deletes the old object; a failed deletion still saves the new logo and logs the key.                                                                                            | M0006-02-R011             |
+| AC08      | The shell shows the logo; with no logo, after disconnecting, or with storage down, it shows the tenant name and the page loads.                                                                    | M0006-02-R006, R014       |
+| AC09      | The Storage screen shows the connection without the secret, is read-only without `storage::write`, and the logo control appears only when connected.                                               | M0006-02-R013, R015       |
+| AC10      | Disconnect asks "Disconnect storage?" and Remove logo asks "Remove logo?", each through the shared confirmation dialog.                                                                            | M0006-02-R016             |
+| AC11      | Without `storage::write`, the connection shows as text with no notice; the screen has no introduction or helper text, except "Enter the secret again." when the endpoint or access key ID changed. | M0006-02-R017, R018       |
 
 ## 14. Outstanding Questions
 

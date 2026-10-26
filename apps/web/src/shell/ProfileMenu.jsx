@@ -23,7 +23,7 @@ import { useProfileImage } from './useProfileImage.js';
 const MODE_LABELS = { dark: 'Dark', light: 'Light', system: 'System' };
 
 /**
- * Avatar-triggered profile menu: Profile, Change password, Logout, and a
+ * Avatar-triggered profile menu: Profile, Change password, Log out, and a
  * Settings submenu for the display mode (I0001-R011, M0006-03-R006). The
  * avatar shows the member's profile image, else their initials; an image
  * that fails to load falls back to initials (M0006-03-R007).
@@ -98,7 +98,7 @@ export function ProfileMenu() {
             session.logout();
           }}
         >
-          Logout
+          Log out
         </MenuItem>
       </Menu>
       <Menu

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../src/api/client.js';
@@ -70,8 +70,9 @@ describe('useBulkArchive', () => {
       screen.getByRole('button', { name: 'Archive selected (2)' })
     );
 
-    expect(screen.getByText('2 labels will be archived.')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Archive' }));
+    // I0001-R039: "{Action} {count} {things}?".
+    const dialog = screen.getByRole('dialog', { name: 'Archive 2 labels?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
     expect(run).toHaveBeenCalledWith('archive', [
       { id: 'a', revision: 1 },
@@ -81,7 +82,7 @@ describe('useBulkArchive', () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it('offers only Restore selected in the Archived view (I0011-R005)', async () => {
+  it('offers only Restore selected in the Archived view, and restores without asking (I0011-R005, I0001-R039)', async () => {
     const user = userEvent.setup();
     const run = vi.fn().mockResolvedValue(undefined);
     renderHarness({
@@ -97,7 +98,7 @@ describe('useBulkArchive', () => {
     await user.click(
       screen.getByRole('button', { name: 'Restore selected (2)' })
     );
-    await user.click(screen.getByRole('button', { name: 'Restore' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(run).toHaveBeenCalledWith('restore', [
       { id: 'a', revision: 1 },
       { id: 'b', revision: 2 },

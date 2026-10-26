@@ -109,11 +109,11 @@ describe('PortalUsersPage', () => {
       screen.getByRole('button', { name: 'Deactivate selected (2)' })
     );
     const dialog = await screen.findByRole('dialog', {
-      name: 'Deactivate selected',
+      name: 'Deactivate 2 users?',
     });
     expect(
       within(dialog).getByText(
-        '2 users will be deactivated. Deactivated users are signed out and cannot sign in until restored.'
+        'Deactivated users are signed out and cannot sign in until restored.'
       )
     ).toBeTruthy();
     await user.click(
@@ -146,7 +146,7 @@ describe('PortalUsersPage', () => {
     );
     await user.click(
       within(
-        await screen.findByRole('dialog', { name: 'Deactivate selected' })
+        await screen.findByRole('dialog', { name: 'Deactivate 2 users?' })
       ).getByRole('button', { name: 'Deactivate' })
     );
     const failure = await screen.findByRole('dialog', {

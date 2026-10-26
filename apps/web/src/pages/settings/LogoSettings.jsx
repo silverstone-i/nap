@@ -16,6 +16,7 @@ import { useCapabilities } from '../../auth/useCapabilities.js';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { TenantLogo } from '../../shell/TenantLogo.jsx';
+import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 
 const INVALID =
   'The logo must be a PNG, JPEG, WebP, or GIF image of at most 2 MB.';
@@ -52,6 +53,7 @@ export function LogoSettings() {
   const notify = useNotice();
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const { logoFileId, storageConnected } = settings;
 
   async function change(operation, message) {
@@ -80,45 +82,50 @@ export function LogoSettings() {
     void change(() => uploadLogo(file), 'Logo saved.');
   }
 
+  // M0006-02-R013, R018: the control exists only while storage is connected,
+  // and says nothing about storage or file limits until a file is refused.
+  if (!storageConnected) return null;
   return (
     <Stack spacing={1} sx={{ maxWidth: 560, mb: 3 }}>
       <Typography variant="subtitle2">Logo</Typography>
       {error ? <Alert severity="error">{error}</Alert> : null}
-      {logoFileId && storageConnected ? (
+      {logoFileId ? (
         <Box>
           <TenantLogo fileId={logoFileId} height={64} alt="Tenant logo" />
         </Box>
       ) : null}
-      {storageConnected ? (
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" component="label" disabled={busy}>
-            {logoFileId ? 'Replace logo' : 'Upload logo'}
-            <input
-              hidden
-              type="file"
-              accept={IMAGE_TYPES.join(',')}
-              aria-label="Logo file"
-              onChange={choose}
-            />
+      <Stack direction="row" spacing={1}>
+        <Button variant="outlined" component="label" disabled={busy}>
+          {logoFileId ? 'Replace logo' : 'Upload logo'}
+          <input
+            hidden
+            type="file"
+            accept={IMAGE_TYPES.join(',')}
+            aria-label="Logo file"
+            onChange={choose}
+          />
+        </Button>
+        {logoFileId ? (
+          <Button
+            color="error"
+            disabled={busy}
+            onClick={() => setConfirmRemove(true)}
+          >
+            Remove logo
           </Button>
-          {logoFileId ? (
-            <Button
-              color="error"
-              disabled={busy}
-              onClick={() => change(deleteLogo, 'Logo removed.')}
-            >
-              Remove logo
-            </Button>
-          ) : null}
-        </Stack>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          Connect file storage in Settings → Storage to upload a logo.
-        </Typography>
-      )}
-      <Typography variant="caption" color="text.secondary">
-        PNG, JPEG, WebP, or GIF, up to 2 MB.
-      </Typography>
+        ) : null}
+      </Stack>
+      {/* M0006-02-R016: Remove logo asks first. */}
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Remove logo?"
+        confirmLabel="Remove"
+        onConfirm={() => {
+          setConfirmRemove(false);
+          void change(deleteLogo, 'Logo removed.');
+        }}
+        onCancel={() => setConfirmRemove(false)}
+      />
     </Stack>
   );
 }

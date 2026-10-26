@@ -189,7 +189,7 @@ const readyContext = {
   entryPoints: { tenant: false },
 };
 
-it('offers Cancel, not Logout, on a voluntary password change', async () => {
+it('offers Cancel, not Log out, on a voluntary password change', async () => {
   const user = userEvent.setup();
   api.getAccessContext.mockResolvedValue(readyContext);
   api.getSessionCapabilities.mockResolvedValue(capabilitiesFixture());
@@ -201,16 +201,16 @@ it('offers Cancel, not Logout, on a voluntary password change', async () => {
     </ThemeModeProvider>
   );
   await user.click(await screen.findByRole('button', { name: 'Cancel' }));
-  expect(screen.queryByRole('button', { name: 'Logout' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
   expect(await screen.findByText('No tenant selected.')).toBeTruthy();
   expect(api.changePassword).not.toHaveBeenCalled();
 });
 
-it('offers Logout, not Cancel, on a required password change', async () => {
+it('offers Log out, not Cancel, on a required password change', async () => {
   api.getAccessContext.mockRejectedValue(
     new ApiError('PASSWORD_CHANGE_REQUIRED', 403)
   );
   renderAt('/password');
-  expect(await screen.findByRole('button', { name: 'Logout' })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: 'Log out' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
 });

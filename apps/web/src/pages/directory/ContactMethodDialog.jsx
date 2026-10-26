@@ -146,7 +146,7 @@ export function ContactMethodDialog({
       maxWidth="xs"
     >
       <DialogTitle id="contact-method-title">
-        {method ? `Edit ${noun}` : `Add ${noun}`}
+        {method ? `Edit ${noun}` : `New ${noun}`}
       </DialogTitle>
       <DialogContent>
         {error ? (
@@ -165,10 +165,8 @@ export function ContactMethodDialog({
             fullWidth
             error={touched && invalidPhone}
             helperText={
-              type === 'phone'
-                ? touched && invalidPhone
-                  ? 'Not a valid phone number.'
-                  : `Without a leading +, read as a ${defaultCountry} number.`
+              type === 'phone' && touched && invalidPhone
+                ? 'Not a valid phone number.'
                 : ''
             }
           />

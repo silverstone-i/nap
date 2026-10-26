@@ -107,9 +107,9 @@ describe('Storage settings (M0006-02-R015)', () => {
     const user = userEvent.setup();
     const secret = await screen.findByLabelText(/Secret access key/);
     expect(secret.value).toBe('');
-    expect(
-      screen.getByText('Leave blank to keep the saved secret.')
-    ).toBeTruthy();
+    // M0006-02-R018: a saved secret is the field's placeholder, not helper text.
+    expect(secret.placeholder).toBe('Saved');
+    expect(screen.queryByText(/stored encrypted|Leave blank/)).toBeNull();
     const region = screen.getByLabelText(/Region/);
     await user.clear(region);
     await user.type(region, 'eu');
@@ -127,11 +127,7 @@ describe('Storage settings (M0006-02-R015)', () => {
     renderPage();
     const user = userEvent.setup();
     await user.type(await screen.findByLabelText(/Access key ID/), '2');
-    expect(
-      screen.getByText(
-        'Enter the secret again: the endpoint or access key ID changed.'
-      )
-    ).toBeTruthy();
+    expect(screen.getByText('Enter the secret again.')).toBeTruthy();
     expect(screen.getByLabelText(/Secret access key/).required).toBe(true);
   });
 
@@ -153,12 +149,14 @@ describe('Storage settings (M0006-02-R015)', () => {
     ).toBeTruthy();
   });
 
-  it('R006: disconnects after confirming, with the revision', async () => {
+  it('R006, AC10: disconnects after "Disconnect storage?", with the revision', async () => {
     api.deleteStorage.mockResolvedValue();
     renderPage();
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Disconnect storage?',
+    });
     await user.click(
       within(dialog).getByRole('button', { name: 'Disconnect' })
     );
@@ -169,18 +167,15 @@ describe('Storage settings (M0006-02-R015)', () => {
     ).toBeTruthy();
   });
 
-  it('AC09: is read-only without storage::write', async () => {
+  it('AC09, AC11: shows the connection as text without storage::write (M0006-02-R017)', async () => {
     useSession.mockReturnValue(
       sessionFor(['ACME::tenant-settings::storage::read'])
     );
     renderPage();
-    expect(
-      await screen.findByText(
-        'You can view the storage connection but not change it.'
-      )
-    ).toBeTruthy();
-    expect(screen.getByLabelText(/Bucket/).disabled).toBe(true);
-    expect(screen.getByLabelText(/Secret access key/).value).toBe('Saved');
+    expect(await screen.findByText('Bucket: acme-files')).toBeTruthy();
+    expect(screen.queryByLabelText(/Bucket/)).toBeNull();
+    expect(screen.queryByText(/Secret/)).toBeNull();
+    expect(screen.queryByText(/not change/)).toBeNull();
     expect(screen.queryByRole('button', { name: /Test and/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Disconnect' })).toBeNull();
   });

@@ -8,16 +8,14 @@ import { denialMessage } from '../../auth/capabilities.js';
 
 /** Message for each directory error code (M0005 §10). */
 const MESSAGES = {
-  INVALID_INPUT:
-    'Check the highlighted fields. A vendor needs a tax ID, and a client needs its own tax ID or one primary tax contact, not both.',
+  INVALID_INPUT: 'A value is missing or not valid.',
   INVALID_STATE: 'An employee must keep a primary email.',
-  STALE_REVISION:
-    'Someone else changed this record. It has been reloaded; try again.',
+  STALE_REVISION: 'This record changed. It has been reloaded; try again.',
   PRIMARY_TAX_CONTACT:
     'This buyer is the client’s primary tax contact. Choose another first.',
   DUPLICATE_TAX_ID: 'Another record of this kind already has this tax ID.',
   ADMIN_ASSIGNED:
-    'This person holds an administrator role. Remove the role on the Roles screen first.',
+    'This person holds an administrator role. Remove it under portal access first.',
   GRANT_EXCEEDS_ACTOR:
     'You can only give roles whose permissions you hold yourself.',
   LAST_ADMIN:
