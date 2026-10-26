@@ -249,13 +249,20 @@ export function SessionProvider({ children }) {
       } catch (error) {
         if (!(error instanceof ApiError && error.code === 'UNAUTHENTICATED'))
           throw error;
-        // A wrong current password fails the same way as an ended session,
-        // so ask again: only a session that no longer resolves has ended.
+        // A wrong current password fails the same way as an ended session
+        // (M0001-03), so ask again. A session that still resolves, even one
+        // that must change its password, means the password was wrong; any
+        // other failure is reported as itself.
         try {
           await api.getAccessContext();
         } catch (probe) {
           if (probe instanceof ApiError && probe.code === 'UNAUTHENTICATED')
             return expire();
+          if (
+            !(probe instanceof ApiError) ||
+            probe.code !== 'PASSWORD_CHANGE_REQUIRED'
+          )
+            throw probe;
         }
         throw error;
       }

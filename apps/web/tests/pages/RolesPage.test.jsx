@@ -391,6 +391,40 @@ describe('RolesPage (M0003-R016–R018)', () => {
     ).toBeTruthy();
   });
 
+  it('refills the grants from the reloaded role after a stale save', async () => {
+    api.updateRole.mockRejectedValueOnce(new ApiError('STALE_REVISION', 409));
+    api.getRole.mockResolvedValue({
+      ...CUSTOM,
+      grants: ['ACME::access-control::roles::read'],
+      revision: 4,
+    });
+    renderPage();
+    const user = userEvent.setup();
+    const detail = await openRole(user, 'Auditor');
+    await user.click(
+      within(detail).getByRole('button', { name: 'Edit grants' })
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Edit grants' });
+    expect(
+      within(dialog).getByText('ACME::admin-tenancy::tenants::read')
+    ).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(
+      await within(dialog).findByText(/Someone else changed this role/)
+    ).toBeTruthy();
+    await vi.waitFor(() =>
+      expect(
+        within(dialog).queryByText('ACME::admin-tenancy::tenants::read')
+      ).toBeNull()
+    );
+    api.updateRole.mockResolvedValueOnce({ ...CUSTOM, revision: 5 });
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(api.updateRole).toHaveBeenLastCalledWith('r2', {
+      grants: ['ACME::access-control::roles::read'],
+      revision: 4,
+    });
+  });
+
   it("opens the role's detail from the row menu's Edit (M0003-R019)", async () => {
     renderPage();
     const user = userEvent.setup();

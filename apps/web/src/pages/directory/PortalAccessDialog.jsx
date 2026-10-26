@@ -64,9 +64,19 @@ export function PortalAccessDialog({
       onSave={save}
       onStale={async () => {
         const fresh = await onStale();
+        // Keep the draft unless the other change touched access or roles.
+        const freshRoles = fresh.roles ?? [];
+        if (
+          (fresh.isPortalUser === true) === wasOn &&
+          freshRoles.length === currentRoles.length &&
+          freshRoles.every(role =>
+            currentRoles.some(current => current.id === role.id)
+          )
+        )
+          return;
         setIsPortalUser(fresh.isPortalUser === true);
         setTemporaryPassword('');
-        setRoleIds((fresh.roles ?? []).map(role => role.id));
+        setRoleIds(freshRoles.map(role => role.id));
       }}
       describe={err =>
         describeDirectoryError(

@@ -63,11 +63,9 @@ export function TaxIdDialog({
       title="Edit tax ID"
       onClose={onClose}
       onSave={() => send(value.trim())}
-      onStale={async () => {
-        await onStale();
-        setChosenFormatId(null);
-        setValue('');
-      }}
+      // The stored tax ID is never shown, so a stale save keeps the typed
+      // value and format; the retry takes the reloaded record's revision.
+      onStale={onStale}
       describe={err =>
         err instanceof ApiError &&
         err.code === 'DUPLICATE_TAX_ID' &&

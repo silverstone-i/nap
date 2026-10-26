@@ -226,6 +226,32 @@ describe('password change failing UNAUTHENTICATED', () => {
     expect(received).toEqual([]);
   });
 
+  it('reports the probe failure itself when the session check cannot answer', async () => {
+    api.changePassword.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
+    renderPasswordProbe();
+    await screen.findByText('ready:');
+    api.getAccessContext.mockRejectedValue(
+      new ApiError('SERVICE_UNAVAILABLE', 0)
+    );
+
+    await act(async () => screen.getByText('change').click());
+
+    expect(await screen.findByText('ready:SERVICE_UNAVAILABLE')).toBeTruthy();
+  });
+
+  it('reports a wrong password for a session that must change its password', async () => {
+    api.changePassword.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
+    renderPasswordProbe();
+    await screen.findByText('ready:');
+    api.getAccessContext.mockRejectedValue(
+      new ApiError('PASSWORD_CHANGE_REQUIRED', 403)
+    );
+
+    await act(async () => screen.getByText('change').click());
+
+    expect(await screen.findByText('ready:UNAUTHENTICATED')).toBeTruthy();
+  });
+
   it('ends the session when it no longer resolves', async () => {
     api.changePassword.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
     renderPasswordProbe();
