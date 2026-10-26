@@ -21,6 +21,10 @@ when a pull request with a release label merges into `main`.
 
 - The Roles screen's user role assignments section and the `GET /api/access-control/v1/memberships` list it used (M0003-R021). Roles are assigned on the person's detail; the `/memberships/:membershipId/roles` routes stay.
 
+### Fixed
+
+- A request failing `UNAUTHENTICATED` right after the session finished loading now ends the session (I0009-R013). The web app's session status was updated a moment after the screen showed it, so a failure in that gap was ignored; this also made the session-reset test fail intermittently in CI.
+
 ## [v0.33.1] - 2026-10-26
 
 ### Changed

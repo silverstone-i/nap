@@ -12,6 +12,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -74,14 +75,17 @@ export function SessionProvider({ children }) {
   const [state, setState] = useState(EMPTY);
   const navigate = useNavigate();
   const location = useLocation();
+  // These refs are read by the session-ended paths, which run outside
+  // React's render. Layout effects keep them in step with what the tab
+  // shows: a passive effect runs a task after the commit, so a request
+  // failing in between would see the old status and be ignored.
   const locationRef = useRef(location);
-  useEffect(() => {
+  useLayoutEffect(() => {
     locationRef.current = location;
   }, [location]);
-  // Read by the session-ended paths, which run outside React's render and
-  // must not act twice for one ending.
+  // Also guards against acting twice for one ending.
   const statusRef = useRef(state.status);
-  useEffect(() => {
+  useLayoutEffect(() => {
     statusRef.current = state.status;
   }, [state.status]);
   const channelRef = useRef(null);
