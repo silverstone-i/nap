@@ -241,8 +241,9 @@ None.
 
 ## Verification Evidence
 
-Verified on 2026-10-26 on branch `feat/i0012-party-memberships`, before its
-pull request.
+Verified on 2026-10-26 in
+[silverstone-i/nap#72](https://github.com/silverstone-i/nap/pull/72); its CI
+checks (changelog, checks, roadmap) pass.
 
 - `npm run lint`, `npm run format:check`, and `npm run build` pass. `npm test`
   passes: API unit 614, web 276, shared 20, toolchain 25. `npm run
@@ -250,7 +251,10 @@ test:db:local` passes 325, including new cases for a second party of an
   active login getting its own active membership (AC01), a party held by
   another login failing with `MEMBER_CONFLICT` (AC02), one picker entry per
   party (AC03), refusing another login's membership (AC05), relabelling on
-  rename (AC08), and a second Napsoft membership being refused (R015).
+  rename (AC08), a second Napsoft membership being refused (R015), and
+  `GET /memberships` naming the person and party for the Roles screen (R017),
+  added after review found the names were read outside the tenant
+  transaction.
 - Unit tests cover a customer-tenant session with no selected membership
   resolving no patterns (R014), the administrator guard ignoring the login's
   roles on another membership (R018), and the picker, header label, Roles
