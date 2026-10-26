@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.33.0] - 2026-10-26
+
 ### Added
 
 - One login can hold a membership for each of its parties in a tenant, such as an employee who is also a vendor contact (I0012). Sign-in lists one entry per tenant and party, labelled "Employee", "Contact", "Vendor · {name}", or "Client · {name}"; a session acts as exactly one membership, and roles are assigned per membership, so a vendor session never gets the employee's access.
