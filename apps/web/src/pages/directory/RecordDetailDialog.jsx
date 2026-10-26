@@ -15,11 +15,13 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -39,7 +41,10 @@ import { AddressDialog } from './AddressDialog.jsx';
 import { ClientTenantPanel } from './ClientTenantPanel.jsx';
 import { ARCHIVE_TEXT, DirectoryGrid } from './DirectoryGrid.jsx';
 import { ContactMethodDialog } from './ContactMethodDialog.jsx';
+import { EditNameDialog } from './EditNameDialog.jsx';
+import { PortalAccessDialog } from './PortalAccessDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
+import { TaxIdDialog } from './TaxIdDialog.jsx';
 import { KIND_LABELS, recordName } from './directoryRecords.js';
 import {
   describeDirectoryError,
@@ -52,20 +57,35 @@ import { displayTaxId, useTaxIdFormats } from './useTaxIdFormats.js';
 import { ActionBar } from '../../shell/ActionBar.jsx';
 
 /**
- * Tax ID shown masked in its format, with a reveal button for
- * `tax-ids::read`. Revealing is recorded by the server (M0005-R012, R040).
- * @param {{collection: string, record: object, formats: object[]|null, canReveal: boolean}} props
+ * A pencil that opens one section's dialog (I0001-R036, M0005-R049).
+ * @param {{label: string, onClick: () => void}} props
+ * @returns {JSX.Element}
  */
-function TaxIdLine({ collection, record, formats, canReveal }) {
+function SectionPencil({ label, onClick }) {
+  return (
+    <IconButton size="small" aria-label={label} onClick={onClick}>
+      <EditIcon fontSize="small" />
+    </IconButton>
+  );
+}
+
+/**
+ * Tax ID shown masked in its format, with a reveal button for
+ * `tax-ids::read` (M0005-R012, R040) and, for `tax-ids::write`, the pencil
+ * that changes it (R052). Revealing is recorded by the server.
+ * @param {{collection: string, record: object, formats: object[]|null, canReveal: boolean, onEdit?: () => void}} props
+ */
+function TaxIdLine({ collection, record, formats, canReveal, onEdit }) {
   const [full, setFull] = useState(null);
   const [error, setError] = useState(null);
-  if (!record.taxIdLast4) return null;
+  if (!record.taxIdLast4 && !onEdit) return null;
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
       <Typography variant="body2">
-        Tax ID: {displayTaxId(record, formats, full)}
+        Tax ID: {displayTaxId(record, formats, full) ?? 'None'}
       </Typography>
-      {canReveal && !full ? (
+      {onEdit ? <SectionPencil label="Edit tax ID" onClick={onEdit} /> : null}
+      {canReveal && record.taxIdLast4 && !full ? (
         <Button
           size="small"
           variant="text"
@@ -96,7 +116,9 @@ function TaxIdLine({ collection, record, formats, canReveal }) {
 
 /**
  * A record's detail: its fields, tax ID, emails, phones, and addresses; an
- * organization's contacts; and edit, archive, and restore (M0005-R026).
+ * organization's contacts; and archive and restore (M0005-R026). It is the
+ * record's only edit surface: each part changes through its own pencil
+ * (I0001-R036, M0005-R049).
  * @param {{collection: 'people'|'organizations'|'organization-contacts', id: string, abilities: {write: boolean, readTaxIds: boolean, writeTaxIds: boolean, assignRoles?: boolean}, onClose: () => void, onChanged: () => void}} props
  * @returns {JSX.Element}
  */
@@ -111,7 +133,8 @@ export function RecordDetailDialog({
   const formats = useTaxIdFormats();
   const { defaultCountry } = useEffectiveSettings().settings;
   const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(false);
+  // The pencil dialog open: 'name', 'taxId', or 'portal'.
+  const [section, setSection] = useState(null);
   const [methodForm, setMethodForm] = useState(null);
   const [addressForm, setAddressForm] = useState(null);
   const [contactForm, setContactForm] = useState(false);
@@ -187,10 +210,26 @@ export function RecordDetailDialog({
     }
   }
 
-  function afterSave() {
-    setEditing(false);
-    setContactForm(false);
+  function afterSection() {
+    setSection(null);
     changed();
+  }
+
+  /**
+   * M0005-R051: make this client contact its client's primary tax contact,
+   * the same change the client's contacts grid makes.
+   */
+  function makePrimaryTaxContact() {
+    return run(async () => {
+      const client = await getDirectoryRecord(
+        'organizations',
+        record.organizationId
+      );
+      await updateDirectoryRecord('organizations', client.id, {
+        primaryTaxContactId: record.id,
+        revision: client.revision,
+      });
+    });
   }
 
   if (!record)
@@ -209,6 +248,16 @@ export function RecordDetailDialog({
   const methods = record.contactMethods.filter(m => !m.archived);
   const addresses = record.addresses.filter(a => !a.archived);
   const canEditDetails = abilities.write && !record.archived;
+  const organizationContact = collection === 'organization-contacts';
+  // R006–R008: a vendor contact has no tax ID, and a client whose tax ID
+  // comes from a buyer has none of its own to change here.
+  const canEditTaxId =
+    canEditDetails &&
+    abilities.writeTaxIds &&
+    record.kind !== 'vendor_contact' &&
+    !(record.kind === 'client' && !record.taxIdLast4);
+  // I0010-R001, R013: portal access and roles need both capabilities.
+  const canEditPortal = canEditDetails && Boolean(abilities.assignRoles);
 
   return (
     <>
@@ -221,6 +270,12 @@ export function RecordDetailDialog({
       >
         <DialogTitle id="record-detail-title">
           {recordName(record)}{' '}
+          {canEditDetails ? (
+            <SectionPencil
+              label="Edit name"
+              onClick={() => setSection('name')}
+            />
+          ) : null}
           <Chip size="small" label={KIND_LABELS[record.kind]} />
           {record.archived ? (
             <Chip size="small" label="Archived" sx={{ ml: 1 }} />
@@ -234,13 +289,16 @@ export function RecordDetailDialog({
               </Alert>
             ) : null}
             {record.dbaName ? (
-              <Typography variant="body2">DBA: {record.dbaName}</Typography>
+              <Typography variant="body2">
+                DBA name: {record.dbaName}
+              </Typography>
             ) : null}
             <TaxIdLine
               collection={collection}
               record={record}
               formats={formats}
               canReveal={abilities.readTaxIds}
+              onEdit={canEditTaxId ? () => setSection('taxId') : undefined}
             />
             {record.portalAccess ? (
               <PortalAccessPanel
@@ -248,6 +306,7 @@ export function RecordDetailDialog({
                 record={record}
                 canWrite={abilities.write}
                 onChanged={changed}
+                onEdit={canEditPortal ? () => setSection('portal') : undefined}
               />
             ) : null}
             {record.roles?.length ? (
@@ -275,6 +334,43 @@ export function RecordDetailDialog({
                 label="Primary tax contact"
                 sx={{ alignSelf: 'flex-start' }}
               />
+            ) : record.kind === 'client_contact' &&
+              record.taxIdLast4 &&
+              canEditDetails ? (
+              <Button
+                size="small"
+                onClick={makePrimaryTaxContact}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Make primary tax contact
+              </Button>
+            ) : null}
+            {organizationContact ? (
+              <Stack direction="row" spacing={2}>
+                {[
+                  ['isPrimaryContact', 'Primary contact'],
+                  ['isBillingContact', 'Billing contact'],
+                ].map(([field, label]) => (
+                  <FormControlLabel
+                    key={field}
+                    label={label}
+                    control={
+                      <Switch
+                        checked={record[field] === true}
+                        disabled={!canEditDetails}
+                        onChange={event =>
+                          run(() =>
+                            updateDirectoryRecord(collection, record.id, {
+                              [field]: event.target.checked,
+                              revision: record.revision,
+                            })
+                          )
+                        }
+                      />
+                    }
+                  />
+                ))}
+              </Stack>
             ) : null}
             {record.kind === 'client' ? (
               <ClientTenantPanel client={record} />
@@ -447,7 +543,7 @@ export function RecordDetailDialog({
                       ...contactsBulk.actions,
                       canEditDetails &&
                         !contactsArchived && {
-                          label: 'Add contact',
+                          label: 'New contact',
                           create: true,
                           onClick: () => setContactForm(true),
                         },
@@ -512,12 +608,9 @@ export function RecordDetailDialog({
                 Restore
               </Button>
             ) : (
-              <>
-                <Button color="warning" onClick={() => setConfirmArchive(true)}>
-                  Archive
-                </Button>
-                <Button onClick={() => setEditing(true)}>Edit</Button>
-              </>
+              <Button color="warning" onClick={() => setConfirmArchive(true)}>
+                Archive
+              </Button>
             )
           ) : null}
           <Button variant="contained" onClick={onClose}>
@@ -540,29 +633,49 @@ export function RecordDetailDialog({
         }}
         onCancel={() => setConfirmArchive(false)}
       />
-      {editing ? (
-        <RecordFormDialog
+      {section === 'name' ? (
+        <EditNameDialog
           collection={collection}
           record={record}
-          canWriteTaxIds={abilities.writeTaxIds}
-          canManagePortal={abilities.write && Boolean(abilities.assignRoles)}
-          onClose={() => setEditing(false)}
-          onSaved={afterSave}
-          onReload={reload}
+          onClose={() => setSection(null)}
+          onSaved={afterSection}
+          onStale={() => void load()}
+        />
+      ) : null}
+      {section === 'taxId' ? (
+        <TaxIdDialog
+          collection={collection}
+          record={record}
+          formats={formats}
+          onClose={() => setSection(null)}
+          onSaved={afterSection}
+          onStale={() => void load()}
+        />
+      ) : null}
+      {section === 'portal' ? (
+        <PortalAccessDialog
+          collection={collection}
+          record={record}
+          onClose={() => setSection(null)}
+          onSaved={afterSection}
+          onStale={() => void load()}
         />
       ) : null}
       {contactForm ? (
         <RecordFormDialog
           collection="organization-contacts"
-          record={null}
           defaults={{
             organizationId: record.id,
             organizationKind: record.kind,
           }}
           canWriteTaxIds={abilities.writeTaxIds}
-          canManagePortal={abilities.write && Boolean(abilities.assignRoles)}
           onClose={() => setContactForm(false)}
-          onSaved={afterSave}
+          onSaved={saved => {
+            setContactForm(false);
+            changed();
+            // M0005-R050: a new contact opens on save.
+            setOpenContact(saved.id);
+          }}
         />
       ) : null}
       {methodForm ? (

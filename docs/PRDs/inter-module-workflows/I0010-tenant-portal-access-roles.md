@@ -73,7 +73,8 @@ in one step.
   a **Roles** multi-select, when the session holds both
   `business-directory::directory::write` and
   `access-control::assignments::write` for the tenant. Without both, these
-  controls are hidden.
+  controls are hidden. _Superseded in part by R013 (the controls move to the
+  detail's portal access dialog)._
 - I0010-R002: **Roles** must list the tenant's unarchived roles that the
   caller may assign under M0003-R011. A person can hold several roles.
 - I0010-R003: The dialog must show which of a person's roles are held
@@ -81,6 +82,7 @@ in one step.
   in."
 - I0010-R004: The detail view keeps I0008's status and **Retry** and shows
   the person's roles. Its portal-access switch moves to the dialog.
+  _Superseded in part by R013._
 
 ### Turning access on
 
@@ -117,6 +119,19 @@ in one step.
 - I0010-R012: The role fields require `access-control::assignments::write`.
   A request that sends them without it fails with `FORBIDDEN` and changes
   nothing.
+
+### The portal access dialog
+
+- I0010-R013: A person's portal access and roles must be changed only from
+  their detail dialog (I0001-R036). A pencil on the portal access line opens
+  a dialog with **Portal access**, the temporary password while access is
+  being turned on, and **Roles**, under R001's capabilities; without them
+  the pencil is hidden. Creating a person no longer offers these controls
+  (M0005-R050); access is turned on after the person exists.
+- I0010-R014: The dialog keeps R002, R003, R005, and R009–R012: it lists
+  only roles the caller may assign, marks held roles, refuses turning access
+  on without a role or a temporary password, and saves the flag, password,
+  and roles in one request.
 
 ## 7. Business Rules And Invariants
 
@@ -190,18 +205,19 @@ unchanged and still serve the Roles screen.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                                      | Requirements           |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| AC01      | A tenant admin creates an employee with access on and two roles; after the person changes the temporary password, both roles are assigned and the held set is empty. | I0010-R001, R006, R007 |
-| AC02      | Turning access on without a role fails with `INVALID_INPUT`, writes no request, and holds no role.                                                                   | I0010-R005             |
-| AC03      | The dialog lists only roles the caller may assign and marks held roles with the first-sign-in note.                                                                  | I0010-R002, R003       |
-| AC04      | Editing an active member adds and removes assignments; removing the last role, or the tenant's last `tenant_admin`, fails and changes nothing.                       | I0010-R009             |
-| AC05      | Editing a not-yet-active person replaces the held roles without touching `app.role_assignments`.                                                                     | I0010-R009             |
-| AC06      | Turning access off keeps the roles; turning it back on with no new roles succeeds and the kept roles apply on activation.                                            | I0010-R010             |
-| AC07      | A user with `directory::write` but not `assignments::write` sees no portal or role controls and gets `403` when sending `roleIds`.                                   | I0010-R001, R012       |
-| AC08      | A Napsoft operator working in a customer tenant gets `403` turning access on or changing roles there.                                                                | I0010-R011             |
-| AC09      | A held role archived before activation is assigned on activation and grants nothing until restored.                                                                  | I0010-R008             |
-| AC10      | The detail view shows status, Retry, and roles, with no portal-access switch.                                                                                        | I0010-R004             |
+| Criterion | Required result                                                                                                                                                                                                         | Requirements           |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| AC01      | A tenant admin creates an employee with access on and two roles; after the person changes the temporary password, both roles are assigned and the held set is empty.                                                    | I0010-R001, R006, R007 |
+| AC02      | Turning access on without a role fails with `INVALID_INPUT`, writes no request, and holds no role.                                                                                                                      | I0010-R005             |
+| AC03      | The dialog lists only roles the caller may assign and marks held roles with the first-sign-in note.                                                                                                                     | I0010-R002, R003       |
+| AC04      | Editing an active member adds and removes assignments; removing the last role, or the tenant's last `tenant_admin`, fails and changes nothing.                                                                          | I0010-R009             |
+| AC05      | Editing a not-yet-active person replaces the held roles without touching `app.role_assignments`.                                                                                                                        | I0010-R009             |
+| AC06      | Turning access off keeps the roles; turning it back on with no new roles succeeds and the kept roles apply on activation.                                                                                               | I0010-R010             |
+| AC07      | A user with `directory::write` but not `assignments::write` sees no portal or role controls and gets `403` when sending `roleIds`.                                                                                      | I0010-R001, R012       |
+| AC08      | A Napsoft operator working in a customer tenant gets `403` turning access on or changing roles there.                                                                                                                   | I0010-R011             |
+| AC09      | A held role archived before activation is assigned on activation and grants nothing until restored.                                                                                                                     | I0010-R008             |
+| AC10      | The detail view shows status, Retry, and roles, with no portal-access switch.                                                                                                                                           | I0010-R004             |
+| AC11      | The detail's portal access pencil turns access on with a temporary password and roles, changes roles, and turns access off; creating a person shows no portal controls; without both capabilities the pencil is hidden. | I0010-R013, R014       |
 
 ## 14. Outstanding Questions
 

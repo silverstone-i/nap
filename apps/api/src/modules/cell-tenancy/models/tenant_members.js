@@ -107,23 +107,4 @@ export class TenantMembers extends CopyTableModel {
       [tenantId, id]
     );
   }
-
-  /**
-   * The tenant's unarchived memberships in a status, oldest first, for
-   * pickers such as the Roles screen's (I0012-R017).
-   * @param {string} tenantId
-   * @param {string[]} statuses
-   * @param {{tx: import('pg-promise').IDatabase<unknown>}} options
-   * @returns {Promise<{id: string, portal_user_id: string, member_type: string|null, member_id: string|null, member_label: string|null, status: string}[]>}
-   */
-  async byStatus(tenantId, statuses, { tx }) {
-    return tx.any(
-      `SELECT id, portal_user_id, member_type, member_id, member_label, status
-         FROM ${this.schemaName}.${this.tableName}
-        WHERE tenant_id=$1 AND status = ANY($2::text[])
-          AND deactivated_at IS NULL
-        ORDER BY created_at, id`,
-      [tenantId, statuses]
-    );
-  }
 }

@@ -14,7 +14,6 @@ import {
   createRole,
   getRole,
   listCapabilities,
-  listMemberships,
   listRoles,
   membershipRoles,
   removeRole,
@@ -136,19 +135,13 @@ export function createRolesRouter(deps) {
 }
 
 /**
- * Build the `memberships` router: the tenant's memberships and each one's
- * role assignments (M0003 §10, I0012-R013, R017).
+ * Build the `memberships` router: each membership's role assignments
+ * (M0003 §10, I0012-R013).
  * @param {object} deps
  * @returns {import('express').Router}
  */
 export function createMembershipsRouter(deps) {
   const router = Router();
-  router.get(
-    '/',
-    ...route(deps, READ, async (context, request, response) =>
-      sendData(response, await listMemberships(context))
-    )
-  );
   router.get(
     '/:membershipId/roles',
     ...route(deps, READ, async (context, request, response) =>

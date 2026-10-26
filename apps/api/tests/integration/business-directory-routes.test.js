@@ -1202,6 +1202,49 @@ describe('portal access (I0008)', () => {
     expect(restored.body.data.portalAccess.status).toBe('off');
   }, 30_000);
 
+  it('M0005-R049, R051: saves each detail section on its own', async () => {
+    const vendor = await create('organizations', {
+      kind: 'vendor',
+      legalName: 'Section Supply LLC',
+      taxId: '12-3456783',
+    });
+    const contact = await create('organization-contacts', {
+      organizationId: vendor.id,
+      firstName: 'Sam',
+      lastName: 'Section',
+    });
+    const named = await call('patch', `/organization-contacts/${contact.id}`, {
+      lastName: 'Sections',
+      revision: contact.revision,
+    });
+    expect(named.status).toBe(200);
+    expect(named.body.data).toMatchObject({
+      firstName: 'Sam',
+      lastName: 'Sections',
+      isPrimaryContact: false,
+    });
+    const flagged = await call(
+      'patch',
+      `/organization-contacts/${contact.id}`,
+      {
+        isBillingContact: true,
+        revision: named.body.data.revision,
+      }
+    );
+    expect(flagged.status).toBe(200);
+    expect(flagged.body.data).toMatchObject({
+      lastName: 'Sections',
+      isBillingContact: true,
+    });
+    const renamed = await call('patch', `/organizations/${vendor.id}`, {
+      legalName: 'Section Supply Co',
+      dbaName: null,
+      revision: vendor.revision,
+    });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.data.taxIdLast4).toBe(vendor.taxIdLast4);
+  });
+
   it('I0012-R007: a vendor contact carries its vendor label, and renaming the vendor relabels it', async () => {
     const vendor = await create('organizations', {
       kind: 'vendor',
@@ -1238,18 +1281,6 @@ describe('portal access (I0008)', () => {
         )
       ).member_label;
     expect(await labelOf()).toBe('Vendor · Black Plumbing LLC');
-
-    // I0012-R017: the Roles screen's picker names the person and the party,
-    // read under the tenant's row-level security.
-    const members = await acl('get', '/memberships');
-    expect(members.status).toBe(200);
-    expect(members.body.data).toContainEqual(
-      expect.objectContaining({
-        memberType: 'vendor_contact',
-        label: 'Vendor · Black Plumbing LLC',
-        name: 'Jack Black',
-      })
-    );
 
     const renamed = await call('patch', `/organizations/${vendor.id}`, {
       dbaName: 'Black Plumbing',

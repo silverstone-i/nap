@@ -21,8 +21,6 @@ import {
   sessionCapabilitiesSchema,
   sessionResponseSchema,
   tenantsListResponseSchema,
-  membershipRolesSchema,
-  tenantMembershipSchema,
   userMembershipsResponseSchema,
   userResponseSchema,
   usersListResponseSchema,
@@ -487,39 +485,6 @@ export async function restoreRole(id, revision) {
 export async function bulkRoleAction(action, items) {
   const data = await apiPost(`${ACCESS_BASE}/roles/${action}`, { items });
   return z.strictObject({ rows: z.array(roleViewSchema) }).parse(data).rows;
-}
-
-/** @returns {Promise<object[]>} The tenant's pending and active memberships (I0012-R017). */
-export async function listTenantMemberships() {
-  return z
-    .array(tenantMembershipSchema)
-    .parse(await apiGet(`${ACCESS_BASE}/memberships`));
-}
-
-/** @param {string} membershipId @returns {Promise<{membershipId: string, roles: RoleView[]}>} Active assignments only. */
-export async function getMembershipRoles(membershipId) {
-  return membershipRolesSchema.parse(
-    await apiGet(`${ACCESS_BASE}/memberships/${membershipId}/roles`)
-  );
-}
-
-/** @param {string} membershipId @param {string} roleId @returns {Promise<{membershipId: string, roles: RoleView[]}>} */
-export async function assignMembershipRole(membershipId, roleId) {
-  return membershipRolesSchema.parse(
-    await apiPut(
-      `${ACCESS_BASE}/memberships/${membershipId}/roles/${roleId}`,
-      {}
-    )
-  );
-}
-
-/** @param {string} membershipId @param {string} roleId @returns {Promise<{membershipId: string, roles: RoleView[]}>} */
-export async function removeMembershipRole(membershipId, roleId) {
-  return membershipRolesSchema.parse(
-    await apiDelete(
-      `${ACCESS_BASE}/memberships/${membershipId}/roles/${roleId}`
-    )
-  );
 }
 
 const REFERENCE_BASE = '/api/reference-data/v1';

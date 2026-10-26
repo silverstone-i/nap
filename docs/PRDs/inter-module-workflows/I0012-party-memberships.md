@@ -121,7 +121,9 @@ never gets an employee's access.
 - I0012-R016: Held roles (I0010-R006) stay keyed by party. On activation
   (I0010-R007) they must be assigned to that party's membership.
 - I0012-R017: Role changes from the person dialog (I0010-R009) and the Roles
-  screen must act on the party's membership.
+  screen must act on the party's membership. _Superseded in part by
+  M0003-R021 (the Roles screen no longer assigns roles) and I0010-R013 (the
+  person's roles change from the detail's portal access dialog)._
 - I0012-R018: I0008-R005's administrator guard must check the roles of the
   membership being turned off, not the login's roles in other memberships.
 - I0012-R019: I0008-R006's self guard must refuse turning off or archiving
@@ -192,7 +194,9 @@ The session view returned by sign-in, selection, and session reads adds
 
 Access Control's `/users/:userId/roles` routes become
 `/memberships/:membershipId/roles`; the Roles screen passes the party's
-membership.
+membership. _Superseded in part by M0003-R021: the Roles screen no longer
+assigns roles, so the list `GET /memberships` it used is removed; the
+`/memberships/:membershipId/roles` routes stay._
 
 ## 11. Cross-Module Interactions
 

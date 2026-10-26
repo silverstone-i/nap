@@ -742,6 +742,14 @@ describe('access-control routes (M0003 §10)', () => {
     ).toBe(200);
   });
 
+  it('serves no list of memberships, while their role routes stay (M0003-R021)', async () => {
+    expect((await call('get', '/memberships')).status).toBe(404);
+    const rootMembership = await membershipIn(db, rootId, napsoft.id);
+    const roles = await call('get', `/memberships/${rootMembership}/roles`);
+    expect(roles.status).toBe(200);
+    expect(roles.body.data.roles.map(r => r.code)).toContain('platform_admin');
+  });
+
   it('keeps role rows invisible to a transaction scoped to another tenant (RLS)', async () => {
     const rows = await withTenantTransaction(cell, randomUUID(), tx =>
       tx.any('SELECT id FROM app.roles')

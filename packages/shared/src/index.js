@@ -429,18 +429,6 @@ export const membershipRolesSchema = z.strictObject({
   roles: z.array(roleViewSchema),
 });
 
-/**
- * Zod schema for one of the tenant's memberships, as the Roles screen lists
- * them (I0012-R017). `name` is null for a membership without a party.
- */
-export const tenantMembershipSchema = z.strictObject({
-  id: z.uuid(),
-  memberType: z.string().nullable(),
-  label: z.string().nullable(),
-  name: z.string().nullable(),
-  status: z.enum(['pending', 'active']),
-});
-
 /** Zod schema for one capability catalogue entry (M0003-R005). */
 export const capabilityEntrySchema = z.strictObject({
   capability: z.string(),
