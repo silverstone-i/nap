@@ -23,7 +23,7 @@ import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { LogoSettings } from './LogoSettings.jsx';
 import { SettingControl } from './SettingControl.jsx';
-import { SETTING_LABELS as LABELS } from './settingLabels.js';
+import { describeSetting, SETTING_LABELS as LABELS } from './settingLabels.js';
 
 const DEFAULTS = settingDefaults();
 
@@ -144,42 +144,39 @@ export function GeneralSettingsPage() {
       <Box component="form" onSubmit={save} sx={{ maxWidth: 560 }}>
         <Stack spacing={2.5}>
           {error ? <Alert severity="error">{error}</Alert> : null}
-          {!canWrite ? (
-            <Alert severity="info">
-              You can view these settings but not change them.
-            </Alert>
-          ) : null}
-          {ORDER.map(name => (
-            <Stack key={name} spacing={0.5}>
-              <SettingControl
-                name={name}
-                value={valueOf(name)}
-                onChange={value => setDraft(d => ({ ...d, [name]: value }))}
-                disabled={!canWrite || saving}
-              />
-              <Stack
-                direction="row"
-                spacing={1}
-                sx={{ alignItems: 'center', minHeight: 28 }}
-              >
-                {isDefault(name) ? (
-                  <Typography variant="caption" color="text.secondary">
-                    Default
-                  </Typography>
-                ) : null}
-                {canWrite && !isDefault(name) ? (
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setDraft(d => ({ ...d, [name]: null }))}
-                    aria-label={`Reset ${LABELS[name]} to default`}
-                  >
-                    Reset to default
-                  </Button>
-                ) : null}
+          {ORDER.map(name =>
+            canWrite ? (
+              <Stack key={name} spacing={0.5}>
+                <SettingControl
+                  name={name}
+                  value={valueOf(name)}
+                  onChange={value => setDraft(d => ({ ...d, [name]: value }))}
+                  disabled={saving}
+                />
+                {/* M0006-01-R013: no "Default" caption; Reset only beside a stored value. */}
+                <Stack
+                  direction="row"
+                  sx={{ alignItems: 'center', minHeight: 28 }}
+                >
+                  {!isDefault(name) ? (
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setDraft(d => ({ ...d, [name]: null }))}
+                      aria-label={`Reset ${LABELS[name]} to default`}
+                    >
+                      Reset to default
+                    </Button>
+                  ) : null}
+                </Stack>
               </Stack>
-            </Stack>
-          ))}
+            ) : (
+              // M0006-01-R012: without write access, each value is plain text.
+              <Typography key={name} variant="body2">
+                {LABELS[name]}: {describeSetting(name, valueOf(name))}
+              </Typography>
+            )
+          )}
           {canWrite ? (
             <Box>
               <Button

@@ -3,7 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
@@ -142,12 +149,10 @@ describe('logo control (M0006-02-R013)', () => {
   it('AC09: offers upload only when storage is connected', async () => {
     api.getEffectiveSettings.mockResolvedValue(effective());
     renderWith(<LogoSettings />);
-    expect(
-      await screen.findByText(
-        'Connect file storage in Settings → Storage to upload a logo.'
-      )
-    ).toBeTruthy();
+    // M0006-02-R018: no control, and no sentence about storage.
+    await waitFor(() => expect(api.getEffectiveSettings).toHaveBeenCalled());
     expect(screen.queryByText('Upload logo')).toBeNull();
+    expect(screen.queryByText(/file storage/i)).toBeNull();
   });
 
   it('uploads an image and refuses an oversized one before sending it', async () => {
@@ -176,7 +181,7 @@ describe('logo control (M0006-02-R013)', () => {
     expect(await screen.findByText('Logo saved.')).toBeTruthy();
   });
 
-  it('removes the logo', async () => {
+  it('removes the logo after "Remove logo?" (M0006-02-R016)', async () => {
     api.getEffectiveSettings.mockResolvedValue(
       effective({ logoFileId: LOGO, storageConnected: true })
     );
@@ -186,6 +191,9 @@ describe('logo control (M0006-02-R013)', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Remove logo' })
     );
+    expect(api.deleteLogo).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog', { name: 'Remove logo?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
     expect(api.deleteLogo).toHaveBeenCalled();
     expect(await screen.findByText('Logo removed.')).toBeTruthy();
   });

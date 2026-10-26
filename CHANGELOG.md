@@ -16,6 +16,13 @@ when a pull request with a release label merges into `main`.
 - Creating a record or a role asks only for what it needs (M0005-R050, M0003-R020): an employee's name and email, a vendor's legal name and tax ID, a client's legal name and one tax source, a contact's name, or a role's code and name. The new record opens on save, and **New contact** opens the new contact.
 - An organization contact's detail shows **Primary contact** and **Billing contact** as switches, and a client contact can be made the primary tax contact from it (M0005-R051). The contacts grid's "Role" column is now **Contact type**, and the DBA label reads "DBA name" (R053).
 - Portal access, the temporary password, and roles move from the person form to the portal access pencil on the detail (I0010-R013, R014).
+- Destructive actions confirm the same way everywhere: "Archive employee?", "Archive 3 roles?", "Remove email?", "Disconnect storage?", "Remove logo?", with at most one sentence. Restore and Restore selected no longer ask (I0001-R039, M0005-R054, M0003-R022, M0006-02-R016).
+- Creating, archiving, and restoring a directory record, label, format, or role shows a notice that closes on its own (M0005-R055, M0003-R023).
+- One name per action: Labels' **Rename** is **Edit**; **Add label**, **Add format**, **Add email**, **Add phone**, **Add address**, and **Create role** are **New …**; every directory and Roles search reads "Search by name"; **Logout** is **Log out** (I0001-R041, M0005-R056, M0003-R024).
+- Values a user cannot change show as plain text: General and Storage settings without write access, a label's For, and a format's Country (M0005-R057, M0006-01-R012, M0006-02-R017).
+- A new address and a new tax ID format start in the tenant's default country (M0005-R058).
+- Screens drop text that only explains them: helper text appears only for an invalid value, the record detail loses its kind chip and dividers, Roles loses the Custom chip and Type column, General loses its "Default" captions, and Storage loses its introduction (M0005-R059, R061, M0003-R025, R026, M0006-01-R013, M0006-02-R018).
+- An empty directory list says which view or search is empty, and errors name the rule to fix, including the administrator-role message that pointed at the removed Roles section (M0005-R060, R062).
 
 ### Removed
 

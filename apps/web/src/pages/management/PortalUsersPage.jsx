@@ -355,6 +355,7 @@ export function PortalUsersPage() {
         label: 'Deactivate',
         icon: <ArchiveIcon fontSize="small" />,
         destructive: true,
+        confirmTitle: 'Deactivate portal user?',
         confirmDescription: DEACTIVATE_TEXT,
         onClick: handleDeactivate,
       },

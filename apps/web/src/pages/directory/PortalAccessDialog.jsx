@@ -95,7 +95,6 @@ export function PortalAccessDialog({
           label="Temporary password"
           value={temporaryPassword}
           onChange={event => setTemporaryPassword(event.target.value)}
-          helperText="Give this to the person. They must replace it when they first sign in."
           required
         />
       ) : null}

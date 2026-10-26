@@ -145,13 +145,16 @@ describe('RolesPage (M0003-R016–R018)', () => {
     expect(api.listRoles).not.toHaveBeenCalled();
   });
 
-  it('lists roles with Immutable / Custom badges', async () => {
+  it('marks only an immutable role, beside its name, with no Type column (M0003-R025)', async () => {
     api.listRoles.mockResolvedValue([ADMIN, CUSTOM]);
     renderPage();
     await screen.findByText('Auditor');
     const table = screen.getByRole('grid');
-    expect(within(table).getByText('Immutable')).toBeTruthy();
-    expect(within(table).getByText('Custom')).toBeTruthy();
+    expect(within(table).getAllByText('Immutable')).toHaveLength(1);
+    expect(within(table).queryByText('Custom')).toBeNull();
+    expect(
+      within(table).queryByRole('columnheader', { name: 'Type' })
+    ).toBeNull();
   });
 
   it('lists archived roles in the Archived tab, with no filter popover or create action (I0011-R001–R005)', async () => {
@@ -167,14 +170,14 @@ describe('RolesPage (M0003-R016–R018)', () => {
     await within(table).findByText('Old');
     expect(within(table).queryByText('Auditor')).toBeNull();
     expect(api.listRoles).toHaveBeenCalledWith({ archived: true });
-    expect(screen.queryByRole('button', { name: 'Create role' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New role' })).toBeNull();
   });
 
   it('searches roles by name or code in the header', async () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
-    await user.type(screen.getByLabelText('Search roles'), 'tenant');
+    await user.type(screen.getByLabelText('Search by name'), 'tenant');
     expect(await screen.findByText('Tenant admin')).toBeTruthy();
     await vi.waitFor(() => expect(screen.queryByText('Auditor')).toBeNull());
     // The search filters the loaded list; it does not ask the server again.
@@ -223,7 +226,7 @@ describe('RolesPage (M0003-R016–R018)', () => {
       screen.getByRole('button', { name: 'Archive selected (3)' })
     );
     let dialog = await screen.findByRole('dialog', {
-      name: 'Archive selected',
+      name: 'Archive 3 roles?',
     });
     await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
     expect(api.bulkRoleAction).toHaveBeenCalledWith('archive', [
@@ -244,7 +247,7 @@ describe('RolesPage (M0003-R016–R018)', () => {
     await user.click(
       screen.getByRole('button', { name: 'Archive selected (2)' })
     );
-    dialog = await screen.findByRole('dialog', { name: 'Archive selected' });
+    dialog = await screen.findByRole('dialog', { name: 'Archive 2 roles?' });
     await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
     expect(await screen.findByText('2 roles archived.')).toBeTruthy();
   });
@@ -290,13 +293,14 @@ describe('RolesPage (M0003-R016–R018)', () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
-    await user.click(screen.getByRole('button', { name: 'Create role' }));
-    const form = await screen.findByRole('dialog', { name: 'Create role' });
+    await user.click(screen.getByRole('button', { name: 'New role' }));
+    const form = await screen.findByRole('dialog', { name: 'New role' });
     expect(within(form).queryByLabelText('Description')).toBeNull();
     expect(within(form).queryByLabelText('Module')).toBeNull();
     await user.type(within(form).getByLabelText(/Code/), 'reader');
     await user.type(within(form).getByLabelText(/Name/), 'Reader');
-    await user.click(within(form).getByRole('button', { name: 'Create role' }));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Reader created.')).toBeTruthy();
     expect(api.createRole).toHaveBeenCalledWith({
       code: 'reader',
       name: 'Reader',
@@ -338,13 +342,11 @@ describe('RolesPage (M0003-R016–R018)', () => {
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
-    await user.click(screen.getByRole('button', { name: 'Create role' }));
+    await user.click(screen.getByRole('button', { name: 'New role' }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/Code/), 'old');
     await user.type(within(dialog).getByLabelText(/Name/), 'Old');
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create role' })
-    );
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     expect(
       await within(dialog).findByText(/An archived role already uses this code/)
     ).toBeTruthy();
@@ -414,11 +416,60 @@ describe('RolesPage (M0003-R016–R018)', () => {
       name: 'Archive role?',
     });
     expect(api.archiveRole).not.toHaveBeenCalled();
+    expect(
+      within(confirm).getByText(
+        'An archived role grants nothing until it is restored.'
+      )
+    ).toBeTruthy();
     await user.click(within(confirm).getByRole('button', { name: 'Archive' }));
     expect(api.archiveRole).toHaveBeenCalledWith('r2', 3);
+    expect(await screen.findByText('Auditor archived.')).toBeTruthy();
 
+    // M0003-R022: Restore runs without asking.
     await user.click(await screen.findByRole('button', { name: 'Restore' }));
+    expect(screen.queryByRole('dialog', { name: /Restore/ })).toBeNull();
     expect(api.restoreRole).toHaveBeenCalledWith('r2', 4);
+    expect(await screen.findByText('Auditor restored.')).toBeTruthy();
+  });
+
+  it('AC14: archives from the row menu after "Archive role?" and restores a row without asking (M0003-R022, R023)', async () => {
+    api.listRoles.mockImplementation(async ({ archived } = {}) =>
+      archived ? [ARCHIVED] : [ADMIN, CUSTOM]
+    );
+    api.archiveRole.mockResolvedValue({ ...CUSTOM, archived: true });
+    api.restoreRole.mockResolvedValue({ ...ARCHIVED, archived: false });
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText('Auditor');
+    const menus = screen.getAllByRole('menuitem', { name: 'more' });
+    await user.click(menus[menus.length - 1]);
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive' }));
+    const confirm = await screen.findByRole('dialog', {
+      name: 'Archive role?',
+    });
+    await user.click(within(confirm).getByRole('button', { name: 'Archive' }));
+    expect(await screen.findByText('Auditor archived.')).toBeTruthy();
+
+    await user.click(screen.getByRole('tab', { name: 'Archived' }));
+    await screen.findByText('Old');
+    await user.click(screen.getByRole('menuitem', { name: 'more' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Restore' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(api.restoreRole).toHaveBeenCalledWith('r3', ARCHIVED.revision);
+    expect(await screen.findByText('Old restored.')).toBeTruthy();
+  });
+
+  it('AC15: shows the code helper only for an invalid code (M0003-R026)', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText('Auditor');
+    await user.click(screen.getByRole('button', { name: 'New role' }));
+    const form = await screen.findByRole('dialog', { name: 'New role' });
+    const helper =
+      'Use lowercase letters, digits, and underscores, starting with a letter.';
+    expect(within(form).queryByText(helper)).toBeNull();
+    await user.type(within(form).getByLabelText(/Code/), 'Bad Code');
+    expect(within(form).getByText(helper)).toBeTruthy();
   });
 
   it('shows ROLE_IMMUTABLE readably', async () => {
@@ -449,10 +500,10 @@ describe('RolesPage (M0003-R016–R018)', () => {
       );
     });
 
-    it('hides Create role, the checkboxes, and the row menus', async () => {
+    it('hides New role, the checkboxes, and the row menus', async () => {
       renderPage();
       await screen.findByText('Auditor');
-      expect(screen.queryByRole('button', { name: 'Create role' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'New role' })).toBeNull();
       expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
       expect(screen.queryAllByRole('menuitem', { name: 'more' })).toHaveLength(
         0

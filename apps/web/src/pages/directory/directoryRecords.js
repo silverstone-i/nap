@@ -23,3 +23,15 @@ export function recordName(record) {
     return `${record.firstName} ${record.lastName}`;
   return record.legalName;
 }
+
+/**
+ * What an empty directory list says (M0005-R062), by view and search.
+ * @param {string} plural Such as `vendors`.
+ * @param {boolean} archived Whether the list shows the Archived view.
+ * @param {boolean} searching Whether a search or filter is on.
+ * @returns {string}
+ */
+export function emptyListMessage(plural, archived, searching) {
+  if (searching) return `No ${plural} match.`;
+  return archived ? `No archived ${plural}.` : `No ${plural} yet.`;
+}

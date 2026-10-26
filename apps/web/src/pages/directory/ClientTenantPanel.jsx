@@ -48,11 +48,11 @@ export function ClientTenantPanel({ client }) {
       spacing={1}
       sx={{ alignItems: 'center', justifyContent: 'space-between' }}
     >
-      <Typography variant="body2">
-        {tenant
-          ? `Tenant: ${tenant.code} · ${tenant.job?.status === 'failed' ? 'provisioning failed' : tenant.provisioned ? 'provisioned' : 'provisioning'}`
-          : 'Tenant: none'}
-      </Typography>
+      {tenant ? (
+        <Typography variant="body2">
+          {`Tenant: ${tenant.code} · ${tenant.job?.status === 'failed' ? 'provisioning failed' : tenant.provisioned ? 'provisioned' : 'provisioning'}`}
+        </Typography>
+      ) : null}
       {!tenant && canWrite && !client.archived ? (
         <Button
           variant="outlined"

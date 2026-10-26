@@ -77,17 +77,18 @@ describe('StandardDataGrid', () => {
   });
 
   it.each([
-    [undefined, 'This action cannot be undone.'],
-    ['Reversible later.', 'Reversible later.'],
+    [undefined, undefined, 'Remove?'],
+    ['Remove row?', 'Reversible later.', 'Remove row?'],
   ])(
-    'confirms a destructive action with its own description (%s)',
-    async (confirmDescription, expected) => {
+    'confirms a destructive action with "{Action} {thing}?" and at most one sentence (I0001-R039, %s)',
+    async (confirmTitle, confirmDescription, expected) => {
       const user = userEvent.setup();
       renderGrid({
         rowActions: () => [
           {
             label: 'Remove',
             destructive: true,
+            confirmTitle,
             confirmDescription,
             onClick: () => {},
           },
@@ -97,7 +98,10 @@ describe('StandardDataGrid', () => {
       await user.click(screen.getAllByRole('menuitem', { name: 'more' })[0]);
       await user.click(await screen.findByRole('menuitem', { name: 'Remove' }));
       const dialog = await screen.findByRole('dialog');
-      expect(within(dialog).getByText(expected)).toBeTruthy();
+      expect(within(dialog).getByRole('heading').textContent).toBe(expected);
+      if (confirmDescription)
+        expect(within(dialog).getByText(confirmDescription)).toBeTruthy();
+      else expect(within(dialog).queryByText(/undone/)).toBeNull();
     }
   );
 

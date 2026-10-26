@@ -93,10 +93,11 @@ afterEach(() => {
 });
 
 describe('General settings (M0006-01-R010)', () => {
-  it('AC06: shows every setting, marking defaults', async () => {
+  it('AC06, AC08: shows every setting, with no "Default" caption (M0006-01-R013)', async () => {
     renderPage();
     expect(await screen.findByLabelText('Records per page')).toBeTruthy();
-    expect(screen.getAllByText('Default')).toHaveLength(6);
+    expect(screen.queryByText('Default')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Reset/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Save' }).disabled).toBe(true);
   });
 
@@ -162,17 +163,16 @@ describe('General settings (M0006-01-R010)', () => {
     });
   });
 
-  it('AC06: is read-only without general::write', async () => {
+  it('AC08: shows values as plain text without general::write (M0006-01-R012)', async () => {
     useSession.mockReturnValue(
       sessionFor(['ACME::tenant-settings::general::read'])
     );
     renderPage();
-    const field = await screen.findByLabelText('Records per page');
-    expect(field.getAttribute('aria-disabled')).toBe('true');
+    expect(await screen.findByText('Records per page: 25')).toBeTruthy();
+    expect(screen.getByText('Language: English')).toBeTruthy();
+    expect(screen.queryByLabelText('Records per page')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
-    expect(
-      screen.getByText('You can view these settings but not change them.')
-    ).toBeTruthy();
+    expect(screen.queryByText(/not change/)).toBeNull();
     expect(
       within(document.body).queryByRole('button', { name: /Reset/ })
     ).toBeNull();

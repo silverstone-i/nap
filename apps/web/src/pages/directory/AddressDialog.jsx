@@ -16,6 +16,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { addAddress, updateAddress } from '../../api/endpoints.js';
 import { CountrySelect } from '../../components/CountrySelect.jsx';
+import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { LabelSelect } from './ContactMethodDialog.jsx';
 import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
 
@@ -43,7 +44,9 @@ export function AddressDialog({
   const [city, setCity] = useState(address?.city ?? '');
   const [region, setRegion] = useState(address?.region ?? '');
   const [postalCode, setPostalCode] = useState(address?.postalCode ?? '');
-  const [country, setCountry] = useState(address?.country ?? null);
+  // M0005-R058: a new address starts in the tenant's default country.
+  const { defaultCountry } = useEffectiveSettings().settings;
+  const [country, setCountry] = useState(address?.country ?? defaultCountry);
   const [labelId, setLabelId] = useState(address?.labelId ?? null);
   const [isPrimary, setIsPrimary] = useState(address?.isPrimary ?? false);
   const [error, setError] = useState(null);
@@ -105,7 +108,7 @@ export function AddressDialog({
       maxWidth="sm"
     >
       <DialogTitle id="address-title">
-        {address ? 'Edit address' : 'Add address'}
+        {address ? 'Edit address' : 'New address'}
       </DialogTitle>
       <DialogContent>
         {error ? (

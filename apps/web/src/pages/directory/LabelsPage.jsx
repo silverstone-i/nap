@@ -13,6 +13,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
@@ -48,8 +49,8 @@ import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 
 const GROUP_LABELS = { email: 'Email', phone: 'Phone', address: 'Address' };
 
-const ARCHIVE_TEXT =
-  'Archived labels move to the Archived tab. Emails, phones, and addresses that use a label keep it.';
+/** I0011-R007, M0005-R054: what Archive tells the user before it runs. */
+const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';
 
 const COLUMNS = [
   {
@@ -73,7 +74,7 @@ const COLUMNS = [
 ];
 
 /**
- * Add label or Rename (I0001-R032). A name is unique within its group, so
+ * New label or Edit (I0001-R032, M0005-R056). A name is unique within its group, so
  * a clash is reported in the dialog, with a link to the archived label when
  * one holds the name (I0011-R008). On `STALE_REVISION`, `onReload`
  * fetches the label, and the form starts over from it.
@@ -142,25 +143,31 @@ function LabelDialog({
     >
       <form onSubmit={save}>
         <DialogTitle id="label-dialog-title">
-          {label ? 'Rename label' : 'Add label'}
+          {label ? 'Edit label' : 'New label'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {error ? <Alert severity="error">{error}</Alert> : null}
-            <TextField
-              select
-              label="For"
-              value={appliesTo}
-              onChange={event => setAppliesTo(event.target.value)}
-              disabled={Boolean(label)}
-              size="small"
-            >
-              {Object.entries(GROUP_LABELS).map(([value, text]) => (
-                <MenuItem key={value} value={value}>
-                  {text}
-                </MenuItem>
-              ))}
-            </TextField>
+            {label ? (
+              // M0005-R057: what a label is for cannot change after create.
+              <Typography variant="body2">
+                For: {GROUP_LABELS[label.appliesTo]}
+              </Typography>
+            ) : (
+              <TextField
+                select
+                label="For"
+                value={appliesTo}
+                onChange={event => setAppliesTo(event.target.value)}
+                size="small"
+              >
+                {Object.entries(GROUP_LABELS).map(([value, text]) => (
+                  <MenuItem key={value} value={value}>
+                    {text}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <TextField
               label="Name"
               value={name}
@@ -187,7 +194,7 @@ function LabelDialog({
 /**
  * `/settings/labels` (M0005-R017, R031, R032): the tenant's labels for
  * emails, phones, and addresses in a standard grid. The header holds the
- * name search, the filter popover (For), the bulk actions, and Add label,
+ * name search, the filter popover (For), the bulk actions, and New label,
  * with Active and Archived tabs below that switch the view, kept in the URL
  * (I0011-R001–R005). A name is unique within its group.
  * @returns {JSX.Element}
@@ -269,13 +276,13 @@ export function LabelsPage() {
             onClick: target =>
               run(
                 () => restoreContactLabel(target.id, target.revision),
-                `Restored ${target.name}.`
+                `${target.name} restored.`
               ),
           },
         ]
       : [
           {
-            label: 'Rename',
+            label: 'Edit',
             icon: <EditIcon fontSize="small" />,
             onClick: target => setDialog({ label: target }),
           },
@@ -283,11 +290,12 @@ export function LabelsPage() {
             label: 'Archive',
             icon: <ArchiveIcon fontSize="small" />,
             destructive: true,
+            confirmTitle: 'Archive label?',
             confirmDescription: ARCHIVE_TEXT,
             onClick: target =>
               run(
                 () => archiveContactLabel(target.id, target.revision),
-                `Archived ${target.name}.`
+                `${target.name} archived.`
               ),
           },
         ];
@@ -307,8 +315,8 @@ export function LabelsPage() {
       ? {
           value: search,
           onChange: setSearch,
-          placeholder: 'Search labels',
-          label: 'Search labels',
+          placeholder: 'Search by name',
+          label: 'Search by name',
         }
       : null,
     filters: tenant
@@ -340,7 +348,7 @@ export function LabelsPage() {
           ...bulk.actions,
           abilities.labels &&
             !archived && {
-              label: 'Add label',
+              label: 'New label',
               create: true,
               onClick: () => setDialog({ label: null }),
             },
@@ -394,9 +402,7 @@ export function LabelsPage() {
           onSaved={saved => {
             setDialog(null);
             notify(
-              dialog.label
-                ? `Renamed to ${saved.name}.`
-                : `Added ${saved.name}.`
+              dialog.label ? `${saved.name} saved.` : `${saved.name} created.`
             );
             reload();
           }}

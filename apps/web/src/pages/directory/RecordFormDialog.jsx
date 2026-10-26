@@ -23,6 +23,14 @@ import {
 import { KIND_LABELS } from './directoryRecords.js';
 import { defaultTaxIdFormatId, useTaxIdFormats } from './useTaxIdFormats.js';
 
+/** M0005-R060: what a refused create means for each kind. */
+const CREATE_MESSAGES = {
+  vendor: { INVALID_INPUT: 'A vendor needs a tax ID.' },
+  client: {
+    INVALID_INPUT: 'Give the client its own tax ID or one primary buyer.',
+  },
+};
+
 /**
  * A tax ID with its format (M0005-R038, R043).
  * @param {{label: string, value: string, onChange: (v: string) => void, formats: object[]|null, formatId: string, onFormatChange: (id: string) => void}} props
@@ -155,7 +163,7 @@ export function RecordFormDialog({
             onFollow={onClose}
           />
         ) : (
-          describeDirectoryError(err)
+          describeDirectoryError(err, CREATE_MESSAGES[kind] ?? {})
         )
       );
     } finally {

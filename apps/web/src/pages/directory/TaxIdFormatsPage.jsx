@@ -4,7 +4,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { formatTaxId, isValidMask, maskSlots } from '@nap/shared';
+import { isValidMask } from '@nap/shared';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -13,6 +13,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
@@ -27,6 +28,7 @@ import {
 } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { CountrySelect } from '../../components/CountrySelect.jsx';
+import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { ArchivedConflictMessage } from '../../grid/ArchivedConflictMessage.jsx';
 import {
   archivedSearchPath,
@@ -49,12 +51,12 @@ import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 
 const PATH = '/settings/tax-id-formats';
 
-const ARCHIVE_TEXT =
-  'Archived formats move to the Archived tab and are not offered for new tax IDs. Tax IDs that use a format keep it.';
+/** I0011-R007, M0005-R054: what Archive tells the user before it runs. */
+const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';
 
-/** R041: the server refuses a slot change to a format a record uses. */
+/** R041, M0005-R059: the server refuses a slot change to a used format. */
 const IN_USE_TEXT =
-  'Records use this format, so only its name and separators can change. Archive it and add a new format instead.';
+  'Records use this format, so only its name and separators can change.';
 
 const COLUMNS = [
   {
@@ -84,19 +86,7 @@ const COLUMNS = [
 ];
 
 /**
- * A sample tax ID laid out in a mask, so the user sees what the mask means.
- * @param {string} mask
- * @returns {string}
- */
-function example(mask) {
-  const sample = [...maskSlots(mask)]
-    .map((slot, i) => (slot === '#' ? String((i + 1) % 10) : 'X'))
-    .join('');
-  return formatTaxId(sample, mask);
-}
-
-/**
- * Add format or Edit (M0005-R042). A name is unique within its country, so
+ * New format or Edit (M0005-R042, R056). A name is unique within its country, so
  * a clash is reported in the dialog, with a link to the archived format when
  * one holds the name (I0011-R008). The country cannot change. On
  * `STALE_REVISION`, `onReload` fetches the format, and the form starts over
@@ -112,7 +102,9 @@ function TaxIdFormatDialog({
   onReload,
 }) {
   const [format, setFormat] = useState(initialFormat);
-  const [country, setCountry] = useState(format?.country ?? 'US');
+  // M0005-R058: a new format starts in the tenant's default country.
+  const { defaultCountry } = useEffectiveSettings().settings;
+  const [country, setCountry] = useState(format?.country ?? defaultCountry);
   const [name, setName] = useState(format?.name ?? '');
   const [mask, setMask] = useState(format?.mask ?? '');
   const [error, setError] = useState(null);
@@ -171,17 +163,21 @@ function TaxIdFormatDialog({
     >
       <form onSubmit={save}>
         <DialogTitle id="tax-id-format-dialog-title">
-          {format ? 'Edit format' : 'Add format'}
+          {format ? 'Edit format' : 'New format'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {error ? <Alert severity="error">{error}</Alert> : null}
-            <CountrySelect
-              value={country}
-              onChange={code => setCountry(code ?? '')}
-              disabled={Boolean(format)}
-              required
-            />
+            {format ? (
+              // M0005-R057: the country cannot change after create.
+              <Typography variant="body2">Country: {format.country}</Typography>
+            ) : (
+              <CountrySelect
+                value={country}
+                onChange={code => setCountry(code ?? '')}
+                required
+              />
+            )}
             <TextField
               label="Name"
               value={name}
@@ -198,9 +194,9 @@ function TaxIdFormatDialog({
               required
               error={mask !== '' && !maskValid}
               helperText={
-                mask !== '' && maskValid
-                  ? `Example: ${example(mask)}`
-                  : '# is a digit and A is a letter, 4 to 32 in all; anything else is a separator.'
+                mask !== '' && !maskValid
+                  ? '# is a digit and A is a letter, 4 to 32 in all; anything else is a separator.'
+                  : ''
               }
             />
           </Stack>
@@ -225,7 +221,7 @@ function TaxIdFormatDialog({
 /**
  * `/settings/tax-id-formats` (M0005-R036–R042): the tenant's tax ID formats
  * in a standard grid. The header holds the name search, the bulk actions,
- * and Add format, with Active and Archived tabs below that switch the view,
+ * and New format, with Active and Archived tabs below that switch the view,
  * kept in the URL (I0011-R001–R005). A name is unique within its country.
  * @returns {JSX.Element}
  */
@@ -300,7 +296,7 @@ export function TaxIdFormatsPage() {
             onClick: target =>
               run(
                 () => restoreTaxIdFormat(target.id, target.revision),
-                `Restored ${target.name}.`
+                `${target.name} restored.`
               ),
           },
         ]
@@ -314,11 +310,12 @@ export function TaxIdFormatsPage() {
             label: 'Archive',
             icon: <ArchiveIcon fontSize="small" />,
             destructive: true,
+            confirmTitle: 'Archive format?',
             confirmDescription: ARCHIVE_TEXT,
             onClick: target =>
               run(
                 () => archiveTaxIdFormat(target.id, target.revision),
-                `Archived ${target.name}.`
+                `${target.name} archived.`
               ),
           },
         ];
@@ -330,8 +327,8 @@ export function TaxIdFormatsPage() {
       ? {
           value: search,
           onChange: setSearch,
-          placeholder: 'Search formats',
-          label: 'Search formats',
+          placeholder: 'Search by name',
+          label: 'Search by name',
         }
       : null,
     tabs: tenant ? (
@@ -342,7 +339,7 @@ export function TaxIdFormatsPage() {
           ...bulk.actions,
           abilities.taxIdFormats &&
             !archived && {
-              label: 'Add format',
+              label: 'New format',
               create: true,
               onClick: () => setDialog({ format: null }),
             },
@@ -388,7 +385,7 @@ export function TaxIdFormatsPage() {
           onSaved={saved => {
             setDialog(null);
             notify(
-              dialog.format ? `Saved ${saved.name}.` : `Added ${saved.name}.`
+              dialog.format ? `${saved.name} saved.` : `${saved.name} created.`
             );
             reload();
           }}

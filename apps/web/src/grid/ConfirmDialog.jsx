@@ -11,10 +11,11 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 
 /**
- * Confirmation required before a destructive lifecycle action runs
- * (I0001-R016). BRAND.md: destructive actions keep the primary navy
- * button with a clear label — never a red fill.
- * @param {{open: boolean, title: string, description: string, confirmLabel?: string, onConfirm: () => void, onCancel: () => void}} props
+ * The one confirmation a destructive action asks for (I0001-R016, R039):
+ * a "{Action} {thing}?" title and at most one sentence. BRAND.md:
+ * destructive actions keep the primary navy button with a clear label —
+ * never a red fill.
+ * @param {{open: boolean, title: string, description?: string, confirmLabel?: string, onConfirm: () => void, onCancel: () => void}} props
  * @returns {JSX.Element}
  */
 export function ConfirmDialog({
@@ -32,9 +33,11 @@ export function ConfirmDialog({
       aria-labelledby="confirm-dialog-title"
     >
       <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
-      <DialogContent>
-        <DialogContentText>{description}</DialogContentText>
-      </DialogContent>
+      {description ? (
+        <DialogContent>
+          <DialogContentText>{description}</DialogContentText>
+        </DialogContent>
+      ) : null}
       <DialogActions>
         <Button variant="text" onClick={onCancel}>
           Cancel

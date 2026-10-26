@@ -30,6 +30,7 @@ import {
   ALREADY_IN_STATE,
   useBulkArchive,
 } from '../../grid/useBulkArchive.jsx';
+import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 import { RoleBadges } from './RoleBadges.jsx';
@@ -37,8 +38,8 @@ import { RoleDetailDialog } from './RoleDetailDialog.jsx';
 import { RoleFormDialog } from './RoleFormDialog.jsx';
 import { describeRoleError, isStaleRevision } from './roleErrors.js';
 
-const ARCHIVE_TEXT =
-  'An archived role grants nothing until it is restored. Its grants and assignments are kept.';
+/** M0003-R022: what Archive tells the user before it runs. */
+const ARCHIVE_TEXT = 'An archived role grants nothing until it is restored.';
 
 /**
  * The role grid's columns. Selecting a role's name opens its detail
@@ -55,10 +56,18 @@ function columnsFor(onOpen) {
       headerName: 'Name',
       flex: 2,
       priority: 'essential',
+      // M0003-R025: an immutable role says so beside its name.
       renderCell: ({ row }) => (
-        <Button variant="text" size="small" onClick={() => onOpen(row)}>
-          {row.name}
-        </Button>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: 'center', height: '100%' }}
+        >
+          <Button variant="text" size="small" onClick={() => onOpen(row)}>
+            {row.name}
+          </Button>
+          <RoleBadges role={row} showArchived={false} />
+        </Stack>
       ),
     },
     {
@@ -67,18 +76,6 @@ function columnsFor(onOpen) {
       headerName: 'Code',
       flex: 1,
       priority: 'secondary',
-    },
-    {
-      ...plain,
-      field: 'isImmutable',
-      headerName: 'Type',
-      flex: 1,
-      priority: 'secondary',
-      renderCell: ({ row }) => (
-        <Stack direction="row" sx={{ alignItems: 'center', height: '100%' }}>
-          <RoleBadges role={row} showArchived={false} />
-        </Stack>
-      ),
     },
     {
       ...plain,
@@ -95,7 +92,7 @@ function columnsFor(onOpen) {
  * `/settings/roles` (M0003-R016–R018): the selected tenant's roles in a
  * standard grid, their detail, create / edit / archive / restore one or a
  * page of them. Assignments live on each person's detail (M0003-R021). The header holds the name
- * search, the bulk actions, and Create role, with Active and Archived tabs
+ * search, the bulk actions, and New role, with Active and Archived tabs
  * below that switch the view, kept in the URL (I0011-R001–R005). Every call
  * is scoped server-side to the session's selected tenant.
  */
@@ -110,6 +107,7 @@ export function RolesPage() {
   const [creating, setCreating] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const { can, onError } = useCapabilities();
+  const notify = useNotice();
   const canWrite = can('access-control::roles::write');
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey(key => key + 1);
@@ -150,11 +148,17 @@ export function RolesPage() {
     archived,
   });
 
-  /** Run a lifecycle action on `role`, then reload or report the failure. */
+  /**
+   * Run a lifecycle action on `role`, then reload and report it as a notice
+   * (M0003-R023), or report the failure.
+   */
   async function runLifecycle(action, role) {
     setActionError(null);
     try {
       const saved = await action(role.id, role.revision);
+      notify(
+        `${role.name} ${action === archiveRole ? 'archived' : 'restored'}.`
+      );
       if (selected) setSelected(saved);
       reload();
     } catch (err) {
@@ -194,6 +198,7 @@ export function RolesPage() {
             label: 'Archive',
             icon: <ArchiveIcon fontSize="small" />,
             destructive: true,
+            confirmTitle: 'Archive role?',
             confirmDescription: ARCHIVE_TEXT,
             onClick: target => runLifecycle(archiveRole, target),
           },
@@ -206,8 +211,8 @@ export function RolesPage() {
       ? {
           value: search,
           onChange: setSearch,
-          placeholder: 'Search roles',
-          label: 'Search roles',
+          placeholder: 'Search by name',
+          label: 'Search by name',
         }
       : null,
     tabs: tenant ? (
@@ -218,7 +223,7 @@ export function RolesPage() {
           ...bulk.actions,
           canWrite &&
             !archived && {
-              label: 'Create role',
+              label: 'New role',
               create: true,
               onClick: () => setCreating(true),
             },
@@ -287,6 +292,7 @@ export function RolesPage() {
           onClose={() => setCreating(false)}
           onSaved={saved => {
             setCreating(false);
+            notify(`${saved.name} created.`);
             // M0003-R020: the new role opens, to set its grants.
             setSelected(saved);
             reload();

@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react';
 import { formatPhone } from '@nap/shared';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
+import { useNotice } from '../../shell/NoticeContext.jsx';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -21,10 +22,10 @@ import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { PortalAccessChip } from './PortalAccess.jsx';
 import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
-import { recordName } from './directoryRecords.js';
+import { KIND_LABELS, recordName } from './directoryRecords.js';
 import { displayTaxId, useTaxIdFormats } from './useTaxIdFormats.js';
 
-/** R028, I0011-R007: what Archive tells the user before it runs. */
+/** I0011-R007, M0005-R054: what Archive tells the user before it runs. */
 export const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';
 
 /**
@@ -160,6 +161,7 @@ export function DirectoryGrid({
   const [actionError, setActionError] = useState(null);
   const formats = useTaxIdFormats();
   const { defaultCountry } = useEffectiveSettings().settings;
+  const notify = useNotice();
 
   // Keyed by value, so a caller passing a fresh but equal filter object
   // keeps the adapter and its cached page cursors.
@@ -178,11 +180,15 @@ export function DirectoryGrid({
     onChanged?.();
   };
 
-  /** Run one action, then refresh the page or report the failure. */
-  async function run(action, messages = {}) {
+  /**
+   * Run one action, then refresh the page and report success as a notice
+   * (M0005-R055), or report the failure.
+   */
+  async function run(action, messages = {}, done) {
     setActionError(null);
     try {
       await action();
+      if (done) notify(done);
       changed();
     } catch (err) {
       abilities.onError?.(err);
@@ -198,8 +204,15 @@ export function DirectoryGrid({
             label: 'Restore',
             icon: <RestoreFromTrashIcon fontSize="small" />,
             onClick: target =>
-              run(() =>
-                restoreDirectoryRecord(collection, target.id, target.revision)
+              run(
+                () =>
+                  restoreDirectoryRecord(
+                    collection,
+                    target.id,
+                    target.revision
+                  ),
+                {},
+                `${recordName(target)} restored.`
               ),
           },
         ]
@@ -214,6 +227,7 @@ export function DirectoryGrid({
             label: 'Archive',
             icon: <ArchiveIcon fontSize="small" />,
             destructive: true,
+            confirmTitle: `Archive ${KIND_LABELS[row.kind].toLowerCase()}?`,
             confirmDescription: ARCHIVE_TEXT,
             onClick: target =>
               run(
@@ -223,7 +237,8 @@ export function DirectoryGrid({
                     target.id,
                     target.revision
                   ),
-                PORTAL_MESSAGES.archive
+                PORTAL_MESSAGES.archive,
+                `${recordName(target)} archived.`
               ),
           },
         ];

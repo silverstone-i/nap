@@ -261,6 +261,7 @@ export function CellsPage() {
       actions.push({
         label: 'Disable',
         destructive: true,
+        confirmTitle: 'Disable cell?',
         confirmDescription:
           'The cell stops serving until you activate it again.',
         onClick: handleDisable,
