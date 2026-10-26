@@ -265,11 +265,13 @@ export function RolesPage() {
           }}
           onStale={async () => {
             try {
-              setSelected(await getRole(selected.id));
-            } catch {
-              // Keep the stale view; the list reload below still refreshes.
+              const fresh = await getRole(selected.id);
+              setSelected(fresh);
+              return fresh;
+            } finally {
+              // The list refreshes even when the role could not be read.
+              reload();
             }
-            reload();
           }}
           onError={onError}
           onArchive={() => setConfirmArchive(true)}

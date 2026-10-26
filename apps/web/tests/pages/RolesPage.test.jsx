@@ -382,6 +382,8 @@ describe('RolesPage (M0003-R016–R018)', () => {
       await within(form).findByText(/Someone else changed this role/)
     ).toBeTruthy();
     expect(api.getRole).toHaveBeenCalledWith('r2');
+    // The form refills from the reloaded role.
+    expect(await within(form).findByDisplayValue('Auditor v2')).toBeTruthy();
     // The detail behind shows the reloaded role once the pencil closes.
     await user.click(within(form).getByRole('button', { name: 'Cancel' }));
     expect(

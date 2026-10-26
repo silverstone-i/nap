@@ -4,9 +4,14 @@
  */
 
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router';
-import { apiGet, setUnauthenticatedHandler } from '../src/api/client.js';
+import {
+  ApiError,
+  apiGet,
+  setUnauthenticatedHandler,
+} from '../src/api/client.js';
 import * as api from '../src/api/endpoints.js';
 import { SessionProvider, useSession } from '../src/auth/SessionContext.jsx';
 import { capabilitiesFixture } from './testUtils.jsx';
@@ -173,5 +178,64 @@ describe('same-browser reset (I0009-R013, R014)', () => {
       await apiGet('/api/admin-tenancy/v1/auth/password').catch(() => {});
     });
     expect(screen.getByText('a:ready:/management/sessions:')).toBeTruthy();
+  });
+});
+
+/** Changes the password and shows the error code the call threw, if any. */
+function PasswordProbe() {
+  const session = useSession();
+  const [caught, setCaught] = useState('');
+  return (
+    <div>
+      <span>{`${session.status}:${caught}`}</span>
+      <button
+        onClick={() =>
+          session
+            .changePassword('wrong-current', 'new-password')
+            .catch(err => setCaught(err.code))
+        }
+      >
+        change
+      </button>
+    </div>
+  );
+}
+
+function renderPasswordProbe() {
+  render(
+    <MemoryRouter initialEntries={['/password']}>
+      <SessionProvider>
+        <PasswordProbe />
+      </SessionProvider>
+    </MemoryRouter>
+  );
+}
+
+describe('password change failing UNAUTHENTICATED', () => {
+  it('keeps the session and reports the wrong current password while the session still resolves', async () => {
+    api.changePassword.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
+    renderPasswordProbe();
+    await screen.findByText('ready:');
+    const otherTab = new FakeChannel('nap.session');
+    const received = [];
+    otherTab.onmessage = event => received.push(event.data);
+
+    await act(async () => screen.getByText('change').click());
+
+    expect(await screen.findByText('ready:UNAUTHENTICATED')).toBeTruthy();
+    expect(received).toEqual([]);
+  });
+
+  it('ends the session when it no longer resolves', async () => {
+    api.changePassword.mockRejectedValue(new ApiError('UNAUTHENTICATED', 401));
+    renderPasswordProbe();
+    await screen.findByText('ready:');
+    api.getAccessContext.mockRejectedValue(
+      new ApiError('UNAUTHENTICATED', 401)
+    );
+
+    await act(async () => screen.getByText('change').click());
+
+    expect(await screen.findByText('anonymous:')).toBeTruthy();
   });
 });

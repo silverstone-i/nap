@@ -687,7 +687,7 @@ export function RecordDetailDialog({
           record={record}
           onClose={() => setSection(null)}
           onSaved={afterSection}
-          onStale={() => void load()}
+          onStale={reload}
         />
       ) : null}
       {section === 'taxId' ? (
@@ -697,7 +697,7 @@ export function RecordDetailDialog({
           formats={formats}
           onClose={() => setSection(null)}
           onSaved={afterSection}
-          onStale={() => void load()}
+          onStale={reload}
         />
       ) : null}
       {section === 'portal' ? (
@@ -706,7 +706,7 @@ export function RecordDetailDialog({
           record={record}
           onClose={() => setSection(null)}
           onSaved={afterSection}
-          onStale={() => void load()}
+          onStale={reload}
         />
       ) : null}
       {contactForm ? (

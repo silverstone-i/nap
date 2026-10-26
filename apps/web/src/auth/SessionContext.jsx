@@ -247,8 +247,16 @@ export function SessionProvider({ children }) {
       try {
         await api.changePassword(currentPassword, newPassword);
       } catch (error) {
-        if (error instanceof ApiError && error.code === 'UNAUTHENTICATED')
-          return expire();
+        if (!(error instanceof ApiError && error.code === 'UNAUTHENTICATED'))
+          throw error;
+        // A wrong current password fails the same way as an ended session,
+        // so ask again: only a session that no longer resolves has ended.
+        try {
+          await api.getAccessContext();
+        } catch (probe) {
+          if (probe instanceof ApiError && probe.code === 'UNAUTHENTICATED')
+            return expire();
+        }
         throw error;
       }
       await enter({ quiet: true });

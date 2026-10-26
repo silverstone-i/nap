@@ -10,6 +10,11 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Fixed
+
+- A pencil dialog that fails `STALE_REVISION` now refills from the reloaded record: Edit name, Edit tax ID, and Edit portal access on a directory record, and Edit name and Edit grants on a role. Before, the form kept its old values and took the new revision, so the next Save overwrote the other change. The directory list behind the dialog also refreshes.
+- A wrong current password on **Change password** shows "Current password is incorrect." instead of signing the browser out. The API answers `UNAUTHENTICATED` for both a wrong current password and an ended session, so the web app now checks the session before ending it.
+
 ## [v0.34.0] - 2026-10-26
 
 ### Changed

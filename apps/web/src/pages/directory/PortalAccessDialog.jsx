@@ -17,7 +17,7 @@ import { SectionDialog } from '../../components/SectionDialog.jsx';
  * The portal access pencil's dialog (I0010-R013, R014): the switch, a
  * temporary password while access is being turned on, and the roles. One
  * request saves all three (I0008-R001, I0010-R009).
- * @param {{collection: 'people'|'organization-contacts', record: object, onClose: () => void, onSaved: () => void, onStale: () => void}} props
+ * @param {{collection: 'people'|'organization-contacts', record: object, onClose: () => void, onSaved: () => void, onStale: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
 export function PortalAccessDialog({
@@ -62,7 +62,12 @@ export function PortalAccessDialog({
       title="Portal access"
       onClose={onClose}
       onSave={save}
-      onStale={onStale}
+      onStale={async () => {
+        const fresh = await onStale();
+        setIsPortalUser(fresh.isPortalUser === true);
+        setTemporaryPassword('');
+        setRoleIds((fresh.roles ?? []).map(role => role.id));
+      }}
       describe={err =>
         describeDirectoryError(
           err,

@@ -38,7 +38,7 @@ function Pencil({ label, onClick }) {
 
 /**
  * The name and description pencil's dialog (M0003-R019).
- * @param {{role: object, onClose: () => void, onSaved: (role: object) => void, onStale: () => void}} props
+ * @param {{role: object, onClose: () => void, onSaved: (role: object) => void, onStale: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
 function RoleNameDialog({ role, onClose, onSaved, onStale }) {
@@ -58,7 +58,11 @@ function RoleNameDialog({ role, onClose, onSaved, onStale }) {
         )
       }
       describe={describeRoleError}
-      onStale={onStale}
+      onStale={async () => {
+        const fresh = await onStale();
+        setName(fresh.name);
+        setDescription(fresh.description ?? '');
+      }}
     >
       <TextField
         label="Name"
@@ -80,7 +84,7 @@ function RoleNameDialog({ role, onClose, onSaved, onStale }) {
 
 /**
  * The grants pencil's dialog (M0003-R019): `grants` replaces the full set.
- * @param {{role: object, tenantCode: string, onClose: () => void, onSaved: (role: object) => void, onStale: () => void, onError: (err: unknown) => void}} props
+ * @param {{role: object, tenantCode: string, onClose: () => void, onSaved: (role: object) => void, onStale: () => Promise<object>, onError: (err: unknown) => void}} props
  * @returns {JSX.Element}
  */
 function RoleGrantsDialog({
@@ -100,7 +104,7 @@ function RoleGrantsDialog({
         onSaved(await updateRole(role.id, { grants, revision: role.revision }))
       }
       describe={describeRoleError}
-      onStale={onStale}
+      onStale={async () => setGrants((await onStale()).grants)}
     >
       <GrantsField
         grants={grants}
@@ -118,7 +122,7 @@ function RoleGrantsDialog({
  * and description, and the grants. An immutable or archived role, or a
  * session without `access-control::roles::write` (I0005-R011), shows no
  * pencils; archive and restore follow the role's state.
- * @param {{role: import('../../api/endpoints.js').RoleView, canWrite: boolean, tenantCode: string, onClose: () => void, onSaved: (role: object) => void, onStale: () => void, onError: (err: unknown) => void, onArchive: () => void, onRestore: () => void}} props
+ * @param {{role: import('../../api/endpoints.js').RoleView, canWrite: boolean, tenantCode: string, onClose: () => void, onSaved: (role: object) => void, onStale: () => Promise<object>, onError: (err: unknown) => void, onArchive: () => void, onRestore: () => void}} props
  * @returns {JSX.Element}
  */
 export function RoleDetailDialog({

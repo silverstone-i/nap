@@ -280,16 +280,16 @@ describe('Employees (M0005-R026)', () => {
     });
 
     expect(await within(form).findByText(/This record changed/)).toBeTruthy();
-    // The retry carries the reloaded revision.
+    // The form refills from the reloaded record, so the retry carries its
+    // revision and keeps the other change instead of overwriting it.
+    expect(await within(form).findByDisplayValue('Smith')).toBeTruthy();
+    expect(within(form).getByText(/This record changed/)).toBeTruthy();
     api.updateDirectoryRecord.mockResolvedValueOnce({ ...changed });
-    await vi.waitFor(() =>
-      expect(api.getDirectoryRecord).toHaveBeenCalledTimes(2)
-    );
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.updateDirectoryRecord).toHaveBeenLastCalledWith(
       'people',
       JANE.id,
-      expect.objectContaining({ revision: 3 })
+      { firstName: 'Jane', lastName: 'Smith', revision: 3 }
     );
   });
 
