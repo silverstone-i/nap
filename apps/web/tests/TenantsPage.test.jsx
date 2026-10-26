@@ -80,7 +80,7 @@ describe('TenantsPage', () => {
 
     expect(api.selectTenant).toHaveBeenCalledWith('m-1');
     await waitFor(() =>
-      expect(screen.getByText('Acme Construction workspace.')).toBeTruthy()
+      expect(screen.getByText('Your dashboard will appear here.')).toBeTruthy()
     );
   });
 

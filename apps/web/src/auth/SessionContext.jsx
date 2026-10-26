@@ -178,35 +178,26 @@ export function SessionProvider({ children }) {
   /**
    * The session ended while this tab was using it: clear state, remember
    * where the tab was, and go to `/login`. Runs once per ending however many
-   * failed requests report it.
-   * @param {'sessionExpired'|'sessionEnded'} notice
+   * failed requests report it. Expiry and revocation leave the same
+   * `sessionEnded` notice (I0001-R046).
    * @returns {boolean} Whether this call ended the tab's session.
    */
-  const endLocally = useCallback(
-    notice => {
-      if (statusRef.current === 'anonymous') return false;
-      statusRef.current = 'anonymous';
-      storeReturnPath(locationRef.current.pathname);
-      setState({ ...EMPTY, status: 'anonymous', notice });
-      navigate('/login', { replace: true });
-      return true;
-    },
-    [navigate]
-  );
+  const endLocally = useCallback(() => {
+    if (statusRef.current === 'anonymous') return false;
+    statusRef.current = 'anonymous';
+    storeReturnPath(locationRef.current.pathname);
+    setState({ ...EMPTY, status: 'anonymous', notice: 'sessionEnded' });
+    navigate('/login', { replace: true });
+    return true;
+  }, [navigate]);
 
   /**
    * Mid-use expiry: end the session here and tell the browser's other tabs
-   * (I0009-R013). A request failing `UNAUTHENTICATED` cannot tell expiry
-   * from revocation, so that path says the session ended.
-   * @param {'sessionExpired'|'sessionEnded'} [notice]
+   * (I0009-R013).
    */
-  const expire = useCallback(
-    (notice = 'sessionExpired') => {
-      if (endLocally(notice))
-        channelRef.current?.postMessage({ type: 'ended' });
-    },
-    [endLocally]
-  );
+  const expire = useCallback(() => {
+    if (endLocally()) channelRef.current?.postMessage({ type: 'ended' });
+  }, [endLocally]);
 
   // I0009-R013: every tab of this browser leaves when one learns the session
   // ended. The message carries no session data, and receiving it sends no
@@ -225,13 +216,12 @@ export function SessionProvider({ children }) {
     channelRef.current = channel;
     if (channel)
       channel.onmessage = event => {
-        if (event.data?.type === 'ended')
-          handlersRef.current.endLocally('sessionEnded');
+        if (event.data?.type === 'ended') handlersRef.current.endLocally();
       };
     setUnauthenticatedHandler(path => {
       if (path.includes('/auth/')) return;
       if (statusRef.current === 'ready' || statusRef.current === 'restricted')
-        handlersRef.current.expire('sessionEnded');
+        handlersRef.current.expire();
     });
     return () => {
       setUnauthenticatedHandler(null);

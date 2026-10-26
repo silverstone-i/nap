@@ -147,7 +147,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() =>
-      expect(screen.getByText('No tenant selected.')).toBeTruthy()
+      expect(screen.getByText('Your dashboard will appear here.')).toBeTruthy()
     );
     // Management access is derived from the real (unmocked)
     // `tenantManagementNav.js` matching the session's capabilities.
@@ -204,7 +204,9 @@ describe('LoginPage', () => {
         membership: { id: 'm1', memberType: null, label: null },
         membershipsInTenant: 1,
       });
-      expect(await screen.findByText('Napsoft workspace.')).toBeTruthy();
+      expect(
+        await screen.findByText('Your dashboard will appear here.')
+      ).toBeTruthy();
       expect(api.selectTenant).toHaveBeenCalledWith('m1');
     });
 
@@ -223,7 +225,7 @@ describe('LoginPage', () => {
       await signIn();
       // Unselected, so the user lands on tenant selection to try again.
       expect(await screen.findByText('Napsoft')).toBeTruthy();
-      expect(screen.queryByText('No tenant selected.')).toBeNull();
+      expect(screen.queryByText('Your dashboard will appear here.')).toBeNull();
     });
   });
 });

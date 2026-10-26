@@ -1041,13 +1041,3 @@ export async function uploadProfileImage(file) {
     await apiPut(`${TENANT_SETTINGS_BASE}/profile/image`, form)
   );
 }
-
-/**
- * Remove the member's uploaded profile image (M0006-03-R005).
- * @returns {Promise<object>}
- */
-export async function deleteProfileImage() {
-  return profileViewSchema.parse(
-    await apiDelete(`${TENANT_SETTINGS_BASE}/profile/image`)
-  );
-}
