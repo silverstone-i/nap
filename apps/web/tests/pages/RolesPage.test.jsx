@@ -30,10 +30,6 @@ vi.mock('../../src/api/endpoints.js', () => ({
   archiveRole: vi.fn(),
   restoreRole: vi.fn(),
   bulkRoleAction: vi.fn(),
-  getMembershipRoles: vi.fn(),
-  assignMembershipRole: vi.fn(),
-  removeMembershipRole: vi.fn(),
-  listTenantMemberships: vi.fn(),
 }));
 
 vi.mock('../../src/auth/SessionContext.jsx', () => ({
@@ -121,15 +117,6 @@ beforeEach(() => {
   useSession.mockReturnValue(sessionFor());
   api.listRoles.mockResolvedValue([ADMIN, CUSTOM]);
   api.listCapabilities.mockResolvedValue(CATALOGUE);
-  api.listTenantMemberships.mockResolvedValue([
-    {
-      id: 'm1',
-      memberType: 'vendor_contact',
-      label: 'Vendor · Black Plumbing',
-      name: 'Jack Black',
-      status: 'active',
-    },
-  ]);
 });
 
 afterEach(() => {
@@ -181,8 +168,6 @@ describe('RolesPage (M0003-R016–R018)', () => {
     expect(within(table).queryByText('Auditor')).toBeNull();
     expect(api.listRoles).toHaveBeenCalledWith({ archived: true });
     expect(screen.queryByRole('button', { name: 'Create role' })).toBeNull();
-    // The user roles section still gets the active roles.
-    expect(api.listRoles).toHaveBeenLastCalledWith();
   });
 
   it('searches roles by name or code in the header', async () => {
@@ -283,21 +268,47 @@ describe('RolesPage (M0003-R016–R018)', () => {
     renderPage();
     const user = userEvent.setup();
     const dialog = await openRole(user, 'Tenant admin');
-    expect(within(dialog).queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Edit name' })
+    ).toBeNull();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Edit grants' })
+    ).toBeNull();
     expect(
       within(dialog).queryByRole('button', { name: 'Archive' })
     ).toBeNull();
   });
 
-  it('creates a role with a catalogue grant and a wildcard grant', async () => {
-    api.createRole.mockResolvedValue({ ...CUSTOM, id: 'r9' });
+  it('creates a role with only its code and name, then sets grants on its detail (M0003-R019, R020)', async () => {
+    const created = { ...CUSTOM, id: 'r9', name: 'Reader', grants: [] };
+    api.createRole.mockResolvedValue(created);
+    api.updateRole.mockResolvedValue({
+      ...created,
+      grants: ['ACME::access-control::roles::read', '*::*::*::*'],
+      revision: 4,
+    });
     renderPage();
     const user = userEvent.setup();
     await screen.findByText('Auditor');
     await user.click(screen.getByRole('button', { name: 'Create role' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText(/Code/), 'reader');
-    await user.type(within(dialog).getByLabelText(/Name/), 'Reader');
+    const form = await screen.findByRole('dialog', { name: 'Create role' });
+    expect(within(form).queryByLabelText('Description')).toBeNull();
+    expect(within(form).queryByLabelText('Module')).toBeNull();
+    await user.type(within(form).getByLabelText(/Code/), 'reader');
+    await user.type(within(form).getByLabelText(/Name/), 'Reader');
+    await user.click(within(form).getByRole('button', { name: 'Create role' }));
+    expect(api.createRole).toHaveBeenCalledWith({
+      code: 'reader',
+      name: 'Reader',
+      grants: [],
+    });
+
+    // The new role's detail opens, where the grants are set.
+    const detail = await screen.findByRole('dialog', { name: /Reader/ });
+    await user.click(
+      within(detail).getByRole('button', { name: 'Edit grants' })
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Edit grants' });
     await within(dialog).findByRole('option', { name: 'access-control' });
     await user.selectOptions(
       within(dialog).getByLabelText('Module'),
@@ -311,14 +322,10 @@ describe('RolesPage (M0003-R016–R018)', () => {
     await user.clear(tenantField);
     await user.type(tenantField, '*');
     await user.click(within(dialog).getByRole('button', { name: 'Add grant' }));
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Create role' })
-    );
-
-    expect(api.createRole).toHaveBeenCalledWith({
-      code: 'reader',
-      name: 'Reader',
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(api.updateRole).toHaveBeenCalledWith('r9', {
       grants: ['ACME::access-control::roles::read', '*::*::*::*'],
+      revision: 3,
     });
   });
 
@@ -349,7 +356,7 @@ describe('RolesPage (M0003-R016–R018)', () => {
     );
   });
 
-  it('edits a custom role with its revision and reloads it on STALE_REVISION', async () => {
+  it('edits the name and description from a pencil, with no footer Edit, and reloads on STALE_REVISION (M0003-R019)', async () => {
     api.updateRole.mockRejectedValue(new ApiError('STALE_REVISION', 409));
     api.getRole.mockResolvedValue({
       ...CUSTOM,
@@ -359,21 +366,37 @@ describe('RolesPage (M0003-R016–R018)', () => {
     renderPage();
     const user = userEvent.setup();
     const detail = await openRole(user, 'Auditor');
-    await user.click(within(detail).getByRole('button', { name: 'Edit' }));
-    const form = await screen.findByRole('dialog');
-    await user.click(within(form).getByRole('button', { name: 'Save role' }));
+    expect(within(detail).queryByRole('button', { name: 'Edit' })).toBeNull();
+    await user.click(within(detail).getByRole('button', { name: 'Edit name' }));
+    const form = await screen.findByRole('dialog', { name: 'Edit name' });
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
 
     expect(api.updateRole).toHaveBeenCalledWith('r2', {
       name: 'Auditor',
       description: 'Reads things',
-      grants: CUSTOM.grants,
       revision: 3,
     });
     expect(
       await within(form).findByText(/Someone else changed this role/)
     ).toBeTruthy();
     expect(api.getRole).toHaveBeenCalledWith('r2');
-    expect(within(form).getByDisplayValue('Auditor v2')).toBeTruthy();
+    // The detail behind shows the reloaded role once the pencil closes.
+    await user.click(within(form).getByRole('button', { name: 'Cancel' }));
+    expect(
+      await screen.findByRole('dialog', { name: /Auditor v2/ })
+    ).toBeTruthy();
+  });
+
+  it("opens the role's detail from the row menu's Edit (M0003-R019)", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await screen.findByText('Auditor');
+    await user.click(rowMenu('Auditor'));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const detail = await screen.findByRole('dialog', { name: /Auditor/ });
+    expect(
+      within(detail).getByRole('button', { name: 'Edit grants' })
+    ).toBeTruthy();
   });
 
   it('archives after confirmation, then restores', async () => {
@@ -413,70 +436,10 @@ describe('RolesPage (M0003-R016–R018)', () => {
     ).toBeTruthy();
   });
 
-  it("assigns and removes a user's role", async () => {
-    api.getMembershipRoles.mockResolvedValue({
-      membershipId: 'm1',
-      roles: [ADMIN],
-    });
-    api.assignMembershipRole.mockResolvedValue({
-      membershipId: 'm1',
-      roles: [ADMIN, CUSTOM],
-    });
-    api.removeMembershipRole.mockResolvedValue({
-      membershipId: 'm1',
-      roles: [ADMIN],
-    });
+  it('has no user role assignments section (M0003-R021)', async () => {
     renderPage();
-    const user = userEvent.setup();
     await screen.findByText('Auditor');
-    const section = screen.getByRole('region', { name: 'User roles' });
-    await within(section).findByRole('option', {
-      name: 'Jack Black · Vendor · Black Plumbing',
-    });
-    await user.selectOptions(within(section).getByLabelText('User'), 'm1');
-    await within(section).findByRole('button', { name: 'Tenant admin' });
-
-    await user.selectOptions(
-      within(section).getByLabelText('Role to assign'),
-      'r2'
-    );
-    await user.click(
-      within(section).getByRole('button', { name: 'Assign role' })
-    );
-    expect(api.assignMembershipRole).toHaveBeenCalledWith('m1', 'r2');
-    const chip = await within(section).findByRole('button', {
-      name: 'Auditor',
-    });
-
-    await user.click(within(chip).getByTestId('CancelIcon'));
-    const confirm = await screen.findByRole('dialog', { name: 'Remove role?' });
-    await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
-    expect(api.removeMembershipRole).toHaveBeenCalledWith('m1', 'r2');
-  });
-
-  it('shows LAST_ADMIN readably when removal is refused', async () => {
-    api.getMembershipRoles.mockResolvedValue({
-      membershipId: 'm1',
-      roles: [ADMIN],
-    });
-    api.removeMembershipRole.mockRejectedValue(new ApiError('LAST_ADMIN', 409));
-    renderPage();
-    const user = userEvent.setup();
-    await screen.findByText('Auditor');
-    const section = screen.getByRole('region', { name: 'User roles' });
-    await within(section).findByRole('option', {
-      name: 'Jack Black · Vendor · Black Plumbing',
-    });
-    await user.selectOptions(within(section).getByLabelText('User'), 'm1');
-    const chip = await within(section).findByRole('button', {
-      name: 'Tenant admin',
-    });
-    await user.click(within(chip).getByTestId('CancelIcon'));
-    const confirm = await screen.findByRole('dialog', { name: 'Remove role?' });
-    await user.click(within(confirm).getByRole('button', { name: 'Remove' }));
-    expect(
-      await screen.findByText('This would remove the last administrator.')
-    ).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'User roles' })).toBeNull();
   });
 
   describe('without access-control::roles::write (I0005-R011)', () => {
@@ -500,7 +463,9 @@ describe('RolesPage (M0003-R016–R018)', () => {
       renderPage();
       const user = userEvent.setup();
       const dialog = await openRole(user, 'Auditor');
-      expect(within(dialog).queryByRole('button', { name: 'Edit' })).toBeNull();
+      expect(
+        within(dialog).queryByRole('button', { name: 'Edit name' })
+      ).toBeNull();
       expect(
         within(dialog).queryByRole('button', { name: 'Archive' })
       ).toBeNull();

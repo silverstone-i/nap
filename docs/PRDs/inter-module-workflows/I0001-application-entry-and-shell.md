@@ -202,7 +202,8 @@ visibility improve the user experience but do not grant access.
   on more than one row. A grid with only single-row actions has no checkbox
   column.
 - I0001-R027: Single-row actions must be in the row's trailing ⋮ menu, with
-  Edit or Rename first and Archive or Restore last.
+  Edit or Rename first and Archive or Restore last. _Superseded in part by
+  R036 and R041 (Edit opens the detail dialog; Rename becomes Edit)._
 - I0001-R028: The contextual action header must hold the screen's actions at its
   trailing edge. Multi-row actions appear only while rows are selected. The
   create action is always last. The other actions sit before it, most
@@ -219,14 +220,51 @@ visibility improve the user experience but do not grant access.
   Include archived filter. An archived record then shows an Archived tag next
   to its name. _Superseded in part by I0011-R004 ([I0011](I0011-archived-records-view.md))._
 - I0001-R031: Where a record has a detail view, selecting its name opens it.
+  _Superseded in part by R038 (every list record has one)._
 - I0001-R032: An action that takes input (create, rename, edit) or reports
   detail (a bulk failure list, a destructive-action confirmation) must use a
   modal dialog. A success message must be a brief notice that closes on its
   own. A failure to load the list stays as an alert above the grid.
+  _Superseded in part by R036 (an edit is a per-section dialog opened from
+  the detail) and R040 (success is a toast)._
 - I0001-R033: Actions the session cannot perform must be hidden, not disabled.
 - I0001-R034: A grid inside a dialog has no contextual action header, so its
   search, filters, and multi-row actions sit in a toolbar above the grid inside
   the dialog.
+
+### Rules for every screen
+
+These rules keep one way to do each thing and show only what the task needs.
+Each screen's PRD applies them; a screen PRD that needs an exception says so.
+
+- I0001-R035: Every value must have exactly one editor. Any other place that
+  offers to change it opens that editor.
+- I0001-R036: A record's detail dialog must be its only edit surface. A pencil
+  beside a section or value opens a small dialog that changes only that part.
+  The detail has no footer Edit, and there is no separate form that edits part
+  of the record. A row's ⋮ **Edit** opens the detail dialog.
+- I0001-R037: A create dialog must ask only for the fields the record cannot
+  exist without. Saving it opens the new record's detail dialog, where the
+  rest is set.
+- I0001-R038: Selecting a list record's name must open its detail dialog. A
+  record with only a few fields may use its edit dialog as that detail.
+- I0001-R039: A destructive action (Archive, Revoke, Disable, Remove,
+  Disconnect) must confirm through the shared confirmation dialog. Its title
+  is the action and the thing, as a question ("Archive role?", "Revoke 3
+  sessions?"), and its text is at most one sentence. Restore never asks.
+- I0001-R040: A success must be reported as a brief notice that closes on its
+  own. An inline alert is used only for an error.
+- I0001-R041: An action must have one name everywhere: **Edit**, **New
+  {thing}** to create, **Archive** and **Restore**, **Disable** and
+  **Enable**, and **Log out**.
+- I0001-R042: A value the session cannot change must be shown as plain text,
+  not as a disabled input with a notice. A value that cannot change after
+  create is shown as text in later dialogs.
+- I0001-R043: A screen must not repeat what it already shows or explain
+  itself. Helper text appears only to state a validation error. There are no
+  explanatory paragraphs, no dividers under section headings, and no caption,
+  chip, or badge that repeats the page or the value beside it. An error names
+  the field or rule to fix.
 
 ## 7. Business Rules And Invariants
 
@@ -376,6 +414,11 @@ closed and must not reuse a prior user's, tenant's, or route's protected data.
 | AC19      | The contextual action header shows the search, the filter button, and the actions with create last; multi-row actions appear only while rows are selected; on a phone the actions that do not fit fold into a ⋮ menu, create last.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | I0001-R028, I0001-R029             |
 | AC20      | Archived records are hidden until Include archived is on, then show an Archived tag; selecting a record's name opens its detail; active filters show as removable chips. _Superseded in part by I0011 AC03 ([I0011](I0011-archived-records-view.md))._                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | I0001-R029–R031                    |
 | AC21      | Create, rename, and edit open a modal dialog; a bulk failure and a destructive confirmation use a modal dialog; a success notice closes on its own; disallowed actions are hidden; a grid inside a dialog keeps its controls in the dialog's toolbar.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | I0001-R032–R034                    |
+| AC22      | A record's detail dialog has a pencil for each part that can change and no footer Edit; a row's ⋮ Edit opens that detail; no other form edits the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | I0001-R035, R036                   |
+| AC23      | A create dialog asks only for required fields, and saving it opens the new record's detail.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | I0001-R037, R038                   |
+| AC24      | Archive, Revoke, Disable, Remove, and Disconnect each confirm with a "{Action} {thing}?" title; Restore runs without asking.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | I0001-R039                         |
+| AC25      | A success shows a notice that closes on its own; inline alerts appear only for errors; each action has one name across screens.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | I0001-R040, R041                   |
+| AC26      | Without write access, values show as plain text with no "cannot change" notice; screens carry no explanatory helper text, dividers under headings, or repeated chips.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | I0001-R042, R043                   |
 
 ## Verification Evidence
 

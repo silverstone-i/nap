@@ -573,43 +573,6 @@ async function assignedRoles(context, membershipId, tx) {
 }
 
 /**
- * The tenant's pending and active memberships, each with the person's name
- * when it has a party, for choosing whose roles to change (I0012-R017).
- * @param {AccessControlContext} context
- * @returns {Promise<{id: string, memberType: string|null, label: string|null, name: string|null, status: string}[]>}
- */
-export function listMemberships(context) {
-  return withAccessControlErrors(() =>
-    withTenantTransaction(context.cell, context.tenant.id, async tx => {
-      const members = await context.cell.tenant_members.byStatus(
-        context.tenant.id,
-        ['pending', 'active'],
-        { tx }
-      );
-      const partyIds = members.map(row => row.member_id).filter(Boolean);
-      // In the tenant transaction, so row-level security returns the rows.
-      const people = await context.cell.people.byKeys(partyIds, { tx });
-      const names = new Map(
-        people.map(row => [row.party_id, `${row.first_name} ${row.last_name}`])
-      );
-      return members
-        .map(row => ({
-          id: row.id,
-          memberType: row.member_type,
-          label: row.member_label,
-          name: names.get(row.member_id) ?? null,
-          status: row.status,
-        }))
-        .sort(
-          (a, b) =>
-            (a.name ?? '').localeCompare(b.name ?? '') ||
-            (a.label ?? '').localeCompare(b.label ?? '')
-        );
-    })
-  );
-}
-
-/**
  * The roles a tenant membership holds (M0003 §10, I0012-R013
  * `GET /memberships/:membershipId/roles`).
  * @param {AccessControlContext} context

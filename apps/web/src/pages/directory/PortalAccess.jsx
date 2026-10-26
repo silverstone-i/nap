@@ -7,6 +7,8 @@ import { useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import EditIcon from '@mui/icons-material/Edit';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -52,9 +54,16 @@ export function PortalAccessChip({ portalAccess }) {
  * @param {object} props.record Person view with `isPortalUser` and `portalAccess`.
  * @param {boolean} props.canWrite Whether the session may write directory records.
  * @param {() => void} props.onChanged Called after a successful retry.
+ * @param {() => void} [props.onEdit] Opens the portal access dialog (I0010-R013); absent hides the pencil.
  * @returns {import('react').JSX.Element}
  */
-export function PortalAccessPanel({ collection, record, canWrite, onChanged }) {
+export function PortalAccessPanel({
+  collection,
+  record,
+  canWrite,
+  onChanged,
+  onEdit,
+}) {
   const [retrying, setRetrying] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -91,6 +100,15 @@ export function PortalAccessPanel({ collection, record, canWrite, onChanged }) {
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
         <Typography variant="body2">Portal access:</Typography>
         <PortalAccessChip portalAccess={record.portalAccess} />
+        {onEdit ? (
+          <IconButton
+            size="small"
+            aria-label="Edit portal access"
+            onClick={onEdit}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        ) : null}
         {status === 'failed' && canWrite && !record.archived ? (
           <Button
             size="small"

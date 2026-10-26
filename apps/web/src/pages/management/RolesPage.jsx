@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -35,7 +35,6 @@ import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 import { RoleBadges } from './RoleBadges.jsx';
 import { RoleDetailDialog } from './RoleDetailDialog.jsx';
 import { RoleFormDialog } from './RoleFormDialog.jsx';
-import { UserRolesSection } from './UserRolesSection.jsx';
 import { describeRoleError, isStaleRevision } from './roleErrors.js';
 
 const ARCHIVE_TEXT =
@@ -95,7 +94,7 @@ function columnsFor(onOpen) {
 /**
  * `/settings/roles` (M0003-R016–R018): the selected tenant's roles in a
  * standard grid, their detail, create / edit / archive / restore one or a
- * page of them, and a user's assignments below. The header holds the name
+ * page of them. Assignments live on each person's detail (M0003-R021). The header holds the name
  * search, the bulk actions, and Create role, with Active and Archived tabs
  * below that switch the view, kept in the URL (I0011-R001–R005). Every call
  * is scoped server-side to the session's selected tenant.
@@ -106,11 +105,9 @@ export function RolesPage() {
   const [search, setSearch] = useState('');
   const [archived, setArchived] = useArchiveView();
   useSearchFromUrl(setSearch);
-  // Active roles, for the user roles section below in either view.
-  const [roles, setRoles] = useState([]);
   const [actionError, setActionError] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const { can, onError } = useCapabilities();
   const canWrite = can('access-control::roles::write');
@@ -120,32 +117,10 @@ export function RolesPage() {
   const needle = useDebouncedValue(search.trim().toLowerCase());
   // One load per server query; the search filters it in the browser.
   const adapter = useMemo(
-    () =>
-      createListPageAdapter(async () => {
-        const rows = await listRoles({ archived });
-        // The active list also feeds the user roles section below.
-        if (!archived) setRoles(rows);
-        return rows;
-      }),
+    () => createListPageAdapter(() => listRoles({ archived })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload or a new tenant loads afresh
     [archived, reloadKey, tenant?.id]
   );
-  // The Archived view's list cannot feed the section, so load active roles.
-  useEffect(() => {
-    if (!archived || !tenant) return;
-    let cancelled = false;
-    listRoles()
-      .then(rows => {
-        if (!cancelled) setRoles(rows);
-      })
-      .catch(err => {
-        if (!cancelled) onError(err);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- a reload or a new tenant loads afresh
-  }, [archived, reloadKey, tenant?.id]);
   const fetchPage = useMemo(
     () => params =>
       adapter({
@@ -212,7 +187,8 @@ export function RolesPage() {
           {
             label: 'Edit',
             icon: <EditIcon fontSize="small" />,
-            onClick: target => setForm({ role: target }),
+            // M0003-R019: Edit opens the detail, the role's only editor.
+            onClick: target => setSelected(target),
           },
           {
             label: 'Archive',
@@ -244,7 +220,7 @@ export function RolesPage() {
             !archived && {
               label: 'Create role',
               create: true,
-              onClick: () => setForm({ role: null }),
+              onClick: () => setCreating(true),
             },
         ]
       : null,
@@ -272,13 +248,25 @@ export function RolesPage() {
         describeError={describeRoleError}
       />
       {bulk.dialogs}
-      <UserRolesSection roles={roles} />
-      {selected && !form ? (
+      {selected && !creating ? (
         <RoleDetailDialog
           role={selected}
           canWrite={canWrite}
+          tenantCode={tenant.code}
           onClose={() => setSelected(null)}
-          onEdit={() => setForm({ role: selected })}
+          onSaved={saved => {
+            setSelected(saved);
+            reload();
+          }}
+          onStale={async () => {
+            try {
+              setSelected(await getRole(selected.id));
+            } catch {
+              // Keep the stale view; the list reload below still refreshes.
+            }
+            reload();
+          }}
+          onError={onError}
           onArchive={() => setConfirmArchive(true)}
           onRestore={() => runLifecycle(restoreRole, selected)}
         />
@@ -294,20 +282,12 @@ export function RolesPage() {
         }}
         onCancel={() => setConfirmArchive(false)}
       />
-      {form ? (
+      {creating ? (
         <RoleFormDialog
-          role={form.role}
-          tenantCode={tenant.code}
-          onClose={() => setForm(null)}
-          onReload={async () => {
-            const fresh = await getRole(form.role.id);
-            // The detail it was opened from shows the change after Cancel.
-            setSelected(current => (current ? fresh : current));
-            reload();
-            return fresh;
-          }}
+          onClose={() => setCreating(false)}
           onSaved={saved => {
-            setForm(null);
+            setCreating(false);
+            // M0003-R020: the new role opens, to set its grants.
             setSelected(saved);
             reload();
           }}

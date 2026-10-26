@@ -12,6 +12,8 @@ import { useSession } from '../../src/auth/SessionContext.jsx';
 import { DirectoryRecordsPage } from '../../src/pages/directory/DirectoryRecordsPage.jsx';
 import { LabelsPage } from '../../src/pages/directory/LabelsPage.jsx';
 import { TaxIdFormatsPage } from '../../src/pages/directory/TaxIdFormatsPage.jsx';
+import { PortalAccessDialog } from '../../src/pages/directory/PortalAccessDialog.jsx';
+import { RecordDetailDialog } from '../../src/pages/directory/RecordDetailDialog.jsx';
 import { RecordFormDialog } from '../../src/pages/directory/RecordFormDialog.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
 import { EffectiveSettingsProvider } from '../../src/shell/EffectiveSettingsContext.jsx';
@@ -241,7 +243,7 @@ describe('Employees (M0005-R026)', () => {
     expect(api.revealTaxId).toHaveBeenCalledWith('people', JANE.id);
   });
 
-  it('reloads a stale edit into the form and the detail behind it', async () => {
+  it('edits the name from its pencil and retries a stale edit with the reloaded revision (M0005-R049)', async () => {
     const changed = {
       ...STAFF,
       lastName: 'Smith',
@@ -265,22 +267,31 @@ describe('Employees (M0005-R026)', () => {
       await within(table).findByRole('button', { name: 'Jane Doe' })
     );
     const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
-    await user.click(within(detail).getByRole('button', { name: 'Edit' }));
-    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    // R049: no footer Edit; the name has its own pencil.
+    expect(within(detail).queryByRole('button', { name: 'Edit' })).toBeNull();
+    await user.click(within(detail).getByRole('button', { name: 'Edit name' }));
+    const form = await screen.findByRole('dialog', { name: 'Edit name' });
     api.getDirectoryRecord.mockResolvedValue(changed);
     await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
+      firstName: 'Jane',
+      lastName: 'Doe',
+      revision: 2,
+    });
 
     expect(
       await within(form).findByText(/Someone else changed this record/)
     ).toBeTruthy();
-    expect(within(form).getByDisplayValue('Smith')).toBeTruthy();
     // The retry carries the reloaded revision.
     api.updateDirectoryRecord.mockResolvedValueOnce({ ...changed });
+    await vi.waitFor(() =>
+      expect(api.getDirectoryRecord).toHaveBeenCalledTimes(2)
+    );
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.updateDirectoryRecord).toHaveBeenLastCalledWith(
       'people',
       JANE.id,
-      expect.objectContaining({ lastName: 'Smith', revision: 3 })
+      expect.objectContaining({ revision: 3 })
     );
   });
 
@@ -301,8 +312,8 @@ describe('Employees (M0005-R026)', () => {
       await within(table).findByRole('button', { name: 'Jane Doe' })
     );
     const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
-    await user.click(within(detail).getByRole('button', { name: 'Edit' }));
-    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    await user.click(within(detail).getByRole('button', { name: 'Edit name' }));
+    const form = await screen.findByRole('dialog', { name: 'Edit name' });
     api.getDirectoryRecord.mockResolvedValue({
       ...STAFF,
       lastName: 'Smith',
@@ -311,7 +322,7 @@ describe('Employees (M0005-R026)', () => {
       addresses: [],
     });
     await user.click(within(form).getByRole('button', { name: 'Save' }));
-    await within(form).findByDisplayValue('Smith');
+    await within(form).findByText(/Someone else changed this record/);
     await user.click(within(form).getByRole('button', { name: 'Cancel' }));
     expect(
       await screen.findByRole('dialog', { name: /Jane Smith/ })
@@ -374,25 +385,60 @@ describe('Employees (M0005-R026)', () => {
     await user.click(screen.getByRole('button', { name: 'Jane Doe' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByRole('button', { name: 'Reveal' })).toBeNull();
-    await user.click(within(dialog).getByRole('button', { name: 'Edit' }));
-    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
-    expect(within(form).queryByLabelText(/SSN/)).toBeNull();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Edit tax ID' })
+    ).toBeNull();
   });
 
-  /** Fill and save the New employee form with an SSN. */
-  async function saveEmployeeWithSsn() {
+  it('creates an employee with only a name and primary email, then opens it (M0005-R050)', async () => {
+    api.createDirectoryRecord.mockResolvedValue({ ...STAFF });
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
     renderWithHeader(<DirectoryRecordsPage kind="employee" />);
     const user = userEvent.setup();
     await user.click(
       await screen.findByRole('button', { name: 'New employee' })
     );
     const form = await screen.findByRole('dialog', { name: 'New employee' });
+    expect(within(form).queryByLabelText('Tax ID')).toBeNull();
+    expect(within(form).queryByLabelText('Portal access')).toBeNull();
     await user.type(within(form).getByLabelText(/First name/), 'Jane');
     await user.type(within(form).getByLabelText(/Last name/), 'Doe');
     await user.type(
       within(form).getByLabelText(/Primary email/),
       'jane@acme.test'
     );
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.createDirectoryRecord).toHaveBeenCalledWith('people', {
+      kind: 'employee',
+      firstName: 'Jane',
+      lastName: 'Doe',
+      primaryEmail: 'jane@acme.test',
+    });
+    expect(
+      await screen.findByRole('dialog', { name: /Jane Doe/ })
+    ).toBeTruthy();
+  });
+
+  /** Open Jane's detail and save an SSN from the tax ID pencil. */
+  async function saveSsnOnJane() {
+    listRows = [STAFF];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    await user.click(
+      within(detail).getByRole('button', { name: 'Edit tax ID' })
+    );
+    const form = await screen.findByRole('dialog', { name: 'Edit tax ID' });
     // M0005-R043: a person's tax ID defaults to US SSN.
     expect(
       within(form).getByRole('combobox', { name: 'Tax ID format' }).textContent
@@ -407,21 +453,17 @@ describe('Employees (M0005-R026)', () => {
 
   const HOLDER = '22222222-2222-4222-8222-222222222222';
 
-  it('names the employee already holding the tax ID, with a link to open it (M0005-R048)', async () => {
-    api.createDirectoryRecord.mockRejectedValue(
+  it('names the employee already holding the tax ID, with a link to open it (M0005-R048, R052)', async () => {
+    api.updateDirectoryRecord.mockRejectedValue(
       new ApiError('DUPLICATE_TAX_ID', 409, null, {
         details: { id: HOLDER, archived: false },
       })
     );
-    const form = await saveEmployeeWithSsn();
-    expect(api.createDirectoryRecord).toHaveBeenCalledWith('people', {
-      kind: 'employee',
-      firstName: 'Jane',
-      lastName: 'Doe',
-      isPortalUser: false,
-      primaryEmail: 'jane@acme.test',
+    const form = await saveSsnOnJane();
+    expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
       taxId: '123-45-6789',
       taxIdFormatId: SSN.id,
+      revision: 2,
     });
     expect(
       await within(form).findByText(/Another employee already has this tax ID/)
@@ -429,7 +471,7 @@ describe('Employees (M0005-R026)', () => {
     expect(
       within(form).getByRole('link', { name: 'Open it' }).getAttribute('href')
     ).toBe(`/directory/employees?open=${HOLDER}`);
-    // Following it closes the form and opens the holder on this page.
+    // Following it closes the dialog and opens the holder on this page.
     api.getDirectoryRecord.mockResolvedValue({
       ...JANE,
       id: HOLDER,
@@ -439,27 +481,47 @@ describe('Employees (M0005-R026)', () => {
     await userEvent
       .setup()
       .click(within(form).getByRole('link', { name: 'Open it' }));
-    expect(screen.queryByRole('dialog', { name: 'New employee' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Edit tax ID' })).toBeNull();
     await vi.waitFor(() =>
       expect(api.getDirectoryRecord).toHaveBeenCalledWith('people', HOLDER)
     );
-    expect(
-      screen.queryByText(/other record\(s\) have the same tax ID/)
-    ).toBeNull();
   });
 
   it('links an archived holder to the Archived view, where it can be restored (M0005-R048)', async () => {
-    api.createDirectoryRecord.mockRejectedValue(
+    api.updateDirectoryRecord.mockRejectedValue(
       new ApiError('DUPLICATE_TAX_ID', 409, null, {
         details: { id: HOLDER, archived: true },
       })
     );
-    const form = await saveEmployeeWithSsn();
+    const form = await saveSsnOnJane();
     expect(
-      within(form)
-        .getByRole('link', { name: 'Show it in Archived' })
-        .getAttribute('href')
+      (
+        await within(form).findByRole('link', { name: 'Show it in Archived' })
+      ).getAttribute('href')
     ).toBe(`/directory/employees?view=archived&open=${HOLDER}`);
+  });
+
+  it('clears a tax ID from its dialog (M0005-R052)', async () => {
+    listRows = [STAFF];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    api.updateDirectoryRecord.mockResolvedValue({ ...STAFF });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    await user.click(
+      within(detail).getByRole('button', { name: 'Edit tax ID' })
+    );
+    const form = await screen.findByRole('dialog', { name: 'Edit tax ID' });
+    await user.click(within(form).getByRole('button', { name: 'Clear' }));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
+      taxId: null,
+      revision: 2,
+    });
   });
 });
 
@@ -476,26 +538,29 @@ describe('Portal access (I0008)', () => {
     opener.remove();
   });
 
-  it('asks for a temporary password when access is turned on', async () => {
-    api.updateDirectoryRecord.mockResolvedValue({ ...JANE });
-    const off = {
-      ...JANE,
-      isPortalUser: false,
-      portalAccess: { status: 'off', failureCode: null },
-    };
+  /** Render the portal access dialog for `record`. */
+  function portalDialog(record) {
     render(
       <ThemeModeProvider>
-        <RecordFormDialog
+        <PortalAccessDialog
           collection="people"
-          record={off}
-          canWriteTaxIds={false}
-          canManagePortal
+          record={record}
           onClose={vi.fn()}
           onSaved={vi.fn()}
+          onStale={vi.fn()}
         />
       </ThemeModeProvider>
     );
-    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    return screen.findByRole('dialog', { name: 'Portal access' });
+  }
+
+  it('asks for a temporary password and a role when access is turned on (I0010-R013, R014)', async () => {
+    api.updateDirectoryRecord.mockResolvedValue({ ...JANE });
+    const form = await portalDialog({
+      ...JANE,
+      isPortalUser: false,
+      portalAccess: { status: 'off', failureCode: null },
+    });
     expect(within(form).queryByLabelText(/Temporary password/)).toBeNull();
     const user = userEvent.setup();
     await user.click(within(form).getByLabelText('Portal access'));
@@ -515,8 +580,6 @@ describe('Portal access (I0008)', () => {
     await user.click(await screen.findByRole('option', { name: 'Clerk' }));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
-      firstName: 'Jane',
-      lastName: 'Doe',
       isPortalUser: true,
       temporaryPassword: 'temp-pass',
       roleIds: [CLERK.id],
@@ -524,51 +587,36 @@ describe('Portal access (I0008)', () => {
     });
   });
 
-  it('hides portal access and roles without the right to assign roles (I0010-R001)', async () => {
-    render(
-      <ThemeModeProvider>
-        <RecordFormDialog
-          collection="people"
-          record={JANE}
-          canWriteTaxIds={false}
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />
-      </ThemeModeProvider>
-    );
-    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
-    expect(within(form).queryByLabelText('Portal access')).toBeNull();
-    expect(within(form).queryByLabelText('Roles')).toBeNull();
+  it('hides the portal access pencil without the right to assign roles (I0010-R001, R013)', async () => {
+    useSession.mockReturnValue(sessionFor(NO_TAX));
+    api.getDirectoryRecord.mockResolvedValue({
+      ...JANE,
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const dialog = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    expect(
+      within(dialog).queryByRole('button', { name: 'Edit portal access' })
+    ).toBeNull();
+    expect(
+      within(dialog).getByRole('button', { name: 'Edit name' })
+    ).toBeTruthy();
   });
 
   it('sends the new role set when roles change while access stays on (I0010-R009)', async () => {
     api.updateDirectoryRecord.mockResolvedValue({ ...JANE });
-    render(
-      <ThemeModeProvider>
-        <RecordFormDialog
-          collection="people"
-          record={{
-            ...JANE,
-            roles: [{ id: CLERK.id, code: 'clerk', name: 'Clerk', held: true }],
-          }}
-          canWriteTaxIds={false}
-          canManagePortal
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />
-      </ThemeModeProvider>
-    );
-    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
-    expect(
-      within(form).getByText('Applies when this person first signs in.')
-    ).toBeTruthy();
+    const form = await portalDialog({
+      ...JANE,
+      roles: [{ id: CLERK.id, code: 'clerk', name: 'Clerk', held: true }],
+    });
     const user = userEvent.setup();
     await user.click(within(form).getByLabelText('Roles'));
     await user.click(await screen.findByRole('option', { name: 'Manager' }));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.updateDirectoryRecord).toHaveBeenCalledWith('people', JANE.id, {
-      firstName: 'Jane',
-      lastName: 'Doe',
       isPortalUser: true,
       roleIds: [CLERK.id, MANAGER.id],
       revision: 2,
@@ -579,19 +627,7 @@ describe('Portal access (I0008)', () => {
     api.updateDirectoryRecord.mockRejectedValue(
       new ApiError('ADMIN_ASSIGNED', 409)
     );
-    render(
-      <ThemeModeProvider>
-        <RecordFormDialog
-          collection="people"
-          record={JANE}
-          canWriteTaxIds={false}
-          canManagePortal
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />
-      </ThemeModeProvider>
-    );
-    const form = await screen.findByRole('dialog', { name: 'Edit employee' });
+    const form = await portalDialog(JANE);
     const user = userEvent.setup();
     await user.click(within(form).getByLabelText('Portal access'));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
@@ -705,7 +741,7 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
         .getAttribute('aria-selected')
     ).toBe('true');
     expect(
-      within(toolbar).getByRole('button', { name: 'Add contact' })
+      within(toolbar).getByRole('button', { name: 'New contact' })
     ).toBeTruthy();
     await user.click(within(toolbar).getByRole('tab', { name: 'Archived' }));
     await vi.waitFor(() =>
@@ -715,7 +751,7 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
       )
     );
     expect(
-      within(toolbar).queryByRole('button', { name: 'Add contact' })
+      within(toolbar).queryByRole('button', { name: 'New contact' })
     ).toBeNull();
     // The dialog's view stays out of the page URL, so the page stays on Active.
     const pageTab = screen
@@ -860,7 +896,6 @@ describe('Clients (M0005-R007)', () => {
     expect(api.createDirectoryRecord).toHaveBeenCalledWith('organizations', {
       kind: 'client',
       legalName: 'Lot 12',
-      dbaName: null,
       contacts: [
         {
           firstName: 'Ann',
@@ -883,7 +918,7 @@ describe('Clients (M0005-R007)', () => {
 });
 
 describe('Organization contacts (M0005-R004)', () => {
-  it('adds a vendor contact by first and last name as primary and billing contact', async () => {
+  it('creates a vendor contact with only a first and last name (M0005-R050)', async () => {
     api.createDirectoryRecord.mockResolvedValue({ id: 'saved' });
     const onSaved = vi.fn();
     // The dialog restores focus to whatever opened it; stand one in.
@@ -894,7 +929,6 @@ describe('Organization contacts (M0005-R004)', () => {
       <ThemeModeProvider>
         <RecordFormDialog
           collection="organization-contacts"
-          record={null}
           defaults={{ organizationId: 'org-1', organizationKind: 'vendor' }}
           canWriteTaxIds
           onClose={vi.fn()}
@@ -902,25 +936,73 @@ describe('Organization contacts (M0005-R004)', () => {
         />
       </ThemeModeProvider>
     );
-    const form = await screen.findByRole('dialog', { name: 'Add contact' });
+    const form = await screen.findByRole('dialog', { name: 'New contact' });
     const user = userEvent.setup();
     await user.type(within(form).getByLabelText(/First name/), 'Rita');
     await user.type(within(form).getByLabelText(/Last name/), 'Moss');
-    expect(within(form).queryByLabelText(/SSN/)).toBeNull();
-    await user.click(within(form).getByLabelText('Primary contact'));
-    await user.click(within(form).getByLabelText('Billing contact'));
+    expect(within(form).queryByLabelText('Primary contact')).toBeNull();
+    expect(within(form).queryByLabelText('Tax ID')).toBeNull();
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.createDirectoryRecord).toHaveBeenCalledWith(
       'organization-contacts',
-      {
-        organizationId: 'org-1',
-        firstName: 'Rita',
-        lastName: 'Moss',
-        isPrimaryContact: true,
-        isBillingContact: true,
-      }
+      { organizationId: 'org-1', firstName: 'Rita', lastName: 'Moss' }
     );
     expect(onSaved).toHaveBeenCalledWith({ id: 'saved' });
+    cleanup();
+    opener.remove();
+  });
+
+  it("shows and toggles a contact's primary and billing flags on its detail (M0005-R051)", async () => {
+    const rita = {
+      id: '55555555-5555-4555-8555-555555555555',
+      kind: 'vendor_contact',
+      organizationId: '44444444-4444-4444-8444-444444444444',
+      firstName: 'Rita',
+      lastName: 'Moss',
+      taxIdLast4: null,
+      isPrimaryContact: true,
+      isBillingContact: false,
+      isPrimaryTaxContact: false,
+      isPortalUser: false,
+      portalAccess: { status: 'off', failureCode: null },
+      archived: false,
+      revision: 4,
+      contactMethods: [],
+      addresses: [],
+    };
+    api.getDirectoryRecord.mockResolvedValue(rita);
+    api.updateDirectoryRecord.mockResolvedValue({ ...rita });
+    // The dialog restores focus to whatever opened it; stand one in.
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    renderWithHeader(
+      <RecordDetailDialog
+        collection="organization-contacts"
+        id={rita.id}
+        abilities={{ write: true, readTaxIds: true, writeTaxIds: true }}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />
+    );
+    const dialog = await screen.findByRole('dialog', { name: /Rita Moss/ });
+    const primary = within(dialog).getByLabelText('Primary contact');
+    expect(primary.checked).toBe(true);
+    expect(within(dialog).getByLabelText('Billing contact').checked).toBe(
+      false
+    );
+    // R008: a vendor contact has no tax ID to edit.
+    expect(
+      within(dialog).queryByRole('button', { name: 'Edit tax ID' })
+    ).toBeNull();
+    await userEvent
+      .setup()
+      .click(within(dialog).getByLabelText('Billing contact'));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledWith(
+      'organization-contacts',
+      rita.id,
+      { isBillingContact: true, revision: 4 }
+    );
     cleanup();
     opener.remove();
   });
@@ -1300,6 +1382,25 @@ describe('Grid row menu and bulk actions (M0005-R028–R030)', () => {
       await screen.findByRole('menuitem', { name: 'Restore' })
     ).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Archive' })).toBeNull();
+  });
+
+  it("opens the record's detail from the row menu's Edit (M0005-R049)", async () => {
+    listRows = [JANE];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...JANE,
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    await grid();
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('menuitem', { name: 'more' })[0]);
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    expect(
+      within(detail).getByRole('button', { name: 'Edit name' })
+    ).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Edit employee' })).toBeNull();
   });
 
   it('hides the row menu without directory::write', async () => {

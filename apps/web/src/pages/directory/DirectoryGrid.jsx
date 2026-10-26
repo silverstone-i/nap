@@ -14,14 +14,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
 import {
   archiveDirectoryRecord,
-  getDirectoryRecord,
   listDirectoryPage,
   restoreDirectoryRecord,
 } from '../../api/endpoints.js';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { PortalAccessChip } from './PortalAccess.jsx';
-import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
 import { recordName } from './directoryRecords.js';
 import { displayTaxId, useTaxIdFormats } from './useTaxIdFormats.js';
@@ -99,7 +97,8 @@ function columnsFor(collection, onOpen, formats, country) {
     columns.push({
       ...plain,
       field: 'flags',
-      headerName: 'Role',
+      // M0005-R053: not "Role", which reads as portal roles.
+      headerName: 'Contact type',
       flex: 2,
       priority: 'secondary',
       valueGetter: (_value, row) =>
@@ -126,7 +125,8 @@ function columnsFor(collection, onOpen, formats, country) {
 
 /**
  * A directory list as a standard grid (M0005-R027–R028): server pages and a
- * row menu with Edit and Archive or Restore. The bulk actions live with the
+ * row menu with Edit and Archive or Restore. Edit opens the record's detail,
+ * its only edit surface (M0005-R049). The bulk actions live with the
  * caller (`useDirectoryBulk`), which places them in the page header or a
  * dialog's toolbar (I0001-R028, R034) and receives the selection through
  * `onSelectionChange`.
@@ -160,7 +160,6 @@ export function DirectoryGrid({
   const [actionError, setActionError] = useState(null);
   const formats = useTaxIdFormats();
   const { defaultCountry } = useEffectiveSettings().settings;
-  const [editing, setEditing] = useState(null);
 
   // Keyed by value, so a caller passing a fresh but equal filter object
   // keeps the adapter and its cached page cursors.
@@ -191,16 +190,6 @@ export function DirectoryGrid({
     }
   }
 
-  async function edit(row) {
-    setActionError(null);
-    try {
-      setEditing(await getDirectoryRecord(collection, row.id));
-    } catch (err) {
-      abilities.onError?.(err);
-      setActionError(describeDirectoryError(err));
-    }
-  }
-
   function rowActions(row) {
     if (!abilities.write) return [];
     const actions = row.archived
@@ -218,7 +207,7 @@ export function DirectoryGrid({
           {
             label: 'Edit',
             icon: <EditIcon fontSize="small" />,
-            onClick: edit,
+            onClick: onOpen,
           },
           ...(extraActions?.(row, run) ?? []),
           {
@@ -259,25 +248,6 @@ export function DirectoryGrid({
         emptyMessage={emptyMessage}
         describeError={err => describeDirectoryError(err)}
       />
-      {editing ? (
-        <RecordFormDialog
-          collection={collection}
-          record={editing}
-          canWriteTaxIds={abilities.writeTaxIds}
-          canManagePortal={abilities.write && Boolean(abilities.assignRoles)}
-          onClose={() => setEditing(null)}
-          onReload={async () => {
-            const fresh = await getDirectoryRecord(collection, editing.id);
-            setEditing(fresh);
-            changed();
-            return fresh;
-          }}
-          onSaved={() => {
-            setEditing(null);
-            changed();
-          }}
-        />
-      ) : null}
     </Stack>
   );
 }

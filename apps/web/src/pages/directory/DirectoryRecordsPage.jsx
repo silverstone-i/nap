@@ -191,10 +191,8 @@ export function DirectoryRecordsPage({ kind }) {
       {creating ? (
         <RecordFormDialog
           collection={collection}
-          record={null}
           defaults={{ kind }}
           canWriteTaxIds={abilities.writeTaxIds}
-          canManagePortal={abilities.write && abilities.assignRoles}
           onClose={() => setCreating(false)}
           onSaved={saved => {
             setCreating(false);

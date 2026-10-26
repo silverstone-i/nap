@@ -10,6 +10,17 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- A directory record and a role are edited only from their detail dialog (I0001-R035–R038, M0005-R049, M0003-R019). Pencils change the name, the tax ID, and portal access with roles, each in its own small dialog; the footer **Edit** and the separate edit form are gone, and a row's ⋮ **Edit** opens the detail.
+- Creating a record or a role asks only for what it needs (M0005-R050, M0003-R020): an employee's name and email, a vendor's legal name and tax ID, a client's legal name and one tax source, a contact's name, or a role's code and name. The new record opens on save, and **New contact** opens the new contact.
+- An organization contact's detail shows **Primary contact** and **Billing contact** as switches, and a client contact can be made the primary tax contact from it (M0005-R051). The contacts grid's "Role" column is now **Contact type**, and the DBA label reads "DBA name" (R053).
+- Portal access, the temporary password, and roles move from the person form to the portal access pencil on the detail (I0010-R013, R014).
+
+### Removed
+
+- The Roles screen's user role assignments section and the `GET /api/access-control/v1/memberships` list it used (M0003-R021). Roles are assigned on the person's detail; the `/memberships/:membershipId/roles` routes stay.
+
 ## [v0.33.1] - 2026-10-26
 
 ### Changed
