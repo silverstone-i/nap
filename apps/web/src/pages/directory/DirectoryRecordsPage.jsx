@@ -70,11 +70,19 @@ export function DirectoryRecordsPage({ kind }) {
   const [archived, setArchived] = useArchiveView();
   const query = useDebouncedValue(search.trim());
   const taxIdQuery = useDebouncedValue(taxId.trim());
-  const [notice, setNotice] = useState(null);
   // `?open=<id>` opens a record on arrival, such as a tenant's client from
   // the Tenants screen.
   const [params, setParams] = useSearchParams();
-  const [selected, setSelected] = useState(params.get('open'));
+  const openParam = params.get('open');
+  const [selected, setSelected] = useState(openParam);
+  // A later `?open=<id>` on this page, such as the link from a duplicate tax
+  // ID (M0005-R048), opens that record too. Adjusted during render, as
+  // TenantsPage does for its reload.
+  const [seenOpen, setSeenOpen] = useState(openParam);
+  if (openParam !== seenOpen) {
+    setSeenOpen(openParam);
+    if (openParam) setSelected(openParam);
+  }
   const [creating, setCreating] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = () => setReloadKey(key => key + 1);
@@ -143,11 +151,6 @@ export function DirectoryRecordsPage({ kind }) {
 
   return (
     <Stack spacing={3}>
-      {notice ? (
-        <Alert severity="warning" onClose={() => setNotice(null)}>
-          {notice}
-        </Alert>
-      ) : null}
       <DirectoryGrid
         collection={collection}
         filters={{
@@ -166,6 +169,7 @@ export function DirectoryRecordsPage({ kind }) {
       {bulk.dialogs}
       {selected ? (
         <RecordDetailDialog
+          key={selected}
           collection={collection}
           id={selected}
           abilities={abilities}
@@ -194,11 +198,6 @@ export function DirectoryRecordsPage({ kind }) {
           onClose={() => setCreating(false)}
           onSaved={saved => {
             setCreating(false);
-            setNotice(
-              saved.duplicateTaxIds?.length
-                ? `Saved. ${saved.duplicateTaxIds.length} other record(s) have the same tax ID.`
-                : null
-            );
             setSelected(saved.id);
             reload();
           }}

@@ -53,6 +53,13 @@ export const partiesSchema = {
     ],
     indexes: [
       { columns: ['tenant_id', 'tax_id_hash'] },
+      // R047: one holder per tenant, kind, and tax ID, archived records
+      // included; client contacts are exempt.
+      {
+        columns: ['tenant_id', 'kind', 'tax_id_hash'],
+        unique: true,
+        where: "kind <> 'client_contact' AND tax_id_hash IS NOT NULL",
+      },
       { columns: ['tax_id_format_id'] },
     ],
   },
@@ -108,25 +115,30 @@ export class Parties extends DirectoryModel {
   }
 
   /**
-   * Parties of active records holding a tax ID hash, other than `excludeId`
-   * (M0005-R013). A record is active while its child row is.
+   * The party of `kind` holding a tax ID hash, other than `excludeId`,
+   * archived records included (M0005-R047). A record is archived when its
+   * child row is.
+   * @param {string} kind
    * @param {string} hash
    * @param {string|null} excludeId
    * @param {{tx: object}} options
-   * @returns {Promise<string[]>} Their IDs.
+   * @returns {Promise<{id: string, archived: boolean}|null>}
    */
-  async holdersOfTaxId(hash, excludeId, { tx }) {
-    return tx.map(
-      `SELECT p.id FROM app.parties p
-        WHERE p.tax_id_hash = $1
-          AND ($2::uuid IS NULL OR p.id <> $2::uuid)
-          AND (EXISTS (SELECT 1 FROM app.people x
-                        WHERE x.party_id = p.id AND x.deactivated_at IS NULL)
-               OR EXISTS (SELECT 1 FROM app.organizations x
-                           WHERE x.party_id = p.id AND x.deactivated_at IS NULL))
-        ORDER BY p.id`,
-      [hash, excludeId],
-      row => row.id
+  async holderOfTaxId(kind, hash, excludeId, { tx }) {
+    return tx.oneOrNone(
+      `SELECT p.id,
+              NOT EXISTS (
+                SELECT 1 FROM app.people x
+                 WHERE x.party_id = p.id AND x.deactivated_at IS NULL
+                UNION ALL
+                SELECT 1 FROM app.organizations x
+                 WHERE x.party_id = p.id AND x.deactivated_at IS NULL
+              ) AS archived
+         FROM app.parties p
+        WHERE p.kind = $1 AND p.tax_id_hash = $2
+          AND ($3::uuid IS NULL OR p.id <> $3::uuid)
+        LIMIT 1`,
+      [kind, hash, excludeId]
     );
   }
 }

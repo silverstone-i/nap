@@ -326,12 +326,12 @@ async function viewOf(context, name, row, tx) {
  * @param {object} context
  * @param {string|null} value Entered tax ID, or null to clear it.
  * @param {string|undefined} formatId Its format, given exactly when `value` is.
- * @param {string} partyId
+ * @param {{id: string, kind: string}} party
  * @param {object} tx
  * @returns {Promise<object>} The four tax ID columns as stored.
- * @throws {DirectoryError} `FORBIDDEN`, `INVALID_INPUT`
+ * @throws {DirectoryError} `FORBIDDEN`, `INVALID_INPUT`, `DUPLICATE_TAX_ID`
  */
-async function saveTaxId(context, value, formatId, partyId, tx) {
+async function saveTaxId(context, value, formatId, party, tx) {
   await requireCapability(context, TAX_IDS_WRITE);
   // R038: a tax ID names its active format; clearing it names none.
   if ((value === null) !== (formatId === undefined))
@@ -340,26 +340,44 @@ async function saveTaxId(context, value, formatId, partyId, tx) {
     value === null ? null : await activeTaxIdFormat(context, tx, formatId);
   const columns = context.taxIds.protect(value, format, {
     tenantId: context.tenant.id,
-    partyId,
+    partyId: party.id,
   });
-  await context.cell.parties.setTaxId(partyId, columns, context.actorId, {
+  if (columns.tax_id_hash && party.kind !== 'client_contact')
+    await requireTaxIdFree(context, party, columns.tax_id_hash, tx);
+  await context.cell.parties.setTaxId(party.id, columns, context.actorId, {
     tx,
   });
   return columns;
 }
 
 /**
- * Other active records holding the same tax ID (R013).
- * @param {object} context
- * @param {object} row Row joined with its party.
+ * Refuse a tax ID another record of the same kind holds, archived records
+ * included (R047). The error names that record so the screen can open it,
+ * or offer Restore when it is archived (R048). Takes a lock on the kind and
+ * number first, so two writers of the same number cannot both pass; the
+ * unique index backs this up.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {{id: string, kind: string}} party
+ * @param {string} hash
  * @param {object} tx
- * @returns {Promise<string[]>}
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `DUPLICATE_TAX_ID`
  */
-function duplicates(context, row, tx) {
-  if (!row.tax_id_hash) return [];
-  return context.cell.parties.holdersOfTaxId(row.tax_id_hash, row.party_id, {
-    tx,
-  });
+async function requireTaxIdFree(context, party, hash, tx) {
+  await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `business-directory:tax-id:${context.tenant.id}:${party.kind}:${hash}`,
+  ]);
+  const holder = await context.cell.parties.holderOfTaxId(
+    party.kind,
+    hash,
+    party.id,
+    { tx }
+  );
+  if (holder)
+    throw new DirectoryError('DUPLICATE_TAX_ID', {
+      id: holder.id,
+      archived: holder.archived,
+    });
 }
 
 /**
@@ -387,13 +405,7 @@ async function insertParty(context, kind, input, tx) {
   }
   return {
     ...party,
-    ...(await saveTaxId(
-      context,
-      input.taxId,
-      input.taxIdFormatId,
-      party.id,
-      tx
-    )),
+    ...(await saveTaxId(context, input.taxId, input.taxIdFormatId, party, tx)),
   };
 }
 
@@ -633,7 +645,7 @@ export async function getRecord(context, name, id) {
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} name
  * @param {unknown} body
- * @returns {Promise<object>} The view, plus `duplicateTaxIds` when a tax ID was saved.
+ * @returns {Promise<object>} The view.
  */
 export async function createRecord(context, name, body) {
   collection(name);
@@ -691,11 +703,7 @@ async function createPerson(context, body) {
       await sendPortalAccess(context, row, true, input.temporaryPassword, tx);
     const view = await viewOf(context, 'people', row, tx);
     return {
-      result: withDuplicates(
-        view,
-        input.taxId != null,
-        await duplicates(context, row, tx)
-      ),
+      result: view,
       changes: [recordChange('created', 'people', null, view)],
     };
   });
@@ -736,11 +744,7 @@ async function createOrganization(context, body) {
     await requireTaxSource(context, organization, tx);
     const view = await viewOf(context, 'organizations', organization, tx);
     return {
-      result: withDuplicates(
-        view,
-        input.taxId != null,
-        await duplicates(context, organization, tx)
-      ),
+      result: view,
       changes: [
         recordChange('created', 'organizations', null, view),
         ...changes,
@@ -767,25 +771,10 @@ async function createContact(context, body) {
       await requireTaxSource(context, organization, tx);
     const view = await viewOf(context, 'organization-contacts', row, tx);
     return {
-      result: withDuplicates(
-        view,
-        input.taxId != null,
-        await duplicates(context, row, tx)
-      ),
+      result: view,
       changes: [recordChange('created', 'organization-contacts', null, view)],
     };
   });
-}
-
-/**
- * Add `duplicateTaxIds` to a response when the request saved a tax ID.
- * @param {object} view
- * @param {boolean} savedTaxId
- * @param {string[]} holders
- * @returns {object}
- */
-function withDuplicates(view, savedTaxId, holders) {
-  return savedTaxId ? { ...view, duplicateTaxIds: holders } : view;
 }
 
 /**
@@ -833,7 +822,7 @@ export async function updateRecord(context, name, id, body) {
         context,
         input.taxId,
         input.taxIdFormatId,
-        locked.party_id,
+        { id: locked.party_id, kind: locked.kind },
         tx
       );
     } else if (input.taxIdFormatId !== undefined)
@@ -892,11 +881,7 @@ export async function updateRecord(context, name, id, body) {
     }
     const after = await viewOf(context, name, row, tx);
     return {
-      result: withDuplicates(
-        after,
-        input.taxId != null,
-        await duplicates(context, row, tx)
-      ),
+      result: after,
       changes: [recordChange('updated', name, before, after), ...extra],
     };
   });

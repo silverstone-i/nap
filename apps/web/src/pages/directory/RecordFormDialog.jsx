@@ -14,6 +14,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
+import Link from '@mui/material/Link';
 import MenuItem from '@mui/material/MenuItem';
 import Radio from '@mui/material/Radio';
 import Stack from '@mui/material/Stack';
@@ -21,12 +22,15 @@ import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { Link as RouterLink } from 'react-router';
 import {
   createDirectoryRecord,
   listRoles,
   updateDirectoryRecord,
 } from '../../api/endpoints.js';
 import { PasswordField } from '../../components/PasswordField.jsx';
+import { ApiError } from '../../api/client.js';
+import { ArchivedConflictMessage } from '../../grid/ArchivedConflictMessage.jsx';
 import {
   describeDirectoryError,
   isStaleRevision,
@@ -38,6 +42,35 @@ import {
   displayTaxId,
   useTaxIdFormats,
 } from './useTaxIdFormats.js';
+
+/**
+ * The refusal of a tax ID another record of the same kind holds, with a
+ * link that opens that record, or opens it in the Archived view where it
+ * can be restored (M0005-R048).
+ * @param {{kind: string, holder: {id: string, archived: boolean}, onFollow: () => void}} props
+ * @returns {JSX.Element}
+ */
+function DuplicateTaxIdMessage({ kind, holder, onFollow }) {
+  const message = `Another ${KIND_LABELS[kind].toLowerCase()} already has this tax ID.`;
+  const params = new URLSearchParams(
+    holder.archived
+      ? { view: 'archived', open: holder.id }
+      : { open: holder.id }
+  );
+  const to = `/directory/${kind}s?${params}`;
+  if (holder.archived)
+    return (
+      <ArchivedConflictMessage message={message} to={to} onFollow={onFollow} />
+    );
+  return (
+    <>
+      {message}{' '}
+      <Link component={RouterLink} to={to} onClick={onFollow}>
+        Open it
+      </Link>
+    </>
+  );
+}
 
 /**
  * A choice of the tenant's active tax ID formats (M0005-R043).
@@ -381,13 +414,23 @@ export function RecordFormDialog({
       onSaved(saved);
     } catch (err) {
       setError(
-        describeDirectoryError(
-          err,
-          turningOn
-            ? PORTAL_MESSAGES.turnOn
-            : turningOff
-              ? PORTAL_MESSAGES.turnOff
-              : {}
+        err instanceof ApiError &&
+          err.code === 'DUPLICATE_TAX_ID' &&
+          err.details?.id ? (
+          <DuplicateTaxIdMessage
+            kind={record?.kind ?? kind}
+            holder={err.details}
+            onFollow={onClose}
+          />
+        ) : (
+          describeDirectoryError(
+            err,
+            turningOn
+              ? PORTAL_MESSAGES.turnOn
+              : turningOff
+                ? PORTAL_MESSAGES.turnOff
+                : {}
+          )
         )
       );
       if (editing && onReload && isStaleRevision(err)) {

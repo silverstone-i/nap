@@ -28,6 +28,7 @@ export const ERROR_STATUS = Object.freeze({
   GRANT_EXCEEDS_ACTOR: 403,
   // M0005 §10 directory rules.
   PRIMARY_TAX_CONTACT: 409,
+  DUPLICATE_TAX_ID: 409,
   BULK_FAILED: 409,
   // M0006-02 §10 storage rules.
   STORAGE_NOT_CONFIGURED: 409,
@@ -63,6 +64,7 @@ export const ERROR_MESSAGE = Object.freeze({
   ROOT_IMMUTABLE: 'Root user cannot be changed',
   GRANT_EXCEEDS_ACTOR: 'Grant exceeds your access',
   PRIMARY_TAX_CONTACT: 'Primary tax contact cannot be removed',
+  DUPLICATE_TAX_ID: 'Another record already has this tax ID',
   BULK_FAILED: 'One or more items failed; nothing was changed',
   STORAGE_NOT_CONFIGURED: 'File storage is not connected',
   STORAGE_TEST_FAILED: 'File storage connection test failed',
@@ -135,17 +137,19 @@ export function sendBulkFailed(response, details) {
 }
 
 /**
- * Send `409 CONFLICT` naming the archived record that already holds the
- * unique value, so the screen can link to it (I0011-R010).
+ * Send a 409 naming the record that already holds a unique value, so the
+ * screen can link to it: an archived holder under `CONFLICT` (I0011-R010),
+ * or a tax ID's holder under `DUPLICATE_TAX_ID` (M0005-R048).
  * @param {import('express').Response} response
- * @param {{id: string, archived: true}} details
+ * @param {{id: string, archived: boolean}} details
+ * @param {'CONFLICT'|'DUPLICATE_TAX_ID'} [code]
  * @returns {void}
  */
-export function sendConflict(response, details) {
-  const body = errorEnvelope('CONFLICT');
+export function sendConflict(response, details, code = 'CONFLICT') {
+  const body = errorEnvelope(code);
   body.error.details = details;
   response.setHeader('Cache-Control', 'no-store');
-  response.status(ERROR_STATUS.CONFLICT).json(body);
+  response.status(ERROR_STATUS[code]).json(body);
 }
 
 /**

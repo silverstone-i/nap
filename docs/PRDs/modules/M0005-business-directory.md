@@ -4,12 +4,12 @@
 
 | Field                | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Implemented (R001–R034, R036–R044, R046); R035, R045 withdrawn                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Status               | Implemented (R001–R034, R036–R044, R046–R048); R035, R045 withdrawn                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Type                 | Module                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Related architecture | [Module map](../../architecture/module-map.md), [Migrations](../../architecture/migrations.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Related PRDs         | [M0002-01: Cell Database Foundation](M0002-cell-tenancy/M0002-01-cell-database-foundation.md), [M0003: Access Control](M0003-access-control.md), [M0004: Reference Data](M0004-reference-data.md), [I0004: Admin-Cell Sync](../inter-module-workflows/I0004-admin-cell-sync.md), [I0006: Tenant Provisioning](../inter-module-workflows/I0006-tenant-provisioning.md), [I0011: Archived Records View](../inter-module-workflows/I0011-archived-records-view.md), [I0001: Application Entry and Shell](../inter-module-workflows/I0001-application-entry-and-shell.md), [M0006-01: General Settings](M0006-tenant-settings/M0006-01-general-settings.md) |
 | Related decisions    | Roles stay in `access-control` and attach to logins; the directory stores people and organizations, not permissions. Phones and tax IDs are stored unformatted and formatted on display; phones entered without a country code are US; tenants define tax ID formats per country, and a used format can change only its name and separators (2026-10-24). The baseline migration is edited in place for these, so cells are recreated (2026-10-25)                                                                                                                                                                                                      |
-| Last reviewed        | 2026-10-25                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Last reviewed        | 2026-10-26                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## 2. Purpose
 
@@ -99,7 +99,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 - M0005-R010: A tax ID is never stored in plain text. It is stored encrypted with AES-256-GCM (Advanced Encryption Standard in Galois/Counter Mode) using a fresh random value (nonce) per write, as an HMAC-SHA-256 keyed hash of its digits, and as its last four digits. The plain value must not appear in logs, outbox rows, or events. _Superseded in part by R038 and R039 (canonical value in place of digits)._
 - M0005-R011: The encryption key and the hash key come from deploy secrets `TAX_ID_ENCRYPTION_KEY_<ENV>` and `TAX_ID_HASH_KEY_<ENV>` and are never stored in a database. The API must refuse to start without them. Neither key rotates.
 - M0005-R012: Responses show only `taxIdLast4`. Reading a full tax ID requires `business-directory::tax-ids::read` and writes an event recording who read which record. Setting, changing, or clearing a tax ID requires `business-directory::tax-ids::write`.
-- M0005-R013: Searching by tax ID requires `business-directory::tax-ids::read`. The API hashes the entered digits and matches `tax_id_hash`. Saving a tax ID already held by another active record succeeds and returns `duplicateTaxIds` with those records' IDs, because one buyer can buy several units. _Superseded in part by R039 (canonical value in place of digits)._
+- M0005-R013: Searching by tax ID requires `business-directory::tax-ids::read`. The API hashes the entered digits and matches `tax_id_hash`. _Superseded in part by R039 (canonical value in place of digits) and R047 (a same-kind duplicate is refused instead of returned as `duplicateTaxIds`)._
 
 ### Emails, phones, and addresses
 
@@ -161,6 +161,11 @@ entitlement row (M0001-10), because provisioning creates its first rows
 - M0005-R046: A phone entered without a leading `+` must be read as a number of the tenant's effective `defaultCountry` (M0006-01-R011), and a phone of that country must be displayed in national format; any other phone is displayed in international format. Both the API and the web app must use that country.
 - M0005-R045: Withdrawn with R035. Recreated cells have no existing tax IDs, and every tenant gets the R037 formats from its seed.
 
+### Unique tax IDs
+
+- M0005-R047: Within a tenant, at most one party of each kind among `employee`, `contact`, `vendor`, and `client` may hold a given tax ID, matched by `tax_id_hash` and counting archived records. Client contacts are exempt, because one buyer can be a contact on several clients. Records of different kinds may share a number. A unique index on `app.parties` enforces it, and the save checks it first in the same transaction.
+- M0005-R048: Saving a tax ID that another record of the same kind holds must fail with `409 DUPLICATE_TAX_ID`, with details `{ id, archived }` naming that record and nothing about the number. The directory dialog must say "Another {kind} already has this tax ID." with a link that opens that record, or, when it is archived, a link that opens it in the Archived view, where it can be restored.
+
 ## 7. Business Rules And Invariants
 
 - The database enforces the keys, checks, and unique indexes in section 9.
@@ -196,30 +201,30 @@ for tenant business tables (M0002-01-R006). Every table also has the standard
 audit fields, soft delete (`deactivated_at`), and `revision`. Row-level
 security (RLS) limits each query to the session's tenant through `tenant_id`.
 
-| Table             | Schema object          | Behavior defined by                     |
-| ----------------- | ---------------------- | --------------------------------------- |
-| `parties`         | `partiesSchema`        | R001, R005, R008, R010–R013, R038, R039 |
-| `people`          | `peopleSchema`         | R002, R004, R007, R009                  |
-| `organizations`   | `organizationsSchema`  | R003, R006, R007                        |
-| `contact_methods` | `contactMethodsSchema` | R014, R016, R033, R034                  |
-| `addresses`       | `addressesSchema`      | R015                                    |
-| `contact_labels`  | `contactLabelsSchema`  | R017                                    |
-| `tax_id_formats`  | `taxIdFormatsSchema`   | R036–R041                               |
+| Table             | Schema object          | Behavior defined by                           |
+| ----------------- | ---------------------- | --------------------------------------------- |
+| `parties`         | `partiesSchema`        | R001, R005, R008, R010–R013, R038, R039, R047 |
+| `people`          | `peopleSchema`         | R002, R004, R007, R009                        |
+| `organizations`   | `organizationsSchema`  | R003, R006, R007                              |
+| `contact_methods` | `contactMethodsSchema` | R014, R016, R033, R034                        |
+| `addresses`       | `addressesSchema`      | R015                                          |
+| `contact_labels`  | `contactLabelsSchema`  | R017                                          |
+| `tax_id_formats`  | `taxIdFormatsSchema`   | R036–R041                                     |
 
 ### `app.parties`
 
 One row per directory record. It has audit fields but no soft delete or
 `revision`; a record is archived and versioned through its child row.
 
-| Column             | Type       | Rules                                                                                                   |
-| ------------------ | ---------- | ------------------------------------------------------------------------------------------------------- |
-| `id`               | `uuid`     | Primary key, default `gen_random_uuid()`; immutable                                                     |
-| `tenant_id`        | `uuid`     | Not null; immutable; RLS column                                                                         |
-| `kind`             | `text`     | Not null; `employee`, `contact`, `vendor`, `client`, `vendor_contact`, or `client_contact`; immutable   |
-| `tax_id_encrypted` | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID                         |
-| `tax_id_format_id` | `uuid`     | References `tax_id_formats.id` (R038); null with `tax_id_encrypted`                                     |
-| `tax_id_hash`      | `char(64)` | Hex HMAC-SHA-256 of the canonical tax ID (R039); null with `tax_id_encrypted`; indexed                  |
-| `tax_id_last4`     | `char(4)`  | Last four characters of the canonical tax ID, digits or uppercase letters; null with `tax_id_encrypted` |
+| Column             | Type       | Rules                                                                                                                                             |
+| ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`               | `uuid`     | Primary key, default `gen_random_uuid()`; immutable                                                                                               |
+| `tenant_id`        | `uuid`     | Not null; immutable; RLS column                                                                                                                   |
+| `kind`             | `text`     | Not null; `employee`, `contact`, `vendor`, `client`, `vendor_contact`, or `client_contact`; immutable                                             |
+| `tax_id_encrypted` | `text`     | Base64 of nonce, authentication tag, and ciphertext (R010); null when no tax ID                                                                   |
+| `tax_id_format_id` | `uuid`     | References `tax_id_formats.id` (R038); null with `tax_id_encrypted`                                                                               |
+| `tax_id_hash`      | `char(64)` | Hex HMAC-SHA-256 of the canonical tax ID (R039); null with `tax_id_encrypted`; indexed; unique per tenant and kind except `client_contact` (R047) |
+| `tax_id_last4`     | `char(4)`  | Last four characters of the canonical tax ID, digits or uppercase letters; null with `tax_id_encrypted`                                           |
 
 A `vendor_contact` party has no tax ID (R008).
 
@@ -313,8 +318,8 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 | --------------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------- |
 | `GET /people`, `/organizations`, `/organization-contacts`                   | `business-directory::directory::read`       | —                                                              |
 | `GET /{collection}/:id`                                                     | `business-directory::directory::read`       | `NOT_FOUND`                                                    |
-| `POST /{collection}`                                                        | `business-directory::directory::write`      | `INVALID_INPUT`                                                |
-| `PATCH /{collection}/:id`                                                   | `business-directory::directory::write`      | `INVALID_INPUT`, `STALE_REVISION`                              |
+| `POST /{collection}`                                                        | `business-directory::directory::write`      | `INVALID_INPUT`, `DUPLICATE_TAX_ID`                            |
+| `PATCH /{collection}/:id`                                                   | `business-directory::directory::write`      | `INVALID_INPUT`, `STALE_REVISION`, `DUPLICATE_TAX_ID`          |
 | `POST /{collection}/:id/archive`, `/restore`                                | `business-directory::directory::write`      | `STALE_REVISION`, `PRIMARY_TAX_CONTACT`                        |
 | `POST`, `PATCH`, `DELETE /parties/:id/contact-methods[/:methodId]`          | `business-directory::directory::write`      | `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE`                  |
 | `POST`, `PATCH`, `DELETE /parties/:id/addresses[/:addressId]`               | `business-directory::directory::write`      | `NOT_FOUND`, `INVALID_INPUT`                                   |
@@ -367,7 +372,7 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 | AC09      | Each directory change writes an outbox row; delivery writes an event with the tax ID masked.                                                                                                                    | M0005-R025                        |
 | AC10      | A stored tax ID has no plain-text copy in the table, logs, outbox, or events; decrypting it returns the original; the API does not start without both keys.                                                     | M0005-R010, R011                  |
 | AC11      | Without `tax-ids::read` a response shows only the last four digits and tax ID search fails; with it the full value returns and an event is written; saving a tax ID without `tax-ids::write` fails.             | M0005-R012, R013                  |
-| AC12      | Searching by a tax ID entered with or without dashes finds the record; saving a duplicate succeeds and returns `duplicateTaxIds`.                                                                               | M0005-R013                        |
+| AC12      | Searching by a tax ID entered with or without dashes finds the record; saving a second employee with the same tax ID fails with `DUPLICATE_TAX_ID` naming the first.                                            | M0005-R013, R047, R048            |
 | AC13      | The directory screens support list, search, view, create, edit, archive, and restore, hiding disallowed actions.                                                                                                | M0005-R026                        |
 | AC14      | Each directory list returns cursor pages with its filters intact, and the screens page through them in a standard grid.                                                                                         | M0005-R027, R028                  |
 | AC15      | A row's menu offers Edit and Archive on active records and Restore on archived ones, and hides them without `directory::write`.                                                                                 | M0005-R028                        |
@@ -379,12 +384,14 @@ Base: `/api/business-directory/v1`. Route capabilities omit the tenant part, whi
 | AC21      | Withdrawn with R035.                                                                                                                                                                                            | M0005-R035                        |
 | AC22      | A new tenant has the three US formats, and a tax ID saved under SSN shows `•••-••-1234` and under EIN `••-•••4567`.                                                                                             | M0005-R036, R037, R040            |
 | AC23      | Under SSN, `123-45-6789`, `123 45 6789`, and `123456789` all save; `12-3456789A` fails; under `GB ### #### ##`, `GB 123 4567 89` and `123456789` both save as `123456789`; an archived format cannot be chosen. | M0005-R038                        |
-| AC24      | The same digits saved under SSN on one record and EIN on another produce the same hash, and saving the second returns `duplicateTaxIds`.                                                                        | M0005-R039, R013                  |
+| AC24      | The same digits saved under SSN on one employee and EIN on another produce the same hash, so the second save fails with `DUPLICATE_TAX_ID`.                                                                     | M0005-R039, R047                  |
 | AC25      | Renaming a used format or changing its separators succeeds and changes how its tax IDs display; changing its slots fails with `INVALID_STATE`; an unused format's slots can change.                             | M0005-R040, R041                  |
 | AC26      | The Tax ID Formats screen follows R042 and is hidden without `directory::read`; its write actions are hidden without `tax-id-formats::write`.                                                                   | M0005-R042                        |
 | AC27      | The tax ID field offers only active formats and defaults to EIN for a vendor or client and SSN for a person.                                                                                                    | M0005-R043                        |
 | AC28      | The API and the web app return the same result for every phone and tax ID in AC19, AC20, AC23, and AC25.                                                                                                        | M0005-R044                        |
 | AC29      | With `defaultCountry` `GB`, `020 7946 0958` stores `+442079460958` and displays as `020 7946 0958`, and `+12125551234` displays as `+1 212 555 1234`.                                                           | M0005-R046                        |
+| AC30      | When the holder is archived, the error carries `archived: true`, the dialog links to it in the Archived view, and restoring it brings it back with its tax ID.                                                  | M0005-R047, R048                  |
+| AC31      | Two client contacts, and an employee and a contact, may hold the same tax ID.                                                                                                                                   | M0005-R047                        |
 
 ## 14. Outstanding Questions
 

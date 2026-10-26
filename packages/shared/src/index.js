@@ -71,10 +71,11 @@ export const apiErrorResponseSchema = z.strictObject({
     reason: z.string().optional(),
     // M0005-R030: on `BULK_FAILED`, each failed item and its code.
     // I0011-R010: on `CONFLICT`, the archived record holding the value.
+    // M0005-R048: on `DUPLICATE_TAX_ID`, the record holding the tax ID.
     details: z
       .union([
         z.array(z.strictObject({ id: z.uuid(), code: z.string() })),
-        z.strictObject({ id: z.uuid(), archived: z.literal(true) }),
+        z.strictObject({ id: z.uuid(), archived: z.boolean() }),
       ])
       .optional(),
   }),
@@ -481,7 +482,6 @@ const directoryRecordBase = {
   // List rows name their primary email's and phone's labels (M0005-R027).
   primaryEmailLabel: z.string().nullable().optional(),
   primaryPhoneLabel: z.string().nullable().optional(),
-  duplicateTaxIds: z.array(z.uuid()).optional(),
 };
 
 /** Portal-access statuses a person shows (I0008-R008). */

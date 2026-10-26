@@ -15,6 +15,7 @@ const MESSAGES = {
     'Someone else changed this record. It has been reloaded; try again.',
   PRIMARY_TAX_CONTACT:
     'This buyer is the client’s primary tax contact. Choose another first.',
+  DUPLICATE_TAX_ID: 'Another record of this kind already has this tax ID.',
   ADMIN_ASSIGNED:
     'This person holds an administrator role. Remove the role on the Roles screen first.',
   GRANT_EXCEEDS_ACTOR:

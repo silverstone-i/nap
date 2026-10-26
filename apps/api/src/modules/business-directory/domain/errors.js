@@ -28,6 +28,8 @@ const PASS_THROUGH = new Set([
   'INVALID_STATE',
   'STALE_REVISION',
   'PRIMARY_TAX_CONTACT',
+  // M0005-R048: names the record already holding the tax ID.
+  'DUPLICATE_TAX_ID',
   'ADMIN_ASSIGNED',
   // I0010-R009: M0003's role rules, reported as Access Control reports them.
   'GRANT_EXCEEDS_ACTOR',
@@ -43,7 +45,7 @@ const PASS_THROUGH = new Set([
 export class DirectoryError extends Error {
   /**
    * @param {string} code
-   * @param {{id: string, archived: true}} [details] For `CONFLICT`, the archived record holding the value (I0011-R010).
+   * @param {{id: string, archived: boolean}} [details] For `CONFLICT`, the archived record holding the value (I0011-R010); for `DUPLICATE_TAX_ID`, the record holding the tax ID (M0005-R048).
    */
   constructor(code, details) {
     super(code);

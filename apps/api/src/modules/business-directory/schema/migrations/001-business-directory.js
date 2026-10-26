@@ -102,6 +102,13 @@ export const migration = defineMigration({
         ],
         indexes: [
           { columns: ['tenant_id', 'tax_id_hash'] },
+          // R047: one holder per tenant, kind, and tax ID, archived records
+          // included; client contacts are exempt.
+          {
+            columns: ['tenant_id', 'kind', 'tax_id_hash'],
+            unique: true,
+            where: "kind <> 'client_contact' AND tax_id_hash IS NOT NULL",
+          },
           { columns: ['tax_id_format_id'] },
         ],
       },

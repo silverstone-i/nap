@@ -734,47 +734,93 @@ describe('tax IDs (M0005-R006–R013)', () => {
       expect(JSON.stringify(row.payload)).not.toContain('123456789');
   });
 
-  it('AC12: finds a tax ID entered with or without dashes and reports duplicates', async () => {
+  it('AC12, AC30: finds a tax ID with or without dashes and refuses a same-kind duplicate, archived or not', async () => {
     const first = await create('people', {
       kind: 'contact',
       firstName: 'Dup',
       lastName: 'One',
       taxId: '321-54-9876',
     });
-    const second = await create('people', {
+    const contact = {
       kind: 'contact',
       firstName: 'Dup',
       lastName: 'Two',
       taxId: '321549876',
+    };
+    // R047, R048: the holder is named, the number is not.
+    const refused = await call('post', '/people', contact);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatchObject({
+      code: 'DUPLICATE_TAX_ID',
+      details: { id: first.id, archived: false },
     });
-    expect(second.duplicateTaxIds).toEqual([first.id]);
-    const client = await create('organizations', {
-      kind: 'client',
-      legalName: 'Lot 30',
-      contacts: [
-        {
-          firstName: 'Dup',
-          lastName: 'Buyer',
-          taxId: '321-54-9876',
-          isPrimaryTaxContact: true,
-        },
-      ],
+    expect(JSON.stringify(refused.body)).not.toContain('9876');
+
+    // AC30: an archived holder still counts, and says so.
+    const archived = await call('post', `/people/${first.id}/archive`, {
+      revision: first.revision,
     });
-    const buyer = (await call('get', `/organizations/${client.id}`)).body.data
-      .contacts[0];
-    const third = await call('patch', `/organization-contacts/${buyer.id}`, {
-      taxId: '321549876',
-      revision: buyer.revision,
-    });
-    // R013: a duplicate is reported across people, buyers, and organizations.
-    expect(third.body.data.duplicateTaxIds.sort()).toEqual(
-      [first.id, second.id].sort()
+    expect(archived.status).toBe(200);
+    expect((await call('post', '/people', contact)).body.error).toEqual(
+      expect.objectContaining({
+        code: 'DUPLICATE_TAX_ID',
+        details: { id: first.id, archived: true },
+      })
     );
+    const restored = await call('post', `/people/${first.id}/restore`, {
+      revision: archived.body.data.revision,
+    });
+    expect(restored.status).toBe(200);
+    expect(restored.body.data.taxIdLast4).toBe('9876');
+
+    // AC31: another kind may hold the same number.
+    const employee = await create('people', {
+      kind: 'employee',
+      firstName: 'Dup',
+      lastName: 'Staff',
+      primaryEmail: `dup-${randomUUID().slice(0, 6)}@example.test`,
+      taxId: '321-54-9876',
+    });
     for (const query of ['321-54-9876', '321549876']) {
       const found = (await call('get', `/people?taxId=${query}`)).body.data
         .rows;
-      expect(found.map(p => p.id).sort()).toEqual([first.id, second.id].sort());
+      expect(found.map(p => p.id).sort()).toEqual(
+        [first.id, employee.id].sort()
+      );
     }
+  });
+
+  it('AC31: lets one buyer be a contact on two clients', async () => {
+    const buyer = {
+      firstName: 'Two',
+      lastName: 'Homes',
+      taxId: '432-65-1987',
+      isPrimaryTaxContact: true,
+    };
+    await create('organizations', {
+      kind: 'client',
+      legalName: 'Lot 31',
+      contacts: [buyer],
+    });
+    await create('organizations', {
+      kind: 'client',
+      legalName: 'Lot 32',
+      contacts: [buyer],
+    });
+  });
+
+  it('R047: lets only one of two concurrent saves of the same number win', async () => {
+    const body = n => ({
+      kind: 'contact',
+      firstName: 'Race',
+      lastName: `Run ${n}`,
+      taxId: '543-76-2198',
+    });
+    const results = await Promise.all([
+      call('post', '/people', body(1)),
+      call('post', '/people', body(2)),
+    ]);
+    expect(results.map(r => r.status).sort()).toEqual([201, 409]);
   });
 });
 
@@ -1094,7 +1140,7 @@ describe('portal access (I0008)', () => {
     const vendor = await create('organizations', {
       kind: 'vendor',
       legalName: 'Portal Vendor',
-      taxId: '12-3456789',
+      taxId: '12-3456782',
     });
     const vendorContact = await call('post', '/organization-contacts', {
       organizationId: vendor.id,
@@ -2216,21 +2262,32 @@ describe('tax ID formats (M0005-R036–R042)', () => {
     ).toBe(vat.id);
   });
 
-  it('AC24: matches the same digits saved under SSN and EIN', async () => {
+  it('AC24: treats the same digits under SSN and EIN as one number within a kind', async () => {
     const first = await create('people', {
       kind: 'contact',
       firstName: 'Same',
       lastName: 'Digits',
       taxId: '613-57-9135',
     });
-    const second = await call('post', '/organizations', {
+    const second = await call('post', '/people', {
+      kind: 'contact',
+      firstName: 'Same',
+      lastName: 'Digits Again',
+      taxId: '61-3579135',
+      taxIdFormatId: formats.EIN,
+    });
+    expect(second.body.error).toMatchObject({
+      code: 'DUPLICATE_TAX_ID',
+      details: { id: first.id, archived: false },
+    });
+    // AC31: a vendor is another kind, so the number is free there.
+    const vendor = await call('post', '/organizations', {
       kind: 'vendor',
       legalName: 'Same Digits LLC',
       taxId: '61-3579135',
     });
-    expect(second.status).toBe(201);
-    expect(second.body.data.taxIdFormatId).toBe(formats.EIN);
-    expect(second.body.data.duplicateTaxIds).toEqual([first.id]);
+    expect(vendor.status).toBe(201);
+    expect(vendor.body.data.taxIdFormatId).toBe(formats.EIN);
   });
 
   it('AC25: lets a used format change its name and separators but not its slots', async () => {
