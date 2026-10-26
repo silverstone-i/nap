@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { ApiError } from '../../api/client.js';
@@ -18,7 +19,9 @@ import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
 import { useSession } from '../../auth/SessionContext.jsx';
+import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
+import { TenantDetailDialog } from './TenantDetailDialog.jsx';
 
 export const REFRESH_MS = 2000;
 
@@ -47,94 +50,47 @@ function describeActionError(err) {
   return 'Something went wrong. Please try again.';
 }
 
-const COLUMNS = [
-  {
-    field: 'code',
-    headerName: 'Code',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'essential',
-  },
-  {
-    field: 'name',
-    headerName: 'Name',
-    flex: 2,
-    sortable: false,
-    filterable: false,
-    priority: 'essential',
-  },
-  {
-    field: 'tier',
-    headerName: 'Tier',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'essential',
-  },
-  {
-    field: 'status',
-    headerName: 'Status',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'essential',
-  },
-  {
-    field: 'cellId',
-    headerName: 'Cell',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'secondary',
-  },
-  {
-    field: 'provisioned',
-    headerName: 'Provisioned',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'secondary',
-    type: 'boolean',
-  },
-  {
-    field: 'rbacReady',
-    headerName: 'RBAC ready',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'secondary',
-    type: 'boolean',
-  },
-  {
-    field: 'stage',
-    headerName: 'Stage',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'secondary',
-  },
-  {
-    field: 'jobStatus',
-    headerName: 'Provisioning',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'secondary',
-  },
-  {
-    field: 'failureCode',
-    headerName: 'Failure',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'secondary',
-  },
-];
+/**
+ * The grid's columns (I0006-R020). Selecting a tenant's code opens its
+ * detail, which holds the tier, cell, readiness, and job.
+ * @param {(row: object) => void} onOpen
+ * @returns {object[]}
+ */
+function columnsFor(onOpen) {
+  const plain = { sortable: false, filterable: false };
+  return [
+    {
+      ...plain,
+      field: 'code',
+      headerName: 'Code',
+      flex: 1,
+      priority: 'essential',
+      renderCell: ({ row }) => (
+        <Button variant="text" size="small" onClick={() => onOpen(row)}>
+          {row.code}
+        </Button>
+      ),
+    },
+    {
+      ...plain,
+      field: 'name',
+      headerName: 'Name',
+      flex: 2,
+      priority: 'essential',
+    },
+    {
+      ...plain,
+      field: 'status',
+      headerName: 'Status',
+      flex: 1,
+      priority: 'essential',
+    },
+  ];
+}
 
 /**
- * `/management/tenants` (I0002-R001): browse central tenant records, create
- * one, and provision it into a cell (I0006-R010–R012).
+ * `/management/tenants` (I0002-R001): browse central tenant records, open
+ * one's detail, and retry its provisioning (I0006-R010–R012, R020, R021).
  */
 export function TenantsPage() {
   const [active, setActive] = useState(false);
@@ -153,6 +109,8 @@ export function TenantsPage() {
   );
   const [resetKey, setResetKey] = useState(0);
   const [actionError, setActionError] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const notify = useNotice();
   const { can, onError } = useCapabilities();
   const canWrite = can('admin-tenancy::control::write', 'napsoft');
   const navigate = useNavigate();
@@ -175,6 +133,9 @@ export function TenantsPage() {
     setActionError(null);
     try {
       await retryTenantProvisioning({ tenant: row.id });
+      // I0006-R021
+      notify(`Retry queued for ${row.code}.`);
+      setSelected(null);
       setResetKey(key => key + 1);
     } catch (err) {
       onError(err);
@@ -182,19 +143,23 @@ export function TenantsPage() {
     }
   }
 
+  const canViewClient = row => Boolean(row.clientId) && napsoftSelected;
+  const canRetry = row => canWrite && row.jobStatus === 'failed';
+  const viewClient = row => navigate(`/directory/clients?open=${row.clientId}`);
+
   function rowActions(row) {
     const actions = [];
     // A tenant's contacts are on its Napsoft client record, which lives in
     // the Napsoft tenant's directory.
-    if (row.clientId && napsoftSelected)
+    if (canViewClient(row))
       actions.push({
         label: 'View client',
         // Same icon as Directory → Clients.
         icon: <HandshakeIcon fontSize="small" />,
-        onClick: () => navigate(`/directory/clients?open=${row.clientId}`),
+        onClick: viewClient,
       });
     // I0006-R012
-    if (canWrite && row.jobStatus === 'failed')
+    if (canRetry(row))
       actions.push({
         label: 'Retry',
         icon: <RefreshIcon fontSize="small" />,
@@ -215,13 +180,23 @@ export function TenantsPage() {
         </Alert>
       ) : null}
       <StandardDataGrid
-        columns={COLUMNS}
+        columns={columnsFor(setSelected)}
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}
         selectable={false}
         emptyMessage="No tenants yet."
       />
+      {selected ? (
+        <TenantDetailDialog
+          tenant={selected}
+          onViewClient={
+            canViewClient(selected) ? () => viewClient(selected) : undefined
+          }
+          onRetry={canRetry(selected) ? () => handleRetry(selected) : undefined}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
     </>
   );
 }

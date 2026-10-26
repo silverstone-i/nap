@@ -113,6 +113,27 @@ export class PortalUserTenants extends RevisionedTableModel {
   }
 
   /**
+   * The tenant codes of each user's unarchived memberships, for the Portal
+   * Users list (I0002-R017).
+   * @param {string[]} portalUserIds
+   * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
+   * @returns {Promise<Map<string, string[]>>} Codes in order, by user ID.
+   */
+  async tenantCodesByUser(portalUserIds, { tx } = {}) {
+    if (!portalUserIds.length) return new Map();
+    const rows = await (tx ?? this.db).manyOrNone(
+      `SELECT m.portal_user_id,
+              array_agg(DISTINCT t.tenant_code ORDER BY t.tenant_code) AS codes
+         FROM ${table(this)} m
+         JOIN admin.tenants t ON t.id = m.tenant_id
+        WHERE m.portal_user_id = ANY($1::uuid[]) AND m.deactivated_at IS NULL
+        GROUP BY m.portal_user_id`,
+      [portalUserIds]
+    );
+    return new Map(rows.map(row => [row.portal_user_id, row.codes]));
+  }
+
+  /**
    * Lock and return a portal user's unarchived membership for one party in a
    * tenant (I0012-R003).
    * @param {string} portalUserId

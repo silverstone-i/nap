@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import {
   ERROR_STATUS,
+  sendConflict,
   sendData,
   sendError,
 } from '../../../../framework/envelope.js';
@@ -30,6 +31,9 @@ const NAPSOFT = { target: 'napsoft' };
  */
 function sendControlError(response, error) {
   const code = error?.code;
+  // I0006-R023: a provisioning conflict names the taken value.
+  if (code === 'CONFLICT' && error.details)
+    return sendConflict(response, error.details);
   sendError(
     response,
     typeof code === 'string' && Object.hasOwn(ERROR_STATUS, code)

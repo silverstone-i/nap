@@ -17,6 +17,15 @@ import { PasswordField } from '../../components/PasswordField.jsx';
 import { ApiError } from '../../api/client.js';
 import { listCellsOverview, provisionTenant } from '../../api/endpoints.js';
 
+const CONFLICTS = {
+  code: 'Another tenant uses this code.',
+  client: 'This client already has a tenant.',
+  email: 'This email belongs to a login that cannot be used.',
+};
+
+/** M0001-07-R002: a letter, then 1–31 letters, digits, or `_`, uppercased. */
+const CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,31}$/;
+
 /**
  * Map a provisioning failure to a message.
  * @param {unknown} err
@@ -31,8 +40,12 @@ function describeError(err) {
     return 'That cell, or the Napsoft cell, is not ready. Try again or pick another cell.';
   if (err.code === 'NOT_FOUND')
     return 'This client no longer exists or is archived.';
+  // I0006-R023: the server names the value that is taken.
   if (err.code === 'CONFLICT')
-    return 'That code is taken, this client already has a tenant, or the email belongs to a login that cannot be used.';
+    return (
+      CONFLICTS[err.details?.field] ??
+      'Another change got there first. Try again.'
+    );
   if (err.code === 'IDEMPOTENCY_CONFLICT')
     return 'This request was already submitted differently. Close and try again.';
   if (err.code === 'FORBIDDEN')
@@ -53,6 +66,9 @@ const TIERS = ['starter', 'growth', 'enterprise'];
  */
 export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
   const [code, setCode] = useState('');
+  // I0006-R022: the code's helper shows only while it is invalid.
+  const codeInvalid =
+    code.trim() !== '' && !CODE_PATTERN.test(code.trim().toUpperCase());
   const [name, setName] = useState(client.legalName);
   const [tier, setTier] = useState('starter');
   const [cells, setCells] = useState(null);
@@ -151,7 +167,12 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
             label="Code"
             value={code}
             onChange={event => setCode(event.target.value)}
-            helperText="Letters, digits, and _; starts with a letter."
+            error={codeInvalid}
+            helperText={
+              codeInvalid
+                ? 'Use letters, digits, and _, starting with a letter.'
+                : ''
+            }
             autoFocus
             required
             fullWidth
@@ -199,7 +220,6 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
               label="Administrator from contacts"
               value={contactId}
               onChange={event => pickContact(event.target.value)}
-              helperText="Fills in the name and email below."
               fullWidth
             >
               {contacts.map(contact => (
@@ -240,7 +260,6 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
             label="Temporary password"
             value={password}
             onChange={event => setPassword(event.target.value)}
-            helperText="They must change it at first sign-in."
             required
             fullWidth
           />

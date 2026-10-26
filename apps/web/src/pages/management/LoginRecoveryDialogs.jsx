@@ -32,11 +32,11 @@ const MEMBER_TYPES = Object.freeze({
 
 /**
  * A login's memberships across tenants, one row per party (I0008-R013,
- * I0012-R020).
- * @param {{user: {id: string, email: string}, describeError: (err: unknown) => string, onClose: () => void}} props
+ * I0012-R020), shown in the portal user's detail (I0008-R019).
+ * @param {{user: {id: string}, describeError: (err: unknown) => string}} props
  * @returns {import('react').JSX.Element}
  */
-export function MembershipsDialog({ user, describeError, onClose }) {
+export function MembershipsTable({ user, describeError }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
 
@@ -46,64 +46,44 @@ export function MembershipsDialog({ user, describeError, onClose }) {
       .catch(err => setError(describeError(err)));
   }, [user.id, describeError]);
 
+  if (error) return <Alert severity="error">{error}</Alert>;
+  if (rows === null)
+    return <CircularProgress aria-label="Loading memberships" />;
+  if (rows.length === 0)
+    return <Typography color="text.secondary">No memberships.</Typography>;
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      aria-labelledby="memberships-title"
-      fullWidth
-      maxWidth="sm"
-    >
-      <DialogTitle id="memberships-title" sx={{ overflowWrap: 'anywhere' }}>
-        Memberships of {user.email}
-      </DialogTitle>
-      <DialogContent>
-        {error ? (
-          <Alert severity="error">{error}</Alert>
-        ) : rows === null ? (
-          <CircularProgress aria-label="Loading memberships" />
-        ) : rows.length === 0 ? (
-          <Typography color="text.secondary">No memberships.</Typography>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table size="small" aria-label="Memberships">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Tenant</TableCell>
-                  <TableCell>Party</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {rows.map(row => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      {row.tenantName} ({row.tenantCode})
-                    </TableCell>
-                    <TableCell>
-                      {row.label ??
-                        MEMBER_TYPES[row.memberType] ??
-                        'Initial Napsoft login'}
-                    </TableCell>
-                    <TableCell>{row.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button variant="contained" onClick={onClose}>
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <Box sx={{ overflowX: 'auto' }}>
+      <Table size="small" aria-label="Memberships">
+        <TableHead>
+          <TableRow>
+            <TableCell>Tenant</TableCell>
+            <TableCell>Party</TableCell>
+            <TableCell>Status</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map(row => (
+            <TableRow key={row.id}>
+              <TableCell>
+                {row.tenantName} ({row.tenantCode})
+              </TableCell>
+              <TableCell>
+                {row.label ??
+                  MEMBER_TYPES[row.memberType] ??
+                  'Initial Napsoft login'}
+              </TableCell>
+              <TableCell>{row.status}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Box>
   );
 }
 
 /**
- * Give a login a new temporary password (I0008-R014).
+ * Give a login a new temporary password (I0008-R014). It asks only for the
+ * password (I0008-R020).
  * @param {{user: {id: string, email: string}, describeError: (err: unknown) => string, onClose: () => void, onReset: () => void}} props
  * @returns {import('react').JSX.Element}
  */
@@ -140,10 +120,6 @@ export function ResetPasswordDialog({ user, describeError, onClose, onReset }) {
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
-          <Typography variant="body2">
-            {user.email} is signed out everywhere and must replace this password
-            at next sign-in.
-          </Typography>
           <PasswordField
             label="Temporary password"
             value={password}

@@ -113,13 +113,13 @@ check role names.
   server-side via a new `GET /api/admin-tenancy/v1/accounts/users`
   endpoint, in a `StandardDataGrid` showing at minimum email, status, and
   whether a password change is required, with explicit loading, empty, and
-  error states. It must not show or manage tenant memberships.
+  error states. It must not show or manage tenant memberships. _Superseded in part by R017 and R018 (Tenants column; memberships in the detail)._
 - I0002-R006: The Portal Users screen must provide Create
   (`POST /accounts/users`, `{email, password}`, with a client-generated
   `Idempotency-Key`), Deactivate (`DELETE /accounts/users/:id`), and
   Restore (`POST /accounts/users/:id/restore`) actions using the existing
   contracts. Deactivate must require confirmation before it fires; Create
-  and Restore must not.
+  and Restore must not. _Superseded in part by R019 (Archive replaces Deactivate)._
 - I0002-R007: `GET /api/admin-tenancy/v1/tenants` must accept `cursor` and
   `limit` (1–100, default 50, matching `parseLimit`) query parameters,
   require `NAP::admin-tenancy::control::read`, and return
@@ -186,6 +186,14 @@ check role names.
   with the others and with `email` and paging. The Portal Users filter
   popover must hold Tenant, Status, Must change password, and Include
   archived, each shown as a removable chip while set. _Superseded in part by I0011-R004 ([I0011](I0011-archived-records-view.md), Include archived)._
+
+### Portal Users detail and names
+
+- I0002-R017: The Portal Users grid must show Email, Status, and Tenants by default. Tenants lists the codes of the user's memberships that are not archived. Must change password and the archived date move to the detail (R018). `GET /accounts/users` rows add `tenantCodes` (string array) and `locked` (R021).
+- I0002-R018: Selecting a user's email must open the user's detail dialog (I0001-R038): status, whether the password must change, whether the login is locked, the archived date, and the memberships (I0008-R013, I0012-R020). Its buttons are **Reset password**, **Unlock**, **Disable** or **Enable**, and **Archive** or **Restore**, each shown only when it applies. The row's ⋮ menu offers the same actions; the separate **Memberships** action is removed.
+- I0002-R019: Removing a user from the active list (`DELETE /accounts/users/:id`) must be named **Archive** everywhere: the row, the detail, and **Archive selected** (I0001-R041). Archive asks "Archive portal user?" or "Archive {count} users?" with "Archived records move to the Archived tab." Disable asks "Disable portal user?" with "They are signed out and cannot sign in until enabled." Enable and Restore run without asking (I0001-R039).
+- I0002-R020: The create action must be **New portal user**, and its dialog has no helper text. Create, Disable, Enable, Archive, Restore, Unlock, and Reset password each report success as a notice that closes on its own (I0001-R040).
+- I0002-R021: `locked` must be true while the login's account throttle row (M0001-03) has reached its failure limit and its lock has not expired; it is false otherwise, including during the short delays before the limit.
 
 ## 7. Business Rules And Invariants
 
@@ -335,6 +343,9 @@ and introduce no new error code.
 | AC12      | Deactivate selected signs out and deactivates every selected user in one request; a batch that includes the root login or a user holding an administrator role changes nothing and names each refused user.                                            | I0002-R013, I0002-R014 |
 | AC13      | Typing part of an email in the Portal Users header search lists only the users whose email contains it, ignoring case, with `%` and `_` matched literally.                                                                                             | I0002-R015             |
 | AC14      | Filtering Portal Users by tenant lists only users with a current membership there; by status or must-change-password lists only matching users; filters combine with the email search; Clear all resets them.                                          | I0002-R016, I0001-R029 |
+| AC15      | The Portal Users grid shows Email, Status, and Tenants; selecting an email opens a detail with the memberships and the actions that apply; there is no Memberships row action.                                                                         | I0002-R017, R018       |
+| AC16      | Archive replaces Deactivate on the row, the detail, and the bulk action, each asking "Archive …?"; Disable asks "Disable portal user?"; Enable and Restore run at once; each action shows a notice.                                                    | I0002-R019, R020       |
+| AC17      | A login whose account throttle reached its limit lists `locked: true` until the lock expires or Unlock clears it.                                                                                                                                      | I0002-R021             |
 
 ### Verification Evidence
 

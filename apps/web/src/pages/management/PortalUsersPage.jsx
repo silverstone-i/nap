@@ -5,12 +5,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import GroupsIcon from '@mui/icons-material/Groups';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
@@ -27,63 +27,63 @@ import {
   unlockUser,
 } from '../../api/endpoints.js';
 import { ArchiveViewTabs } from '../../grid/ArchiveViewTabs.jsx';
+import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { createCursorPageAdapter } from '../../grid/cursorPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { useArchiveView } from '../../grid/useArchiveView.js';
-import { useBulkArchive } from '../../grid/useBulkArchive.jsx';
+import {
+  ALREADY_IN_STATE,
+  useBulkArchive,
+} from '../../grid/useBulkArchive.jsx';
+import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 import { CreatePortalUserDialog } from './CreatePortalUserDialog.jsx';
-import {
-  MembershipsDialog,
-  ResetPasswordDialog,
-} from './LoginRecoveryDialogs.jsx';
+import { ResetPasswordDialog } from './LoginRecoveryDialogs.jsx';
+import { PortalUserDetailDialog } from './PortalUserDetailDialog.jsx';
 
-const COLUMNS = [
-  {
-    field: 'email',
-    headerName: 'Email',
-    flex: 2,
-    sortable: false,
-    filterable: false,
-    priority: 'essential',
-  },
-  {
-    field: 'status',
-    headerName: 'Status',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'essential',
-  },
-  {
-    field: 'mustChangePassword',
-    headerName: 'Must change password',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'essential',
-    type: 'boolean',
-  },
-  {
-    field: 'deactivatedAt',
-    headerName: 'Deactivated',
-    flex: 1,
-    sortable: false,
-    filterable: false,
-    priority: 'secondary',
-    type: 'dateTime',
-  },
-];
+/**
+ * The grid's columns (I0002-R017). Selecting an email opens the user's
+ * detail, which holds the password, lock, archived date, and memberships.
+ * @param {(row: object) => void} onOpen
+ * @returns {object[]}
+ */
+function columnsFor(onOpen) {
+  const plain = { sortable: false, filterable: false };
+  return [
+    {
+      ...plain,
+      field: 'email',
+      headerName: 'Email',
+      flex: 2,
+      priority: 'essential',
+      renderCell: ({ row }) => (
+        <Button variant="text" size="small" onClick={() => onOpen(row)}>
+          {row.email}
+        </Button>
+      ),
+    },
+    {
+      ...plain,
+      field: 'status',
+      headerName: 'Status',
+      flex: 1,
+      priority: 'essential',
+    },
+    {
+      ...plain,
+      field: 'tenantCodes',
+      headerName: 'Tenants',
+      flex: 2,
+      priority: 'secondary',
+      valueGetter: codes => (codes?.length ? codes.join(', ') : '—'),
+    },
+  ];
+}
 
-const DEACTIVATE_TEXT =
-  'Deactivated users are signed out and cannot sign in until restored.';
-
-/** I0002-R013: a bulk item's `INVALID_STATE` is the state it is already in. */
-const ALREADY = {
-  archive: 'It is already deactivated.',
-  restore: 'It is not deactivated.',
-};
+/** I0002-R019: what Archive and Disable say before they run. */
+const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';
+const DISABLE_TEXT = 'They are signed out and cannot sign in until enabled.';
 
 /** Filter choices (I0002-R016); `''` means no filter. */
 const STATUS_LABELS = { active: 'Active', disabled: 'Disabled' };
@@ -92,7 +92,7 @@ const NO_FILTERS = { tenantId: '', status: '', mustChangePassword: '' };
 
 function describeActionError(err) {
   if (err instanceof ApiError && err.code === 'ADMIN_ASSIGNED')
-    return 'Remove this user’s administrator roles before deactivating the account.';
+    return 'Remove this user’s administrator roles first.';
   if (err instanceof ApiError && err.code === 'ROOT_IMMUTABLE')
     return 'The initial Napsoft user cannot be changed.';
   if (err instanceof ApiError && err.code === 'INVALID_STATE')
@@ -109,11 +109,12 @@ function describeActionError(err) {
 /**
  * `/management/portal-users` (I0002-R005/R006, R012–R016): browse
  * portal-user accounts, searching by email (R015) and filtering by tenant,
- * status, and must-change-password (R016); create one; deactivate
- * or restore one or a page of them. Active and Archived tabs switch between
- * active and deactivated accounts, kept in the URL (I0011-R001–R005). Napsoft login recovery (I0008-R013–R016): view
- * memberships, reset the password, unlock, and disable or re-enable a
- * login.
+ * status, and must-change-password (R016); create one; archive
+ * or restore one or a page of them (R019). Active and Archived tabs switch
+ * between active and archived accounts, kept in the URL (I0011-R001–R005).
+ * Selecting an email opens the user's detail (R018), which holds the
+ * memberships and Napsoft login recovery (I0008-R013–R016, R019, R020):
+ * reset the password, unlock a locked login, and disable or enable it.
  */
 export function PortalUsersPage() {
   const [archived, setArchived] = useArchiveView();
@@ -140,11 +141,13 @@ export function PortalUsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actionError, setActionError] = useState(null);
   const { can, onError } = useCapabilities();
-  const canRead = can('admin-tenancy::accounts::read', 'napsoft');
   const canWrite = can('admin-tenancy::accounts::write', 'napsoft');
   const canListTenants = can('admin-tenancy::control::read', 'napsoft');
   const [tenants, setTenants] = useState([]);
-  const [membershipsOf, setMembershipsOf] = useState(null);
+  const [selected, setSelected] = useState(null);
+  // I0002-R019: a Disable or Archive from the detail, waiting on its confirm.
+  const [confirming, setConfirming] = useState(null);
+  const notify = useNotice();
 
   useEffect(() => {
     if (!canListTenants) return undefined;
@@ -187,7 +190,6 @@ export function PortalUsersPage() {
     noun: ['user', 'users'],
     nameOf: row => row.email,
     archived,
-    verbs: { archive: ['Deactivate', 'deactivated'] },
     run: (action, items) =>
       bulkPortalUserAction(
         action,
@@ -196,18 +198,23 @@ export function PortalUsersPage() {
     describeError: describeActionError,
     describeItem: (code, action) =>
       code === 'INVALID_STATE'
-        ? ALREADY[action]
+        ? ALREADY_IN_STATE[action]
         : describeActionError(new ApiError(code, 409)),
-    archiveText: DEACTIVATE_TEXT,
+    archiveText: ARCHIVE_TEXT,
     onDone: () => setReloadTick(tick => tick + 1),
     onError,
   });
 
-  /** Run a row action, then reload the grid or report its failure. */
-  async function act(action) {
+  /**
+   * Run a user action, then report it as a notice (I0002-R020), close the
+   * detail, and reload the grid, or report its failure.
+   */
+  async function act(action, done) {
     setActionError(null);
     try {
       await action();
+      notify(done);
+      setSelected(null);
       setReloadTick(tick => tick + 1);
     } catch (err) {
       onError(err);
@@ -279,87 +286,81 @@ export function PortalUsersPage() {
       ...bulk.actions,
       canWrite &&
         !archived && {
-          label: 'Create portal user',
+          label: 'New portal user',
           create: true,
           onClick: () => setDialogOpen(true),
         },
     ],
   });
 
-  async function handleDeactivate(row) {
-    setActionError(null);
-    try {
-      await deactivatePortalUser(row.id);
-      setReloadTick(tick => tick + 1);
-    } catch (err) {
-      onError(err);
-      setActionError(describeActionError(err));
-    }
-  }
-
-  async function handleRestore(row) {
-    setActionError(null);
-    try {
-      await restorePortalUser(row.id);
-      setReloadTick(tick => tick + 1);
-    } catch (err) {
-      onError(err);
-      setActionError(describeActionError(err));
-    }
-  }
-
-  // Mutually exclusive by construction: an archived account can only be
-  // restored, an active one only deactivated (I0002-R006).
-  function rowActions(row) {
-    const actions = [];
-    if (canRead)
-      actions.push({
-        label: 'Memberships',
-        icon: <GroupsIcon fontSize="small" />,
-        onClick: setMembershipsOf,
-      });
-    if (!canWrite) return actions;
+  /**
+   * The actions that apply to a user, for its row menu and its detail
+   * (I0002-R018). An archived account can only be restored (I0002-R006).
+   * @param {object} row
+   * @returns {object[]}
+   */
+  function actionsFor(row) {
+    if (!canWrite) return [];
     if (row.deactivatedAt)
       return [
-        ...actions,
         {
           label: 'Restore',
           icon: <RestoreFromTrashIcon fontSize="small" />,
-          onClick: handleRestore,
+          onClick: target =>
+            act(
+              () => restorePortalUser(target.id),
+              `${target.email} restored.`
+            ),
         },
       ];
     return [
-      ...actions,
       {
         label: 'Reset password',
         icon: <LockResetIcon fontSize="small" />,
         onClick: setResetting,
       },
-      {
+      // I0008-R020: Unlock only while the login is locked.
+      row.locked && {
         label: 'Unlock',
         icon: <LockOpenIcon fontSize="small" />,
-        onClick: target => act(() => unlockUser(target.id)),
+        onClick: target =>
+          act(() => unlockUser(target.id), `${target.email} unlocked.`),
       },
       row.status === 'disabled'
         ? {
             label: 'Enable',
             icon: <CheckCircleIcon fontSize="small" />,
-            onClick: target => act(() => setUserStatus(target.id, 'active')),
+            onClick: target =>
+              act(
+                () => setUserStatus(target.id, 'active'),
+                `${target.email} enabled.`
+              ),
           }
         : {
             label: 'Disable',
             icon: <BlockIcon fontSize="small" />,
-            onClick: target => act(() => setUserStatus(target.id, 'disabled')),
+            destructive: true,
+            confirmTitle: 'Disable portal user?',
+            confirmDescription: DISABLE_TEXT,
+            onClick: target =>
+              act(
+                () => setUserStatus(target.id, 'disabled'),
+                `${target.email} disabled.`
+              ),
           },
       {
-        label: 'Deactivate',
+        label: 'Archive',
         icon: <ArchiveIcon fontSize="small" />,
         destructive: true,
-        confirmTitle: 'Deactivate portal user?',
-        confirmDescription: DEACTIVATE_TEXT,
-        onClick: handleDeactivate,
+        confirmTitle: 'Archive portal user?',
+        confirmDescription: ARCHIVE_TEXT,
+        onClick: target =>
+          act(
+            () => deactivatePortalUser(target.id),
+            `${target.email} archived.`
+          ),
       },
-    ];
+    ].filter(Boolean);
   }
 
   return (
@@ -374,20 +375,41 @@ export function PortalUsersPage() {
         </Alert>
       ) : null}
       <StandardDataGrid
-        columns={COLUMNS}
+        columns={columnsFor(setSelected)}
         fetchPage={fetchPage}
         resetKey={resetKey}
-        rowActions={rowActions}
+        rowActions={actionsFor}
         onSelectionChange={bulk.onSelectionChange}
         selectable={canWrite}
         emptyMessage="No portal users yet."
       />
       {bulk.dialogs}
-      {membershipsOf ? (
-        <MembershipsDialog
-          user={membershipsOf}
+      {selected ? (
+        <PortalUserDetailDialog
+          user={selected}
+          actions={actionsFor(selected).map(action => ({
+            label: action.label,
+            onClick: () =>
+              action.destructive
+                ? setConfirming(action)
+                : action.onClick(selected),
+          }))}
           describeError={describeActionError}
-          onClose={() => setMembershipsOf(null)}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
+      {confirming ? (
+        <ConfirmDialog
+          open
+          title={confirming.confirmTitle}
+          description={confirming.confirmDescription}
+          confirmLabel={confirming.label}
+          onConfirm={() => {
+            const action = confirming;
+            setConfirming(null);
+            action.onClick(selected);
+          }}
+          onCancel={() => setConfirming(null)}
         />
       ) : null}
       {resetting ? (
@@ -396,7 +418,9 @@ export function PortalUsersPage() {
           describeError={describeActionError}
           onClose={() => setResetting(null)}
           onReset={() => {
+            notify(`Password reset for ${resetting.email}.`);
             setResetting(null);
+            setSelected(null);
             setReloadTick(tick => tick + 1);
           }}
         />
@@ -406,6 +430,7 @@ export function PortalUsersPage() {
           onClose={() => setDialogOpen(false)}
           onCreated={() => {
             setDialogOpen(false);
+            notify('Portal user created.');
             setReloadTick(tick => tick + 1);
           }}
         />

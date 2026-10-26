@@ -145,9 +145,16 @@ tenant, and holds `tenant_admin`.
   (M0005-R004).
 - I0006-R011: The Tenants screen must show each tenant's job stage, status,
   and failure code, and refresh every 2 seconds while any tenant job is
-  `queued` or `running`.
+  `queued` or `running`. _Superseded in part by R020 (job details in the tenant detail)._
 - I0006-R012: Each row's menu must offer **Retry** for a tenant whose job is
   `failed`.
+
+### Tenant detail and provisioning dialog
+
+- I0006-R020: The Tenants grid must show Code, Name, and Status. Selecting a tenant's code opens its detail dialog (I0001-R038): tier, cell database name, provisioned, **Roles ready** (the `rbac_ready` flag, renamed from "RBAC ready"), and the job's stage, status, attempts, and failure code. The detail offers **View client** and **Retry** as buttons when each applies; the row's ⋮ menu keeps both. The screen still refreshes while a job runs (R011).
+- I0006-R021: Retry must report success as a notice that closes on its own: "Retry queued for {code}." (I0001-R040).
+- I0006-R022: The Provision tenant dialog must ask for the code, name, tier (starting at `starter`), cell, first administrator, and temporary password, with no helper text except an invalid code's: "Use letters, digits, and _, starting with a letter." Tier stays in the dialog because no other place sets it.
+- I0006-R023: A provisioning `CONFLICT` must carry `details.field`: `code` when another tenant holds the code, `client` when the client already has a tenant, and `email` when the administrator's email belongs to a login that cannot be used. The dialog names that value: "Another tenant uses this code.", "This client already has a tenant.", or "This email belongs to a login that cannot be used." A conflict from a concurrent change has no field and says "Another change got there first. Try again."
 
 ## 7. Business Rules And Invariants
 
@@ -261,6 +268,9 @@ R022). An active, ready customer membership must have a `member_id`
 | AC08      | An existing active login with the same email is reused rather than duplicated.                                                                                                                                    | I0006-R002                        |
 | AC09      | A Napsoft client offers Provision tenant only without a tenant; the Tenants screen offers View client and Retry, shows stage and failure code, and refreshes while jobs run.                                      | I0006-R010–R012                   |
 | AC10      | No response, log, event, or failure code contains the temporary password or a connection detail.                                                                                                                  | I0006-R017, R018                  |
+| AC11      | The Tenants grid shows Code, Name, and Status; selecting a code opens the detail with tier, cell, Roles ready, and job details, offering View client and Retry; Retry shows a notice.                             | I0006-R020, R021                  |
+| AC12      | The Provision tenant dialog has no helper text unless the code is invalid.                                                                                                                                        | I0006-R022                        |
+| AC13      | A taken code, a client with a tenant, and an unusable email each return `CONFLICT` with `details.field` `code`, `client`, or `email`, and the dialog names the value.                                             | I0006-R023                        |
 
 ### Verification Evidence
 

@@ -149,6 +149,15 @@ function fakeAdmin() {
     },
     login_throttles: {
       clear: async key => (throttles.delete(key) ? 1 : 0),
+      hardLocked: async (keys, maxFailures) =>
+        new Set(
+          keys.filter(key => {
+            const row = throttles.get(key);
+            return (
+              row?.failures >= maxFailures && row.locked_until > new Date()
+            );
+          })
+        ),
     },
     portal_users: {
       findOneBy: async conditions => {
@@ -243,6 +252,17 @@ function fakeAdmin() {
       },
     },
     portal_user_tenants: {
+      tenantCodesByUser: async ids => {
+        const codes = new Map();
+        for (const row of membershipStore.values()) {
+          if (row.deactivated_at || !ids.includes(row.portal_user_id)) continue;
+          const code = tenantStore.get(row.tenant_id)?.tenant_code;
+          const list = codes.get(row.portal_user_id) ?? [];
+          if (code && !list.includes(code)) list.push(code);
+          codes.set(row.portal_user_id, list.sort());
+        }
+        return codes;
+      },
       findWhere: async conditions =>
         [...membershipStore.values()]
           .filter(row => !row.deactivated_at && matches(row, conditions))
@@ -847,7 +867,11 @@ describe('GET /users list', () => {
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.body.data.rows).toHaveLength(2);
-    expect(response.body.data.rows).toContainEqual(userView(user));
+    expect(response.body.data.rows).toContainEqual({
+      ...userView(user),
+      tenantCodes: [],
+      locked: false,
+    });
     expect(response.body.data.rows).toContainEqual(
       expect.objectContaining({ id: actorId })
     );
@@ -862,7 +886,12 @@ describe('GET /users list', () => {
     expect(hidden.body.data.rows.map(row => row.id)).not.toContain(user.id);
     const shown = await get(app, cookie, '?archived=true');
     expect(shown.body.data.rows).toEqual([
-      { ...userView(user), deactivatedAt: user.deactivated_at.toISOString() },
+      {
+        ...userView(user),
+        deactivatedAt: user.deactivated_at.toISOString(),
+        tenantCodes: [],
+        locked: false,
+      },
     ]);
     for (const query of ['?archived=yes', '?includeArchived=true']) {
       const bad = await get(app, cookie, query);
@@ -1227,6 +1256,43 @@ describe('login recovery (I0008)', () => {
       }
     );
     expect(response.status).toBe(ERROR_STATUS.INVALID_INPUT);
+  });
+
+  it('lists tenant codes and whether the account throttle is hard-locked (I0002-R017, R021)', async () => {
+    const { app, admin, cookie } = api();
+    const locked = seedUser(admin, { email: 'locked@example.com' });
+    const delayed = seedUser(admin, { email: 'delayed@example.com' });
+    const tenant = seedTenant(admin, { tenant_code: 'OAK' });
+    seedMembership(admin, { portal_user_id: delayed.id, tenant_id: tenant.id });
+    seedMembership(admin, {
+      portal_user_id: delayed.id,
+      tenant_id: seedTenant(admin, { tenant_code: 'OLD' }).id,
+      deactivated_at: new Date(),
+    });
+    const keyFor = email =>
+      createHmac('sha256', 'a'.repeat(32))
+        .update(`account:${email}`)
+        .digest('hex');
+    const later = new Date(Date.now() + 60_000);
+    admin.throttles.set(keyFor(locked.email), {
+      failures: 20,
+      locked_until: later,
+    });
+    // A delay before the limit is not a lock.
+    admin.throttles.set(keyFor(delayed.email), {
+      failures: 3,
+      locked_until: later,
+    });
+    const response = await request(app)
+      .get(`${BASE}/users`)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie);
+    const row = id => response.body.data.rows.find(r => r.id === id);
+    expect(row(locked.id)).toMatchObject({ locked: true, tenantCodes: [] });
+    expect(row(delayed.id)).toMatchObject({
+      locked: false,
+      tenantCodes: ['OAK'],
+    });
   });
 
   it('unlocks a login by clearing its account throttle', async () => {

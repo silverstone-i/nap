@@ -167,6 +167,11 @@ neither view memberships nor recover a login.
   the email it was created with, so the tenant turns access off, changes the
   email, and turns access on again with a new temporary password.
 
+### Recovery in the user detail
+
+- I0008-R019: The membership view (R013) and the recovery actions (R014–R016) must live in the portal user's detail dialog (I0002-R018), not in a separate dialog.
+- I0008-R020: **Unlock** must be offered only while the login is locked (I0002-R021). The Reset password dialog asks only for the temporary password, with no explanatory sentence.
+
 ## 7. Business Rules And Invariants
 
 - A temporary password is never stored in plain text in the cell, the outbox,
@@ -270,6 +275,7 @@ Disable and re-enable use the existing `PATCH /accounts/users/:id`.
 | AC09      | `support` gets `403` on the membership view and every recovery action; every recovery action on the bootstrap login returns `409 ROOT_IMMUTABLE`.          | I0008-R017, §4         |
 | AC10      | No temporary password appears in the cell, the outbox, events, logs, or any response.                                                                      | I0008 §7, §12          |
 | AC11      | While access is on, adding, editing, replacing, or archiving the person's primary email fails; after access is off, the change succeeds.                   | I0008-R018             |
+| AC12      | The memberships and recovery actions appear in the user detail; Unlock shows only for a locked login; Reset password has no explanatory sentence.          | I0008-R019, R020       |
 
 ## 14. Outstanding Questions
 

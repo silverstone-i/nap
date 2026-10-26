@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../src/api/endpoints.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { TenantsPage } from '../../src/pages/management/TenantsPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
+import { NoticeProvider } from '../../src/shell/NoticeContext.jsx';
 import { PageHeaderProvider } from '../../src/shell/PageHeaderContext.jsx';
 import { ThemeModeProvider } from '../../src/theme/ThemeModeContext.jsx';
 import {
@@ -28,6 +29,7 @@ vi.mock('react-router', async importOriginal => ({
 vi.mock('../../src/api/endpoints.js', () => ({
   listTenantsPage: vi.fn(),
   retryTenantProvisioning: vi.fn(),
+  listCellsOverview: vi.fn(async () => ({ rows: [], nextCursor: null })),
 }));
 
 vi.mock('../../src/auth/SessionContext.jsx', () => ({
@@ -69,10 +71,12 @@ const failedJob = {
 function renderPage() {
   return render(
     <ThemeModeProvider>
-      <PageHeaderProvider>
-        <ContextualActionHeader />
-        <TenantsPage />
-      </PageHeaderProvider>
+      <NoticeProvider>
+        <PageHeaderProvider>
+          <ContextualActionHeader />
+          <TenantsPage />
+        </PageHeaderProvider>
+      </NoticeProvider>
     </ThemeModeProvider>
   );
 }
@@ -130,18 +134,41 @@ describe('TenantsPage', () => {
     expect(navigate).toHaveBeenCalledWith('/directory/clients?open=client-1');
   });
 
-  it('offers Retry only for a failed job, and shows its failure (I0006-R012)', async () => {
+  it('offers Retry only for a failed job, and shows its failure in the detail (I0006-R012, R020, R021)', async () => {
     api.listTenantsPage.mockResolvedValue(
       page([{ ...TENANT, cellId: 'c1', job: failedJob }])
     );
+    api.listCellsOverview.mockResolvedValue({
+      rows: [{ cell: { id: 'c1', database_name: 'nap_dev_cell_a' } }],
+      nextCursor: null,
+    });
     api.retryTenantProvisioning.mockResolvedValue({});
     renderPage();
     const user = userEvent.setup();
-    expect(await screen.findByText('SEED_FAILED')).toBeTruthy();
+    await user.click(await screen.findByRole('button', { name: 'ACME' }));
+    const detail = await screen.findByRole('dialog', {
+      name: 'Acme Construction (ACME)',
+    });
+    expect(within(detail).getByText('SEED_FAILED')).toBeTruthy();
+    expect(within(detail).getByText('Roles ready')).toBeTruthy();
+    expect(await within(detail).findByText('nap_dev_cell_a')).toBeTruthy();
+    await user.click(within(detail).getByRole('button', { name: 'Retry' }));
+    expect(api.retryTenantProvisioning).toHaveBeenCalledWith({ tenant: 't1' });
+    expect(await screen.findByText('Retry queued for ACME.')).toBeTruthy();
 
     await user.click(screen.getByRole('menuitem', { name: 'more' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Retry' }));
-    expect(api.retryTenantProvisioning).toHaveBeenCalledWith({ tenant: 't1' });
+    expect(await screen.findByRole('menuitem', { name: 'Retry' })).toBeTruthy();
+  });
+
+  it('shows only Code, Name, and Status in the grid (I0006-R020)', async () => {
+    api.listTenantsPage.mockResolvedValue(page([TENANT]));
+    renderPage();
+    await screen.findByText('Acme Construction');
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map(header => header.textContent)
+      .filter(Boolean);
+    expect(headers).toEqual(['Code', 'Name', 'Status']);
   });
 
   it('offers no action for a provisioned tenant', async () => {
@@ -174,11 +201,13 @@ describe('TenantsPage', () => {
       const done = { ...running, stage: 'complete', status: 'completed' };
       api.listTenantsPage
         .mockResolvedValueOnce(page([{ ...TENANT, job: running }], true))
-        .mockResolvedValue(page([{ ...TENANT, job: done }], false));
+        .mockResolvedValue(
+          page([{ ...TENANT, status: 'active', job: done }], false)
+        );
       renderPage();
-      await screen.findByText('running');
+      await screen.findByText('pending');
       await vi.advanceTimersByTimeAsync(2000);
-      await screen.findByText('completed');
+      await screen.findByText('active');
       const calls = api.listTenantsPage.mock.calls.length;
       await vi.advanceTimersByTimeAsync(6000);
       expect(api.listTenantsPage).toHaveBeenCalledTimes(calls);
