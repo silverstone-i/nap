@@ -26,7 +26,7 @@ import {
   NAPSOFT_CELL_SUFFIX,
   provisionNapsoft,
 } from '../../src/application/maintenance/provisionNapsoft.js';
-import { setTenant } from '../../src/modules/access-control/seeds/napsoftSeed.js';
+import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)

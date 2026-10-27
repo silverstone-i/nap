@@ -13,8 +13,9 @@ import { verifyAppSchema } from '../../src/modules/access-control/schema/verify.
 import {
   napsoftSeedPresent,
   seedNapsoft,
-  setTenant,
 } from '../../src/modules/access-control/seeds/napsoftSeed.js';
+import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
+import { verifyReferenceData } from '../../src/modules/reference-data/schema/verify.js';
 import { cellModules } from '../../src/modules/cell.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
 
@@ -118,6 +119,21 @@ it('rejects an app table with forced row-level security (M0002-01-R006)', async 
     );
   } finally {
     await handle.db.none('ALTER TABLE app.roles NO FORCE ROW LEVEL SECURITY');
+  }
+});
+
+it('rejects a reference table with forced row-level security (M0002-01-R006)', async () => {
+  await handle.db.none(
+    'ALTER TABLE reference.countries FORCE ROW LEVEL SECURITY'
+  );
+  try {
+    await expect(verifyReferenceData(handle, cellModules)).rejects.toThrow(
+      'TABLE_CONTRACT_MISMATCH'
+    );
+  } finally {
+    await handle.db.none(
+      'ALTER TABLE reference.countries NO FORCE ROW LEVEL SECURITY'
+    );
   }
 });
 

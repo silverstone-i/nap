@@ -3,10 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
-
-export { setTenant };
-
 /** Thrown when a seeded role exists with different grants or identity (M0003-R010). */
 export class NapsoftSeedError extends Error {
   /**

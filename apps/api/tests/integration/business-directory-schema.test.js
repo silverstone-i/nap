@@ -10,7 +10,7 @@ import { createCellDatabase } from '../../src/infrastructure/runtime/cellDatabas
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateCell } from '../../src/application/maintenance/migrateCell.js';
 import { verifyAppSchema } from '../../src/modules/access-control/schema/verify.js';
-import { setTenant } from '../../src/modules/access-control/seeds/napsoftSeed.js';
+import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
 import { seedReferenceData } from '../../src/modules/reference-data/seeds/referenceSeed.js';
 import { cellModules } from '../../src/modules/cell.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
