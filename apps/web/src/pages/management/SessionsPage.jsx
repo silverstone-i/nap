@@ -26,7 +26,11 @@ import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 
-const COLUMNS = [
+/**
+ * Grid columns. The caller's session ID marks its own row (M0001-14-R005).
+ * @param {string|undefined} currentSessionId
+ */
+const sessionColumns = currentSessionId => [
   {
     field: 'email',
     headerName: 'User',
@@ -41,8 +45,14 @@ const COLUMNS = [
     flex: 2,
     sortable: false,
     filterable: false,
-    priority: 'secondary',
-    renderCell: ({ row }) => <BrowserCell row={row} />,
+    // Essential so the "This browser" dot shows on phones too (R005).
+    priority: 'essential',
+    renderCell: ({ row }) => (
+      <BrowserCell
+        browser={row.browser}
+        isCurrent={row.id === currentSessionId}
+      />
+    ),
   },
   {
     field: 'tenant',
@@ -96,13 +106,12 @@ const COLUMNS = [
  * Browser label, with a green dot named "This browser" before it on the
  * caller's own session (M0001-14-R004, R005). The list is the same for every
  * caller, so the marker comes from this tab's session.
- * @param {{row: {id: string, browser: string|null}}} props
+ * @param {{browser: string|null, isCurrent: boolean}} props
  */
-function BrowserCell({ row }) {
-  const { session } = useSession();
+function BrowserCell({ browser, isCurrent }) {
   return (
     <>
-      {session?.id === row.id ? (
+      {isCurrent ? (
         <Tooltip title="This browser">
           <Box
             component="span"
@@ -120,7 +129,7 @@ function BrowserCell({ row }) {
           />
         </Tooltip>
       ) : null}
-      {row.browser ?? '—'}
+      {browser ?? '—'}
     </>
   );
 }
@@ -162,6 +171,7 @@ const STATUS_LABELS = { active: 'Active', ended: 'Ended', all: 'All' };
  */
 export function SessionsPage() {
   const { can, onError } = useCapabilities();
+  const { session } = useSession();
   const notify = useNotice();
   const canRevoke = can('admin-tenancy::sessions::revoke', 'napsoft');
   const canListTenants = can('admin-tenancy::control::read', 'napsoft');
@@ -190,6 +200,16 @@ export function SessionsPage() {
       live = false;
     };
   }, [canListTenants]);
+
+  const allColumns = useMemo(() => sessionColumns(session?.id), [session?.id]);
+  // I0009-R015: an Active list has no Ended time to show.
+  const columns = useMemo(
+    () =>
+      filters.status === 'active'
+        ? allColumns.filter(column => column.field !== 'endedAt')
+        : allColumns,
+    [allColumns, filters.status]
+  );
 
   const fetchPage = useMemo(
     () =>
@@ -354,12 +374,7 @@ export function SessionsPage() {
         </Alert>
       ) : null}
       <StandardDataGrid
-        // I0009-R015: an Active list has no Ended time to show.
-        columns={
-          filters.status === 'active'
-            ? COLUMNS.filter(column => column.field !== 'endedAt')
-            : COLUMNS
-        }
+        columns={columns}
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}

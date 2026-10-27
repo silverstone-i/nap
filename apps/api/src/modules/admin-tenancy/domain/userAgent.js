@@ -12,7 +12,7 @@ export const USER_AGENT_MAX_LENGTH = 512;
  */
 const BROWSERS = [
   ['Edge', /\b(?:Edg|EdgA|EdgiOS)\//],
-  ['Opera', /\bOPR\//],
+  ['Opera', /\b(?:OPR|OPT)\//],
   ['Firefox', /\b(?:Firefox|FxiOS)\//],
   ['Chrome', /\b(?:Chrome|CriOS)\//],
   ['Safari', /^(?=.*\bVersion\/)(?=.*\bSafari\/)/],

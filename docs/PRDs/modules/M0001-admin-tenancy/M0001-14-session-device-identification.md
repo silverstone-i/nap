@@ -66,12 +66,12 @@ No new capability. The list keeps I0009-R004's capability check.
 - M0001-14-R002: Each session list row must carry `browser`: the browser label, or null when the session has no stored user agent. The raw user agent must never appear in an API response.
 - M0001-14-R003: The browser label must name the browser and the OS as follows. Rules are checked in the order listed and the first match wins.
 
-  | Part    | Rule (first match)                                                                                                                                         | Otherwise         |
-  | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-  | Browser | `Edg/`, `EdgA/`, or `EdgiOS/` → Edge; `OPR/` → Opera; `Firefox/` or `FxiOS/` → Firefox; `Chrome/` or `CriOS/` → Chrome; `Safari/` with `Version/` → Safari | "Unknown browser" |
-  | OS      | `iPhone` or `iPad` → iOS; `Android` → Android; `Windows` → Windows; `CrOS` → ChromeOS; `Mac OS X` or `Macintosh` → macOS; `Linux` → Linux                  | omitted           |
+  | Part    | Rule (first match)                                                                                                                                                   | Otherwise         |
+  | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+  | Browser | `Edg/`, `EdgA/`, or `EdgiOS/` → Edge; `OPR/` or `OPT/` → Opera; `Firefox/` or `FxiOS/` → Firefox; `Chrome/` or `CriOS/` → Chrome; `Safari/` with `Version/` → Safari | "Unknown browser" |
+  | OS      | `iPhone` or `iPad` → iOS; `Android` → Android; `Windows` → Windows; `CrOS` → ChromeOS; `Mac OS X` or `Macintosh` → macOS; `Linux` → Linux                            | omitted           |
 
-  With a known OS the label is "<Browser> on <OS>"; without one it is the browser alone.
+  With a known OS the label is "<Browser> on <OS>"; without one it is the browser alone. iPadOS Safari sends a macOS user agent with no `iPad` token, so its sessions are labelled macOS; the header cannot tell them apart.
 
 - M0001-14-R004: The Sessions screen must show a Browser column after User. A row with a null browser shows "—".
 - M0001-14-R005: The row for the caller's own session must show a green dot before its browser label, named "This browser" for screen readers and in a tooltip. No other row shows it.
@@ -116,10 +116,10 @@ reads it.
 | AC02      | Login without a `User-Agent` stores null; the row shows `browser: null`.                                                                                                                   | M0001-14-R001, M0001-14-R002 |
 | AC03      | A 600-character header is stored as its first 512 characters.                                                                                                                              | M0001-14-R001, M0001-14-R007 |
 | AC04      | Real headers for Edge, Opera, Firefox, Chrome, and Safari on Windows, macOS, iOS, Android, ChromeOS, and Linux produce the labels in R003; an unrecognized header gives "Unknown browser". | M0001-14-R003                |
-| AC05      | After token rotation and tenant selection, the session's stored user agent is unchanged.                                                                                                   | M0001-14-R006                |
+| AC05      | After token rotation, tenant selection, and password change, the session's stored user agent is unchanged.                                                                                 | M0001-14-R006                |
 | AC06      | No list response contains a `user_agent` field or the raw header.                                                                                                                          | M0001-14-R002, M0001-14-R007 |
 | AC07      | The Sessions screen shows a Browser column after User, "—" for a null browser, and the "This browser" dot on the caller's row only.                                                        | M0001-14-R004, M0001-14-R005 |
-| AC08      | `verifyAdmin` passes after migration 003.                                                                                                                                                  | M0001-14-R001                |
+| AC08      | `verifyAdmin` passes after baseline migration `001-admin-tenancy`.                                                                                                                         | M0001-14-R001                |
 
 ## 14. Outstanding Questions
 

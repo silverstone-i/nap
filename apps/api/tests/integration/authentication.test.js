@@ -729,6 +729,27 @@ describe('password change', () => {
     expect(again.session.restricted).toBe(false);
   }, 60000);
 
+  it('keeps the stored user agent through a password change (M0001-14-R006, AC05)', async () => {
+    const user = await portalUser({ mustChange: true });
+    const own = await login(db, policies, {
+      email: user.email,
+      password: PASSWORD,
+      clientAddress: '198.51.100.53',
+      userAgent: 'Firefox/131.0',
+    });
+    await changePassword(db, policies, {
+      session: own.session,
+      token: own.token,
+      currentPassword: PASSWORD,
+      newPassword: REPLACEMENT,
+    });
+    expect(
+      await db.one('SELECT user_agent FROM admin.sessions WHERE id=$1', [
+        own.session.id,
+      ])
+    ).toEqual({ user_agent: 'Firefox/131.0' });
+  }, 60000);
+
   it('preserves the old hash and flag when the event store rejects the write', async () => {
     const user = await portalUser({ mustChange: true });
     const own = await signIn(user, '198.51.100.53');
