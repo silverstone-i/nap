@@ -214,12 +214,11 @@ END $$;`);
         'CREATE TRIGGER protect_record BEFORE UPDATE ON app.$1:name FOR EACH ROW EXECUTE FUNCTION app.protect_record($2:csv)',
         [schema.table, immutable]
       );
-      // M0002-01-R006: with no tenant setting, a query returns no rows.
-      // FORCE applies the rule to the owner (`nap-admin`) as well.
-      await db.none(
-        'ALTER TABLE app.$1:name ENABLE ROW LEVEL SECURITY; ALTER TABLE app.$1:name FORCE ROW LEVEL SECURITY',
-        [schema.table]
-      );
+      // M0002-01-R006: as `nap-app`, with no tenant setting, a query returns no rows.
+      // Not FORCEd: the owner (`nap-admin`) sees every tenant's rows.
+      await db.none('ALTER TABLE app.$1:name ENABLE ROW LEVEL SECURITY', [
+        schema.table,
+      ]);
       await db.none(
         "CREATE POLICY tenant_isolation ON app.$1:name USING (tenant_id = NULLIF(current_setting('nap.tenant_id', true), '')::uuid) WITH CHECK (tenant_id = NULLIF(current_setting('nap.tenant_id', true), '')::uuid)",
         [schema.table]

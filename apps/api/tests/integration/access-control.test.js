@@ -13,8 +13,9 @@ import { verifyAppSchema } from '../../src/modules/access-control/schema/verify.
 import {
   napsoftSeedPresent,
   seedNapsoft,
-  setTenant,
 } from '../../src/modules/access-control/seeds/napsoftSeed.js';
+import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
+import { verifyReferenceData } from '../../src/modules/reference-data/schema/verify.js';
 import { cellModules } from '../../src/modules/cell.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
 
@@ -92,7 +93,7 @@ afterAll(async () => {
   );
 });
 
-it('creates the three role tables with forced tenant RLS and a clean contract; reruns are no-ops (M0003 AC01)', async () => {
+it('creates the three role tables with unforced tenant RLS and a clean contract; reruns are no-ops (M0003 AC01)', async () => {
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -101,35 +102,72 @@ it('creates the three role tables with forced tenant RLS and a clean contract; r
       ORDER BY c.relname`
   );
   expect(tables).toEqual([
-    { name: 'held_roles', rls: true, force: true },
-    { name: 'role_assignments', rls: true, force: true },
-    { name: 'role_grants', rls: true, force: true },
-    { name: 'roles', rls: true, force: true },
+    { name: 'held_roles', rls: true, force: false },
+    { name: 'role_assignments', rls: true, force: false },
+    { name: 'role_grants', rls: true, force: false },
+    { name: 'roles', rls: true, force: false },
   ]);
   await verifyAppSchema(handle, cellModules);
   expect((await migrateCell(config)).status).toBe('unchanged');
 });
 
-it('returns no rows and rejects writes with no tenant setting, for nap-app and nap-admin', async () => {
+it('rejects an app table with forced row-level security (M0002-01-R006)', async () => {
+  await handle.db.none('ALTER TABLE app.roles FORCE ROW LEVEL SECURITY');
+  try {
+    await expect(verifyAppSchema(handle, cellModules)).rejects.toThrow(
+      'TABLE_CONTRACT_MISMATCH'
+    );
+  } finally {
+    await handle.db.none('ALTER TABLE app.roles NO FORCE ROW LEVEL SECURITY');
+  }
+});
+
+it('rejects a reference table with forced row-level security (M0002-01-R006)', async () => {
+  await handle.db.none(
+    'ALTER TABLE reference.countries FORCE ROW LEVEL SECURITY'
+  );
+  try {
+    await expect(verifyReferenceData(handle, cellModules)).rejects.toThrow(
+      'TABLE_CONTRACT_MISMATCH'
+    );
+  } finally {
+    await handle.db.none(
+      'ALTER TABLE reference.countries NO FORCE ROW LEVEL SECURITY'
+    );
+  }
+});
+
+it('returns no rows and rejects writes with no tenant setting for nap-app; nap-admin, the owner, is not filtered', async () => {
   await inTenant(handle, napsoft.tenantId, tx =>
     handle.db.roles.insert(
       { tenant_id: napsoft.tenantId, code: 'visible', name: 'Visible' },
       { tx }
     )
   );
-  for (const target of [app, handle]) {
-    expect(
-      await inTenant(target, null, tx => tx.any('SELECT id FROM app.roles'))
-    ).toEqual([]);
-    await expect(
-      inTenant(target, null, tx =>
-        tx.none(
-          "INSERT INTO app.roles (tenant_id, code, name) VALUES ($1, 'x', 'X')",
-          [napsoft.tenantId]
-        )
+  expect(
+    await inTenant(app, null, tx => tx.any('SELECT id FROM app.roles'))
+  ).toEqual([]);
+  await expect(
+    inTenant(app, null, tx =>
+      tx.none(
+        "INSERT INTO app.roles (tenant_id, code, name) VALUES ($1, 'x', 'X')",
+        [napsoft.tenantId]
       )
-    ).rejects.toThrow();
-  }
+    )
+  ).rejects.toThrow();
+  expect(
+    await inTenant(handle, null, tx => tx.any('SELECT code FROM app.roles'))
+  ).toEqual([{ code: 'visible' }]);
+  // The write succeeds; throwing afterward rolls it back.
+  await expect(
+    inTenant(handle, null, async tx => {
+      await tx.none(
+        "INSERT INTO app.roles (tenant_id, code, name) VALUES ($1, 'x', 'X')",
+        [napsoft.tenantId]
+      );
+      throw new Error('ROLLBACK');
+    })
+  ).rejects.toThrow('ROLLBACK');
   expect(
     await inTenant(app, napsoft.tenantId, tx =>
       tx.any('SELECT code FROM app.roles')

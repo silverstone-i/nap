@@ -77,7 +77,7 @@ M0001-00 setup establishes both PostgreSQL roles on the server.
 - M0002-01-R003: The cell module registry must be separate from the admin registry. Validation must run before any connection opens and reject a descriptor that targets another database, uses a schema other than `cell`, `reference`, `app`, or `reporting`, repeats a module name or migration ID, lacks a migration array, or registers a model whose schema object names another schema or table.
 - M0002-01-R004: The cell migration runner must connect to one cell database as `nap-admin`, apply pending migrations through `pg-schemata` one schema at a time in the order `cell`, `reference`, `app`, `reporting`, skip a schema with no registered module, run the catalog check, and close the connection on success and failure.
 - M0002-01-R005: The runner must report `applied` or `unchanged` with the database name, and must not report success after a failed or incomplete run.
-- M0002-01-R006: `cell` tables must not use RLS. Only system code (the sync inter-module workflows, `withTenantTransaction`, the identity check) reads or writes them, and it names the tenant explicitly, the same as `admin` tables. Tenant business tables in the `app` and `reporting` schemas must enable RLS with the rule `<column> = NULLIF(current_setting('nap.tenant_id', true), '')::uuid`; with no tenant setting, such a query returns no rows.
+- M0002-01-R006: `cell` tables must not use RLS. Only system code (the sync inter-module workflows, `withTenantTransaction`, the identity check) reads or writes them, and it names the tenant explicitly, the same as `admin` tables. Tenant business tables in the `app` and `reporting` schemas must enable RLS with the rule `<column> = NULLIF(current_setting('nap.tenant_id', true), '')::uuid`; with no tenant setting, such a query by `nap-app` returns no rows. No table may use `FORCE ROW LEVEL SECURITY`: the owner, `nap-admin`, reads and writes every tenant's rows, so maintenance code running as `nap-admin` must name the tenant explicitly.
 
 ## 7. Business Rules And Invariants
 
@@ -226,16 +226,17 @@ Errors carry a code and the database name, never credentials.
 
 ## 13. Acceptance Criteria
 
-| Criterion | Required result                                                                                                                                           | Requirements                 |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| AC01      | The five schema objects, models, and repository entries match the migrated catalog of a disposable cell database.                                         | M0002-01-R001, M0002-01-R002 |
-| AC02      | Invalid descriptors fail before any connection opens; the admin registry rejects a cell descriptor and the cell registry rejects an admin one.            | M0002-01-R003                |
-| AC03      | A first run reports `applied`, a second reports `unchanged`, and a failed run records nothing in the ledger; connections close on every path.             | M0002-01-R004, M0002-01-R005 |
-| AC04      | No `cell` table has RLS enabled; as `nap-app`, with no tenant setting, every tenant's rows are readable and writable and `physical_identity` is readable. | M0002-01-R006                |
-| AC05      | As `nap-app`, creating or altering a table fails, a second `physical_identity` row fails, and an identity change fails.                                   | M0002-01-R008, M0002-01-R011 |
-| AC06      | A changed applied migration fails checksum validation.                                                                                                    | M0002-01-R009                |
-| AC07      | API startup runs no cell migration, and runner output on success and failure contains no credentials.                                                     | M0002-01-R010, M0002-01-R012 |
-| AC08      | No foreign key in `cell` references the admin database.                                                                                                   | M0002-01-R007                |
+| Criterion | Required result                                                                                                                                                                                                                                                 | Requirements                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| AC01      | The five schema objects, models, and repository entries match the migrated catalog of a disposable cell database.                                                                                                                                               | M0002-01-R001, M0002-01-R002 |
+| AC02      | Invalid descriptors fail before any connection opens; the admin registry rejects a cell descriptor and the cell registry rejects an admin one.                                                                                                                  | M0002-01-R003                |
+| AC03      | A first run reports `applied`, a second reports `unchanged`, and a failed run records nothing in the ledger; connections close on every path.                                                                                                                   | M0002-01-R004, M0002-01-R005 |
+| AC04      | No `cell` table has RLS enabled; as `nap-app`, with no tenant setting, every tenant's rows are readable and writable and `physical_identity` is readable.                                                                                                       | M0002-01-R006                |
+| AC05      | As `nap-app`, creating or altering a table fails, a second `physical_identity` row fails, and an identity change fails.                                                                                                                                         | M0002-01-R008, M0002-01-R011 |
+| AC06      | A changed applied migration fails checksum validation.                                                                                                                                                                                                          | M0002-01-R009                |
+| AC07      | API startup runs no cell migration, and runner output on success and failure contains no credentials.                                                                                                                                                           | M0002-01-R010, M0002-01-R012 |
+| AC08      | No foreign key in `cell` references the admin database.                                                                                                                                                                                                         | M0002-01-R007                |
+| AC09      | Every `app` table has RLS enabled and none is forced; as `nap-app`, with no tenant setting, an `app` query returns no rows and a write fails, while `nap-admin` reads and writes every tenant's rows; verification rejects a forced `app` or `reference` table. | M0002-01-R006                |
 
 ### Verification Evidence
 
@@ -255,6 +256,12 @@ Local validation on 2026-09-23: `npm run lint`, `npm run format:check`,
 
 RLS removed from `cell` tables on 2026-09-24, before any persistent cell ran
 `001`: `npm run test:db:local` passed all 179 tests.
+
+`FORCE ROW LEVEL SECURITY` removed from `app` tables on 2026-10-26 (AC09):
+`npm run test:db:local` passed all 333 tests.
+[Access-control tests](../../../../apps/api/tests/integration/access-control.test.js)
+cover `nap-app` filtering, `nap-admin` reading and writing every tenant's
+rows, and verification rejecting a forced `app` or `reference` table.
 
 Final verification requires the pull request to merge with passing CI.
 

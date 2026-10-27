@@ -10,8 +10,6 @@
  * It is idempotent, so a retried stage finds the row and adds nothing.
  */
 
-import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
-
 /**
  * Create the tenant's settings row if it is missing.
  * @param {object} db Cell repository handle.
@@ -20,7 +18,6 @@ import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js'
  * @returns {Promise<void>}
  */
 export async function seedTenantSettings(db, tx, tenantId) {
-  await setTenant(tx, tenantId);
   if (!(await db.tenant_settings.byTenant(tenantId, { tx })))
     await db.tenant_settings.insert({ tenant_id: tenantId }, { tx });
 }
@@ -33,6 +30,5 @@ export async function seedTenantSettings(db, tx, tenantId) {
  * @returns {Promise<boolean>}
  */
 export async function tenantSettingsPresent(db, tx, tenantId) {
-  await setTenant(tx, tenantId);
   return Boolean(await db.tenant_settings.byTenant(tenantId, { tx }));
 }

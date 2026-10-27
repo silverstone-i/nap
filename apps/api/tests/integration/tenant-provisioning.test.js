@@ -184,41 +184,54 @@ async function cellRoles(cellId, tenantId) {
   );
   try {
     await cell.connect();
+    // nap-admin owns the app tables, so row-level security does not apply
+    // to it; every query names the tenant.
     return await cell.db.tx(async tx => {
-      await tx.one("SELECT set_config('nap.tenant_id', $1, true)", [tenantId]);
       return {
         roles: await tx.any(
           `SELECT r.code, r.is_immutable, g.pattern FROM app.roles r
-             JOIN app.role_grants g ON g.role_id=r.id ORDER BY r.code`
+             JOIN app.role_grants g ON g.role_id=r.id
+            WHERE r.tenant_id=$1 ORDER BY r.code`,
+          [tenantId]
         ),
         assignments: await tx.any(
           `SELECT m.portal_user_id, r.code FROM app.role_assignments a
              JOIN app.roles r ON r.id=a.role_id
-             JOIN cell.tenant_members m ON m.id=a.membership_id`
+             JOIN cell.tenant_members m ON m.id=a.membership_id
+            WHERE a.tenant_id=$1`,
+          [tenantId]
         ),
         // M0005-R022: the first administrator's directory rows.
         people: await tx.any(
           `SELECT x.party_id, p.kind, x.first_name, x.last_name, x.is_portal_user
-             FROM app.people x JOIN app.parties p ON p.id=x.party_id`
+             FROM app.people x JOIN app.parties p ON p.id=x.party_id
+            WHERE x.tenant_id=$1`,
+          [tenantId]
         ),
         emails: await tx.any(
           `SELECT party_id, value FROM app.contact_methods
-            WHERE type='email' AND is_primary AND deactivated_at IS NULL`
+            WHERE tenant_id=$1 AND type='email' AND is_primary
+              AND deactivated_at IS NULL`,
+          [tenantId]
         ),
         designations: await tx.any(
           `SELECT party_id, is_primary_contact, is_billing_contact
              FROM app.people
-            WHERE (is_primary_contact OR is_billing_contact)
-              AND deactivated_at IS NULL`
+            WHERE tenant_id=$1 AND (is_primary_contact OR is_billing_contact)
+              AND deactivated_at IS NULL`,
+          [tenantId]
         ),
         labels: await tx.one(
-          'SELECT count(*)::int AS n FROM app.contact_labels'
+          'SELECT count(*)::int AS n FROM app.contact_labels WHERE tenant_id=$1',
+          [tenantId]
         ),
         formats: await tx.one(
-          'SELECT count(*)::int AS n FROM app.tax_id_formats'
+          'SELECT count(*)::int AS n FROM app.tax_id_formats WHERE tenant_id=$1',
+          [tenantId]
         ),
         settings: await tx.one(
-          'SELECT count(*)::int AS n FROM app.tenant_settings'
+          'SELECT count(*)::int AS n FROM app.tenant_settings WHERE tenant_id=$1',
+          [tenantId]
         ),
       };
     });

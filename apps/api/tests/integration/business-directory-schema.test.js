@@ -10,7 +10,7 @@ import { createCellDatabase } from '../../src/infrastructure/runtime/cellDatabas
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateCell } from '../../src/application/maintenance/migrateCell.js';
 import { verifyAppSchema } from '../../src/modules/access-control/schema/verify.js';
-import { setTenant } from '../../src/modules/access-control/seeds/napsoftSeed.js';
+import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
 import { seedReferenceData } from '../../src/modules/reference-data/seeds/referenceSeed.js';
 import { cellModules } from '../../src/modules/cell.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
@@ -109,7 +109,7 @@ afterAll(async () => {
   );
 });
 
-it('AC01: creates the seven directory tables with forced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
+it('AC01: creates the seven directory tables with unforced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -118,7 +118,7 @@ it('AC01: creates the seven directory tables with forced tenant RLS; the app sch
     [TABLES]
   );
   expect(tables).toEqual(
-    TABLES.map(t => ({ name: t, rls: true, force: true }))
+    TABLES.map(t => ({ name: t, rls: true, force: false }))
   );
   await verifyAppSchema(handle, cellModules);
   expect((await migrateCell(config)).status).toBe('unchanged');

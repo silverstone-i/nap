@@ -3,10 +3,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
-
-export { setTenant };
-
 /** Thrown when a seeded role exists with different grants or identity (M0003-R010). */
 export class NapsoftSeedError extends Error {
   /**
@@ -60,8 +56,9 @@ async function matches(db, tx, row, role) {
  *
  * Idempotent by role `code`: a matching role is left unchanged, and a role
  * whose grants or immutability differ fails the seed, since changing an
- * immutable role needs a reviewed migration. Sets `nap.tenant_id` for the
- * transaction first, so the writes pass the row-level security rule.
+ * immutable role needs a reviewed migration. Runs as `nap-admin`, which
+ * row-level security does not filter, so every query names the tenant, role,
+ * or membership (M0002-01-R006).
  * @param {object} db Cell repository handle with `roles`, `role_grants`, and `role_assignments`.
  * @param {import('pg-promise').IDatabase<unknown>} tx
  * @param {{tenantId: string, membershipId: string, roles: {code: string, name: string, grants: string[]}[], assign: string}} seed
@@ -73,7 +70,6 @@ export async function seedRoles(
   tx,
   { tenantId, membershipId, roles, assign }
 ) {
-  await setTenant(tx, tenantId);
   const created = [];
   const ids = {};
   for (const role of roles) {
@@ -130,7 +126,6 @@ export async function rolesPresent(
   tx,
   { tenantId, membershipId, roles, assign }
 ) {
-  await setTenant(tx, tenantId);
   let assigned = null;
   for (const role of roles) {
     const row = await db.roles.lockByCode(tenantId, role.code, { tx });

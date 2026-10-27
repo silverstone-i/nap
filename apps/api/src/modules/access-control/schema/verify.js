@@ -32,7 +32,7 @@ async function catalog(db, schema, order) {
  * `protect_record()` function and the grant rules.
  *
  * Checks `app` schema ownership and grants, the table set, row-level
- * security enabled and forced on every module table with the single
+ * security enabled, never forced, on every module table with the single
  * `tenant_isolation` policy (M0002-01-R006), `nap-app` table privileges,
  * absence of PUBLIC access, the trigger function and triggers, and the
  * `app.schema_migrations` ledger. It then builds the runtime model
@@ -68,7 +68,7 @@ export async function verifyAppSchema(handle, modules) {
         t =>
           t.owner === 'nap-admin' &&
           t.rls === (t.name !== 'schema_migrations') &&
-          t.force === (t.name !== 'schema_migrations')
+          !t.force
       ),
     'TABLE_CONTRACT_MISMATCH'
   );
