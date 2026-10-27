@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.35.0] - 2026-10-27
+
 ### Added
 
 - Sessions shows a Browser column, such as "Chrome on macOS", and marks the caller's own row with a green "This browser" dot (M0001-14-R001–R007). Each sign-in stores its `User-Agent`, capped at 512 characters, in the new `admin.sessions.user_agent` column, added in place in baseline migration `001-admin-tenancy`; the API returns only the derived label. Sessions from before the change show "—". Recreate existing admin databases.
