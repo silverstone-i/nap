@@ -4,7 +4,7 @@
 
 | Field                | Value                                                                                                                                                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status               | Accepted                                                                                                                                                                                                                        |
+| Status               | Implemented                                                                                                                                                                                                                     |
 | Type                 | Module Work Unit                                                                                                                                                                                                                |
 | Family               | [M0001: Admin Tenancy](../M0001-admin-tenancy.md)                                                                                                                                                                               |
 | Related architecture | [BFF](../../../architecture/bff.md), [Migrations](../../../architecture/migrations.md)                                                                                                                                          |
@@ -124,3 +124,21 @@ reads it.
 ## 14. Outstanding Questions
 
 None.
+
+### Verification Evidence
+
+Local validation on 2026-10-27: `npm run lint`, `npm run format:check`,
+`npm test` (638 API unit, 314 web, 25 toolchain, 20 shared), `npm run build`,
+and `npm run licenses` passed. `npm run test:db:local` passed all 337
+integration tests against a throwaway PostgreSQL 18 cluster. CI passed on PR
+#81.
+
+[Integration tests](../../../../apps/api/tests/integration/authentication.test.js)
+cover AC01–AC03 through `login` (a trimmed header, a missing one, and a
+600-character one cut to 512) and AC05's password change.
+[Session integration tests](../../../../apps/api/tests/integration/session-management.test.js)
+cover AC05's rotation and tenant selection and AC06's list rows, which carry
+`browser` and no raw header. [Admin foundation tests](../../../../apps/api/tests/integration/admin-foundation.test.js)
+cover AC08. [Unit tests](../../../../apps/api/tests/unit/userAgent.test.js)
+cover AC04's browser and OS labels, including Opera on iOS. [Sessions page
+tests](../../../../apps/web/tests/pages/SessionsPage.test.jsx) cover AC07.
