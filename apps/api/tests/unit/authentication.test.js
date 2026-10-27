@@ -238,10 +238,11 @@ function fakeAdmin({ users = [], sessions = [], memberships = [] } = {}) {
     },
     sessions: {
       lockLiveForUser: async () => [],
-      insertSession: async ({ portalUserId, tokenHash }) => {
+      insertSession: async ({ portalUserId, tokenHash, userAgent }) => {
         const row = sessionRow({
           portal_user_id: portalUserId,
           token_hash: tokenHash,
+          user_agent: userAgent,
         });
         byHash.set(tokenHash, row);
         return { ...row };
@@ -633,6 +634,23 @@ describe('POST /auth/login', () => {
     expect(admin.events.map(event => event.event_key)).toEqual([
       'session.created',
       'auth.login.succeeded',
+    ]);
+  }, 20_000);
+
+  it('stores the capped User-Agent on the new session, or null without one (M0001-14-R001)', async () => {
+    const { app, admin } = api({ users: [user()] });
+    await post(app, '/auth/login', { email: EMAIL, password: PASSWORD }).set(
+      'User-Agent',
+      `  ${'x'.repeat(600)}  `
+    );
+    await request(app)
+      .post('/api/admin-tenancy/v1/auth/login')
+      .set('Origin', ORIGIN)
+      .unset('User-Agent')
+      .send({ email: EMAIL, password: PASSWORD });
+    expect([...admin.sessions.values()].map(row => row.user_agent)).toEqual([
+      'x'.repeat(512),
+      null,
     ]);
   }, 20_000);
 

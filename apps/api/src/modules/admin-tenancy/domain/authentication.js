@@ -194,6 +194,7 @@ async function isKnownDevice(db, policy, token, account) {
  * @param {unknown} [request.clientAddress] Value of `request.ip`.
  * @param {unknown} [request.knownDeviceToken] Value of the known-device cookie.
  * @param {string|null} [request.requestId] Correlation identifier.
+ * @param {unknown} [request.userAgent] Request `User-Agent`, stored on the new session (M0001-14-R001).
  * @returns {Promise<{token: string, session: object, knownDevice: {token: string, maxAgeMs: number}|null}>} The only copy of the token that leaves this function; `knownDevice` is `null` for a restricted session.
  * @throws {AdminAuthError} `UNAUTHENTICATED`, `THROTTLED`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
  */
@@ -206,6 +207,7 @@ export async function login(
     clientAddress = null,
     knownDeviceToken = null,
     requestId = null,
+    userAgent = null,
   }
 ) {
   const parsed = parseAuthenticationPolicies(policies);
@@ -302,7 +304,12 @@ export async function login(
       const created = await createSession(
         db,
         parsed.session,
-        { portalUserId: credential.id, method: LOGIN_METHOD, requestId },
+        {
+          portalUserId: credential.id,
+          method: LOGIN_METHOD,
+          requestId,
+          userAgent,
+        },
         { tx }
       );
       await appendAuthEvent(

@@ -245,6 +245,26 @@ describe('login', () => {
     ).toEqual({ method: 'password' });
   });
 
+  it('stores the request User-Agent on the session it opens (M0001-14-R001, AC01–AC03)', async () => {
+    const user = await portalUser();
+    const opened = header =>
+      login(db, policies, {
+        email: user.email,
+        password: PASSWORD,
+        clientAddress: ADDRESS,
+        userAgent: header,
+      }).then(({ session }) =>
+        db.one('SELECT user_agent FROM admin.sessions WHERE id=$1', [
+          session.id,
+        ])
+      );
+    expect(await opened(' Firefox/131.0 ')).toEqual({
+      user_agent: 'Firefox/131.0',
+    });
+    expect(await opened(undefined)).toEqual({ user_agent: null });
+    expect((await opened('q'.repeat(600))).user_agent).toHaveLength(512);
+  });
+
   it('opens a restricted session for a temporary password', async () => {
     const user = await portalUser({ mustChange: true });
     const { token, session } = await login(db, policies, {
@@ -707,6 +727,27 @@ describe('password change', () => {
       clientAddress: '198.51.100.52',
     });
     expect(again.session.restricted).toBe(false);
+  }, 60000);
+
+  it('keeps the stored user agent through a password change (M0001-14-R006, AC05)', async () => {
+    const user = await portalUser({ mustChange: true });
+    const own = await login(db, policies, {
+      email: user.email,
+      password: PASSWORD,
+      clientAddress: '198.51.100.53',
+      userAgent: 'Firefox/131.0',
+    });
+    await changePassword(db, policies, {
+      session: own.session,
+      token: own.token,
+      currentPassword: PASSWORD,
+      newPassword: REPLACEMENT,
+    });
+    expect(
+      await db.one('SELECT user_agent FROM admin.sessions WHERE id=$1', [
+        own.session.id,
+      ])
+    ).toEqual({ user_agent: 'Firefox/131.0' });
   }, 60000);
 
   it('preserves the old hash and flag when the event store rejects the write', async () => {

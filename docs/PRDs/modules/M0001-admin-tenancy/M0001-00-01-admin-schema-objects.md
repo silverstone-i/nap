@@ -238,7 +238,8 @@ export const portalUserTenantsSchema = {
 ## `admin.sessions`
 
 Stores hashed session credentials, expiry, and selected tenant. A null
-selected tenant means no tenant is selected.
+selected tenant means no tenant is selected. `user_agent` is the sign-in
+request's `User-Agent`, capped at 512 characters (M0001-14).
 
 ```js
 export const sessionsSchema = {
@@ -265,6 +266,7 @@ export const sessionsSchema = {
     },
     { name: 'idle_expires_at', type: 'timestamptz', notNull: true },
     { name: 'absolute_expires_at', type: 'timestamptz', notNull: true },
+    { name: 'user_agent', type: 'text' },
   ],
   constraints: {
     primaryKey: ['id'],

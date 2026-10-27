@@ -5,11 +5,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ApiError } from '../../api/client.js';
 import { denialMessage } from '../../auth/capabilities.js';
+import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
 import {
   listSessionsPage,
@@ -23,7 +26,11 @@ import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 
-const COLUMNS = [
+/**
+ * Grid columns. The caller's session ID marks its own row (M0001-14-R005).
+ * @param {string|undefined} currentSessionId
+ */
+const sessionColumns = currentSessionId => [
   {
     field: 'email',
     headerName: 'User',
@@ -31,6 +38,21 @@ const COLUMNS = [
     sortable: false,
     filterable: false,
     priority: 'essential',
+  },
+  {
+    field: 'browser',
+    headerName: 'Browser',
+    flex: 2,
+    sortable: false,
+    filterable: false,
+    // Essential so the "This browser" dot shows on phones too (R005).
+    priority: 'essential',
+    renderCell: ({ row }) => (
+      <BrowserCell
+        browser={row.browser}
+        isCurrent={row.id === currentSessionId}
+      />
+    ),
   },
   {
     field: 'tenant',
@@ -80,6 +102,38 @@ const COLUMNS = [
   },
 ];
 
+/**
+ * Browser label, with a green dot named "This browser" before it on the
+ * caller's own session (M0001-14-R004, R005). The list is the same for every
+ * caller, so the marker comes from this tab's session.
+ * @param {{browser: string|null, isCurrent: boolean}} props
+ */
+function BrowserCell({ browser, isCurrent }) {
+  return (
+    <>
+      {isCurrent ? (
+        <Tooltip title="This browser">
+          <Box
+            component="span"
+            role="img"
+            aria-label="This browser"
+            sx={{
+              display: 'inline-block',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: 'success.main',
+              mr: 1,
+              verticalAlign: 'middle',
+            }}
+          />
+        </Tooltip>
+      ) : null}
+      {browser ?? '—'}
+    </>
+  );
+}
+
 const REVOKE_TEXT = 'This user is signed out of this session.';
 
 /**
@@ -117,6 +171,7 @@ const STATUS_LABELS = { active: 'Active', ended: 'Ended', all: 'All' };
  */
 export function SessionsPage() {
   const { can, onError } = useCapabilities();
+  const { session } = useSession();
   const notify = useNotice();
   const canRevoke = can('admin-tenancy::sessions::revoke', 'napsoft');
   const canListTenants = can('admin-tenancy::control::read', 'napsoft');
@@ -145,6 +200,16 @@ export function SessionsPage() {
       live = false;
     };
   }, [canListTenants]);
+
+  const allColumns = useMemo(() => sessionColumns(session?.id), [session?.id]);
+  // I0009-R015: an Active list has no Ended time to show.
+  const columns = useMemo(
+    () =>
+      filters.status === 'active'
+        ? allColumns.filter(column => column.field !== 'endedAt')
+        : allColumns,
+    [allColumns, filters.status]
+  );
 
   const fetchPage = useMemo(
     () =>
@@ -309,12 +374,7 @@ export function SessionsPage() {
         </Alert>
       ) : null}
       <StandardDataGrid
-        // I0009-R015: an Active list has no Ended time to show.
-        columns={
-          filters.status === 'active'
-            ? COLUMNS.filter(column => column.field !== 'endedAt')
-            : COLUMNS
-        }
+        columns={columns}
         fetchPage={fetchPage}
         resetKey={resetKey}
         rowActions={rowActions}

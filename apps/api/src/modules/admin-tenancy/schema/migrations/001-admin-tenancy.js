@@ -257,6 +257,7 @@ export const migration = defineMigration({
         },
         { name: 'idle_expires_at', type: 'timestamptz', notNull: true },
         { name: 'absolute_expires_at', type: 'timestamptz', notNull: true },
+        { name: 'user_agent', type: 'text' },
       ],
       constraints: {
         primaryKey: ['id'],

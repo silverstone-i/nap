@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { encodeSessionCursor, parseSessionCursor } from './cursor.js';
 import { AdminSessionError, withSessionErrors } from './errors.js';
 import { isTenantPermitted, parseScope } from './scope.js';
+import { describeUserAgent, truncateUserAgent } from './userAgent.js';
 import { parseLimit } from './validation.js';
 
 /** Bytes of entropy in a session token. 256 bits, as M0001-04 §5 requires. */
@@ -266,6 +267,7 @@ async function archiveSessions(db, sessions, context, tx) {
  * @param {string} request.portalUserId Verified portal user.
  * @param {string} [request.method='password'] Authentication method recorded on the event.
  * @param {string|null} [request.requestId] Correlation identifier.
+ * @param {unknown} [request.userAgent] Request `User-Agent`, stored capped (M0001-14-R001).
  * @param {{tx?: object}} [options] Existing transaction to join, so login and session creation commit together.
  * @returns {Promise<{token: string, session: object}>}
  * @throws {AdminSessionError} `INVALID_INPUT`, `CONFLICT`, `AUDIT_UNAVAILABLE`, `SERVICE_UNAVAILABLE`, `INTERNAL_ERROR`
@@ -273,7 +275,7 @@ async function archiveSessions(db, sessions, context, tx) {
 export async function createSession(
   db,
   policy,
-  { portalUserId, method = 'password', requestId = null },
+  { portalUserId, method = 'password', requestId = null, userAgent = null },
   { tx } = {}
 ) {
   const parsed = parseSessionPolicy(policy);
@@ -303,6 +305,7 @@ export async function createSession(
           tokenHash: hashSessionToken(parsed, token),
           idleMinutes: parsed.idleMinutes,
           absoluteHours: parsed.absoluteHours,
+          userAgent: truncateUserAgent(userAgent),
         },
         { tx: transaction }
       );
@@ -638,7 +641,8 @@ const listFilterSchema = z.strictObject({
 
 /**
  * Reduce a listed session to the fields a response may contain
- * (I0009-R003). The row never carries a token or token hash.
+ * (I0009-R003). The row never carries a token or token hash, and the raw
+ * user agent leaves only as its label (M0001-14-R002).
  * @param {object} row Row from `Sessions.page`.
  * @returns {object}
  */
@@ -650,6 +654,7 @@ export function sessionListView(row) {
     tenant: row.tenant_id
       ? { id: row.tenant_id, code: row.tenant_code, name: row.tenant_name }
       : null,
+    browser: describeUserAgent(row.user_agent),
     startedAt: row.created_at,
     lastSeenAt: row.last_seen_at,
     status: row.status,

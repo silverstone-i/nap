@@ -26,6 +26,7 @@ import {
   revokeSessionsForUser,
   rotateSession,
 } from '../../src/modules/admin-tenancy/domain/session.js';
+import { insertTenant } from './helpers/tenantRows.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -412,6 +413,37 @@ describe('resolution', () => {
 });
 
 describe('rotation', () => {
+  it('keeps the stored user agent through rotation and tenant selection (M0001-14-R006, AC05)', async () => {
+    const user = await portalUser();
+    const created = await createSession(db, policy, {
+      portalUserId: user,
+      userAgent: 'Firefox/131.0',
+    });
+    const rotated = await rotateSession(db, policy, created.token);
+    const tenant = await insertTenant(db);
+    const membership = await db.portal_user_tenants.insert({
+      portal_user_id: user,
+      tenant_id: tenant.id,
+      member_type: 'employee',
+      member_id: randomUUID(),
+      status: 'active',
+      ready: true,
+    });
+    const selectedToken = createSessionToken();
+    await db.tx(tx =>
+      db.sessions.selectTenant(
+        hashSessionToken(policy, rotated.token),
+        hashSessionToken(policy, selectedToken),
+        { tenantId: tenant.id, membershipId: membership.id },
+        policy.idleMinutes,
+        { tx }
+      )
+    );
+    const row = await stored(created.session.id);
+    expect(row.tenant_id).toBe(tenant.id);
+    expect(row.user_agent).toBe('Firefox/131.0');
+  });
+
   it('invalidates the prior token the moment the new one is issued', async () => {
     const user = await portalUser();
     const created = await createSession(db, policy, { portalUserId: user });
@@ -681,12 +713,35 @@ describe('I0009 session list and bulk revoke', () => {
       userId: user,
       email,
       tenant: null,
+      browser: null,
       startedAt: expect.any(Date),
       lastSeenAt: expect.any(Date),
       status: 'active',
       endedAt: null,
     });
     expect(JSON.stringify(first)).not.toMatch(/token|hash/i);
+  });
+
+  it('labels a session from its stored user agent and never returns the header (M0001-14 AC01, AC03, AC06)', async () => {
+    const user = await portalUser();
+    const header =
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+    const chrome = await createSession(db, policy, {
+      portalUserId: user,
+      userAgent: header,
+    });
+    const long = await createSession(db, policy, {
+      portalUserId: user,
+      userAgent: 'z'.repeat(600),
+    });
+    expect((await stored(chrome.session.id)).user_agent).toBe(header);
+    expect((await stored(long.session.id)).user_agent).toBe('z'.repeat(512));
+    const { rows } = await listSessions(db, operatorScope(), { userId: user });
+    expect(rows.map(row => row.browser)).toEqual([
+      'Unknown browser',
+      'Chrome on macOS',
+    ]);
+    expect(JSON.stringify(rows)).not.toMatch(/user_?agent|Mozilla|zzz/i);
   });
 
   it('derives ended status and end time, including a never-resolved expiry (R003, AC02)', async () => {
