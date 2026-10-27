@@ -74,6 +74,7 @@ export function createAuthRouter({
           KNOWN_DEVICE_COOKIE
         ),
         requestId: request.requestId,
+        userAgent: request.get('user-agent'),
       });
       issueSessionCookie(response, cookiePolicy, token, session);
       if (knownDevice)

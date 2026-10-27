@@ -245,6 +245,26 @@ describe('login', () => {
     ).toEqual({ method: 'password' });
   });
 
+  it('stores the request User-Agent on the session it opens (M0001-14-R001, AC01–AC03)', async () => {
+    const user = await portalUser();
+    const opened = header =>
+      login(db, policies, {
+        email: user.email,
+        password: PASSWORD,
+        clientAddress: ADDRESS,
+        userAgent: header,
+      }).then(({ session }) =>
+        db.one('SELECT user_agent FROM admin.sessions WHERE id=$1', [
+          session.id,
+        ])
+      );
+    expect(await opened(' Firefox/131.0 ')).toEqual({
+      user_agent: 'Firefox/131.0',
+    });
+    expect(await opened(undefined)).toEqual({ user_agent: null });
+    expect((await opened('q'.repeat(600))).user_agent).toHaveLength(512);
+  });
+
   it('opens a restricted session for a temporary password', async () => {
     const user = await portalUser({ mustChange: true });
     const { token, session } = await login(db, policies, {

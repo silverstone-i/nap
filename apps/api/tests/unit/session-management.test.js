@@ -156,6 +156,7 @@ function fakeAdmin(rows) {
           tenant_name: null,
           created_at: found.created_at,
           last_seen_at: found.last_seen_at,
+          user_agent: found.user_agent ?? null,
           status: found.deactivated_at === null ? 'active' : 'ended',
           ended_at: found.deactivated_at,
         })),
@@ -650,7 +651,10 @@ describe('session routes', () => {
         .send({ ids });
 
     it('lists sessions without tokens for a holder of sessions::read (R001, R003, R004)', async () => {
-      const operator = live();
+      const operator = live({
+        user_agent:
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+      });
       const other = live();
       const { app } = api([operator.session, other.session], {
         bootstrapLoginId: operator.session.portal_user_id,
@@ -668,10 +672,15 @@ describe('session routes', () => {
         id: operator.session.id,
         userId: operator.session.portal_user_id,
         email: 'user@example.com',
+        browser: 'Chrome on macOS',
         status: 'active',
         endedAt: null,
       });
-      expect(JSON.stringify(response.body)).not.toMatch(/token|hash/i);
+      expect(response.body.data.rows[1].browser).toBeNull();
+      // M0001-14-R002: the label leaves the API, the raw header never does.
+      expect(JSON.stringify(response.body)).not.toMatch(
+        /token|hash|user_?agent|Mozilla/i
+      );
     });
 
     it('rejects a bad filter and refuses a reader without the capability (R002, R004)', async () => {

@@ -42,6 +42,7 @@ const ACTIVE = {
   userId: 'u1',
   email: 'ann@example.com',
   tenant: { id: ACME.id, code: 'ACME', name: 'Acme' },
+  browser: 'Chrome on macOS',
   startedAt: new Date('2026-10-09T08:00:00Z'),
   lastSeenAt: new Date('2026-10-09T09:00:00Z'),
   status: 'active',
@@ -53,6 +54,7 @@ const ENDED = {
   id: 's2',
   email: 'bob@example.com',
   tenant: null,
+  browser: null,
   status: 'ended',
   endedAt: new Date('2026-10-09T10:00:00Z'),
 };
@@ -110,6 +112,28 @@ describe('SessionsPage (I0009)', () => {
     expect(api.listSessionsPage).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'active', limit: 25 })
     );
+  });
+
+  it('shows each browser after User and marks only this browser (M0001-14-R004, R005)', async () => {
+    useSession.mockReturnValue({
+      capabilities: capabilitiesFixture(),
+      refreshCapabilities: vi.fn(),
+      session: { id: ACTIVE.id },
+    });
+    renderPage();
+    expect(await screen.findByText('ann@example.com')).toBeTruthy();
+    const grid = screen.getByRole('grid');
+    const headers = within(grid)
+      .getAllByRole('columnheader')
+      .map(header => header.textContent);
+    expect(headers.indexOf('Browser')).toBe(headers.indexOf('User') + 1);
+    const [ann, bob] = within(grid)
+      .getAllByRole('row')
+      .filter(row => /@example\.com/.test(row.textContent));
+    expect(within(ann).getByText('Chrome on macOS')).toBeTruthy();
+    expect(within(ann).getByRole('img', { name: 'This browser' })).toBeTruthy();
+    expect(within(bob).getByText('—')).toBeTruthy();
+    expect(within(bob).queryByRole('img', { name: 'This browser' })).toBeNull();
   });
 
   it('sends the email, tenant, date range, and status filters (R002, R006)', async () => {

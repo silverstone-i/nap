@@ -5,11 +5,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { ApiError } from '../../api/client.js';
 import { denialMessage } from '../../auth/capabilities.js';
+import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
 import {
   listSessionsPage,
@@ -31,6 +34,15 @@ const COLUMNS = [
     sortable: false,
     filterable: false,
     priority: 'essential',
+  },
+  {
+    field: 'browser',
+    headerName: 'Browser',
+    flex: 2,
+    sortable: false,
+    filterable: false,
+    priority: 'secondary',
+    renderCell: ({ row }) => <BrowserCell row={row} />,
   },
   {
     field: 'tenant',
@@ -79,6 +91,39 @@ const COLUMNS = [
     type: 'dateTime',
   },
 ];
+
+/**
+ * Browser label, with a green dot named "This browser" before it on the
+ * caller's own session (M0001-14-R004, R005). The list is the same for every
+ * caller, so the marker comes from this tab's session.
+ * @param {{row: {id: string, browser: string|null}}} props
+ */
+function BrowserCell({ row }) {
+  const { session } = useSession();
+  return (
+    <>
+      {session?.id === row.id ? (
+        <Tooltip title="This browser">
+          <Box
+            component="span"
+            role="img"
+            aria-label="This browser"
+            sx={{
+              display: 'inline-block',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: 'success.main',
+              mr: 1,
+              verticalAlign: 'middle',
+            }}
+          />
+        </Tooltip>
+      ) : null}
+      {row.browser ?? '—'}
+    </>
+  );
+}
 
 const REVOKE_TEXT = 'This user is signed out of this session.';
 

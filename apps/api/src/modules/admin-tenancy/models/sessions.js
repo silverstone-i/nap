@@ -34,6 +34,7 @@ export const sessionsSchema = {
     },
     { name: 'idle_expires_at', type: 'timestamptz', notNull: true },
     { name: 'absolute_expires_at', type: 'timestamptz', notNull: true },
+    { name: 'user_agent', type: 'text' },
   ],
   constraints: {
     primaryKey: ['id'],
@@ -135,22 +136,23 @@ export class Sessions extends TableModel {
    * @param {string} session.tokenHash HMAC of the issued token.
    * @param {number} session.idleMinutes Idle timeout in minutes.
    * @param {number} session.absoluteHours Absolute lifetime in hours.
+   * @param {string|null} [session.userAgent] Capped `User-Agent` header (M0001-14-R001).
    * @param {{tx?: import('pg-promise').IDatabase<unknown>}} [options]
    * @returns {Promise<object>} Safe session view.
    */
   async insertSession(
-    { portalUserId, tokenHash, idleMinutes, absoluteHours },
+    { portalUserId, tokenHash, idleMinutes, absoluteHours, userAgent = null },
     { tx } = {}
   ) {
     return (tx ?? this.db).one(
       `INSERT INTO ${table(this)} AS s
-         (portal_user_id,token_hash,idle_expires_at,absolute_expires_at,created_by,updated_by)
+         (portal_user_id,token_hash,idle_expires_at,absolute_expires_at,user_agent,created_by,updated_by)
        VALUES ($1,$2,
                now() + ($3::integer * interval '1 minute'),
                now() + ($4::integer * interval '1 hour'),
-               $1,$1)
+               $5,$1,$1)
        RETURNING ${viewColumns}`,
-      [portalUserId, tokenHash, idleMinutes, absoluteHours]
+      [portalUserId, tokenHash, idleMinutes, absoluteHours, userAgent]
     );
   }
 
@@ -443,7 +445,7 @@ export class Sessions extends TableModel {
     const fetched = await this.db.any(
       `SELECT s.id, s.portal_user_id, u.email,
               s.tenant_id, t.tenant_code, t.name AS tenant_name,
-              s.created_at, s.last_seen_at,
+              s.created_at, s.last_seen_at, s.user_agent,
               CASE WHEN ${live} THEN 'active' ELSE 'ended' END AS status,
               CASE WHEN ${live} THEN NULL
                    ELSE COALESCE(s.deactivated_at,

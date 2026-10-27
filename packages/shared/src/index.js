@@ -276,6 +276,8 @@ export const sessionListRowSchema = z.strictObject({
   tenant: z
     .strictObject({ id: z.uuid(), code: z.string(), name: z.string() })
     .nullable(),
+  // Browser label, never the raw user agent (M0001-14-R002).
+  browser: z.string().nullable(),
   startedAt: z.coerce.date(),
   lastSeenAt: z.coerce.date(),
   status: z.enum(['active', 'ended']),

@@ -83,7 +83,8 @@ cannot list sessions.
 - I0009-R003: Each row must contain the session ID, portal user ID and
   email, selected tenant ID, code, and name (null when none is selected),
   started at, last seen at, status, and ended at (null while active). Rows
-  never contain the token or token hash (M0001-04-R008).
+  never contain the token or token hash (M0001-04-R008). _Superseded in
+  part by M0001-14-R002 (browser label)._
 - I0009-R004: The route must require `NAP::admin-tenancy::sessions::read`.
   The admin-tenancy descriptor must declare `admin-tenancy::sessions::read`
   so the I0005 startup check accepts the route.
@@ -95,7 +96,8 @@ cannot list sessions.
 - I0009-R006: The screen must be a standard grid (I0001-R015–R017) with
   columns User, Tenant, Started, Last seen, Status, and Ended. It must
   default to status Active and offer filters for user email, tenant, date
-  range, and status.
+  range, and status. _Superseded in part by M0001-14-R004 and M0001-14-R005
+  (Browser column)._
 - I0009-R007: An active row's action menu must offer **Revoke** when the
   session holds `NAP::admin-tenancy::sessions::revoke`. Ended rows have no
   Revoke. Revoke asks for confirmation with the text "This user is signed
@@ -146,7 +148,7 @@ cannot list sessions.
 ## 7. Business Rules And Invariants
 
 - Status and ended at are derived when the list is read; no session column
-  is added.
+  is added. _M0001-14 later adds `user_agent` for the browser label._
 - The bulk revoke never revokes a subset (R009).
 - Revoking from another browser or device affects that browser at its next
   request (M0001-04-R004); R013 covers only the browser that learned of it.
@@ -161,7 +163,7 @@ cannot list sessions.
 
 ## 9. Data Requirements
 
-No schema change. The list reads `admin.sessions` with its archived rows,
+No schema change (M0001-14 later adds `admin.sessions.user_agent`). The list reads `admin.sessions` with its archived rows,
 joined to `admin.portal_users` for the email and `admin.tenants` for the
 selected tenant. Revocation writes `admin.sessions` as M0001-04 does.
 
