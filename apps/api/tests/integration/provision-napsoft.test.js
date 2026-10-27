@@ -26,7 +26,6 @@ import {
   NAPSOFT_CELL_SUFFIX,
   provisionNapsoft,
 } from '../../src/application/maintenance/provisionNapsoft.js';
-import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -133,15 +132,15 @@ it('provisions the first cell and runs Napsoft tenant setup with the seed (I0003
   );
   try {
     await cell.connect();
-    const rows = await cell.db.tx(async tx => {
-      await setTenant(tx, boot.tenant.id);
-      return tx.any(
-        `SELECT r.code, m.portal_user_id FROM app.roles r
-           LEFT JOIN app.role_assignments a ON a.role_id=r.id
-           LEFT JOIN cell.tenant_members m ON m.id=a.membership_id
-          ORDER BY r.code`
-      );
-    });
+    // nap-admin owns the app tables, so row-level security does not apply
+    // to it; every query names the tenant.
+    const rows = await cell.db.any(
+      `SELECT r.code, m.portal_user_id FROM app.roles r
+         LEFT JOIN app.role_assignments a ON a.role_id=r.id
+         LEFT JOIN cell.tenant_members m ON m.id=a.membership_id
+        WHERE r.tenant_id=$1 ORDER BY r.code`,
+      [boot.tenant.id]
+    );
     expect(rows).toEqual([
       { code: 'platform_admin', portal_user_id: boot.login.id },
       { code: 'support', portal_user_id: null },
@@ -150,15 +149,13 @@ it('provisions the first cell and runs Napsoft tenant setup with the seed (I0003
     // M0005-R017, R023, R037, M0006-01-R009: default labels, tax ID formats,
     // and settings row, and no
     // employee record for root.
-    const directory = await cell.db.tx(async tx => {
-      await setTenant(tx, boot.tenant.id);
-      return tx.one(
-        `SELECT (SELECT count(*)::int FROM app.contact_labels) AS labels,
-                (SELECT count(*)::int FROM app.tax_id_formats) AS formats,
-                (SELECT count(*)::int FROM app.tenant_settings) AS settings,
-                (SELECT count(*)::int FROM app.parties) AS parties`
-      );
-    });
+    const directory = await cell.db.one(
+      `SELECT (SELECT count(*)::int FROM app.contact_labels WHERE tenant_id=$1) AS labels,
+              (SELECT count(*)::int FROM app.tax_id_formats WHERE tenant_id=$1) AS formats,
+              (SELECT count(*)::int FROM app.tenant_settings WHERE tenant_id=$1) AS settings,
+              (SELECT count(*)::int FROM app.parties WHERE tenant_id=$1) AS parties`,
+      [boot.tenant.id]
+    );
     expect(directory).toEqual({
       labels: 13,
       formats: 3,
