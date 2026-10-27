@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.34.2] - 2026-10-27
+
 ### Fixed
 
 - `app` tables no longer use `FORCE ROW LEVEL SECURITY` (M0002-01-R006). The owner, `nap-admin`, now reads and writes every tenant's rows without setting `nap.tenant_id`; `nap-app` is still limited to the current tenant. Code running as `nap-admin` names the tenant explicitly, including the label and tax ID format seeds. Schema verification now fails if any `app` or `reference` table is forced.
