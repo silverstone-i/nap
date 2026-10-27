@@ -12,8 +12,6 @@
  * and adds nothing.
  */
 
-import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
-
 /**
  * Default labels by group (R017). A name appears in each group where it is
  * a sensible category.
@@ -32,7 +30,6 @@ export const DEFAULT_LABELS = Object.freeze({
  * @returns {Promise<void>}
  */
 export async function seedDirectoryLabels(db, tx, tenantId) {
-  await setTenant(tx, tenantId);
   const existing = await db.contact_labels.rows(
     { tenant_id: tenantId },
     { tx, includeArchived: true }
@@ -55,7 +52,6 @@ export async function seedDirectoryLabels(db, tx, tenantId) {
  * @returns {Promise<boolean>}
  */
 export async function directoryLabelsPresent(db, tx, tenantId) {
-  await setTenant(tx, tenantId);
   const rows = await db.contact_labels.rows(
     { tenant_id: tenantId },
     { tx, includeArchived: true }
@@ -84,7 +80,6 @@ const formatKey = format => `${format.country}:${format.name}`;
  * @returns {Promise<void>}
  */
 export async function seedTaxIdFormats(db, tx, tenantId) {
-  await setTenant(tx, tenantId);
   const existing = await db.tax_id_formats.rows(
     { tenant_id: tenantId },
     { tx, includeArchived: true }
@@ -106,7 +101,6 @@ export async function seedTaxIdFormats(db, tx, tenantId) {
  * @returns {Promise<boolean>}
  */
 export async function taxIdFormatsPresent(db, tx, tenantId) {
-  await setTenant(tx, tenantId);
   const rows = await db.tax_id_formats.rows(
     { tenant_id: tenantId },
     { tx, includeArchived: true }
@@ -155,7 +149,7 @@ export async function seedDirectoryTenant(db, tx, admin) {
       { tx }
     );
   const [primaryEmail] = await db.contact_methods.rows(
-    { party_id: partyId, type: 'email', is_primary: true },
+    { tenant_id: tenantId, party_id: partyId, type: 'email', is_primary: true },
     { tx }
   );
   if (!primaryEmail)
@@ -186,12 +180,15 @@ export async function directorySeedPresent(db, tx, admin) {
   const party = await db.parties.byKey(partyId, { tx });
   const person = await db.people.byKey(partyId, { tx });
   const [primaryEmail] = await db.contact_methods.rows(
-    { party_id: partyId, type: 'email', is_primary: true },
+    { tenant_id: tenantId, party_id: partyId, type: 'email', is_primary: true },
     { tx }
   );
+  // `nap-admin` is not filtered by row-level security: a party ID found in
+  // another tenant is not this tenant's seed.
   return Boolean(
-    party?.kind === 'employee' &&
-    person &&
+    party?.tenant_id === tenantId &&
+    party.kind === 'employee' &&
+    person?.tenant_id === tenantId &&
     !person.deactivated_at &&
     person.first_name === firstName &&
     person.last_name === lastName &&

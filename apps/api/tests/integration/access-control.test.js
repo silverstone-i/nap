@@ -110,6 +110,17 @@ it('creates the three role tables with unforced tenant RLS and a clean contract;
   expect((await migrateCell(config)).status).toBe('unchanged');
 });
 
+it('rejects an app table with forced row-level security (M0002-01-R006)', async () => {
+  await handle.db.none('ALTER TABLE app.roles FORCE ROW LEVEL SECURITY');
+  try {
+    await expect(verifyAppSchema(handle, cellModules)).rejects.toThrow(
+      'TABLE_CONTRACT_MISMATCH'
+    );
+  } finally {
+    await handle.db.none('ALTER TABLE app.roles NO FORCE ROW LEVEL SECURITY');
+  }
+});
+
 it('returns no rows and rejects writes with no tenant setting for nap-app; nap-admin, the owner, is not filtered', async () => {
   await inTenant(handle, napsoft.tenantId, tx =>
     handle.db.roles.insert(
