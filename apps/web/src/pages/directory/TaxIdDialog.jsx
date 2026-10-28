@@ -4,14 +4,10 @@
  */
 
 import { useState } from 'react';
-import TextField from '@mui/material/TextField';
 import { ApiError } from '../../api/client.js';
 import { updateDirectoryRecord } from '../../api/endpoints.js';
 import { describeDirectoryError } from './directoryErrors.js';
-import {
-  DuplicateTaxIdMessage,
-  TaxIdFormatSelect,
-} from './directoryFields.jsx';
+import { DuplicateTaxIdMessage, TaxIdInput } from './directoryFields.jsx';
 import { SectionDialog } from '../../components/SectionDialog.jsx';
 import { defaultTaxIdFormatId } from './useTaxIdFormats.js';
 
@@ -41,7 +37,6 @@ export function TaxIdDialog({
     ownFormat?.id ??
     defaultTaxIdFormatId(formats, organization);
   const [value, setValue] = useState('');
-  const mask = formats?.find(f => f.id === formatId)?.mask;
   // R006, R009: a vendor and a client's primary tax contact must keep one.
   const canClear =
     Boolean(record.taxIdLast4) &&
@@ -83,19 +78,13 @@ export function TaxIdDialog({
         canClear ? { label: 'Clear', onRun: () => send(null) } : undefined
       }
     >
-      <TaxIdFormatSelect
-        formats={formats}
-        value={formatId}
-        onChange={setChosenFormatId}
-      />
-      <TextField
+      <TaxIdInput
         label="Tax ID"
         value={value}
-        onChange={event => setValue(event.target.value)}
-        placeholder={mask}
-        required
-        fullWidth
-        autoComplete="off"
+        onChange={setValue}
+        formats={formats}
+        formatId={formatId}
+        onFormatChange={setChosenFormatId}
       />
     </SectionDialog>
   );

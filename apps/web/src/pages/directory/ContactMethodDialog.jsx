@@ -4,8 +4,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { formatPhone, normalizePhone } from '@nap/shared';
+import { formatPhone, formatPhoneInput, normalizePhone } from '@nap/shared';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
+import { FormattedField } from '../../components/FormattedField.jsx';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -155,21 +156,31 @@ export function ContactMethodDialog({
           </Alert>
         ) : null}
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label={type === 'email' ? 'Email' : 'Phone'}
-            type={type === 'email' ? 'email' : 'tel'}
-            value={value}
-            onChange={event => setValue(event.target.value)}
-            onBlur={() => setTouched(true)}
-            required
-            fullWidth
-            error={touched && invalidPhone}
-            helperText={
-              type === 'phone' && touched && invalidPhone
-                ? 'Not a valid phone number.'
-                : ''
-            }
-          />
+          {type === 'email' ? (
+            <TextField
+              label="Email"
+              type="email"
+              value={value}
+              onChange={event => setValue(event.target.value)}
+              required
+              fullWidth
+            />
+          ) : (
+            <FormattedField
+              label="Phone"
+              type="tel"
+              value={value}
+              onChange={setValue}
+              format={input => formatPhoneInput(input, defaultCountry)}
+              onBlur={() => setTouched(true)}
+              required
+              fullWidth
+              error={touched && invalidPhone}
+              helperText={
+                touched && invalidPhone ? 'Not a valid phone number.' : ''
+              }
+            />
+          )}
           <LabelSelect appliesTo={type} value={labelId} onChange={setLabelId} />
           <FormControlLabel
             control={

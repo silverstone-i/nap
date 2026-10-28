@@ -4,14 +4,18 @@
  */
 
 import { useEffect, useState } from 'react';
+import { formatTaxIdInput } from '@nap/shared';
 import Autocomplete from '@mui/material/Autocomplete';
 import Link from '@mui/material/Link';
 import MenuItem from '@mui/material/MenuItem';
+import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import { Link as RouterLink } from 'react-router';
 import { listRoles } from '../../api/endpoints.js';
+import { FormattedField } from '../../components/FormattedField.jsx';
 import { ArchivedConflictMessage } from '../../grid/ArchivedConflictMessage.jsx';
 import { KIND_LABELS } from './directoryRecords.js';
+import { relayTaxId } from './useTaxIdFormats.js';
 
 /**
  * The refusal of a tax ID another record of the same kind holds, with a
@@ -70,6 +74,58 @@ export function TaxIdFormatSelect({
         </MenuItem>
       ))}
     </TextField>
+  );
+}
+
+/**
+ * A tax ID typed into its format's mask (M0005-R038): `333224444` reads
+ * `333-22-4444` as it is typed. Without a mask the value is taken as typed.
+ * @param {{label?: string, mask: string|undefined, value: string, onChange: (value: string) => void}} props
+ * @returns {JSX.Element}
+ */
+export function TaxIdField({ label = 'Tax ID', mask, value, onChange }) {
+  return (
+    <FormattedField
+      label={label}
+      value={value}
+      onChange={onChange}
+      format={input => (mask ? formatTaxIdInput(input, mask) : input)}
+      placeholder={mask}
+      required
+      fullWidth
+      autoComplete="off"
+    />
+  );
+}
+
+/**
+ * A tax ID with its format (M0005-R038, R043). Choosing another format moves
+ * what was typed into the new mask.
+ * @param {{label?: string, value: string, onChange: (v: string) => void, formats: object[]|null, formatId: string, onFormatChange: (id: string) => void}} props
+ * @returns {JSX.Element}
+ */
+export function TaxIdInput({
+  label,
+  value,
+  onChange,
+  formats,
+  formatId,
+  onFormatChange,
+}) {
+  const maskOf = id => formats?.find(f => f.id === id)?.mask;
+  const mask = maskOf(formatId);
+  return (
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+      <TaxIdFormatSelect
+        formats={formats}
+        value={formatId}
+        onChange={id => {
+          onFormatChange(id);
+          onChange(relayTaxId(value, mask, maskOf(id)));
+        }}
+      />
+      <TaxIdField label={label} mask={mask} value={value} onChange={onChange} />
+    </Stack>
   );
 }
 
