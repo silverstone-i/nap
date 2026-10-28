@@ -75,7 +75,12 @@ export function AddressDialog({
       else await addAddress(partyId, fields);
       onSaved();
     } catch (err) {
-      setError(describeDirectoryError(err));
+      setError(
+        describeDirectoryError(err, {
+          // M0005-R064.
+          DUPLICATE_DETAIL: 'This record already has this address.',
+        })
+      );
       if (address && onReload && isStaleRevision(err)) {
         try {
           const fresh = await onReload();

@@ -48,13 +48,23 @@ const methodUpdate = z.strictObject({
   isPrimary: z.boolean().optional(),
   revision,
 });
-const line = z.string().trim().min(1).max(255);
+/**
+ * R063: address text is saved trimmed with each run of whitespace reduced to
+ * one space, so the match index need only ignore case.
+ * @param {number} max
+ */
+const text = max =>
+  z
+    .string()
+    .transform(value => value.trim().replace(/\s+/g, ' '))
+    .pipe(z.string().min(1).max(max));
+const line = text(255);
 const addressFields = {
   line1: line,
   line2: line.nullable(),
-  city: z.string().trim().min(1).max(120),
-  region: z.string().trim().min(1).max(120).nullable(),
-  postalCode: z.string().trim().min(1).max(32).nullable(),
+  city: text(120),
+  region: text(120).nullable(),
+  postalCode: text(32).nullable(),
   country: z
     .string()
     .trim()
@@ -210,6 +220,46 @@ async function demotePrimary(context, table, where, keep, tx) {
 }
 
 /**
+ * Refuse an email or phone that matches another active one on the party
+ * (R063, R064). The party lock serializes writers; the unique index backs
+ * this up.
+ * @param {object} context
+ * @param {object} party
+ * @param {'email'|'phone'} type
+ * @param {string} value Stored form.
+ * @param {string|null} excludeId The row being edited.
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `DUPLICATE_DETAIL`
+ */
+async function requireMethodFree(context, party, type, value, excludeId, tx) {
+  const match = await context.cell.contact_methods.activeMatch(
+    { partyId: party.id, type, value, excludeId },
+    { tx }
+  );
+  if (match) throw new DirectoryError('DUPLICATE_DETAIL');
+}
+
+/**
+ * Refuse an address that matches another active one on the party (R063,
+ * R064). The party lock serializes writers; the unique index backs this up.
+ * @param {object} context
+ * @param {object} party
+ * @param {object} address Columns as stored.
+ * @param {string|null} excludeId The row being edited.
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `DUPLICATE_DETAIL`
+ */
+async function requireAddressFree(context, party, address, excludeId, tx) {
+  const match = await context.cell.addresses.activeMatch(
+    { partyId: party.id, address, excludeId },
+    { tx }
+  );
+  if (match) throw new DirectoryError('DUPLICATE_DETAIL');
+}
+
+/**
  * An employee must keep an active primary email (R016).
  * @param {object} context
  * @param {object} party
@@ -292,6 +342,7 @@ export function addContactMethod(context, partyId, body) {
     const party = await lockParty(context, partyId, tx);
     const portalEmail = await lockPortalEmail(context, party, tx);
     await requireLabel(context, input.labelId, input.type, tx);
+    await requireMethodFree(context, party, input.type, value, null, tx);
     if (input.isPrimary)
       await demotePrimary(
         context,
@@ -363,8 +414,17 @@ export function updateContactMethod(context, partyId, methodId, body) {
     );
     requireRevision(locked, input.revision);
     const changes = {};
-    if (input.value !== undefined)
+    if (input.value !== undefined) {
       changes.value = await parseValue(context, locked.type, input.value, tx);
+      await requireMethodFree(
+        context,
+        party,
+        locked.type,
+        changes.value,
+        locked.id,
+        tx
+      );
+    }
     if (input.labelId !== undefined) {
       await requireLabel(context, input.labelId, locked.type, tx);
       changes.label_id = input.labelId;
@@ -457,6 +517,15 @@ export function addAddress(context, partyId, body) {
   return mutate(context, async tx => {
     const party = await lockParty(context, partyId, tx);
     await requireLabel(context, input.labelId, 'address', tx);
+    const address = {
+      line1: input.line1,
+      line2: input.line2 ?? null,
+      city: input.city,
+      region: input.region ?? null,
+      postal_code: input.postalCode ?? null,
+      country: input.country,
+    };
+    await requireAddressFree(context, party, address, null, tx);
     if (input.isPrimary)
       await demotePrimary(
         context,
@@ -469,12 +538,7 @@ export function addAddress(context, partyId, body) {
       {
         tenant_id: context.tenant.id,
         party_id: party.id,
-        line1: input.line1,
-        line2: input.line2 ?? null,
-        city: input.city,
-        region: input.region ?? null,
-        postal_code: input.postalCode ?? null,
-        country: input.country,
+        ...address,
         label_id: input.labelId ?? null,
         is_primary: input.isPrimary ?? false,
         created_by: context.actorId,
@@ -517,6 +581,13 @@ export function updateAddress(context, partyId, addressId, body) {
     const changes = {};
     for (const [field, column] of Object.entries(ADDRESS_COLUMNS))
       if (input[field] !== undefined) changes[column] = input[field];
+    await requireAddressFree(
+      context,
+      party,
+      { ...locked, ...changes },
+      locked.id,
+      tx
+    );
     const row = await context.cell.addresses.saveRevision(
       locked.id,
       changes,

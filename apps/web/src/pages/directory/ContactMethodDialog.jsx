@@ -118,7 +118,11 @@ export function ContactMethodDialog({
     } catch (err) {
       // I0008-R018: a portal user's primary email is locked.
       setError(
-        describeDirectoryError(err, portalUser ? PORTAL_MESSAGES.email : {})
+        describeDirectoryError(err, {
+          ...(portalUser ? PORTAL_MESSAGES.email : {}),
+          // M0005-R064.
+          DUPLICATE_DETAIL: `This record already has this ${noun}.`,
+        })
       );
       if (method && onReload && isStaleRevision(err)) {
         try {

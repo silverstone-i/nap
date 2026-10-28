@@ -30,6 +30,8 @@ const PASS_THROUGH = new Set([
   'PRIMARY_TAX_CONTACT',
   // M0005-R048: names the record already holding the tax ID.
   'DUPLICATE_TAX_ID',
+  // M0005-R064: the party already has this email, phone, or address.
+  'DUPLICATE_DETAIL',
   'ADMIN_ASSIGNED',
   // I0010-R009: M0003's role rules, reported as Access Control reports them.
   'GRANT_EXCEEDS_ACTOR',

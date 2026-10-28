@@ -6,7 +6,7 @@
 import { DirectoryModel } from './directoryModel.js';
 
 /**
- * Schema object for `app.contact_methods`: emails and phones (M0005-R014). One active primary email and one active primary phone per party.
+ * Schema object for `app.contact_methods`: emails and phones (M0005-R014). One active primary email and one active primary phone per party, and no two active rows of one type with the same value (R063).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
 export const contactMethodsSchema = {
@@ -61,6 +61,11 @@ export const contactMethodsSchema = {
         unique: true,
         where: 'is_primary AND deactivated_at IS NULL',
       },
+      {
+        columns: ['party_id', 'type', 'value'],
+        unique: true,
+        where: 'deactivated_at IS NULL',
+      },
       { columns: ['party_id'] },
     ],
   },
@@ -85,6 +90,22 @@ export class ContactMethods extends DirectoryModel {
       `SELECT * FROM ${this.schemaName}.${this.tableName}
         WHERE party_id = ANY($1::uuid[]) AND is_primary AND deactivated_at IS NULL`,
       [partyIds]
+    );
+  }
+
+  /**
+   * Another active row of the party with this type and value (R063).
+   * @param {{partyId: string, type: string, value: string, excludeId: string|null}} match
+   * @param {{tx: object}} options
+   * @returns {Promise<object|null>}
+   */
+  async activeMatch({ partyId, type, value, excludeId }, { tx }) {
+    return tx.oneOrNone(
+      `SELECT id FROM ${this.schemaName}.${this.tableName}
+        WHERE party_id = $1 AND type = $2 AND value = $3
+          AND deactivated_at IS NULL AND id IS DISTINCT FROM $4
+        LIMIT 1`,
+      [partyId, type, value, excludeId]
     );
   }
 }

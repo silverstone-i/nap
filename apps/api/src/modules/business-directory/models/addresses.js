@@ -5,8 +5,28 @@
 
 import { DirectoryModel } from './directoryModel.js';
 
+/** The columns an address matches on (R063), in key order. */
+const MATCH_COLUMNS = [
+  'line1',
+  'line2',
+  'city',
+  'region',
+  'postal_code',
+  'country',
+];
+
 /**
- * Schema object for `app.addresses`: addresses (M0005-R015). One active primary address per party.
+ * R063: an address's match key over `ref(column)` for each column. Fields
+ * are saved with whitespace collapsed, so matching ignores only case; empty
+ * fields count as equal. Hashed so the key stays under the btree row limit.
+ * @param {(column: string) => string} ref
+ * @returns {string}
+ */
+const matchKey = ref =>
+  `md5(lower(${MATCH_COLUMNS.map(c => `coalesce(${ref(c)}, '')`).join(' || chr(31) || ')}))`;
+
+/**
+ * Schema object for `app.addresses`: addresses (M0005-R015). One active primary address per party, and no two matching active addresses (R063).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
 export const addressesSchema = {
@@ -75,6 +95,12 @@ export const addressesSchema = {
         unique: true,
         where: 'is_primary AND deactivated_at IS NULL',
       },
+      {
+        name: 'uidx_addresses_party_id_match',
+        columns: ['party_id', { expression: matchKey(c => c) }],
+        unique: true,
+        where: 'deactivated_at IS NULL',
+      },
       { columns: ['party_id'] },
     ],
   },
@@ -85,5 +111,22 @@ export class Addresses extends DirectoryModel {
   static schema = addressesSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, addressesSchema, logger);
+  }
+
+  /**
+   * Another active address of the party matching `address` (R063).
+   * @param {{partyId: string, address: {line1: string, line2: string|null, city: string, region: string|null, postal_code: string|null, country: string}, excludeId: string|null}} match
+   * @param {{tx: object}} options
+   * @returns {Promise<object|null>}
+   */
+  async activeMatch({ partyId, address, excludeId }, { tx }) {
+    return tx.oneOrNone(
+      `SELECT id FROM ${this.schemaName}.${this.tableName}
+        WHERE party_id = $<partyId> AND deactivated_at IS NULL
+          AND id IS DISTINCT FROM $<excludeId>
+          AND ${matchKey(c => c)} = ${matchKey(c => `$<${c}>::text`)}
+        LIMIT 1`,
+      { ...address, partyId, excludeId }
+    );
   }
 }
