@@ -62,16 +62,26 @@ describe('phones as typed (M0005-R033)', () => {
     expect(formatPhoneInput('')).toBe('');
   });
 
-  it('keeps an extension marker as typed and its digits', () => {
+  it('keeps a trailing extension marker, its spacing, and its digits', () => {
     expect(formatPhoneInput('2125551234x')).toBe('(212) 555-1234 x');
-    expect(formatPhoneInput('2125551234 x 12')).toBe('(212) 555-1234 x12');
+    expect(formatPhoneInput('2125551234 x 12')).toBe('(212) 555-1234 x 12');
     expect(formatPhoneInput('2125551234e')).toBe('(212) 555-1234 e');
-    expect(formatPhoneInput('2125551234ext.5')).toBe('(212) 555-1234 ext. 5');
+    expect(formatPhoneInput('2125551234ext.5')).toBe('(212) 555-1234 ext.5');
     expect(formatPhoneInput('(212) 555-1234 ext. 12')).toBe(
       '(212) 555-1234 ext. 12'
     );
-    expect(formatPhoneInput('2125551234 q')).toBe('(212) 555-1234');
-    expect(formatPhoneInput('x12')).toBe('');
+  });
+
+  it('leaves text with letters outside a trailing extension as typed', () => {
+    for (const typed of [
+      'Tel: 212 555 1234',
+      '1-800-FLOWERS',
+      '(212) 555-1234 ex.12',
+      '(212) 555-1234 et. 12',
+      '2125551234 q',
+      'x12',
+    ])
+      expect(formatPhoneInput(typed)).toBe(typed);
   });
 
   it('gives what normalizePhone stores once complete', () => {

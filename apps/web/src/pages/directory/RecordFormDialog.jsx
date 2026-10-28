@@ -16,17 +16,9 @@ import TextField from '@mui/material/TextField';
 import { ApiError } from '../../api/client.js';
 import { createDirectoryRecord } from '../../api/endpoints.js';
 import { describeDirectoryError } from './directoryErrors.js';
-import {
-  DuplicateTaxIdMessage,
-  TaxIdField,
-  TaxIdFormatSelect,
-} from './directoryFields.jsx';
+import { DuplicateTaxIdMessage, TaxIdInput } from './directoryFields.jsx';
 import { KIND_LABELS } from './directoryRecords.js';
-import {
-  defaultTaxIdFormatId,
-  relayTaxId,
-  useTaxIdFormats,
-} from './useTaxIdFormats.js';
+import { defaultTaxIdFormatId, useTaxIdFormats } from './useTaxIdFormats.js';
 
 /** M0005-R060: what a refused create means for each kind. */
 const CREATE_MESSAGES = {
@@ -35,35 +27,6 @@ const CREATE_MESSAGES = {
     INVALID_INPUT: 'Give the client its own tax ID or one primary buyer.',
   },
 };
-
-/**
- * A tax ID with its format (M0005-R038, R043).
- * @param {{label: string, value: string, onChange: (v: string) => void, formats: object[]|null, formatId: string, onFormatChange: (id: string) => void}} props
- * @returns {JSX.Element}
- */
-function TaxIdInput({
-  label,
-  value,
-  onChange,
-  formats,
-  formatId,
-  onFormatChange,
-}) {
-  const mask = formats?.find(f => f.id === formatId)?.mask;
-  return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-      <TaxIdFormatSelect
-        formats={formats}
-        value={formatId}
-        onChange={id => {
-          onFormatChange(id);
-          onChange(relayTaxId(value, formats?.find(f => f.id === id)?.mask));
-        }}
-      />
-      <TaxIdField label={label} mask={mask} value={value} onChange={onChange} />
-    </Stack>
-  );
-}
 
 /**
  * Create a directory record with only the fields it cannot exist without

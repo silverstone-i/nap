@@ -58,18 +58,30 @@ export function defaultTaxIdFormatId(formats, organization) {
   );
 }
 
-/** Letters and digits alone, which are a tax ID's slot characters. */
-const typed = value => value.replace(/[^0-9A-Z]/gi, '');
-
 /**
- * A typed tax ID laid into a newly chosen format's mask, or left as it is
- * when the new mask would drop some of what was typed.
- * @param {string} value
- * @param {string|undefined} mask
+ * The characters in a mask's slots of a value laid into it, such as `GB`
+ * dropped from `GB 123 4567 89`.
+ * @param {string} laid
+ * @param {string} mask
  * @returns {string}
  */
-export function relayTaxId(value, mask) {
-  if (!mask) return value;
-  const laid = formatTaxIdInput(value, mask);
-  return typed(laid).length === typed(value).length ? laid : value;
+const slotChars = (laid, mask) =>
+  [...laid].filter((_, i) => mask[i] === '#' || mask[i] === 'A').join('');
+
+/**
+ * A typed tax ID moved from one format's mask to a newly chosen one: the
+ * characters in the old mask's slots fill the new mask's slots. The value
+ * stays as it is when the new mask cannot hold all of them.
+ * @param {string} value
+ * @param {string|undefined} fromMask
+ * @param {string|undefined} toMask
+ * @returns {string}
+ */
+export function relayTaxId(value, fromMask, toMask) {
+  if (!toMask) return value;
+  const chars = fromMask
+    ? slotChars(formatTaxIdInput(value, fromMask), fromMask)
+    : value.replace(/[^0-9A-Z]/gi, '');
+  const laid = formatTaxIdInput(chars, toMask);
+  return slotChars(laid, toMask).length === chars.length ? laid : value;
 }

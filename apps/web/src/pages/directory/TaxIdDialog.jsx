@@ -7,13 +7,9 @@ import { useState } from 'react';
 import { ApiError } from '../../api/client.js';
 import { updateDirectoryRecord } from '../../api/endpoints.js';
 import { describeDirectoryError } from './directoryErrors.js';
-import {
-  DuplicateTaxIdMessage,
-  TaxIdField,
-  TaxIdFormatSelect,
-} from './directoryFields.jsx';
+import { DuplicateTaxIdMessage, TaxIdInput } from './directoryFields.jsx';
 import { SectionDialog } from '../../components/SectionDialog.jsx';
-import { defaultTaxIdFormatId, relayTaxId } from './useTaxIdFormats.js';
+import { defaultTaxIdFormatId } from './useTaxIdFormats.js';
 
 /**
  * The tax ID pencil's dialog (M0005-R052): a format and a new value, and
@@ -41,7 +37,6 @@ export function TaxIdDialog({
     ownFormat?.id ??
     defaultTaxIdFormatId(formats, organization);
   const [value, setValue] = useState('');
-  const mask = formats?.find(f => f.id === formatId)?.mask;
   // R006, R009: a vendor and a client's primary tax contact must keep one.
   const canClear =
     Boolean(record.taxIdLast4) &&
@@ -83,15 +78,14 @@ export function TaxIdDialog({
         canClear ? { label: 'Clear', onRun: () => send(null) } : undefined
       }
     >
-      <TaxIdFormatSelect
+      <TaxIdInput
+        label="Tax ID"
+        value={value}
+        onChange={setValue}
         formats={formats}
-        value={formatId}
-        onChange={id => {
-          setChosenFormatId(id);
-          setValue(relayTaxId(value, formats?.find(f => f.id === id)?.mask));
-        }}
+        formatId={formatId}
+        onFormatChange={setChosenFormatId}
       />
-      <TaxIdField mask={mask} value={value} onChange={setValue} />
     </SectionDialog>
   );
 }

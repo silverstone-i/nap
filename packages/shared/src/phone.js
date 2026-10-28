@@ -62,27 +62,29 @@ export function formatPhone(stored, country = DEFAULT_PHONE_COUNTRY) {
     : number.formatInternational();
 }
 
-// The start of an extension marker, `x` or any prefix of `ext.`, as typed.
-const EXT_MARKER = /^(?:x|e|ex|ext|ext\.)$/i;
+// A trailing extension as typed: `x` or a prefix of `ext.`, its spacing, and
+// up to 10 digits.
+const TRAILING_EXT = /\s*(x|e|ex|ext|ext\.)(\s*)(\d{0,10})$/i;
 
 /**
  * A phone being typed, formatted as far as it goes: `2125` reads
- * `(212) 5` for the US. From the first letter on is an extension: its marker
- * stays as typed while it is `x` or a prefix of `ext.`, and up to 10 digits
- * follow (M0005-R033). Anything else is dropped. The result is accepted by
- * `normalizePhone` once the number is complete.
+ * `(212) 5` for the US. A trailing extension keeps its marker as typed while
+ * it is `x` or a prefix of `ext.`, then up to 10 digits (M0005-R033). Text
+ * with letters anywhere else is not a phone being typed, such as a pasted
+ * `Tel: 212 555 1234`, and comes back unchanged for validation to flag. The
+ * result is accepted by `normalizePhone` once the number is complete.
  * @param {string} input
  * @param {string} [country] The tenant's default country.
  * @returns {string}
  */
 export function formatPhoneInput(input, country = DEFAULT_PHONE_COUNTRY) {
-  const letter = input.search(/[a-z]/i);
-  const main = letter === -1 ? input : input.slice(0, letter);
+  const ext = input.match(TRAILING_EXT);
+  const main = ext ? input.slice(0, ext.index) : input;
+  if (/[a-z]/i.test(main)) return input;
   const digits = main.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
   const number = digits ? new AsYouType(country).input(digits) : '';
-  if (letter === -1 || !number) return number;
-  const [, marker, rest] = input.slice(letter).match(/^([a-z.]*)(.*)$/i);
-  if (!EXT_MARKER.test(marker)) return number;
-  const ext = rest.replace(/\D/g, '').slice(0, 10);
-  return `${number} ${marker}${ext && (marker.endsWith('.') ? ' ' : '')}${ext}`;
+  if (!ext) return number;
+  if (!number) return input;
+  const [, marker, space, extDigits] = ext;
+  return `${number} ${marker}${space ? ' ' : ''}${extDigits}`;
 }

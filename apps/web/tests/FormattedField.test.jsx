@@ -84,4 +84,27 @@ describe('FormattedField', () => {
     });
     expect(input.value).toBe('(215)');
   });
+
+  it('does not move the caret later when the parent keeps the old value', async () => {
+    const field = helperText => (
+      <FormattedField
+        label="Field"
+        value="333-22"
+        onChange={() => {}}
+        format={ssn}
+        helperText={helperText}
+      />
+    );
+    const { rerender } = render(field(''));
+    const user = userEvent.setup();
+    const input = screen.getByLabelText('Field', { selector: 'input' });
+    await user.type(input, '4', {
+      initialSelectionStart: 6,
+      initialSelectionEnd: 6,
+    });
+    input.setSelectionRange(1, 1);
+    rerender(field('Not valid.'));
+    expect(input.value).toBe('333-22');
+    expect(input.selectionStart).toBe(1);
+  });
 });

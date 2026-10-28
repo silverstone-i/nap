@@ -47,12 +47,15 @@ function caretAfter(text, count) {
  */
 export function FormattedField({ value, onChange, format, ...props }) {
   const inputRef = useRef(null);
-  const caret = useRef(null);
+  // The caret for a value handed to `onChange`, placed only once the input
+  // shows that value, so a parent that keeps the old one moves nothing.
+  const pending = useRef(null);
 
   useLayoutEffect(() => {
-    if (caret.current === null || !inputRef.current) return;
-    inputRef.current.setSelectionRange(caret.current, caret.current);
-    caret.current = null;
+    const caret = pending.current;
+    pending.current = null;
+    if (caret && inputRef.current?.value === caret.value)
+      inputRef.current.setSelectionRange(caret.position, caret.position);
   });
 
   function handleChange(event) {
@@ -72,19 +75,17 @@ export function FormattedField({ value, onChange, format, ...props }) {
     // The text before the caret, formatted, ends where the caret goes. A
     // format that lays out a prefix differently falls back to counting.
     const before = format(raw.slice(0, at));
-    caret.current = next.startsWith(before)
+    const position = next.startsWith(before)
       ? before.length
       : caretAfter(
           next,
           [...raw.slice(0, at)].filter(c => TYPED.test(c)).length
         );
-    if (next === value) {
+    if (next === value)
       // No re-render follows, and React puts the old value back after this
       // handler, so place the caret once it has.
-      const position = caret.current;
-      caret.current = null;
       queueMicrotask(() => input.setSelectionRange(position, position));
-    }
+    else pending.current = { value: next, position };
     onChange(next);
   }
 
