@@ -305,6 +305,7 @@ export const migration = defineMigration({
             where: 'is_primary AND deactivated_at IS NULL',
           },
           {
+            name: 'uidx_contact_methods_party_id_type_value',
             columns: ['party_id', 'type', 'value'],
             unique: true,
             where: 'deactivated_at IS NULL',

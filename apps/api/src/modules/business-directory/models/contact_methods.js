@@ -62,6 +62,7 @@ export const contactMethodsSchema = {
         where: 'is_primary AND deactivated_at IS NULL',
       },
       {
+        name: 'uidx_contact_methods_party_id_type_value',
         columns: ['party_id', 'type', 'value'],
         unique: true,
         where: 'deactivated_at IS NULL',
@@ -90,22 +91,6 @@ export class ContactMethods extends DirectoryModel {
       `SELECT * FROM ${this.schemaName}.${this.tableName}
         WHERE party_id = ANY($1::uuid[]) AND is_primary AND deactivated_at IS NULL`,
       [partyIds]
-    );
-  }
-
-  /**
-   * Another active row of the party with this type and value (R063).
-   * @param {{partyId: string, type: string, value: string, excludeId: string|null}} match
-   * @param {{tx: object}} options
-   * @returns {Promise<object|null>}
-   */
-  async activeMatch({ partyId, type, value, excludeId }, { tx }) {
-    return tx.oneOrNone(
-      `SELECT id FROM ${this.schemaName}.${this.tableName}
-        WHERE party_id = $1 AND type = $2 AND value = $3
-          AND deactivated_at IS NULL AND id IS DISTINCT FROM $4
-        LIMIT 1`,
-      [partyId, type, value, excludeId]
     );
   }
 }
