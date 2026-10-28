@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.35.1] - 2026-10-28
+
 ### Changed
 
 - Tax ID and phone fields format as you type. A tax ID is laid into its format's mask (`333224444` reads `333-22-4444`) in **New** record dialogs and **Edit tax ID**, characters that fit no slot are dropped, and choosing another format moves the typed characters into the new mask when it can hold them all. A phone in **New phone** and **Edit phone** formats for the tenant's default country (`2125` reads `(212) 5`) and keeps a trailing `x` or `ext.` extension of up to 10 digits; text with other letters, such as a pasted `Tel: 212 555 1234`, is left as typed for validation to flag. The caret stays after the character typed, and backspace or delete next to a `-` or `)` removes the digit beside it.
