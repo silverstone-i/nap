@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 import {
   canonicalTaxId,
   formatPhone,
+  formatPhoneInput,
   formatTaxId,
+  formatTaxIdInput,
   isValidMask,
   maskTaxId,
   normalizePhone,
@@ -47,6 +49,36 @@ describe('phones (M0005-R033, R034)', () => {
 
   it('shows a value that does not parse unchanged', () => {
     expect(formatPhone('not a phone')).toBe('not a phone');
+  });
+});
+
+describe('phones as typed (M0005-R033)', () => {
+  it('formats a partial number as far as it goes', () => {
+    expect(formatPhoneInput('212')).toBe('(212)');
+    expect(formatPhoneInput('2125')).toBe('(212) 5');
+    expect(formatPhoneInput('212.555.1234')).toBe('(212) 555-1234');
+    expect(formatPhoneInput('+442079460958')).toBe('+44 20 7946 0958');
+    expect(formatPhoneInput('212+55')).toBe('(212) 55');
+    expect(formatPhoneInput('')).toBe('');
+  });
+
+  it('keeps an extension marker as typed and its digits', () => {
+    expect(formatPhoneInput('2125551234x')).toBe('(212) 555-1234 x');
+    expect(formatPhoneInput('2125551234 x 12')).toBe('(212) 555-1234 x12');
+    expect(formatPhoneInput('2125551234e')).toBe('(212) 555-1234 e');
+    expect(formatPhoneInput('2125551234ext.5')).toBe('(212) 555-1234 ext. 5');
+    expect(formatPhoneInput('(212) 555-1234 ext. 12')).toBe(
+      '(212) 555-1234 ext. 12'
+    );
+    expect(formatPhoneInput('2125551234 q')).toBe('(212) 555-1234');
+    expect(formatPhoneInput('x12')).toBe('');
+  });
+
+  it('gives what normalizePhone stores once complete', () => {
+    for (const typed of ['2125551234 x12', '2125551234ext.12'])
+      expect(normalizePhone(formatPhoneInput(typed))).toBe(
+        '+12125551234;ext=12'
+      );
   });
 });
 
@@ -95,5 +127,22 @@ describe('tax ID formats (M0005-R036, R038, R040, R041)', () => {
     expect(sameSlots(SSN, EIN)).toBe(true);
     expect(sameSlots(SSN, '##-####')).toBe(false);
     expect(sameSlots('AA-##', '##-##')).toBe(false);
+  });
+
+  it('lays a tax ID into its mask as it is typed', () => {
+    expect(formatTaxIdInput('333', SSN)).toBe('333');
+    expect(formatTaxIdInput('3332', SSN)).toBe('333-2');
+    expect(formatTaxIdInput('333224444', SSN)).toBe('333-22-4444');
+    expect(formatTaxIdInput('333-22-4444', SSN)).toBe('333-22-4444');
+    expect(formatTaxIdInput('333 22', SSN)).toBe('333-22');
+    expect(formatTaxIdInput('333-', SSN)).toBe('333');
+    expect(formatTaxIdInput('33a3', SSN)).toBe('333');
+    expect(formatTaxIdInput('3332244445', SSN)).toBe('333-22-4444');
+    expect(formatTaxIdInput('1', VAT)).toBe('GB 1');
+    expect(formatTaxIdInput('gb 123 4', VAT)).toBe('GB 123 4');
+    expect(formatTaxIdInput('ab1', 'AA-##')).toBe('AB-1');
+    expect(canonicalTaxId(formatTaxIdInput('123456789', VAT), VAT)).toBe(
+      '123456789'
+    );
   });
 });

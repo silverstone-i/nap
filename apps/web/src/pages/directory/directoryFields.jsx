@@ -4,12 +4,14 @@
  */
 
 import { useEffect, useState } from 'react';
+import { formatTaxIdInput } from '@nap/shared';
 import Autocomplete from '@mui/material/Autocomplete';
 import Link from '@mui/material/Link';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import { Link as RouterLink } from 'react-router';
 import { listRoles } from '../../api/endpoints.js';
+import { FormattedField } from '../../components/FormattedField.jsx';
 import { ArchivedConflictMessage } from '../../grid/ArchivedConflictMessage.jsx';
 import { KIND_LABELS } from './directoryRecords.js';
 
@@ -70,6 +72,27 @@ export function TaxIdFormatSelect({
         </MenuItem>
       ))}
     </TextField>
+  );
+}
+
+/**
+ * A tax ID typed into its format's mask (M0005-R038): `333224444` reads
+ * `333-22-4444` as it is typed. Without a mask the value is taken as typed.
+ * @param {{label?: string, mask: string|undefined, value: string, onChange: (value: string) => void}} props
+ * @returns {JSX.Element}
+ */
+export function TaxIdField({ label = 'Tax ID', mask, value, onChange }) {
+  return (
+    <FormattedField
+      label={label}
+      value={value}
+      onChange={onChange}
+      format={input => (mask ? formatTaxIdInput(input, mask) : input)}
+      placeholder={mask}
+      required
+      fullWidth
+      autoComplete="off"
+    />
   );
 }
 

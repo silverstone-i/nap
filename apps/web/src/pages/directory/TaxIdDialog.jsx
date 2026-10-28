@@ -4,16 +4,16 @@
  */
 
 import { useState } from 'react';
-import TextField from '@mui/material/TextField';
 import { ApiError } from '../../api/client.js';
 import { updateDirectoryRecord } from '../../api/endpoints.js';
 import { describeDirectoryError } from './directoryErrors.js';
 import {
   DuplicateTaxIdMessage,
+  TaxIdField,
   TaxIdFormatSelect,
 } from './directoryFields.jsx';
 import { SectionDialog } from '../../components/SectionDialog.jsx';
-import { defaultTaxIdFormatId } from './useTaxIdFormats.js';
+import { defaultTaxIdFormatId, relayTaxId } from './useTaxIdFormats.js';
 
 /**
  * The tax ID pencil's dialog (M0005-R052): a format and a new value, and
@@ -86,17 +86,12 @@ export function TaxIdDialog({
       <TaxIdFormatSelect
         formats={formats}
         value={formatId}
-        onChange={setChosenFormatId}
+        onChange={id => {
+          setChosenFormatId(id);
+          setValue(relayTaxId(value, formats?.find(f => f.id === id)?.mask));
+        }}
       />
-      <TextField
-        label="Tax ID"
-        value={value}
-        onChange={event => setValue(event.target.value)}
-        placeholder={mask}
-        required
-        fullWidth
-        autoComplete="off"
-      />
+      <TaxIdField mask={mask} value={value} onChange={setValue} />
     </SectionDialog>
   );
 }

@@ -9,7 +9,7 @@
  * `formatPhone` returns, so both apply one definition (M0005-R044). Both take
  * the tenant's default country (M0006-01-R011).
  */
-import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
+import { AsYouType, parsePhoneNumberFromString } from 'libphonenumber-js/max';
 
 /** Country used when the tenant's default country is not given (M0006-01-R004). */
 export const DEFAULT_PHONE_COUNTRY = 'US';
@@ -60,4 +60,29 @@ export function formatPhone(stored, country = DEFAULT_PHONE_COUNTRY) {
   return number.country === country
     ? number.formatNational()
     : number.formatInternational();
+}
+
+// The start of an extension marker, `x` or any prefix of `ext.`, as typed.
+const EXT_MARKER = /^(?:x|e|ex|ext|ext\.)$/i;
+
+/**
+ * A phone being typed, formatted as far as it goes: `2125` reads
+ * `(212) 5` for the US. From the first letter on is an extension: its marker
+ * stays as typed while it is `x` or a prefix of `ext.`, and up to 10 digits
+ * follow (M0005-R033). Anything else is dropped. The result is accepted by
+ * `normalizePhone` once the number is complete.
+ * @param {string} input
+ * @param {string} [country] The tenant's default country.
+ * @returns {string}
+ */
+export function formatPhoneInput(input, country = DEFAULT_PHONE_COUNTRY) {
+  const letter = input.search(/[a-z]/i);
+  const main = letter === -1 ? input : input.slice(0, letter);
+  const digits = main.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
+  const number = digits ? new AsYouType(country).input(digits) : '';
+  if (letter === -1 || !number) return number;
+  const [, marker, rest] = input.slice(letter).match(/^([a-z.]*)(.*)$/i);
+  if (!EXT_MARKER.test(marker)) return number;
+  const ext = rest.replace(/\D/g, '').slice(0, 10);
+  return `${number} ${marker}${ext && (marker.endsWith('.') ? ' ' : '')}${ext}`;
 }

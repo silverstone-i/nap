@@ -18,10 +18,15 @@ import { createDirectoryRecord } from '../../api/endpoints.js';
 import { describeDirectoryError } from './directoryErrors.js';
 import {
   DuplicateTaxIdMessage,
+  TaxIdField,
   TaxIdFormatSelect,
 } from './directoryFields.jsx';
 import { KIND_LABELS } from './directoryRecords.js';
-import { defaultTaxIdFormatId, useTaxIdFormats } from './useTaxIdFormats.js';
+import {
+  defaultTaxIdFormatId,
+  relayTaxId,
+  useTaxIdFormats,
+} from './useTaxIdFormats.js';
 
 /** M0005-R060: what a refused create means for each kind. */
 const CREATE_MESSAGES = {
@@ -50,17 +55,12 @@ function TaxIdInput({
       <TaxIdFormatSelect
         formats={formats}
         value={formatId}
-        onChange={onFormatChange}
+        onChange={id => {
+          onFormatChange(id);
+          onChange(relayTaxId(value, formats?.find(f => f.id === id)?.mask));
+        }}
       />
-      <TextField
-        label={label}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-        placeholder={mask}
-        required
-        fullWidth
-        autoComplete="off"
-      />
+      <TaxIdField label={label} mask={mask} value={value} onChange={onChange} />
     </Stack>
   );
 }

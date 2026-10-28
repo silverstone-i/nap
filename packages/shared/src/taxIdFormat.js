@@ -113,6 +113,37 @@ export function formatTaxId(canonical, mask) {
 }
 
 /**
+ * A tax ID being typed, laid into its mask as far as it goes: `3332` under
+ * `###-##-####` reads `333-2`. Characters that do not fit the next slot are
+ * dropped, a separator typed where the mask has one is kept, and a separator
+ * is shown only once a slot after it is filled, so backspace is never stuck
+ * on one. The result passes `canonicalTaxId` once every slot is filled.
+ * @param {string} input
+ * @param {string} mask
+ * @returns {string}
+ */
+export function formatTaxIdInput(input, mask) {
+  const chars = [...input.toUpperCase()];
+  let out = '';
+  let filled = 0;
+  let next = 0;
+  for (const m of mask) {
+    if (next >= chars.length) break;
+    if (!isSlot(m)) {
+      if (chars[next] === m) next += 1;
+      out += m;
+      continue;
+    }
+    while (next < chars.length && !fits(m, chars[next])) next += 1;
+    if (next >= chars.length) break;
+    out += chars[next];
+    next += 1;
+    filled = out.length;
+  }
+  return out.slice(0, filled);
+}
+
+/**
  * A masked tax ID in its format's layout, every slot but the last four shown
  * as `•`, such as `•••-••-6789` (M0005-R040).
  * @param {string} last4

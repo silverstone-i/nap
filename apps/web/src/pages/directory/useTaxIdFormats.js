@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { formatTaxId, maskTaxId } from '@nap/shared';
+import { formatTaxId, formatTaxIdInput, maskTaxId } from '@nap/shared';
 import { listTaxIdFormats } from '../../api/endpoints.js';
 
 /**
@@ -56,4 +56,20 @@ export function defaultTaxIdFormatId(formats, organization) {
     formats?.find(f => !f.archived && f.country === 'US' && f.name === name)
       ?.id ?? ''
   );
+}
+
+/** Letters and digits alone, which are a tax ID's slot characters. */
+const typed = value => value.replace(/[^0-9A-Z]/gi, '');
+
+/**
+ * A typed tax ID laid into a newly chosen format's mask, or left as it is
+ * when the new mask would drop some of what was typed.
+ * @param {string} value
+ * @param {string|undefined} mask
+ * @returns {string}
+ */
+export function relayTaxId(value, mask) {
+  if (!mask) return value;
+  const laid = formatTaxIdInput(value, mask);
+  return typed(laid).length === typed(value).length ? laid : value;
 }
