@@ -52,6 +52,18 @@ export function matchTarget(match) {
         organization.archived,
       ]
     : [match.kind, match.id, match.archived];
+  return recordLink(kind, id, archived);
+}
+
+/**
+ * The address that opens a record on its list, in the Archived view when
+ * it is archived, such as `/directory/vendors?open={id}`.
+ * @param {string} kind A kind with its own list: employee, contact, vendor, or client.
+ * @param {string} id
+ * @param {boolean} archived
+ * @returns {string}
+ */
+export function recordLink(kind, id, archived) {
   const params = new URLSearchParams(
     archived ? { view: 'archived', open: id } : { open: id }
   );

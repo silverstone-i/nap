@@ -14,7 +14,7 @@ import { Link as RouterLink } from 'react-router';
 import { listRoles } from '../../api/endpoints.js';
 import { FormattedField } from '../../components/FormattedField.jsx';
 import { ArchivedConflictMessage } from '../../grid/ArchivedConflictMessage.jsx';
-import { KIND_LABELS } from './directoryRecords.js';
+import { KIND_LABELS, recordLink } from './directoryRecords.js';
 import { relayTaxId } from './useTaxIdFormats.js';
 
 /**
@@ -26,12 +26,7 @@ import { relayTaxId } from './useTaxIdFormats.js';
  */
 export function DuplicateTaxIdMessage({ kind, holder, onFollow }) {
   const message = `Another ${KIND_LABELS[kind].toLowerCase()} already has this tax ID.`;
-  const params = new URLSearchParams(
-    holder.archived
-      ? { view: 'archived', open: holder.id }
-      : { open: holder.id }
-  );
-  const to = `/directory/${kind}s?${params}`;
+  const to = recordLink(kind, holder.id, holder.archived);
   if (holder.archived)
     return (
       <ArchivedConflictMessage message={message} to={to} onFollow={onFollow} />

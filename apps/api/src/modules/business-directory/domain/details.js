@@ -15,10 +15,12 @@ import { z } from 'zod';
 import { effectiveSettings } from '../../tenant-settings/domain/general.js';
 import { DirectoryError } from './errors.js';
 import {
+  DIRECTORY_READ,
   mutate,
   parse,
   parseId,
   read,
+  requireCapability,
   requireRevision,
   revision,
   uuid,
@@ -598,9 +600,11 @@ export function removeAddress(context, partyId, addressId) {
  * @param {unknown} partyId
  * @param {unknown} body
  * @returns {Promise<{matches: object[]}>}
- * @throws {DirectoryError} `INVALID_INPUT`, `NOT_FOUND`
+ * @throws {DirectoryError} `FORBIDDEN`, `INVALID_INPUT`, `NOT_FOUND`
  */
-export function findMatches(context, partyId, body) {
+export async function findMatches(context, partyId, body) {
+  // R066: the route takes write; names of other records also need read.
+  await requireCapability(context, DIRECTORY_READ);
   const input = parse(matchBody, body);
   const id = parseId(partyId);
   return read(context, async tx => {

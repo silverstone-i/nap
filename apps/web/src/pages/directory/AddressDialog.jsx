@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -58,8 +58,11 @@ export function AddressDialog({
   // M0005-R065: other records holding this address, once Save has looked.
   const [matches, setMatches] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Counts field changes, so a lookup answer for an older value is dropped.
+  const edits = useRef(0);
   /** Set a field; a change hides the matches warning (R067). */
   const edit = setter => next => {
+    edits.current += 1;
     setMatches(null);
     setter(next);
   };
@@ -68,24 +71,15 @@ export function AddressDialog({
     event.preventDefault();
     setError(null);
     setSaving(true);
-    const fields = {
+    const place = {
       line1: line1.trim(),
       line2: orNull(line2),
       city: city.trim(),
       region: orNull(region),
       postalCode: orNull(postalCode),
       country,
-      labelId,
-      isPrimary,
     };
-    const place = {
-      line1: fields.line1,
-      line2: fields.line2,
-      city: fields.city,
-      region: fields.region,
-      postalCode: fields.postalCode,
-      country: fields.country,
-    };
+    const fields = { ...place, labelId, isPrimary };
     try {
       // M0005-R065, R067: warn once about other records holding the
       // address; a lookup failure skips the warning and the save reports
@@ -96,6 +90,7 @@ export function AddressDialog({
           ([field, value]) => value !== (address[field] ?? null)
         );
       if (!matches && moved) {
+        const asked = edits.current;
         const found = await findDetailMatches(partyId, {
           type: 'address',
           ...place,
@@ -103,6 +98,8 @@ export function AddressDialog({
           result => result.matches,
           () => []
         );
+        // A field changed while the lookup ran: Save checks again.
+        if (edits.current !== asked) return;
         if (found.length > 0) {
           setMatches(found);
           return;

@@ -2074,6 +2074,50 @@ describe('Emails, phones, and addresses on other records (M0005-R065–R067)', (
     expect(api.findDetailMatches).toHaveBeenCalledTimes(1);
   });
 
+  it('R067: Open closes the dialogs and opens the matched record', async () => {
+    api.findDetailMatches.mockResolvedValue({ matches: MATCHES });
+    const { user, dialog } = await openNew('New email');
+    await user.type(within(dialog).getByLabelText(/Email/), 'pat@example.test');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await within(dialog).findByText(/Also on:/);
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      id: MATCHES[0].id,
+      firstName: 'Pat',
+      contactMethods: [],
+      addresses: [],
+    });
+    await user.click(within(dialog).getAllByRole('link', { name: 'Open' })[0]);
+    expect(screen.queryByRole('dialog', { name: 'New email' })).toBeNull();
+    await vi.waitFor(() =>
+      expect(api.getDirectoryRecord).toHaveBeenCalledWith(
+        'people',
+        MATCHES[0].id
+      )
+    );
+  });
+
+  it('R067: drops a lookup answer for a value changed while it ran', async () => {
+    let answer;
+    api.findDetailMatches.mockImplementationOnce(
+      () => new Promise(resolve => (answer = resolve))
+    );
+    const { user, dialog } = await openNew('New email');
+    const field = within(dialog).getByLabelText(/Email/);
+    await user.type(field, 'old@example.test');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await user.type(field, 'x');
+    answer({ matches: MATCHES });
+    // Save stays disabled until the lookup settles.
+    await vi.waitFor(() =>
+      expect(
+        within(dialog).getByRole('button', { name: 'Save' }).disabled
+      ).toBe(false)
+    );
+    expect(within(dialog).queryByText(/Also on:/)).toBeNull();
+    expect(api.addContactMethod).not.toHaveBeenCalled();
+  });
+
   it('AC46: saves in one press with no matches, and a change hides the warning', async () => {
     api.addAddress.mockResolvedValue({});
     const { user, dialog } = await openNew('New address');

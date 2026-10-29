@@ -1118,6 +1118,18 @@ describe('addresses and labels (M0005-R015, R017)', () => {
         )
       ).status
     ).toBe(403);
+    // Other records' names are read data: write alone is refused too.
+    const writer = await staff(
+      await role(['business-directory::directory::write'])
+    );
+    const refused = await call(
+      'post',
+      `/parties/${me.id}/matches`,
+      { type: 'email', value: email },
+      writer.cookie
+    );
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.code).toBe('FORBIDDEN');
   });
 
   it('R066: returns at most 20 matches, ordered by name', async () => {

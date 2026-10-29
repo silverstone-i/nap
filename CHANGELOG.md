@@ -12,7 +12,7 @@ when a pull request with a release label merges into `main`.
 
 ### Added
 
-- Saving an email, phone, or address that another record in the tenant already holds now warns first (M0005-R065–R067). The dialog lists each record as "Also on:" with its name, kind, organization for an organization contact, and "Archived" where it applies, each with an **Open** link; the button becomes **Save anyway**, and sharing is still allowed. Matching follows R063 (stored email and phone, case-insensitive address). The new `POST /api/business-directory/v1/parties/:id/matches` takes the value in the body and returns up to 20 matches; it requires `business-directory::directory::write`. Lookup indexes on `app.contact_methods (type, value)` and the address match key are added in place in baseline migration `001-business-directory`. Recreate existing cell databases.
+- Saving an email, phone, or address that another record in the tenant already holds now warns first (M0005-R065–R067). The dialog lists each record as "Also on:" with its name, kind, organization for an organization contact, and "Archived" where it applies, each with an **Open** link; the button becomes **Save anyway**, and sharing is still allowed. Matching follows R063 (stored email and phone, case-insensitive address). The new `POST /api/business-directory/v1/parties/:id/matches` takes the value in the body and returns up to 20 matches; it requires `business-directory::directory::write` and `business-directory::directory::read`. Lookup indexes on `app.contact_methods (type, value)` and the address match key are added in place in baseline migration `001-business-directory`. Recreate existing cell databases.
 
 ## [v0.35.2] - 2026-10-29
 

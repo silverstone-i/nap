@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatPhone, formatPhoneInput, normalizePhone } from '@nap/shared';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { FormattedField } from '../../components/FormattedField.jsx';
@@ -98,8 +98,11 @@ export function ContactMethodDialog({
   // M0005-R065: other records holding this value, once Save has looked.
   const [matches, setMatches] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Counts field changes, so a lookup answer for an older value is dropped.
+  const edits = useRef(0);
   /** Set a field; a change hides the matches warning (R067). */
   const edit = setter => next => {
+    edits.current += 1;
     setMatches(null);
     setter(next);
   };
@@ -118,10 +121,13 @@ export function ContactMethodDialog({
       // M0005-R065, R067: warn once about other records holding the value;
       // a lookup failure skips the warning and the save reports its own.
       if (!matches && (!method || value !== shown(method.value))) {
+        const asked = edits.current;
         const found = await findDetailMatches(partyId, { type, value }).then(
           result => result.matches,
           () => []
         );
+        // The value changed while the lookup ran: Save checks again.
+        if (edits.current !== asked) return;
         if (found.length > 0) {
           setMatches(found);
           return;
