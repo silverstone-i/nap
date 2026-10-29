@@ -52,11 +52,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Review with Claude Code
-        # Pinned to a commit: this third-party action holds the API key and a
-        # write token, so a moved tag must not change what runs.
+        # Pinned to a commit: this third-party action holds the Claude token
+        # and a write token, so a moved tag must not change what runs.
         uses: anthropics/claude-code-action@d70510b174a1244958df0b03166a54912811f3e6 # v1.0.264
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Signs in with the Claude Max plan (`claude setup-token`), so
+          # reviews count against its usage limits instead of API credit.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # Plain words, not a bare slash command: in a non-interactive run
           # "/code-review" alone ends before Claude takes a turn.
