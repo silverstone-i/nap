@@ -28,6 +28,7 @@ export function DetailMatchesWarning({ matches, onFollow }) {
             component={RouterLink}
             to={matchTarget(match)}
             onClick={onFollow}
+            aria-label={`Open ${match.name}`}
           >
             Open
           </Link>

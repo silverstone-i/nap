@@ -2060,13 +2060,19 @@ describe('Emails, phones, and addresses on other records (M0005-R065–R067)', (
     ).toBeTruthy();
     expect(
       within(dialog)
-        .getAllByRole('link', { name: 'Open' })
+        .getAllByRole('link', { name: /^Open / })
         .map(link => link.getAttribute('href'))
     ).toEqual([
       `/directory/employees?open=${MATCHES[0].id}`,
       `/directory/contacts?view=archived&open=${MATCHES[1].id}`,
       `/directory/vendors?open=${VENDOR_ID}`,
     ]);
+    // Each link names its record for screen readers.
+    expect(
+      within(dialog)
+        .getAllByRole('link', { name: /^Open / })
+        .map(link => link.getAttribute('aria-label'))
+    ).toEqual(['Open Pat Doe', 'Open Old Pat', 'Open Pat Roe']);
     await user.click(
       within(dialog).getByRole('button', { name: 'Save anyway' })
     );
@@ -2087,7 +2093,9 @@ describe('Emails, phones, and addresses on other records (M0005-R065–R067)', (
       contactMethods: [],
       addresses: [],
     });
-    await user.click(within(dialog).getAllByRole('link', { name: 'Open' })[0]);
+    await user.click(
+      within(dialog).getAllByRole('link', { name: /^Open / })[0]
+    );
     expect(screen.queryByRole('dialog', { name: 'New email' })).toBeNull();
     await vi.waitFor(() =>
       expect(api.getDirectoryRecord).toHaveBeenCalledWith(
