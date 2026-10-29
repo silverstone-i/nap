@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.35.2] - 2026-10-29
+
 ### Added
 
 - A record can no longer hold the same email, phone, or address twice (M0005-R063, R064). Emails and phones match on their saved form, so `Pat@Example.com` matches `pat@example.com` and `212.555.1234` matches `(212) 555-1234`; addresses match when every field is equal ignoring case, with empty fields counting as equal. Adding or editing one that matches fails with `409 DUPLICATE_DETAIL`, and the dialog says "This record already has this email." (or phone, or address). Removed ones don't count, and different records may share any of them. Address fields are now saved with runs of whitespace reduced to one space. New unique indexes on `app.contact_methods` and `app.addresses` are added in place in baseline migration `001-business-directory`. Recreate existing cell databases.
