@@ -6,9 +6,11 @@ name: Claude Code Review
 on:
   pull_request:
     # Once per PR, not per push: the review does not dedupe against threads it
-    # already posted. To review the latest commit again, add the
-    # `claude-review` label (remove it first if it is already on the PR).
-    types: [opened, reopened, ready_for_review, labeled]
+    # already posted. A draft is reviewed when marked ready, and again each
+    # time it goes back to draft and is marked ready. To review the latest
+    # commit again, add the `claude-review` label (remove it first if it is
+    # already on the PR). Reopening a PR does not review it.
+    types: [opened, ready_for_review, labeled]
     branches: ['main', 'dev']
 
 permissions:
@@ -17,22 +19,29 @@ permissions:
 
 concurrency:
   group: claude-code-review-${{ github.event.pull_request.number }}
-  # Queue, don't cancel: a cancelled run leaves part of its threads posted.
+  # Never cancel a running review, which would leave part of its threads
+  # posted. GitHub keeps one pending run per group, so a newer request
+  # replaces an older one still waiting.
   cancel-in-progress: false
 
 jobs:
   review:
     # Drafts wait for ready_for_review; fork PRs get no secrets; bot PRs
     # (Dependabot, release automation) have neither the key nor write access.
-    # A label event reviews only for `claude-review`.
+    # A label event reviews only for `claude-review`. A PR opened with that
+    # label sends `opened` and `labeled`; the `labeled` run reviews it.
     if: >-
       !github.event.pull_request.draft &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.type != 'Bot' &&
       (github.event.action != 'labeled' ||
-      github.event.label.name == 'claude-review')
+      github.event.label.name == 'claude-review') &&
+      (github.event.action != 'opened' ||
+      !contains(github.event.pull_request.labels.*.name, 'claude-review'))
     runs-on: ubuntu-latest
     steps:
+      - name: Record start time
+        run: echo "REVIEW_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
       - name: Checkout PR
         uses: actions/checkout@v4
         with:
@@ -62,3 +71,19 @@ jobs:
           # tool limits.
           claude_args: >-
             --allowedTools "Skill,Agent,Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rev-parse:*),Bash(git merge-base:*)"
+      # The review can finish green without posting, for example if the
+      # inline-comment tool is missing. Report the count; warn on zero, which
+      # can also mean a clean review.
+      - name: Count posted comments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          count=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/comments" \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and .commit_id == \"$HEAD_SHA\" and .created_at >= \"$REVIEW_STARTED\")] | length" \
+            | awk '{ total += $1 } END { print total + 0 }')
+          echo "Claude Code posted $count inline comment(s) on $HEAD_SHA." >> "$GITHUB_STEP_SUMMARY"
+          if [ "$count" -eq 0 ]; then
+            echo "::warning::Claude Code posted no inline comments. Check the report above: the review may have found nothing, or it could not post."
+          fi
