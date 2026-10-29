@@ -12,7 +12,7 @@ when a pull request with a release label merges into `main`.
 
 ### Added
 
-- Pull requests to `main` and `dev` get a Claude Code review: the new `Claude Code Review` workflow runs the bundled `/code-review` at medium effort when a PR is opened, reopened, or marked ready, and posts findings as inline review threads, so `/ship review`, `/ship fix`, and Auto-fix handle them like Copilot's. It needs an `ANTHROPIC_API_KEY` repository secret, skips drafts and fork PRs, and reviews once per PR; close and reopen the PR to review its latest commit after large changes.
+- Pull requests to `main` and `dev` get a Claude Code review: the new `Claude Code Review` workflow runs the bundled `/code-review` at medium effort when a PR is opened, reopened, or marked ready, and posts findings as inline review threads, so `/ship review`, `/ship fix`, and Auto-fix handle them like Copilot's. It needs an `ANTHROPIC_API_KEY` repository secret with purchased API credit, reviews the PR head commit, skips drafts, fork PRs, and bot-opened PRs, and reviews once per PR; add the `claude-review` label to review the latest commit again.
 
 ## [v0.36.0] - 2026-10-29
 

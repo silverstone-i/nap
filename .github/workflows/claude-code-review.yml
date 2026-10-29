@@ -6,9 +6,9 @@ name: Claude Code Review
 on:
   pull_request:
     # Once per PR, not per push: the review does not dedupe against threads it
-    # already posted. Close and reopen the PR to review its latest commit; a
-    # re-run from the Actions tab reviews the commit the PR was opened at.
-    types: [opened, reopened, ready_for_review]
+    # already posted. To review the latest commit again, add the
+    # `claude-review` label (remove it first if it is already on the PR).
+    types: [opened, reopened, ready_for_review, labeled]
     branches: ['main', 'dev']
 
 permissions:
@@ -17,19 +17,29 @@ permissions:
 
 concurrency:
   group: claude-code-review-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # Queue, don't cancel: a cancelled run leaves part of its threads posted.
+  cancel-in-progress: false
 
 jobs:
   review:
-    # Drafts wait for ready_for_review; fork PRs get no secrets.
+    # Drafts wait for ready_for_review; fork PRs get no secrets; bot PRs
+    # (Dependabot, release automation) have neither the key nor write access.
+    # A label event reviews only for `claude-review`.
     if: >-
       !github.event.pull_request.draft &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.type != 'Bot' &&
+      (github.event.action != 'labeled' ||
+      github.event.label.name == 'claude-review')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR
         uses: actions/checkout@v4
         with:
+          # The PR head, not the merge commit, so line numbers match the diff
+          # the inline comments anchor to. Full history keeps the merge base
+          # available for git diff and git log.
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Review with Claude Code
@@ -48,5 +58,7 @@ jobs:
             comments on pull request ${{ github.event.pull_request.number }}.
           # Same-repo PRs only (see `if` above), so the report is trusted.
           display_report: true
+          # Agent lets the review fan out to subagents, which keep these same
+          # tool limits.
           claude_args: >-
-            --allowedTools "Skill,Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rev-parse:*),Bash(git merge-base:*)"
+            --allowedTools "Skill,Agent,Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git rev-parse:*),Bash(git merge-base:*)"
