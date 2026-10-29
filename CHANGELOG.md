@@ -10,6 +10,10 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Pull requests to `main` and `dev` get a Claude Code review: the new `Claude Code Review` workflow runs the bundled `/code-review` at medium effort when a PR is opened, reopened, or marked ready, and posts findings as inline review threads, so `/ship review`, `/ship fix`, and Auto-fix handle them like Copilot's. It needs an `ANTHROPIC_API_KEY` repository secret, skips drafts and fork PRs, and reviews once per PR; re-run it from the Actions tab after large changes.
+
 ## [v0.36.0] - 2026-10-29
 
 ### Added
