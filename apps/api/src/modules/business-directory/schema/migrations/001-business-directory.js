@@ -310,6 +310,7 @@ export const migration = defineMigration({
             unique: true,
             where: 'deactivated_at IS NULL',
           },
+          { columns: ['type', 'value'], where: 'deactivated_at IS NULL' },
           { columns: ['party_id'] },
         ],
       },
@@ -390,6 +391,16 @@ export const migration = defineMigration({
               },
             ],
             unique: true,
+            where: 'deactivated_at IS NULL',
+          },
+          {
+            name: 'idx_addresses_match',
+            columns: [
+              {
+                expression:
+                  "md5(lower(coalesce(line1, '') || chr(31) || coalesce(line2, '') || chr(31) || coalesce(city, '') || chr(31) || coalesce(region, '') || chr(31) || coalesce(postal_code, '') || chr(31) || coalesce(country, '')))",
+              },
+            ],
             where: 'deactivated_at IS NULL',
           },
           { columns: ['party_id'] },

@@ -35,3 +35,37 @@ export function emptyListMessage(plural, archived, searching) {
   if (searching) return `No ${plural} match.`;
   return archived ? `No archived ${plural}.` : `No ${plural} yet.`;
 }
+
+/**
+ * Where a match's Open link goes: the record's list, or an organization
+ * contact's organization, in the Archived view when that record is
+ * archived (M0005-R067).
+ * @param {{id: string, kind: string, archived: boolean, organization: {id: string, archived: boolean}|null}} match
+ * @returns {string}
+ */
+export function matchTarget(match) {
+  const { organization } = match;
+  const [kind, id, archived] = organization
+    ? [
+        match.kind.replace('_contact', ''),
+        organization.id,
+        organization.archived,
+      ]
+    : [match.kind, match.id, match.archived];
+  return recordLink(kind, id, archived);
+}
+
+/**
+ * The address that opens a record on its list, in the Archived view when
+ * it is archived, such as `/directory/vendors?open={id}`.
+ * @param {string} kind A kind with its own list: employee, contact, vendor, or client.
+ * @param {string} id
+ * @param {boolean} archived
+ * @returns {string}
+ */
+export function recordLink(kind, id, archived) {
+  const params = new URLSearchParams(
+    archived ? { view: 'archived', open: id } : { open: id }
+  );
+  return `/directory/${kind}s?${params}`;
+}

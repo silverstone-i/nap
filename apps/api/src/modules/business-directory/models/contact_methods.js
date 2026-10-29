@@ -67,6 +67,8 @@ export const contactMethodsSchema = {
         unique: true,
         where: 'deactivated_at IS NULL',
       },
+      // R066: matches across parties.
+      { columns: ['type', 'value'], where: 'deactivated_at IS NULL' },
       { columns: ['party_id'] },
     ],
   },
@@ -92,5 +94,22 @@ export class ContactMethods extends DirectoryModel {
         WHERE party_id = ANY($1::uuid[]) AND is_primary AND deactivated_at IS NULL`,
       [partyIds]
     );
+  }
+
+  /**
+   * The other parties with an active email or phone of `type` equal to
+   * `value`, as stored (R065, R066).
+   * @param {{type: string, value: string, excludePartyId: string}} match
+   * @param {{tx: object}} options
+   * @returns {Promise<string[]>} Party IDs.
+   */
+  async partiesWithValue({ type, value, excludePartyId }, { tx }) {
+    const rows = await tx.any(
+      `SELECT DISTINCT party_id FROM ${this.schemaName}.${this.tableName}
+        WHERE type = $1 AND value = $2 AND deactivated_at IS NULL
+          AND party_id <> $3`,
+      [type, value, excludePartyId]
+    );
+    return rows.map(row => row.party_id);
   }
 }

@@ -32,6 +32,7 @@ import {
   organizationContactViewSchema,
   organizationContactDetailSchema,
   contactMethodViewSchema,
+  detailMatchesSchema,
   addressViewSchema,
   contactLabelViewSchema,
   taxIdFormatViewSchema,
@@ -680,6 +681,19 @@ export async function revealTaxId(collection, id) {
   return z
     .strictObject({ taxId: z.string().regex(/^[0-9A-Z]{4,32}$/) })
     .parse(await apiGet(`${DIRECTORY_BASE}/${collection}/${id}/tax-id`)).taxId;
+}
+
+/**
+ * The other records holding an email, phone, or address (M0005-R066). The
+ * value goes in the body so it stays out of URLs and logs.
+ * @param {string} partyId
+ * @param {{type: 'email'|'phone', value: string}|{type: 'address', line1: string, line2: string|null, city: string, region: string|null, postalCode: string|null, country: string}} input
+ * @returns {Promise<{matches: object[]}>}
+ */
+export async function findDetailMatches(partyId, input) {
+  return detailMatchesSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/parties/${partyId}/matches`, input)
+  );
 }
 
 /**

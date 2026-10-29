@@ -44,6 +44,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   addAddress: vi.fn(),
   updateAddress: vi.fn(),
   removeAddress: vi.fn(),
+  findDetailMatches: vi.fn(),
   listContactLabels: vi.fn(),
   listRoles: vi.fn(),
   createContactLabel: vi.fn(),
@@ -164,6 +165,7 @@ beforeEach(() => {
   installResizeObserver();
   useSession.mockReturnValue(sessionFor());
   api.listTaxIdFormats.mockResolvedValue([SSN, EIN]);
+  api.findDetailMatches.mockResolvedValue({ matches: [] });
   listRows = [JANE];
   contactRows = [];
   // M0005-R027: lists are cursor pages; an organization's contacts come
@@ -1991,5 +1993,162 @@ describe('Duplicate emails, phones, and addresses (M0005-R064)', () => {
       ).toBeTruthy();
       await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     }
+  });
+});
+
+describe('Emails, phones, and addresses on other records (M0005-R065–R067)', () => {
+  const VENDOR_ID = '55555555-5555-4555-8555-555555555555';
+  const MATCHES = [
+    {
+      id: '66666666-6666-4666-8666-666666666666',
+      kind: 'employee',
+      name: 'Pat Doe',
+      archived: false,
+      organization: null,
+    },
+    {
+      id: '77777777-7777-4777-8777-777777777777',
+      kind: 'contact',
+      name: 'Old Pat',
+      archived: true,
+      organization: null,
+    },
+    {
+      id: '88888888-8888-4888-8888-888888888888',
+      kind: 'vendor_contact',
+      name: 'Pat Roe',
+      archived: false,
+      organization: { id: VENDOR_ID, name: 'Acme Supply', archived: false },
+    },
+  ];
+
+  async function openNew(button) {
+    listRows = [STAFF];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    await user.click(within(detail).getByRole('button', { name: button }));
+    return {
+      user,
+      dialog: await screen.findByRole('dialog', { name: button }),
+    };
+  }
+
+  it('AC44, AC45: lists other records with links, then Save anyway saves', async () => {
+    api.findDetailMatches.mockResolvedValue({ matches: MATCHES });
+    api.addContactMethod.mockResolvedValue({});
+    const { user, dialog } = await openNew('New email');
+    await user.type(within(dialog).getByLabelText(/Email/), 'pat@example.test');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText(/Also on:/)).toBeTruthy();
+    expect(api.findDetailMatches).toHaveBeenCalledWith(STAFF.id, {
+      type: 'email',
+      value: 'pat@example.test',
+    });
+    expect(api.addContactMethod).not.toHaveBeenCalled();
+    expect(
+      within(dialog).getByText(/Pat Roe \(Vendor contact at Acme Supply\)/)
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Old Pat \(Contact\) · Archived/)
+    ).toBeTruthy();
+    expect(
+      within(dialog)
+        .getAllByRole('link', { name: /^Open / })
+        .map(link => link.getAttribute('href'))
+    ).toEqual([
+      `/directory/employees?open=${MATCHES[0].id}`,
+      `/directory/contacts?view=archived&open=${MATCHES[1].id}`,
+      `/directory/vendors?open=${VENDOR_ID}`,
+    ]);
+    // Each link names its record for screen readers.
+    expect(
+      within(dialog)
+        .getAllByRole('link', { name: /^Open / })
+        .map(link => link.getAttribute('aria-label'))
+    ).toEqual(['Open Pat Doe', 'Open Old Pat', 'Open Pat Roe']);
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Save anyway' })
+    );
+    await vi.waitFor(() => expect(api.addContactMethod).toHaveBeenCalled());
+    expect(api.findDetailMatches).toHaveBeenCalledTimes(1);
+  });
+
+  it('R067: Open closes the dialogs and opens the matched record', async () => {
+    api.findDetailMatches.mockResolvedValue({ matches: MATCHES });
+    const { user, dialog } = await openNew('New email');
+    await user.type(within(dialog).getByLabelText(/Email/), 'pat@example.test');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await within(dialog).findByText(/Also on:/);
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      id: MATCHES[0].id,
+      firstName: 'Pat',
+      contactMethods: [],
+      addresses: [],
+    });
+    await user.click(
+      within(dialog).getAllByRole('link', { name: /^Open / })[0]
+    );
+    expect(screen.queryByRole('dialog', { name: 'New email' })).toBeNull();
+    await vi.waitFor(() =>
+      expect(api.getDirectoryRecord).toHaveBeenCalledWith(
+        'people',
+        MATCHES[0].id
+      )
+    );
+  });
+
+  it('R067: drops a lookup answer for a value changed while it ran', async () => {
+    let answer;
+    api.findDetailMatches.mockImplementationOnce(
+      () => new Promise(resolve => (answer = resolve))
+    );
+    const { user, dialog } = await openNew('New email');
+    const field = within(dialog).getByLabelText(/Email/);
+    await user.type(field, 'old@example.test');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await user.type(field, 'x');
+    answer({ matches: MATCHES });
+    // Save stays disabled until the lookup settles.
+    await vi.waitFor(() =>
+      expect(
+        within(dialog).getByRole('button', { name: 'Save' }).disabled
+      ).toBe(false)
+    );
+    expect(within(dialog).queryByText(/Also on:/)).toBeNull();
+    expect(api.addContactMethod).not.toHaveBeenCalled();
+  });
+
+  it('AC46: saves in one press with no matches, and a change hides the warning', async () => {
+    api.addAddress.mockResolvedValue({});
+    const { user, dialog } = await openNew('New address');
+    await user.type(
+      within(dialog).getByLabelText(/Address line 1/),
+      '1 Oak St'
+    );
+    await user.type(within(dialog).getByLabelText(/City/), 'Austin');
+    api.findDetailMatches.mockResolvedValueOnce({ matches: MATCHES });
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByText(/Also on:/)).toBeTruthy();
+    expect(api.findDetailMatches).toHaveBeenLastCalledWith(STAFF.id, {
+      type: 'address',
+      line1: '1 Oak St',
+      line2: null,
+      city: 'Austin',
+      region: null,
+      postalCode: null,
+      country: 'US',
+    });
+    await user.type(within(dialog).getByLabelText(/Address line 1/), 'reet');
+    expect(within(dialog).queryByText(/Also on:/)).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(api.addAddress).toHaveBeenCalled());
   });
 });

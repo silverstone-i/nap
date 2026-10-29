@@ -184,5 +184,6 @@ export async function requireCapability(context, capability) {
   if (!(await context.can(capability))) throw new DirectoryError('FORBIDDEN');
 }
 
+export const DIRECTORY_READ = 'business-directory::directory::read';
 export const TAX_IDS_READ = 'business-directory::tax-ids::read';
 export const TAX_IDS_WRITE = 'business-directory::tax-ids::write';

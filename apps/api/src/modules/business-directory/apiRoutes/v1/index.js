@@ -21,6 +21,7 @@ import {
 } from '../../domain/records.js';
 import {
   addAddress,
+  findMatches,
   addContactMethod,
   removeAddress,
   removeContactMethod,
@@ -169,7 +170,8 @@ function recordRouter(name) {
 }
 
 /**
- * Build the `parties` router: a record's emails, phones, and addresses.
+ * Build the `parties` router: a record's emails, phones, and addresses,
+ * and the other records holding a matching one (M0005-R066).
  * @param {object} deps
  * @returns {import('express').Router}
  */
@@ -246,6 +248,18 @@ export function createPartiesRouter(deps) {
           request.params.id,
           request.params.addressId
         )
+      )
+    )
+  );
+  // M0005-R066: the value is in the body so it stays out of URLs and logs,
+  // and the lookup runs only from a save, so it takes the write capability
+  // (a read capability belongs on GET only, I0005-R002).
+  router.post(
+    '/:id/matches',
+    ...route(deps, WRITE, async (context, request, response) =>
+      sendData(
+        response,
+        await findMatches(context, request.params.id, request.body)
       )
     )
   );
