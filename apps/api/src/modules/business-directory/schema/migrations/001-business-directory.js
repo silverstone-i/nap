@@ -304,6 +304,12 @@ export const migration = defineMigration({
             unique: true,
             where: 'is_primary AND deactivated_at IS NULL',
           },
+          {
+            name: 'uidx_contact_methods_party_id_type_value',
+            columns: ['party_id', 'type', 'value'],
+            unique: true,
+            where: 'deactivated_at IS NULL',
+          },
           { columns: ['party_id'] },
         ],
       },
@@ -373,6 +379,18 @@ export const migration = defineMigration({
             columns: ['party_id'],
             unique: true,
             where: 'is_primary AND deactivated_at IS NULL',
+          },
+          {
+            name: 'uidx_addresses_party_id_match',
+            columns: [
+              'party_id',
+              {
+                expression:
+                  "md5(lower(coalesce(line1, '') || chr(31) || coalesce(line2, '') || chr(31) || coalesce(city, '') || chr(31) || coalesce(region, '') || chr(31) || coalesce(postal_code, '') || chr(31) || coalesce(country, '')))",
+              },
+            ],
+            unique: true,
+            where: 'deactivated_at IS NULL',
           },
           { columns: ['party_id'] },
         ],

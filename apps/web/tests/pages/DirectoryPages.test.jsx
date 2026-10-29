@@ -1957,3 +1957,39 @@ describe('Consistent patterns (M0005-R054–R062)', () => {
     expect(within(edit).queryByLabelText(/Country/)).toBeNull();
   });
 });
+
+describe('Duplicate emails, phones, and addresses (M0005-R064)', () => {
+  it('AC42: each dialog names what is already on the record', async () => {
+    listRows = [STAFF];
+    api.getDirectoryRecord.mockResolvedValue({
+      ...STAFF,
+      contactMethods: [],
+      addresses: [],
+    });
+    const duplicate = () => new ApiError('DUPLICATE_DETAIL', 409, null);
+    api.addContactMethod.mockRejectedValue(duplicate());
+    api.addAddress.mockRejectedValue(duplicate());
+    renderWithHeader(<DirectoryRecordsPage kind="employee" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Jane Doe' }));
+    const detail = await screen.findByRole('dialog', { name: /Jane Doe/ });
+    for (const [button, field, value, message] of [
+      ['New email', 'Email', 'jane@example.test', 'email'],
+      ['New phone', 'Phone', '212 555 1234', 'phone'],
+      ['New address', 'Address line 1', '1 Oak St', 'address'],
+    ]) {
+      await user.click(within(detail).getByRole('button', { name: button }));
+      const dialog = await screen.findByRole('dialog', { name: button });
+      await user.type(within(dialog).getByLabelText(new RegExp(field)), value);
+      if (button === 'New address')
+        await user.type(within(dialog).getByLabelText(/City/), 'Austin');
+      await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+      expect(
+        await within(dialog).findByText(
+          `This record already has this ${message}.`
+        )
+      ).toBeTruthy();
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    }
+  });
+});

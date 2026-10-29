@@ -6,7 +6,7 @@
 import { DirectoryModel } from './directoryModel.js';
 
 /**
- * Schema object for `app.contact_methods`: emails and phones (M0005-R014). One active primary email and one active primary phone per party.
+ * Schema object for `app.contact_methods`: emails and phones (M0005-R014). One active primary email and one active primary phone per party, and no two active rows of one type with the same value (R063).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
 export const contactMethodsSchema = {
@@ -60,6 +60,12 @@ export const contactMethodsSchema = {
         columns: ['party_id', 'type'],
         unique: true,
         where: 'is_primary AND deactivated_at IS NULL',
+      },
+      {
+        name: 'uidx_contact_methods_party_id_type_value',
+        columns: ['party_id', 'type', 'value'],
+        unique: true,
+        where: 'deactivated_at IS NULL',
       },
       { columns: ['party_id'] },
     ],

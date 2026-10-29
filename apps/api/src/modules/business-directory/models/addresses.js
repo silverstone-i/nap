@@ -6,7 +6,7 @@
 import { DirectoryModel } from './directoryModel.js';
 
 /**
- * Schema object for `app.addresses`: addresses (M0005-R015). One active primary address per party.
+ * Schema object for `app.addresses`: addresses (M0005-R015). One active primary address per party, and no two matching active addresses (R063).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
 export const addressesSchema = {
@@ -74,6 +74,21 @@ export const addressesSchema = {
         columns: ['party_id'],
         unique: true,
         where: 'is_primary AND deactivated_at IS NULL',
+      },
+      {
+        name: 'uidx_addresses_party_id_match',
+        // R063: the address fields, lowercased with nulls as empty, hashed
+        // so the key stays under the btree row limit. Fields are saved with
+        // whitespace collapsed, so matching ignores only case.
+        columns: [
+          'party_id',
+          {
+            expression:
+              "md5(lower(coalesce(line1, '') || chr(31) || coalesce(line2, '') || chr(31) || coalesce(city, '') || chr(31) || coalesce(region, '') || chr(31) || coalesce(postal_code, '') || chr(31) || coalesce(country, '')))",
+          },
+        ],
+        unique: true,
+        where: 'deactivated_at IS NULL',
       },
       { columns: ['party_id'] },
     ],

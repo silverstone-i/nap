@@ -899,6 +899,103 @@ describe('addresses and labels (M0005-R015, R017)', () => {
       ).body.error.code
     ).toBe('INVALID_INPUT');
   });
+
+  it('AC42, AC43: refuses a matching email, phone, or address on one party only', async () => {
+    const [pat, lee] = await Promise.all(
+      ['Pat', 'Lee'].map(firstName =>
+        create('people', { kind: 'contact', firstName, lastName: 'Dup' })
+      )
+    );
+    const add = (party, route, body) =>
+      call('post', `/parties/${party.id}/${route}`, body);
+    const email = await add(pat, 'contact-methods', {
+      type: 'email',
+      value: 'pat@example.com',
+    });
+    const phone = await add(pat, 'contact-methods', {
+      type: 'phone',
+      value: '(212) 555-1234',
+    });
+    const address = await add(pat, 'addresses', {
+      line1: '123 Main St',
+      city: 'Austin',
+      country: 'US',
+    });
+    expect([email.status, phone.status, address.status]).toEqual([
+      201, 201, 201,
+    ]);
+    const twins = [
+      ['contact-methods', { type: 'email', value: ' Pat@Example.com' }],
+      ['contact-methods', { type: 'phone', value: '212.555.1234' }],
+      ['addresses', { line1: ' 123  main st ', city: 'AUSTIN', country: 'us' }],
+    ];
+    for (const [route, body] of twins) {
+      const refused = await add(pat, route, body);
+      expect(refused.status).toBe(409);
+      expect(refused.body.error.code).toBe('DUPLICATE_DETAIL');
+      // AC43: another party may hold the same value.
+      expect((await add(lee, route, body)).status).toBe(201);
+    }
+    // A blank optional field matches a missing one.
+    expect(
+      (
+        await add(pat, 'addresses', {
+          line1: '123 Main St',
+          line2: null,
+          city: 'Austin',
+          region: null,
+          country: 'US',
+        })
+      ).body.error.code
+    ).toBe('DUPLICATE_DETAIL');
+    // Editing a row to match another is refused; saving its own value is not.
+    const other = (
+      await add(pat, 'contact-methods', {
+        type: 'email',
+        value: 'pat2@example.com',
+      })
+    ).body.data;
+    const edit = value =>
+      call('patch', `/parties/${pat.id}/contact-methods/${other.id}`, {
+        value,
+        revision: other.revision,
+      });
+    expect((await edit('PAT@example.com')).body.error.code).toBe(
+      'DUPLICATE_DETAIL'
+    );
+    expect((await edit('pat2@example.com')).status).toBe(200);
+    const second = (
+      await add(pat, 'addresses', {
+        line1: '9 Elm St',
+        city: 'Austin',
+        country: 'US',
+      })
+    ).body.data;
+    expect(
+      (
+        await call('patch', `/parties/${pat.id}/addresses/${second.id}`, {
+          line1: '123 MAIN ST',
+          revision: second.revision,
+        })
+      ).body.error.code
+    ).toBe('DUPLICATE_DETAIL');
+    // AC43: a removed one can be added again; whitespace is saved collapsed.
+    for (const [route, row] of [
+      ['contact-methods', email.body.data],
+      ['addresses', address.body.data],
+    ])
+      expect(
+        (await call('delete', `/parties/${pat.id}/${route}/${row.id}`)).status
+      ).toBe(200);
+    expect((await add(pat, ...twins[0])).status).toBe(201);
+    const readded = await add(pat, ...twins[2]);
+    expect(readded.status).toBe(201);
+    expect(readded.body.data).toMatchObject({
+      line1: '123 main st',
+      city: 'AUSTIN',
+      country: 'US',
+    });
+  });
 });
 
 describe('organization contact flags (M0005-R004)', () => {

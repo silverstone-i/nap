@@ -48,13 +48,23 @@ const methodUpdate = z.strictObject({
   isPrimary: z.boolean().optional(),
   revision,
 });
-const line = z.string().trim().min(1).max(255);
+/**
+ * R063: address text is saved trimmed with each run of whitespace reduced to
+ * one space, so the match index need only ignore case.
+ * @param {number} max
+ */
+const text = max =>
+  z
+    .string()
+    .transform(value => value.trim().replace(/\s+/g, ' '))
+    .pipe(z.string().min(1).max(max));
+const line = text(255);
 const addressFields = {
   line1: line,
   line2: line.nullable(),
-  city: z.string().trim().min(1).max(120),
-  region: z.string().trim().min(1).max(120).nullable(),
-  postalCode: z.string().trim().min(1).max(32).nullable(),
+  city: text(120),
+  region: text(120).nullable(),
+  postalCode: text(32).nullable(),
   country: z
     .string()
     .trim()

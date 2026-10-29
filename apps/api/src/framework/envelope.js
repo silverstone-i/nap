@@ -29,6 +29,7 @@ export const ERROR_STATUS = Object.freeze({
   // M0005 §10 directory rules.
   PRIMARY_TAX_CONTACT: 409,
   DUPLICATE_TAX_ID: 409,
+  DUPLICATE_DETAIL: 409,
   BULK_FAILED: 409,
   // M0006-02 §10 storage rules.
   STORAGE_NOT_CONFIGURED: 409,
@@ -65,6 +66,7 @@ export const ERROR_MESSAGE = Object.freeze({
   GRANT_EXCEEDS_ACTOR: 'Grant exceeds your access',
   PRIMARY_TAX_CONTACT: 'Primary tax contact cannot be removed',
   DUPLICATE_TAX_ID: 'Another record already has this tax ID',
+  DUPLICATE_DETAIL: 'This record already has this value',
   BULK_FAILED: 'One or more items failed; nothing was changed',
   STORAGE_NOT_CONFIGURED: 'File storage is not connected',
   STORAGE_TEST_FAILED: 'File storage connection test failed',

@@ -16,6 +16,15 @@ const SQLSTATE_CODES = Object.freeze({
 });
 
 /**
+ * Unique indexes whose violation is a rule of its own: the party already
+ * has this email, phone, or address (M0005-R063, R064).
+ */
+const CONSTRAINT_CODES = Object.freeze({
+  uidx_contact_methods_party_id_type_value: 'DUPLICATE_DETAIL',
+  uidx_addresses_party_id_match: 'DUPLICATE_DETAIL',
+});
+
+/**
  * Codes a caller may see unchanged: `business-directory`'s own rule codes
  * (M0005 §10) plus the shared codes the route layer and its collaborators
  * report.
@@ -30,6 +39,8 @@ const PASS_THROUGH = new Set([
   'PRIMARY_TAX_CONTACT',
   // M0005-R048: names the record already holding the tax ID.
   'DUPLICATE_TAX_ID',
+  // M0005-R064: the party already has this email, phone, or address.
+  'DUPLICATE_DETAIL',
   'ADMIN_ASSIGNED',
   // I0010-R009: M0003's role rules, reported as Access Control reports them.
   'GRANT_EXCEEDS_ACTOR',
@@ -75,6 +86,13 @@ export function directoryCode(error) {
   if (error instanceof DirectoryError) return error.code;
   const code = error?.code;
   if (typeof code === 'string' && PASS_THROUGH.has(code)) return code;
+  const constraint = error?.constraint;
+  if (
+    code === '23505' &&
+    typeof constraint === 'string' &&
+    Object.hasOwn(CONSTRAINT_CODES, constraint)
+  )
+    return CONSTRAINT_CODES[constraint];
   return typeof code === 'string' && Object.hasOwn(SQLSTATE_CODES, code)
     ? SQLSTATE_CODES[code]
     : 'INTERNAL_ERROR';
@@ -82,7 +100,8 @@ export function directoryCode(error) {
 
 /**
  * Run `operation` and translate its failures into a `DirectoryError`. A
- * known code passes through; a caller-caused SQLSTATE maps as
+ * known code passes through; a violation of an index in `CONSTRAINT_CODES`
+ * maps as it says; another caller-caused SQLSTATE maps as
  * `SQLSTATE_CODES` says; anything else becomes `INTERNAL_ERROR`, so database structure
  * never reaches a caller.
  * @template T
@@ -95,13 +114,6 @@ export async function withDirectoryErrors(operation) {
     return await operation();
   } catch (error) {
     if (error instanceof DirectoryError) throw error;
-    const code = error?.code;
-    if (typeof code === 'string' && PASS_THROUGH.has(code))
-      throw new DirectoryError(code);
-    throw new DirectoryError(
-      typeof code === 'string' && Object.hasOwn(SQLSTATE_CODES, code)
-        ? SQLSTATE_CODES[code]
-        : 'INTERNAL_ERROR'
-    );
+    throw new DirectoryError(directoryCode(error));
   }
 }
