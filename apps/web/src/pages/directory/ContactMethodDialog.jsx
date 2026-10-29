@@ -20,6 +20,7 @@ import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import {
   addContactMethod,
+  findDetailMatches,
   listContactLabels,
   updateContactMethod,
 } from '../../api/endpoints.js';
@@ -28,6 +29,7 @@ import {
   isStaleRevision,
   PORTAL_MESSAGES,
 } from './directoryErrors.js';
+import { DetailMatchesWarning } from './DetailMatchesWarning.jsx';
 
 /**
  * Pick one active label of a group, or none.
@@ -93,7 +95,14 @@ export function ContactMethodDialog({
   const [labelId, setLabelId] = useState(method?.labelId ?? null);
   const [isPrimary, setIsPrimary] = useState(method?.isPrimary ?? false);
   const [error, setError] = useState(null);
+  // M0005-R065: other records holding this value, once Save has looked.
+  const [matches, setMatches] = useState(null);
   const [saving, setSaving] = useState(false);
+  /** Set a field; a change hides the matches warning (R067). */
+  const edit = setter => next => {
+    setMatches(null);
+    setter(next);
+  };
   const noun = type === 'email' ? 'email' : 'phone';
   // M0005-R033: the same rule the server applies; it still decides.
   const invalidPhone =
@@ -106,6 +115,18 @@ export function ContactMethodDialog({
     setError(null);
     setSaving(true);
     try {
+      // M0005-R065, R067: warn once about other records holding the value;
+      // a lookup failure skips the warning and the save reports its own.
+      if (!matches && (!method || value !== shown(method.value))) {
+        const found = await findDetailMatches(partyId, { type, value }).then(
+          result => result.matches,
+          () => []
+        );
+        if (found.length > 0) {
+          setMatches(found);
+          return;
+        }
+      }
       if (method)
         await updateContactMethod(partyId, method.id, {
           value,
@@ -159,13 +180,16 @@ export function ContactMethodDialog({
             {error}
           </Alert>
         ) : null}
+        {matches ? (
+          <DetailMatchesWarning matches={matches} onFollow={onClose} />
+        ) : null}
         <Stack spacing={2} sx={{ mt: 1 }}>
           {type === 'email' ? (
             <TextField
               label="Email"
               type="email"
               value={value}
-              onChange={event => setValue(event.target.value)}
+              onChange={event => edit(setValue)(event.target.value)}
               required
               fullWidth
             />
@@ -174,7 +198,7 @@ export function ContactMethodDialog({
               label="Phone"
               type="tel"
               value={value}
-              onChange={setValue}
+              onChange={edit(setValue)}
               format={input => formatPhoneInput(input, defaultCountry)}
               onBlur={() => setTouched(true)}
               required
@@ -185,12 +209,16 @@ export function ContactMethodDialog({
               }
             />
           )}
-          <LabelSelect appliesTo={type} value={labelId} onChange={setLabelId} />
+          <LabelSelect
+            appliesTo={type}
+            value={labelId}
+            onChange={edit(setLabelId)}
+          />
           <FormControlLabel
             control={
               <Checkbox
                 checked={isPrimary}
-                onChange={event => setIsPrimary(event.target.checked)}
+                onChange={event => edit(setIsPrimary)(event.target.checked)}
               />
             }
             label={`Primary ${noun}`}
@@ -202,7 +230,7 @@ export function ContactMethodDialog({
           Cancel
         </Button>
         <Button type="submit" variant="contained" disabled={saving}>
-          Save
+          {matches ? 'Save anyway' : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>

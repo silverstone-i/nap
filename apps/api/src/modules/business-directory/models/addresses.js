@@ -6,6 +6,14 @@
 import { DirectoryModel } from './directoryModel.js';
 
 /**
+ * R063: an address's match key: its fields, lowercased with nulls as empty,
+ * hashed so the key stays under the btree row limit. Fields are saved with
+ * whitespace collapsed, so matching ignores only case.
+ */
+const MATCH_KEY =
+  "md5(lower(coalesce(line1, '') || chr(31) || coalesce(line2, '') || chr(31) || coalesce(city, '') || chr(31) || coalesce(region, '') || chr(31) || coalesce(postal_code, '') || chr(31) || coalesce(country, '')))";
+
+/**
  * Schema object for `app.addresses`: addresses (M0005-R015). One active primary address per party, and no two matching active addresses (R063).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
@@ -77,17 +85,14 @@ export const addressesSchema = {
       },
       {
         name: 'uidx_addresses_party_id_match',
-        // R063: the address fields, lowercased with nulls as empty, hashed
-        // so the key stays under the btree row limit. Fields are saved with
-        // whitespace collapsed, so matching ignores only case.
-        columns: [
-          'party_id',
-          {
-            expression:
-              "md5(lower(coalesce(line1, '') || chr(31) || coalesce(line2, '') || chr(31) || coalesce(city, '') || chr(31) || coalesce(region, '') || chr(31) || coalesce(postal_code, '') || chr(31) || coalesce(country, '')))",
-          },
-        ],
+        columns: ['party_id', { expression: MATCH_KEY }],
         unique: true,
+        where: 'deactivated_at IS NULL',
+      },
+      {
+        // R066: matches across parties.
+        name: 'idx_addresses_match',
+        columns: [{ expression: MATCH_KEY }],
         where: 'deactivated_at IS NULL',
       },
       { columns: ['party_id'] },
@@ -100,5 +105,30 @@ export class Addresses extends DirectoryModel {
   static schema = addressesSchema;
   constructor(db, pgp, logger) {
     super(db, pgp, addressesSchema, logger);
+  }
+
+  /**
+   * The other parties with an active address matching `address` (R065,
+   * R066). The probe row's columns shadow the table's inside the subquery,
+   * so one `MATCH_KEY` keys both sides.
+   * @param {{address: {line1: string, line2: string|null, city: string, region: string|null, postal_code: string|null, country: string}, excludePartyId: string}} match
+   * @param {{tx: object}} options
+   * @returns {Promise<string[]>} Party IDs.
+   */
+  async partiesWithAddress({ address, excludePartyId }, { tx }) {
+    const rows = await tx.any(
+      `SELECT DISTINCT party_id FROM ${this.schemaName}.${this.tableName}
+        WHERE deactivated_at IS NULL AND party_id <> $<excludePartyId>
+          AND ${MATCH_KEY} = (
+            SELECT ${MATCH_KEY} FROM (
+              SELECT $<line1>::text AS line1, $<line2>::text AS line2,
+                     $<city>::text AS city, $<region>::text AS region,
+                     $<postal_code>::text AS postal_code,
+                     $<country>::text AS country
+            ) AS probe
+          )`,
+      { ...address, excludePartyId }
+    );
+    return rows.map(row => row.party_id);
   }
 }

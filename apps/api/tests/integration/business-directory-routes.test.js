@@ -996,6 +996,156 @@ describe('addresses and labels (M0005-R015, R017)', () => {
       country: 'US',
     });
   });
+  it('AC44, AC45: lists the other records holding an email, phone, or address', async () => {
+    const tag = randomUUID().slice(0, 8);
+    const email = `shared-${tag}@example.test`;
+    const [me, zed, old] = await Promise.all(
+      [
+        ['Me', 'Self'],
+        ['Zed', 'Alpha'],
+        ['Old', 'Archived'],
+      ].map(([firstName, lastName]) =>
+        create('people', { kind: 'contact', firstName, lastName })
+      )
+    );
+    const digits = () =>
+      String(Math.floor(Math.random() * 1e9)).padStart(9, '0');
+    const ein = digits();
+    const vendor = await create('organizations', {
+      kind: 'vendor',
+      legalName: `Acme ${tag} LLC`,
+      taxId: `${ein.slice(0, 2)}-${ein.slice(2)}`,
+    });
+    const rep = await create('organization-contacts', {
+      organizationId: vendor.id,
+      firstName: 'Ann',
+      lastName: 'Rep',
+    });
+    const add = (party, route, body) =>
+      call('post', `/parties/${party.id}/${route}`, body);
+    const phone = `(212) 555-${digits().slice(0, 4)}`;
+    const street = `${tag} Main St`;
+    for (const party of [zed, old, rep]) {
+      await add(party, 'contact-methods', { type: 'email', value: email });
+      await add(party, 'contact-methods', { type: 'phone', value: phone });
+      await add(party, 'addresses', {
+        line1: street,
+        city: 'Austin',
+        country: 'US',
+      });
+    }
+    // A removed one no longer counts; the asking party is never listed.
+    const removed = (
+      await add(vendor, 'contact-methods', { type: 'email', value: email })
+    ).body.data;
+    await call('delete', `/parties/${vendor.id}/contact-methods/${removed.id}`);
+    await add(me, 'contact-methods', { type: 'email', value: email });
+    const archived = await call('post', `/people/${old.id}/archive`, {
+      revision: old.revision,
+    });
+    expect(archived.body.data.archived).toBe(true);
+
+    const matches = async body =>
+      call('post', `/parties/${me.id}/matches`, body);
+    const expected = [
+      {
+        id: rep.id,
+        kind: 'vendor_contact',
+        name: 'Ann Rep',
+        archived: false,
+        organization: {
+          id: vendor.id,
+          name: vendor.legalName,
+          archived: false,
+        },
+      },
+      {
+        id: old.id,
+        kind: 'contact',
+        name: 'Old Archived',
+        archived: true,
+        organization: null,
+      },
+      {
+        id: zed.id,
+        kind: 'contact',
+        name: 'Zed Alpha',
+        archived: false,
+        organization: null,
+      },
+    ];
+    for (const body of [
+      { type: 'email', value: email.toUpperCase() },
+      { type: 'phone', value: phone.replace(/[() -]/g, '.') },
+      {
+        type: 'address',
+        line1: ` ${street.toLowerCase()}  `,
+        city: 'AUSTIN',
+        country: 'us',
+      },
+    ]) {
+      const found = await matches(body);
+      expect(found.status).toBe(200);
+      expect(found.body.data).toEqual({ matches: expected });
+    }
+    expect(
+      (await matches({ type: 'email', value: 'nobody@x.test' })).body.data
+    ).toEqual({ matches: [] });
+    expect(
+      (await matches({ type: 'email', value: 'not-an-email' })).body.error.code
+    ).toBe('INVALID_INPUT');
+    expect((await matches({ type: 'fax', value: '1' })).body.error.code).toBe(
+      'INVALID_INPUT'
+    );
+    expect(
+      (
+        await call('post', `/parties/${randomUUID()}/matches`, {
+          type: 'email',
+          value: email,
+        })
+      ).body.error.code
+    ).toBe('NOT_FOUND');
+    const outsider = await staff(
+      await role(['business-directory::directory::read'])
+    );
+    expect(
+      (
+        await call(
+          'post',
+          `/parties/${me.id}/matches`,
+          { type: 'email', value: email },
+          outsider.cookie
+        )
+      ).status
+    ).toBe(403);
+  });
+
+  it('R066: returns at most 20 matches, ordered by name', async () => {
+    const value = `crowd-${randomUUID().slice(0, 8)}@example.test`;
+    const people = await Promise.all(
+      Array.from({ length: 22 }, (_, i) =>
+        create('people', {
+          kind: 'contact',
+          firstName: `P${String(i).padStart(2, '0')}`,
+          lastName: 'Crowd',
+        })
+      )
+    );
+    for (const person of people)
+      await call('post', `/parties/${person.id}/contact-methods`, {
+        type: 'email',
+        value,
+      });
+    const found = (
+      await call('post', `/parties/${people[0].id}/matches`, {
+        type: 'email',
+        value,
+      })
+    ).body.data.matches;
+    expect(found.map(m => m.name)).toEqual(
+      people.slice(1, 21).map(p => `${p.firstName} Crowd`)
+    );
+  });
 });
 
 describe('organization contact flags (M0005-R004)', () => {

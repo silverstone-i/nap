@@ -141,4 +141,35 @@ export class Parties extends DirectoryModel {
       [kind, hash, excludeId]
     );
   }
+
+  /**
+   * Name, kind, and archived state of each party in `ids`, with an
+   * organization contact's organization, ordered by name and capped at
+   * `limit` (M0005-R066). A person's name is first and last name, an
+   * organization's its legal name; a record is archived when its child row
+   * is.
+   * @param {string[]} ids
+   * @param {number} limit
+   * @param {{tx: object}} options
+   * @returns {Promise<object[]>}
+   */
+  async summaries(ids, limit, { tx }) {
+    if (ids.length === 0) return [];
+    return tx.any(
+      `SELECT p.id, p.kind,
+              COALESCE(pe.first_name || ' ' || pe.last_name, o.legal_name) AS name,
+              COALESCE(pe.deactivated_at, o.deactivated_at) IS NOT NULL AS archived,
+              org.party_id AS organization_id,
+              org.legal_name AS organization_name,
+              org.deactivated_at IS NOT NULL AS organization_archived
+         FROM app.parties p
+         LEFT JOIN app.people pe ON pe.party_id = p.id
+         LEFT JOIN app.organizations o ON o.party_id = p.id
+         LEFT JOIN app.organizations org ON org.party_id = pe.organization_id
+        WHERE p.id = ANY($1::uuid[])
+        ORDER BY name, p.id
+        LIMIT $2`,
+      [ids, limit]
+    );
+  }
 }

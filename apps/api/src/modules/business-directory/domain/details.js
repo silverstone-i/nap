@@ -18,6 +18,7 @@ import {
   mutate,
   parse,
   parseId,
+  read,
   requireRevision,
   revision,
   uuid,
@@ -92,6 +93,15 @@ const addressUpdate = z.strictObject({
   ),
   revision,
 });
+
+const matchBody = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.enum(['email', 'phone']), value: z.string() }),
+  addressCreate
+    .omit({ labelId: true, isPrimary: true })
+    .extend({ type: z.literal('address') }),
+]);
+/** R066: the most matches a lookup returns. */
+const MATCH_LIMIT = 20;
 
 /** Address API fields and their columns. */
 const ADDRESS_COLUMNS = {
@@ -576,6 +586,67 @@ export function removeAddress(context, partyId, addressId) {
           view
         ),
       ],
+    };
+  });
+}
+
+/**
+ * Other records holding an email, phone, or address matching `body`,
+ * normalized as a save would (M0005-R065, R066). Archived records are
+ * included; the requesting party is not.
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {unknown} partyId
+ * @param {unknown} body
+ * @returns {Promise<{matches: object[]}>}
+ * @throws {DirectoryError} `INVALID_INPUT`, `NOT_FOUND`
+ */
+export function findMatches(context, partyId, body) {
+  const input = parse(matchBody, body);
+  const id = parseId(partyId);
+  return read(context, async tx => {
+    if (!(await context.cell.parties.byKey(id, { tx })))
+      throw new DirectoryError('NOT_FOUND');
+    const ids =
+      input.type === 'address'
+        ? await context.cell.addresses.partiesWithAddress(
+            {
+              address: {
+                line1: input.line1,
+                line2: input.line2 ?? null,
+                city: input.city,
+                region: input.region ?? null,
+                postal_code: input.postalCode ?? null,
+                country: input.country,
+              },
+              excludePartyId: id,
+            },
+            { tx }
+          )
+        : await context.cell.contact_methods.partiesWithValue(
+            {
+              type: input.type,
+              value: await parseValue(context, input.type, input.value, tx),
+              excludePartyId: id,
+            },
+            { tx }
+          );
+    const rows = await context.cell.parties.summaries(ids, MATCH_LIMIT, {
+      tx,
+    });
+    return {
+      matches: rows.map(row => ({
+        id: row.id,
+        kind: row.kind,
+        name: row.name,
+        archived: row.archived,
+        organization: row.organization_id
+          ? {
+              id: row.organization_id,
+              name: row.organization_name,
+              archived: row.organization_archived,
+            }
+          : null,
+      })),
     };
   });
 }

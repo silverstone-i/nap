@@ -14,11 +14,16 @@ import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import { addAddress, updateAddress } from '../../api/endpoints.js';
+import {
+  addAddress,
+  findDetailMatches,
+  updateAddress,
+} from '../../api/endpoints.js';
 import { CountrySelect } from '../../components/CountrySelect.jsx';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { LabelSelect } from './ContactMethodDialog.jsx';
 import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
+import { DetailMatchesWarning } from './DetailMatchesWarning.jsx';
 
 /** Blank optional text becomes null. */
 const orNull = value => (value.trim() ? value.trim() : null);
@@ -50,7 +55,14 @@ export function AddressDialog({
   const [labelId, setLabelId] = useState(address?.labelId ?? null);
   const [isPrimary, setIsPrimary] = useState(address?.isPrimary ?? false);
   const [error, setError] = useState(null);
+  // M0005-R065: other records holding this address, once Save has looked.
+  const [matches, setMatches] = useState(null);
   const [saving, setSaving] = useState(false);
+  /** Set a field; a change hides the matches warning (R067). */
+  const edit = setter => next => {
+    setMatches(null);
+    setter(next);
+  };
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -66,7 +78,36 @@ export function AddressDialog({
       labelId,
       isPrimary,
     };
+    const place = {
+      line1: fields.line1,
+      line2: fields.line2,
+      city: fields.city,
+      region: fields.region,
+      postalCode: fields.postalCode,
+      country: fields.country,
+    };
     try {
+      // M0005-R065, R067: warn once about other records holding the
+      // address; a lookup failure skips the warning and the save reports
+      // its own.
+      const moved =
+        !address ||
+        Object.entries(place).some(
+          ([field, value]) => value !== (address[field] ?? null)
+        );
+      if (!matches && moved) {
+        const found = await findDetailMatches(partyId, {
+          type: 'address',
+          ...place,
+        }).then(
+          result => result.matches,
+          () => []
+        );
+        if (found.length > 0) {
+          setMatches(found);
+          return;
+        }
+      }
       if (address)
         await updateAddress(partyId, address.id, {
           ...fields,
@@ -121,52 +162,55 @@ export function AddressDialog({
             {error}
           </Alert>
         ) : null}
+        {matches ? (
+          <DetailMatchesWarning matches={matches} onFollow={onClose} />
+        ) : null}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             label="Address line 1"
             value={line1}
-            onChange={event => setLine1(event.target.value)}
+            onChange={event => edit(setLine1)(event.target.value)}
             required
             fullWidth
           />
           <TextField
             label="Address line 2"
             value={line2}
-            onChange={event => setLine2(event.target.value)}
+            onChange={event => edit(setLine2)(event.target.value)}
             fullWidth
           />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label="City"
               value={city}
-              onChange={event => setCity(event.target.value)}
+              onChange={event => edit(setCity)(event.target.value)}
               required
               fullWidth
             />
             <TextField
               label="State or province"
               value={region}
-              onChange={event => setRegion(event.target.value)}
+              onChange={event => edit(setRegion)(event.target.value)}
               fullWidth
             />
             <TextField
               label="Postal code"
               value={postalCode}
-              onChange={event => setPostalCode(event.target.value)}
+              onChange={event => edit(setPostalCode)(event.target.value)}
               fullWidth
             />
           </Stack>
-          <CountrySelect value={country} onChange={setCountry} required />
+          <CountrySelect value={country} onChange={edit(setCountry)} required />
           <LabelSelect
             appliesTo="address"
             value={labelId}
-            onChange={setLabelId}
+            onChange={edit(setLabelId)}
           />
           <FormControlLabel
             control={
               <Checkbox
                 checked={isPrimary}
-                onChange={event => setIsPrimary(event.target.checked)}
+                onChange={event => edit(setIsPrimary)(event.target.checked)}
               />
             }
             label="Primary address"
@@ -178,7 +222,7 @@ export function AddressDialog({
           Cancel
         </Button>
         <Button type="submit" variant="contained" disabled={saving || !country}>
-          Save
+          {matches ? 'Save anyway' : 'Save'}
         </Button>
       </DialogActions>
     </Dialog>

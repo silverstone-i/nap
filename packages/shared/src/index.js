@@ -554,6 +554,31 @@ export const addressViewSchema = z.strictObject({
   revision: z.number().int().positive(),
 });
 
+/**
+ * Zod schema for the other records holding an email, phone, or address
+ * (M0005-R066).
+ */
+export const detailMatchesSchema = z.strictObject({
+  matches: z.array(
+    z.strictObject({
+      id: z.uuid(),
+      kind: z.enum([
+        'employee',
+        'contact',
+        'vendor',
+        'client',
+        'vendor_contact',
+        'client_contact',
+      ]),
+      name: z.string(),
+      archived: z.boolean(),
+      organization: z
+        .strictObject({ id: z.uuid(), name: z.string(), archived: z.boolean() })
+        .nullable(),
+    })
+  ),
+});
+
 // The detail read adds each label's name (M0005-R014, R015).
 const labelName = z.string().nullable();
 const recordDetail = {
