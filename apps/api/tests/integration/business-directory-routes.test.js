@@ -754,7 +754,15 @@ describe('tax IDs (M0005-R006–R013)', () => {
       code: 'DUPLICATE_TAX_ID',
       details: { id: first.id, archived: false },
     });
-    expect(JSON.stringify(refused.body)).not.toContain('9876');
+    // The holder's random UUID can contain any digits, so leave it out.
+    const { id: holder, ...rest } = refused.body.error.details;
+    expect(holder).toBe(first.id);
+    expect(
+      JSON.stringify({
+        ...refused.body,
+        error: { ...refused.body.error, details: rest },
+      })
+    ).not.toContain('9876');
 
     // AC30: an archived holder still counts, and says so.
     const archived = await call('post', `/people/${first.id}/archive`, {
