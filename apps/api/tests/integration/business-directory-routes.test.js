@@ -392,6 +392,17 @@ async function create(collection, body, as = cookie) {
 }
 
 /** Pending `directory_change` outbox rows for the Napsoft tenant. */
+/**
+ * R048: a duplicate tax ID refusal names its holder but not the number. The
+ * holder's random UUID can contain any digits, so it is left out.
+ * @param {object} body The error response body.
+ * @param {string} holderId
+ * @param {string} last4 The number's last four digits.
+ */
+function expectNoTaxIdLeak(body, holderId, last4) {
+  expect(JSON.stringify(body).replaceAll(holderId, '')).not.toContain(last4);
+}
+
 function pendingDirectoryChanges() {
   return cell.outbox.findWhere(
     { tenant_id: napsoft.id, topic: 'directory_change', status: 'pending' },
@@ -754,19 +765,21 @@ describe('tax IDs (M0005-R006–R013)', () => {
       code: 'DUPLICATE_TAX_ID',
       details: { id: first.id, archived: false },
     });
-    expect(JSON.stringify(refused.body)).not.toContain('9876');
+    expectNoTaxIdLeak(refused.body, first.id, '9876');
 
     // AC30: an archived holder still counts, and says so.
     const archived = await call('post', `/people/${first.id}/archive`, {
       revision: first.revision,
     });
     expect(archived.status).toBe(200);
-    expect((await call('post', '/people', contact)).body.error).toEqual(
+    const refusedArchived = (await call('post', '/people', contact)).body;
+    expect(refusedArchived.error).toEqual(
       expect.objectContaining({
         code: 'DUPLICATE_TAX_ID',
         details: { id: first.id, archived: true },
       })
     );
+    expectNoTaxIdLeak(refusedArchived, first.id, '9876');
     const restored = await call('post', `/people/${first.id}/restore`, {
       revision: archived.body.data.revision,
     });
@@ -2570,6 +2583,7 @@ describe('tax ID formats (M0005-R036–R042)', () => {
       code: 'DUPLICATE_TAX_ID',
       details: { id: first.id, archived: false },
     });
+    expectNoTaxIdLeak(second.body, first.id, '9135');
     // AC31: a vendor is another kind, so the number is free there.
     const vendor = await call('post', '/organizations', {
       kind: 'vendor',
