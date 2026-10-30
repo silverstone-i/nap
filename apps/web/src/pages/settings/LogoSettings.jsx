@@ -60,17 +60,27 @@ const VARIANTS = [
 
 /**
  * One logo variant: its preview on that theme's card color, and its Upload,
- * Replace, and Remove controls (M0006-04-R006, R007). `busy` is shared by
- * both items, so only one logo change runs at a time.
- * @param {{variant: 'light'|'dark', label: string, alt: string, removeTitle: string, fileId: string|null, busy: boolean, setBusy: (busy: boolean) => void}} props
+ * Replace, and Remove controls (M0006-04-R006, R007). `busy` and the open
+ * Remove dialog are shared by both items, so only one logo change runs at
+ * a time.
+ * @param {{variant: 'light'|'dark', label: string, alt: string, removeTitle: string, fileId: string|null, busy: boolean, setBusy: (busy: boolean) => void, confirmRemove: boolean, setConfirmRemove: (open: boolean) => void}} props
  * @returns {JSX.Element}
  */
-function LogoItem({ variant, label, alt, removeTitle, fileId, busy, setBusy }) {
+function LogoItem({
+  variant,
+  label,
+  alt,
+  removeTitle,
+  fileId,
+  busy,
+  setBusy,
+  confirmRemove,
+  setConfirmRemove,
+}) {
   const { refresh } = useEffectiveSettings();
   const { onError } = useCapabilities();
   const notify = useNotice();
   const [error, setError] = useState(null);
-  const [confirmRemove, setConfirmRemove] = useState(false);
   const tokens = BRAND_TOKENS[variant];
 
   async function change(operation, message) {
@@ -163,7 +173,14 @@ export function LogoSettings() {
   const { logoLightFileId, logoDarkFileId, storageConnected } =
     useEffectiveSettings().settings;
   const fileIds = { light: logoLightFileId, dark: logoDarkFileId };
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const [confirming, setConfirming] = useState(null);
+  // Starting a change closes any open Remove dialog, so a dialog opened on
+  // one item cannot confirm while the other item's change runs.
+  const setBusy = value => {
+    setBusyState(value);
+    if (value) setConfirming(null);
+  };
 
   // M0006-02-R013, R018; M0006-04-R008: the controls exist only while
   // storage is connected, and say nothing about storage, file limits, or the
@@ -179,6 +196,8 @@ export function LogoSettings() {
           fileId={fileIds[item.variant]}
           busy={busy}
           setBusy={setBusy}
+          confirmRemove={confirming === item.variant}
+          setConfirmRemove={open => setConfirming(open ? item.variant : null)}
         />
       ))}
     </Stack>

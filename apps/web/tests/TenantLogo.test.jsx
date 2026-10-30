@@ -259,6 +259,33 @@ describe('logo control (M0006-02-R013)', () => {
     );
   });
 
+  it('closes an open Remove dialog when the other item starts a change', async () => {
+    api.getEffectiveSettings.mockResolvedValue(
+      effective({ logoLightFileId: LOGO, storageConnected: true })
+    );
+    api.uploadLogo.mockReturnValue(new Promise(() => {}));
+    renderWith(<LogoSettings />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Remove' }));
+    await screen.findByRole('dialog', { name: 'Remove light theme logo?' });
+    // The hidden file input stays reachable behind the dialog.
+    fireEvent.change(screen.getByLabelText('Dark theme logo file'), {
+      target: {
+        files: [
+          new File([new Uint8Array([0x89, 0x50])], 'dark.png', {
+            type: 'image/png',
+          }),
+        ],
+      },
+    });
+    await vi.waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Remove light theme logo?' })
+      ).toBeNull()
+    );
+    expect(api.deleteLogo).not.toHaveBeenCalled();
+  });
+
   it('AC06: shows a light and a dark item, and removes one after its own confirmation (M0006-04-R006, R007)', async () => {
     api.getEffectiveSettings.mockResolvedValue(
       effective({ logoLightFileId: LOGO, storageConnected: true })
