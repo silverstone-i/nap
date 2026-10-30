@@ -15,12 +15,14 @@ import { useSession } from '../auth/SessionContext.jsx';
 import { useEffectiveSettings } from './EffectiveSettingsContext.jsx';
 import { ProfileMenu } from './ProfileMenu.jsx';
 import { TenantLogo } from './TenantLogo.jsx';
+import { useThemeMode } from '../theme/ThemeModeContext.jsx';
 
 /**
  * The shell's top header: a hamburger control that toggles navigation at
  * every width, the tenant control immediately to its right, and the
  * profile menu (I0001-R009). The tenant control shows the tenant logo
- * beside its name when there is one (M0006-02-R014). Spans the full width, with the nav and work
+ * beside its name when there is one (M0006-02-R014): the one for the
+ * current theme, else the other (M0006-04-R004, R005). Spans the full width, with the nav and work
  * area sitting in the row below it — see `AppShell`.
  * @param {{onMenuClick: () => void}} props
  * @returns {JSX.Element}
@@ -28,7 +30,13 @@ import { TenantLogo } from './TenantLogo.jsx';
 export function TopHeader({ onMenuClick }) {
   const navigate = useNavigate();
   const session = useSession();
-  const { logoFileId, storageConnected } = useEffectiveSettings().settings;
+  const { logoLightFileId, logoDarkFileId, storageConnected } =
+    useEffectiveSettings().settings;
+  const { resolvedMode } = useThemeMode();
+  const logoFileId =
+    resolvedMode === 'dark'
+      ? (logoDarkFileId ?? logoLightFileId)
+      : (logoLightFileId ?? logoDarkFileId);
 
   // I0012-R012: name the party only when the user has more than one here.
   const partyLabel =

@@ -74,7 +74,7 @@ export const fileLinkSchema = z.strictObject({
   expiresAt: z.string().datetime(),
 });
 
-/** `PUT /logo` (R013). */
+/** `PUT /logo/:variant` (R013; M0006-04 §10). */
 export const logoViewSchema = z.strictObject({
   logoFileId: z.string().uuid(),
 });

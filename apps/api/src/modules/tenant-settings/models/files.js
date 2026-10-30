@@ -8,7 +8,7 @@ import { TableModel } from 'pg-schemata';
 /**
  * Schema object for `app.files`: one row per object nap stored in the
  * tenant's bucket (M0006-02-R007). Archiving a row marks its object deleted
- * (R011). A tenant has at most one active logo.
+ * (R011). A tenant has at most one active logo of each variant (M0006-04).
  * Kept identical to the copy frozen in migration `001-tenant-settings`.
  */
 export const filesSchema = {
@@ -33,16 +33,17 @@ export const filesSchema = {
       ['tenant_id', 'id', 'purpose'],
     ],
     checks: [
-      "purpose IN ('logo', 'profile_image')",
+      "purpose IN ('logo_light', 'logo_dark', 'profile_image')",
       "content_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/gif')",
       'size_bytes BETWEEN 1 AND 2097152',
       'revision > 0',
     ],
     indexes: [
       {
-        columns: ['tenant_id'],
+        columns: ['tenant_id', 'purpose'],
         unique: true,
-        where: "purpose = 'logo' AND deactivated_at IS NULL",
+        where:
+          "purpose IN ('logo_light', 'logo_dark') AND deactivated_at IS NULL",
       },
     ],
   },
@@ -69,13 +70,15 @@ export class Files extends TableModel {
   }
 
   /**
-   * The tenant's active logo, or null.
+   * The tenant's active logo of one variant, or null (M0006-04).
+   * @param {'light'|'dark'} variant
    * @param {{tx: object, lock?: boolean}} options
    * @returns {Promise<object|null>}
    */
-  async activeLogo({ tx, lock = false }) {
+  async activeLogo(variant, { tx, lock = false }) {
     return tx.oneOrNone(
-      `SELECT * FROM app.files WHERE purpose = 'logo' AND deactivated_at IS NULL${lock ? ' FOR UPDATE' : ''}`
+      `SELECT * FROM app.files WHERE purpose = $1 AND deactivated_at IS NULL${lock ? ' FOR UPDATE' : ''}`,
+      [`logo_${variant}`]
     );
   }
 

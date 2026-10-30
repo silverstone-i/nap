@@ -79,16 +79,17 @@ export const migration = defineMigration({
           ['tenant_id', 'id', 'purpose'],
         ],
         checks: [
-          "purpose IN ('logo', 'profile_image')",
+          "purpose IN ('logo_light', 'logo_dark', 'profile_image')",
           "content_type IN ('image/png', 'image/jpeg', 'image/webp', 'image/gif')",
           'size_bytes BETWEEN 1 AND 2097152',
           'revision > 0',
         ],
         indexes: [
           {
-            columns: ['tenant_id'],
+            columns: ['tenant_id', 'purpose'],
             unique: true,
-            where: "purpose = 'logo' AND deactivated_at IS NULL",
+            where:
+              "purpose IN ('logo_light', 'logo_dark') AND deactivated_at IS NULL",
           },
         ],
       },

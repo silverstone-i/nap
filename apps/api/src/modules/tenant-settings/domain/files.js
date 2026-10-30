@@ -143,7 +143,7 @@ export function fileLink(context, params, query) {
  * returned row in its own transaction, and discards the object if that
  * transaction fails.
  * @param {import('./shared.js').SettingsContext} context
- * @param {'logo'|'profile_image'} purpose
+ * @param {'logo_light'|'logo_dark'|'profile_image'} purpose
  * @param {{buffer: Buffer, declaredType: string, truncated: boolean} | undefined} upload
  * @returns {Promise<{store: object, file: object}>}
  * @throws {SettingsError} `INVALID_INPUT`, `STORAGE_NOT_CONFIGURED`, or `STORAGE_UNAVAILABLE`.
@@ -183,20 +183,38 @@ export async function discardArchived(context, key) {
   await discardObject(store, key);
 }
 
+/** Logo variants (M0006-04): the light-theme and the dark-theme logo. */
+const LOGO_VARIANTS = ['light', 'dark'];
+
 /**
- * Upload or replace the tenant logo (R008, R009, R011, R013). The object is
- * written before the row, and deleted again if the row cannot be saved; the
- * replaced logo's object is deleted after the change commits.
+ * @param {string} variant A route's `:variant`.
+ * @returns {'light'|'dark'}
+ * @throws {SettingsError} `NOT_FOUND` for any other value (M0006-04 §10).
+ */
+function logoVariant(variant) {
+  if (!LOGO_VARIANTS.includes(variant)) throw new SettingsError('NOT_FOUND');
+  return /** @type {'light'|'dark'} */ (variant);
+}
+
+/**
+ * Upload or replace one tenant logo (R008, R009, R011, R013; M0006-04-R003).
+ * The object is written before the row, and deleted again if the row cannot
+ * be saved; the replaced logo's object is deleted after the change commits.
  * @param {import('./shared.js').SettingsContext} context
+ * @param {string} variant `light` or `dark`.
  * @param {{buffer: Buffer, declaredType: string, truncated: boolean} | undefined} upload
  * @returns {Promise<{logoFileId: string}>}
  */
-export async function putLogo(context, upload) {
-  const { store, file } = await storeImage(context, 'logo', upload);
+export async function putLogo(context, variant, upload) {
+  const which = logoVariant(variant);
+  const { store, file } = await storeImage(context, `logo_${which}`, upload);
   let previous;
   try {
     previous = await mutate(context, async tx => {
-      const old = await context.cell.files.activeLogo({ tx, lock: true });
+      const old = await context.cell.files.activeLogo(which, {
+        tx,
+        lock: true,
+      });
       if (old)
         await context.cell.files.archive(old.id, context.actorId, { tx });
       await context.cell.files.record(file, context.actorId, { tx });
@@ -207,6 +225,7 @@ export async function putLogo(context, upload) {
             eventKey: 'tenant_settings.logo_changed',
             details: {
               action: old ? 'replaced' : 'uploaded',
+              variant: which,
               file_id: file.id,
             },
           },
@@ -222,14 +241,17 @@ export async function putLogo(context, upload) {
 }
 
 /**
- * Remove the tenant logo (R011, R013). The row is archived even when the
- * bucket cannot be reached; the object is then logged for cleanup.
+ * Remove one tenant logo (R011, R013; M0006-04-R003). The row is archived
+ * even when the bucket cannot be reached; the object is then logged for
+ * cleanup.
  * @param {import('./shared.js').SettingsContext} context
+ * @param {string} variant `light` or `dark`.
  * @returns {Promise<null>}
  */
-export async function deleteLogo(context) {
+export async function deleteLogo(context, variant) {
+  const which = logoVariant(variant);
   const removed = await mutate(context, async tx => {
-    const old = await context.cell.files.activeLogo({ tx, lock: true });
+    const old = await context.cell.files.activeLogo(which, { tx, lock: true });
     if (!old) throw new SettingsError('NOT_FOUND');
     await context.cell.files.archive(old.id, context.actorId, { tx });
     return {
@@ -237,7 +259,7 @@ export async function deleteLogo(context) {
       changes: [
         {
           eventKey: 'tenant_settings.logo_changed',
-          details: { action: 'removed', file_id: old.id },
+          details: { action: 'removed', variant: which, file_id: old.id },
         },
       ],
     };

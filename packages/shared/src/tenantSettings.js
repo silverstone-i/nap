@@ -179,13 +179,15 @@ const profileImageSchema = z
 
 /**
  * Zod schema for `GET /effective` (R008): every general setting, plus the
- * tenant logo's file ID, or `null`, for the shell (M0006-02-R014), whether
+ * file IDs of the light and dark logos, each or `null`, for the shell
+ * (M0006-02-R014, M0006-04-R004), whether
  * storage is connected, which shows the upload controls (R013), and the
  * member's profile image (M0006-03-R004, R007).
  */
 export const effectiveSettingsSchema = z.strictObject({
   ...each(name => GENERAL_SETTINGS[name].schema),
-  logoFileId: z.string().uuid().nullable(),
+  logoLightFileId: z.string().uuid().nullable(),
+  logoDarkFileId: z.string().uuid().nullable(),
   storageConnected: z.boolean(),
   profileImage: profileImageSchema,
 });
