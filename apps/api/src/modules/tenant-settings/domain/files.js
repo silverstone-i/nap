@@ -184,7 +184,7 @@ export async function discardArchived(context, key) {
 }
 
 /** Logo variants (M0006-04): the light-theme and the dark-theme logo. */
-const LOGO_VARIANTS = ['light', 'dark'];
+export const LOGO_VARIANTS = ['light', 'dark'];
 
 /**
  * @param {string} variant A route's `:variant`.

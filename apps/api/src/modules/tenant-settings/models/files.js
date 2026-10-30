@@ -83,6 +83,20 @@ export class Files extends TableModel {
   }
 
   /**
+   * The file IDs of the tenant's active light and dark logos, each or null,
+   * in one query (M0006-04).
+   * @param {{tx: object}} options
+   * @returns {Promise<{light: string|null, dark: string|null}>}
+   */
+  async activeLogoIds({ tx }) {
+    const rows = await tx.any(
+      "SELECT id, purpose FROM app.files WHERE purpose IN ('logo_light', 'logo_dark') AND deactivated_at IS NULL"
+    );
+    const id = purpose => rows.find(row => row.purpose === purpose)?.id ?? null;
+    return { light: id('logo_light'), dark: id('logo_dark') };
+  }
+
+  /**
    * Record a stored object.
    * @param {{id: string, tenant_id: string, purpose: string, object_key: string, content_type: string, size_bytes: number}} row
    * @param {string} actorId Uploader, recorded in `created_by`.

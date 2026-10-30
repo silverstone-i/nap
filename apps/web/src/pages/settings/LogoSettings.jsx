@@ -42,19 +42,30 @@ function describe(err) {
   );
 }
 
+// M0006-04-R006, R007: each variant's wording, spelled out.
 const VARIANTS = [
-  { variant: 'light', label: 'Light theme' },
-  { variant: 'dark', label: 'Dark theme' },
+  {
+    variant: 'light',
+    label: 'Light theme',
+    alt: 'Light theme logo',
+    removeTitle: 'Remove light theme logo?',
+  },
+  {
+    variant: 'dark',
+    label: 'Dark theme',
+    alt: 'Dark theme logo',
+    removeTitle: 'Remove dark theme logo?',
+  },
 ];
 
 /**
  * One logo variant: its preview on that theme's card color, and its Upload,
  * Replace, and Remove controls (M0006-04-R006, R007). `busy` is shared by
  * both items, so only one logo change runs at a time.
- * @param {{variant: 'light'|'dark', label: string, fileId: string|null, busy: boolean, setBusy: (busy: boolean) => void}} props
+ * @param {{variant: 'light'|'dark', label: string, alt: string, removeTitle: string, fileId: string|null, busy: boolean, setBusy: (busy: boolean) => void}} props
  * @returns {JSX.Element}
  */
-function LogoItem({ variant, label, fileId, busy, setBusy }) {
+function LogoItem({ variant, label, alt, removeTitle, fileId, busy, setBusy }) {
   const { refresh } = useEffectiveSettings();
   const { onError } = useCapabilities();
   const notify = useNotice();
@@ -103,7 +114,7 @@ function LogoItem({ variant, label, fileId, busy, setBusy }) {
             bgcolor: tokens.card,
           }}
         >
-          <TenantLogo fileId={fileId} height={64} alt={`${label} logo`} />
+          <TenantLogo fileId={fileId} height={64} alt={alt} />
         </Box>
       ) : null}
       <Stack direction="row" spacing={1}>
@@ -130,7 +141,7 @@ function LogoItem({ variant, label, fileId, busy, setBusy }) {
       {/* M0006-04-R007: each removal asks first, naming its theme. */}
       <ConfirmDialog
         open={confirmRemove}
-        title={`Remove ${label.toLowerCase()} logo?`}
+        title={removeTitle}
         confirmLabel="Remove"
         onConfirm={() => {
           setConfirmRemove(false);
@@ -161,12 +172,11 @@ export function LogoSettings() {
   return (
     <Stack spacing={2} sx={{ maxWidth: 560, mb: 3 }}>
       <Typography variant="subtitle2">Logo</Typography>
-      {VARIANTS.map(({ variant, label }) => (
+      {VARIANTS.map(item => (
         <LogoItem
-          key={variant}
-          variant={variant}
-          label={label}
-          fileId={fileIds[variant]}
+          key={item.variant}
+          {...item}
+          fileId={fileIds[item.variant]}
           busy={busy}
           setBusy={setBusy}
         />

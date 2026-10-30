@@ -176,14 +176,13 @@ export function getEffective(context, query) {
       profileImage = { defaultImage: profile.default_image };
     else if (profile?.image_file_id && storageConnected)
       profileImage = { fileId: profile.image_file_id };
+    // M0006-02-R014, M0006-04-R004: the shell asks for the link of the logo
+    // matching its theme by these IDs.
+    const logos = await context.cell.files.activeLogoIds({ tx });
     return {
       ...effectiveGeneralSettings(row?.settings ?? {}, profile?.overrides),
-      // M0006-02-R014, M0006-04-R004: the shell asks for the link of the
-      // logo matching its theme by these IDs.
-      logoLightFileId:
-        (await context.cell.files.activeLogo('light', { tx }))?.id ?? null,
-      logoDarkFileId:
-        (await context.cell.files.activeLogo('dark', { tx }))?.id ?? null,
+      logoLightFileId: logos.light,
+      logoDarkFileId: logos.dark,
       // M0006-02-R013: upload controls show only when storage is connected.
       storageConnected,
       profileImage,

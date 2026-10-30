@@ -15,7 +15,12 @@ import {
   getGeneral,
   updateGeneral,
 } from '../../domain/general.js';
-import { deleteLogo, fileLink, putLogo } from '../../domain/files.js';
+import {
+  deleteLogo,
+  fileLink,
+  LOGO_VARIANTS,
+  putLogo,
+} from '../../domain/files.js';
 import {
   deleteProfileImage,
   getProfile,
@@ -241,7 +246,7 @@ export const tenantSettingsRoutesV1 = [
   {
     router: 'logo',
     factory: createLogoRouter,
-    uploads: ['/light', '/dark'],
+    uploads: LOGO_VARIANTS.map(variant => `/${variant}`),
   },
   { router: 'files', factory: createFilesRouter },
   { router: 'profile', factory: createProfileRouter, uploads: ['/image'] },
