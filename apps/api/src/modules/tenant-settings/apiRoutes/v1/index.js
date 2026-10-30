@@ -15,7 +15,12 @@ import {
   getGeneral,
   updateGeneral,
 } from '../../domain/general.js';
-import { deleteLogo, fileLink, putLogo } from '../../domain/files.js';
+import {
+  deleteLogo,
+  fileLink,
+  LOGO_VARIANTS,
+  putLogo,
+} from '../../domain/files.js';
 import {
   deleteProfileImage,
   getProfile,
@@ -134,28 +139,32 @@ export function createStorageRouter(deps) {
 }
 
 /**
- * Build the `logo` router (M0006-02-R013). It takes the image as
- * `multipart/form-data`, so it is registered for uploads.
+ * Build the `logo` router (M0006-02-R013), one logo per `:variant`,
+ * `light` or `dark` (M0006-04 §10). It takes the image as
+ * `multipart/form-data`, so each variant's path is registered for uploads.
  * @param {object} deps
  * @returns {import('express').Router}
  */
 export function createLogoRouter(deps) {
   const router = Router();
   router.put(
-    '/',
+    '/:variant',
     requireSession(),
     requireCapability(WRITE),
     uploadedFile(),
     handle(deps, async (context, request, response) =>
-      sendData(response, await putLogo(context, request.upload))
+      sendData(
+        response,
+        await putLogo(context, request.params.variant, request.upload)
+      )
     )
   );
   router.delete(
-    '/',
+    '/:variant',
     requireSession(),
     requireCapability(WRITE),
-    handle(deps, async (context, _request, response) => {
-      await deleteLogo(context);
+    handle(deps, async (context, request, response) => {
+      await deleteLogo(context, request.params.variant);
       sendNoContent(response);
     })
   );
@@ -234,7 +243,11 @@ export const tenantSettingsRoutesV1 = [
   { router: 'general', factory: createGeneralRouter },
   { router: 'effective', factory: createEffectiveRouter },
   { router: 'storage', factory: createStorageRouter },
-  { router: 'logo', factory: createLogoRouter, uploads: true },
+  {
+    router: 'logo',
+    factory: createLogoRouter,
+    uploads: LOGO_VARIANTS.map(variant => `/${variant}`),
+  },
   { router: 'files', factory: createFilesRouter },
   { router: 'profile', factory: createProfileRouter, uploads: ['/image'] },
 ].map(entry => ({

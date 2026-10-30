@@ -81,6 +81,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'tier',
   'to_enabled',
   'to_status',
+  'variant',
 ]);
 
 /**
@@ -224,10 +225,11 @@ export const EVENT_CATALOGUE = Object.freeze({
       ]
     )
   ),
-  // M0006-02: the tenant logo was uploaded, replaced, or removed.
+  // M0006-02: a tenant logo was uploaded, replaced, or removed; `variant`
+  // names the light or dark logo (M0006-04).
   'tenant_settings.logo_changed': {
     outcomes: ANY_OUTCOME,
-    details: ['action', 'file_id', 'changed_at'],
+    details: ['action', 'variant', 'file_id', 'changed_at'],
   },
   ...Object.fromEntries(
     ['created', 'updated', 'archived', 'restored'].map(action => [

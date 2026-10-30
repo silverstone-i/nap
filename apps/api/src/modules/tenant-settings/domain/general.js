@@ -153,9 +153,10 @@ export function updateGeneral(context, body) {
 /**
  * The values to apply for the signed-in member (R008): their override, else
  * the tenant's stored value, else the default (M0006-03-R003). Also the
- * tenant logo's file ID, whether storage is connected, and the member's
- * profile image; an uploaded image is offered only while storage is
- * connected, so the shell falls back to initials (M0006-03-R007).
+ * file IDs of the light and dark logos (M0006-04), whether storage is
+ * connected, and the member's profile image; an uploaded image is offered
+ * only while storage is connected, so the shell falls back to initials
+ * (M0006-03-R007).
  * @param {import('./shared.js').SettingsContext} context
  * @param {object} query
  * @returns {Promise<Record<string, unknown>>}
@@ -175,10 +176,13 @@ export function getEffective(context, query) {
       profileImage = { defaultImage: profile.default_image };
     else if (profile?.image_file_id && storageConnected)
       profileImage = { fileId: profile.image_file_id };
+    // M0006-02-R014, M0006-04-R004: the shell asks for the link of the logo
+    // matching its theme by these IDs.
+    const logos = await context.cell.files.activeLogoIds({ tx });
     return {
       ...effectiveGeneralSettings(row?.settings ?? {}, profile?.overrides),
-      // M0006-02-R014: the shell asks for the logo's link by this ID.
-      logoFileId: (await context.cell.files.activeLogo({ tx }))?.id ?? null,
+      logoLightFileId: logos.light,
+      logoDarkFileId: logos.dark,
       // M0006-02-R013: upload controls show only when storage is connected.
       storageConnected,
       profileImage,

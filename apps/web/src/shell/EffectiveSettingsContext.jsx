@@ -26,7 +26,8 @@ import {
 // M0006-03-R007).
 const DEFAULTS = Object.freeze({
   ...settingDefaults(),
-  logoFileId: null,
+  logoLightFileId: null,
+  logoDarkFileId: null,
   storageConnected: false,
   profileImage: null,
 });

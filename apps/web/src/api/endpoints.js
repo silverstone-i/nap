@@ -989,24 +989,26 @@ export async function deleteStorage(revision) {
 }
 
 /**
- * Upload or replace the tenant logo (M0006-02-R013).
+ * Upload or replace one tenant logo (M0006-02-R013, M0006-04 §10).
+ * @param {'light'|'dark'} variant
  * @param {File} file
  * @returns {Promise<{logoFileId: string}>}
  */
-export async function uploadLogo(file) {
+export async function uploadLogo(variant, file) {
   const form = new FormData();
   form.append('file', file);
   return logoViewSchema.parse(
-    await apiPut(`${TENANT_SETTINGS_BASE}/logo`, form)
+    await apiPut(`${TENANT_SETTINGS_BASE}/logo/${variant}`, form)
   );
 }
 
 /**
- * Remove the tenant logo (M0006-02-R013).
+ * Remove one tenant logo (M0006-02-R013, M0006-04 §10).
+ * @param {'light'|'dark'} variant
  * @returns {Promise<void>}
  */
-export async function deleteLogo() {
-  await apiDelete(`${TENANT_SETTINGS_BASE}/logo`);
+export async function deleteLogo(variant) {
+  await apiDelete(`${TENANT_SETTINGS_BASE}/logo/${variant}`);
 }
 
 /**

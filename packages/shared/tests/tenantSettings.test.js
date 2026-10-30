@@ -54,7 +54,8 @@ describe('general settings schema (M0006-01-R002–R006)', () => {
     expect(effective.defaultCountry).toBe('GB');
     const view = {
       ...effective,
-      logoFileId: null,
+      logoLightFileId: null,
+      logoDarkFileId: null,
       storageConnected: false,
       profileImage: null,
     };

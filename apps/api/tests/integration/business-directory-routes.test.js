@@ -2833,10 +2833,15 @@ function png(size = 64) {
   return body;
 }
 
-/** Upload `body` as the logo with `contentType`. */
-function uploadLogo(body, contentType = 'image/png', as = cookie) {
+/** Upload `body` as the `variant` logo with `contentType`. */
+function uploadLogo(
+  body,
+  contentType = 'image/png',
+  as = cookie,
+  variant = 'light'
+) {
   return request(app)
-    .put(`${SETTINGS}/logo`)
+    .put(`${SETTINGS}/logo/${variant}`)
     .set('Origin', ORIGIN)
     .set('Cookie', as)
     .attach('file', body, { filename: '../../evil name.png', contentType });
@@ -2855,7 +2860,7 @@ describe('file storage and tenant logo (M0006-02)', () => {
     const upload = await uploadLogo(png());
     expect(upload.body.error.code).toBe('STORAGE_NOT_CONFIGURED');
     const effective = (await settings('get', '/effective')).body.data;
-    expect(effective.logoFileId).toBeNull();
+    expect(effective.logoLightFileId).toBeNull();
     expect(effective.storageConnected).toBe(false);
   });
 
@@ -2975,14 +2980,16 @@ describe('file storage and tenant logo (M0006-02)', () => {
       await setTenant(tx, napsoft.id);
       return tx.one('SELECT * FROM app.files WHERE id = $1', [id]);
     });
-    expect(file.object_key).toBe(`${napsoft.id}/logo/${id}`);
+    expect(file.object_key).toBe(`${napsoft.id}/logo_light/${id}`);
     expect(file).toMatchObject({
-      purpose: 'logo',
+      purpose: 'logo_light',
       content_type: 'image/png',
       size_bytes: 1024 * 1024,
     });
     expect(bucket.objects.has(`acme-files/${file.object_key}`)).toBe(true);
-    expect((await settings('get', '/effective')).body.data.logoFileId).toBe(id);
+    expect(
+      (await settings('get', '/effective')).body.data.logoLightFileId
+    ).toBe(id);
 
     expect((await uploadLogo(png(3 * 1024 * 1024))).body.error.code).toBe(
       'INVALID_INPUT'
@@ -2993,12 +3000,14 @@ describe('file storage and tenant logo (M0006-02)', () => {
     expect((await uploadLogo(png(), 'image/gif')).body.error.code).toBe(
       'INVALID_INPUT'
     );
-    const json = await settings('put', '/logo', { file: 'x' });
+    const json = await settings('put', '/logo/light', { file: 'x' });
     expect(json.body.error.code).toBe('UNSUPPORTED_MEDIA_TYPE');
   });
 
   it('AC06: gives any member a 15-minute signed link to the logo', async () => {
-    const { logoFileId } = (await settings('get', '/effective')).body.data;
+    const { logoLightFileId: logoFileId } = (
+      await settings('get', '/effective')
+    ).body.data;
     const member = await staff(null);
     const link = await settings(
       'get',
@@ -3023,21 +3032,22 @@ describe('file storage and tenant logo (M0006-02)', () => {
   });
 
   it('AC07: replacing deletes the old object; a failed deletion still saves and logs the key', async () => {
-    const first = (await settings('get', '/effective')).body.data.logoFileId;
-    const firstKey = `acme-files/${napsoft.id}/logo/${first}`;
+    const first = (await settings('get', '/effective')).body.data
+      .logoLightFileId;
+    const firstKey = `acme-files/${napsoft.id}/logo_light/${first}`;
     const replaced = await uploadLogo(png(128));
     expect(replaced.status).toBe(200);
     expect(bucket.objects.has(firstKey)).toBe(false);
 
-    const secondKey = `${napsoft.id}/logo/${replaced.body.data.logoFileId}`;
+    const secondKey = `${napsoft.id}/logo_light/${replaced.body.data.logoFileId}`;
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     bucket.failing.delete = true;
     try {
       const again = await uploadLogo(png(256));
       expect(again.status).toBe(200);
-      expect((await settings('get', '/effective')).body.data.logoFileId).toBe(
-        again.body.data.logoFileId
-      );
+      expect(
+        (await settings('get', '/effective')).body.data.logoLightFileId
+      ).toBe(again.body.data.logoFileId);
       expect(warn).toHaveBeenCalledWith(
         JSON.stringify({ event: 'file.delete_failed', object_key: secondKey })
       );
@@ -3048,7 +3058,7 @@ describe('file storage and tenant logo (M0006-02)', () => {
     const archived = await cell.tx(async tx => {
       await setTenant(tx, napsoft.id);
       return tx.one(
-        "SELECT count(*)::int AS n FROM app.files WHERE purpose = 'logo' AND deactivated_at IS NOT NULL"
+        "SELECT count(*)::int AS n FROM app.files WHERE purpose = 'logo_light' AND deactivated_at IS NOT NULL"
       );
     });
     expect(archived.n).toBe(2);
@@ -3066,7 +3076,9 @@ describe('file storage and tenant logo (M0006-02)', () => {
   });
 
   it('AC08: with storage down the link fails; after disconnecting the logo is kept but unavailable', async () => {
-    const { logoFileId } = (await settings('get', '/effective')).body.data;
+    const { logoLightFileId: logoFileId } = (
+      await settings('get', '/effective')
+    ).body.data;
     bucket.failing.all = true;
     try {
       expect((await uploadLogo(png())).body.error.code).toBe(
@@ -3080,35 +3092,40 @@ describe('file storage and tenant logo (M0006-02)', () => {
     expect(gone.status).toBe(204);
     expect((await settings('get', '/storage')).body.data).toBeNull();
     const effective = (await settings('get', '/effective')).body.data;
-    expect(effective).toMatchObject({ logoFileId, storageConnected: false });
+    expect(effective).toMatchObject({
+      logoLightFileId: logoFileId,
+      storageConnected: false,
+    });
     expect(
       (await settings('get', `/files/${logoFileId}/link`)).body.error.code
     ).toBe('STORAGE_NOT_CONFIGURED');
     // R006: the object stays in the bucket.
     expect(
-      bucket.objects.has(`acme-files/${napsoft.id}/logo/${logoFileId}`)
+      bucket.objects.has(`acme-files/${napsoft.id}/logo_light/${logoFileId}`)
     ).toBe(true);
   });
 
   it('R011, R013: removing the logo archives it even with no storage, and logs the key', async () => {
-    const { logoFileId } = (await settings('get', '/effective')).body.data;
+    const { logoLightFileId: logoFileId } = (
+      await settings('get', '/effective')
+    ).body.data;
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      const removed = await settings('delete', '/logo');
+      const removed = await settings('delete', '/logo/light');
       expect(removed.status).toBe(204);
       expect(warn).toHaveBeenCalledWith(
         JSON.stringify({
           event: 'file.delete_failed',
-          object_key: `${napsoft.id}/logo/${logoFileId}`,
+          object_key: `${napsoft.id}/logo_light/${logoFileId}`,
         })
       );
     } finally {
       warn.mockRestore();
     }
     expect(
-      (await settings('get', '/effective')).body.data.logoFileId
+      (await settings('get', '/effective')).body.data.logoLightFileId
     ).toBeNull();
-    expect((await settings('delete', '/logo')).body.error.code).toBe(
+    expect((await settings('delete', '/logo/light')).body.error.code).toBe(
       'NOT_FOUND'
     );
     await sync.tick();
@@ -3342,7 +3359,7 @@ describe('member profiles (M0006-03)', () => {
     const logo = await cell.tx(async tx => {
       await setTenant(tx, napsoft.id);
       return tx.one(
-        "SELECT id FROM app.files WHERE purpose = 'logo' ORDER BY created_at LIMIT 1"
+        "SELECT id FROM app.files WHERE purpose = 'logo_light' ORDER BY created_at LIMIT 1"
       );
     });
     const attempt = sql =>
@@ -3370,5 +3387,100 @@ describe('member profiles (M0006-03)', () => {
         "UPDATE app.member_profiles SET default_image = 'orbit', image_file_id = $1 WHERE membership_id = $2"
       )
     ).toMatch(/^23/);
+  });
+});
+
+describe('light and dark logos (M0006-04)', () => {
+  /** Active rows of `app.files` for one purpose. */
+  const active = purpose =>
+    cell.tx(async tx => {
+      await setTenant(tx, napsoft.id);
+      return tx.any(
+        'SELECT * FROM app.files WHERE purpose = $1 AND deactivated_at IS NULL',
+        [purpose]
+      );
+    });
+
+  it('AC03, AC07: stores a dark logo under its own key and replaces it without touching the light one', async () => {
+    await settings('put', '/storage', {
+      ...CONNECTION,
+      secretAccessKey: 'bucket-secret',
+      revision: null,
+    });
+    const light = await uploadLogo(png());
+    expect(light.status, JSON.stringify(light.body)).toBe(200);
+    const dark = await uploadLogo(png(), 'image/png', cookie, 'dark');
+    expect(dark.status, JSON.stringify(dark.body)).toBe(200);
+    const darkId = dark.body.data.logoFileId;
+    const darkKey = `acme-files/${napsoft.id}/logo_dark/${darkId}`;
+    expect(bucket.objects.has(darkKey)).toBe(true);
+    expect((await settings('get', '/effective')).body.data).toMatchObject({
+      logoLightFileId: light.body.data.logoFileId,
+      logoDarkFileId: darkId,
+    });
+
+    const replaced = await uploadLogo(png(128), 'image/png', cookie, 'dark');
+    expect(replaced.status).toBe(200);
+    expect(bucket.objects.has(darkKey)).toBe(false);
+    expect(
+      bucket.objects.has(
+        `acme-files/${napsoft.id}/logo_light/${light.body.data.logoFileId}`
+      )
+    ).toBe(true);
+    expect((await active('logo_light')).map(f => f.id)).toEqual([
+      light.body.data.logoFileId,
+    ]);
+
+    // Only `/light` and `/dark` take uploads, so a file sent elsewhere is
+    // refused before routing.
+    expect(
+      (await uploadLogo(png(), 'image/png', cookie, 'blue')).body.error.code
+    ).toBe('UNSUPPORTED_MEDIA_TYPE');
+    expect((await settings('delete', '/logo/blue')).body.error.code).toBe(
+      'NOT_FOUND'
+    );
+    expect((await settings('delete', '/logo/dark')).status).toBe(204);
+    expect(
+      (await settings('get', '/effective')).body.data.logoDarkFileId
+    ).toBeNull();
+    expect((await active('logo_light')).length).toBe(1);
+  });
+
+  it('AC02: the database allows one active logo per variant and no `logo` purpose', async () => {
+    const insert = purpose =>
+      cell
+        .tx(async tx => {
+          await setTenant(tx, napsoft.id);
+          const id = randomUUID();
+          await tx.none(
+            `INSERT INTO app.files (id, tenant_id, purpose, object_key, content_type, size_bytes)
+             VALUES ($1, current_setting('nap.tenant_id')::uuid, $2, $3, 'image/png', 64)`,
+            [id, purpose, `x/${purpose}/${id}`]
+          );
+        })
+        .then(
+          () => null,
+          error => error.code
+        );
+    expect(await insert('logo_light')).toBe('23505');
+    expect(await insert('logo')).toBe('23514');
+  });
+
+  it('AC08: each logo change reaches admin with its variant', async () => {
+    await sync.tick();
+    const events = await db.managed_events.findWhere(
+      { event_key: 'tenant_settings.logo_changed', tenant_id: napsoft.id },
+      'AND',
+      { columnWhitelist: ['details'] }
+    );
+    expect(
+      events.every(e => ['light', 'dark'].includes(e.details.variant))
+    ).toBe(true);
+    expect(
+      events
+        .filter(e => e.details.variant === 'dark')
+        .map(e => e.details.action)
+        .sort()
+    ).toEqual(['removed', 'replaced', 'uploaded']);
   });
 });

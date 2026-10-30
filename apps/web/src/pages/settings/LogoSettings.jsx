@@ -17,6 +17,7 @@ import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { TenantLogo } from '../../shell/TenantLogo.jsx';
 import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
+import { BRAND_TOKENS } from '../../theme/tokens.js';
 
 const INVALID =
   'The logo must be a PNG, JPEG, WebP, or GIF image of at most 2 MB.';
@@ -41,20 +42,46 @@ function describe(err) {
   );
 }
 
+// M0006-04-R006, R007: each variant's wording, spelled out.
+const VARIANTS = [
+  {
+    variant: 'light',
+    label: 'Light theme',
+    alt: 'Light theme logo',
+    removeTitle: 'Remove light theme logo?',
+  },
+  {
+    variant: 'dark',
+    label: 'Dark theme',
+    alt: 'Dark theme logo',
+    removeTitle: 'Remove dark theme logo?',
+  },
+];
+
 /**
- * The tenant logo control on Settings → General (M0006-02-R013), for a
- * member with `general::write`. Upload and replace appear only when file
- * storage is connected.
+ * One logo variant: its preview on that theme's card color, and its Upload,
+ * Replace, and Remove controls (M0006-04-R006, R007). `busy` and the open
+ * Remove dialog are shared by both items, so only one logo change runs at
+ * a time.
+ * @param {{variant: 'light'|'dark', label: string, alt: string, removeTitle: string, fileId: string|null, busy: boolean, setBusy: (busy: boolean) => void, confirmRemove: boolean, setConfirmRemove: (open: boolean) => void}} props
  * @returns {JSX.Element}
  */
-export function LogoSettings() {
-  const { settings, refresh } = useEffectiveSettings();
+function LogoItem({
+  variant,
+  label,
+  alt,
+  removeTitle,
+  fileId,
+  busy,
+  setBusy,
+  confirmRemove,
+  setConfirmRemove,
+}) {
+  const { refresh } = useEffectiveSettings();
   const { onError } = useCapabilities();
   const notify = useNotice();
   const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const { logoFileId, storageConnected } = settings;
+  const tokens = BRAND_TOKENS[variant];
 
   async function change(operation, message) {
     setBusy(true);
@@ -79,53 +106,100 @@ export function LogoSettings() {
       setError(INVALID);
       return;
     }
-    void change(() => uploadLogo(file), 'Logo saved.');
+    void change(() => uploadLogo(variant, file), 'Logo saved.');
   }
 
-  // M0006-02-R013, R018: the control exists only while storage is connected,
-  // and says nothing about storage or file limits until a file is refused.
-  if (!storageConnected) return null;
   return (
-    <Stack spacing={1} sx={{ maxWidth: 560, mb: 3 }}>
-      <Typography variant="subtitle2">Logo</Typography>
+    <Stack spacing={1}>
+      <Typography variant="body2">{label}</Typography>
       {error ? <Alert severity="error">{error}</Alert> : null}
-      {logoFileId ? (
-        <Box>
-          <TenantLogo fileId={logoFileId} height={64} alt="Tenant logo" />
+      {fileId ? (
+        <Box
+          sx={{
+            alignSelf: 'flex-start',
+            p: 2,
+            borderRadius: 1,
+            border: 1,
+            borderColor: tokens.border,
+            bgcolor: tokens.card,
+          }}
+        >
+          <TenantLogo fileId={fileId} height={64} alt={alt} />
         </Box>
       ) : null}
       <Stack direction="row" spacing={1}>
         <Button variant="outlined" component="label" disabled={busy}>
-          {logoFileId ? 'Replace logo' : 'Upload logo'}
+          {fileId ? 'Replace' : 'Upload'}
           <input
             hidden
             type="file"
             accept={IMAGE_TYPES.join(',')}
-            aria-label="Logo file"
+            aria-label={`${label} logo file`}
             onChange={choose}
           />
         </Button>
-        {logoFileId ? (
+        {fileId ? (
           <Button
             color="error"
             disabled={busy}
             onClick={() => setConfirmRemove(true)}
           >
-            Remove logo
+            Remove
           </Button>
         ) : null}
       </Stack>
-      {/* M0006-02-R016: Remove logo asks first. */}
+      {/* M0006-04-R007: each removal asks first, naming its theme. */}
       <ConfirmDialog
         open={confirmRemove}
-        title="Remove logo?"
+        title={removeTitle}
         confirmLabel="Remove"
         onConfirm={() => {
           setConfirmRemove(false);
-          void change(deleteLogo, 'Logo removed.');
+          void change(() => deleteLogo(variant), 'Logo removed.');
         }}
         onCancel={() => setConfirmRemove(false)}
       />
+    </Stack>
+  );
+}
+
+/**
+ * The tenant logo controls on Settings → General (M0006-02-R013), for a
+ * member with `general::write`: one item per theme (M0006-04-R006). They
+ * appear only when file storage is connected.
+ * @returns {JSX.Element|null}
+ */
+export function LogoSettings() {
+  const { logoLightFileId, logoDarkFileId, storageConnected } =
+    useEffectiveSettings().settings;
+  const fileIds = { light: logoLightFileId, dark: logoDarkFileId };
+  const [busy, setBusyState] = useState(false);
+  const [confirming, setConfirming] = useState(null);
+  // Starting a change closes any open Remove dialog, so a dialog opened on
+  // one item cannot confirm while the other item's change runs.
+  const setBusy = value => {
+    setBusyState(value);
+    if (value) setConfirming(null);
+  };
+
+  // M0006-02-R013, R018; M0006-04-R008: the controls exist only while
+  // storage is connected, and say nothing about storage, file limits, or the
+  // fallback until a file is refused.
+  if (!storageConnected) return null;
+  return (
+    <Stack spacing={2} sx={{ maxWidth: 560, mb: 3 }}>
+      <Typography variant="subtitle2">Logo</Typography>
+      {VARIANTS.map(item => (
+        <LogoItem
+          key={item.variant}
+          {...item}
+          fileId={fileIds[item.variant]}
+          busy={busy}
+          setBusy={setBusy}
+          confirmRemove={confirming === item.variant}
+          setConfirmRemove={open => setConfirming(open ? item.variant : null)}
+        />
+      ))}
     </Stack>
   );
 }
