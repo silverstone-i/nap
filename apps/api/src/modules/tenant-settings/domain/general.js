@@ -153,9 +153,10 @@ export function updateGeneral(context, body) {
 /**
  * The values to apply for the signed-in member (R008): their override, else
  * the tenant's stored value, else the default (M0006-03-R003). Also the
- * file IDs of the light and dark logos (M0006-04), whether storage is connected, and the member's
- * profile image; an uploaded image is offered only while storage is
- * connected, so the shell falls back to initials (M0006-03-R007).
+ * file IDs of the light and dark logos (M0006-04), whether storage is
+ * connected, and the member's profile image; an uploaded image is offered
+ * only while storage is connected, so the shell falls back to initials
+ * (M0006-03-R007).
  * @param {import('./shared.js').SettingsContext} context
  * @param {object} query
  * @returns {Promise<Record<string, unknown>>}

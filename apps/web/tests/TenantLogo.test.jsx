@@ -227,6 +227,38 @@ describe('logo control (M0006-02-R013)', () => {
     expect(await screen.findByText('Logo saved.')).toBeTruthy();
   });
 
+  it('runs one logo change at a time across both items', async () => {
+    api.getEffectiveSettings.mockResolvedValue(
+      effective({ logoLightFileId: LOGO, storageConnected: true })
+    );
+    let finish;
+    api.uploadLogo.mockReturnValue(
+      new Promise(resolve => {
+        finish = resolve;
+      })
+    );
+    renderWith(<LogoSettings />);
+    const user = userEvent.setup();
+    const input = await screen.findByLabelText('Dark theme logo file');
+    await user.upload(
+      input,
+      new File([new Uint8Array([0x89, 0x50])], 'dark.png', {
+        type: 'image/png',
+      })
+    );
+    // The light item's controls wait for the dark upload.
+    expect(
+      screen.getByText('Replace').closest('label').getAttribute('aria-disabled')
+    ).toBe('true');
+    expect(screen.getByRole('button', { name: 'Remove' }).disabled).toBe(true);
+    await act(async () => finish({ logoFileId: DARK }));
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove' }).disabled).toBe(
+        false
+      )
+    );
+  });
+
   it('AC06: shows a light and a dark item, and removes one after its own confirmation (M0006-04-R006, R007)', async () => {
     api.getEffectiveSettings.mockResolvedValue(
       effective({ logoLightFileId: LOGO, storageConnected: true })

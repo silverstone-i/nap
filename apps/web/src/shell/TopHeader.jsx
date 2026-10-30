@@ -22,8 +22,9 @@ import { useThemeMode } from '../theme/ThemeModeContext.jsx';
  * every width, the tenant control immediately to its right, and the
  * profile menu (I0001-R009). The tenant control shows the tenant logo
  * beside its name when there is one (M0006-02-R014): the one for the
- * current theme, else the other (M0006-04-R004, R005). Spans the full width, with the nav and work
- * area sitting in the row below it — see `AppShell`.
+ * current theme, else the other (M0006-04-R004, R005). Spans the full
+ * width, with the nav and work area sitting in the row below it — see
+ * `AppShell`.
  * @param {{onMenuClick: () => void}} props
  * @returns {JSX.Element}
  */

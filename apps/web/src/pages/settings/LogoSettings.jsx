@@ -49,16 +49,16 @@ const VARIANTS = [
 
 /**
  * One logo variant: its preview on that theme's card color, and its Upload,
- * Replace, and Remove controls (M0006-04-R006, R007).
- * @param {{variant: 'light'|'dark', label: string, fileId: string|null}} props
+ * Replace, and Remove controls (M0006-04-R006, R007). `busy` is shared by
+ * both items, so only one logo change runs at a time.
+ * @param {{variant: 'light'|'dark', label: string, fileId: string|null, busy: boolean, setBusy: (busy: boolean) => void}} props
  * @returns {JSX.Element}
  */
-function LogoItem({ variant, label, fileId }) {
+function LogoItem({ variant, label, fileId, busy, setBusy }) {
   const { refresh } = useEffectiveSettings();
   const { onError } = useCapabilities();
   const notify = useNotice();
   const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const tokens = BRAND_TOKENS[variant];
 
@@ -152,6 +152,7 @@ export function LogoSettings() {
   const { logoLightFileId, logoDarkFileId, storageConnected } =
     useEffectiveSettings().settings;
   const fileIds = { light: logoLightFileId, dark: logoDarkFileId };
+  const [busy, setBusy] = useState(false);
 
   // M0006-02-R013, R018; M0006-04-R008: the controls exist only while
   // storage is connected, and say nothing about storage, file limits, or the
@@ -166,6 +167,8 @@ export function LogoSettings() {
           variant={variant}
           label={label}
           fileId={fileIds[variant]}
+          busy={busy}
+          setBusy={setBusy}
         />
       ))}
     </Stack>
