@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.36.1] - 2026-10-30
+
 ### Added
 
 - A tenant can keep a light-theme and a dark-theme logo (M0006-04). Settings → General shows **Light theme** and **Dark theme** items, each previewed on that theme's background with its own **Upload**, **Replace**, and **Remove**; removing asks "Remove light theme logo?" or "Remove dark theme logo?". The header shows the logo for the current theme and swaps it when the theme changes, including an OS change under System; with only one uploaded, both themes use it. The API replaces `PUT`/`DELETE /logo` with `PUT`/`DELETE /logo/:variant` (`light` or `dark`), `GET /effective` returns `logoLightFileId` and `logoDarkFileId` in place of `logoFileId`, and `tenant_settings.logo_changed` events carry `variant`. `app.files` purposes `logo_light` and `logo_dark` replace `logo`, with one active logo per variant, in place in baseline migration `001-tenant-settings`. Recreate existing cell databases.
