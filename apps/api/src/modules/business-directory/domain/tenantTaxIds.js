@@ -17,11 +17,14 @@ import { requestTaxIdApplied } from '../../cell-tenancy/domain/companyProfile.js
  * sync worker calls it in its cell transaction. A decision on a request the
  * tenant has since replaced changes nothing. An applied approval that
  * carries the Napsoft client's tax ID confirms it to admin, which then
- * gives the client the tax ID (R022).
+ * gives the client the tax ID (R022). A redelivery of a decision already
+ * applied is `'already'`: admin sends a decision only while its request is
+ * pending, so with nothing pending here an approval was applied, and a
+ * rejection is recognized by its revision.
  * @param {object} tx The worker's cell transaction.
  * @param {{tenant_id: string, request_revision: number, status: 'approved'|'rejected', reason: string|null, client_id?: string, client_tax_id?: object}} decision
  * @param {string|null} actorId
- * @returns {Promise<'applied'|'unchanged'>}
+ * @returns {Promise<'applied'|'already'|'unchanged'>}
  */
 export async function applyTaxIdDecision(tx, decision, actorId) {
   // The sync apply runs outside a tenant transaction; `app` tables need the
@@ -31,6 +34,14 @@ export async function applyTaxIdDecision(tx, decision, actorId) {
     'SELECT pending_status, pending_revision FROM app.tenant_tax_ids WHERE tenant_id=$1 FOR UPDATE',
     [decision.tenant_id]
   );
+  if (
+    current &&
+    (decision.status === 'approved'
+      ? current.pending_status === null
+      : current.pending_status === 'rejected' &&
+        current.pending_revision === decision.request_revision)
+  )
+    return 'already';
   if (
     current?.pending_status !== 'pending' ||
     current.pending_revision !== decision.request_revision

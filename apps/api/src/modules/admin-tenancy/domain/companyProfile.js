@@ -277,8 +277,10 @@ export async function applyTaxIdDecision(
 
 /**
  * The tenant's cell applied Napsoft's approval (I0013-R024): give the tax
- * ID to the tenant's Napsoft client. Only now is the approval known to
- * decide the tenant's current request.
+ * ID to the tenant's Napsoft client. The value is now the tenant's
+ * approved tax ID, so the client takes it even if the tenant has since
+ * submitted another request, which is only pending. A redelivery queues the
+ * same value again.
  * @param {object} admin
  * @param {string} sourceTenantId The tenant whose cell wrote the row.
  * @param {{created_by?: string|null}} row

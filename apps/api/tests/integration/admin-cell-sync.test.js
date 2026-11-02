@@ -43,6 +43,7 @@ import {
   applyTenantContact,
 } from '../../src/modules/admin-tenancy/domain/companyProfile.js';
 import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
+import { applyTaxIdDecision as applyTenantTaxIdDecision } from '../../src/modules/business-directory/domain/tenantTaxIds.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -982,6 +983,22 @@ describe('company profile (I0013)', () => {
     });
     expect((await request()).status).toBe('approved');
     expect(await clientLast4()).toBe('0002');
+    // A redelivery of the applied approval to the tenant's cell is
+    // recognized, so the worker reports it delivered.
+    expect(
+      await cell.tx(tx =>
+        applyTenantTaxIdDecision(
+          tx,
+          {
+            tenant_id: tenantId,
+            request_revision: second,
+            status: 'approved',
+            reason: null,
+          },
+          null
+        )
+      )
+    ).toBe('already');
     // The tenant's cell confirmed the approval before the client took it.
     expect(
       await cell.one(
