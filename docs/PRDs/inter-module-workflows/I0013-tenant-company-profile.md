@@ -362,7 +362,7 @@ Verified on 2026-11-02 in
 
 - `npm run lint`, `npm run format:check`, and `npm run build` pass.
   `npm test` passes: API unit 641, web 342, shared 25, toolchain 25.
-  `npm run test:db:local` passes 354, including provisioning with the
+  `npm run test:db:local` passes 356, including provisioning with the
   client stage and its retry (AC01, AC02), the Napsoft refusals (AC03), the
   contact copy (AC04), billing reassignment and the contact rules (AC05,
   AC06), tax ID approval, rejection, and a refused second decision on one
@@ -382,3 +382,10 @@ Verified on 2026-11-02 in
 - The dev check found two gaps, fixed here: provisioning did not queue the
   administrator's contact copy, and a decided request could be decided again
   before the sync delivered the first decision.
+- Review rounds on #88 changed the tax ID approval: the Napsoft client takes
+  the tax ID only after the tenant's cell applies the approval and confirms
+  it (`tax_id_applied`), a stale decision fails as `REQUEST_SUPERSEDED`, and
+  a redelivered one is delivered. They also guard the `billing` phone label
+  (`BILLING_LABEL`), enforce the contact rules on restore, and serialize
+  billing changes. DB tests cover the stale and redelivered decisions, the
+  wrong-client refusal, the label guard, and restore.
