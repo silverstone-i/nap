@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.37.0] - 2026-11-02
+
 ### Added
 
 - Each customer tenant owns its company profile (I0013). Settings → **Company** shows the legal and DBA name (kept by Napsoft), the tax ID with any request waiting for Napsoft ("pending approval", or "rejected" with the reason), the primary contacts, and the billing contact with **Change billing contact**; **Submit tax ID** sends a new tax ID for approval while the approved one stays in effect. An employee's detail has a **Primary contact** switch and **Make billing contact**. A tenant keeps at least one primary contact and exactly one billing contact; each needs a primary email and a phone, and the billing contact a phone labeled **billing** (a new default phone label). Breaking a rule fails with `409 LAST_PRIMARY_CONTACT`, `BILLING_CONTACT`, or `CONTACT_DETAILS_REQUIRED`. New routes: `GET /api/business-directory/v1/company-profile`, `POST …/company-profile/billing-contact` and `…/company-profile/tax-id` (new capability `business-directory::company-profile::write`).
