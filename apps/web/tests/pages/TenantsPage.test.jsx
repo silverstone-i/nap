@@ -297,7 +297,8 @@ describe('TenantsPage', () => {
         firstName: 'Ann',
         lastName: 'Admin',
         email: 'ann@oak.test',
-        phone: '(512) 555-0100',
+        // Read in Napsoft's default country (the US outside a provider).
+        phone: '+15125550100',
         password: 'temporary',
       });
     });

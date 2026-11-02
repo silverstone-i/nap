@@ -47,6 +47,8 @@ import {
   updateTaxIdFormat,
 } from '../../domain/taxIdFormats.js';
 import {
+  COMPANY_PROFILE_WRITE,
+  TAX_IDS_APPROVE,
   approveTaxIdRequest,
   getCompanyProfile,
   rejectTaxIdRequest,
@@ -60,8 +62,6 @@ const WRITE = 'business-directory::directory::write';
 const LABELS = 'business-directory::labels::write';
 const TAX_IDS_READ = 'business-directory::tax-ids::read';
 const TAX_ID_FORMATS = 'business-directory::tax-id-formats::write';
-const COMPANY_PROFILE = 'business-directory::company-profile::write';
-const TAX_IDS_APPROVE = 'business-directory::tax-ids::approve';
 
 /**
  * Wrap a handler: require a session and `capability` (I0005-R001), build the
@@ -436,13 +436,13 @@ export function createCompanyProfileRouter(deps) {
   );
   router.post(
     '/billing-contact',
-    ...route(deps, COMPANY_PROFILE, async (context, request, response) =>
+    ...route(deps, COMPANY_PROFILE_WRITE, async (context, request, response) =>
       sendData(response, await setBillingContact(context, request.body))
     )
   );
   router.post(
     '/tax-id',
-    ...route(deps, COMPANY_PROFILE, async (context, request, response) =>
+    ...route(deps, COMPANY_PROFILE_WRITE, async (context, request, response) =>
       sendData(response, await submitTaxId(context, request.body))
     )
   );

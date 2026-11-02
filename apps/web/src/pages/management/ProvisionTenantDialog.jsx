@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { normalizePhone } from '@nap/shared';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -16,6 +17,7 @@ import TextField from '@mui/material/TextField';
 import { PasswordField } from '../../components/PasswordField.jsx';
 import { ApiError } from '../../api/client.js';
 import { listCellsOverview, provisionTenant } from '../../api/endpoints.js';
+import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 
 const CONFLICTS = {
   code: 'Another tenant uses this code.',
@@ -77,6 +79,8 @@ export function ProvisionTenantDialog({ onClose, onProvisioned }) {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  // The phone is read in Napsoft's default country; the API assumes the US.
+  const { defaultCountry } = useEffectiveSettings().settings;
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -115,7 +119,7 @@ export function ProvisionTenantDialog({ onClose, onProvisioned }) {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email,
-        phone,
+        phone: normalizePhone(phone, defaultCountry) ?? phone,
         password,
       });
       onProvisioned();

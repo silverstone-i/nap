@@ -79,9 +79,11 @@ export function requestTaxId(tx, request) {
 
 /**
  * Record Napsoft's decision on a tenant's tax ID request (I0013-R022,
- * R023). Runs in the Napsoft cell.
+ * R023). Runs in the Napsoft cell. An approval also carries the client
+ * and the tax ID encrypted for it, which admin forwards to the Napsoft cell
+ * once it accepts the decision.
  * @param {object} tx
- * @param {{tenant_id: string, target_tenant_id: string, request_revision: number, status: 'approved'|'rejected', reason: string|null}} decision
+ * @param {{tenant_id: string, target_tenant_id: string, request_revision: number, status: 'approved'|'rejected', reason: string|null, client_id?: string, client_tax_id?: {tax_id_format_id: string, tax_id_encrypted: string, tax_id_hash: string, tax_id_last4: string}}} decision
  * @returns {Promise<{revision: number}>}
  */
 export function requestTaxIdDecision(tx, decision) {
