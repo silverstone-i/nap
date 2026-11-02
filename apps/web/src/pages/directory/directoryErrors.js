@@ -30,6 +30,8 @@ const MESSAGES = {
     'This person is the billing contact. Make someone else the billing contact first.',
   CONTACT_DETAILS_REQUIRED:
     'Primary and billing contacts need an email and a phone; the billing contact’s phone needs the Billing label.',
+  BILLING_LABEL:
+    'The Billing phone label marks the billing contact’s phone, so it cannot be renamed or archived.',
 };
 
 /** Messages for portal-access failures (I0008), which reuse shared codes. */

@@ -31,6 +31,7 @@ export const ERROR_STATUS = Object.freeze({
   LAST_PRIMARY_CONTACT: 409,
   BILLING_CONTACT: 409,
   CONTACT_DETAILS_REQUIRED: 409,
+  BILLING_LABEL: 409,
   DUPLICATE_TAX_ID: 409,
   DUPLICATE_DETAIL: 409,
   BULK_FAILED: 409,
@@ -72,6 +73,7 @@ export const ERROR_MESSAGE = Object.freeze({
   BILLING_CONTACT: 'Reassign the billing contact first',
   CONTACT_DETAILS_REQUIRED:
     'Primary and billing contacts need an email and a phone',
+  BILLING_LABEL: 'The billing phone label cannot be renamed or archived',
   DUPLICATE_TAX_ID: 'Another record already has this tax ID',
   DUPLICATE_DETAIL: 'This record already has this value',
   BULK_FAILED: 'One or more items failed; nothing was changed',

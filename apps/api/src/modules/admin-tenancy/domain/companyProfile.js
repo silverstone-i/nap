@@ -210,8 +210,9 @@ export async function applyTaxIdRequest(admin, row, snapshot, { tx }) {
  * @param {object} snapshot `tax_id_decision` payload with `target_tenant_id`.
  * @param {{tx: object}} options
  * @returns {Promise<string|null>} `TENANT_MISMATCH` unless Napsoft decides
- *   for a customer tenant; `REQUEST_SUPERSEDED` when the decided request is
- *   no longer the pending one.
+ *   for a customer tenant and, for an approval, names its client;
+ *   `REQUEST_SUPERSEDED` when the decided request is no longer the pending
+ *   one. A decision already applied returns `null` and changes nothing.
  */
 export async function applyTaxIdDecision(
   admin,
@@ -227,10 +228,24 @@ export async function applyTaxIdDecision(
     !(await isCustomerTenant(target, { tx }))
   )
     return 'TENANT_MISMATCH';
+  // R022: an approval names the tenant's own client.
+  if (snapshot.client_id) {
+    const tenant = await tx.one(
+      'SELECT client_id FROM admin.tenants WHERE id=$1',
+      [target]
+    );
+    if (tenant.client_id !== snapshot.client_id) return 'TENANT_MISMATCH';
+  }
   const request = await tx.oneOrNone(
     'SELECT revision, status FROM admin.tenant_tax_id_requests WHERE tenant_id=$1 FOR UPDATE',
     [target]
   );
+  // A redelivery of a decision already applied changes nothing.
+  if (
+    request?.revision === snapshot.request_revision &&
+    request.status === snapshot.status
+  )
+    return null;
   if (
     !request ||
     request.status !== 'pending' ||

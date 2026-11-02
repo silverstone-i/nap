@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatPhone } from '@nap/shared';
 import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
@@ -156,28 +157,54 @@ function TaxIdSubmitDialog({ onClose, onSaved }) {
 }
 
 /**
- * Choose another employee as the billing contact (I0013-R012).
+ * Choose another employee as the billing contact (I0013-R012). The picker
+ * searches every employee on the server as the user types.
  * @param {{current: string|null, onClose: () => void, onSaved: (profile: object) => void}} props
  * @returns {JSX.Element}
  */
 function BillingContactDialog({ current, onClose, onSaved }) {
-  const [employees, setEmployees] = useState(null);
-  const [partyId, setPartyId] = useState('');
+  const [search, setSearch] = useState('');
+  const [found, setFound] = useState(null);
+  const [chosen, setChosen] = useState(null);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    listDirectoryPage('people', { kind: 'employee', limit: 100 })
-      .then(page => setEmployees(page.rows.filter(row => row.id !== current)))
-      .catch(err => setError(describeDirectoryError(err)));
-  }, [current]);
+    let live = true;
+    const timer = setTimeout(() => {
+      listDirectoryPage('people', {
+        kind: 'employee',
+        q: search.trim(),
+        limit: 25,
+      })
+        .then(
+          page =>
+            live &&
+            setFound({
+              search,
+              rows: page.rows.filter(row => row.id !== current),
+            })
+        )
+        .catch(err => live && setError(describeDirectoryError(err)));
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [search, current]);
+  const options = found?.search === search ? found.rows : [];
+  // The chosen employee stays an option while another search is shown.
+  const withChosen =
+    chosen && !options.some(row => row.id === chosen.id)
+      ? [chosen, ...options]
+      : options;
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError(null);
     setSaving(true);
     try {
-      onSaved(await setBillingContact(partyId));
+      onSaved(await setBillingContact(chosen.id));
     } catch (err) {
       setError(describeDirectoryError(err));
     } finally {
@@ -204,28 +231,31 @@ function BillingContactDialog({ current, onClose, onSaved }) {
             {error}
           </Alert>
         ) : null}
-        <TextField
-          select
-          label="Billing contact"
-          value={partyId}
-          onChange={event => setPartyId(event.target.value)}
-          required
-          fullWidth
-          sx={{ mt: 1 }}
-          disabled={!employees?.length}
-        >
-          {(employees ?? []).map(employee => (
-            <MenuItem key={employee.id} value={employee.id}>
-              {employee.firstName} {employee.lastName}
-            </MenuItem>
-          ))}
-        </TextField>
+        <Autocomplete
+          options={withChosen}
+          loading={found?.search !== search}
+          value={chosen}
+          onChange={(_event, value) => setChosen(value)}
+          inputValue={search}
+          onInputChange={(_event, value) => setSearch(value)}
+          filterOptions={rows => rows}
+          getOptionLabel={row => `${row.firstName} ${row.lastName}`}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          renderInput={params => (
+            <TextField
+              {...params}
+              label="Billing contact"
+              required
+              sx={{ mt: 1 }}
+            />
+          )}
+        />
       </DialogContent>
       <DialogActions>
         <Button variant="text" onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button type="submit" variant="contained" disabled={saving || !partyId}>
+        <Button type="submit" variant="contained" disabled={saving || !chosen}>
           Save
         </Button>
       </DialogActions>

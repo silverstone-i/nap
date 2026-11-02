@@ -3850,6 +3850,27 @@ describe('tenant company profile (I0013)', () => {
     ).toBe('INVALID_STATE');
   });
 
+  it('R004: the billing phone label cannot be renamed or archived', async () => {
+    const billing = (await oak('get', '/labels')).body.data.find(
+      l => l.appliesTo === 'phone' && l.name === 'billing'
+    );
+    expect(
+      (
+        await oak('patch', `/labels/${billing.id}`, {
+          name: 'invoices',
+          revision: billing.revision,
+        })
+      ).body.error.code
+    ).toBe('BILLING_LABEL');
+    expect(
+      (
+        await oak('post', `/labels/${billing.id}/archive`, {
+          revision: billing.revision,
+        })
+      ).body.error.code
+    ).toBe('BILLING_LABEL');
+  });
+
   it('refuses the company profile in the Napsoft tenant', async () => {
     expect((await call('get', '/company-profile')).body.error.code).toBe(
       'INVALID_STATE'

@@ -48,6 +48,7 @@ const PASS_THROUGH = new Set([
   'LAST_PRIMARY_CONTACT',
   'BILLING_CONTACT',
   'CONTACT_DETAILS_REQUIRED',
+  'BILLING_LABEL',
   // I0010-R009: M0003's role rules, reported as Access Control reports them.
   'GRANT_EXCEEDS_ACTOR',
   'LAST_ADMIN',

@@ -3,7 +3,13 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
@@ -172,7 +178,15 @@ describe('CompanySettingsPage (I0013-R026)', () => {
     const form = await screen.findByRole('dialog', {
       name: 'Change billing contact',
     });
-    await user.click(within(form).getByRole('combobox'));
+    // The picker searches employees on the server.
+    await user.type(within(form).getByRole('combobox'), 'bil');
+    await waitFor(() =>
+      expect(api.listDirectoryPage).toHaveBeenCalledWith('people', {
+        kind: 'employee',
+        q: 'bil',
+        limit: 25,
+      })
+    );
     await user.click(await screen.findByRole('option', { name: 'Billy Bob' }));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
     expect(api.setBillingContact).toHaveBeenCalledWith(BILLY.id);

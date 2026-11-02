@@ -38,7 +38,10 @@ import {
   requestTaxIdDecision,
   requestTenantContact,
 } from '../../src/modules/cell-tenancy/domain/companyProfile.js';
-import { applyTenantContact } from '../../src/modules/admin-tenancy/domain/companyProfile.js';
+import {
+  applyTaxIdDecision,
+  applyTenantContact,
+} from '../../src/modules/admin-tenancy/domain/companyProfile.js';
 import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
@@ -123,13 +126,14 @@ function request(
 }
 
 /** Create a tenant on the test cell and deliver its copy. */
-async function tenantOnCell() {
+async function tenantOnCell(clientId = null) {
   const code = 'T' + randomUUID().replaceAll('-', '').slice(0, 10);
   const row = await db.tenants.insert({
     tenant_code: code,
     name: `Tenant ${code}`,
     legal_name: `Tenant ${code}`,
     status: 'active',
+    ...(clientId && { client_id: clientId }),
   });
   await db.tenants.update(row.id, { cell_id: cellId });
   await drain();
@@ -851,7 +855,8 @@ describe('company profile (I0013)', () => {
   });
 
   it('R019–R024: a tax ID request and Napsoft decisions reach the tenant', async () => {
-    const tenantId = await tenantOnCell();
+    const clientId = randomUUID();
+    const tenantId = await tenantOnCell(clientId);
     const inTenant = operation =>
       cell.tx(async tx => {
         await setTenant(tx, tenantId);
@@ -882,7 +887,6 @@ describe('company profile (I0013)', () => {
         return revision;
       });
     // The tenant's Napsoft client and its tax ID columns for an approval.
-    const clientId = randomUUID();
     const inNapsoft = operation =>
       cell.tx(async tx => {
         await setTenant(tx, napsoftId);
@@ -978,5 +982,38 @@ describe('company profile (I0013)', () => {
     });
     expect((await request()).status).toBe('approved');
     expect(await clientLast4()).toBe('0002');
+
+    // A redelivery of the applied decision succeeds and queues nothing.
+    const approval = {
+      tenant_id: napsoftId,
+      target_tenant_id: tenantId,
+      request_revision: second,
+      status: 'approved',
+      reason: null,
+      client_id: clientId,
+      client_tax_id: clientTaxId('0002'),
+    };
+    const queued = () =>
+      db.one(
+        "SELECT count(*)::int AS n FROM admin.outbox WHERE topic IN ('tax_id_decision','client_tax_id') AND tenant_id IN ($1,$2)",
+        [tenantId, napsoftId]
+      );
+    const before = await queued();
+    expect(
+      await db.tx(tx => applyTaxIdDecision(db, napsoftId, {}, approval, { tx }))
+    ).toBeNull();
+    expect(await queued()).toEqual(before);
+    // An approval naming another client is refused.
+    expect(
+      await db.tx(tx =>
+        applyTaxIdDecision(
+          db,
+          napsoftId,
+          {},
+          { ...approval, client_id: randomUUID() },
+          { tx }
+        )
+      )
+    ).toBe('TENANT_MISMATCH');
   });
 });

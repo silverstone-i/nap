@@ -97,7 +97,9 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
   set `is_primary_contact` and `is_billing_contact` on the administrator. The
   readback check covers these values. The tenant's default labels must
   include a `billing` label for phones (M0005-R017 seeds `billing` for
-  addresses only).
+  addresses only). In a customer tenant, renaming or archiving that phone
+  label fails with `409 BILLING_LABEL`, since R011 finds the billing phone
+  by it.
 - I0013-R005: A Napsoft client must be created only by R003. In the Napsoft
   tenant, `POST /organizations` with `kind = client` fails with
   `409 INVALID_STATE`, and the Clients screen offers no **New client**. The
@@ -288,6 +290,7 @@ Business Directory, base `/api/business-directory/v1`:
 | `POST /organizations/:id/tax-id-request/approve`    | `business-directory::tax-ids::approve`       | `NOT_FOUND`, `INVALID_STATE`                                               |
 | `POST /organizations/:id/tax-id-request/reject`     | `business-directory::tax-ids::approve`       | `NOT_FOUND`, `INVALID_INPUT`                                               |
 | `PATCH /people/:id`, archive, contact-method writes | As M0005 §10                                 | Adds `LAST_PRIMARY_CONTACT`, `BILLING_CONTACT`, `CONTACT_DETAILS_REQUIRED` |
+| Rename or archive the `billing` phone label         | As M0005 §10                                 | Adds `BILLING_LABEL`                                                       |
 
 `GET /company-profile` returns
 `{ legalName, dbaName, taxId: { last4, status, reason }, primaryContacts: [...], billingContact }`.
