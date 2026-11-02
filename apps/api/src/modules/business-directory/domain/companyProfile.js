@@ -47,33 +47,45 @@ function requireNapsoft(context) {
 }
 
 /**
- * A party's primary email, primary phone, and phone labeled `billing`
- * (I0013-R011).
+ * Each party's primary email, primary phone, and phone labeled `billing`
+ * (I0013-R011), in one query.
+ * @param {object} tx
+ * @param {string[]} partyIds
+ * @returns {Promise<Map<string, {email: string|null, phone: string|null, billingPhone: string|null}>>}
+ */
+async function contactDetailsOf(tx, partyIds) {
+  const rows = await tx.any(
+    `SELECT id,
+       (SELECT value FROM app.contact_methods
+         WHERE party_id=x.id AND type='email' AND is_primary
+           AND deactivated_at IS NULL LIMIT 1) AS email,
+       (SELECT value FROM app.contact_methods
+         WHERE party_id=x.id AND type='phone' AND is_primary
+           AND deactivated_at IS NULL LIMIT 1) AS phone,
+       (SELECT m.value FROM app.contact_methods m
+          JOIN app.contact_labels l ON l.id=m.label_id
+         WHERE m.party_id=x.id AND m.type='phone' AND l.applies_to='phone'
+           AND l.name='billing' AND m.deactivated_at IS NULL
+         ORDER BY m.is_primary DESC, m.created_at LIMIT 1) AS billing_phone
+       FROM unnest($1::uuid[]) AS x(id)`,
+    [partyIds]
+  );
+  return new Map(
+    rows.map(row => [
+      row.id,
+      { email: row.email, phone: row.phone, billingPhone: row.billing_phone },
+    ])
+  );
+}
+
+/**
+ * One party's contact details (see `contactDetailsOf`).
  * @param {object} tx
  * @param {string} partyId
  * @returns {Promise<{email: string|null, phone: string|null, billingPhone: string|null}>}
  */
 async function contactDetails(tx, partyId) {
-  const row = await tx.one(
-    `SELECT
-       (SELECT value FROM app.contact_methods
-         WHERE party_id=$1 AND type='email' AND is_primary
-           AND deactivated_at IS NULL LIMIT 1) AS email,
-       (SELECT value FROM app.contact_methods
-         WHERE party_id=$1 AND type='phone' AND is_primary
-           AND deactivated_at IS NULL LIMIT 1) AS phone,
-       (SELECT m.value FROM app.contact_methods m
-          JOIN app.contact_labels l ON l.id=m.label_id
-         WHERE m.party_id=$1 AND m.type='phone' AND l.applies_to='phone'
-           AND l.name='billing' AND m.deactivated_at IS NULL
-         ORDER BY m.is_primary DESC, m.created_at LIMIT 1) AS billing_phone`,
-    [partyId]
-  );
-  return {
-    email: row.email,
-    phone: row.phone,
-    billingPhone: row.billing_phone,
-  };
+  return (await contactDetailsOf(tx, [partyId])).get(partyId);
 }
 
 /**
@@ -203,10 +215,13 @@ export function getCompanyProfile(context) {
         ORDER BY last_name, first_name, party_id`,
       [context.tenant.id]
     );
-    const contacts = [];
-    for (const person of people) {
-      const details = await contactDetails(tx, person.party_id);
-      contacts.push({
+    const detailsOf = await contactDetailsOf(
+      tx,
+      people.map(person => person.party_id)
+    );
+    const contacts = people.map(person => {
+      const details = detailsOf.get(person.party_id);
+      return {
         id: person.party_id,
         firstName: person.first_name,
         lastName: person.last_name,
@@ -216,8 +231,8 @@ export function getCompanyProfile(context) {
         isPrimaryContact: person.is_primary_contact,
         isBillingContact: person.is_billing_contact,
         revision: person.revision,
-      });
-    }
+      };
+    });
     return {
       legalName: tenant?.legal_name ?? null,
       dbaName: tenant?.dba_name ?? null,
@@ -249,6 +264,11 @@ export async function setBillingContact(context, body) {
   await requireCapability(context, COMPANY_PROFILE_WRITE);
   const { partyId } = parse(billingSchema, body);
   await mutate(context, async tx => {
+    // Serialize billing changes per tenant: locking the current billing row
+    // alone locks nothing once a concurrent change has moved the flag.
+    await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      `business-directory:billing-contact:${context.tenant.id}`,
+    ]);
     const target = await employee(tx, partyId);
     if (!target || target.deactivated_at) throw new DirectoryError('NOT_FOUND');
     const current = await tx.oneOrNone(
@@ -460,10 +480,11 @@ async function lockClient(tx, clientId) {
 }
 
 /**
- * Approve a tenant's pending tax ID (I0013-R022): set it on the Napsoft
- * client in the Napsoft tenant's format, and queue the decision for the
- * tenant. The value is decrypted for the tenant's row and encrypted again
- * for the client's.
+ * Approve a tenant's pending tax ID (I0013-R022): queue the decision with
+ * the value encrypted for the Napsoft client in the Napsoft tenant's
+ * format. Admin forwards the decision to the tenant and the value to the
+ * client only if the request is still the pending one. The value is
+ * decrypted for the tenant's row and encrypted again for the client's.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {unknown} clientId
  * @param {unknown} body `{ taxIdFormatId }`, a Napsoft format of the request's country.
@@ -501,13 +522,20 @@ export async function approveTaxIdRequest(context, clientId, body) {
         id: holder.id,
         archived: holder.archived,
       });
-    await context.cell.parties.setTaxId(id, columns, context.actorId, { tx });
+    // The client takes the tax ID once admin accepts the decision.
     await requestTaxIdDecision(tx, {
       tenant_id: context.tenant.id,
       target_tenant_id: tenant.id,
       request_revision: request.revision,
       status: 'approved',
       reason: null,
+      client_id: id,
+      client_tax_id: {
+        tax_id_format_id: columns.tax_id_format_id,
+        tax_id_encrypted: columns.tax_id_encrypted,
+        tax_id_hash: columns.tax_id_hash,
+        tax_id_last4: columns.tax_id_last4,
+      },
     });
     return {
       result: { taxIdLast4: columns.tax_id_last4 },

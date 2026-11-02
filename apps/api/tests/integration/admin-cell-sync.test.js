@@ -881,7 +881,38 @@ describe('company profile (I0013)', () => {
         );
         return revision;
       });
-    const decide = (requestRevision, status, reason = null) =>
+    // The tenant's Napsoft client and its tax ID columns for an approval.
+    const clientId = randomUUID();
+    const inNapsoft = operation =>
+      cell.tx(async tx => {
+        await setTenant(tx, napsoftId);
+        return operation(tx);
+      });
+    const { id: napsoftFormatId } = await inNapsoft(tx =>
+      tx.one(
+        "SELECT id FROM app.tax_id_formats WHERE tenant_id=$1 AND country='US' AND name='EIN'",
+        [napsoftId]
+      )
+    );
+    await inNapsoft(tx =>
+      tx.none(
+        "INSERT INTO app.parties (id, tenant_id, kind) VALUES ($1,$2,'client')",
+        [clientId, napsoftId]
+      )
+    );
+    const clientTaxId = last4 => ({
+      tax_id_format_id: napsoftFormatId,
+      tax_id_encrypted: 'client-cipher-' + last4,
+      tax_id_hash: last4.repeat(16),
+      tax_id_last4: last4,
+    });
+    const clientLast4 = async () =>
+      (
+        await inNapsoft(tx =>
+          tx.one('SELECT tax_id_last4 FROM app.parties WHERE id=$1', [clientId])
+        )
+      ).tax_id_last4;
+    const decide = (requestRevision, status, reason = null, last4 = null) =>
       cell.tx(tx =>
         requestTaxIdDecision(tx, {
           tenant_id: napsoftId,
@@ -889,6 +920,10 @@ describe('company profile (I0013)', () => {
           request_revision: requestRevision,
           status,
           reason,
+          ...(last4 && {
+            client_id: clientId,
+            client_tax_id: clientTaxId(last4),
+          }),
         })
       );
     const own = () =>
@@ -921,8 +956,9 @@ describe('company profile (I0013)', () => {
 
     const second = await submit('0002');
     await drain();
-    // A decision on a replaced request fails and changes nothing.
-    const stale = await decide(first, 'approved');
+    // A decision on a replaced request fails and changes nothing, on the
+    // tenant or on its Napsoft client.
+    const stale = await decide(first, 'approved', null, '0001');
     await drain();
     expect(
       await cell.one(
@@ -931,8 +967,9 @@ describe('company profile (I0013)', () => {
       )
     ).toEqual({ failure_code: 'REQUEST_SUPERSEDED' });
     expect((await own()).pending_status).toBe('pending');
+    expect(await clientLast4()).toBeNull();
 
-    await decide(second, 'approved');
+    await decide(second, 'approved', null, '0002');
     await drain();
     expect(await own()).toMatchObject({
       tax_id_last4: '0002',
@@ -940,5 +977,6 @@ describe('company profile (I0013)', () => {
       pending_status: null,
     });
     expect((await request()).status).toBe('approved');
+    expect(await clientLast4()).toBe('0002');
   });
 });

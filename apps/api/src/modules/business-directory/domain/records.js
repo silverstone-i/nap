@@ -1135,8 +1135,12 @@ async function restoreOne(
     ),
     locked
   );
-  if (row.kind === 'employee')
+  // I0013-R010, R011: details may have changed while archived.
+  if (row.kind === 'employee' && isCompanyContact(row)) {
+    await requireContactDetails(context, tx, row.party_id);
+    await requireContactCounts(context, tx);
     await syncContact(context, tx, row.party_id, false);
+  }
   const after = await viewOf(context, name, row, tx);
   return { view: after, change: recordChange('restored', name, before, after) };
 }

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatPhone } from '@nap/shared';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
@@ -209,30 +209,45 @@ export function ClientTenantPanel({ client, onChanged }) {
   const canRead = can('admin-tenancy::control::read', 'napsoft');
   const canApprove = can('business-directory::tax-ids::approve');
   const visible = isNapsoftSelected(session) && canRead;
-  const [tenants, setTenants] = useState(null);
-  const [request, setRequest] = useState(null);
   const [deciding, setDeciding] = useState(null);
   // The request just decided here: admin records the decision only once the
   // sync delivers it, so it may still read as pending for a moment.
   const [decided, setDecided] = useState(null);
   const [tick, setTick] = useState(0);
 
-  const load = useCallback(() => {
-    listClientTenants(client.id)
-      .then(setTenants)
-      .catch(() => setTenants([]));
-  }, [client.id]);
+  // Each response is kept with the client it belongs to, so another
+  // client's tenants never show here, and a late response is ignored.
+  const [loadedTenants, setLoadedTenants] = useState(null);
   useEffect(() => {
-    if (visible) load();
-  }, [visible, load]);
+    if (!visible) return undefined;
+    let current = true;
+    const keep = rows => current && setLoadedTenants({ key: client.id, rows });
+    listClientTenants(client.id)
+      .then(keep)
+      .catch(() => keep([]));
+    return () => {
+      current = false;
+    };
+  }, [visible, client.id]);
+  const tenants = loadedTenants?.key === client.id ? loadedTenants.rows : null;
 
   const tenantId = tenants?.[0]?.id ?? null;
+  const requestKey = `${tenantId}:${tick}`;
+  const [loadedRequest, setLoadedRequest] = useState(null);
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId) return undefined;
+    let current = true;
+    const keep = value =>
+      current && setLoadedRequest({ key: `${tenantId}:${tick}`, value });
     getTenantTaxIdRequest(tenantId)
-      .then(setRequest)
-      .catch(() => setRequest(null));
+      .then(keep)
+      .catch(() => keep(null));
+    return () => {
+      current = false;
+    };
   }, [tenantId, tick]);
+  const request =
+    tenantId && loadedRequest?.key === requestKey ? loadedRequest.value : null;
   const fetchContacts = useMemo(
     () =>
       createListPageAdapter(() =>

@@ -56,6 +56,21 @@ function matches(stored, expected) {
 }
 
 /**
+ * Whether the cell's tenant copy is the expected one or a newer revision the
+ * sync delivered meanwhile, such as a Napsoft rename (I0013-R006).
+ * @param {object|null} stored
+ * @param {object} expected
+ * @returns {boolean}
+ */
+function currentTenant(stored, expected) {
+  return Boolean(
+    stored &&
+    stored.id === expected.id &&
+    (stored.revision > expected.revision || matches(stored, expected))
+  );
+}
+
+/**
  * Pick the listed columns from a row.
  * @param {object} row
  * @param {string[]} columns
@@ -140,11 +155,12 @@ export function createTenantStages({
             ])
           );
           // `nap-admin` is not filtered by row-level security: the rows
-          // must be Napsoft's client.
+          // must be Napsoft's client. Names are not compared: Napsoft may
+          // rename the client before a retry (I0013-R006).
           if (
             party?.tenant_id !== napsoft.id ||
             party.kind !== 'client' ||
-            !matches(organization, expected)
+            organization?.tenant_id !== napsoft.id
           )
             throw new StageError('SEED_FAILED');
         },
@@ -230,9 +246,15 @@ export function createTenantStages({
         target,
         async handle => {
           await handle.db.tx(async tx => {
-            await handle.db.tenants.upsert(expectedTenant, ['id'], null, {
-              tx,
-            });
+            // Never replace a newer copy the sync already delivered.
+            const held = await handle.db.tenants.findOneBy(
+              { id: tenant.id },
+              { columnWhitelist: ['revision'], tx }
+            );
+            if (!held || held.revision < expectedTenant.revision)
+              await handle.db.tenants.upsert(expectedTenant, ['id'], null, {
+                tx,
+              });
             await handle.db.tenant_members.upsert(
               expectedMember,
               ['id'],
@@ -262,7 +284,7 @@ export function createTenantStages({
           ]);
           if (
             !seeded ||
-            !matches(storedTenant, expectedTenant) ||
+            !currentTenant(storedTenant, expectedTenant) ||
             !matches(storedMember, expectedMember)
           )
             throw new StageError('SEED_FAILED');

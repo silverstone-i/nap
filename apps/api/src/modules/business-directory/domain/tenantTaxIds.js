@@ -5,7 +5,8 @@
 
 /**
  * @file A customer tenant's own tax ID (I0013-R019–R024): the approved
- * value in effect and the submitted value waiting for Napsoft.
+ * value in effect and the submitted value waiting for Napsoft; and the
+ * approved value on the tenant's Napsoft client.
  */
 
 import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
@@ -52,4 +53,38 @@ export async function applyTaxIdDecision(tx, decision, actorId) {
       [decision.tenant_id, decision.reason, actorId]
     );
   return 'applied';
+}
+
+/**
+ * Set an approved tax ID on a Napsoft client (I0013-R022). The sync worker
+ * calls it in the Napsoft cell's transaction once admin has accepted the
+ * approval. The approval already refused a tax ID another client holds;
+ * should one take it meanwhile, the client keeps its value.
+ * @param {object} tx The worker's cell transaction.
+ * @param {{tenant_id: string, client_id: string, tax_id_format_id: string, tax_id_encrypted: string, tax_id_hash: string, tax_id_last4: string}} row
+ * @param {string|null} actorId
+ * @returns {Promise<'applied'|'unchanged'>}
+ */
+export async function applyClientTaxId(tx, row, actorId) {
+  await setTenant(tx, row.tenant_id);
+  const updated = await tx.oneOrNone(
+    `UPDATE app.parties SET tax_id_format_id=$3, tax_id_encrypted=$4,
+       tax_id_hash=$5, tax_id_last4=$6, updated_by=$7
+     WHERE id=$2 AND tenant_id=$1 AND kind='client'
+       AND NOT EXISTS (
+         SELECT 1 FROM app.parties o
+          WHERE o.tenant_id=$1 AND o.kind='client' AND o.id<>$2
+            AND o.tax_id_hash=$5)
+     RETURNING id`,
+    [
+      row.tenant_id,
+      row.client_id,
+      row.tax_id_format_id,
+      row.tax_id_encrypted,
+      row.tax_id_hash,
+      row.tax_id_last4,
+      actorId,
+    ]
+  );
+  return updated ? 'applied' : 'unchanged';
 }

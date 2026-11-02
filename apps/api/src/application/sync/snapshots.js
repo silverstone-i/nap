@@ -24,6 +24,14 @@ const DECISION = {
   reason: z.string().min(1).max(500).nullable(),
 };
 
+/** A tax ID encrypted for a Napsoft client (I0013-R022). */
+const CLIENT_TAX_ID = {
+  tax_id_format_id: z.uuid(),
+  tax_id_encrypted: z.string().min(1),
+  tax_id_hash: z.string().min(1),
+  tax_id_last4: z.string().regex(/^[0-9A-Z]{4}$/),
+};
+
 /** Snapshot shape per topic (I0004-R013, R023). Extra fields are rejected. */
 const SNAPSHOTS = Object.freeze({
   tenant: z.strictObject({
@@ -146,16 +154,25 @@ const SNAPSHOTS = Object.freeze({
     country: z.string().regex(/^[A-Z]{2}$/),
   }),
   // I0013-R022–R024: Napsoft's decision on request `request_revision`. The
-  // Napsoft cell's row names `target_tenant_id`; admin's row to the
-  // tenant's cell does not.
+  // Napsoft cell's row names `target_tenant_id` and, for an approval, the
+  // client and its tax ID; admin's row to the tenant's cell does not.
   tax_id_decision: z.union([
     z.strictObject({
       tenant_id: z.uuid(),
       target_tenant_id: z.uuid(),
       ...DECISION,
+      client_id: z.uuid().optional(),
+      client_tax_id: z.strictObject(CLIENT_TAX_ID).optional(),
     }),
     z.strictObject({ tenant_id: z.uuid(), ...DECISION }),
   ]),
+  // I0013-R022: an approved tax ID for a Napsoft client, sent once admin has
+  // accepted the approval.
+  client_tax_id: z.strictObject({
+    tenant_id: z.uuid(),
+    client_id: z.uuid(),
+    ...CLIENT_TAX_ID,
+  }),
 });
 
 /**

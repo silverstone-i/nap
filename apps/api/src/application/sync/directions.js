@@ -19,7 +19,10 @@ import {
   applyTaxIdRequest,
   applyTenantContact,
 } from '../../modules/admin-tenancy/domain/companyProfile.js';
-import { applyTaxIdDecision as applyTenantTaxIdDecision } from '../../modules/business-directory/domain/tenantTaxIds.js';
+import {
+  applyClientTaxId,
+  applyTaxIdDecision as applyTenantTaxIdDecision,
+} from '../../modules/business-directory/domain/tenantTaxIds.js';
 import { SyncFailure } from './engine.js';
 import { parseSnapshot } from './snapshots.js';
 
@@ -76,6 +79,11 @@ export function adminToCell({ admin, registry, tenantId }) {
         // I0013-R024: a tax ID decision updates the tenant's own tax ID.
         if (row.topic === 'tax_id_decision') {
           await applyTenantTaxIdDecision(tx, snapshot, row.created_by ?? null);
+          continue;
+        }
+        // R022: the Napsoft client takes an approved tax ID.
+        if (row.topic === 'client_tax_id') {
+          await applyClientTaxId(tx, snapshot, row.created_by ?? null);
           continue;
         }
         const applied = await cell[COPIES[row.topic]].applySnapshot(

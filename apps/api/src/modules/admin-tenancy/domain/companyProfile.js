@@ -51,6 +51,33 @@ async function isNapsoft(tenantId, { tx }) {
 }
 
 /**
+ * Queue an admin outbox row for a tenant's cell at the entity's next
+ * revision.
+ * @param {object} admin
+ * @param {object} tx
+ * @param {{tenantId: string, topic: string, entityId: string, payload: object, actor: string|null}} row
+ * @returns {Promise<void>}
+ */
+async function queue(admin, tx, { tenantId, topic, entityId, payload, actor }) {
+  await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `admin.outbox|${topic}|${entityId}`,
+  ]);
+  const revision = await admin.outbox.nextRevision(topic, entityId, { tx });
+  await admin.outbox.insert(
+    {
+      tenant_id: tenantId,
+      topic,
+      entity_id: entityId,
+      revision,
+      payload,
+      created_by: actor,
+      updated_by: actor,
+    },
+    { tx }
+  );
+}
+
+/**
  * Upsert or remove one contact in `admin.tenant_contacts` (I0013-R016). A
  * row only replaces an older revision.
  * @param {object} admin
@@ -215,29 +242,36 @@ export async function applyTaxIdDecision(
     'UPDATE admin.tenant_tax_id_requests SET status=$2, reason=$3, updated_by=$4 WHERE tenant_id=$1',
     [target, snapshot.status, snapshot.reason, actor]
   );
-  await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
-    `admin.outbox|tax_id_decision|${target}`,
-  ]);
-  const revision = await admin.outbox.nextRevision('tax_id_decision', target, {
-    tx,
-  });
-  await admin.outbox.insert(
-    {
+  await queue(admin, tx, {
+    tenantId: target,
+    topic: 'tax_id_decision',
+    entityId: target,
+    payload: {
       tenant_id: target,
-      topic: 'tax_id_decision',
-      entity_id: target,
-      revision,
-      payload: {
-        tenant_id: target,
-        request_revision: snapshot.request_revision,
-        status: snapshot.status,
-        reason: snapshot.reason,
-      },
-      created_by: actor,
-      updated_by: actor,
+      request_revision: snapshot.request_revision,
+      status: snapshot.status,
+      reason: snapshot.reason,
     },
-    { tx }
-  );
+    actor,
+  });
+  // R022: the Napsoft client takes the tax ID only now that the approval
+  // is known to decide the current request.
+  if (
+    snapshot.status === 'approved' &&
+    snapshot.client_id &&
+    snapshot.client_tax_id
+  )
+    await queue(admin, tx, {
+      tenantId: sourceTenantId,
+      topic: 'client_tax_id',
+      entityId: snapshot.client_id,
+      payload: {
+        tenant_id: sourceTenantId,
+        client_id: snapshot.client_id,
+        ...snapshot.client_tax_id,
+      },
+      actor,
+    });
   return null;
 }
 

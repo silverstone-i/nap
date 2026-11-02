@@ -3711,6 +3711,45 @@ describe('tenant company profile (I0013)', () => {
     ]);
   });
 
+  it('R010, R011: restoring a primary contact enforces the contact rules', async () => {
+    const cara = (
+      await oak('post', '/people', {
+        kind: 'employee',
+        firstName: 'Cara',
+        lastName: 'Cole',
+        primaryEmail: 'cara@oak.test',
+      })
+    ).body.data;
+    const phone = await oak('post', `/parties/${cara.id}/contact-methods`, {
+      type: 'phone',
+      value: '(512) 555-0133',
+      labelId: labels.mobile,
+      isPrimary: true,
+    });
+    const flagged = await oak('patch', `/people/${cara.id}`, {
+      isPrimaryContact: true,
+      revision: (await oak('get', `/people/${cara.id}`)).body.data.revision,
+    });
+    expect(flagged.status, JSON.stringify(flagged.body)).toBe(200);
+    const archived = await oak('post', `/people/${cara.id}/archive`, {
+      revision: flagged.body.data.revision,
+    });
+    expect(archived.status).toBe(200);
+    // While archived, the phone a primary contact needs is removed.
+    const removed = await oak(
+      'delete',
+      `/parties/${cara.id}/contact-methods/${phone.body.data.id}`
+    );
+    expect(removed.status, JSON.stringify(removed.body)).toBeLessThan(300);
+    expect(
+      (
+        await oak('post', `/people/${cara.id}/restore`, {
+          revision: archived.body.data.revision,
+        })
+      ).body.error.code
+    ).toBe('CONTACT_DETAILS_REQUIRED');
+  });
+
   it('AC08, AC09: Napsoft approves or rejects the tenant tax ID', async () => {
     const submit = taxId =>
       oak('post', '/company-profile/tax-id', {
@@ -3736,6 +3775,10 @@ describe('tenant company profile (I0013)', () => {
       { taxIdFormatId: formats.EIN }
     );
     expect(approved.status, JSON.stringify(approved.body)).toBe(200);
+    // The client takes the tax ID only once admin accepts the approval.
+    expect(
+      (await call('get', `/organizations/${clientId}`)).body.data.taxIdLast4
+    ).toBeNull();
     // A second decision before the first reaches admin is refused.
     expect(
       (
