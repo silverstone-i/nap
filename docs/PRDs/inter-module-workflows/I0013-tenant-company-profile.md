@@ -189,17 +189,21 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
   format for the request's country. With no active format for that country
   it fails with `409 INVALID_STATE`; when another client holds the value it
   fails with `409 DUPLICATE_TAX_ID`. The client's tax ID changes only when
-  admin accepts the decision (R024), so an approval of a request the tenant
-  has since replaced changes nothing.
+  the tenant's cell has applied the decision (R024), so an approval of a
+  request the tenant has since replaced changes nothing.
 - I0013-R023: `POST /organizations/:id/tax-id-request/reject` with
   `{ "reason": "..." }` must record the rejection in the same way and leave
   the client's tax ID unchanged.
 - I0013-R024: The decision must reach the tenant through admin: the
   Napsoft-cell row updates the request's status, and an admin-to-cell row
   then makes the pending value the tenant's approved tax ID, or marks it
-  rejected with the reason. For an approval, a second admin-to-cell row sets
-  the client's tax ID in the Napsoft cell. A decision on a request that is
-  no longer pending fails with `REQUEST_SUPERSEDED` and sends neither row.
+  rejected with the reason. A decision on a request that is no longer
+  pending, in admin or in the tenant's cell, fails with
+  `REQUEST_SUPERSEDED` and changes nothing. For an approval, the tenant's
+  cell confirms that it applied the value with a cell-to-admin
+  `tax_id_applied` row; only then does admin send the client's tax ID to
+  the Napsoft cell. If another client holds that tax ID by then, the row
+  fails with `DUPLICATE_TAX_ID` and the client's tax ID is unchanged.
 - I0013-R025: In the Napsoft tenant, a create or edit that sets a client's
   `taxId` must fail with `409 INVALID_STATE`; only R022 sets it.
 

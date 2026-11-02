@@ -6,8 +6,8 @@
 /**
  * @file Outbox rows that carry a customer tenant's company profile to the
  * admin database (I0013): its primary and billing contacts, its tax ID
- * submission, and, from the Napsoft cell, client renames and tax ID
- * decisions. Each writer runs in the caller's cell transaction, so the row
+ * submission and its confirmation of an approval, and, from the Napsoft
+ * cell, client renames and tax ID decisions. Each writer runs in the caller's cell transaction, so the row
  * commits with the change it reports.
  */
 
@@ -80,12 +80,24 @@ export function requestTaxId(tx, request) {
 /**
  * Record Napsoft's decision on a tenant's tax ID request (I0013-R022,
  * R023). Runs in the Napsoft cell. An approval also carries the client
- * and the tax ID encrypted for it, which admin forwards to the Napsoft cell
- * once it accepts the decision.
+ * and the tax ID encrypted for it, which reach the Napsoft cell only once
+ * the tenant's cell has applied the approval (`requestTaxIdApplied`).
  * @param {object} tx
  * @param {{tenant_id: string, target_tenant_id: string, request_revision: number, status: 'approved'|'rejected', reason: string|null, client_id?: string, client_tax_id?: {tax_id_format_id: string, tax_id_encrypted: string, tax_id_hash: string, tax_id_last4: string}}} decision
  * @returns {Promise<{revision: number}>}
  */
 export function requestTaxIdDecision(tx, decision) {
   return enqueue(tx, 'tax_id_decision', decision.target_tenant_id, decision);
+}
+
+/**
+ * Confirm that the tenant's cell applied Napsoft's approval (I0013-R024),
+ * so admin can give the tax ID to the Napsoft client. Runs in the tenant's
+ * cell, in the sync worker's transaction.
+ * @param {object} tx
+ * @param {{tenant_id: string, request_revision: number, client_id: string, client_tax_id: object}} applied
+ * @returns {Promise<{revision: number}>}
+ */
+export function requestTaxIdApplied(tx, applied) {
+  return enqueue(tx, 'tax_id_applied', applied.tenant_id, applied);
 }

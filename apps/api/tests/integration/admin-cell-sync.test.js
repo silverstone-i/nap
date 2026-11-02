@@ -982,6 +982,13 @@ describe('company profile (I0013)', () => {
     });
     expect((await request()).status).toBe('approved');
     expect(await clientLast4()).toBe('0002');
+    // The tenant's cell confirmed the approval before the client took it.
+    expect(
+      await cell.one(
+        "SELECT status FROM cell.outbox WHERE topic='tax_id_applied' AND entity_id=$1 ORDER BY revision DESC LIMIT 1",
+        [tenantId]
+      )
+    ).toEqual({ status: 'delivered' });
 
     // A redelivery of the applied decision succeeds and queues nothing.
     const approval = {
@@ -1015,5 +1022,26 @@ describe('company profile (I0013)', () => {
         )
       )
     ).toBe('TENANT_MISMATCH');
+
+    // R024: admin accepts an approval of request 3, but the tenant's cell
+    // already replaced it with a request still on its way to admin. The
+    // decision fails there, and the client keeps its tax ID.
+    const third = await submit('0003');
+    await drain();
+    await inTenant(tx =>
+      tx.none(
+        'UPDATE app.tenant_tax_ids SET pending_revision=pending_revision+1 WHERE tenant_id=$1',
+        [tenantId]
+      )
+    );
+    await decide(third, 'approved', null, '0003');
+    await drain();
+    expect(
+      await db.one(
+        "SELECT status, failure_code FROM admin.outbox WHERE topic='tax_id_decision' AND entity_id=$1 ORDER BY revision DESC LIMIT 1",
+        [tenantId]
+      )
+    ).toEqual({ status: 'failed', failure_code: 'REQUEST_SUPERSEDED' });
+    expect(await clientLast4()).toBe('0002');
   });
 });

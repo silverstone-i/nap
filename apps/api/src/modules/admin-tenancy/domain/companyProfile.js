@@ -23,31 +23,32 @@ export function displayName(legalName, dbaName) {
 }
 
 /**
- * Whether a tenant exists and is a customer tenant.
+ * A tenant's `is_napsoft` flag, or `null` for an unknown tenant.
  * @param {string} tenantId
  * @param {{tx: object}} options
- * @returns {Promise<boolean>}
+ * @returns {Promise<boolean|null>}
  */
-async function isCustomerTenant(tenantId, { tx }) {
+async function napsoftFlag(tenantId, { tx }) {
   const row = await tx.oneOrNone(
     'SELECT is_napsoft FROM admin.tenants WHERE id=$1',
     [tenantId]
   );
-  return row !== null && !row.is_napsoft;
+  return row ? row.is_napsoft : null;
 }
 
 /**
- * Whether a tenant is the Napsoft tenant.
+ * Whether the approval names the tenant's own Napsoft client (R022).
  * @param {string} tenantId
+ * @param {string} clientId
  * @param {{tx: object}} options
  * @returns {Promise<boolean>}
  */
-async function isNapsoft(tenantId, { tx }) {
-  const row = await tx.oneOrNone(
-    'SELECT is_napsoft FROM admin.tenants WHERE id=$1',
+async function isTenantClient(tenantId, clientId, { tx }) {
+  const tenant = await tx.oneOrNone(
+    'SELECT client_id FROM admin.tenants WHERE id=$1',
     [tenantId]
   );
-  return row?.is_napsoft === true;
+  return tenant?.client_id === clientId;
 }
 
 /**
@@ -149,8 +150,8 @@ export async function applyClientName(
   { tx }
 ) {
   if (
-    !(await isNapsoft(sourceTenantId, { tx })) ||
-    !(await isCustomerTenant(snapshot.target_tenant_id, { tx }))
+    (await napsoftFlag(sourceTenantId, { tx })) !== true ||
+    (await napsoftFlag(snapshot.target_tenant_id, { tx })) !== false
   )
     return 'TENANT_MISMATCH';
   await admin.tenants.update(
@@ -175,7 +176,7 @@ export async function applyClientName(
  * @returns {Promise<string|null>} `TENANT_MISMATCH` for the Napsoft tenant.
  */
 export async function applyTaxIdRequest(admin, row, snapshot, { tx }) {
-  if (!(await isCustomerTenant(snapshot.tenant_id, { tx })))
+  if ((await napsoftFlag(snapshot.tenant_id, { tx })) !== false)
     return 'TENANT_MISMATCH';
   const actor = row.created_by ?? null;
   await tx.none(
@@ -224,18 +225,12 @@ export async function applyTaxIdDecision(
   const target = snapshot.target_tenant_id;
   if (
     !target ||
-    !(await isNapsoft(sourceTenantId, { tx })) ||
-    !(await isCustomerTenant(target, { tx }))
+    (await napsoftFlag(sourceTenantId, { tx })) !== true ||
+    (await napsoftFlag(target, { tx })) !== false ||
+    (snapshot.client_id &&
+      !(await isTenantClient(target, snapshot.client_id, { tx })))
   )
     return 'TENANT_MISMATCH';
-  // R022: an approval names the tenant's own client.
-  if (snapshot.client_id) {
-    const tenant = await tx.one(
-      'SELECT client_id FROM admin.tenants WHERE id=$1',
-      [target]
-    );
-    if (tenant.client_id !== snapshot.client_id) return 'TENANT_MISMATCH';
-  }
   const request = await tx.oneOrNone(
     'SELECT revision, status FROM admin.tenant_tax_id_requests WHERE tenant_id=$1 FOR UPDATE',
     [target]
@@ -266,27 +261,56 @@ export async function applyTaxIdDecision(
       request_revision: snapshot.request_revision,
       status: snapshot.status,
       reason: snapshot.reason,
+      // The client's tax ID rides along; the tenant's cell returns it with
+      // `tax_id_applied` once it has applied the approval.
+      ...(snapshot.status === 'approved' &&
+        snapshot.client_id &&
+        snapshot.client_tax_id && {
+          client_id: snapshot.client_id,
+          client_tax_id: snapshot.client_tax_id,
+        }),
     },
     actor,
   });
-  // R022: the Napsoft client takes the tax ID only now that the approval
-  // is known to decide the current request.
+  return null;
+}
+
+/**
+ * The tenant's cell applied Napsoft's approval (I0013-R024): give the tax
+ * ID to the tenant's Napsoft client. Only now is the approval known to
+ * decide the tenant's current request.
+ * @param {object} admin
+ * @param {string} sourceTenantId The tenant whose cell wrote the row.
+ * @param {{created_by?: string|null}} row
+ * @param {object} snapshot `tax_id_applied` payload.
+ * @param {{tx: object}} options
+ * @returns {Promise<string|null>} `TENANT_MISMATCH` unless a customer tenant
+ *   confirms for its own client.
+ */
+export async function applyTaxIdApplied(
+  admin,
+  sourceTenantId,
+  row,
+  snapshot,
+  { tx }
+) {
   if (
-    snapshot.status === 'approved' &&
-    snapshot.client_id &&
-    snapshot.client_tax_id
+    (await napsoftFlag(sourceTenantId, { tx })) !== false ||
+    !(await isTenantClient(sourceTenantId, snapshot.client_id, { tx }))
   )
-    await queue(admin, tx, {
-      tenantId: sourceTenantId,
-      topic: 'client_tax_id',
-      entityId: snapshot.client_id,
-      payload: {
-        tenant_id: sourceTenantId,
-        client_id: snapshot.client_id,
-        ...snapshot.client_tax_id,
-      },
-      actor,
-    });
+    return 'TENANT_MISMATCH';
+  const napsoft = await tx.one('SELECT id FROM admin.tenants WHERE is_napsoft');
+  await queue(admin, tx, {
+    tenantId: napsoft.id,
+    topic: 'client_tax_id',
+    entityId: snapshot.client_id,
+    payload: {
+      tenant_id: napsoft.id,
+      client_id: snapshot.client_id,
+      ...snapshot.client_tax_id,
+    },
+    actor: row.created_by ?? null,
+  });
   return null;
 }
 

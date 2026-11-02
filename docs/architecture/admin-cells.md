@@ -247,8 +247,9 @@ inside the API delivers them:
   change flows back to the cell as an admin-to-cell row. I0013 adds rows for
   a customer tenant's primary and billing contacts, its tax ID submissions,
   and, from the Napsoft cell, client name changes and tax ID decisions; the
-  decision returns to the tenant's cell as an admin-to-cell row, and an
-  approved tax ID goes to the Napsoft client the same way.
+  decision returns to the tenant's cell as an admin-to-cell row. Once the
+  tenant's cell applies an approval it confirms with a `tax_id_applied`
+  row, and admin then sends the tax ID to the Napsoft client.
 
 The worker delivers one tenant and direction at a time under an advisory lock
 on the admin database. Only the highest pending revision per entity is

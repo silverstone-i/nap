@@ -15,9 +15,8 @@ const TIMESTAMP = z.union([z.string(), z.date()]).nullable();
 // I0012-R007: the party label; optional so rows queued before it existed
 // still apply.
 const MEMBER_LABEL = z.string().max(400).nullable().optional();
-// I0013-R007: the tenant's names; optional so rows queued before they
-// existed still apply.
-const TENANT_NAME = z.string().max(160).nullable().optional();
+// I0013-R007: the tenant's names.
+const TENANT_NAME = z.string().min(1).max(160);
 const DECISION = {
   request_revision: z.number().int().positive(),
   status: z.enum(['approved', 'rejected']),
@@ -32,6 +31,12 @@ const CLIENT_TAX_ID = {
   tax_id_last4: z.string().regex(/^[0-9A-Z]{4}$/),
 };
 
+/** An approval's client and its tax ID. */
+const CLIENT_FIELDS = {
+  client_id: z.uuid().optional(),
+  client_tax_id: z.strictObject(CLIENT_TAX_ID).optional(),
+};
+
 /** Snapshot shape per topic (I0004-R013, R023). Extra fields are rejected. */
 const SNAPSHOTS = Object.freeze({
   tenant: z.strictObject({
@@ -40,7 +45,7 @@ const SNAPSHOTS = Object.freeze({
     status: z.enum(['pending', 'active', 'suspended']),
     name: TENANT_NAME,
     legal_name: TENANT_NAME,
-    dba_name: TENANT_NAME,
+    dba_name: TENANT_NAME.nullable(),
     deactivated_at: TIMESTAMP,
   }),
   membership: z.strictObject({
@@ -154,20 +159,28 @@ const SNAPSHOTS = Object.freeze({
     country: z.string().regex(/^[A-Z]{2}$/),
   }),
   // I0013-R022–R024: Napsoft's decision on request `request_revision`. The
-  // Napsoft cell's row names `target_tenant_id` and, for an approval, the
-  // client and its tax ID; admin's row to the tenant's cell does not.
+  // Napsoft cell's row names `target_tenant_id`; admin's row to the
+  // tenant's cell does not. An approval carries the client and its tax ID
+  // through to the tenant's cell, which confirms it with `tax_id_applied`.
   tax_id_decision: z.union([
     z.strictObject({
       tenant_id: z.uuid(),
       target_tenant_id: z.uuid(),
       ...DECISION,
-      client_id: z.uuid().optional(),
-      client_tax_id: z.strictObject(CLIENT_TAX_ID).optional(),
+      ...CLIENT_FIELDS,
     }),
-    z.strictObject({ tenant_id: z.uuid(), ...DECISION }),
+    z.strictObject({ tenant_id: z.uuid(), ...DECISION, ...CLIENT_FIELDS }),
   ]),
-  // I0013-R022: an approved tax ID for a Napsoft client, sent once admin has
-  // accepted the approval.
+  // I0013-R024: the tenant's cell applied an approval, so its Napsoft
+  // client may take the tax ID.
+  tax_id_applied: z.strictObject({
+    tenant_id: z.uuid(),
+    request_revision: z.number().int().positive(),
+    client_id: z.uuid(),
+    client_tax_id: z.strictObject(CLIENT_TAX_ID),
+  }),
+  // I0013-R022: an approved tax ID for a Napsoft client, sent once the
+  // tenant's cell has applied the approval.
   client_tax_id: z.strictObject({
     tenant_id: z.uuid(),
     client_id: z.uuid(),

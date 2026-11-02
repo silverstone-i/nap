@@ -28,7 +28,8 @@ const TOPIC_ORDER = Object.freeze({
   client_name: 9,
   tax_id_request: 10,
   tax_id_decision: 11,
-  client_tax_id: 12,
+  tax_id_applied: 12,
+  client_tax_id: 13,
 });
 
 /**

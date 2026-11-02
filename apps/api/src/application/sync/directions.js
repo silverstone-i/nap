@@ -15,6 +15,7 @@ import {
 } from '../../modules/admin-tenancy/domain/events.js';
 import {
   applyClientName,
+  applyTaxIdApplied,
   applyTaxIdDecision,
   applyTaxIdRequest,
   applyTenantContact,
@@ -67,6 +68,9 @@ export function adminToCell({ admin, registry, tenantId }) {
       throw new SyncFailure('CELL_UNAVAILABLE');
     }
     const { valid, failed } = parseRows(rows);
+    // I0013: a tax ID row that changed nothing fails with its reason, so
+    // it is not reported delivered.
+    const skipped = new Set();
     await cell.tx(async tx => {
       // The copy cannot disappear inside this transaction, so check once.
       let tenantSynced = false;
@@ -78,12 +82,28 @@ export function adminToCell({ admin, registry, tenantId }) {
         }
         // I0013-R024: a tax ID decision updates the tenant's own tax ID.
         if (row.topic === 'tax_id_decision') {
-          await applyTenantTaxIdDecision(tx, snapshot, row.created_by ?? null);
+          const outcome = await applyTenantTaxIdDecision(
+            tx,
+            snapshot,
+            row.created_by ?? null
+          );
+          if (outcome === 'unchanged') {
+            failed.push({ id: row.id, code: 'REQUEST_SUPERSEDED' });
+            skipped.add(row.id);
+          }
           continue;
         }
         // R022: the Napsoft client takes an approved tax ID.
         if (row.topic === 'client_tax_id') {
-          await applyClientTaxId(tx, snapshot, row.created_by ?? null);
+          const outcome = await applyClientTaxId(
+            tx,
+            snapshot,
+            row.created_by ?? null
+          );
+          if (outcome === 'unchanged') {
+            failed.push({ id: row.id, code: 'DUPLICATE_TAX_ID' });
+            skipped.add(row.id);
+          }
           continue;
         }
         const applied = await cell[COPIES[row.topic]].applySnapshot(
@@ -110,7 +130,10 @@ export function adminToCell({ admin, registry, tenantId }) {
           });
       }
     });
-    return { delivered: valid.map(({ row }) => row.id), failed };
+    return {
+      delivered: valid.map(({ row }) => row.id).filter(id => !skipped.has(id)),
+      failed,
+    };
   };
 }
 
@@ -229,6 +252,7 @@ const COMPANY_PROFILE = Object.freeze({
   tax_id_request: (admin, tenantId, row, snapshot, options) =>
     applyTaxIdRequest(admin, row, snapshot, options),
   tax_id_decision: applyTaxIdDecision,
+  tax_id_applied: applyTaxIdApplied,
 });
 
 /**

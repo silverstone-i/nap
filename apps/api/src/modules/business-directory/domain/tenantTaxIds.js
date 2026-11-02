@@ -10,13 +10,16 @@
  */
 
 import { setTenant } from '../../../infrastructure/runtime/tenantTransaction.js';
+import { requestTaxIdApplied } from '../../cell-tenancy/domain/companyProfile.js';
 
 /**
  * Apply Napsoft's decision to the tenant's pending tax ID (I0013-R024). The
  * sync worker calls it in its cell transaction. A decision on a request the
- * tenant has since replaced changes nothing.
+ * tenant has since replaced changes nothing. An applied approval that
+ * carries the Napsoft client's tax ID confirms it to admin, which then
+ * gives the client the tax ID (R022).
  * @param {object} tx The worker's cell transaction.
- * @param {{tenant_id: string, request_revision: number, status: 'approved'|'rejected', reason: string|null}} decision
+ * @param {{tenant_id: string, request_revision: number, status: 'approved'|'rejected', reason: string|null, client_id?: string, client_tax_id?: object}} decision
  * @param {string|null} actorId
  * @returns {Promise<'applied'|'unchanged'>}
  */
@@ -33,7 +36,7 @@ export async function applyTaxIdDecision(tx, decision, actorId) {
     current.pending_revision !== decision.request_revision
   )
     return 'unchanged';
-  if (decision.status === 'approved')
+  if (decision.status === 'approved') {
     await tx.none(
       `UPDATE app.tenant_tax_ids SET
          tax_id_format_id=pending_format_id,
@@ -45,7 +48,14 @@ export async function applyTaxIdDecision(tx, decision, actorId) {
        WHERE tenant_id=$1`,
       [decision.tenant_id, actorId]
     );
-  else
+    if (decision.client_id && decision.client_tax_id)
+      await requestTaxIdApplied(tx, {
+        tenant_id: decision.tenant_id,
+        request_revision: decision.request_revision,
+        client_id: decision.client_id,
+        client_tax_id: decision.client_tax_id,
+      });
+  } else
     await tx.none(
       `UPDATE app.tenant_tax_ids SET pending_status='rejected',
          pending_reason=$2, revision=revision+1, updated_by=$3
