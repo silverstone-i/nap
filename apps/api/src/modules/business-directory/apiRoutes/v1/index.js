@@ -46,6 +46,13 @@ import {
   restoreTaxIdFormat,
   updateTaxIdFormat,
 } from '../../domain/taxIdFormats.js';
+import {
+  approveTaxIdRequest,
+  getCompanyProfile,
+  rejectTaxIdRequest,
+  setBillingContact,
+  submitTaxId,
+} from '../../domain/companyProfile.js';
 import { directoryContext, sendDirectoryError } from './shared.js';
 
 const READ = 'business-directory::directory::read';
@@ -53,6 +60,8 @@ const WRITE = 'business-directory::directory::write';
 const LABELS = 'business-directory::labels::write';
 const TAX_IDS_READ = 'business-directory::tax-ids::read';
 const TAX_ID_FORMATS = 'business-directory::tax-id-formats::write';
+const COMPANY_PROFILE = 'business-directory::company-profile::write';
+const TAX_IDS_APPROVE = 'business-directory::tax-ids::approve';
 
 /**
  * Wrap a handler: require a session and `capability` (I0005-R001), build the
@@ -150,6 +159,27 @@ function recordRouter(name) {
         )
       )
     );
+    // I0013-R022, R023: Napsoft decides a client's tenant tax ID request.
+    if (name === 'organizations') {
+      router.post(
+        '/:id/tax-id-request/approve',
+        ...route(deps, TAX_IDS_APPROVE, async (context, request, response) =>
+          sendData(
+            response,
+            await approveTaxIdRequest(context, request.params.id, request.body)
+          )
+        )
+      );
+      router.post(
+        '/:id/tax-id-request/reject',
+        ...route(deps, TAX_IDS_APPROVE, async (context, request, response) =>
+          sendData(
+            response,
+            await rejectTaxIdRequest(context, request.params.id, request.body)
+          )
+        )
+      );
+    }
     if (name !== 'organizations')
       router.post(
         '/:id/portal-access/retry',
@@ -391,6 +421,35 @@ export function createTaxIdFormatsRouter(deps) {
 }
 
 /**
+ * Build the `company-profile` router: a customer tenant's names, tax ID,
+ * and primary and billing contacts (I0013-R012, R019, R026).
+ * @param {object} deps
+ * @returns {import('express').Router}
+ */
+export function createCompanyProfileRouter(deps) {
+  const router = Router();
+  router.get(
+    '/',
+    ...route(deps, READ, async (context, request, response) =>
+      sendData(response, await getCompanyProfile(context))
+    )
+  );
+  router.post(
+    '/billing-contact',
+    ...route(deps, COMPANY_PROFILE, async (context, request, response) =>
+      sendData(response, await setBillingContact(context, request.body))
+    )
+  );
+  router.post(
+    '/tax-id',
+    ...route(deps, COMPANY_PROFILE, async (context, request, response) =>
+      sendData(response, await submitTaxId(context, request.body))
+    )
+  );
+  return router;
+}
+
+/**
  * Version 1 route registrations for `business-directory`, mounted at
  * `/api/business-directory/v1/<router>` against the selected tenant's cell.
  */
@@ -404,6 +463,7 @@ export const businessDirectoryRoutesV1 = [
   { router: 'parties', factory: createPartiesRouter },
   { router: 'labels', factory: createLabelsRouter },
   { router: 'tax-id-formats', factory: createTaxIdFormatsRouter },
+  { router: 'company-profile', factory: createCompanyProfileRouter },
 ].map(entry => ({
   module: 'business-directory',
   version: 1,

@@ -85,6 +85,7 @@ tenant, and holds `tenant_admin`.
 
   A rejected request creates no tenant, job, login, or membership. Tenants
   are created only this way; M0001-07's `POST /tenants` is withdrawn.
+  _Superseded in part by I0013-R001–R003 ([I0013](I0013-tenant-company-profile.md): the request carries the legal and DBA name in place of `client` and `name`, and a client stage creates the Napsoft client)._
 
 - I0006-R002: `tenant-provision` must, in the transaction that queues the
   job, create or reuse the first administrator's login and create their
@@ -121,7 +122,8 @@ tenant, and holds `tenant_admin`.
 
   It must then read the rows back and confirm they match admin. A mismatch
   fails with `SEED_FAILED`; a seeded role whose grants differ fails with
-  `SEED_DRIFT` (M0003-R010).
+  `SEED_DRIFT` (M0003-R010). _Superseded in part by I0013-R004 (the
+  administrator's billing phone and primary and billing contact flags)._
 
 - I0006-R008: **Activation** must run only after the seed stage has
   confirmed the `tenant_admin` role and assignment in the cell (R007). In one
@@ -142,7 +144,8 @@ tenant, and holds `tenant_admin`.
   password. Each Tenants row with a client offers **View client**, opening
   that client record. The client record's contact list shows each contact's
   primary email and phone and whether it is a primary or billing contact
-  (M0005-R004).
+  (M0005-R004). _Superseded by I0013-R005 and R017 (Provision tenant moves to
+  the Tenants screen; the client record shows the tenant's contacts read-only)._
 - I0006-R011: The Tenants screen must show each tenant's job stage, status,
   and failure code, and refresh every 2 seconds while any tenant job is
   `queued` or `running`. _Superseded in part by R020 (job details in the tenant detail)._

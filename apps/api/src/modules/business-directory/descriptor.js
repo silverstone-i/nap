@@ -7,7 +7,7 @@ import { repositories } from './repositories.js';
 import { migration } from './schema/migrations/001-business-directory.js';
 
 /**
- * Module descriptor for `business-directory` (M0005). It registers the seven
+ * Module descriptor for `business-directory` (M0005). It registers the eight
  * `app` directory tables, the baseline migration, and its route
  * capabilities with the cell registry. It must follow `access-control` in
  * the registry, because its migration reuses `app.protect_record()`. See
@@ -30,5 +30,8 @@ export const descriptor = {
     'business-directory::tax-ids::read',
     'business-directory::tax-ids::write',
     'business-directory::tax-id-formats::write',
+    // I0013-R027.
+    'business-directory::company-profile::write',
+    'business-directory::tax-ids::approve',
   ],
 };

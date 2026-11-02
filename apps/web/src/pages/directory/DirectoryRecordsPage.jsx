@@ -16,6 +16,7 @@ import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 import { DirectoryGrid } from './DirectoryGrid.jsx';
 import { RecordDetailDialog } from './RecordDetailDialog.jsx';
+import { isNapsoftSelected } from './napsoftSession.js';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
 import { emptyListMessage, recordName } from './directoryRecords.js';
 import { useDirectoryAbilities } from './useDirectoryAbilities.js';
@@ -137,7 +138,9 @@ export function DirectoryRecordsPage({ kind }) {
       ? [
           ...bulk.actions,
           abilities.write &&
-            !archived && {
+            !archived &&
+            // I0013-R005: provisioning creates Napsoft's clients.
+            !(kind === 'client' && isNapsoftSelected(session)) && {
               label: settings.create,
               create: true,
               onClick: () => setCreating(true),

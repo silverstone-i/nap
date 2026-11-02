@@ -107,6 +107,8 @@ export const migration = defineMigration({
           immutable: true,
         },
         { name: 'name', type: 'varchar(160)', notNull: true },
+        { name: 'legal_name', type: 'varchar(160)', notNull: true },
+        { name: 'dba_name', type: 'varchar(160)' },
         { name: 'tier', type: 'text', notNull: true, default: 'starter' },
         { name: 'status', type: 'text', notNull: true, default: 'pending' },
         {
@@ -403,7 +405,13 @@ export const migration = defineMigration({
           notNull: true,
           immutable: true,
         },
-        { name: 'stage', type: 'text', notNull: true, default: 'assignment' },
+        {
+          name: 'admin_phone',
+          type: 'varchar(32)',
+          notNull: true,
+          immutable: true,
+        },
+        { name: 'stage', type: 'text', notNull: true, default: 'client' },
         { name: 'status', type: 'text', notNull: true, default: 'queued' },
         { name: 'attempts', type: 'integer', notNull: true, default: 0 },
         { name: 'failure_code', type: 'varchar(64)' },
@@ -414,7 +422,7 @@ export const migration = defineMigration({
         primaryKey: ['id'],
         unique: [['tenant_id']],
         checks: [
-          "stage IN ('assignment', 'seed', 'activation', 'complete')",
+          "stage IN ('client', 'assignment', 'seed', 'activation', 'complete')",
           "status IN ('queued', 'running', 'failed', 'completed')",
           'attempts >= 0',
         ],
@@ -571,7 +579,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "topic IN ('tenant', 'membership', 'entitlement')",
+          "topic IN ('tenant', 'membership', 'entitlement', 'tax_id_decision')",
           "status IN ('pending', 'delivered', 'failed')",
           'revision > 0',
           'attempts >= 0',
@@ -673,6 +681,75 @@ export const migration = defineMigration({
         ],
       },
     };
+    const tenantContactsSchema = {
+      dbSchema: 'admin',
+      table: 'tenant_contacts',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      columns: [
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'party_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'first_name', type: 'varchar(160)', notNull: true },
+        { name: 'last_name', type: 'varchar(160)', notNull: true },
+        { name: 'email', type: 'text' },
+        { name: 'phone', type: 'text' },
+        { name: 'billing_phone', type: 'text' },
+        {
+          name: 'is_primary_contact',
+          type: 'boolean',
+          notNull: true,
+          default: false,
+        },
+        {
+          name: 'is_billing_contact',
+          type: 'boolean',
+          notNull: true,
+          default: false,
+        },
+        { name: 'revision', type: 'integer', notNull: true },
+      ],
+      constraints: {
+        primaryKey: ['tenant_id', 'party_id'],
+        checks: ['revision > 0', 'is_primary_contact OR is_billing_contact'],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id'],
+            references: { schema: 'admin', table: 'tenants', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+        ],
+      },
+    };
+    const tenantTaxIdRequestsSchema = {
+      dbSchema: 'admin',
+      table: 'tenant_tax_id_requests',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      columns: [
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'tax_id_encrypted', type: 'text', notNull: true },
+        { name: 'tax_id_last4', type: 'char(4)', notNull: true },
+        { name: 'country', type: 'char(2)', notNull: true },
+        { name: 'status', type: 'text', notNull: true, default: 'pending' },
+        { name: 'reason', type: 'text' },
+        { name: 'revision', type: 'integer', notNull: true },
+      ],
+      constraints: {
+        primaryKey: ['tenant_id'],
+        checks: [
+          "status IN ('pending', 'approved', 'rejected')",
+          "status <> 'rejected' OR reason IS NOT NULL",
+          'revision > 0',
+        ],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id'],
+            references: { schema: 'admin', table: 'tenants', columns: ['id'] },
+            onDelete: 'RESTRICT',
+          },
+        ],
+      },
+    };
     const schemas = [
       cellsSchema,
       portalUsersSchema,
@@ -687,6 +764,8 @@ export const migration = defineMigration({
       outboxSchema,
       cacheRevisionsSchema,
       managedEventsSchema,
+      tenantContactsSchema,
+      tenantTaxIdRequestsSchema,
     ];
     for (const schema of schemas)
       await new TableModel(db, pgp, schema).createTable();

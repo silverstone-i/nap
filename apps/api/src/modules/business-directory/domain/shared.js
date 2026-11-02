@@ -28,6 +28,7 @@ import {
 /**
  * @typedef {object} DirectoryContext
  * @property {object} cell Target tenant's cell repository handle.
+ * @property {object} [admin] Admin repository handle, for Napsoft's reads of its clients' tenants (I0013).
  * @property {{id: string, isNapsoft?: boolean}} tenant Target tenant.
  * @property {object} [hashingPolicy] Argon2id parameters for temporary passwords; the environment's when absent.
  * @property {string} actorId Acting portal user.

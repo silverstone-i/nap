@@ -140,33 +140,34 @@ export async function listClientTenants(clientId) {
 }
 
 /**
- * I0006-R001: create a tenant from a Napsoft client and queue its
- * provisioning into a ready cell with its first administrator. The name
- * becomes their employee record (M0005-R021).
- * @param {{client: string, code: string, name: string, tier: string, cell: string, firstName: string, lastName: string, email: string, password: string}} input
+ * I0013-R001: provision a tenant and its Napsoft client into a ready cell
+ * with its first administrator, who becomes the tenant's primary and
+ * billing contact.
+ * @param {{legalName: string, dbaName: string|null, code: string, tier: string, cell: string, firstName: string, lastName: string, email: string, phone: string, password: string}} input
  * @returns {Promise<object>} The queued tenant job.
  */
 export async function provisionTenant({
-  client,
+  legalName,
+  dbaName,
   code,
-  name,
   tier,
   cell,
   firstName,
   lastName,
   email,
+  phone,
   password,
 }) {
   return apiPost(
     `${BASE}/control/provision`,
     {
       operation: 'tenant-provision',
-      client,
+      legalName,
+      dbaName,
       code,
-      name,
       tier,
       cell,
-      admin: { email, password, firstName, lastName },
+      admin: { email, password, firstName, lastName, phone },
     },
     { 'Idempotency-Key': crypto.randomUUID() }
   );
@@ -1055,5 +1056,129 @@ export async function uploadProfileImage(file) {
   form.append('file', file);
   return profileViewSchema.parse(
     await apiPut(`${TENANT_SETTINGS_BASE}/profile/image`, form)
+  );
+}
+
+// I0013: a customer tenant's company profile, and Napsoft's view of it.
+
+const companyContactSchema = z.object({
+  id: z.uuid(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  billingPhone: z.string().nullable(),
+  isPrimaryContact: z.boolean(),
+  isBillingContact: z.boolean(),
+});
+
+const companyProfileSchema = z.object({
+  legalName: z.string().nullable(),
+  dbaName: z.string().nullable(),
+  taxId: z.object({
+    last4: z.string().nullable(),
+    formatId: z.uuid().nullable(),
+    status: z.enum(['approved', 'pending', 'rejected']).nullable(),
+    pendingLast4: z.string().nullable(),
+    reason: z.string().nullable(),
+  }),
+  primaryContacts: z.array(companyContactSchema),
+  billingContact: companyContactSchema.nullable(),
+});
+
+const taxIdRequestSchema = z
+  .object({
+    last4: z.string(),
+    country: z.string(),
+    status: z.enum(['pending', 'approved', 'rejected']),
+    reason: z.string().nullable(),
+    revision: z.number().int(),
+  })
+  .nullable();
+
+/**
+ * I0013-R026: the selected customer tenant's names, tax ID, and contacts.
+ * @returns {Promise<object>}
+ */
+export async function getCompanyProfile() {
+  return companyProfileSchema.parse(
+    await apiGet(`${DIRECTORY_BASE}/company-profile`)
+  );
+}
+
+/**
+ * I0013-R012: make another employee the billing contact.
+ * @param {string} partyId
+ * @returns {Promise<object>} The company profile.
+ */
+export async function setBillingContact(partyId) {
+  return companyProfileSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/company-profile/billing-contact`, {
+      partyId,
+    })
+  );
+}
+
+/**
+ * I0013-R019: submit the tenant's tax ID for Napsoft's approval.
+ * @param {{taxId: string, taxIdFormatId: string}} input
+ * @returns {Promise<object>} The company profile.
+ */
+export async function submitCompanyTaxId(input) {
+  return companyProfileSchema.parse(
+    await apiPost(`${DIRECTORY_BASE}/company-profile/tax-id`, input)
+  );
+}
+
+/**
+ * I0013-R017: Napsoft's read-only copy of a tenant's contacts.
+ * @param {string} tenantId
+ * @returns {Promise<object[]>}
+ */
+export async function listTenantContacts(tenantId) {
+  return z
+    .array(companyContactSchema)
+    .parse(
+      await apiGet(`${BASE}/tenants/${encodeURIComponent(tenantId)}/contacts`)
+    );
+}
+
+/**
+ * I0013-R029: a tenant's latest tax ID request, or null.
+ * @param {string} tenantId
+ * @returns {Promise<object|null>}
+ */
+export async function getTenantTaxIdRequest(tenantId) {
+  return taxIdRequestSchema.parse(
+    await apiGet(
+      `${BASE}/tenants/${encodeURIComponent(tenantId)}/tax-id-request`
+    )
+  );
+}
+
+/**
+ * I0013-R022: approve a Napsoft client's tenant tax ID in one of Napsoft's
+ * formats.
+ * @param {string} clientId
+ * @param {string} taxIdFormatId
+ * @returns {Promise<object>}
+ */
+export async function approveTaxIdRequest(clientId, taxIdFormatId) {
+  return apiPost(
+    `${DIRECTORY_BASE}/organizations/${encodeURIComponent(clientId)}/tax-id-request/approve`,
+    { taxIdFormatId }
+  );
+}
+
+/**
+ * I0013-R023: reject a Napsoft client's tenant tax ID with a reason.
+ * @param {string} clientId
+ * @param {string} reason
+ * @returns {Promise<null>}
+ */
+export async function rejectTaxIdRequest(clientId, reason) {
+  return apiPost(
+    `${DIRECTORY_BASE}/organizations/${encodeURIComponent(clientId)}/tax-id-request/reject`,
+    { reason }
   );
 }

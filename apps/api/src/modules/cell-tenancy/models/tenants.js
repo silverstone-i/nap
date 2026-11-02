@@ -23,6 +23,9 @@ export const tenantsSchema = {
       immutable: true,
     },
     { name: 'status', type: 'text', notNull: true },
+    { name: 'name', type: 'varchar(160)' },
+    { name: 'legal_name', type: 'varchar(160)' },
+    { name: 'dba_name', type: 'varchar(160)' },
     { name: 'revision', type: 'integer', notNull: true },
   ],
   constraints: {
@@ -34,7 +37,13 @@ export const tenantsSchema = {
 /** Model for `cell.tenants`: a copy kept in step by the sync worker (I0004). */
 export class Tenants extends CopyTableModel {
   static schema = tenantsSchema;
-  static copyColumns = ['tenant_code', 'status'];
+  static copyColumns = [
+    'tenant_code',
+    'status',
+    'name',
+    'legal_name',
+    'dba_name',
+  ];
   constructor(db, pgp, logger) {
     super(db, pgp, tenantsSchema, logger);
   }

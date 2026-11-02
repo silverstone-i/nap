@@ -574,10 +574,11 @@ const provisionCommandSchema = z.discriminatedUnion('operation', [
   z.strictObject({ operation: z.literal('reference-rollout') }),
   z.strictObject({
     operation: z.literal('tenant-provision'),
-    // I0006-R001: a new tenant starts from an active Napsoft client.
-    client: z.uuid(),
+    // I0013-R001: the request names the business; provisioning creates its
+    // Napsoft client.
+    legalName: tenantNameSchema,
+    dbaName: tenantNameSchema.nullable().optional(),
     code: tenantCodeSchema,
-    name: tenantNameSchema,
     tier: z.enum(TIERS),
     cell: z.uuid(),
     admin: z.strictObject({
@@ -586,6 +587,8 @@ const provisionCommandSchema = z.discriminatedUnion('operation', [
       // M0005-R021: the administrator's name for their employee record.
       firstName: z.string().trim().min(1).max(160),
       lastName: z.string().trim().min(1).max(160),
+      // I0013-R001: stored as the billing phone (R004).
+      phone: z.string(),
     }),
   }),
   z.strictObject({ operation: z.literal('tenant-retry'), tenant: z.uuid() }),

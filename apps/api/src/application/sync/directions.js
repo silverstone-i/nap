@@ -13,6 +13,13 @@ import {
   EVENT_CATALOGUE,
   parseDetails,
 } from '../../modules/admin-tenancy/domain/events.js';
+import {
+  applyClientName,
+  applyTaxIdDecision,
+  applyTaxIdRequest,
+  applyTenantContact,
+} from '../../modules/admin-tenancy/domain/companyProfile.js';
+import { applyTaxIdDecision as applyTenantTaxIdDecision } from '../../modules/business-directory/domain/tenantTaxIds.js';
 import { SyncFailure } from './engine.js';
 import { parseSnapshot } from './snapshots.js';
 
@@ -65,6 +72,11 @@ export function adminToCell({ admin, registry, tenantId }) {
           if (!(await cell.tenants.exists(tenantId, { tx })))
             throw new SyncFailure('TENANT_NOT_SYNCED');
           tenantSynced = true;
+        }
+        // I0013-R024: a tax ID decision updates the tenant's own tax ID.
+        if (row.topic === 'tax_id_decision') {
+          await applyTenantTaxIdDecision(tx, snapshot, row.created_by ?? null);
+          continue;
         }
         const applied = await cell[COPIES[row.topic]].applySnapshot(
           snapshot,
@@ -201,10 +213,21 @@ async function applyDirectoryChange(admin, row, snapshot, { tx }) {
   );
 }
 
+/** I0013 cell-to-admin topics and their applies. */
+const COMPANY_PROFILE = Object.freeze({
+  tenant_contact: (admin, tenantId, row, snapshot, options) =>
+    applyTenantContact(admin, row, snapshot, options),
+  client_name: applyClientName,
+  tax_id_request: (admin, tenantId, row, snapshot, options) =>
+    applyTaxIdRequest(admin, row, snapshot, options),
+  tax_id_decision: applyTaxIdDecision,
+});
+
 /**
  * Build the cell-to-admin apply step for one tenant's requests: portal
  * access (I0004-R024–R030), party labels (I0012-R007), role changes
- * (M0003-R015), and directory changes (M0005-R025). The tenant is the
+ * (M0003-R015), directory changes (M0005-R025), and company profile rows
+ * (I0013). The tenant is the
  * source row's, and it must be one the source cell holds; a payload naming
  * another tenant fails that row.
  * @param {{admin: object, cellId: string, tenantId: string}} options
@@ -250,6 +273,20 @@ export function cellToAdmin({ admin, cellId, tenantId }) {
         }
         if (!ownsTenant || snapshot.tenant_id !== tenantId) {
           await fail(row, 'TENANT_MISMATCH');
+          continue;
+        }
+        // I0013: company profile rows. Napsoft's rows name the customer
+        // tenant they change, which each apply checks.
+        if (COMPANY_PROFILE[row.topic]) {
+          const code = await COMPANY_PROFILE[row.topic](
+            admin,
+            tenantId,
+            row,
+            snapshot,
+            { tx }
+          );
+          if (code) await fail(row, code);
+          else delivered.push(row.id);
           continue;
         }
         if (row.topic === 'member_label') {

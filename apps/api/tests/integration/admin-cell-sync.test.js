@@ -32,6 +32,14 @@ import {
   requestMemberLabel,
   requestPortalAccess,
 } from '../../src/modules/cell-tenancy/domain/portalAccess.js';
+import {
+  requestClientName,
+  requestTaxId,
+  requestTaxIdDecision,
+  requestTenantContact,
+} from '../../src/modules/cell-tenancy/domain/companyProfile.js';
+import { applyTenantContact } from '../../src/modules/admin-tenancy/domain/companyProfile.js';
+import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
 
 const fixture = process.env.FOUNDATION_TEST_URL;
 if (!fixture)
@@ -120,6 +128,7 @@ async function tenantOnCell() {
   const row = await db.tenants.insert({
     tenant_code: code,
     name: `Tenant ${code}`,
+    legal_name: `Tenant ${code}`,
     status: 'active',
   });
   await db.tenants.update(row.id, { cell_id: cellId });
@@ -650,6 +659,7 @@ describe('admin-cell sync (I0004)', () => {
     const late = await db.tenants.insert({
       tenant_code: code,
       name: `Late ${code}`,
+      legal_name: `Late ${code}`,
       status: 'active',
     });
     const [tenantRow] = await outboxRows('tenant', late.id);
@@ -740,5 +750,195 @@ describe('admin-cell sync (I0004)', () => {
     expect(events.length).toBeGreaterThan(0);
     for (const { details } of events)
       expect(JSON.stringify(details)).not.toMatch(/@|argon2/);
+  });
+});
+
+describe('company profile (I0013)', () => {
+  it('R015, R016: copies a contact forward only and removes it when unflagged', async () => {
+    const tenantId = await tenantOnCell();
+    const partyId = randomUUID();
+    const contact = extra => ({
+      tenant_id: tenantId,
+      party_id: partyId,
+      first_name: 'Ann',
+      last_name: 'Admin',
+      email: 'ann@oak.test',
+      phone: '+15125550100',
+      billing_phone: '+15125550100',
+      is_primary_contact: true,
+      is_billing_contact: true,
+      ...extra,
+    });
+    const stored = () =>
+      db.oneOrNone(
+        'SELECT * FROM admin.tenant_contacts WHERE tenant_id=$1 AND party_id=$2',
+        [tenantId, partyId]
+      );
+    await cell.tx(tx => requestTenantContact(tx, contact()));
+    await drain();
+    expect(await stored()).toMatchObject({
+      phone: '+15125550100',
+      revision: 1,
+    });
+    await cell.tx(tx =>
+      requestTenantContact(tx, contact({ phone: '+15125550199' }))
+    );
+    await drain();
+    expect(await stored()).toMatchObject({
+      phone: '+15125550199',
+      revision: 2,
+    });
+    // An older revision delivered again leaves the newer copy.
+    await db.tx(tx =>
+      applyTenantContact(
+        db,
+        { revision: 1 },
+        contact({ phone: '+15125550111' }),
+        { tx }
+      )
+    );
+    expect((await stored()).phone).toBe('+15125550199');
+    await cell.tx(tx =>
+      requestTenantContact(
+        tx,
+        contact({ is_primary_contact: false, is_billing_contact: false })
+      )
+    );
+    await drain();
+    expect(await stored()).toBeNull();
+  });
+
+  it('R006, R007: a Napsoft rename reaches admin and the tenant cell; another tenant cannot rename', async () => {
+    const tenantId = await tenantOnCell();
+    await cell.tx(tx =>
+      requestClientName(tx, {
+        tenant_id: napsoftId,
+        target_tenant_id: tenantId,
+        legal_name: 'Oak Homes LLC',
+        dba_name: 'Oak Builders',
+      })
+    );
+    await drain();
+    expect(await adminRow('tenants', tenantId)).toMatchObject({
+      legal_name: 'Oak Homes LLC',
+      dba_name: 'Oak Builders',
+      name: 'Oak Builders',
+    });
+    expect(await copy('tenants', tenantId)).toMatchObject({
+      legal_name: 'Oak Homes LLC',
+      dba_name: 'Oak Builders',
+      name: 'Oak Builders',
+    });
+    const other = await tenantOnCell();
+    const { revision } = await cell.tx(tx =>
+      requestClientName(tx, {
+        tenant_id: other,
+        target_tenant_id: tenantId,
+        legal_name: 'Not Oak',
+        dba_name: null,
+      })
+    );
+    await drain();
+    expect(
+      await cell.one(
+        "SELECT status, failure_code FROM cell.outbox WHERE topic='client_name' AND entity_id=$1 AND revision=$2",
+        [tenantId, revision]
+      )
+    ).toEqual({ status: 'failed', failure_code: 'TENANT_MISMATCH' });
+    expect((await adminRow('tenants', tenantId)).legal_name).toBe(
+      'Oak Homes LLC'
+    );
+  });
+
+  it('R019–R024: a tax ID request and Napsoft decisions reach the tenant', async () => {
+    const tenantId = await tenantOnCell();
+    const inTenant = operation =>
+      cell.tx(async tx => {
+        await setTenant(tx, tenantId);
+        return operation(tx);
+      });
+    const { id: formatId } = await inTenant(tx =>
+      tx.one(
+        "INSERT INTO app.tax_id_formats (tenant_id, country, name, mask) VALUES ($1,'US','EIN','##-#######') RETURNING id",
+        [tenantId]
+      )
+    );
+    const submit = last4 =>
+      inTenant(async tx => {
+        const { revision } = await requestTaxId(tx, {
+          tenant_id: tenantId,
+          tax_id_encrypted: 'cipher-' + last4,
+          tax_id_last4: last4,
+          country: 'US',
+        });
+        await tx.none(
+          `INSERT INTO app.tenant_tax_ids (tenant_id, pending_format_id, pending_encrypted, pending_last4, pending_status, pending_revision)
+             VALUES ($1,$2,$3,$4,'pending',$5)
+             ON CONFLICT (tenant_id) DO UPDATE SET pending_format_id=EXCLUDED.pending_format_id,
+               pending_encrypted=EXCLUDED.pending_encrypted, pending_last4=EXCLUDED.pending_last4,
+               pending_status='pending', pending_reason=NULL, pending_revision=EXCLUDED.pending_revision`,
+          [tenantId, formatId, 'cipher-' + last4, last4, revision]
+        );
+        return revision;
+      });
+    const decide = (requestRevision, status, reason = null) =>
+      cell.tx(tx =>
+        requestTaxIdDecision(tx, {
+          tenant_id: napsoftId,
+          target_tenant_id: tenantId,
+          request_revision: requestRevision,
+          status,
+          reason,
+        })
+      );
+    const own = () =>
+      inTenant(tx =>
+        tx.one('SELECT * FROM app.tenant_tax_ids WHERE tenant_id=$1', [
+          tenantId,
+        ])
+      );
+    const request = () =>
+      db.one(
+        'SELECT status, reason, tax_id_last4, revision FROM admin.tenant_tax_id_requests WHERE tenant_id=$1',
+        [tenantId]
+      );
+
+    const first = await submit('0001');
+    await drain();
+    expect(await request()).toEqual({
+      status: 'pending',
+      reason: null,
+      tax_id_last4: '0001',
+      revision: first,
+    });
+    await decide(first, 'rejected', 'Name does not match the W-9');
+    await drain();
+    expect(await own()).toMatchObject({
+      pending_status: 'rejected',
+      pending_reason: 'Name does not match the W-9',
+      tax_id_last4: null,
+    });
+
+    const second = await submit('0002');
+    await drain();
+    // A decision on a replaced request fails and changes nothing.
+    const stale = await decide(first, 'approved');
+    await drain();
+    expect(
+      await cell.one(
+        "SELECT failure_code FROM cell.outbox WHERE topic='tax_id_decision' AND entity_id=$1 AND revision=$2",
+        [tenantId, stale.revision]
+      )
+    ).toEqual({ failure_code: 'REQUEST_SUPERSEDED' });
+    expect((await own()).pending_status).toBe('pending');
+
+    await decide(second, 'approved');
+    await drain();
+    expect(await own()).toMatchObject({
+      tax_id_last4: '0002',
+      tax_id_encrypted: 'cipher-0002',
+      pending_status: null,
+    });
+    expect((await request()).status).toBe('approved');
   });
 });

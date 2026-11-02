@@ -157,7 +157,7 @@ it('provisions the first cell and runs Napsoft tenant setup with the seed (I0003
       [boot.tenant.id]
     );
     expect(directory).toEqual({
-      labels: 13,
+      labels: 14,
       formats: 3,
       settings: 1,
       parties: 0,

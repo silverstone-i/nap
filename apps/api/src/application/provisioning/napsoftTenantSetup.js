@@ -86,6 +86,9 @@ export async function runNapsoftTenantSetup(
         'id',
         'tenant_code',
         'status',
+        'name',
+        'legal_name',
+        'dba_name',
         'revision',
         'cell_id',
         'provisioned',
@@ -120,6 +123,9 @@ export async function runNapsoftTenantSetup(
       id: tenant.id,
       tenant_code: tenant.tenant_code,
       status: tenant.status,
+      name: tenant.name,
+      legal_name: tenant.legal_name,
+      dba_name: tenant.dba_name,
       revision: tenant.revision,
     };
     const expectedMember = {

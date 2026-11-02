@@ -46,6 +46,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'client_id',
   'code',
   'country',
+  'dba_name',
   'direction',
   'email',
   'failure_code',
@@ -56,6 +57,7 @@ export const EVENT_DETAIL_KEYS = Object.freeze([
   'invitation_pending',
   'job_id',
   'kind',
+  'legal_name',
   'login_created',
   'member_type',
   'membership_id',
@@ -186,6 +188,18 @@ export const EVENT_CATALOGUE = Object.freeze({
     outcomes: ANY_OUTCOME,
     details: ['kind', 'record_table', 'changed_at'],
   },
+  // I0013: the billing contact moved (party IDs), and a tenant tax ID
+  // request's life, carrying only the last four digits.
+  'directory.billing_contact.changed': {
+    outcomes: ANY_OUTCOME,
+    details: ['before', 'after', 'changed_at'],
+  },
+  ...Object.fromEntries(
+    ['submitted', 'approved', 'rejected'].map(action => [
+      `directory.tax_id_request.${action}`,
+      { outcomes: ANY_OUTCOME, details: ['after', 'changed_at'] },
+    ])
+  ),
   ...Object.fromEntries(
     ['contact_method', 'address'].flatMap(target =>
       ['created', 'updated', 'removed'].map(action => [
@@ -266,9 +280,16 @@ export const EVENT_CATALOGUE = Object.freeze({
   'tenant.created': {
     outcomes: ANY_OUTCOME,
     // Audit record of the tenant as `tenant-provision` created it, including
-    // the Napsoft client it came from (I0006-R001). Idempotent replay compares
-    // against `tenant.provision.requested`, not this event.
-    details: ['tenant_code', 'tier', 'name', 'client_id'],
+    // the Napsoft client created with it (I0013-R002). Idempotent replay
+    // compares against `tenant.provision.requested`, not this event.
+    details: [
+      'tenant_code',
+      'tier',
+      'name',
+      'legal_name',
+      'dba_name',
+      'client_id',
+    ],
   },
 
   'user.created': {
@@ -323,14 +344,16 @@ export const EVENT_CATALOGUE = Object.freeze({
 
   'tenant.napsoft_setup.completed': { outcomes: SUCCEEDED, details: [] },
 
-  // I0006-R018. The request's client, code, name, tier, cell, and email
-  // are stored so a repeated `Idempotency-Key` can compare against it.
+  // I0006-R018. The request's names, code, tier, cell, and email are stored
+  // so a repeated `Idempotency-Key` can compare against it (I0013-R001).
   'tenant.provision.requested': {
     outcomes: ANY_OUTCOME,
     details: [
       'client_id',
       'tenant_code',
       'name',
+      'legal_name',
+      'dba_name',
       'tier',
       'cell_id',
       'email',

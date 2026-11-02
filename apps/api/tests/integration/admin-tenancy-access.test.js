@@ -99,6 +99,7 @@ async function insertTenant(code, name, { archived = false, ...fields } = {}) {
   const row = await db.tenants.insert({
     tenant_code: code,
     name,
+    legal_name: name,
     status: archived ? 'pending' : 'active',
     ...fields,
   });

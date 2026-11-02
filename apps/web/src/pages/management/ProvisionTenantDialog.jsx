@@ -19,7 +19,6 @@ import { listCellsOverview, provisionTenant } from '../../api/endpoints.js';
 
 const CONFLICTS = {
   code: 'Another tenant uses this code.',
-  client: 'This client already has a tenant.',
   email: 'This email belongs to a login that cannot be used.',
 };
 
@@ -35,11 +34,11 @@ function describeError(err) {
   if (!(err instanceof ApiError))
     return 'Something went wrong. Please try again.';
   if (err.code === 'INVALID_INPUT')
-    return 'Check the code, name, cell, administrator, and temporary password.';
+    return err.details?.field === 'phone'
+      ? 'Enter a valid phone number for the administrator.'
+      : 'Check the names, code, cell, administrator, and temporary password.';
   if (err.code === 'CELL_UNAVAILABLE')
     return 'That cell, or the Napsoft cell, is not ready. Try again or pick another cell.';
-  if (err.code === 'NOT_FOUND')
-    return 'This client no longer exists or is archived.';
   // I0006-R023: the server names the value that is taken.
   if (err.code === 'CONFLICT')
     return (
@@ -57,26 +56,27 @@ function describeError(err) {
 const TIERS = ['starter', 'growth', 'enterprise'];
 
 /**
- * "Provision tenant" (I0006-R010): create a tenant from a Napsoft client,
- * pick a ready cell, and name its first administrator with a temporary
- * password, usually one of the client's contacts. The name becomes their
- * employee record (M0005-R021).
- * @param {{client: {id: string, legalName: string, contacts: object[]}, onClose: () => void, onProvisioned: () => void}} props
+ * "Provision tenant" (I0013-R001, R005): name the business, pick a ready
+ * cell, and name its first administrator with a temporary password.
+ * Provisioning creates the Napsoft client too. The administrator becomes
+ * the tenant's primary and billing contact.
+ * @param {{onClose: () => void, onProvisioned: () => void}} props
  * @returns {JSX.Element}
  */
-export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
+export function ProvisionTenantDialog({ onClose, onProvisioned }) {
   const [code, setCode] = useState('');
   // I0006-R022: the code's helper shows only while it is invalid.
   const codeInvalid =
     code.trim() !== '' && !CODE_PATTERN.test(code.trim().toUpperCase());
-  const [name, setName] = useState(client.legalName);
+  const [legalName, setLegalName] = useState('');
+  const [dbaName, setDbaName] = useState('');
   const [tier, setTier] = useState('starter');
   const [cells, setCells] = useState(null);
   const [cell, setCell] = useState('');
-  const [contactId, setContactId] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -107,14 +107,15 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
     setSubmitting(true);
     try {
       await provisionTenant({
-        client: client.id,
+        legalName: legalName.trim(),
+        dbaName: dbaName.trim() || null,
         code: code.trim(),
-        name: name.trim(),
         tier,
         cell,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email,
+        phone,
         password,
       });
       onProvisioned();
@@ -126,17 +127,6 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
   }
 
   const noCells = cells !== null && cells.length === 0;
-  const contacts = client.contacts.filter(c => !c.archived);
-
-  /** Prefill the administrator from one of the client's contacts. */
-  function pickContact(id) {
-    setContactId(id);
-    const contact = contacts.find(c => c.id === id);
-    if (!contact) return;
-    setFirstName(contact.firstName);
-    setLastName(contact.lastName);
-    setEmail(contact.primaryEmail ?? '');
-  }
 
   return (
     <Dialog
@@ -148,9 +138,7 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
       fullWidth
       maxWidth="xs"
     >
-      <DialogTitle id="provision-tenant-title">
-        Provision tenant for {client.legalName}
-      </DialogTitle>
+      <DialogTitle id="provision-tenant-title">Provision tenant</DialogTitle>
       <DialogContent>
         {error ? (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -164,6 +152,22 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
         ) : null}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
+            label="Legal name"
+            value={legalName}
+            onChange={event => setLegalName(event.target.value)}
+            autoFocus
+            required
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 160 } }}
+          />
+          <TextField
+            label="DBA name"
+            value={dbaName}
+            onChange={event => setDbaName(event.target.value)}
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 160 } }}
+          />
+          <TextField
             label="Code"
             value={code}
             onChange={event => setCode(event.target.value)}
@@ -173,17 +177,8 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
                 ? 'Use letters, digits, and _, starting with a letter.'
                 : ''
             }
-            autoFocus
             required
             fullWidth
-          />
-          <TextField
-            label="Name"
-            value={name}
-            onChange={event => setName(event.target.value)}
-            required
-            fullWidth
-            slotProps={{ htmlInput: { maxLength: 160 } }}
           />
           <TextField
             select
@@ -214,22 +209,6 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
               </MenuItem>
             ))}
           </TextField>
-          {contacts.length ? (
-            <TextField
-              select
-              label="Administrator from contacts"
-              value={contactId}
-              onChange={event => pickContact(event.target.value)}
-              fullWidth
-            >
-              {contacts.map(contact => (
-                <MenuItem key={contact.id} value={contact.id}>
-                  {contact.firstName} {contact.lastName}
-                  {contact.primaryEmail ? ` · ${contact.primaryEmail}` : ''}
-                </MenuItem>
-              ))}
-            </TextField>
-          ) : null}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label="First name"
@@ -255,6 +234,15 @@ export function ProvisionTenantDialog({ client, onClose, onProvisioned }) {
             onChange={event => setEmail(event.target.value)}
             required
             fullWidth
+          />
+          <TextField
+            label="Administrator phone"
+            type="tel"
+            value={phone}
+            onChange={event => setPhone(event.target.value)}
+            required
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 32 } }}
           />
           <PasswordField
             label="Temporary password"

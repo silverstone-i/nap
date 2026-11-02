@@ -20,6 +20,7 @@ export function insertTenant(db, overrides = {}) {
         tenant_code:
           'T' + randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase(),
         name: 'Acme Construction',
+        legal_name: 'Acme Construction',
         tier: 'starter',
         status: 'pending',
         cell_id: null,

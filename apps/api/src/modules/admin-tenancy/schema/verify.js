@@ -23,6 +23,8 @@ const order = [
   'outbox',
   'cache_revisions',
   'managed_events',
+  'tenant_contacts',
+  'tenant_tax_id_requests',
 ];
 async function catalog(db, schema) {
   const columns = await db.any(

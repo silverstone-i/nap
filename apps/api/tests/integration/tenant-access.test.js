@@ -67,6 +67,7 @@ async function eligibleTenant({
   const row = await db.tenants.insert({
     tenant_code: 'T-' + randomUUID().slice(0, 8),
     name: 'Tenant',
+    legal_name: 'Tenant',
     status,
     provisioned,
     rbac_ready: rbacReady,

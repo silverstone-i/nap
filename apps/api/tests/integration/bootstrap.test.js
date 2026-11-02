@@ -97,6 +97,7 @@ describe('root provisioning', () => {
     await db.tenants.insert({
       tenant_code: cfg.tenantCode,
       name: 'Unrelated tenant',
+      legal_name: 'Unrelated tenant',
       is_napsoft: false,
       status: 'active',
     });

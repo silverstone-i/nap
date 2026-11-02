@@ -29,6 +29,8 @@ export const tenantsSchema = {
       immutable: true,
     },
     { name: 'name', type: 'varchar(160)', notNull: true },
+    { name: 'legal_name', type: 'varchar(160)', notNull: true },
+    { name: 'dba_name', type: 'varchar(160)' },
     { name: 'tier', type: 'text', notNull: true, default: 'starter' },
     { name: 'status', type: 'text', notNull: true, default: 'pending' },
     {
@@ -93,13 +95,22 @@ function table(model) {
 /** Model for `admin.tenants`. Adds the locked reads bootstrap needs. */
 export class Tenants extends RevisionedTableModel {
   static schema = tenantsSchema;
-  static revisionedColumns = ['tenant_code', 'status'];
+  static revisionedColumns = [
+    'tenant_code',
+    'status',
+    'name',
+    'legal_name',
+    'dba_name',
+  ];
   static outboxTopic = 'tenant';
   static snapshot(row) {
     return {
       id: row.id,
       tenant_code: row.tenant_code,
       status: row.status,
+      name: row.name,
+      legal_name: row.legal_name,
+      dba_name: row.dba_name ?? null,
       deactivated_at: row.deactivated_at ?? null,
     };
   }

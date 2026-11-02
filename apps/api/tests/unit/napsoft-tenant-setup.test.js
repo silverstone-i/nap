@@ -110,6 +110,9 @@ const napsoft = extra => ({
   id: TENANT,
   tenant_code: 'NAPSOFT',
   status: 'active',
+  name: 'Napsoft',
+  legal_name: 'Napsoft LLC',
+  dba_name: 'Napsoft',
   revision: 1,
   cell_id: CELL,
   provisioned: false,
@@ -144,6 +147,9 @@ describe('Napsoft tenant setup (I0003-R023–R026)', () => {
       id: TENANT,
       tenant_code: 'NAPSOFT',
       status: 'active',
+      name: 'Napsoft',
+      legal_name: 'Napsoft LLC',
+      dba_name: 'Napsoft',
       revision: 1,
     });
     expect(cell.rows.tenant_members.get(MEMBERSHIP)).toMatchObject({

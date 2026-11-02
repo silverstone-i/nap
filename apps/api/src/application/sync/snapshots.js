@@ -15,6 +15,14 @@ const TIMESTAMP = z.union([z.string(), z.date()]).nullable();
 // I0012-R007: the party label; optional so rows queued before it existed
 // still apply.
 const MEMBER_LABEL = z.string().max(400).nullable().optional();
+// I0013-R007: the tenant's names; optional so rows queued before they
+// existed still apply.
+const TENANT_NAME = z.string().max(160).nullable().optional();
+const DECISION = {
+  request_revision: z.number().int().positive(),
+  status: z.enum(['approved', 'rejected']),
+  reason: z.string().min(1).max(500).nullable(),
+};
 
 /** Snapshot shape per topic (I0004-R013, R023). Extra fields are rejected. */
 const SNAPSHOTS = Object.freeze({
@@ -22,6 +30,9 @@ const SNAPSHOTS = Object.freeze({
     id: z.uuid(),
     tenant_code: z.string().min(1).max(32),
     status: z.enum(['pending', 'active', 'suspended']),
+    name: TENANT_NAME,
+    legal_name: TENANT_NAME,
+    dba_name: TENANT_NAME,
     deactivated_at: TIMESTAMP,
   }),
   membership: z.strictObject({
@@ -107,6 +118,44 @@ const SNAPSHOTS = Object.freeze({
     request_id: z.uuid().nullable(),
     details: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
   }),
+  // I0013-R015: a customer tenant's primary or billing contact as it now
+  // stands. Both flags false removes the contact from Napsoft's copy.
+  tenant_contact: z.strictObject({
+    tenant_id: z.uuid(),
+    party_id: z.uuid(),
+    first_name: z.string().min(1).max(160),
+    last_name: z.string().min(1).max(160),
+    email: z.string().max(320).nullable(),
+    phone: z.string().max(32).nullable(),
+    billing_phone: z.string().max(32).nullable(),
+    is_primary_contact: z.boolean(),
+    is_billing_contact: z.boolean(),
+  }),
+  // I0013-R006: Napsoft renamed the client of `target_tenant_id`.
+  client_name: z.strictObject({
+    tenant_id: z.uuid(),
+    target_tenant_id: z.uuid(),
+    legal_name: z.string().min(1).max(160),
+    dba_name: z.string().min(1).max(160).nullable(),
+  }),
+  // I0013-R019: the tax ID a customer tenant submitted, encrypted.
+  tax_id_request: z.strictObject({
+    tenant_id: z.uuid(),
+    tax_id_encrypted: z.string().min(1),
+    tax_id_last4: z.string().regex(/^[0-9A-Z]{4}$/),
+    country: z.string().regex(/^[A-Z]{2}$/),
+  }),
+  // I0013-R022–R024: Napsoft's decision on request `request_revision`. The
+  // Napsoft cell's row names `target_tenant_id`; admin's row to the
+  // tenant's cell does not.
+  tax_id_decision: z.union([
+    z.strictObject({
+      tenant_id: z.uuid(),
+      target_tenant_id: z.uuid(),
+      ...DECISION,
+    }),
+    z.strictObject({ tenant_id: z.uuid(), ...DECISION }),
+  ]),
 });
 
 /**

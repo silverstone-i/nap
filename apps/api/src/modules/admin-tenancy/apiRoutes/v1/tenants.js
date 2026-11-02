@@ -15,6 +15,10 @@ import { requestAuthority } from '../../domain/authorization.js';
 import { buildControlAuthority } from '../../domain/cells.js';
 import { listTenants } from '../../domain/tenants.js';
 import {
+  listTenantContacts,
+  tenantTaxIdRequest,
+} from '../../domain/companyProfile.js';
+import {
   grantEntitlement,
   listEntitlements,
   withdrawEntitlement,
@@ -82,6 +86,39 @@ export function createTenantsRouter({ admin }) {
               : Number(request.query.limit),
         });
         sendData(response, result);
+      } catch (error) {
+        sendTenantError(response, error);
+      }
+    }
+  );
+
+  // I0013-R017, R029: Napsoft's view of a tenant's company profile.
+  router.get(
+    '/:tenant/contacts',
+    requireSession(),
+    requireCapability('admin-tenancy::control::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        sendData(
+          response,
+          await listTenantContacts(admin.db, request.params.tenant)
+        );
+      } catch (error) {
+        sendTenantError(response, error);
+      }
+    }
+  );
+
+  router.get(
+    '/:tenant/tax-id-request',
+    requireSession(),
+    requireCapability('admin-tenancy::control::read', NAPSOFT),
+    async (request, response) => {
+      try {
+        sendData(
+          response,
+          await tenantTaxIdRequest(admin.db, request.params.tenant)
+        );
       } catch (error) {
         sendTenantError(response, error);
       }

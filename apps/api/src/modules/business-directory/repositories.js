@@ -10,6 +10,7 @@ import { Organizations } from './models/organizations.js';
 import { ContactLabels } from './models/contact_labels.js';
 import { ContactMethods } from './models/contact_methods.js';
 import { Addresses } from './models/addresses.js';
+import { TenantTaxIds } from './models/tenant_tax_ids.js';
 
 /** Table name to model class map used to build cell database repositories, in creation order. */
 export const repositories = {
@@ -20,4 +21,5 @@ export const repositories = {
   contact_labels: ContactLabels,
   contact_methods: ContactMethods,
   addresses: Addresses,
+  tenant_tax_ids: TenantTaxIds,
 };

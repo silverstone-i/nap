@@ -20,7 +20,15 @@ import {
 import { enqueueTenantSnapshots } from '../sync/backfill.js';
 import { StageError, stage, withCellAdmin } from './stages.js';
 
-const TENANT_COPY = ['id', 'tenant_code', 'status', 'revision'];
+const TENANT_COPY = [
+  'id',
+  'tenant_code',
+  'status',
+  'name',
+  'legal_name',
+  'dba_name',
+  'revision',
+];
 const MEMBER_COPY = [
   'id',
   'tenant_id',
@@ -61,7 +69,7 @@ function pick(row, columns) {
  * Build the tenant provisioning stages (I0006-R006–R008). Each stage reruns
  * safely, so retry after a failure never duplicates rows (I0006-R009).
  * @param {{admin: {db: object}, driver: {connection: Function}, registry: {readiness: (id: string) => {ready: boolean}}, connect?: typeof createCellDatabase}} context
- * @returns {{assignment: (job: object) => Promise<void>, seed: (job: object) => Promise<void>, activation: (job: object) => Promise<void>, activate: (tx: object, job: object) => Promise<void>}}
+ * @returns {{client: (job: object) => Promise<void>, assignment: (job: object) => Promise<void>, seed: (job: object) => Promise<void>, activation: (job: object) => Promise<void>, activate: (tx: object, job: object) => Promise<void>}}
  */
 export function createTenantStages({
   admin,
@@ -75,6 +83,74 @@ export function createTenantStages({
   function requireReady(job) {
     if (!registry.readiness(job.cell_id)?.ready)
       throw new StageError('CELL_UNAVAILABLE');
+  }
+
+  /**
+   * Client (I0013-R003): create the tenant's Napsoft client, with no tax
+   * ID, in the Napsoft cell under the ID provisioning generated, then read it
+   * back. Reruns find the rows and add nothing.
+   */
+  async function client(job) {
+    return stage('SEED_FAILED', async () => {
+      const tenant = await db.tenants.findOneBy(
+        { id: job.tenant_id },
+        { columnWhitelist: ['client_id', 'legal_name', 'dba_name'] }
+      );
+      const napsoft = await db.tenants.findOneBy(
+        { is_napsoft: true },
+        { columnWhitelist: ['id', 'cell_id'] }
+      );
+      if (!napsoft?.cell_id || !registry.readiness(napsoft.cell_id)?.ready)
+        throw new StageError('CELL_UNAVAILABLE');
+      if (!tenant?.client_id) throw new StageError('SEED_FAILED');
+      const cell = await db.cells.findOneBy(
+        { id: napsoft.cell_id },
+        { columnWhitelist: ['id', 'database_name'] }
+      );
+      if (!cell) throw new StageError('CELL_UNAVAILABLE');
+      const expected = {
+        party_id: tenant.client_id,
+        tenant_id: napsoft.id,
+        legal_name: tenant.legal_name,
+        dba_name: tenant.dba_name ?? null,
+      };
+      const target = await driver.connection({ cell });
+      await withCellAdmin(
+        target,
+        async handle => {
+          await handle.db.tx(async tx => {
+            if (!(await handle.db.parties.byKey(expected.party_id, { tx })))
+              await handle.db.parties.insertWithId(
+                {
+                  id: expected.party_id,
+                  tenant_id: napsoft.id,
+                  kind: 'client',
+                },
+                { tx }
+              );
+            if (
+              !(await handle.db.organizations.byKey(expected.party_id, { tx }))
+            )
+              await handle.db.organizations.insert(expected, { tx });
+          });
+          const [party, organization] = await handle.db.tx(tx =>
+            Promise.all([
+              handle.db.parties.byKey(expected.party_id, { tx }),
+              handle.db.organizations.byKey(expected.party_id, { tx }),
+            ])
+          );
+          // `nap-admin` is not filtered by row-level security: the rows
+          // must be Napsoft's client.
+          if (
+            party?.tenant_id !== napsoft.id ||
+            party.kind !== 'client' ||
+            !matches(organization, expected)
+          )
+            throw new StageError('SEED_FAILED');
+        },
+        connect
+      );
+    });
   }
 
   /**
@@ -147,6 +223,7 @@ export function createTenantStages({
         firstName: job.admin_first_name,
         lastName: job.admin_last_name,
         email: login.email,
+        phone: job.admin_phone,
       };
       const target = await driver.connection({ cell });
       await withCellAdmin(
@@ -225,5 +302,5 @@ export function createTenantStages({
     );
   }
 
-  return { assignment, seed, activation, activate };
+  return { client, assignment, seed, activation, activate };
 }

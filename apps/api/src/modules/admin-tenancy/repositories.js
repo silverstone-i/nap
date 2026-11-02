@@ -16,6 +16,8 @@ import { ModuleEntitlements } from './models/module_entitlements.js';
 import { Outbox } from './models/outbox.js';
 import { CacheRevisions } from './models/cache_revisions.js';
 import { ManagedEvents } from './models/managed_events.js';
+import { TenantContacts } from './models/tenant_contacts.js';
+import { TenantTaxIdRequests } from './models/tenant_tax_id_requests.js';
 
 /** Table name to model class map used to build admin database repositories. */
 export const repositories = {
@@ -32,4 +34,6 @@ export const repositories = {
   outbox: Outbox,
   cache_revisions: CacheRevisions,
   managed_events: ManagedEvents,
+  tenant_contacts: TenantContacts,
+  tenant_tax_id_requests: TenantTaxIdRequests,
 };

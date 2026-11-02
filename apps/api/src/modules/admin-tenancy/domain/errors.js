@@ -224,7 +224,7 @@ const CONTROL_CODES = new Set([
 export class AdminControlError extends Error {
   /**
    * @param {string} code
-   * @param {{field: 'code'|'client'|'email'}} [details]
+   * @param {{field: 'code'|'client'|'email'|'phone'}} [details]
    */
   constructor(code, details) {
     super(code);

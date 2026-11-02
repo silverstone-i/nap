@@ -9,13 +9,15 @@ import { AdminControlError, withControlErrors } from './errors.js';
 import { createFirstAdministrator } from './accounts.js';
 import { COLLECTION_ENTITY } from './cache.js';
 import { verifyPassword } from './password.js';
-import { findActiveClient } from '../../business-directory/domain/clients.js';
+import { normalizePhone } from '@nap/shared';
+import { displayName } from './companyProfile.js';
 
 /** Advisory lock key serializing tenant creation (shared with M0001-07). */
 const REGISTRY_LOCK = "hashtext('admin-tenancy:tenant-registry')";
 
 /** Stages a tenant provisioning job passes through, in order (I0006 §8). */
 export const TENANT_STAGES = Object.freeze([
+  'client',
   'assignment',
   'seed',
   'activation',
@@ -98,7 +100,7 @@ const idempotencyKeySchema = z.uuid();
  * No password or hash is stored on the event.
  * @param {object} db
  * @param {string} key
- * @param {{client: string, code: string, name: string, tier: string, cell: string, email: string, password: unknown, firstName: string, lastName: string}} request
+ * @param {{legalName: string, dbaName: string|null, code: string, tier: string, cell: string, email: string, phone: string, password: unknown, firstName: string, lastName: string}} request
  * @param {{tx?: object}} [options] Reads run on `tx` when called inside a transaction.
  * @returns {Promise<object|null>} The tenant's job view, or null.
  * @throws {AdminControlError} `IDEMPOTENCY_CONFLICT`
@@ -115,9 +117,9 @@ async function resolveReplay(db, key, request, { tx } = {}) {
   if (!existing) return null;
   const details = existing.details ?? {};
   if (
-    details.client_id !== request.client ||
+    details.legal_name !== request.legalName ||
+    (details.dba_name ?? null) !== request.dbaName ||
     details.tenant_code !== request.code ||
-    details.name !== request.name ||
     details.tier !== request.tier ||
     details.cell_id !== request.cell ||
     details.email !== request.email
@@ -130,7 +132,8 @@ async function resolveReplay(db, key, request, { tx } = {}) {
   if (!job) return null;
   if (
     job.admin_first_name !== request.firstName ||
-    job.admin_last_name !== request.lastName
+    job.admin_last_name !== request.lastName ||
+    job.admin_phone !== request.phone
   )
     throw new AdminControlError('IDEMPOTENCY_CONFLICT');
   if (details.login_created) {
@@ -157,41 +160,17 @@ async function resolveReplay(db, key, request, { tx } = {}) {
 }
 
 /**
- * Require an active client of the Napsoft tenant, read from the Napsoft
- * cell (I0006-R001).
- * @param {object} db Admin repository handle.
- * @param {{dbFor: (cellId: string) => object}} runtime
- * @param {string} clientId
- * @returns {Promise<void>}
- * @throws {AdminControlError} `NOT_FOUND`, `CELL_UNAVAILABLE`
- */
-async function requireNapsoftClient(db, runtime, clientId) {
-  const napsoft = await db.tenants.findOneBy(
-    { is_napsoft: true },
-    { columnWhitelist: ['id', 'cell_id'] }
-  );
-  if (!napsoft?.cell_id) throw new AdminControlError('CELL_UNAVAILABLE');
-  let cell;
-  try {
-    cell = runtime.dbFor(napsoft.cell_id);
-  } catch {
-    throw new AdminControlError('CELL_UNAVAILABLE');
-  }
-  if (!(await findActiveClient(cell, napsoft.id, clientId)))
-    throw new AdminControlError('NOT_FOUND');
-}
-
-/**
- * Create a customer tenant from a Napsoft client, queue its provisioning
- * job, and create its first administrator's login and membership
- * (I0006-R001–R003). One active tenant per client and per code.
+ * Create a customer tenant and the ID of its Napsoft client, queue its
+ * provisioning job, and create its first administrator's login and
+ * membership (I0006-R001–R003, I0013-R001, R002). The job's client stage
+ * creates the client record (R003). One active tenant per code.
  * @param {object} db Admin repository handle.
  * @param {unknown} authority
- * @param {{client: string, code: string, name: string, tier: string, cell: string, admin: {email: string, password: string, firstName: string, lastName: string}}} command Validated command.
+ * @param {{legalName: string, dbaName?: string|null, code: string, tier: string, cell: string, admin: {email: string, password: string, firstName: string, lastName: string, phone: string}}} command Validated command.
  * @param {unknown} idempotencyKeyHeader
  * @param {{requestId?: string|null, runtime?: {readiness: (id: string) => {ready: boolean}, dbFor: (id: string) => object}, hashingPolicy?: unknown}} [context]
  * @returns {Promise<object>} Job view.
- * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `NOT_FOUND`, `CELL_UNAVAILABLE`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`, `INTERNAL_ERROR`
+ * @throws {AdminControlError} `INVALID_INPUT`, `FORBIDDEN`, `CELL_UNAVAILABLE`, `CONFLICT`, `IDEMPOTENCY_CONFLICT`, `INTERNAL_ERROR`
  */
 export async function provisionTenant(
   db,
@@ -207,13 +186,17 @@ export async function provisionTenant(
     typeof command.admin.email === 'string'
       ? command.admin.email.trim().toLowerCase()
       : '';
+  const phone = normalizePhone(command.admin.phone);
+  if (!phone) throw new AdminControlError('INVALID_INPUT', { field: 'phone' });
+  const dbaName = command.dbaName ?? null;
   const request = {
-    client: command.client,
+    legalName: command.legalName,
+    dbaName,
     code: command.code,
-    name: command.name,
     tier: command.tier,
     cell: command.cell,
     email,
+    phone,
     password: command.admin.password,
     firstName: command.admin.firstName,
     lastName: command.admin.lastName,
@@ -221,7 +204,6 @@ export async function provisionTenant(
   return withControlErrors(async () => {
     const replay = await resolveReplay(db, key.data, request);
     if (replay) return replay;
-    await requireNapsoftClient(db, runtime, command.client);
     return db.tx(async tx => {
       await tx.one(`SELECT pg_advisory_xact_lock(${REGISTRY_LOCK})`);
       const raced = await resolveReplay(db, key.data, request, { tx });
@@ -229,8 +211,6 @@ export async function provisionTenant(
       // I0006-R023: name the value that is taken.
       if (await db.tenants.lockActiveByCode(command.code, { tx }))
         throw new AdminControlError('CONFLICT', { field: 'code' });
-      if (await db.tenants.lockActiveByClient(command.client, { tx }))
-        throw new AdminControlError('CONFLICT', { field: 'client' });
       const cell = await db.cells.findOneBy(
         { id: command.cell },
         { columnWhitelist: ['id', 'enabled'], tx }
@@ -241,9 +221,11 @@ export async function provisionTenant(
       const tenant = await db.tenants.insert(
         {
           tenant_code: command.code,
-          name: command.name,
+          name: displayName(command.legalName, dbaName),
+          legal_name: command.legalName,
+          dba_name: dbaName,
           tier: command.tier,
-          client_id: command.client,
+          client_id: randomUUID(),
           status: 'pending',
           cell_id: null,
           provisioned: false,
@@ -264,8 +246,10 @@ export async function provisionTenant(
           details: {
             tenant_code: tenant.tenant_code,
             name: tenant.name,
+            legal_name: tenant.legal_name,
+            dba_name: tenant.dba_name,
             tier: tenant.tier,
-            client_id: command.client,
+            client_id: tenant.client_id,
           },
         },
         tx
@@ -287,6 +271,7 @@ export async function provisionTenant(
           admin_membership_id: membership.id,
           admin_first_name: command.admin.firstName,
           admin_last_name: command.admin.lastName,
+          admin_phone: phone,
           created_by: granted.actorId,
         },
         { tx }
@@ -302,9 +287,11 @@ export async function provisionTenant(
           tenant_id: tenant.id,
           target_id: tenant.id,
           details: {
-            client_id: command.client,
+            client_id: tenant.client_id,
             tenant_code: tenant.tenant_code,
             name: tenant.name,
+            legal_name: tenant.legal_name,
+            dba_name: tenant.dba_name,
             tier: tenant.tier,
             cell_id: cell.id,
             email,
@@ -395,7 +382,7 @@ export async function claimTenantProvisioning(db) {
 const transitionSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('advanced'),
-    stage: z.enum(['seed', 'activation']),
+    stage: z.enum(['assignment', 'seed', 'activation']),
   }),
   z.strictObject({
     kind: z.literal('failed'),

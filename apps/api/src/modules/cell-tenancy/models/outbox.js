@@ -46,7 +46,7 @@ export const outboxSchema = {
   constraints: {
     primaryKey: ['id'],
     checks: [
-      "topic IN ('portal_access', 'member_label', 'role_change', 'directory_change', 'settings_change')",
+      "topic IN ('portal_access', 'member_label', 'role_change', 'directory_change', 'settings_change', 'tenant_contact', 'client_name', 'tax_id_request', 'tax_id_decision')",
       "status IN ('pending', 'delivered', 'failed')",
       'revision > 0',
       'attempts >= 0',

@@ -14,6 +14,15 @@
  * `tax-ids::read`, which records who read it.
  */
 
+import {
+  COMPANY_PROFILE_WRITE,
+  isCompanyContact,
+  queueClientName,
+  requireClientArchivable,
+  requireContactCounts,
+  requireContactDetails,
+  syncContact,
+} from './companyProfile.js';
 import { z } from 'zod';
 import { encodeCursor, fingerprint, parseCursor } from './cursor.js';
 import { DirectoryError } from './errors.js';
@@ -98,6 +107,8 @@ const personUpdate = z.strictObject({
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
   roleIds: roleIds.optional(),
+  // I0013-R009: an employee of a customer tenant.
+  isPrimaryContact: z.boolean().optional(),
   revision,
 });
 const contactFields = {
@@ -251,6 +262,8 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
       lastName: row.last_name,
       isPortalUser: row.is_portal_user,
       portalAccess,
+      isPrimaryContact: row.is_primary_contact ?? false,
+      isBillingContact: row.is_billing_contact ?? false,
     };
   if (name === 'organizations')
     return {
@@ -410,6 +423,21 @@ async function insertParty(context, kind, input, tx) {
 }
 
 /**
+ * Whether a record is a Napsoft client or one of its contacts. Provisioning
+ * creates Napsoft clients, which hold no contacts and get their tax ID only
+ * by approving their tenant's request (I0013-R005, R018, R025).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {string} kind Party kind.
+ * @returns {boolean}
+ */
+function isNapsoftClient(context, kind) {
+  return (
+    context.tenant.isNapsoft === true &&
+    (kind === 'client' || kind === 'client_contact')
+  );
+}
+
+/**
  * Check a client's tax source (R007): exactly one of its own tax ID or an
  * active flagged contact. A vendor has a tax ID and no flagged contact (R006).
  * @param {object} context
@@ -419,6 +447,8 @@ async function insertParty(context, kind, input, tx) {
  * @throws {DirectoryError} `INVALID_INPUT`
  */
 async function requireTaxSource(context, organization, tx) {
+  // I0013-R025: a Napsoft client has no tax ID until Napsoft approves one.
+  if (isNapsoftClient(context, organization.kind)) return;
   const flagged = await context.cell.people.rows(
     { organization_id: organization.party_id, is_primary_tax_contact: true },
     { tx }
@@ -713,6 +743,9 @@ async function createOrganization(context, body) {
   const input = parse(organizationCreate, body);
   if (input.kind === 'vendor' && input.contacts?.length)
     throw new DirectoryError('INVALID_INPUT');
+  // I0013-R005: only provisioning creates a Napsoft client.
+  if (isNapsoftClient(context, input.kind))
+    throw new DirectoryError('INVALID_STATE');
   return mutate(context, async tx => {
     const party = await insertParty(context, input.kind, input, tx);
     const organization = withParty(
@@ -764,6 +797,9 @@ async function createContact(context, body) {
       { lock: true }
     );
     if (organization.deactivated_at) throw new DirectoryError('NOT_FOUND');
+    // I0013-R018: a Napsoft client's contacts are its tenant's.
+    if (isNapsoftClient(context, organization.kind))
+      throw new DirectoryError('INVALID_STATE');
     if (input.kind && input.kind !== CONTACT_KIND[organization.kind])
       throw new DirectoryError('INVALID_INPUT');
     const row = await insertContact(context, organization, input, tx);
@@ -798,7 +834,22 @@ export async function updateRecord(context, name, id, body) {
   const input = parse(schema, body);
   return mutate(context, async tx => {
     const locked = await loadRecord(context, name, id, tx, { lock: true });
+    // I0013-R018, R025: a Napsoft client's tax ID comes only from approval,
+    // and its contacts never hold portal access.
+    if (
+      isNapsoftClient(context, locked.kind) &&
+      (input.taxId !== undefined ||
+        input.primaryTaxContactId !== undefined ||
+        input.isPortalUser === true)
+    )
+      throw new DirectoryError('INVALID_STATE');
     requireRevision(locked, input.revision);
+    // I0013-R009: only a customer tenant's employees are its contacts.
+    if (name === 'people' && input.isPrimaryContact !== undefined) {
+      if (locked.kind !== 'employee' || context.tenant.isNapsoft)
+        throw new DirectoryError('INVALID_INPUT');
+      await requireCapability(context, COMPANY_PROFILE_WRITE);
+    }
     const before = await viewOf(context, name, locked, tx);
     const changes = {};
     const map = {
@@ -878,6 +929,21 @@ export async function updateRecord(context, name, id, body) {
       await requireTaxSource(context, row, tx);
       if (organizationLabelName(row) !== organizationLabelName(locked))
         await relabelContacts(context, row, tx);
+      // I0013-R006: a Napsoft client's names go to its tenant.
+      if (
+        isNapsoftClient(context, row.kind) &&
+        (row.legal_name !== locked.legal_name ||
+          (row.dba_name ?? null) !== (locked.dba_name ?? null))
+      )
+        await queueClientName(context, tx, row);
+    }
+    // I0013-R010, R011, R015: keep the contact rules and Napsoft's copy.
+    if (row.kind === 'employee') {
+      await requireContactDetails(context, tx, row.party_id);
+      if (row.is_primary_contact !== locked.is_primary_contact)
+        await requireContactCounts(context, tx);
+      if (isCompanyContact(locked) || isCompanyContact(row))
+        await syncContact(context, tx, row.party_id, isCompanyContact(locked));
     }
     const after = await viewOf(context, name, row, tx);
     return {
@@ -984,6 +1050,17 @@ async function archiveOne(
     throw new DirectoryError('INVALID_STATE');
   if (locked.is_primary_tax_contact && !locked.deactivated_at)
     throw new DirectoryError('PRIMARY_TAX_CONTACT');
+  // I0013-R013: reassign the billing contact before archiving it.
+  if (
+    locked.kind === 'employee' &&
+    !context.tenant.isNapsoft &&
+    locked.is_billing_contact &&
+    !locked.deactivated_at
+  )
+    throw new DirectoryError('BILLING_CONTACT');
+  // I0013-R030: a Napsoft client follows its tenant.
+  if (isNapsoftClient(context, locked.kind) && locked.kind === 'client')
+    await requireClientArchivable(context, locked.party_id);
   // I0008-R002: archiving a person turns their access off.
   const portalOff = table === 'people' && locked.is_portal_user;
   if (portalOff) await assertCanTurnOff(context, locked, tx);
@@ -1000,6 +1077,10 @@ async function archiveOne(
     locked
   );
   if (portalOff) await sendPortalAccess(context, row, false, undefined, tx);
+  if (locked.kind === 'employee' && isCompanyContact(locked)) {
+    await requireContactCounts(context, tx);
+    await syncContact(context, tx, locked.party_id, true);
+  }
   const after = await viewOf(context, name, row, tx);
   return { view: after, change: recordChange('archived', name, before, after) };
 }
@@ -1054,6 +1135,8 @@ async function restoreOne(
     ),
     locked
   );
+  if (row.kind === 'employee')
+    await syncContact(context, tx, row.party_id, false);
   const after = await viewOf(context, name, row, tx);
   return { view: after, change: recordChange('restored', name, before, after) };
 }

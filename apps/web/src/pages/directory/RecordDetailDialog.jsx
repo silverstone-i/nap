@@ -39,6 +39,10 @@ import { ConfirmDialog } from '../../grid/ConfirmDialog.jsx';
 import { ApiError } from '../../api/client.js';
 import { AddressDialog } from './AddressDialog.jsx';
 import { ClientTenantPanel } from './ClientTenantPanel.jsx';
+import { isNapsoftSelected } from './napsoftSession.js';
+import { useSession } from '../../auth/SessionContext.jsx';
+import { useCapabilities } from '../../auth/useCapabilities.js';
+import { setBillingContact } from '../../api/endpoints.js';
 import { ARCHIVE_TEXT, DirectoryGrid } from './DirectoryGrid.jsx';
 import { ContactMethodDialog } from './ContactMethodDialog.jsx';
 import { EditNameDialog } from './EditNameDialog.jsx';
@@ -135,6 +139,9 @@ export function RecordDetailDialog({
   onChanged,
 }) {
   const [record, setRecord] = useState(null);
+  const session = useSession();
+  const { can } = useCapabilities();
+  const napsoft = isNapsoftSelected(session);
   const formats = useTaxIdFormats();
   const { defaultCountry } = useEffectiveSettings().settings;
   const [error, setError] = useState(null);
@@ -263,12 +270,20 @@ export function RecordDetailDialog({
   const addresses = record.addresses.filter(a => !a.archived);
   const canEditDetails = abilities.write && !record.archived;
   const organizationContact = collection === 'organization-contacts';
+  // I0013-R005, R018, R025: a Napsoft client's contacts and tax ID are its
+  // tenant's, shown read-only by its tenant panel.
+  const napsoftClient = napsoft && record.kind === 'client';
+  // I0013-R028: a customer tenant's employees are its company contacts.
+  const companyContact = record.kind === 'employee' && !napsoft;
+  const canEditCompany =
+    canEditDetails && can('business-directory::company-profile::write');
   // R006–R008: a vendor contact has no tax ID, and a client whose tax ID
   // comes from a buyer has none of its own to change here.
   const canEditTaxId =
     canEditDetails &&
     abilities.writeTaxIds &&
     record.kind !== 'vendor_contact' &&
+    !napsoftClient &&
     !(record.kind === 'client' && !record.taxIdLast4);
   // I0010-R001, R013: portal access and roles need both capabilities.
   const canEditPortal = canEditDetails && Boolean(abilities.assignRoles);
@@ -390,8 +405,49 @@ export function RecordDetailDialog({
                 ))}
               </Stack>
             ) : null}
+            {companyContact ? (
+              <Stack
+                direction="row"
+                spacing={2}
+                sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+              >
+                <FormControlLabel
+                  label="Primary contact"
+                  control={
+                    <Switch
+                      checked={record.isPrimaryContact === true}
+                      disabled={!canEditCompany}
+                      onChange={event =>
+                        run(() =>
+                          updateDirectoryRecord(collection, record.id, {
+                            isPrimaryContact: event.target.checked,
+                            revision: record.revision,
+                          })
+                        )
+                      }
+                    />
+                  }
+                />
+                {record.isBillingContact ? (
+                  <Typography variant="body2">Billing contact</Typography>
+                ) : canEditCompany ? (
+                  <Button
+                    size="small"
+                    onClick={() =>
+                      run(
+                        () => setBillingContact(record.id),
+                        {},
+                        `${recordName(record)} is now the billing contact.`
+                      )
+                    }
+                  >
+                    Make billing contact
+                  </Button>
+                ) : null}
+              </Stack>
+            ) : null}
             {record.kind === 'client' ? (
-              <ClientTenantPanel client={record} />
+              <ClientTenantPanel client={record} onChanged={changed} />
             ) : null}
 
             <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
@@ -544,7 +600,7 @@ export function RecordDetailDialog({
               </List>
             )}
 
-            {record.contacts ? (
+            {record.contacts && !napsoftClient ? (
               <>
                 <Typography variant="subtitle1">
                   {record.kind === 'client'

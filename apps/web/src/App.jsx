@@ -25,6 +25,7 @@ import { DirectoryRecordsPage } from './pages/directory/DirectoryRecordsPage.jsx
 import { LabelsPage } from './pages/directory/LabelsPage.jsx';
 import { TaxIdFormatsPage } from './pages/directory/TaxIdFormatsPage.jsx';
 import { GeneralSettingsPage } from './pages/settings/GeneralSettingsPage.jsx';
+import { CompanySettingsPage } from './pages/settings/CompanySettingsPage.jsx';
 import { StorageSettingsPage } from './pages/settings/StorageSettingsPage.jsx';
 import { ProfilePage } from './pages/ProfilePage.jsx';
 import { TenantsPage as ManagementTenantsPage } from './pages/management/TenantsPage.jsx';
@@ -151,6 +152,14 @@ export function App() {
           element={
             <ShellRoute guard={RequireHomeAccess}>
               <LabelsPage />
+            </ShellRoute>
+          }
+        />
+        <Route
+          path="/settings/company"
+          element={
+            <ShellRoute guard={RequireHomeAccess}>
+              <CompanySettingsPage />
             </ShellRoute>
           }
         />
