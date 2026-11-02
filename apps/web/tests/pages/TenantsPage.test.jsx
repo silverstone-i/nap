@@ -7,6 +7,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../src/api/endpoints.js';
+import { ApiError } from '../../src/api/client.js';
 import { useSession } from '../../src/auth/SessionContext.jsx';
 import { TenantsPage } from '../../src/pages/management/TenantsPage.jsx';
 import { ContextualActionHeader } from '../../src/shell/ContextualActionHeader.jsx';
@@ -30,6 +31,7 @@ vi.mock('../../src/api/endpoints.js', () => ({
   listTenantsPage: vi.fn(),
   retryTenantProvisioning: vi.fn(),
   listCellsOverview: vi.fn(async () => ({ rows: [], nextCursor: null })),
+  provisionTenant: vi.fn(),
 }));
 
 vi.mock('../../src/auth/SessionContext.jsx', () => ({
@@ -238,5 +240,88 @@ describe('TenantsPage', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('Provision tenant (I0013-R001, R005)', () => {
+    beforeEach(() => {
+      api.listTenantsPage.mockResolvedValue(page([]));
+      api.listCellsOverview.mockResolvedValue({
+        rows: [
+          { cell: { id: 'c1', database_name: 'nap_dev_cell_a' }, ready: true },
+        ],
+        nextCursor: null,
+      });
+    });
+
+    async function fill(user) {
+      await user.click(
+        await screen.findByRole('button', { name: 'Provision tenant' })
+      );
+      const form = await screen.findByRole('dialog', {
+        name: 'Provision tenant',
+      });
+      await user.type(
+        within(form).getByLabelText(/^Legal name/),
+        'Oak Homes LLC'
+      );
+      await user.type(within(form).getByLabelText(/^DBA name/), 'Oak Homes');
+      await user.type(within(form).getByLabelText(/^Code/), 'oak');
+      await user.type(within(form).getByLabelText(/^First name/), 'Ann');
+      await user.type(within(form).getByLabelText(/^Last name/), 'Admin');
+      await user.type(
+        within(form).getByLabelText(/Administrator email/),
+        'ann@oak.test'
+      );
+      await user.type(
+        within(form).getByLabelText(/Administrator phone/),
+        '(512) 555-0100'
+      );
+      await user.type(
+        within(form).getByLabelText(/Temporary password/),
+        'temporary'
+      );
+      await user.click(within(form).getByRole('button', { name: 'Provision' }));
+      return form;
+    }
+
+    it('collects the names, code, cell, and administrator with a phone', async () => {
+      api.provisionTenant.mockResolvedValue({});
+      renderPage();
+      await fill(userEvent.setup());
+      expect(api.provisionTenant).toHaveBeenCalledWith({
+        legalName: 'Oak Homes LLC',
+        dbaName: 'Oak Homes',
+        code: 'oak',
+        tier: 'starter',
+        cell: 'c1',
+        firstName: 'Ann',
+        lastName: 'Admin',
+        email: 'ann@oak.test',
+        // Read in Napsoft's default country (the US outside a provider).
+        phone: '+15125550100',
+        password: 'temporary',
+      });
+    });
+
+    it.each([
+      ['CONFLICT', { field: 'code' }, 'Another tenant uses this code.'],
+      [
+        'CONFLICT',
+        { field: 'email' },
+        'This email belongs to a login that cannot be used.',
+      ],
+      [
+        'INVALID_INPUT',
+        { field: 'phone' },
+        'Enter a valid phone number for the administrator.',
+      ],
+    ])('names the problem for %s %o', async (code, details, message) => {
+      api.provisionTenant.mockRejectedValue(
+        new ApiError(code, 409, null, { details })
+      );
+      renderPage();
+      const form = await fill(userEvent.setup());
+      expect(await within(form).findByText(message)).toBeTruthy();
+    });
   });
 });

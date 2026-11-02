@@ -64,6 +64,9 @@ export const migration = defineMigration({
           immutable: true,
         },
         { name: 'status', type: 'text', notNull: true },
+        { name: 'name', type: 'varchar(160)' },
+        { name: 'legal_name', type: 'varchar(160)' },
+        { name: 'dba_name', type: 'varchar(160)' },
         { name: 'revision', type: 'integer', notNull: true },
       ],
       constraints: {
@@ -187,7 +190,7 @@ export const migration = defineMigration({
       constraints: {
         primaryKey: ['id'],
         checks: [
-          "topic IN ('portal_access', 'member_label', 'role_change', 'directory_change', 'settings_change')",
+          "topic IN ('portal_access', 'member_label', 'role_change', 'directory_change', 'settings_change', 'tenant_contact', 'client_name', 'tax_id_request', 'tax_id_decision', 'tax_id_applied')",
           "status IN ('pending', 'delivered', 'failed')",
           'revision > 0',
           'attempts >= 0',

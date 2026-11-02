@@ -58,7 +58,7 @@ export function sendDirectoryError(response, error) {
  */
 export async function directoryContext(
   request,
-  { runtime, taxIdPolicy, authenticationPolicy }
+  { admin, runtime, taxIdPolicy, authenticationPolicy }
 ) {
   const { session, authorization } = request;
   const { targetTenant: tenant, actorId } = authorization;
@@ -72,6 +72,8 @@ export async function directoryContext(
   const cell = await runtime.cellFor(session);
   return {
     cell,
+    // I0013: Napsoft reads its clients' tenants and tax ID requests.
+    admin: admin?.db,
     tenant: { id: tenant.id, isNapsoft: tenant.is_napsoft === true },
     actorId,
     hashingPolicy: authenticationPolicy

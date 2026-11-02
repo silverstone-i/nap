@@ -10,6 +10,18 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Each customer tenant owns its company profile (I0013). Settings → **Company** shows the legal and DBA name (kept by Napsoft), the tax ID with any request waiting for Napsoft ("pending approval", or "rejected" with the reason), the primary contacts, and the billing contact with **Change billing contact**; **Submit tax ID** sends a new tax ID for approval while the approved one stays in effect. An employee's detail has a **Primary contact** switch and **Make billing contact**. A tenant keeps at least one primary contact and exactly one billing contact; each needs a primary email and a phone, and the billing contact a phone labeled **billing** (a new default phone label). Breaking a rule fails with `409 LAST_PRIMARY_CONTACT`, `BILLING_CONTACT`, or `CONTACT_DETAILS_REQUIRED`. New routes: `GET /api/business-directory/v1/company-profile`, `POST …/company-profile/billing-contact` and `…/company-profile/tax-id` (new capability `business-directory::company-profile::write`).
+- Napsoft sees each tenant's primary and billing contacts read-only on the tenant's client record, with no portal column and no **New contact**, kept current through the admin-cell sync in the new `admin.tenant_contacts` table (`GET /api/admin-tenancy/v1/tenants/:tenant/contacts`). A pending tax ID shows on the client with **Approve** (in a chosen Napsoft format) and **Reject** (with a reason), through `POST /api/business-directory/v1/organizations/:id/tax-id-request/approve` and `…/reject` (new capability `business-directory::tax-ids::approve`); only approval sets a Napsoft client's tax ID.
+
+### Changed
+
+- **Provision tenant** moves to the Tenants screen and creates the Napsoft client with the tenant. `tenant-provision` takes `legalName`, an optional `dbaName`, and the administrator's `phone` in place of `client` and `name`; a new **client** stage creates the client in the Napsoft cell before assignment. The first administrator becomes the tenant's primary and billing contact, with the phone labeled **billing**. The tenant's display name is its DBA name, else its legal name, and a Napsoft rename of the client reaches `admin.tenants` and the tenant's `cell.tenants`.
+- In the Napsoft tenant, creating a client directly, adding a contact to a client, setting a client's tax ID, or giving a client contact portal access fails with `409 INVALID_STATE`, and archiving the client of an active tenant is refused. Clients offers no **New client** there.
+- Baseline migrations `001-admin-tenancy`, `001-cell-tenancy`, and `001-business-directory` are edited in place (tenant names, `admin.tenant_contacts`, `admin.tenant_tax_id_requests`, `app.tenant_tax_ids`, employee contact flags, new outbox topics). Recreate existing admin and cell databases.
+- A repeat Claude Code review (the `claude-review` label) covers only the commits since the last Claude review and reads every existing review thread with its replies first, so it no longer raises points already answered. A first review still covers the whole PR.
+
 ## [v0.36.1] - 2026-10-30
 
 ### Added

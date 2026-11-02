@@ -44,7 +44,13 @@ export const tenantProvisioningSchema = {
       notNull: true,
       immutable: true,
     },
-    { name: 'stage', type: 'text', notNull: true, default: 'assignment' },
+    {
+      name: 'admin_phone',
+      type: 'varchar(32)',
+      notNull: true,
+      immutable: true,
+    },
+    { name: 'stage', type: 'text', notNull: true, default: 'client' },
     { name: 'status', type: 'text', notNull: true, default: 'queued' },
     { name: 'attempts', type: 'integer', notNull: true, default: 0 },
     { name: 'failure_code', type: 'varchar(64)' },
@@ -55,7 +61,7 @@ export const tenantProvisioningSchema = {
     primaryKey: ['id'],
     unique: [['tenant_id']],
     checks: [
-      "stage IN ('assignment', 'seed', 'activation', 'complete')",
+      "stage IN ('client', 'assignment', 'seed', 'activation', 'complete')",
       "status IN ('queued', 'running', 'failed', 'completed')",
       'attempts >= 0',
     ],

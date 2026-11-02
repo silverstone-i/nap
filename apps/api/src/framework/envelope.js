@@ -28,6 +28,10 @@ export const ERROR_STATUS = Object.freeze({
   GRANT_EXCEEDS_ACTOR: 403,
   // M0005 §10 directory rules.
   PRIMARY_TAX_CONTACT: 409,
+  LAST_PRIMARY_CONTACT: 409,
+  BILLING_CONTACT: 409,
+  CONTACT_DETAILS_REQUIRED: 409,
+  BILLING_LABEL: 409,
   DUPLICATE_TAX_ID: 409,
   DUPLICATE_DETAIL: 409,
   BULK_FAILED: 409,
@@ -65,6 +69,11 @@ export const ERROR_MESSAGE = Object.freeze({
   ROOT_IMMUTABLE: 'Root user cannot be changed',
   GRANT_EXCEEDS_ACTOR: 'Grant exceeds your access',
   PRIMARY_TAX_CONTACT: 'Primary tax contact cannot be removed',
+  LAST_PRIMARY_CONTACT: 'The tenant needs at least one primary contact',
+  BILLING_CONTACT: 'Reassign the billing contact first',
+  CONTACT_DETAILS_REQUIRED:
+    'Primary and billing contacts need an email and a phone',
+  BILLING_LABEL: 'The billing phone label cannot be renamed or archived',
   DUPLICATE_TAX_ID: 'Another record already has this tax ID',
   DUPLICATE_DETAIL: 'This record already has this value',
   BULK_FAILED: 'One or more items failed; nothing was changed',

@@ -22,6 +22,7 @@ import { useSession } from '../../auth/SessionContext.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { usePageHeader } from '../../shell/PageHeaderContext.jsx';
 import { TenantDetailDialog } from './TenantDetailDialog.jsx';
+import { ProvisionTenantDialog } from './ProvisionTenantDialog.jsx';
 
 export const REFRESH_MS = 2000;
 
@@ -113,6 +114,7 @@ export function TenantsPage() {
   const [resetKey, setResetKey] = useState(0);
   const [actionError, setActionError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [provisioning, setProvisioning] = useState(false);
   // The open record as of the latest refresh.
   const current =
     selected && (pageRows.find(row => row.id === selected.id) ?? selected);
@@ -132,8 +134,17 @@ export function TenantsPage() {
     return () => clearInterval(timer);
   }, [active]);
 
-  // I0006-R010: tenants are created from a Napsoft client, not here.
-  usePageHeader({ title: 'Tenants' });
+  // I0013-R005: provisioning creates the tenant and its Napsoft client.
+  usePageHeader({
+    title: 'Tenants',
+    actions: [
+      canWrite && {
+        label: 'Provision tenant',
+        create: true,
+        onClick: () => setProvisioning(true),
+      },
+    ],
+  });
 
   async function handleRetry(row) {
     setActionError(null);
@@ -202,6 +213,15 @@ export function TenantsPage() {
           }
           onRetry={canRetry(current) ? () => handleRetry(current) : undefined}
           onClose={() => setSelected(null)}
+        />
+      ) : null}
+      {provisioning ? (
+        <ProvisionTenantDialog
+          onClose={() => setProvisioning(false)}
+          onProvisioned={() => {
+            setProvisioning(false);
+            setResetKey(key => key + 1);
+          }}
         />
       ) : null}
     </>

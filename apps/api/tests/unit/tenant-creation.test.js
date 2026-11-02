@@ -41,12 +41,12 @@ describe('validation', () => {
       expect(tenantNameSchema.safeParse(bad).success).toBe(false);
   });
 
-  it('requires a client, code, name, tier, cell, and administrator to provision (I0006-R001)', async () => {
+  it('requires a legal name, code, tier, cell, and administrator with a phone to provision (I0013-R001)', async () => {
     const valid = {
       operation: 'tenant-provision',
-      client: randomUUID(),
+      legalName: 'Acme Builders LLC',
+      dbaName: 'Acme Builders',
       code: 'ACME',
-      name: 'Acme',
       tier: 'starter',
       cell: randomUUID(),
       admin: {
@@ -54,22 +54,28 @@ describe('validation', () => {
         password: 'pw',
         firstName: 'Ann',
         lastName: 'Lee',
+        phone: '(512) 555-0100',
       },
     };
-    const noClient = { ...valid };
-    delete noClient.client;
+    const noLegalName = { ...valid };
+    delete noLegalName.legalName;
+    const noPhone = { ...valid, admin: { ...valid.admin } };
+    delete noPhone.admin.phone;
     for (const bad of [
-      noClient,
-      { ...valid, tenant: randomUUID() },
+      noLegalName,
+      noPhone,
+      { ...valid, client: randomUUID() },
       { ...valid, code: '1ACME' },
       { ...valid, tier: 'gold' },
-      { ...valid, client: 'not-a-uuid' },
+      { ...valid, dbaName: '  ' },
+      { ...valid, admin: { ...valid.admin, phone: 'not a phone' } },
     ])
       await expect(
         executeProvisionCommand(
           {},
           { actorId: randomUUID(), granted: true },
-          bad
+          bad,
+          { idempotencyKey: randomUUID() }
         )
       ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
   });

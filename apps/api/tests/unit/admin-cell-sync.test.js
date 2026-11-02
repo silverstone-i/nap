@@ -68,6 +68,34 @@ describe('parseSnapshot (I0004-R013, R023)', () => {
       })
     ).toBeNull();
   });
+
+  it('accepts the I0013 decision with and without a target tenant, and rejects a full tax ID', () => {
+    const decision = {
+      tenant_id: randomUUID(),
+      request_revision: 2,
+      status: 'rejected',
+      reason: 'Name does not match',
+    };
+    expect(parseSnapshot('tax_id_decision', decision)).not.toBeNull();
+    expect(
+      parseSnapshot('tax_id_decision', {
+        ...decision,
+        target_tenant_id: randomUUID(),
+      })
+    ).not.toBeNull();
+    expect(
+      parseSnapshot('tax_id_decision', { ...decision, status: 'pending' })
+    ).toBeNull();
+    expect(
+      parseSnapshot('tax_id_request', {
+        tenant_id: randomUUID(),
+        tax_id_encrypted: 'cipher',
+        tax_id_last4: '4567',
+        country: 'US',
+        tax_id: '12-3454567',
+      })
+    ).toBeNull();
+  });
 });
 
 describe('requestPortalAccess (I0004-R020–R023)', () => {

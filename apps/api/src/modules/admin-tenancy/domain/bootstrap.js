@@ -82,6 +82,7 @@ async function resolveTenant(db, tx, { tenantCode, tenantName }) {
     {
       tenant_code: tenantCode,
       name: tenantName,
+      legal_name: tenantName,
       is_napsoft: true,
       status: 'active',
     },

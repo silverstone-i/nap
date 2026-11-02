@@ -87,7 +87,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 - M0005-R001: Every directory record must have one `app.parties` row with `kind` in `employee`, `contact`, `vendor`, `client`, `vendor_contact`, `client_contact`. `kind` never changes. A record's optional tax ID is stored on its party.
 - M0005-R002: Employees and contacts are stored in `app.people`, each with a first name, last name, optional tax ID, and portal flag.
 - M0005-R003: Vendors and clients are stored in `app.organizations`, each with a legal name, an optional "doing business as" name, and a tax ID or primary tax contact (R006, R007).
-- M0005-R004: Vendor contacts and client contacts are also stored in `app.people`, each with a first name, last name, optional tax ID, portal flag, and the `organization_id` it belongs to. A vendor contact belongs to a vendor and a client contact to a client. Any number of an organization's contacts may be flagged as its primary contact or billing contact; only an organization contact can carry either flag.
+- M0005-R004: Vendor contacts and client contacts are also stored in `app.people`, each with a first name, last name, optional tax ID, portal flag, and the `organization_id` it belongs to. A vendor contact belongs to a vendor and a client contact to a client. Any number of an organization's contacts may be flagged as its primary contact or billing contact; only an organization contact can carry either flag. _Superseded in part by I0013-R009 ([I0013](../inter-module-workflows/I0013-tenant-company-profile.md): a customer tenant's employees also carry both flags)._
 - M0005-R005: A party's child row must match its `kind`. For example, a `people` row may point only at an `employee` or `contact` party.
 
 ### Tax IDs
@@ -119,8 +119,8 @@ entitlement row (M0001-10), because provisioning creates its first rows
 
 ### Provisioning
 
-- M0005-R021: `tenant-provision` (I0006-R001) must also require the first administrator's `firstName` and `lastName`. It must generate the administrator's party ID and store it as the membership's `member_id` (I0006-R002).
-- M0005-R022: The seed stage (I0006-R007) must, in the same cell transaction, create the employee party, the `people` row with `is_portal_user = true`, the login email as the primary email, and the default labels (R017). The readback check covers these rows.
+- M0005-R021: `tenant-provision` (I0006-R001) must also require the first administrator's `firstName` and `lastName`. It must generate the administrator's party ID and store it as the membership's `member_id` (I0006-R002). _Superseded in part by I0013-R001 (the administrator's phone)._
+- M0005-R022: The seed stage (I0006-R007) must, in the same cell transaction, create the employee party, the `people` row with `is_portal_user = true`, the login email as the primary email, and the default labels (R017). The readback check covers these rows. _Superseded in part by I0013-R004 (billing phone and contact flags)._
 - M0005-R023: An active, ready membership with a `member_type` must have a `member_id`. This replaces I0006's rule that `member_id` may be null. The Napsoft root membership keeps `member_type` and `member_id` null and has no employee record; it is an emergency login for first setup and recovery. Napsoft staff who need an employee record get their own login with an `employee` membership.
 - M0005-R024: `member_type` values become `employee`, `contact`, `vendor_contact`, `client_contact` in `admin.portal_user_tenants`, `cell.tenant_members`, and the admin provisioning job kinds. `client` is removed, because the login belongs to the buyer, not the client.
 
@@ -178,7 +178,7 @@ entitlement row (M0001-10), because provisioning creates its first rows
 
 - M0005-R049: A record's detail dialog must be the only place it is edited (I0001-R036). Pencils beside the name (with the DBA name for an organization), the tax ID, and portal access open dialogs that change only that part; emails, phones, and addresses keep their own pencils. The detail has no footer Edit. A row's ⋮ **Edit**, in a directory list or in an organization's contacts grid, opens the record's detail. The contacts grid itself stays as it is.
 - M0005-R050: Creating a record must ask only for what it cannot exist without (I0001-R037): an employee's first name, last name, and primary email; a contact's first and last name; a vendor's legal name and tax ID with its format (R006); a client's legal name and either its own tax ID or one primary buyer with a tax ID (R007); and an organization contact's first and last name. The DBA name, more buyers, portal access, roles, and a temporary password are set from the detail afterwards. Saving opens the new record's detail; **New contact** in an organization's detail opens the new contact.
-- M0005-R051: An organization contact's detail must show **Primary contact** and **Billing contact** as switches beside the values, which save on change. A client contact shows whether it is the primary tax contact, with an action to make it so; the contacts grid's row action calls the same thing.
+- M0005-R051: An organization contact's detail must show **Primary contact** and **Billing contact** as switches beside the values, which save on change. A client contact shows whether it is the primary tax contact, with an action to make it so; the contacts grid's row action calls the same thing. _Superseded in part by I0013-R028 (employee switches) and I0013-R018 (no contacts on Napsoft clients)._
 - M0005-R052: The tax ID dialog must offer the active formats (R043), the value, and **Clear** when the record may have none (not a vendor, and not a client's primary tax contact). A duplicate shows R048's message and link. The current value is shown masked beside the pencil, not inside the dialog.
 - M0005-R053: The directory grid's column for the primary and billing flags must be named **Contact type**, so it does not read as portal roles. The DBA name has one label, "DBA name", in the detail and its dialog.
 
@@ -288,8 +288,8 @@ One row per employee, contact, vendor contact, or client contact.
 | `first_name`             | `text`    | Not null                                                                                                                                         |
 | `last_name`              | `text`    | Not null                                                                                                                                         |
 | `is_portal_user`         | `boolean` | Not null, default `false`                                                                                                                        |
-| `is_primary_contact`     | `boolean` | Not null, default `false`; that organization's primary contact; requires `organization_id` (R004)                                                |
-| `is_billing_contact`     | `boolean` | Not null, default `false`; that organization's billing contact; requires `organization_id` (R004)                                                |
+| `is_primary_contact`     | `boolean` | Not null, default `false`; primary contact; organization contacts and customer-tenant employees (R004, I0013-R009)                               |
+| `is_billing_contact`     | `boolean` | Not null, default `false`; billing contact; organization contacts and customer-tenant employees (R004, I0013-R009)                               |
 | `is_primary_tax_contact` | `boolean` | Not null, default `false`; requires `organization_id`; client contacts only; unique per `organization_id` among active flagged rows (R007, R009) |
 
 ### `app.contact_methods`

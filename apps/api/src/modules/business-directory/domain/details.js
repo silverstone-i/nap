@@ -10,6 +10,7 @@
  * keeps a primary email (R016).
  */
 
+import { requireContactDetails, syncContact } from './companyProfile.js';
 import { normalizePhone } from '@nap/shared';
 import { z } from 'zod';
 import { effectiveSettings } from '../../tenant-settings/domain/general.js';
@@ -301,6 +302,21 @@ function detailChange(eventKey, party, before, after) {
 }
 
 /**
+ * Keep a primary or billing contact's required email and phone, and
+ * Napsoft's copy of them (I0013-R011, R015).
+ * @param {import('./shared.js').DirectoryContext} context
+ * @param {{id: string, kind: string}} party
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `CONTACT_DETAILS_REQUIRED`
+ */
+async function contactDetailsChanged(context, party, tx) {
+  if (party.kind !== 'employee') return;
+  await requireContactDetails(context, tx, party.id);
+  await syncContact(context, tx, party.id, false);
+}
+
+/**
  * Add an email or phone to a party.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {unknown} partyId
@@ -336,6 +352,7 @@ export function addContactMethod(context, partyId, body) {
       { tx }
     );
     await portalEmail();
+    await contactDetailsChanged(context, party, tx);
     const view = contactMethodView(row);
     return {
       result: view,
@@ -410,6 +427,7 @@ export function updateContactMethod(context, partyId, methodId, body) {
     );
     await requirePrimaryEmail(context, party, tx);
     await portalEmail();
+    await contactDetailsChanged(context, party, tx);
     const view = contactMethodView(row);
     return {
       result: view,
@@ -452,6 +470,7 @@ export function removeContactMethod(context, partyId, methodId) {
     );
     await requirePrimaryEmail(context, party, tx);
     await portalEmail();
+    await contactDetailsChanged(context, party, tx);
     const view = contactMethodView(row);
     return {
       result: view,

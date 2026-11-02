@@ -23,6 +23,15 @@ const MESSAGES = {
   CONFLICT: 'That name is already used, or the record changed. Try again.',
   NOT_FOUND: 'That record no longer exists.',
   CELL_UNAVAILABLE: 'The tenant’s database is unavailable. Try again later.',
+  // I0013-R013.
+  LAST_PRIMARY_CONTACT:
+    'The company needs at least one primary contact. Make someone else primary first.',
+  BILLING_CONTACT:
+    'This person is the billing contact. Make someone else the billing contact first.',
+  CONTACT_DETAILS_REQUIRED:
+    'Primary and billing contacts need an email and a phone; the billing contact’s phone needs the Billing label.',
+  BILLING_LABEL:
+    'The Billing phone label marks the billing contact’s phone, so it cannot be renamed or archived.',
 };
 
 /** Messages for portal-access failures (I0008), which reuse shared codes. */

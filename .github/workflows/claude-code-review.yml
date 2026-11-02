@@ -5,11 +5,12 @@ name: Claude Code Review
 
 on:
   pull_request:
-    # Once per PR, not per push: the review does not dedupe against threads it
-    # already posted. A draft is reviewed when marked ready, and again each
-    # time it goes back to draft and is marked ready. To review the latest
-    # commit again, add the `claude-review` label (remove it first if it is
-    # already on the PR). Reopening a PR does not review it.
+    # Once per PR, not per push. A draft is reviewed when marked ready, and
+    # again each time it goes back to draft and is marked ready. To review the
+    # latest commits again, add the `claude-review` label (remove it first if
+    # it is already on the PR). A repeat review covers only the commits since
+    # the last one and skips points existing threads already raise. Reopening
+    # a PR does not review it.
     types: [opened, ready_for_review, labeled]
     branches: ['main', 'dev']
 
@@ -51,6 +52,51 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
+      # What a repeat review needs: the commit the last Claude review covered,
+      # so it reviews only what changed since, and every existing thread with
+      # its replies, so it does not raise an answered point again. The model
+      # gets them as a file and a diff range, never a tool that could change
+      # threads.
+      - name: Collect review context
+        id: context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p .review
+          gh api graphql -F owner="${GITHUB_REPOSITORY%/*}" -F repo="${GITHUB_REPOSITORY#*/}" -F pr="$PR" -f query='
+            query($owner:String!, $repo:String!, $pr:Int!) {
+              repository(owner:$owner, name:$repo) {
+                pullRequest(number:$pr) {
+                  reviewThreads(first:100) {
+                    nodes { isResolved path line originalLine
+                      comments(first:20) { nodes { body author { login } } } }
+                  }
+                }
+              }
+            }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[]
+                     | {path, line: (.line // .originalLine), resolved: .isResolved,
+                        comments: [.comments.nodes[] | {author: .author.login, body}]}]' \
+            > .review/prior-threads.json
+          threads=$(jq length .review/prior-threads.json)
+          since=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" \
+            --jq '.[] | select(.user.login == "github-actions[bot]") | .commit_id' | tail -n 1)
+          # A force push can drop the reviewed commit; review everything then.
+          if [ -n "$since" ] && ! git merge-base --is-ancestor "$since" HEAD 2>/dev/null; then
+            since=""
+          fi
+          echo "since=$since" >> "$GITHUB_OUTPUT"
+          {
+            echo "scope<<EOF"
+            if [ -n "$since" ]; then
+              echo "This pull request was already reviewed at commit $since. Review only the changes in git diff $since..HEAD, and post findings only on lines those changes add or modify."
+            fi
+            if [ "$threads" -gt 0 ]; then
+              echo "Before posting, read .review/prior-threads.json: the $threads review threads already on this pull request, with the replies. Do not post a finding that one of them already raises, resolved or answered, unless the code it points at changed after the reply in a way that makes the reply wrong."
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Review scope: ${since:-whole pull request}; $threads existing thread(s)." >> "$GITHUB_STEP_SUMMARY"
       # Fail early and plainly when the Claude token secret is missing.
       # A present but expired or revoked token still fails in the next step
       # with Anthropic's sign-in error. To replace it, run
@@ -75,6 +121,7 @@ jobs:
           # Plain words, not a bare slash command: in a non-interactive run
           # "/code-review" alone ends before Claude takes a turn.
           prompt: >-
+            ${{ steps.context.outputs.scope }}
             Use the Skill tool to run the code-review skill with arguments
             "medium --comment ${{ github.event.pull_request.number }}",
             then follow its instructions to post the findings as inline

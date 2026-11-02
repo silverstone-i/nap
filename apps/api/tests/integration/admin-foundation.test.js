@@ -79,6 +79,7 @@ it('preserves existing data across setup and migration, including archived rows'
   const row = await db.tenants.insert({
     tenant_code: 'ARCHIVED',
     name: 'Archived',
+    legal_name: 'Archived',
   });
   await db.tenants.removeWhere({ id: row.id });
   expect((await setupLocal(config)).status).toBe('unchanged');
@@ -147,7 +148,7 @@ it('allows runtime CRUD but denies DDL, ledger access, and event modification', 
     roleUrl(config.endpoint, 'nap-app', config.appPassword),
     async runtime => {
       const row = await runtime.one(
-        "INSERT INTO admin.tenants(tenant_code,name) VALUES('RUNTIME','Runtime') RETURNING *"
+        "INSERT INTO admin.tenants(tenant_code,name,legal_name) VALUES('RUNTIME','Runtime','Runtime') RETURNING *"
       );
       await runtime.none(
         "UPDATE admin.tenants SET name='Changed' WHERE id=$1",
@@ -188,7 +189,7 @@ it('allows runtime CRUD but denies DDL, ledger access, and event modification', 
 });
 it('enforces immutable fields, audit timestamps, uniqueness, checks and foreign keys through SQL', async () => {
   const row = await db.one(
-    "INSERT INTO admin.tenants(tenant_code,name) VALUES('CHECKS','Checks') RETURNING *"
+    "INSERT INTO admin.tenants(tenant_code,name,legal_name) VALUES('CHECKS','Checks','Checks') RETURNING *"
   );
   await expect(
     db.none("UPDATE admin.tenants SET tenant_code='OTHER' WHERE id=$1", [
@@ -210,7 +211,7 @@ it('enforces immutable fields, audit timestamps, uniqueness, checks and foreign 
   ).rejects.toMatchObject({ code: '23503' });
   await expect(
     db.none(
-      "INSERT INTO admin.tenants(tenant_code,name) VALUES('checks','Duplicate')"
+      "INSERT INTO admin.tenants(tenant_code,name,legal_name) VALUES('checks','Duplicate','Duplicate')"
     )
   ).rejects.toMatchObject({ code: '23505' });
   const changed = await db.one(
@@ -225,12 +226,14 @@ it('protects the Napsoft root identity and membership while allowing password ma
   const tenant = await db.tenants.insert({
     tenant_code: 'NAPSOFT',
     name: 'Owner',
+    legal_name: 'Owner',
     is_napsoft: true,
     status: 'active',
   });
   const other = await db.tenants.insert({
     tenant_code: 'CUSTOMER',
     name: 'Customer',
+    legal_name: 'Customer',
   });
   const user = await db.portal_users.insert({
     email: 'bootstrap@test.example',
@@ -311,6 +314,7 @@ it('allows eligible reassignment and blocks provisioned or archived-membership a
   const tenant = await db.tenants.insert({
     tenant_code: 'MOVE',
     name: 'Move',
+    legal_name: 'Move',
     cell_id: cells[0].id,
   });
   await db.tenants.update(tenant.id, { cell_id: cells[1].id });
@@ -332,6 +336,7 @@ it('allows eligible reassignment and blocks provisioned or archived-membership a
   const other = await db.tenants.insert({
     tenant_code: 'MEMBER',
     name: 'Member',
+    legal_name: 'Member',
     cell_id: cells[0].id,
   });
   await expect(
@@ -389,6 +394,7 @@ it('serializes membership creation with cell reassignment', async () => {
   const tenant = await db.tenants.insert({
     tenant_code: 'RACE',
     name: 'Race',
+    legal_name: 'Race',
     cell_id: cells[0].id,
   });
   const user = await db.portal_users.insert({

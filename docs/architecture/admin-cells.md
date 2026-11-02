@@ -244,7 +244,12 @@ inside the API delivers them:
 - **Cell to admin.** Cell-side code calls `requestPortalAccess` inside its own
   transaction to turn a user's portal access on or off. The worker applies the
   request to the admin login and membership, and the resulting membership
-  change flows back to the cell as an admin-to-cell row.
+  change flows back to the cell as an admin-to-cell row. I0013 adds rows for
+  a customer tenant's primary and billing contacts, its tax ID submissions,
+  and, from the Napsoft cell, client name changes and tax ID decisions; the
+  decision returns to the tenant's cell as an admin-to-cell row. Once the
+  tenant's cell applies an approval it confirms with a `tax_id_applied`
+  row, and admin then sends the tax ID to the Napsoft client.
 
 The worker delivers one tenant and direction at a time under an advisory lock
 on the admin database. Only the highest pending revision per entity is

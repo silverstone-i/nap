@@ -308,7 +308,7 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
   });
 });
 
-it('allows primary and billing flags only on organization contacts, several per organization', async () => {
+it('allows several flagged contacts per organization and one billing employee per tenant (I0013-R010)', async () => {
   await inTenant(tenant, async tx => {
     const vendor = await party(tx, 'vendor');
     await tx.none(
@@ -323,13 +323,18 @@ it('allows primary and billing flags only on organization contacts, several per 
       );
     }
     const employee = await party(tx, 'employee');
+    await tx.none(
+      "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_primary_contact, is_billing_contact) VALUES ($1,$2,'Jane','Doe',true,true)",
+      [employee, tenant]
+    );
+    const second = await party(tx, 'employee');
     await expect(
       tx.tx(() =>
         tx.none(
-          "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_billing_contact) VALUES ($1,$2,'Jane','Doe',true)",
-          [employee, tenant]
+          "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_billing_contact) VALUES ($1,$2,'John','Doe',true)",
+          [second, tenant]
         )
       )
-    ).rejects.toMatchObject({ code: '23514' });
+    ).rejects.toMatchObject({ code: '23505' });
   });
 });

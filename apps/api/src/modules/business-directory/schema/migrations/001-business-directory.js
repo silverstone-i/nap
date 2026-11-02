@@ -186,7 +186,6 @@ export const migration = defineMigration({
         checks: [
           'revision > 0',
           'NOT is_primary_tax_contact OR organization_id IS NOT NULL',
-          'organization_id IS NOT NULL OR NOT (is_primary_contact OR is_billing_contact)',
         ],
         foreignKeys: [
           {
@@ -217,6 +216,13 @@ export const migration = defineMigration({
             where: 'is_primary_tax_contact AND deactivated_at IS NULL',
           },
           { columns: ['organization_id'] },
+          // I0013-R010: one active billing employee per tenant.
+          {
+            columns: ['tenant_id'],
+            unique: true,
+            where:
+              'is_billing_contact AND organization_id IS NULL AND deactivated_at IS NULL',
+          },
         ],
       },
     };
@@ -407,6 +413,58 @@ export const migration = defineMigration({
         ],
       },
     };
+    const tenantTaxIdsSchema = {
+      dbSchema: 'app',
+      table: 'tenant_tax_ids',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      columns: [
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'tax_id_format_id', type: 'uuid' },
+        { name: 'tax_id_encrypted', type: 'text' },
+        { name: 'tax_id_last4', type: 'char(4)' },
+        { name: 'pending_format_id', type: 'uuid' },
+        { name: 'pending_encrypted', type: 'text' },
+        { name: 'pending_last4', type: 'char(4)' },
+        { name: 'pending_status', type: 'text' },
+        { name: 'pending_reason', type: 'text' },
+        { name: 'pending_revision', type: 'integer' },
+        { name: 'revision', type: 'integer', notNull: true, default: 1 },
+      ],
+      constraints: {
+        primaryKey: ['tenant_id'],
+        checks: [
+          'revision > 0',
+          '(tax_id_encrypted IS NULL) = (tax_id_last4 IS NULL) AND (tax_id_last4 IS NULL) = (tax_id_format_id IS NULL)',
+          '(pending_encrypted IS NULL) = (pending_last4 IS NULL) AND (pending_last4 IS NULL) = (pending_format_id IS NULL) AND (pending_format_id IS NULL) = (pending_status IS NULL) AND (pending_status IS NULL) = (pending_revision IS NULL)',
+          "pending_status IS NULL OR pending_status IN ('pending', 'rejected')",
+          "pending_status IS DISTINCT FROM 'rejected' OR pending_reason IS NOT NULL",
+          "tax_id_last4 IS NULL OR tax_id_last4 ~ '^[0-9A-Z]{4}$'",
+          "pending_last4 IS NULL OR pending_last4 ~ '^[0-9A-Z]{4}$'",
+        ],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'tax_id_format_id'],
+            references: {
+              schema: 'app',
+              table: 'tax_id_formats',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'pending_format_id'],
+            references: {
+              schema: 'app',
+              table: 'tax_id_formats',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+        ],
+      },
+    };
     const schemas = [
       taxIdFormatsSchema,
       partiesSchema,
@@ -415,6 +473,7 @@ export const migration = defineMigration({
       contactLabelsSchema,
       contactMethodsSchema,
       addressesSchema,
+      tenantTaxIdsSchema,
     ];
     for (const schema of schemas)
       await new TableModel(db, pgp, schema).createTable();

@@ -99,33 +99,15 @@ async function inNapsoftCell(operation) {
   }
 }
 
-/**
- * A new organization in the Napsoft tenant's directory (I0006-R001).
- * @param {'client'|'vendor'} [kind]
- * @returns {Promise<string>} Its party ID.
- */
-function napsoftOrganization(kind = 'client') {
-  return inNapsoftCell(async tx => {
-    const { id } = await tx.one(
-      'INSERT INTO app.parties (tenant_id, kind) VALUES ($1, $2) RETURNING id',
-      [napsoftId, kind]
-    );
-    await tx.none(
-      'INSERT INTO app.organizations (party_id, tenant_id, legal_name) VALUES ($1, $2, $3)',
-      [id, napsoftId, `Customer ${id.slice(0, 8)}`]
-    );
-    return id;
-  });
-}
-
-/** A new tenant request: a fresh Napsoft client and a unique code. */
-async function newTenant() {
+/** A new tenant request with a unique code (I0013-R001). */
+function newTenant() {
   const code =
     'C' + randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
   return {
-    client: await napsoftOrganization(),
+    legalName: `Customer ${code} LLC`,
+    dbaName: `Customer ${code}`,
     code,
-    name: `Customer ${code}`,
+    phone: '(512) 555-0100',
   };
 }
 
@@ -142,12 +124,12 @@ function provision(
     authority(),
     {
       operation: 'tenant-provision',
-      client: tenant.client,
+      legalName: tenant.legalName,
+      dbaName: tenant.dbaName,
       code: tenant.code,
-      name: tenant.name,
       tier: 'starter',
       cell,
-      admin: { email, password, ...name },
+      admin: { email, password, phone: tenant.phone, ...name },
     },
     { idempotencyKey: key, runtime: registry, hashingPolicy: ARGON2_MINIMUM }
   );
@@ -212,6 +194,13 @@ async function cellRoles(cellId, tenantId) {
           `SELECT party_id, value FROM app.contact_methods
             WHERE tenant_id=$1 AND type='email' AND is_primary
               AND deactivated_at IS NULL`,
+          [tenantId]
+        ),
+        phones: await tx.any(
+          `SELECT m.party_id, m.value, l.name AS label FROM app.contact_methods m
+             JOIN app.contact_labels l ON l.id=m.label_id
+            WHERE m.tenant_id=$1 AND m.type='phone' AND m.is_primary
+              AND m.deactivated_at IS NULL`,
           [tenantId]
         ),
         designations: await tx.any(
@@ -318,8 +307,8 @@ afterAll(async () => {
 describe('tenant provisioning (I0006)', () => {
   let tenant, email;
 
-  it('AC03, AC07: creates the tenant from a client and queues the job; the admin cannot select yet; the key replays', async () => {
-    const request = await newTenant();
+  it('AC03, AC07: creates the tenant and its client ID and queues the job; the admin cannot select yet; the key replays', async () => {
+    const request = newTenant();
     email = `admin-${randomUUID().slice(0, 8)}@acme.test`;
     const key = randomUUID();
     const queued = await provision(
@@ -331,7 +320,7 @@ describe('tenant provisioning (I0006)', () => {
     tenant = { ...request, id: queued.tenantId };
     expect(queued).toMatchObject({
       cellId,
-      stage: 'assignment',
+      stage: 'client',
       status: 'queued',
     });
     expect(
@@ -341,7 +330,8 @@ describe('tenant provisioning (I0006)', () => {
           columnWhitelist: [
             'tenant_code',
             'name',
-            'client_id',
+            'legal_name',
+            'dba_name',
             'status',
             'cell_id',
           ],
@@ -349,11 +339,15 @@ describe('tenant provisioning (I0006)', () => {
       )
     ).toEqual({
       tenant_code: request.code,
-      name: request.name,
-      client_id: request.client,
+      name: request.dbaName,
+      legal_name: request.legalName,
+      dba_name: request.dbaName,
       status: 'pending',
       cell_id: null,
     });
+    tenant.clientId = (await db.tenants.findOneBy({ id: tenant.id })).client_id;
+    expect(tenant.clientId).toMatch(/^[0-9a-f-]{36}$/);
+    expect((await job(tenant.id)).admin_phone).toBe('+15125550100');
     const login = await loginOf(email);
     expect(login.must_change_password).toBe(true);
     await expect(select(login.id, tenant.id)).rejects.toBeTruthy();
@@ -364,6 +358,12 @@ describe('tenant provisioning (I0006)', () => {
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
     await expect(
       provision(tenant, cellId, 'other@acme.test', key)
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    await expect(
+      provision({ ...tenant, legalName: 'Other LLC' }, cellId, email, key)
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    await expect(
+      provision({ ...tenant, phone: '(512) 555-0199' }, cellId, email, key)
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
     await expect(
       provision(tenant, cellId, email, key, 'different-password')
@@ -411,6 +411,7 @@ describe('tenant provisioning (I0006)', () => {
       assignments,
       people,
       emails,
+      phones,
       designations,
       labels,
       formats,
@@ -426,8 +427,7 @@ describe('tenant provisioning (I0006)', () => {
     expect(assignments).toEqual([
       { portal_user_id: login.id, code: 'tenant_admin' },
     ]);
-    // M0005 AC07: the administrator is an employee; no one is flagged as a
-    // tenant contact.
+    // I0013-R004: the administrator is the primary and billing contact.
     expect(people).toEqual([
       {
         party_id: membership.member_id,
@@ -438,38 +438,77 @@ describe('tenant provisioning (I0006)', () => {
       },
     ]);
     expect(emails).toEqual([{ party_id: membership.member_id, value: email }]);
-    expect(designations).toEqual([]);
-    expect(labels.n).toBe(13);
+    expect(designations).toEqual([
+      {
+        party_id: membership.member_id,
+        is_primary_contact: true,
+        is_billing_contact: true,
+      },
+    ]);
+    expect(phones).toEqual([
+      {
+        party_id: membership.member_id,
+        value: '+15125550100',
+        label: 'billing',
+      },
+    ]);
+    expect(labels.n).toBe(14);
+    // I0013-R015: the administrator's contact copy is queued for Napsoft.
+    expect(
+      await inNapsoftCell(tx =>
+        tx.one(
+          "SELECT payload FROM cell.outbox WHERE topic='tenant_contact' AND entity_id=$1",
+          [membership.member_id]
+        )
+      )
+    ).toEqual({
+      payload: {
+        tenant_id: tenant.id,
+        party_id: membership.member_id,
+        first_name: 'Jane',
+        last_name: 'Doe',
+        email,
+        phone: '+15125550100',
+        billing_phone: '+15125550100',
+        is_primary_contact: true,
+        is_billing_contact: true,
+      },
+    });
+    // I0013-R003: the client stage created the Napsoft client.
+    expect(
+      await inNapsoftCell(tx =>
+        tx.one(
+          `SELECT p.kind, o.legal_name, o.dba_name FROM app.parties p
+             JOIN app.organizations o ON o.party_id=p.id
+            WHERE p.id=$1 AND p.tenant_id=$2`,
+          [tenant.clientId, napsoftId]
+        )
+      )
+    ).toEqual({
+      kind: 'client',
+      legal_name: tenant.legalName,
+      dba_name: tenant.dbaName,
+    });
     expect(formats.n).toBe(3);
     expect(settings.n).toBe(1);
   });
 
-  it('AC06: rejects an unknown client, a non-client, a client or code already used, and a cell that is not ready', async () => {
+  it('AC06: rejects a code already used, a cell that is not ready, and an invalid phone', async () => {
     const before = await db.portal_users.countAll({ includeDeactivated: true });
     const tenantsBefore = await db.tenants.countAll({
       includeDeactivated: true,
     });
-    const fresh = await newTenant();
-    await expect(
-      provision({ ...fresh, client: randomUUID() }, cellId, 'w@nap.test')
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await expect(
-      provision(
-        { ...fresh, client: await napsoftOrganization('vendor') },
-        cellId,
-        'x@nap.test'
-      )
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    // I0006-R023: each conflict names the value that is taken.
-    await expect(
-      provision({ ...fresh, client: tenant.client }, cellId, 'y@nap.test')
-    ).rejects.toMatchObject({ code: 'CONFLICT', details: { field: 'client' } });
+    const fresh = newTenant();
+    // I0006-R023: a conflict names the value that is taken.
     await expect(
       provision({ ...fresh, code: tenant.code }, cellId, 'y@nap.test')
     ).rejects.toMatchObject({ code: 'CONFLICT', details: { field: 'code' } });
     await expect(
       provision(fresh, randomUUID(), 'z@nap.test')
     ).rejects.toMatchObject({ code: 'CELL_UNAVAILABLE' });
+    await expect(
+      provision({ ...fresh, phone: 'not a phone' }, cellId, 'p@nap.test')
+    ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     expect(await db.tenants.countAll({ includeDeactivated: true })).toBe(
       tenantsBefore
     );
@@ -485,14 +524,14 @@ describe('tenant provisioning (I0006)', () => {
       password_hash: 'not-a-real-hash',
       status: 'disabled',
     });
-    await expect(
-      provision(await newTenant(), cellId, blocked)
-    ).rejects.toMatchObject({ code: 'CONFLICT', details: { field: 'email' } });
+    await expect(provision(newTenant(), cellId, blocked)).rejects.toMatchObject(
+      { code: 'CONFLICT', details: { field: 'email' } }
+    );
   });
 
   it('AC04, AC08: a failed stage keeps the tenant pending; retry completes without duplicates and reuses the login', async () => {
     const second = {
-      id: (await provision(await newTenant(), cellId, email)).tenantId,
+      id: (await provision(newTenant(), cellId, email)).tenantId,
     };
     const real = createTenantStages({ admin: { db }, driver, registry });
     let failSeed = true;
@@ -540,11 +579,58 @@ describe('tenant provisioning (I0006)', () => {
     );
   });
 
+  it('I0013 AC02: a failed client stage keeps the job at that stage; retry creates one client', async () => {
+    const fourth = {
+      id: (
+        await provision(
+          newTenant(),
+          cellId,
+          `fourth-${randomUUID().slice(0, 8)}@acme.test`
+        )
+      ).tenantId,
+    };
+    const real = createTenantStages({ admin: { db }, driver, registry });
+    let failClient = true;
+    const flaky = {
+      ...real,
+      client: async row => {
+        await real.client(row);
+        if (failClient) {
+          failClient = false;
+          throw Object.assign(new Error('down'), { code: 'CELL_UNAVAILABLE' });
+        }
+      },
+    };
+    await worker({ tenantStages: flaky }).tick();
+    expect(await job(fourth.id)).toMatchObject({
+      stage: 'client',
+      status: 'failed',
+      failure_code: 'CELL_UNAVAILABLE',
+    });
+    await executeProvisionCommand(db, authority(), {
+      operation: 'tenant-retry',
+      tenant: fourth.id,
+    });
+    await worker({ tenantStages: flaky }).tick();
+    expect(await job(fourth.id)).toMatchObject({ status: 'completed' });
+    const { client_id: clientId } = await db.tenants.findOneBy({
+      id: fourth.id,
+    });
+    expect(
+      await inNapsoftCell(tx =>
+        tx.one(
+          'SELECT count(*)::int AS n FROM app.organizations WHERE party_id=$1',
+          [clientId]
+        )
+      )
+    ).toEqual({ n: 1 });
+  });
+
   it('AC05: a job left running is requeued on start and completes', async () => {
     const third = {
       id: (
         await provision(
-          await newTenant(),
+          newTenant(),
           cellId,
           `third-${randomUUID().slice(0, 8)}@acme.test`
         )

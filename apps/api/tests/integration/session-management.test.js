@@ -73,6 +73,7 @@ async function tenant() {
   const row = await db.tenants.insert({
     tenant_code: 'T-' + randomUUID().slice(0, 8),
     name: 'Tenant',
+    legal_name: 'Tenant',
     status: 'active',
   });
   return row.id;
@@ -92,6 +93,7 @@ async function napsoftTenant() {
   const row = await db.tenants.insert({
     tenant_code: 'NAP',
     name: 'Napsoft',
+    legal_name: 'Napsoft',
     status: 'active',
     is_napsoft: true,
   });

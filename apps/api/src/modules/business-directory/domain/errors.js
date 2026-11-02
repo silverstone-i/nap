@@ -17,11 +17,13 @@ const SQLSTATE_CODES = Object.freeze({
 
 /**
  * Unique indexes whose violation is a rule of its own: the party already
- * has this email, phone, or address (M0005-R063, R064).
+ * has this email, phone, or address (M0005-R063, R064); the tenant already
+ * has a billing contact (I0013-R010).
  */
 const CONSTRAINT_CODES = Object.freeze({
   uidx_contact_methods_party_id_type_value: 'DUPLICATE_DETAIL',
   uidx_addresses_party_id_match: 'DUPLICATE_DETAIL',
+  uidx_people_tenant_id: 'BILLING_CONTACT',
 });
 
 /**
@@ -42,6 +44,11 @@ const PASS_THROUGH = new Set([
   // M0005-R064: the party already has this email, phone, or address.
   'DUPLICATE_DETAIL',
   'ADMIN_ASSIGNED',
+  // I0013-R013: the contact rules a change would break.
+  'LAST_PRIMARY_CONTACT',
+  'BILLING_CONTACT',
+  'CONTACT_DETAILS_REQUIRED',
+  'BILLING_LABEL',
   // I0010-R009: M0003's role rules, reported as Access Control reports them.
   'GRANT_EXCEEDS_ACTOR',
   'LAST_ADMIN',

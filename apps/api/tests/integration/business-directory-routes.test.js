@@ -17,7 +17,10 @@ import {
 import { setupLocal } from '../../src/infrastructure/provisioning/postgres.js';
 import { migrateAdmin } from '../../src/application/maintenance/migrateAdmin.js';
 import { roleUrl } from '../../src/application/shared/configuration.js';
-import { registerCell } from '../../src/modules/admin-tenancy/domain/cells.js';
+import {
+  executeProvisionCommand,
+  registerCell,
+} from '../../src/modules/admin-tenancy/domain/cells.js';
 import { bootstrapNapsoft } from '../../src/modules/admin-tenancy/domain/bootstrap.js';
 import { ARGON2_MINIMUM } from '../../src/modules/admin-tenancy/domain/password.js';
 import { createSession } from '../../src/modules/admin-tenancy/domain/session.js';
@@ -26,6 +29,7 @@ import { createCellRegistry } from '../../src/infrastructure/runtime/cellRegistr
 import { createLocalCellDriver } from '../../src/infrastructure/provisioning/localCells.js';
 import { createStages } from '../../src/application/provisioning/stages.js';
 import { createProvisioningWorker } from '../../src/application/provisioning/worker.js';
+import { createTenantStages } from '../../src/application/provisioning/tenantStages.js';
 import { accessControlRoutesV1 } from '../../src/modules/access-control/apiRoutes/v1/index.js';
 import { businessDirectoryRoutesV1 } from '../../src/modules/business-directory/apiRoutes/v1/index.js';
 import { setTenant } from '../../src/infrastructure/runtime/tenantTransaction.js';
@@ -126,6 +130,8 @@ const bucket = {
 const created = new Set();
 let handle, db, dir, registry, cell, app, napsoft, rootId, cookie;
 let sync;
+/** A provisioned customer tenant's administrator session and formats. */
+let customer;
 
 /**
  * Send a request as the bootstrap login.
@@ -360,6 +366,64 @@ beforeAll(async () => {
   const listed = await call('get', '/tax-id-formats');
   expect(listed.status).toBe(200);
   formats = Object.fromEntries(listed.body.data.map(f => [f.name, f.id]));
+
+  // I0013: a customer tenant, for the client rules Napsoft's clients skip.
+  const adminEmail = `oak-${unique}@oak.test`;
+  const queued = await executeProvisionCommand(
+    db,
+    { actorId: rootId, granted: true },
+    {
+      operation: 'tenant-provision',
+      legalName: 'Oak Homes LLC',
+      dbaName: 'Oak Homes',
+      code: `OAK_${unique.toUpperCase()}`,
+      tier: 'starter',
+      cell: registered.cell.id,
+      admin: {
+        email: adminEmail,
+        password: 'temporary-password',
+        firstName: 'Ann',
+        lastName: 'Admin',
+        phone: '(512) 555-0100',
+      },
+    },
+    {
+      idempotencyKey: randomUUID(),
+      runtime: registry,
+      hashingPolicy: ARGON2_MINIMUM,
+    }
+  );
+  await createProvisioningWorker({
+    admin: { db },
+    driver,
+    stages: createStages({ driver, registry, environment: 'test' }),
+    tenantStages: createTenantStages({ admin: { db }, driver, registry }),
+    intervalMs: 5,
+  }).tick();
+  // Deliver the activated membership to the cell.
+  for (let i = 0; i < 3; i++) await sync.tick();
+  const oakLogin = await db.portal_users.findOneBy({ email: adminEmail });
+  // The administrator has changed the temporary password.
+  await db.portal_users.update(oakLogin.id, { must_change_password: false });
+  const oakSession = await createSession(db, sessionPolicy, {
+    portalUserId: oakLogin.id,
+  });
+  const oakSelected = await selectTenant(
+    db,
+    sessionPolicy,
+    oakSession.token,
+    { user: oakLogin.id },
+    { membership: await membershipIn(db, oakLogin.id, queued.tenantId) },
+    { runtime: registry }
+  );
+  const oakCookie = `nap_session=${oakSelected.token}`;
+  const oakFormats = await call('get', '/tax-id-formats', undefined, oakCookie);
+  expect(oakFormats.status, JSON.stringify(oakFormats.body)).toBe(200);
+  customer = {
+    tenantId: queued.tenantId,
+    cookie: oakCookie,
+    formats: Object.fromEntries(oakFormats.body.data.map(f => [f.name, f.id])),
+  };
 }, 120000);
 
 afterAll(async () => {
@@ -510,101 +574,6 @@ describe('people (M0005-R002, R016)', () => {
 });
 
 describe('tax IDs (M0005-R006–R013)', () => {
-  it('AC03: rejects a vendor without a tax ID, a client with neither or both tax sources, and a vendor contact with a tax ID', async () => {
-    const bad = [
-      ['organizations', { kind: 'vendor', legalName: 'No EIN LLC' }],
-      ['organizations', { kind: 'client', legalName: 'Lot 1' }],
-      [
-        'organizations',
-        {
-          kind: 'client',
-          legalName: 'Lot 2',
-          taxId: '12-3456789',
-          contacts: [
-            {
-              firstName: 'Ann',
-              lastName: 'Lee',
-              taxId: '111-22-3333',
-              isPrimaryTaxContact: true,
-            },
-          ],
-        },
-      ],
-    ];
-    for (const [collection, body] of bad)
-      expect((await call('post', `/${collection}`, body)).body.error.code).toBe(
-        'INVALID_INPUT'
-      );
-    const vendor = await create('organizations', {
-      kind: 'vendor',
-      legalName: 'ABC Plumbing LLC',
-      taxId: '12-3456789',
-    });
-    expect(vendor.taxIdLast4).toBe('6789');
-    const contact = await call('post', '/organization-contacts', {
-      organizationId: vendor.id,
-      firstName: 'Sam',
-      lastName: 'Ruiz',
-      taxId: '111-22-3333',
-    });
-    expect(contact.body.error.code).toBe('INVALID_INPUT');
-  });
-
-  it('AC04: a home buyer client takes its primary tax ID from one flagged buyer who cannot be archived', async () => {
-    const client = await create('organizations', {
-      kind: 'client',
-      legalName: 'Lot 12, Maple Ridge',
-      contacts: [
-        {
-          firstName: 'Ann',
-          lastName: 'Smith',
-          taxId: '222-33-4444',
-          isPrimaryTaxContact: true,
-        },
-        { firstName: 'Tom', lastName: 'Smith', taxId: '555-66-7777' },
-      ],
-    });
-    const detail = (await call('get', `/organizations/${client.id}`)).body.data;
-    const ann = detail.contacts.find(c => c.firstName === 'Ann');
-    const tom = detail.contacts.find(c => c.firstName === 'Tom');
-    expect(ann).toMatchObject({
-      isPrimaryTaxContact: true,
-      kind: 'client_contact',
-    });
-    expect(
-      (
-        await call('post', `/organization-contacts/${ann.id}/archive`, {
-          revision: ann.revision,
-        })
-      ).body.error.code
-    ).toBe('PRIMARY_TAX_CONTACT');
-    const moved = await call('patch', `/organizations/${client.id}`, {
-      primaryTaxContactId: tom.id,
-      revision: detail.revision,
-    });
-    expect(moved.status).toBe(200);
-    const after = (await call('get', `/organizations/${client.id}`)).body.data;
-    expect(after.contacts.find(c => c.id === tom.id).isPrimaryTaxContact).toBe(
-      true
-    );
-    expect(after.contacts.find(c => c.id === ann.id).isPrimaryTaxContact).toBe(
-      false
-    );
-    const other = await create('organizations', {
-      kind: 'client',
-      legalName: 'Lot 13',
-      taxId: '98-7654321',
-    });
-    expect(
-      (
-        await call('patch', `/organizations/${other.id}`, {
-          primaryTaxContactId: tom.id,
-          revision: other.revision,
-        })
-      ).body.error.code
-    ).toBe('INVALID_INPUT');
-  });
-
   it('names an organization contact as its primary and billing contact, and keeps each collection to its own kinds', async () => {
     const vendor = await create('organizations', {
       kind: 'vendor',
@@ -801,25 +770,6 @@ describe('tax IDs (M0005-R006–R013)', () => {
         [first.id, employee.id].sort()
       );
     }
-  });
-
-  it('AC31: lets one buyer be a contact on two clients', async () => {
-    const buyer = {
-      firstName: 'Two',
-      lastName: 'Homes',
-      taxId: '432-65-1987',
-      isPrimaryTaxContact: true,
-    };
-    await create('organizations', {
-      kind: 'client',
-      legalName: 'Lot 31',
-      contacts: [buyer],
-    });
-    await create('organizations', {
-      kind: 'client',
-      legalName: 'Lot 32',
-      contacts: [buyer],
-    });
   });
 
   it('R047: lets only one of two concurrent saves of the same number win', async () => {
@@ -2305,39 +2255,6 @@ describe('directory lists and bulk actions (M0005-R027–R030)', () => {
       false
     );
   });
-
-  it('AC17: refuses a batch with a flagged primary tax contact', async () => {
-    const client = await create('organizations', {
-      kind: 'client',
-      legalName: `Lot ${tag()}`,
-      contacts: [
-        {
-          firstName: 'Flag',
-          lastName: 'Holder',
-          taxId: '444-55-6666',
-          isPrimaryTaxContact: true,
-        },
-        { firstName: 'Other', lastName: 'Buyer' },
-      ],
-    });
-    const contacts = (await call('get', `/organizations/${client.id}`)).body
-      .data.contacts;
-    const response = await call('post', '/organization-contacts/archive', {
-      items: contacts.map(c => ({ id: c.id, revision: c.revision })),
-    });
-    expect(response.body.error.code).toBe('BULK_FAILED');
-    expect(response.body.error.details).toEqual([
-      {
-        id: contacts.find(c => c.isPrimaryTaxContact).id,
-        code: 'PRIMARY_TAX_CONTACT',
-      },
-    ]);
-    const other = contacts.find(c => !c.isPrimaryTaxContact);
-    expect(
-      (await call('get', `/organization-contacts/${other.id}`)).body.data
-        .archived
-    ).toBe(false);
-  });
 });
 
 describe('archived labels (I0011-R009, R010)', () => {
@@ -3482,5 +3399,481 @@ describe('light and dark logos (M0006-04)', () => {
         .map(e => e.details.action)
         .sort()
     ).toEqual(['removed', 'replaced', 'uploaded']);
+  });
+});
+
+/**
+ * Client rules in a customer tenant: Napsoft's own clients are created only
+ * by provisioning and hold no contacts (I0013-R005, R018).
+ */
+describe('clients in a customer tenant (M0005-R006–R013)', () => {
+  const tag = () => randomUUID().slice(0, 8);
+  const saved = {};
+  beforeAll(() => {
+    Object.assign(saved, { cookie, formats });
+    cookie = customer.cookie;
+    formats = customer.formats;
+  });
+  afterAll(() => {
+    cookie = saved.cookie;
+    formats = saved.formats;
+  });
+
+  it('AC03: rejects a vendor without a tax ID, a client with neither or both tax sources, and a vendor contact with a tax ID', async () => {
+    const bad = [
+      ['organizations', { kind: 'vendor', legalName: 'No EIN LLC' }],
+      ['organizations', { kind: 'client', legalName: 'Lot 1' }],
+      [
+        'organizations',
+        {
+          kind: 'client',
+          legalName: 'Lot 2',
+          taxId: '12-3456789',
+          contacts: [
+            {
+              firstName: 'Ann',
+              lastName: 'Lee',
+              taxId: '111-22-3333',
+              isPrimaryTaxContact: true,
+            },
+          ],
+        },
+      ],
+    ];
+    for (const [collection, body] of bad)
+      expect((await call('post', `/${collection}`, body)).body.error.code).toBe(
+        'INVALID_INPUT'
+      );
+    const vendor = await create('organizations', {
+      kind: 'vendor',
+      legalName: 'ABC Plumbing LLC',
+      taxId: '12-3456789',
+    });
+    expect(vendor.taxIdLast4).toBe('6789');
+    const contact = await call('post', '/organization-contacts', {
+      organizationId: vendor.id,
+      firstName: 'Sam',
+      lastName: 'Ruiz',
+      taxId: '111-22-3333',
+    });
+    expect(contact.body.error.code).toBe('INVALID_INPUT');
+  });
+
+  it('AC04: a home buyer client takes its primary tax ID from one flagged buyer who cannot be archived', async () => {
+    const client = await create('organizations', {
+      kind: 'client',
+      legalName: 'Lot 12, Maple Ridge',
+      contacts: [
+        {
+          firstName: 'Ann',
+          lastName: 'Smith',
+          taxId: '222-33-4444',
+          isPrimaryTaxContact: true,
+        },
+        { firstName: 'Tom', lastName: 'Smith', taxId: '555-66-7777' },
+      ],
+    });
+    const detail = (await call('get', `/organizations/${client.id}`)).body.data;
+    const ann = detail.contacts.find(c => c.firstName === 'Ann');
+    const tom = detail.contacts.find(c => c.firstName === 'Tom');
+    expect(ann).toMatchObject({
+      isPrimaryTaxContact: true,
+      kind: 'client_contact',
+    });
+    expect(
+      (
+        await call('post', `/organization-contacts/${ann.id}/archive`, {
+          revision: ann.revision,
+        })
+      ).body.error.code
+    ).toBe('PRIMARY_TAX_CONTACT');
+    const moved = await call('patch', `/organizations/${client.id}`, {
+      primaryTaxContactId: tom.id,
+      revision: detail.revision,
+    });
+    expect(moved.status).toBe(200);
+    const after = (await call('get', `/organizations/${client.id}`)).body.data;
+    expect(after.contacts.find(c => c.id === tom.id).isPrimaryTaxContact).toBe(
+      true
+    );
+    expect(after.contacts.find(c => c.id === ann.id).isPrimaryTaxContact).toBe(
+      false
+    );
+    const other = await create('organizations', {
+      kind: 'client',
+      legalName: 'Lot 13',
+      taxId: '98-7654321',
+    });
+    expect(
+      (
+        await call('patch', `/organizations/${other.id}`, {
+          primaryTaxContactId: tom.id,
+          revision: other.revision,
+        })
+      ).body.error.code
+    ).toBe('INVALID_INPUT');
+  });
+
+  it('AC31: lets one buyer be a contact on two clients', async () => {
+    const buyer = {
+      firstName: 'Two',
+      lastName: 'Homes',
+      taxId: '432-65-1987',
+      isPrimaryTaxContact: true,
+    };
+    await create('organizations', {
+      kind: 'client',
+      legalName: 'Lot 31',
+      contacts: [buyer],
+    });
+    await create('organizations', {
+      kind: 'client',
+      legalName: 'Lot 32',
+      contacts: [buyer],
+    });
+  });
+
+  it('AC17: refuses a batch with a flagged primary tax contact', async () => {
+    const client = await create('organizations', {
+      kind: 'client',
+      legalName: `Lot ${tag()}`,
+      contacts: [
+        {
+          firstName: 'Flag',
+          lastName: 'Holder',
+          taxId: '444-55-6666',
+          isPrimaryTaxContact: true,
+        },
+        { firstName: 'Other', lastName: 'Buyer' },
+      ],
+    });
+    const contacts = (await call('get', `/organizations/${client.id}`)).body
+      .data.contacts;
+    const response = await call('post', '/organization-contacts/archive', {
+      items: contacts.map(c => ({ id: c.id, revision: c.revision })),
+    });
+    expect(response.body.error.code).toBe('BULK_FAILED');
+    expect(response.body.error.details).toEqual([
+      {
+        id: contacts.find(c => c.isPrimaryTaxContact).id,
+        code: 'PRIMARY_TAX_CONTACT',
+      },
+    ]);
+    const other = contacts.find(c => !c.isPrimaryTaxContact);
+    expect(
+      (await call('get', `/organization-contacts/${other.id}`)).body.data
+        .archived
+    ).toBe(false);
+  });
+});
+
+describe('Napsoft clients (I0013-R005, R018, R025)', () => {
+  it('AC03: refuses creating a client, adding a contact, or setting a tax ID in the Napsoft tenant', async () => {
+    const created = await call('post', '/organizations', {
+      kind: 'client',
+      legalName: 'Direct Client LLC',
+      taxId: '12-3456789',
+    });
+    expect(created.status).toBe(409);
+    expect(created.body.error.code).toBe('INVALID_STATE');
+    const { client_id: clientId } = await db.tenants.findOneBy({
+      id: customer.tenantId,
+    });
+    const client = (await call('get', `/organizations/${clientId}`)).body.data;
+    expect(client).toMatchObject({
+      legalName: 'Oak Homes LLC',
+      dbaName: 'Oak Homes',
+      taxIdLast4: null,
+    });
+    const contact = await call('post', '/organization-contacts', {
+      organizationId: clientId,
+      firstName: 'Ann',
+      lastName: 'Admin',
+    });
+    expect(contact.body.error.code).toBe('INVALID_STATE');
+    const taxed = await call('patch', `/organizations/${clientId}`, {
+      taxId: '12-3456789',
+      revision: client.revision,
+    });
+    expect(taxed.body.error.code).toBe('INVALID_STATE');
+  });
+});
+
+describe('tenant company profile (I0013)', () => {
+  const ADMIN = '/api/admin-tenancy/v1';
+  const oak = (method, path, body) => call(method, path, body, customer.cookie);
+  const admin = path =>
+    request(app)
+      .get(ADMIN + path)
+      .set('Origin', ORIGIN)
+      .set('Cookie', cookie);
+  const drain = async () => {
+    for (let i = 0; i < 3; i++) await sync.tick();
+  };
+  let ann, labels;
+
+  beforeAll(async () => {
+    const profile = (await oak('get', '/company-profile')).body.data;
+    [ann] = profile.primaryContacts;
+    labels = Object.fromEntries(
+      (await oak('get', '/labels')).body.data
+        .filter(l => l.appliesTo === 'phone')
+        .map(l => [l.name, l.id])
+    );
+  });
+
+  it('AC01: the provisioned administrator is the primary and billing contact', async () => {
+    const profile = (await oak('get', '/company-profile')).body.data;
+    expect(profile).toMatchObject({
+      legalName: 'Oak Homes LLC',
+      dbaName: 'Oak Homes',
+      billingContact: { id: ann.id, billingPhone: '+15125550100' },
+    });
+    expect(profile.primaryContacts.map(c => c.id)).toEqual([ann.id]);
+  });
+
+  it('AC04: a contact change reaches Napsoft read-only', async () => {
+    const added = await oak('post', `/parties/${ann.id}/contact-methods`, {
+      type: 'phone',
+      value: '(512) 555-0111',
+      labelId: labels.mobile,
+      isPrimary: true,
+    });
+    expect(added.status).toBe(201);
+    await drain();
+    const contacts = (await admin(`/tenants/${customer.tenantId}/contacts`))
+      .body.data;
+    expect(contacts).toEqual([
+      expect.objectContaining({
+        id: ann.id,
+        phone: '+15125550111',
+        billingPhone: '+15125550100',
+        isPrimaryContact: true,
+        isBillingContact: true,
+      }),
+    ]);
+  });
+
+  it('AC05, AC06: billing moves in one step; the billing and last primary contacts stay', async () => {
+    const annRecord = (await oak('get', `/people/${ann.id}`)).body.data;
+    expect(
+      (
+        await oak('post', `/people/${ann.id}/archive`, {
+          revision: annRecord.revision,
+        })
+      ).body.error.code
+    ).toBe('BILLING_CONTACT');
+    const billy = (
+      await oak('post', '/people', {
+        kind: 'employee',
+        firstName: 'Billy',
+        lastName: 'Bob',
+        primaryEmail: 'billy@oak.test',
+      })
+    ).body.data;
+    // AC06: no billing phone yet.
+    expect(
+      (
+        await oak('post', '/company-profile/billing-contact', {
+          partyId: billy.id,
+        })
+      ).body.error.code
+    ).toBe('CONTACT_DETAILS_REQUIRED');
+    expect(
+      (await oak('get', '/company-profile')).body.data.billingContact.id
+    ).toBe(ann.id);
+    await oak('post', `/parties/${billy.id}/contact-methods`, {
+      type: 'phone',
+      value: '(512) 555-0122',
+      labelId: labels.billing,
+      isPrimary: true,
+    });
+    const moved = await oak('post', '/company-profile/billing-contact', {
+      partyId: billy.id,
+    });
+    expect(moved.status).toBe(200);
+    expect(moved.body.data.billingContact.id).toBe(billy.id);
+    const current = (await oak('get', `/people/${ann.id}`)).body.data;
+    expect(current.isBillingContact).toBe(false);
+    const unflagged = await oak('patch', `/people/${ann.id}`, {
+      isPrimaryContact: false,
+      revision: current.revision,
+    });
+    expect(unflagged.body.error.code).toBe('LAST_PRIMARY_CONTACT');
+    await drain();
+    const contacts = (await admin(`/tenants/${customer.tenantId}/contacts`))
+      .body.data;
+    expect(
+      contacts.map(c => [c.firstName, c.isPrimaryContact, c.isBillingContact])
+    ).toEqual([
+      ['Ann', true, false],
+      ['Billy', false, true],
+    ]);
+  });
+
+  it('R010, R011: restoring a primary contact enforces the contact rules', async () => {
+    const cara = (
+      await oak('post', '/people', {
+        kind: 'employee',
+        firstName: 'Cara',
+        lastName: 'Cole',
+        primaryEmail: 'cara@oak.test',
+      })
+    ).body.data;
+    const phone = await oak('post', `/parties/${cara.id}/contact-methods`, {
+      type: 'phone',
+      value: '(512) 555-0133',
+      labelId: labels.mobile,
+      isPrimary: true,
+    });
+    const flagged = await oak('patch', `/people/${cara.id}`, {
+      isPrimaryContact: true,
+      revision: (await oak('get', `/people/${cara.id}`)).body.data.revision,
+    });
+    expect(flagged.status, JSON.stringify(flagged.body)).toBe(200);
+    const archived = await oak('post', `/people/${cara.id}/archive`, {
+      revision: flagged.body.data.revision,
+    });
+    expect(archived.status).toBe(200);
+    // While archived, the phone a primary contact needs is removed.
+    const removed = await oak(
+      'delete',
+      `/parties/${cara.id}/contact-methods/${phone.body.data.id}`
+    );
+    expect(removed.status, JSON.stringify(removed.body)).toBeLessThan(300);
+    expect(
+      (
+        await oak('post', `/people/${cara.id}/restore`, {
+          revision: archived.body.data.revision,
+        })
+      ).body.error.code
+    ).toBe('CONTACT_DETAILS_REQUIRED');
+  });
+
+  it('AC08, AC09: Napsoft approves or rejects the tenant tax ID', async () => {
+    const submit = taxId =>
+      oak('post', '/company-profile/tax-id', {
+        taxId,
+        taxIdFormatId: customer.formats.EIN,
+      });
+    const pending = await submit('12-3450001');
+    expect(pending.body.data.taxId).toMatchObject({
+      status: 'pending',
+      pendingLast4: '0001',
+      last4: null,
+    });
+    await drain();
+    expect(
+      (await admin(`/tenants/${customer.tenantId}/tax-id-request`)).body.data
+    ).toMatchObject({ last4: '0001', status: 'pending', country: 'US' });
+    const { client_id: clientId } = await db.tenants.findOneBy({
+      id: customer.tenantId,
+    });
+    const approved = await call(
+      'post',
+      `/organizations/${clientId}/tax-id-request/approve`,
+      { taxIdFormatId: formats.EIN }
+    );
+    expect(approved.status, JSON.stringify(approved.body)).toBe(200);
+    // The client takes the tax ID only once admin accepts the approval.
+    expect(
+      (await call('get', `/organizations/${clientId}`)).body.data.taxIdLast4
+    ).toBeNull();
+    // A second decision before the first reaches admin is refused.
+    expect(
+      (
+        await call('post', `/organizations/${clientId}/tax-id-request/reject`, {
+          reason: 'Too late',
+        })
+      ).body.error.code
+    ).toBe('INVALID_STATE');
+    await drain();
+    expect(
+      (await oak('get', '/company-profile')).body.data.taxId
+    ).toMatchObject({ last4: '0001', status: 'approved', pendingLast4: null });
+    expect(
+      (await call('get', `/organizations/${clientId}`)).body.data.taxIdLast4
+    ).toBe('0001');
+
+    await submit('12-3450002');
+    await drain();
+    const rejected = await call(
+      'post',
+      `/organizations/${clientId}/tax-id-request/reject`,
+      { reason: 'Name does not match the W-9' }
+    );
+    expect(rejected.status).toBe(200);
+    await drain();
+    expect(
+      (await oak('get', '/company-profile')).body.data.taxId
+    ).toMatchObject({
+      last4: '0001',
+      status: 'rejected',
+      pendingLast4: '0002',
+      reason: 'Name does not match the W-9',
+    });
+    // Nothing is pending now.
+    expect(
+      (
+        await call(
+          'post',
+          `/organizations/${clientId}/tax-id-request/approve`,
+          { taxIdFormatId: formats.EIN }
+        )
+      ).body.error.code
+    ).toBe('INVALID_STATE');
+  });
+
+  it('AC10, AC11: a Napsoft rename reaches the tenant; the client of an active tenant cannot be archived', async () => {
+    const { client_id: clientId } = await db.tenants.findOneBy({
+      id: customer.tenantId,
+    });
+    const client = (await call('get', `/organizations/${clientId}`)).body.data;
+    const renamed = await call('patch', `/organizations/${clientId}`, {
+      dbaName: 'Oak Builders',
+      revision: client.revision,
+    });
+    expect(renamed.status).toBe(200);
+    await drain();
+    expect(await db.tenants.findOneBy({ id: customer.tenantId })).toMatchObject(
+      { name: 'Oak Builders', dba_name: 'Oak Builders' }
+    );
+    expect((await oak('get', '/company-profile')).body.data.dbaName).toBe(
+      'Oak Builders'
+    );
+    expect(
+      (
+        await call('post', `/organizations/${clientId}/archive`, {
+          revision: renamed.body.data.revision,
+        })
+      ).body.error.code
+    ).toBe('INVALID_STATE');
+  });
+
+  it('R004: the billing phone label cannot be renamed or archived', async () => {
+    const billing = (await oak('get', '/labels')).body.data.find(
+      l => l.appliesTo === 'phone' && l.name === 'billing'
+    );
+    expect(
+      (
+        await oak('patch', `/labels/${billing.id}`, {
+          name: 'invoices',
+          revision: billing.revision,
+        })
+      ).body.error.code
+    ).toBe('BILLING_LABEL');
+    expect(
+      (
+        await oak('post', `/labels/${billing.id}/archive`, {
+          revision: billing.revision,
+        })
+      ).body.error.code
+    ).toBe('BILLING_LABEL');
+  });
+
+  it('refuses the company profile in the Napsoft tenant', async () => {
+    expect((await call('get', '/company-profile')).body.error.code).toBe(
+      'INVALID_STATE'
+    );
   });
 });

@@ -37,6 +37,7 @@ async function seedMembership() {
   const tenant = await db.tenants.insert({
     tenant_code: 'T' + suffix,
     name: 'Acme Construction',
+    legal_name: 'Acme Construction',
     status: 'active',
   });
   const user = await db.portal_users.insert({

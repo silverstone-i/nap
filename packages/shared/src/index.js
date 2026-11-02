@@ -502,6 +502,9 @@ export const personViewSchema = z.strictObject({
   lastName: z.string(),
   isPortalUser: z.boolean(),
   portalAccess: portalAccessSchema,
+  // I0013-R009: a customer tenant's primary and billing contacts.
+  isPrimaryContact: z.boolean(),
+  isBillingContact: z.boolean(),
 });
 
 /** Zod schema for a vendor or client (M0005-R003). */

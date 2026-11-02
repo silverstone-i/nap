@@ -24,6 +24,12 @@ const TOPIC_ORDER = Object.freeze({
   role_change: 5,
   directory_change: 6,
   settings_change: 7,
+  tenant_contact: 8,
+  client_name: 9,
+  tax_id_request: 10,
+  tax_id_decision: 11,
+  tax_id_applied: 12,
+  client_tax_id: 13,
 });
 
 /**
