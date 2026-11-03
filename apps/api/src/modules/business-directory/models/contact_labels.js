@@ -33,7 +33,10 @@ export const contactLabelsSchema = {
       ['tenant_id', 'id'],
       ['tenant_id', 'applies_to', 'name'],
     ],
-    checks: ["applies_to IN ('email', 'phone', 'address')", 'revision > 0'],
+    checks: [
+      "applies_to IN ('email', 'phone', 'address', 'role')",
+      'revision > 0',
+    ],
   },
 };
 

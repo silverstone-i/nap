@@ -102,8 +102,9 @@ export function createTenantStages({
 
   /**
    * Client (I0013-R003): create the tenant's Napsoft client, with no tax
-   * ID, in the Napsoft cell under the ID provisioning generated, then read it
-   * back. Reruns find the rows and add nothing.
+   * ID, in the Napsoft cell under the ID provisioning generated, with its
+   * head office as its default location and bill-to (I0014-R024), then read
+   * it back. Reruns find the rows and add nothing.
    */
   async function client(job) {
     return stage('SEED_FAILED', async () => {
@@ -147,6 +148,33 @@ export function createTenantStages({
               !(await handle.db.organizations.byKey(expected.party_id, { tx }))
             )
               await handle.db.organizations.insert(expected, { tx });
+            const addresses = await handle.db.addresses.rows(
+              { party_id: expected.party_id },
+              { tx, includeArchived: true }
+            );
+            if (addresses.length === 0) {
+              const address = await handle.db.addresses.insert(
+                {
+                  ...job.client_address,
+                  tenant_id: napsoft.id,
+                  party_id: expected.party_id,
+                  is_primary: true,
+                },
+                { tx }
+              );
+              for (const purpose of ['location', 'bill_to'])
+                await handle.db.address_purposes.insert(
+                  {
+                    tenant_id: napsoft.id,
+                    address_id: address.id,
+                    party_id: expected.party_id,
+                    purpose,
+                    is_default: true,
+                    delivery_method: purpose === 'bill_to' ? 'email' : null,
+                  },
+                  { tx }
+                );
+            }
           });
           const [party, organization] = await handle.db.tx(tx =>
             Promise.all([

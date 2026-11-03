@@ -14,6 +14,8 @@ import DialogTitle from '@mui/material/DialogTitle';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import { CountrySelect } from '../../components/CountrySelect.jsx';
 import { PasswordField } from '../../components/PasswordField.jsx';
 import { ApiError } from '../../api/client.js';
 import { listCellsOverview, provisionTenant } from '../../api/endpoints.js';
@@ -38,7 +40,7 @@ function describeError(err) {
   if (err.code === 'INVALID_INPUT')
     return err.details?.field === 'phone'
       ? 'Enter a valid phone number for the administrator.'
-      : 'Check the names, code, cell, administrator, and temporary password.';
+      : 'Check the names, code, cell, head office, administrator, and temporary password.';
   if (err.code === 'CELL_UNAVAILABLE')
     return 'That cell, or the Napsoft cell, is not ready. Try again or pick another cell.';
   // I0006-R023: the server names the value that is taken.
@@ -60,8 +62,9 @@ const TIERS = ['starter', 'growth', 'enterprise'];
 /**
  * "Provision tenant" (I0013-R001, R005): name the business, pick a ready
  * cell, and name its first administrator with a temporary password.
- * Provisioning creates the Napsoft client too. The administrator becomes
- * the tenant's primary and billing contact.
+ * Provisioning creates the Napsoft client too, with its head office as its
+ * location and bill-to address (I0014-R024). The administrator holds every
+ * contact role.
  * @param {{onClose: () => void, onProvisioned: () => void}} props
  * @returns {JSX.Element}
  */
@@ -82,6 +85,12 @@ export function ProvisionTenantDialog({ onClose, onProvisioned }) {
   // The phone is read in Napsoft's default country; the API assumes the US.
   const { defaultCountry } = useEffectiveSettings().settings;
   const [password, setPassword] = useState('');
+  const [line1, setLine1] = useState('');
+  const [line2, setLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [region, setRegion] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [country, setCountry] = useState(defaultCountry);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -121,6 +130,14 @@ export function ProvisionTenantDialog({ onClose, onProvisioned }) {
         email,
         phone: normalizePhone(phone, defaultCountry) ?? phone,
         password,
+        address: {
+          line1: line1.trim(),
+          line2: line2.trim() || null,
+          city: city.trim(),
+          region: region.trim() || null,
+          postalCode: postalCode.trim() || null,
+          country,
+        },
       });
       onProvisioned();
     } catch (err) {
@@ -213,6 +230,47 @@ export function ProvisionTenantDialog({ onClose, onProvisioned }) {
               </MenuItem>
             ))}
           </TextField>
+          <Typography variant="subtitle2">Head office</Typography>
+          <TextField
+            label="Address line 1"
+            value={line1}
+            onChange={event => setLine1(event.target.value)}
+            required
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 255 } }}
+          />
+          <TextField
+            label="Address line 2"
+            value={line2}
+            onChange={event => setLine2(event.target.value)}
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 255 } }}
+          />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="City"
+              value={city}
+              onChange={event => setCity(event.target.value)}
+              required
+              fullWidth
+            />
+            <TextField
+              label="State or province"
+              value={region}
+              onChange={event => setRegion(event.target.value)}
+              fullWidth
+            />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label="Postal code"
+              value={postalCode}
+              onChange={event => setPostalCode(event.target.value)}
+              fullWidth
+            />
+            <CountrySelect value={country} onChange={setCountry} required />
+          </Stack>
+          <Typography variant="subtitle2">Administrator</Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField
               label="First name"
@@ -264,7 +322,7 @@ export function ProvisionTenantDialog({ onClose, onProvisioned }) {
         <Button
           type="submit"
           variant="contained"
-          disabled={submitting || !cell}
+          disabled={submitting || !cell || !country}
         >
           Provision
         </Button>

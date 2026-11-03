@@ -186,5 +186,7 @@ export async function requireCapability(context, capability) {
 }
 
 export const DIRECTORY_READ = 'business-directory::directory::read';
+export const COMPANY_PROFILE_WRITE =
+  'business-directory::company-profile::write';
 export const TAX_IDS_READ = 'business-directory::tax-ids::read';
 export const TAX_IDS_WRITE = 'business-directory::tax-ids::write';

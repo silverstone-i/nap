@@ -6,7 +6,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { formatPhone } from '@nap/shared';
 import Alert from '@mui/material/Alert';
-import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
@@ -20,12 +19,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import {
-  getCompanyProfile,
-  listDirectoryPage,
-  setBillingContact,
-  submitCompanyTaxId,
-} from '../../api/endpoints.js';
+import { getCompanyProfile, submitCompanyTaxId } from '../../api/endpoints.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
@@ -56,18 +50,23 @@ function taxIdLines(taxId) {
 }
 
 /**
- * One contact's details for a list row.
+ * One contact's email and phone for a list row.
  * @param {object} contact
  * @param {string} country
- * @param {boolean} billing Show the billing phone instead of the phone.
  * @returns {string}
  */
-function contactLine(contact, country, billing) {
-  const phone = billing ? contact.billingPhone : contact.phone;
-  return [contact.email, phone && formatPhone(phone, country)]
+function contactLine(contact, country) {
+  return [contact.email, contact.phone && formatPhone(contact.phone, country)]
     .filter(Boolean)
     .join(' · ');
 }
+
+/** I0014-R031: the role groups, in order. */
+const ROLE_GROUPS = [
+  ['primaryContacts', 'Primary contacts'],
+  ['billingContacts', 'Billing contacts'],
+  ['notificationContacts', 'Notification contacts'],
+];
 
 /**
  * Submit a tax ID for Napsoft's approval (I0013-R019).
@@ -157,117 +156,10 @@ function TaxIdSubmitDialog({ onClose, onSaved }) {
 }
 
 /**
- * Choose another employee as the billing contact (I0013-R012). The picker
- * searches every employee on the server as the user types.
- * @param {{current: string|null, onClose: () => void, onSaved: (profile: object) => void}} props
- * @returns {JSX.Element}
- */
-function BillingContactDialog({ current, onClose, onSaved }) {
-  const [search, setSearch] = useState('');
-  const [found, setFound] = useState(null);
-  const [chosen, setChosen] = useState(null);
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    const timer = setTimeout(() => {
-      listDirectoryPage('people', {
-        kind: 'employee',
-        q: search.trim(),
-        limit: 25,
-      })
-        .then(
-          page =>
-            live &&
-            setFound({
-              search,
-              rows: page.rows.filter(row => row.id !== current),
-            })
-        )
-        .catch(err => live && setError(describeDirectoryError(err)));
-    }, 250);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [search, current]);
-  const options = found?.search === search ? found.rows : [];
-  // The chosen employee stays an option while another search is shown.
-  const withChosen =
-    chosen && !options.some(row => row.id === chosen.id)
-      ? [chosen, ...options]
-      : options;
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    setError(null);
-    setSaving(true);
-    try {
-      onSaved(await setBillingContact(chosen.id));
-    } catch (err) {
-      setError(describeDirectoryError(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      component="form"
-      onSubmit={handleSubmit}
-      aria-labelledby="billing-contact-title"
-      fullWidth
-      maxWidth="xs"
-    >
-      <DialogTitle id="billing-contact-title">
-        Change billing contact
-      </DialogTitle>
-      <DialogContent>
-        {error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        ) : null}
-        <Autocomplete
-          options={withChosen}
-          loading={found?.search !== search}
-          value={chosen}
-          onChange={(_event, value) => setChosen(value)}
-          inputValue={search}
-          onInputChange={(_event, value) => setSearch(value)}
-          filterOptions={rows => rows}
-          getOptionLabel={row => `${row.firstName} ${row.lastName}`}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-          renderInput={params => (
-            <TextField
-              {...params}
-              label="Billing contact"
-              required
-              sx={{ mt: 1 }}
-            />
-          )}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button variant="text" onClick={onClose} disabled={saving}>
-          Cancel
-        </Button>
-        <Button type="submit" variant="contained" disabled={saving || !chosen}>
-          Save
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-/**
  * `/settings/company` (I0013-R026): a customer tenant's legal and DBA name,
  * which Napsoft keeps; its tax ID and any request waiting for Napsoft; and
- * its primary and billing contacts. Primary contacts are set on each
- * employee's detail.
+ * the employees holding each contact role (I0014-R031). Roles are set on
+ * each employee's detail.
  * @returns {JSX.Element}
  */
 export function CompanySettingsPage() {
@@ -335,54 +227,26 @@ export function CompanySettingsPage() {
         ))}
       </Stack>
 
-      <Stack spacing={1}>
-        <Typography variant="subtitle1">Primary contacts</Typography>
-        <List dense aria-label="Primary contacts">
-          {profile.primaryContacts.map(contact => (
-            <ListItem key={contact.id} disableGutters>
-              <ListItemText
-                primary={`${contact.firstName} ${contact.lastName}`}
-                secondary={contactLine(contact, defaultCountry, false)}
-              />
-            </ListItem>
-          ))}
-        </List>
-      </Stack>
-
-      <Stack spacing={1}>
-        <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
-          <Typography variant="subtitle1">Billing contact</Typography>
-          {canWrite ? (
-            <Button size="small" onClick={() => setDialog('billing')}>
-              Change billing contact
-            </Button>
-          ) : null}
+      {ROLE_GROUPS.map(([group, title]) => (
+        <Stack key={group} spacing={1}>
+          <Typography variant="subtitle1">{title}</Typography>
+          <List dense aria-label={title}>
+            {profile[group].map(contact => (
+              <ListItem key={contact.id} disableGutters>
+                <ListItemText
+                  primary={`${contact.firstName} ${contact.lastName}`}
+                  secondary={contactLine(contact, defaultCountry)}
+                />
+              </ListItem>
+            ))}
+          </List>
         </Stack>
-        {profile.billingContact ? (
-          <ListItemText
-            primary={`${profile.billingContact.firstName} ${profile.billingContact.lastName}`}
-            secondary={contactLine(
-              profile.billingContact,
-              defaultCountry,
-              true
-            )}
-          />
-        ) : (
-          <Typography variant="body2">None.</Typography>
-        )}
-      </Stack>
+      ))}
 
       {dialog === 'taxId' ? (
         <TaxIdSubmitDialog
           onClose={() => setDialog(null)}
           onSaved={saved('Tax ID submitted for approval.')}
-        />
-      ) : null}
-      {dialog === 'billing' ? (
-        <BillingContactDialog
-          current={profile.billingContact?.id ?? null}
-          onClose={() => setDialog(null)}
-          onSaved={saved('Billing contact changed.')}
         />
       ) : null}
     </Stack>

@@ -14,13 +14,11 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -28,6 +26,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import {
   archiveDirectoryRecord,
   getDirectoryRecord,
+  getRecipients,
   removeAddress,
   removeContactMethod,
   restoreDirectoryRecord,
@@ -42,9 +41,15 @@ import { ClientTenantPanel } from './ClientTenantPanel.jsx';
 import { isNapsoftSelected } from './napsoftSession.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
-import { setBillingContact } from '../../api/endpoints.js';
 import { ARCHIVE_TEXT, DirectoryGrid } from './DirectoryGrid.jsx';
 import { ContactMethodDialog } from './ContactMethodDialog.jsx';
+import { ContactRolesDialog } from './ContactRolesDialog.jsx';
+import { AccountOwnerDialog } from './AccountOwnerDialog.jsx';
+import {
+  DELIVERY_LABELS,
+  describeRoles,
+  PURPOSE_LABELS,
+} from './contactRoleText.js';
 import { EditNameDialog } from './EditNameDialog.jsx';
 import { PortalAccessDialog } from './PortalAccessDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
@@ -124,6 +129,52 @@ function TaxIdLine({ collection, record, formats, canReveal, onEdit }) {
 }
 
 /**
+ * Who a bill-to address's invoices go to (I0014-R021, R029).
+ * @param {{organizationId: string, addressId: string, refreshKey: number}} props
+ * @returns {JSX.Element|null}
+ */
+function BillToRecipients({ organizationId, addressId, refreshKey }) {
+  const [resolved, setResolved] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getRecipients(organizationId, { purpose: 'bill_to', addressId })
+      .then(result => live && setResolved(result))
+      .catch(() => live && setResolved(null));
+    return () => {
+      live = false;
+    };
+  }, [organizationId, addressId, refreshKey]);
+  if (!resolved) return null;
+  const names = list => list.map(r => r.name).join(', ');
+  return (
+    <Typography variant="caption" color="text.secondary" component="div">
+      {`Invoices to: ${names(resolved.to) || 'No one'}`}
+      {resolved.copy.length ? ` · Copy: ${names(resolved.copy)}` : ''}
+    </Typography>
+  );
+}
+
+/**
+ * An address's purposes for its list row (I0014-R029).
+ * @param {object} address
+ * @returns {string|null}
+ */
+function purposeText(address) {
+  if (!address.purposes?.length) return null;
+  return address.purposes
+    .map(({ purpose, isDefault, deliveryMethod }) =>
+      [
+        PURPOSE_LABELS[purpose],
+        isDefault ? 'default' : null,
+        deliveryMethod ? DELIVERY_LABELS[deliveryMethod].toLowerCase() : null,
+      ]
+        .filter(Boolean)
+        .join(', ')
+    )
+    .join('; ');
+}
+
+/**
  * A record's detail: its fields, tax ID, emails, phones, and addresses; an
  * organization's contacts; and archive and restore (M0005-R026). It is the
  * record's only edit surface: each part changes through its own pencil
@@ -145,9 +196,11 @@ export function RecordDetailDialog({
   const formats = useTaxIdFormats();
   const { defaultCountry } = useEffectiveSettings().settings;
   const [error, setError] = useState(null);
-  // The pencil dialog open: 'name', 'taxId', or 'portal'.
+  // The pencil dialog open: 'name', 'taxId', 'portal', 'roles', or 'owner'.
   const [section, setSection] = useState(null);
   const [methodForm, setMethodForm] = useState(null);
+  // I0014-R029: the organization email whose billing roles are open.
+  const [emailRoles, setEmailRolesFor] = useState(null);
   const [addressForm, setAddressForm] = useState(null);
   const [contactForm, setContactForm] = useState(false);
   const [openContact, setOpenContact] = useState(null);
@@ -273,10 +326,20 @@ export function RecordDetailDialog({
   // I0013-R005, R018, R025: a Napsoft client's contacts and tax ID are its
   // tenant's, shown read-only by its tenant panel.
   const napsoftClient = napsoft && record.kind === 'client';
-  // I0013-R028: a customer tenant's employees are its company contacts.
+  // I0014-R003, R005: who may hold contact roles, and who may set them.
   const companyContact = record.kind === 'employee' && !napsoft;
-  const canEditCompany =
-    canEditDetails && can('business-directory::company-profile::write');
+  const holdsRoles = organizationContact || companyContact;
+  const canEditRoles = companyContact
+    ? canEditDetails && can('business-directory::company-profile::write')
+    : canEditDetails;
+  const organization = record.kind === 'vendor' || record.kind === 'client';
+  // I0014-R023: the account owner's name on this kind of organization.
+  const ownerLabel =
+    record.kind === 'vendor'
+      ? 'Account owner'
+      : napsoftClient
+        ? 'Account manager'
+        : 'Sales rep';
   // R006–R008: a vendor contact has no tax ID, and a client whose tax ID
   // comes from a buyer has none of its own to change here.
   const canEditTaxId =
@@ -344,7 +407,7 @@ export function RecordDetailDialog({
                 useFlexGap
                 sx={{ alignItems: 'center', flexWrap: 'wrap' }}
               >
-                <Typography variant="body2">Roles:</Typography>
+                <Typography variant="body2">Portal roles:</Typography>
                 {record.roles.map(role =>
                   role.held ? (
                     // M0005-R059: the held-role note is the chip's tooltip.
@@ -378,71 +441,50 @@ export function RecordDetailDialog({
                 Make primary tax contact
               </Button>
             ) : null}
-            {organizationContact ? (
-              <Stack direction="row" spacing={2}>
-                {[
-                  ['isPrimaryContact', 'Primary contact'],
-                  ['isBillingContact', 'Billing contact'],
-                ].map(([field, label]) => (
-                  <FormControlLabel
-                    key={field}
-                    label={label}
-                    control={
-                      <Switch
-                        checked={record[field] === true}
-                        disabled={!canEditDetails}
-                        onChange={event =>
-                          run(() =>
-                            updateDirectoryRecord(collection, record.id, {
-                              [field]: event.target.checked,
-                              revision: record.revision,
-                            })
-                          )
-                        }
-                      />
-                    }
-                  />
-                ))}
-              </Stack>
-            ) : null}
-            {companyContact ? (
+            {holdsRoles ? (
               <Stack
                 direction="row"
-                spacing={2}
+                spacing={1}
+                useFlexGap
                 sx={{ alignItems: 'center', flexWrap: 'wrap' }}
               >
-                <FormControlLabel
-                  label="Primary contact"
-                  control={
-                    <Switch
-                      checked={record.isPrimaryContact === true}
-                      disabled={!canEditCompany}
-                      onChange={event =>
-                        run(() =>
-                          updateDirectoryRecord(collection, record.id, {
-                            isPrimaryContact: event.target.checked,
-                            revision: record.revision,
-                          })
-                        )
-                      }
-                    />
-                  }
-                />
-                {record.isBillingContact ? (
-                  <Typography variant="body2">Billing contact</Typography>
-                ) : canEditCompany ? (
-                  <Button
+                <Typography variant="body2">
+                  {`Roles: ${
+                    describeRoles(record.contactRoles).join(' · ') || 'None'
+                  }`}
+                </Typography>
+                {record.tags.map(tag => (
+                  <Chip
+                    key={tag.id}
                     size="small"
-                    onClick={() =>
-                      run(
-                        () => setBillingContact(record.id),
-                        {},
-                        `${recordName(record)} is now the billing contact.`
-                      )
-                    }
-                  >
-                    Make billing contact
-                  </Button>
+                    variant="outlined"
+                    label={tag.name}
+                  />
+                ))}
+                {canEditRoles ? (
+                  <SectionPencil
+                    label="Edit roles"
+                    onClick={() => setSection('roles')}
+                  />
+                ) : null}
+              </Stack>
+            ) : null}
+            {organization ? (
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <Typography variant="body2">
+                  {`${ownerLabel}: ${
+                    record.accountOwner
+                      ? `${record.accountOwner.name}${
+                          record.accountOwner.archived ? ' (archived)' : ''
+                        }`
+                      : 'None'
+                  }`}
+                </Typography>
+                {canEditDetails ? (
+                  <SectionPencil
+                    label={`Edit ${ownerLabel.toLowerCase()}`}
+                    onClick={() => setSection('owner')}
+                  />
                 ) : null}
               </Stack>
             ) : null}
@@ -485,6 +527,14 @@ export function RecordDetailDialog({
                     secondaryAction={
                       canEditDetails ? (
                         <>
+                          {organization && method.type === 'email' ? (
+                            <Button
+                              size="small"
+                              onClick={() => setEmailRolesFor(method)}
+                            >
+                              Billing
+                            </Button>
+                          ) : null}
                           <IconButton
                             aria-label={`Edit ${method.value}`}
                             onClick={() =>
@@ -525,6 +575,7 @@ export function RecordDetailDialog({
                         method.type === 'email' ? 'Email' : 'Phone',
                         method.labelName,
                         method.isPrimary ? 'primary' : null,
+                        ...describeRoles(method.contactRoles ?? [], addresses),
                       ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -585,15 +636,34 @@ export function RecordDetailDialog({
                       primary={[address.line1, address.line2]
                         .filter(Boolean)
                         .join(', ')}
-                      secondary={[
-                        `${[address.city, address.region, address.postalCode]
-                          .filter(Boolean)
-                          .join(' ')} ${address.country}`,
-                        address.labelName,
-                        address.isPrimary ? 'primary' : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
+                      slotProps={{ secondary: { component: 'div' } }}
+                      secondary={
+                        <>
+                          {[
+                            `${[
+                              address.city,
+                              address.region,
+                              address.postalCode,
+                            ]
+                              .filter(Boolean)
+                              .join(' ')} ${address.country}`,
+                            address.labelName,
+                            address.isPrimary ? 'primary' : null,
+                            purposeText(address),
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                          {address.purposes?.some(
+                            p => p.purpose === 'bill_to'
+                          ) ? (
+                            <BillToRecipients
+                              organizationId={record.id}
+                              addressId={address.id}
+                              refreshKey={contactsTick}
+                            />
+                          ) : null}
+                        </>
+                      }
                     />
                   </ListItem>
                 ))}
@@ -765,6 +835,34 @@ export function RecordDetailDialog({
           onStale={reload}
         />
       ) : null}
+      {section === 'roles' ? (
+        <ContactRolesDialog
+          holder={{ kind: 'person', collection, record }}
+          onClose={() => setSection(null)}
+          onSaved={afterSection}
+          onStale={reload}
+        />
+      ) : null}
+      {section === 'owner' ? (
+        <AccountOwnerDialog
+          record={record}
+          label={ownerLabel}
+          onClose={() => setSection(null)}
+          onSaved={afterSection}
+          onStale={reload}
+        />
+      ) : null}
+      {emailRoles ? (
+        <ContactRolesDialog
+          holder={{ kind: 'email', organization: record, method: emailRoles }}
+          onClose={() => setEmailRolesFor(null)}
+          onSaved={() => {
+            setEmailRolesFor(null);
+            changed();
+          }}
+          onStale={reload}
+        />
+      ) : null}
       {contactForm ? (
         <RecordFormDialog
           collection="organization-contacts"
@@ -800,6 +898,7 @@ export function RecordDetailDialog({
       {addressForm ? (
         <AddressDialog
           partyId={record.id}
+          kind={record.kind}
           address={addressForm.address}
           onClose={() => setAddressForm(null)}
           onSaved={() => {

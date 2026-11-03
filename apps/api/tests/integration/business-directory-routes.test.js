@@ -386,6 +386,7 @@ beforeAll(async () => {
         lastName: 'Admin',
         phone: '(512) 555-0100',
       },
+      address: { line1: '1 Oak Way', city: 'Austin', country: 'US' },
     },
     {
       idempotencyKey: randomUUID(),
@@ -574,7 +575,7 @@ describe('people (M0005-R002, R016)', () => {
 });
 
 describe('tax IDs (M0005-R006–R013)', () => {
-  it('names an organization contact as its primary and billing contact, and keeps each collection to its own kinds', async () => {
+  it('gives an organization contact the primary and billing roles, and keeps each collection to its own kinds', async () => {
     const vendor = await create('organizations', {
       kind: 'vendor',
       legalName: 'Flag Supply LLC',
@@ -584,23 +585,26 @@ describe('tax IDs (M0005-R006–R013)', () => {
       organizationId: vendor.id,
       firstName: 'Rita',
       lastName: 'Moss',
-      isPrimaryContact: true,
     });
     expect(contact).toMatchObject({
       kind: 'vendor_contact',
       firstName: 'Rita',
       lastName: 'Moss',
-      isPrimaryContact: true,
-      isBillingContact: false,
+      contactRoles: [],
     });
-    const billed = await call('patch', `/organization-contacts/${contact.id}`, {
-      isBillingContact: true,
-      revision: contact.revision,
-    });
-    expect(billed.body.data).toMatchObject({
-      isPrimaryContact: true,
-      isBillingContact: true,
-    });
+    const billed = await call(
+      'put',
+      `/organization-contacts/${contact.id}/roles`,
+      {
+        roles: [{ role: 'primary' }, { role: 'billing' }],
+        revision: contact.revision,
+      }
+    );
+    expect(billed.status).toBe(200);
+    expect(billed.body.data.contactRoles).toEqual([
+      { role: 'primary', addressId: null, copyAll: false },
+      { role: 'billing', addressId: null, copyAll: false },
+    ]);
     const emailLabel = (
       await call('post', '/labels', {
         appliesTo: 'email',
@@ -1443,20 +1447,18 @@ describe('portal access (I0008)', () => {
     expect(named.body.data).toMatchObject({
       firstName: 'Sam',
       lastName: 'Sections',
-      isPrimaryContact: false,
+      contactRoles: [],
     });
     const flagged = await call(
-      'patch',
-      `/organization-contacts/${contact.id}`,
-      {
-        isBillingContact: true,
-        revision: named.body.data.revision,
-      }
+      'put',
+      `/organization-contacts/${contact.id}/roles`,
+      { roles: [{ role: 'billing' }], revision: named.body.data.revision }
     );
     expect(flagged.status).toBe(200);
-    expect(flagged.body.data).toMatchObject({
+    const after = await call('get', `/organization-contacts/${contact.id}`);
+    expect(after.body.data).toMatchObject({
       lastName: 'Sections',
-      isBillingContact: true,
+      contactRoles: [{ role: 'billing', addressId: null, copyAll: false }],
     });
     const renamed = await call('patch', `/organizations/${vendor.id}`, {
       legalName: 'Section Supply Co',
@@ -3622,14 +3624,18 @@ describe('tenant company profile (I0013)', () => {
     );
   });
 
-  it('AC01: the provisioned administrator is the primary and billing contact', async () => {
+  it('I0014 AC01: the provisioned administrator holds every role', async () => {
     const profile = (await oak('get', '/company-profile')).body.data;
     expect(profile).toMatchObject({
       legalName: 'Oak Homes LLC',
       dbaName: 'Oak Homes',
-      billingContact: { id: ann.id, billingPhone: '+15125550100' },
     });
-    expect(profile.primaryContacts.map(c => c.id)).toEqual([ann.id]);
+    for (const group of [
+      'primaryContacts',
+      'billingContacts',
+      'notificationContacts',
+    ])
+      expect(profile[group].map(c => c.id)).toEqual([ann.id]);
   });
 
   it('AC04: a contact change reaches Napsoft read-only', async () => {
@@ -3647,22 +3653,12 @@ describe('tenant company profile (I0013)', () => {
       expect.objectContaining({
         id: ann.id,
         phone: '+15125550111',
-        billingPhone: '+15125550100',
-        isPrimaryContact: true,
-        isBillingContact: true,
+        roles: ['primary', 'billing', 'notifications'],
       }),
     ]);
   });
 
-  it('AC05, AC06: billing moves in one step; the billing and last primary contacts stay', async () => {
-    const annRecord = (await oak('get', `/people/${ann.id}`)).body.data;
-    expect(
-      (
-        await oak('post', `/people/${ann.id}/archive`, {
-          revision: annRecord.revision,
-        })
-      ).body.error.code
-    ).toBe('BILLING_CONTACT');
+  it('I0014 AC01, AC02: billing has any number of holders; each role keeps one', async () => {
     const billy = (
       await oak('post', '/people', {
         kind: 'employee',
@@ -3671,44 +3667,89 @@ describe('tenant company profile (I0013)', () => {
         primaryEmail: 'billy@oak.test',
       })
     ).body.data;
-    // AC06: no billing phone yet.
+    const setRoles = async (person, roles) =>
+      oak('put', `/people/${person}/roles`, {
+        roles: roles.map(role => ({ role })),
+        revision: (await oak('get', `/people/${person}`)).body.data.revision,
+      });
+    // R008: primary needs a phone; billing needs only an email.
+    expect((await setRoles(billy.id, ['primary'])).body.error.code).toBe(
+      'CONTACT_DETAILS_REQUIRED'
+    );
+    expect((await setRoles(billy.id, ['billing'])).status).toBe(200);
+    expect(
+      (await oak('get', '/company-profile')).body.data.billingContacts.map(
+        c => c.id
+      )
+    ).toEqual([ann.id, billy.id]);
+    expect((await setRoles(ann.id, ['primary', 'notifications'])).status).toBe(
+      200
+    );
+    expect((await setRoles(billy.id, [])).body.error.code).toBe(
+      'LAST_BILLING_CONTACT'
+    );
+    expect((await setRoles(ann.id, ['primary'])).body.error.code).toBe(
+      'LAST_NOTIFICATIONS_CONTACT'
+    );
+    expect((await setRoles(ann.id, ['notifications'])).body.error.code).toBe(
+      'LAST_PRIMARY_CONTACT'
+    );
+    const billyRecord = (await oak('get', `/people/${billy.id}`)).body.data;
     expect(
       (
-        await oak('post', '/company-profile/billing-contact', {
-          partyId: billy.id,
+        await oak('post', `/people/${billy.id}/archive`, {
+          revision: billyRecord.revision,
         })
       ).body.error.code
-    ).toBe('CONTACT_DETAILS_REQUIRED');
+    ).toBe('LAST_BILLING_CONTACT');
     expect(
-      (await oak('get', '/company-profile')).body.data.billingContact.id
-    ).toBe(ann.id);
-    await oak('post', `/parties/${billy.id}/contact-methods`, {
-      type: 'phone',
-      value: '(512) 555-0122',
-      labelId: labels.billing,
-      isPrimary: true,
-    });
-    const moved = await oak('post', '/company-profile/billing-contact', {
-      partyId: billy.id,
-    });
-    expect(moved.status).toBe(200);
-    expect(moved.body.data.billingContact.id).toBe(billy.id);
-    const current = (await oak('get', `/people/${ann.id}`)).body.data;
-    expect(current.isBillingContact).toBe(false);
-    const unflagged = await oak('patch', `/people/${ann.id}`, {
-      isPrimaryContact: false,
-      revision: current.revision,
-    });
-    expect(unflagged.body.error.code).toBe('LAST_PRIMARY_CONTACT');
+      (
+        await oak('post', '/people/archive', {
+          items: [{ id: billy.id, revision: billyRecord.revision }],
+        })
+      ).body.error.details
+    ).toEqual([{ id: billy.id, code: 'LAST_BILLING_CONTACT' }]);
     await drain();
     const contacts = (await admin(`/tenants/${customer.tenantId}/contacts`))
       .body.data;
-    expect(
-      contacts.map(c => [c.firstName, c.isPrimaryContact, c.isBillingContact])
-    ).toEqual([
-      ['Ann', true, false],
-      ['Billy', false, true],
+    expect(contacts.map(c => [c.firstName, c.roles])).toEqual([
+      ['Ann', ['primary', 'notifications']],
+      ['Billy', ['billing']],
     ]);
+  });
+
+  it('I0014 AC03: a standalone contact and a Napsoft employee hold no roles', async () => {
+    const inspector = (
+      await oak('post', '/people', {
+        kind: 'contact',
+        firstName: 'Ivy',
+        lastName: 'Inspector',
+      })
+    ).body.data;
+    expect(
+      (
+        await oak('put', `/people/${inspector.id}/roles`, {
+          roles: [{ role: 'billing' }],
+          revision: inspector.revision,
+        })
+      ).body.error.code
+    ).toBe('INVALID_STATE');
+    const staffer = (
+      await call('post', '/people', {
+        kind: 'employee',
+        firstName: 'Nora',
+        lastName: 'Napsoft',
+        primaryEmail: `nora-${randomUUID().slice(0, 6)}@nap.test`,
+      })
+    ).body.data;
+    expect(
+      (
+        await call('put', `/people/${staffer.id}/roles`, {
+          roles: [{ role: 'primary' }],
+          revision: staffer.revision,
+        })
+      ).body.error.code
+    ).toBe('INVALID_STATE');
   });
 
   it('R010, R011: restoring a primary contact enforces the contact rules', async () => {
@@ -3726,8 +3767,8 @@ describe('tenant company profile (I0013)', () => {
       labelId: labels.mobile,
       isPrimary: true,
     });
-    const flagged = await oak('patch', `/people/${cara.id}`, {
-      isPrimaryContact: true,
+    const flagged = await oak('put', `/people/${cara.id}/roles`, {
+      roles: [{ role: 'primary' }],
       revision: (await oak('get', `/people/${cara.id}`)).body.data.revision,
     });
     expect(flagged.status, JSON.stringify(flagged.body)).toBe(200);
@@ -3850,30 +3891,372 @@ describe('tenant company profile (I0013)', () => {
     ).toBe('INVALID_STATE');
   });
 
-  it('R004: the billing phone label cannot be renamed or archived', async () => {
+  it('I0014-R032: the billing phone label is an ordinary label', async () => {
     const billing = (await oak('get', '/labels')).body.data.find(
       l => l.appliesTo === 'phone' && l.name === 'billing'
     );
-    expect(
-      (
-        await oak('patch', `/labels/${billing.id}`, {
-          name: 'invoices',
-          revision: billing.revision,
-        })
-      ).body.error.code
-    ).toBe('BILLING_LABEL');
-    expect(
-      (
-        await oak('post', `/labels/${billing.id}/archive`, {
-          revision: billing.revision,
-        })
-      ).body.error.code
-    ).toBe('BILLING_LABEL');
+    const renamed = await oak('patch', `/labels/${billing.id}`, {
+      name: 'invoices',
+      revision: billing.revision,
+    });
+    expect(renamed.status).toBe(200);
   });
 
   it('refuses the company profile in the Napsoft tenant', async () => {
     expect((await call('get', '/company-profile')).body.error.code).toBe(
       'INVALID_STATE'
     );
+  });
+});
+
+describe('contact roles and address purposes (I0014)', () => {
+  const oak = (method, path, body) => call(method, path, body, customer.cookie);
+  const ok = response => {
+    expect(response.status, JSON.stringify(response.body)).toBeLessThan(300);
+    return response.body.data;
+  };
+  let acme, dallas, austin, pat, sam, ap;
+
+  const recipients = query =>
+    oak('get', `/organizations/${acme.id}/recipients?${query}`);
+  const names = list => list.map(r => r.name);
+  const revisionOf = async path => (await oak('get', path)).body.data.revision;
+
+  beforeAll(async () => {
+    acme = ok(
+      await oak('post', '/organizations', {
+        kind: 'client',
+        legalName: 'Acme Corp',
+        taxId: '12-3459999',
+        taxIdFormatId: customer.formats.EIN,
+      })
+    );
+    const place = city => ({
+      line1: `1 ${city} St`,
+      city,
+      region: 'TX',
+      country: 'US',
+      purposes: [{ purpose: 'bill_to' }],
+    });
+    dallas = ok(
+      await oak('post', `/parties/${acme.id}/addresses`, place('Dallas'))
+    );
+    austin = ok(
+      await oak('post', `/parties/${acme.id}/addresses`, place('Austin'))
+    );
+    const person = async (firstName, email) => {
+      const row = ok(
+        await oak('post', '/organization-contacts', {
+          organizationId: acme.id,
+          firstName,
+          lastName: 'Acme',
+        })
+      );
+      ok(
+        await oak('post', `/parties/${row.id}/contact-methods`, {
+          type: 'email',
+          value: email,
+          isPrimary: true,
+        })
+      );
+      return row;
+    };
+    pat = await person('Pat', 'pat@acme.test');
+    sam = await person('Sam', 'sam@acme.test');
+    ap = ok(
+      await oak('post', `/parties/${acme.id}/contact-methods`, {
+        type: 'email',
+        value: 'ap@acme.test',
+      })
+    );
+    ok(
+      await oak('put', `/organization-contacts/${sam.id}/roles`, {
+        roles: [{ role: 'primary' }],
+        revision: await revisionOf(`/organization-contacts/${sam.id}`),
+      })
+    );
+    ok(
+      await oak('put', `/organization-contacts/${pat.id}/roles`, {
+        roles: [{ role: 'billing', addressId: dallas.id }],
+        revision: await revisionOf(`/organization-contacts/${pat.id}`),
+      })
+    );
+    ok(
+      await oak('put', `/parties/${acme.id}/contact-methods/${ap.id}/roles`, {
+        roles: [{ role: 'billing', copyAll: true }],
+        revision: ap.revision,
+      })
+    );
+  });
+
+  it('R016: the first bill-to address is the default', () => {
+    expect(dallas.purposes).toEqual([
+      { purpose: 'bill_to', isDefault: true, deliveryMethod: 'email' },
+    ]);
+    expect(austin.purposes).toEqual([
+      { purpose: 'bill_to', isDefault: false, deliveryMethod: 'email' },
+    ]);
+  });
+
+  it('AC04: resolves Dallas to Pat and Austin to Sam, each copying ap@acme.test', async () => {
+    const toDallas = ok(
+      await recipients(`purpose=bill_to&addressId=${dallas.id}`)
+    );
+    expect(toDallas).toMatchObject({
+      address: { id: dallas.id, city: 'Dallas' },
+      deliveryMethod: 'email',
+    });
+    expect(names(toDallas.to)).toEqual(['Pat Acme']);
+    expect(toDallas.copy).toEqual([
+      {
+        kind: 'email',
+        id: ap.id,
+        name: 'ap@acme.test',
+        email: 'ap@acme.test',
+      },
+    ]);
+    const toAustin = ok(
+      await recipients(`purpose=bill_to&addressId=${austin.id}`)
+    );
+    expect(names(toAustin.to)).toEqual(['Sam Acme']);
+    expect(names(toAustin.copy)).toEqual(['ap@acme.test']);
+    // With no address named, the default bill-to.
+    expect(ok(await recipients('purpose=bill_to')).address.id).toBe(dallas.id);
+  });
+
+  it('AC05: copy_all with a scope, a scope elsewhere, and notifications are refused', async () => {
+    const revision = await revisionOf(`/organization-contacts/${sam.id}`);
+    const attempt = roles =>
+      oak('put', `/organization-contacts/${sam.id}/roles`, {
+        roles,
+        revision,
+      });
+    expect(
+      (
+        await attempt([
+          { role: 'billing', addressId: dallas.id, copyAll: true },
+        ])
+      ).body.error.code
+    ).toBe('INVALID_INPUT');
+    const other = ok(
+      await oak('post', '/organizations', {
+        kind: 'client',
+        legalName: 'Other Corp',
+        taxId: '12-3458888',
+        taxIdFormatId: customer.formats.EIN,
+      })
+    );
+    const elsewhere = ok(
+      await oak('post', `/parties/${other.id}/addresses`, {
+        line1: '9 Far St',
+        city: 'Waco',
+        country: 'US',
+        purposes: [{ purpose: 'bill_to' }],
+      })
+    );
+    expect(
+      (await attempt([{ role: 'billing', addressId: elsewhere.id }])).body.error
+        .code
+    ).toBe('INVALID_STATE');
+    expect((await attempt([{ role: 'notifications' }])).body.error.code).toBe(
+      'INVALID_STATE'
+    );
+  });
+
+  it('AC06: a holder must meet the delivery method of the address it serves', async () => {
+    const portal = await oak(
+      'patch',
+      `/parties/${acme.id}/addresses/${dallas.id}`,
+      {
+        purposes: [{ purpose: 'bill_to', deliveryMethod: 'portal' }],
+        revision: dallas.revision,
+      }
+    );
+    expect(portal.body.error.code).toBe('CONTACT_DETAILS_REQUIRED');
+    const detail = ok(await oak('get', `/organization-contacts/${pat.id}`));
+    const email = (
+      await oak('get', `/organizations/${acme.id}`)
+    ).body.data.contacts.find(c => c.id === pat.id);
+    expect(email.primaryEmail).toBe('pat@acme.test');
+    const methods = ok(
+      await oak('get', `/organization-contacts/${pat.id}`)
+    ).contactMethods;
+    expect(
+      (
+        await oak(
+          'delete',
+          `/parties/${pat.id}/contact-methods/${methods[0].id}`
+        )
+      ).body.error.code
+    ).toBe('CONTACT_DETAILS_REQUIRED');
+    expect(detail.contactRoles).toEqual([
+      { role: 'billing', addressId: dallas.id, copyAll: false },
+    ]);
+  });
+
+  it('AC07: a scoped address stays; archiving a default passes it on', async () => {
+    expect(
+      (await oak('delete', `/parties/${acme.id}/addresses/${dallas.id}`)).body
+        .error.code
+    ).toBe('ADDRESS_IN_USE');
+    expect(
+      (
+        await oak('patch', `/parties/${acme.id}/addresses/${dallas.id}`, {
+          purposes: [],
+          revision: dallas.revision,
+        })
+      ).body.error.code
+    ).toBe('ADDRESS_IN_USE');
+    ok(
+      await oak('put', `/organization-contacts/${pat.id}/roles`, {
+        roles: [{ role: 'billing' }],
+        revision: await revisionOf(`/organization-contacts/${pat.id}`),
+      })
+    );
+    ok(await oak('delete', `/parties/${acme.id}/addresses/${dallas.id}`));
+    const addresses = ok(
+      await oak('get', `/organizations/${acme.id}`)
+    ).addresses.filter(a => !a.archived);
+    expect(addresses.map(a => [a.city, a.purposes[0].isDefault])).toEqual([
+      ['Austin', true],
+    ]);
+    // Pat now serves every bill-to address, unscoped.
+    expect(names(ok(await recipients('purpose=bill_to')).to)).toEqual([
+      'Pat Acme',
+    ]);
+  });
+
+  it('AC08: remit-to is for vendors; a vendor resolves to billing, else primary', async () => {
+    expect(
+      (
+        await oak('post', `/parties/${acme.id}/addresses`, {
+          line1: '5 Pay St',
+          city: 'Austin',
+          country: 'US',
+          purposes: [{ purpose: 'remit_to' }],
+        })
+      ).body.error.code
+    ).toBe('INVALID_INPUT');
+    const vendor = ok(
+      await oak('post', '/organizations', {
+        kind: 'vendor',
+        legalName: 'Lumber Co',
+        taxId: '12-3457777',
+        taxIdFormatId: customer.formats.EIN,
+      })
+    );
+    const remit = ok(
+      await oak('post', `/parties/${vendor.id}/addresses`, {
+        line1: '7 Mill Rd',
+        city: 'Austin',
+        country: 'US',
+        purposes: [{ purpose: 'remit_to' }, { purpose: 'location' }],
+      })
+    );
+    const rep = ok(
+      await oak('post', '/organization-contacts', {
+        organizationId: vendor.id,
+        firstName: 'Lou',
+        lastName: 'Lumber',
+      })
+    );
+    ok(
+      await oak('put', `/organization-contacts/${rep.id}/roles`, {
+        roles: [{ role: 'primary' }],
+        revision: rep.revision,
+      })
+    );
+    const resolved = ok(
+      await oak(
+        'get',
+        `/organizations/${vendor.id}/recipients?purpose=remit_to`
+      )
+    );
+    expect(resolved.address.id).toBe(remit.id);
+    expect(resolved.deliveryMethod).toBeNull();
+    expect(names(resolved.to)).toEqual(['Lou Lumber']);
+  });
+
+  it('AC09: a Napsoft client keeps its location', async () => {
+    const { client_id: clientId } = await db.tenants.findOneBy({
+      id: customer.tenantId,
+    });
+    const client = ok(await call('get', `/organizations/${clientId}`));
+    const [office] = client.addresses;
+    expect(office.purposes.map(p => p.purpose)).toEqual([
+      'location',
+      'bill_to',
+    ]);
+    expect(
+      (await call('delete', `/parties/${clientId}/addresses/${office.id}`)).body
+        .error.code
+    ).toBe('LAST_LOCATION');
+    // R021, R026: its invoices go to the tenant's billing employees, read
+    // from Napsoft's copy.
+    const resolved = ok(
+      await call('get', `/organizations/${clientId}/recipients?purpose=bill_to`)
+    );
+    expect(resolved.address.id).toBe(office.id);
+    expect(resolved.to.map(r => [r.name, r.email])).toEqual([
+      ['Billy Bob', 'billy@oak.test'],
+    ]);
+  });
+
+  it('AC10: the account owner is an active employee and stays linked when archived', async () => {
+    const dana = ok(
+      await oak('post', '/people', {
+        kind: 'employee',
+        firstName: 'Dana',
+        lastName: 'Sales',
+        primaryEmail: 'dana@oak.test',
+      })
+    );
+    const current = ok(await oak('get', `/organizations/${acme.id}`));
+    expect(
+      (
+        await oak('patch', `/organizations/${acme.id}`, {
+          accountOwnerId: pat.id,
+          revision: current.revision,
+        })
+      ).body.error.code
+    ).toBe('INVALID_STATE');
+    const owned = ok(
+      await oak('patch', `/organizations/${acme.id}`, {
+        accountOwnerId: dana.id,
+        revision: current.revision,
+      })
+    );
+    expect(owned.accountOwner).toEqual({
+      id: dana.id,
+      name: 'Dana Sales',
+      archived: false,
+    });
+    ok(
+      await oak('post', `/people/${dana.id}/archive`, {
+        revision: dana.revision,
+      })
+    );
+    expect(
+      ok(await oak('get', `/organizations/${acme.id}`)).accountOwner
+    ).toEqual({ id: dana.id, name: 'Dana Sales', archived: true });
+  });
+
+  it('AC11: a role tag shows under roles and changes nothing', async () => {
+    const tag = ok(
+      await oak('post', '/labels', {
+        appliesTo: 'role',
+        name: 'Sales rep',
+      })
+    );
+    const before = ok(await recipients('purpose=bill_to'));
+    const tagged = ok(
+      await oak('put', `/organization-contacts/${sam.id}/roles`, {
+        roles: [{ role: 'primary' }],
+        tagIds: [tag.id],
+        revision: await revisionOf(`/organization-contacts/${sam.id}`),
+      })
+    );
+    expect(tagged.tags).toEqual([{ id: tag.id, name: 'Sales rep' }]);
+    expect(ok(await recipients('purpose=bill_to'))).toEqual(before);
   });
 });

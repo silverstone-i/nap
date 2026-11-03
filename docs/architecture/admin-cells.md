@@ -245,7 +245,7 @@ inside the API delivers them:
   transaction to turn a user's portal access on or off. The worker applies the
   request to the admin login and membership, and the resulting membership
   change flows back to the cell as an admin-to-cell row. I0013 adds rows for
-  a customer tenant's primary and billing contacts, its tax ID submissions,
+  a customer tenant's contact-role holders (I0014), its tax ID submissions,
   and, from the Napsoft cell, client name changes and tax ID decisions; the
   decision returns to the tenant's cell as an admin-to-cell row. Once the
   tenant's cell applies an approval it confirms with a `tax_id_applied`

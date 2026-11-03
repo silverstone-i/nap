@@ -32,6 +32,7 @@ export const contactMethodsSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    unique: [['tenant_id', 'id']],
     checks: ["type IN ('email', 'phone')", 'revision > 0'],
     foreignKeys: [
       {

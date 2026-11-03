@@ -47,7 +47,13 @@ import { useDebouncedValue } from '../../shell/useDebouncedValue.js';
 import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
 import { useDirectoryAbilities } from './useDirectoryAbilities.js';
 
-const GROUP_LABELS = { email: 'Email', phone: 'Phone', address: 'Address' };
+// I0014-R004, R030: `role` holds the tenant's role tags.
+const GROUP_LABELS = {
+  email: 'Email',
+  phone: 'Phone',
+  address: 'Address',
+  role: 'Role',
+};
 
 /** I0011-R007, M0005-R054: what Archive tells the user before it runs. */
 const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';

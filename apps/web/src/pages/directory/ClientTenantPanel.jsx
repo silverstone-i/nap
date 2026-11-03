@@ -30,25 +30,12 @@ import { createListPageAdapter } from '../../grid/listPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { isNapsoftSelected } from './napsoftSession.js';
+import { ROLE_LABELS } from './contactRoleText.js';
 
 /**
- * The contact type text for a tenant contact.
- * @param {{isPrimaryContact: boolean, isBillingContact: boolean}} contact
- * @returns {string}
- */
-function contactType(contact) {
-  return [
-    contact.isPrimaryContact && 'Primary contact',
-    contact.isBillingContact && 'Billing contact',
-  ]
-    .filter(Boolean)
-    .join(', ');
-}
-
-/**
- * The read-only grid of a tenant's primary and billing contacts
- * (I0013-R017). It has no portal column: Napsoft client contacts never hold
- * portal access (R018).
+ * The read-only grid of a tenant's role holders (I0013-R017, I0014-R027).
+ * It has no portal column: Napsoft client contacts never hold portal
+ * access (R018).
  */
 const CONTACT_COLUMNS = [
   {
@@ -66,17 +53,11 @@ const CONTACT_COLUMNS = [
     valueFormatter: value => (value ? formatPhone(value) : '—'),
   },
   {
-    field: 'billingPhone',
-    headerName: 'Billing phone',
-    flex: 1,
-    valueFormatter: value => (value ? formatPhone(value) : '—'),
-  },
-  {
-    field: 'contactType',
-    headerName: 'Contact type',
+    field: 'roles',
+    headerName: 'Roles',
     flex: 1,
     priority: 'essential',
-    valueGetter: (value, row) => contactType(row),
+    valueGetter: value => value.map(role => ROLE_LABELS[role]).join(', '),
   },
 ].map(column => ({ sortable: false, filterable: false, ...column }));
 

@@ -14,15 +14,15 @@
  * `tax-ids::read`, which records who read it.
  */
 
+import { queueClientName, requireClientArchivable } from './companyProfile.js';
 import {
-  COMPANY_PROFILE_WRITE,
-  isCompanyContact,
-  queueClientName,
-  requireClientArchivable,
-  requireContactCounts,
+  holdsSystemRole,
   requireContactDetails,
+  requireOrganizationHolders,
+  requireRoleCounts,
+  roleViewsOf,
   syncContact,
-} from './companyProfile.js';
+} from './contactRoles.js';
 import { z } from 'zod';
 import { encodeCursor, fingerprint, parseCursor } from './cursor.js';
 import { DirectoryError } from './errors.js';
@@ -38,7 +38,12 @@ import {
   sendPortalAccess,
   temporaryPassword,
 } from './portalAccess.js';
-import { addressView, contactMethodView } from './details.js';
+import {
+  addressView,
+  contactMethodView,
+  purposesOf,
+  purposeView,
+} from './details.js';
 import { searchCandidates } from './taxIds.js';
 import { activeTaxIdFormat } from './taxIdFormats.js';
 import {
@@ -107,8 +112,6 @@ const personUpdate = z.strictObject({
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
   roleIds: roleIds.optional(),
-  // I0013-R009: an employee of a customer tenant.
-  isPrimaryContact: z.boolean().optional(),
   revision,
 });
 const contactFields = {
@@ -117,8 +120,6 @@ const contactFields = {
   taxId: taxId.optional(),
   taxIdFormatId: uuid.optional(),
   isPortalUser: z.boolean().optional(),
-  isPrimaryContact: z.boolean().optional(),
-  isBillingContact: z.boolean().optional(),
   isPrimaryTaxContact: z.boolean().optional(),
 };
 const organizationCreate = z.strictObject({
@@ -135,6 +136,8 @@ const organizationUpdate = z.strictObject({
   taxId: taxId.optional(),
   taxIdFormatId: uuid.optional(),
   primaryTaxContactId: uuid.nullable().optional(),
+  // I0014-R022: an active employee, or null.
+  accountOwnerId: uuid.nullable().optional(),
   revision,
 });
 const contactCreate = z.strictObject({
@@ -150,8 +153,6 @@ const contactUpdate = z.strictObject({
   isPortalUser: z.boolean().optional(),
   temporaryPassword: temporaryPassword.optional(),
   roleIds: roleIds.optional(),
-  isPrimaryContact: z.boolean().optional(),
-  isBillingContact: z.boolean().optional(),
   revision,
 });
 // Strict, so the old `includeArchived` is refused (I0011-R009).
@@ -213,8 +214,9 @@ async function loadRecord(context, name, id, tx, { lock = false } = {}) {
 }
 
 /**
- * Primary email and phone of each party, and the facts its portal-access
- * status comes from (I0008-R008), keyed by party ID.
+ * Primary email and phone of each party, the facts its portal-access
+ * status comes from (I0008-R008), and a person's contact roles and tags
+ * (I0014), keyed by party ID.
  * @param {object} context
  * @param {string[]} partyIds
  * @param {object} tx
@@ -230,6 +232,9 @@ async function primaries(context, partyIds, tx) {
   }
   for (const [id, fact] of await portalFacts(context, partyIds, tx))
     map.get(id).portal = fact;
+  // I0014: a person's contact roles and tags; none for an organization.
+  for (const [id, roles] of await roleViewsOf(tx, { personIds: partyIds }))
+    Object.assign(map.get(id), roles);
   return map;
 }
 
@@ -262,14 +267,15 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
       lastName: row.last_name,
       isPortalUser: row.is_portal_user,
       portalAccess,
-      isPrimaryContact: row.is_primary_contact ?? false,
-      isBillingContact: row.is_billing_contact ?? false,
+      contactRoles: primary.contactRoles ?? [],
+      tags: primary.tags ?? [],
     };
   if (name === 'organizations')
     return {
       ...common,
       legalName: row.legal_name,
       dbaName: row.dba_name ?? null,
+      accountOwner: primary.accountOwner ?? null,
     };
   return {
     ...common,
@@ -278,8 +284,8 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
     lastName: row.last_name,
     isPortalUser: row.is_portal_user,
     portalAccess,
-    isPrimaryContact: row.is_primary_contact,
-    isBillingContact: row.is_billing_contact,
+    contactRoles: primary.contactRoles ?? [],
+    tags: primary.tags ?? [],
     isPrimaryTaxContact: row.is_primary_tax_contact,
   };
 }
@@ -331,7 +337,19 @@ function recordChange(action, name, before, after) {
  */
 async function viewOf(context, name, row, tx) {
   const map = await primaries(context, [row.party_id], tx);
-  return recordView(name, row, map.get(row.party_id));
+  const primary = map.get(row.party_id);
+  if (name === 'organizations' && row.account_owner_id) {
+    // I0014-R022: the owner stays linked when archived, and shows so.
+    const owner = await context.cell.people.byKey(row.account_owner_id, {
+      tx,
+    });
+    primary.accountOwner = owner && {
+      id: owner.party_id,
+      name: `${owner.first_name} ${owner.last_name}`,
+      archived: owner.deactivated_at != null,
+    };
+  }
+  return recordView(name, row, primary);
 }
 
 /**
@@ -502,8 +520,6 @@ async function insertContact(context, organization, input, tx) {
       first_name: input.firstName,
       last_name: input.lastName,
       is_portal_user: false,
-      is_primary_contact: input.isPrimaryContact ?? false,
-      is_billing_contact: input.isBillingContact ?? false,
       is_primary_tax_contact: input.isPrimaryTaxContact ?? false,
       created_by: context.actorId,
       updated_by: context.actorId,
@@ -615,25 +631,34 @@ export async function getRecord(context, name, id) {
     const key = row.party_id;
     const view = await viewOf(context, name, row, tx);
     const labelName = await labelNames(context, tx);
+    const methods = await context.cell.contact_methods.rows(
+      { party_id: key },
+      { tx, orderBy: ['type', 'created_at', 'id'] }
+    );
+    // I0014-R012: an organization's own emails may hold `billing`.
+    const methodRoles = await roleViewsOf(tx, {
+      methodIds: name === 'organizations' ? methods.map(m => m.id) : [],
+    });
+    const addresses = await context.cell.addresses.rows(
+      { party_id: key },
+      { tx, orderBy: ['created_at', 'id'] }
+    );
+    const purposes = await purposesOf(
+      context,
+      addresses.map(a => a.id),
+      tx
+    );
     const detail = {
       ...view,
-      contactMethods: (
-        await context.cell.contact_methods.rows(
-          { party_id: key },
-          { tx, orderBy: ['type', 'created_at', 'id'] }
-        )
-      ).map(method => ({
+      contactMethods: methods.map(method => ({
         ...contactMethodView(method),
         labelName: labelName(method.label_id),
+        contactRoles: methodRoles.get(method.id)?.contactRoles ?? [],
       })),
-      addresses: (
-        await context.cell.addresses.rows(
-          { party_id: key },
-          { tx, orderBy: ['created_at', 'id'] }
-        )
-      ).map(address => ({
+      addresses: addresses.map(address => ({
         ...addressView(address),
         labelName: labelName(address.label_id),
+        purposes: (purposes.get(address.id) ?? []).map(purposeView),
       })),
     };
     if (name !== 'organizations') {
@@ -844,22 +869,17 @@ export async function updateRecord(context, name, id, body) {
     )
       throw new DirectoryError('INVALID_STATE');
     requireRevision(locked, input.revision);
-    // I0013-R009: only a customer tenant's employees are its contacts.
-    if (name === 'people' && input.isPrimaryContact !== undefined) {
-      if (locked.kind !== 'employee' || context.tenant.isNapsoft)
-        throw new DirectoryError('INVALID_INPUT');
-      await requireCapability(context, COMPANY_PROFILE_WRITE);
-    }
+    if (input.accountOwnerId)
+      await requireAccountOwner(context, input.accountOwnerId, tx);
     const before = await viewOf(context, name, locked, tx);
     const changes = {};
     const map = {
       firstName: 'first_name',
       lastName: 'last_name',
       isPortalUser: 'is_portal_user',
-      isPrimaryContact: 'is_primary_contact',
-      isBillingContact: 'is_billing_contact',
       legalName: 'legal_name',
       dbaName: 'dba_name',
+      accountOwnerId: 'account_owner_id',
     };
     for (const [field, column] of Object.entries(map))
       if (input[field] !== undefined) changes[column] = input[field];
@@ -937,20 +957,34 @@ export async function updateRecord(context, name, id, body) {
       )
         await queueClientName(context, tx, row);
     }
-    // I0013-R010, R011, R015: keep the contact rules and Napsoft's copy.
-    if (row.kind === 'employee') {
-      await requireContactDetails(context, tx, row.party_id);
-      if (row.is_primary_contact !== locked.is_primary_contact)
-        await requireContactCounts(context, tx);
-      if (isCompanyContact(locked) || isCompanyContact(row))
-        await syncContact(context, tx, row.party_id, isCompanyContact(locked));
-    }
+    // I0014-R010, R026: portal access feeds the billing holder rule, and
+    // a role holder's name feeds Napsoft's copy.
+    if (portal !== null && row.organization_id)
+      await requireOrganizationHolders(tx, row.organization_id);
+    if (row.kind === 'employee' && (await holdsSystemRole(tx, row.party_id)))
+      await syncContact(context, tx, row.party_id, true);
     const after = await viewOf(context, name, row, tx);
     return {
       result: after,
       changes: [recordChange('updated', name, before, after), ...extra],
     };
   });
+}
+
+/**
+ * Require an account owner to be an active employee of this tenant
+ * (I0014-R022).
+ * @param {object} context
+ * @param {string} partyId
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `INVALID_STATE`
+ */
+async function requireAccountOwner(context, partyId, tx) {
+  const person = await context.cell.people.byKey(partyId, { tx });
+  const party = person && (await context.cell.parties.byKey(partyId, { tx }));
+  if (!person || person.deactivated_at || party.kind !== 'employee')
+    throw new DirectoryError('INVALID_STATE');
 }
 
 /**
@@ -1050,14 +1084,8 @@ async function archiveOne(
     throw new DirectoryError('INVALID_STATE');
   if (locked.is_primary_tax_contact && !locked.deactivated_at)
     throw new DirectoryError('PRIMARY_TAX_CONTACT');
-  // I0013-R013: reassign the billing contact before archiving it.
-  if (
-    locked.kind === 'employee' &&
-    !context.tenant.isNapsoft &&
-    locked.is_billing_contact &&
-    !locked.deactivated_at
-  )
-    throw new DirectoryError('BILLING_CONTACT');
+  const heldRoles =
+    locked.kind === 'employee' && (await holdsSystemRole(tx, locked.party_id));
   // I0013-R030: a Napsoft client follows its tenant.
   if (isNapsoftClient(context, locked.kind) && locked.kind === 'client')
     await requireClientArchivable(context, locked.party_id);
@@ -1077,8 +1105,9 @@ async function archiveOne(
     locked
   );
   if (portalOff) await sendPortalAccess(context, row, false, undefined, tx);
-  if (locked.kind === 'employee' && isCompanyContact(locked)) {
-    await requireContactCounts(context, tx);
+  // I0014-R007, R026: an archived holder's roles end with it.
+  if (heldRoles) {
+    await requireRoleCounts(context, tx);
     await syncContact(context, tx, locked.party_id, true);
   }
   const after = await viewOf(context, name, row, tx);
@@ -1135,10 +1164,12 @@ async function restoreOne(
     ),
     locked
   );
-  // I0013-R010, R011: details may have changed while archived.
-  if (row.kind === 'employee' && isCompanyContact(row)) {
+  // I0014-R008–R010: details may have changed while archived, and the
+  // restored holder's roles come back.
+  if (table === 'people')
     await requireContactDetails(context, tx, row.party_id);
-    await requireContactCounts(context, tx);
+  if (row.kind === 'employee' && (await holdsSystemRole(tx, row.party_id))) {
+    await requireRoleCounts(context, tx);
     await syncContact(context, tx, row.party_id, false);
   }
   const after = await viewOf(context, name, row, tx);

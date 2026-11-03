@@ -10,6 +10,19 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Added
+
+- Contact roles replace the primary and billing contact flags (I0014). Vendor and client contacts can hold **Primary** and **Billing**; a customer tenant's employees can also hold **Notifications** for Napsoft's maintenance and product notices. A role has any number of holders, so a tenant may now have several billing contacts. A billing role can be limited to one or more of the organization's bill-to addresses, or, unlimited, set **Copy on all invoices**. An organization's own email (such as `ap@`) can hold Billing through a **Billing** action on the email row. Tenants can add their own role tags (a new **Role** label group) that carry no behavior. A person's detail shows a **Roles** line and pencil, and the directory grids show a **Roles** column. New routes: `PUT /api/business-directory/v1/{people,organization-contacts}/:id/roles` and `PUT …/parties/:id/contact-methods/:methodId/roles`.
+- Vendor and client addresses take purposes: **Location**, **Bill-to**, and, for vendors, **Remit-to**, each with one default per organization and a bill-to delivery method (**Email**, **Mail**, or **Portal**). Each bill-to address on an organization's detail shows who its invoices go to and who gets a copy, from the new `GET /api/business-directory/v1/organizations/:id/recipients`; a Napsoft client's recipients are its tenant's billing employees.
+- Vendors and clients have an account owner employee, shown as **Sales rep** on a client, **Account manager** on a Napsoft client, and **Account owner** on a vendor. An archived owner stays linked and is shown as archived.
+- **Provision tenant** asks for the Napsoft client's head office, stored as its default location and bill-to address; `tenant-provision` takes a required `address`.
+
+### Changed
+
+- A customer tenant keeps at least one holder of each role among its employees; removing or archiving the last fails with `409 LAST_PRIMARY_CONTACT`, `LAST_BILLING_CONTACT`, or `LAST_NOTIFICATIONS_CONTACT`. A primary holder needs a primary email and phone; billing and notifications holders need a primary email; an organization's billing holder must be able to receive its bill-to addresses' delivery method, otherwise `409 CONTACT_DETAILS_REQUIRED`. A bill-to address a billing role is limited to cannot lose its purpose or be removed (`409 ADDRESS_IN_USE`), and a Napsoft client keeps a location (`409 LAST_LOCATION`).
+- Settings → **Company** lists primary, billing, and notification contacts; **Change billing contact**, `POST …/company-profile/billing-contact`, and the `BILLING_CONTACT` and `BILLING_LABEL` errors are removed. The **billing** phone label is an ordinary label. Napsoft's copy of tenant contacts (`admin.tenant_contacts`, `GET …/tenants/:tenant/contacts`) carries `roles` in place of the flags and billing phone.
+- Baseline migrations `001-business-directory` and `001-admin-tenancy` are edited in place (new `app.contact_roles` and `app.address_purposes`, `organizations.account_owner_id`, the people flags removed, `admin.tenant_contacts.roles`, `admin.tenant_provisioning.client_address`). Recreate existing admin and cell databases.
+
 ## [v0.37.0] - 2026-11-02
 
 ### Added

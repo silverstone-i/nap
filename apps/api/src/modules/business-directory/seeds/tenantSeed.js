@@ -12,6 +12,8 @@
  * and adds nothing.
  */
 
+import { SYSTEM_ROLES } from '../models/contact_roles.js';
+
 /**
  * Default labels by group (R017). A name appears in each group where it is
  * a sensible category.
@@ -116,16 +118,15 @@ export async function taxIdFormatsPresent(db, tx, tenantId) {
  * @property {string} firstName
  * @property {string} lastName
  * @property {string} email The login email, stored as the primary email.
- * @property {string} phone Stored as the primary phone with the `billing`
- *   label (I0013-R004).
+ * @property {string} phone Stored as the primary phone (I0013-R004).
  */
 
 /**
  * Seed a customer tenant's directory: the default labels and tax ID
  * formats, the first
- * administrator as an employee marked as a portal user and as the tenant's
- * primary and billing contact, with their primary email and billing phone
- * (R022, I0013-R004).
+ * administrator as an employee marked as a portal user, with their primary
+ * email and phone, holding every system contact role for the tenant
+ * (R022, I0013-R004, I0014-R006).
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
  * @param {FirstAdministrator} admin
@@ -148,8 +149,6 @@ export async function seedDirectoryTenant(db, tx, admin) {
         first_name: firstName,
         last_name: lastName,
         is_portal_user: true,
-        is_primary_contact: true,
-        is_billing_contact: true,
       },
       { tx }
     );
@@ -179,13 +178,19 @@ export async function seedDirectoryTenant(db, tx, admin) {
         party_id: partyId,
         type: 'phone',
         value: phone,
-        label_id: (await billingPhoneLabel(db, tx, tenantId)).id,
         is_primary: true,
       },
       { tx }
     );
-  // I0013-R015: Napsoft's copy of the administrator as the tenant's first
-  // primary and billing contact.
+  // I0014-R006: the administrator starts as the holder of every role.
+  const held = await db.contact_roles.rows({ person_id: partyId }, { tx });
+  for (const role of SYSTEM_ROLES)
+    if (!held.some(row => row.role === role))
+      await db.contact_roles.insert(
+        { tenant_id: tenantId, person_id: partyId, role },
+        { tx }
+      );
+  // I0014-R026: Napsoft's copy of the administrator with those roles.
   const queued = await db.outbox.findOneBy(
     { topic: 'tenant_contact', entity_id: partyId },
     { tx }
@@ -204,28 +209,11 @@ export async function seedDirectoryTenant(db, tx, admin) {
           last_name: lastName,
           email,
           phone,
-          billing_phone: phone,
-          is_primary_contact: true,
-          is_billing_contact: true,
+          roles: [...SYSTEM_ROLES],
         },
       },
       { tx }
     );
-}
-
-/**
- * The tenant's `billing` phone label (I0013-R004).
- * @param {object} db
- * @param {import('pg-promise').IDatabase<unknown>} tx
- * @param {string} tenantId
- * @returns {Promise<object|undefined>}
- */
-async function billingPhoneLabel(db, tx, tenantId) {
-  const [label] = await db.contact_labels.rows(
-    { tenant_id: tenantId, applies_to: 'phone', name: 'billing' },
-    { tx, includeArchived: true }
-  );
-  return label;
 }
 
 /**
@@ -250,7 +238,7 @@ export async function directorySeedPresent(db, tx, admin) {
     { tenant_id: tenantId, party_id: partyId, type: 'phone', is_primary: true },
     { tx }
   );
-  const billing = await billingPhoneLabel(db, tx, tenantId);
+  const held = await db.contact_roles.rows({ person_id: partyId }, { tx });
   // `nap-admin` is not filtered by row-level security: a party ID found in
   // another tenant is not this tenant's seed.
   return Boolean(
@@ -261,10 +249,8 @@ export async function directorySeedPresent(db, tx, admin) {
     person.first_name === firstName &&
     person.last_name === lastName &&
     person.is_portal_user &&
-    person.is_primary_contact &&
-    person.is_billing_contact &&
+    SYSTEM_ROLES.every(role => held.some(row => row.role === role)) &&
     primaryEmail?.value === email &&
-    primaryPhone?.value === phone &&
-    primaryPhone.label_id === billing?.id
+    primaryPhone?.value === phone
   );
 }

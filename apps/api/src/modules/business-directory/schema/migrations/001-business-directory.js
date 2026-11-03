@@ -6,7 +6,7 @@
 import { defineMigration, TableModel } from 'pg-schemata';
 
 /**
- * Baseline `business-directory` migration (M0005). It creates the seven
+ * Baseline `business-directory` migration (M0005). It creates the
  * `app` directory tables in dependency order, attaches the existing
  * `app.protect_record()` trigger function from `001-access-control`, enables
  * and forces row-level security with the tenant rule from M0002-01-R006,
@@ -123,6 +123,7 @@ export const migration = defineMigration({
         { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
         { name: 'legal_name', type: 'varchar(255)', notNull: true },
         { name: 'dba_name', type: 'varchar(255)' },
+        { name: 'account_owner_id', type: 'uuid' },
         { name: 'revision', type: 'integer', notNull: true, default: 1 },
       ],
       constraints: {
@@ -156,18 +157,6 @@ export const migration = defineMigration({
         { name: 'last_name', type: 'varchar(160)', notNull: true },
         {
           name: 'is_portal_user',
-          type: 'boolean',
-          notNull: true,
-          default: false,
-        },
-        {
-          name: 'is_primary_contact',
-          type: 'boolean',
-          notNull: true,
-          default: false,
-        },
-        {
-          name: 'is_billing_contact',
           type: 'boolean',
           notNull: true,
           default: false,
@@ -216,13 +205,6 @@ export const migration = defineMigration({
             where: 'is_primary_tax_contact AND deactivated_at IS NULL',
           },
           { columns: ['organization_id'] },
-          // I0013-R010: one active billing employee per tenant.
-          {
-            columns: ['tenant_id'],
-            unique: true,
-            where:
-              'is_billing_contact AND organization_id IS NULL AND deactivated_at IS NULL',
-          },
         ],
       },
     };
@@ -255,7 +237,10 @@ export const migration = defineMigration({
           ['tenant_id', 'id'],
           ['tenant_id', 'applies_to', 'name'],
         ],
-        checks: ["applies_to IN ('email', 'phone', 'address')", 'revision > 0'],
+        checks: [
+          "applies_to IN ('email', 'phone', 'address', 'role')",
+          'revision > 0',
+        ],
       },
     };
     const contactMethodsSchema = {
@@ -281,6 +266,7 @@ export const migration = defineMigration({
       ],
       constraints: {
         primaryKey: ['id'],
+        unique: [['tenant_id', 'id']],
         checks: ["type IN ('email', 'phone')", 'revision > 0'],
         foreignKeys: [
           {
@@ -348,6 +334,7 @@ export const migration = defineMigration({
       ],
       constraints: {
         primaryKey: ['id'],
+        unique: [['tenant_id', 'id']],
         checks: ['revision > 0'],
         foreignKeys: [
           {
@@ -465,6 +452,185 @@ export const migration = defineMigration({
         ],
       },
     };
+    const contactRolesSchema = {
+      dbSchema: 'app',
+      table: 'contact_roles',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      softDelete: true,
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          notNull: true,
+          default: 'gen_random_uuid()',
+          immutable: true,
+        },
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'organization_id', type: 'uuid', immutable: true },
+        { name: 'person_id', type: 'uuid', immutable: true },
+        { name: 'contact_method_id', type: 'uuid', immutable: true },
+        { name: 'role', type: 'varchar(16)', immutable: true },
+        { name: 'label_id', type: 'uuid', immutable: true },
+        { name: 'address_id', type: 'uuid', immutable: true },
+        { name: 'copy_all', type: 'boolean', notNull: true, default: false },
+        { name: 'revision', type: 'integer', notNull: true, default: 1 },
+      ],
+      constraints: {
+        primaryKey: ['id'],
+        checks: [
+          'revision > 0',
+          '(person_id IS NULL) <> (contact_method_id IS NULL)',
+          '(role IS NULL) <> (label_id IS NULL)',
+          "role IS NULL OR role IN ('primary', 'billing', 'notifications')",
+          "role = 'billing' OR (address_id IS NULL AND NOT copy_all)",
+          'NOT (copy_all AND address_id IS NOT NULL)',
+          "role IS DISTINCT FROM 'notifications' OR organization_id IS NULL",
+          "contact_method_id IS NULL OR (role = 'billing' AND organization_id IS NOT NULL)",
+        ],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'organization_id'],
+            references: {
+              schema: 'app',
+              table: 'organizations',
+              columns: ['tenant_id', 'party_id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'person_id'],
+            references: {
+              schema: 'app',
+              table: 'people',
+              columns: ['tenant_id', 'party_id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'contact_method_id'],
+            references: {
+              schema: 'app',
+              table: 'contact_methods',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'label_id'],
+            references: {
+              schema: 'app',
+              table: 'contact_labels',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'address_id'],
+            references: {
+              schema: 'app',
+              table: 'addresses',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+        ],
+        indexes: [
+          {
+            name: 'uidx_contact_roles_holder',
+            columns: [
+              { expression: 'coalesce(person_id, contact_method_id)' },
+              { expression: 'coalesce(role, label_id::text)' },
+              {
+                expression:
+                  "coalesce(address_id, '00000000-0000-0000-0000-000000000000'::uuid)",
+              },
+            ],
+            unique: true,
+            where: 'deactivated_at IS NULL',
+          },
+          { columns: ['organization_id'] },
+          { columns: ['person_id'] },
+          { columns: ['contact_method_id'] },
+          { columns: ['address_id'] },
+        ],
+      },
+    };
+    const addressPurposesSchema = {
+      dbSchema: 'app',
+      table: 'address_purposes',
+      hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
+      softDelete: true,
+      columns: [
+        {
+          name: 'id',
+          type: 'uuid',
+          notNull: true,
+          default: 'gen_random_uuid()',
+          immutable: true,
+        },
+        { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'address_id', type: 'uuid', notNull: true, immutable: true },
+        { name: 'party_id', type: 'uuid', notNull: true, immutable: true },
+        {
+          name: 'purpose',
+          type: 'varchar(16)',
+          notNull: true,
+          immutable: true,
+        },
+        { name: 'is_default', type: 'boolean', notNull: true, default: false },
+        { name: 'delivery_method', type: 'varchar(16)' },
+        { name: 'revision', type: 'integer', notNull: true, default: 1 },
+      ],
+      constraints: {
+        primaryKey: ['id'],
+        checks: [
+          'revision > 0',
+          "purpose IN ('location', 'bill_to', 'remit_to')",
+          "delivery_method IS NULL OR delivery_method IN ('email', 'mail', 'portal')",
+          "(delivery_method IS NOT NULL) = (purpose = 'bill_to')",
+        ],
+        foreignKeys: [
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'address_id'],
+            references: {
+              schema: 'app',
+              table: 'addresses',
+              columns: ['tenant_id', 'id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+          {
+            type: 'ForeignKey',
+            columns: ['tenant_id', 'party_id'],
+            references: {
+              schema: 'app',
+              table: 'organizations',
+              columns: ['tenant_id', 'party_id'],
+            },
+            onDelete: 'RESTRICT',
+          },
+        ],
+        indexes: [
+          {
+            columns: ['address_id', 'purpose'],
+            unique: true,
+            where: 'deactivated_at IS NULL',
+          },
+          {
+            columns: ['party_id', 'purpose'],
+            unique: true,
+            where: 'is_default AND deactivated_at IS NULL',
+          },
+          { columns: ['party_id'] },
+        ],
+      },
+    };
     const schemas = [
       taxIdFormatsSchema,
       partiesSchema,
@@ -473,6 +639,8 @@ export const migration = defineMigration({
       contactLabelsSchema,
       contactMethodsSchema,
       addressesSchema,
+      contactRolesSchema,
+      addressPurposesSchema,
       tenantTaxIdsSchema,
     ];
     for (const schema of schemas)

@@ -23,7 +23,13 @@ import {
 } from './shared.js';
 
 /** Label groups (R017). */
-export const LABEL_GROUPS = Object.freeze(['email', 'phone', 'address']);
+/** M0005-R017; I0014-R004 adds `role` for role tags. */
+export const LABEL_GROUPS = Object.freeze([
+  'email',
+  'phone',
+  'address',
+  'role',
+]);
 
 const labelName = z.string().trim().min(1).max(64);
 const createSchema = z.strictObject({
@@ -230,7 +236,6 @@ export function renameLabel(context, id, body) {
     { name: input.name },
     'renamed',
     async (locked, tx) => {
-      if (input.name !== locked.name) requireNotBillingPhone(context, locked);
       await requireNameFree(
         context,
         tx,
@@ -251,14 +256,7 @@ export function renameLabel(context, id, body) {
  */
 export function archiveLabel(context, id, body) {
   const input = parse(revisionSchema, body);
-  return saveLabel(
-    context,
-    id,
-    input.revision,
-    { archived: true },
-    'archived',
-    locked => requireNotBillingPhone(context, locked)
-  );
+  return saveLabel(context, id, input.revision, { archived: true }, 'archived');
 }
 
 /**
@@ -277,24 +275,6 @@ export function restoreLabel(context, id, body) {
     { archived: false },
     'restored'
   );
-}
-
-/**
- * Refuse renaming or archiving a customer tenant's `billing` phone label:
- * the billing contact's billing phone is the phone with that label
- * (I0013-R004, R011).
- * @param {import('./shared.js').DirectoryContext} context
- * @param {object} locked
- * @returns {void}
- * @throws {DirectoryError} `BILLING_LABEL`
- */
-function requireNotBillingPhone(context, locked) {
-  if (
-    !context.tenant.isNapsoft &&
-    locked.applies_to === 'phone' &&
-    locked.name === 'billing'
-  )
-    throw new DirectoryError('BILLING_LABEL');
 }
 
 /** M0005-R032: a bulk archive refuses an archived label, and a restore an active one. */
@@ -321,10 +301,7 @@ export function bulkArchiveLabels(context, body) {
       item.revision,
       { archived: true },
       'archived',
-      locked => {
-        requireArchived(false)(locked);
-        requireNotBillingPhone(context, locked);
-      }
+      requireArchived(false)
     )
   );
 }

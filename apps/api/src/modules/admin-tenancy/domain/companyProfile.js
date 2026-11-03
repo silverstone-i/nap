@@ -93,7 +93,8 @@ export async function applyTenantContact(admin, row, snapshot, { tx }) {
     [snapshot.tenant_id, snapshot.party_id]
   );
   if (current && current.revision >= row.revision) return null;
-  if (!snapshot.is_primary_contact && !snapshot.is_billing_contact) {
+  // I0014-R026: an employee holding no system role leaves the copy.
+  if (snapshot.roles.length === 0) {
     await tx.none(
       'DELETE FROM admin.tenant_contacts WHERE tenant_id=$1 AND party_id=$2',
       [snapshot.tenant_id, snapshot.party_id]
@@ -103,16 +104,12 @@ export async function applyTenantContact(admin, row, snapshot, { tx }) {
   const actor = row.created_by ?? null;
   await tx.none(
     `INSERT INTO admin.tenant_contacts
-       (tenant_id, party_id, first_name, last_name, email, phone,
-        billing_phone, is_primary_contact, is_billing_contact, revision,
-        created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11)
+       (tenant_id, party_id, first_name, last_name, email, phone, roles,
+        revision, created_by, updated_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)
      ON CONFLICT (tenant_id, party_id) DO UPDATE SET
        first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name,
-       email=EXCLUDED.email, phone=EXCLUDED.phone,
-       billing_phone=EXCLUDED.billing_phone,
-       is_primary_contact=EXCLUDED.is_primary_contact,
-       is_billing_contact=EXCLUDED.is_billing_contact,
+       email=EXCLUDED.email, phone=EXCLUDED.phone, roles=EXCLUDED.roles,
        revision=EXCLUDED.revision, updated_by=EXCLUDED.updated_by`,
     [
       snapshot.tenant_id,
@@ -121,9 +118,7 @@ export async function applyTenantContact(admin, row, snapshot, { tx }) {
       snapshot.last_name,
       snapshot.email,
       snapshot.phone,
-      snapshot.billing_phone,
-      snapshot.is_primary_contact,
-      snapshot.is_billing_contact,
+      snapshot.roles,
       row.revision,
       actor,
     ]
@@ -317,7 +312,7 @@ export async function applyTaxIdApplied(
 }
 
 /**
- * Napsoft's copy of a tenant's primary and billing contacts (I0013-R017).
+ * Napsoft's copy of a tenant's contact-role holders (I0013-R017, I0014-R027).
  * @param {object} admin
  * @param {unknown} tenantId
  * @returns {Promise<object[]>} Empty for an unknown tenant.
@@ -335,9 +330,7 @@ export async function listTenantContacts(admin, tenantId) {
     lastName: row.last_name,
     email: row.email ?? null,
     phone: row.phone ?? null,
-    billingPhone: row.billing_phone ?? null,
-    isPrimaryContact: row.is_primary_contact,
-    isBillingContact: row.is_billing_contact,
+    roles: row.roles,
   }));
 }
 

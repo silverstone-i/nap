@@ -3,13 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import {
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
@@ -28,9 +22,7 @@ import {
 
 vi.mock('../../src/api/endpoints.js', () => ({
   getCompanyProfile: vi.fn(),
-  setBillingContact: vi.fn(),
   submitCompanyTaxId: vi.fn(),
-  listDirectoryPage: vi.fn(),
   listTaxIdFormats: vi.fn(),
 }));
 
@@ -52,15 +44,20 @@ const ANN = {
   lastName: 'Admin',
   email: 'ann@oak.test',
   phone: '+15125550111',
-  billingPhone: '+15125550100',
-  isPrimaryContact: true,
-  isBillingContact: true,
+  roles: ['primary', 'notifications'],
 };
 const BILLY = {
   id: '22222222-2222-4222-8222-222222222222',
-  kind: 'employee',
   firstName: 'Billy',
   lastName: 'Bob',
+  email: 'billy@oak.test',
+  phone: null,
+  roles: ['billing'],
+};
+const BETH = {
+  ...BILLY,
+  id: '33333333-3333-4333-8333-333333333333',
+  firstName: 'Beth',
 };
 
 const profile = (overrides = {}) => ({
@@ -74,7 +71,8 @@ const profile = (overrides = {}) => ({
     reason: null,
   },
   primaryContacts: [ANN],
-  billingContact: ANN,
+  billingContacts: [BETH, BILLY],
+  notificationContacts: [ANN],
   ...overrides,
 });
 
@@ -107,10 +105,6 @@ beforeEach(() => {
   useSession.mockReturnValue(sessionFor(['OAK::*::*::*']));
   api.getCompanyProfile.mockResolvedValue(profile());
   api.listTaxIdFormats.mockResolvedValue([EIN]);
-  api.listDirectoryPage.mockResolvedValue({
-    rows: [{ ...ANN, kind: 'employee' }, BILLY],
-    nextCursor: null,
-  });
 });
 
 afterEach(() => {
@@ -129,6 +123,25 @@ describe('CompanySettingsPage (I0013-R026)', () => {
     ).toBeTruthy();
     const primaries = screen.getByRole('list', { name: 'Primary contacts' });
     expect(within(primaries).getByText('Ann Admin')).toBeTruthy();
+  });
+
+  it('lists every holder of each role (I0014-R031)', async () => {
+    renderPage();
+    const billing = await screen.findByRole('list', {
+      name: 'Billing contacts',
+    });
+    expect(
+      within(billing)
+        .getAllByRole('listitem')
+        .map(item => item.textContent)
+    ).toEqual(['Beth Bobbilly@oak.test', 'Billy Bobbilly@oak.test']);
+    const notified = screen.getByRole('list', {
+      name: 'Notification contacts',
+    });
+    expect(within(notified).getByText('Ann Admin')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Change billing contact' })
+    ).toBeNull();
   });
 
   it('shows a rejection with its reason', async () => {
@@ -168,30 +181,6 @@ describe('CompanySettingsPage (I0013-R026)', () => {
     });
   });
 
-  it('changes the billing contact to another employee', async () => {
-    api.setBillingContact.mockResolvedValue(profile({ billingContact: null }));
-    renderPage();
-    const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole('button', { name: 'Change billing contact' })
-    );
-    const form = await screen.findByRole('dialog', {
-      name: 'Change billing contact',
-    });
-    // The picker searches employees on the server.
-    await user.type(within(form).getByRole('combobox'), 'bil');
-    await waitFor(() =>
-      expect(api.listDirectoryPage).toHaveBeenCalledWith('people', {
-        kind: 'employee',
-        q: 'bil',
-        limit: 25,
-      })
-    );
-    await user.click(await screen.findByRole('option', { name: 'Billy Bob' }));
-    await user.click(within(form).getByRole('button', { name: 'Save' }));
-    expect(api.setBillingContact).toHaveBeenCalledWith(BILLY.id);
-  });
-
   it('offers no changes without company-profile::write', async () => {
     useSession.mockReturnValue(
       sessionFor(['OAK::business-directory::directory::read'])
@@ -199,8 +188,5 @@ describe('CompanySettingsPage (I0013-R026)', () => {
     renderPage();
     await screen.findByText('Oak Homes LLC');
     expect(screen.queryByRole('button', { name: 'Submit tax ID' })).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: 'Change billing contact' })
-    ).toBeNull();
   });
 });

@@ -28,6 +28,9 @@ vi.mock('react-router', async importOriginal => ({
 }));
 
 vi.mock('../../src/api/endpoints.js', () => ({
+  listCountries: vi.fn(async () => [
+    { code: 'US', alpha3: 'USA', numericCode: '840', name: 'United States' },
+  ]),
   listTenantsPage: vi.fn(),
   retryTenantProvisioning: vi.fn(),
   listCellsOverview: vi.fn(async () => ({ rows: [], nextCursor: null })),
@@ -266,6 +269,13 @@ describe('TenantsPage', () => {
       );
       await user.type(within(form).getByLabelText(/^DBA name/), 'Oak Homes');
       await user.type(within(form).getByLabelText(/^Code/), 'oak');
+      // I0014-R024: the Napsoft client's head office.
+      await user.type(
+        within(form).getByLabelText(/^Address line 1/),
+        '1 Main St'
+      );
+      await user.type(within(form).getByLabelText(/^City/), 'Austin');
+      await user.type(within(form).getByLabelText(/^State or province/), 'TX');
       await user.type(within(form).getByLabelText(/^First name/), 'Ann');
       await user.type(within(form).getByLabelText(/^Last name/), 'Admin');
       await user.type(
@@ -284,7 +294,7 @@ describe('TenantsPage', () => {
       return form;
     }
 
-    it('collects the names, code, cell, and administrator with a phone', async () => {
+    it('collects the names, code, cell, head office, and administrator with a phone', async () => {
       api.provisionTenant.mockResolvedValue({});
       renderPage();
       await fill(userEvent.setup());
@@ -300,6 +310,14 @@ describe('TenantsPage', () => {
         // Read in Napsoft's default country (the US outside a provider).
         phone: '+15125550100',
         password: 'temporary',
+        address: {
+          line1: '1 Main St',
+          line2: null,
+          city: 'Austin',
+          region: 'TX',
+          postalCode: null,
+          country: 'US',
+        },
       });
     });
 
