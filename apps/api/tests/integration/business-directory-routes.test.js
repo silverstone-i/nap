@@ -4241,6 +4241,53 @@ describe('contact roles and address purposes (I0014)', () => {
     ).toEqual({ id: dana.id, name: 'Dana Sales', archived: true });
   });
 
+  it('R018: an archived holder does not keep a scoped address, and its scope ends', async () => {
+    const waco = ok(
+      await oak('post', `/parties/${acme.id}/addresses`, {
+        line1: '3 Waco St',
+        city: 'Waco',
+        country: 'US',
+        purposes: [{ purpose: 'bill_to' }],
+      })
+    );
+    const quinn = ok(
+      await oak('post', '/organization-contacts', {
+        organizationId: acme.id,
+        firstName: 'Quinn',
+        lastName: 'Acme',
+      })
+    );
+    ok(
+      await oak('post', `/parties/${quinn.id}/contact-methods`, {
+        type: 'email',
+        value: 'quinn@acme.test',
+        isPrimary: true,
+      })
+    );
+    ok(
+      await oak('put', `/organization-contacts/${quinn.id}/roles`, {
+        roles: [{ role: 'billing', addressId: waco.id }],
+        revision: await revisionOf(`/organization-contacts/${quinn.id}`),
+      })
+    );
+    expect(
+      (await oak('delete', `/parties/${acme.id}/addresses/${waco.id}`)).body
+        .error.code
+    ).toBe('ADDRESS_IN_USE');
+    const archived = ok(
+      await oak('post', `/organization-contacts/${quinn.id}/archive`, {
+        revision: await revisionOf(`/organization-contacts/${quinn.id}`),
+      })
+    );
+    ok(await oak('delete', `/parties/${acme.id}/addresses/${waco.id}`));
+    const restored = ok(
+      await oak('post', `/organization-contacts/${quinn.id}/restore`, {
+        revision: archived.revision,
+      })
+    );
+    expect(restored.contactRoles).toEqual([]);
+  });
+
   it('AC11: a role tag shows under roles and changes nothing', async () => {
     const tag = ok(
       await oak('post', '/labels', {

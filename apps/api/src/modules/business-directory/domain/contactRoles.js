@@ -167,8 +167,9 @@ export async function requireRoleCounts(context, tx) {
   const rows = await tx.any(
     `SELECT DISTINCT r.role FROM app.contact_roles r
        JOIN app.people p ON p.party_id=r.person_id
-      WHERE r.organization_id IS NULL AND r.role IS NOT NULL
-        AND r.deactivated_at IS NULL AND p.deactivated_at IS NULL`
+      WHERE r.tenant_id=$1 AND r.organization_id IS NULL AND r.role IS NOT NULL
+        AND r.deactivated_at IS NULL AND p.deactivated_at IS NULL`,
+    [context.tenant.id]
   );
   for (const role of SYSTEM_ROLES)
     if (!rows.some(row => row.role === role))
@@ -611,7 +612,9 @@ function fallbackAddress(addresses, purposes) {
 /**
  * A Napsoft client's role holders: its tenant's employees, from Napsoft's
  * copy in admin (I0014-R026), since they live in the tenant's own cell.
- * None until the client has a tenant.
+ * None until the client has a tenant. Tenant employees have no address scope
+ * or `copy_all` until Companies (R013), so the copy carries neither; revisit
+ * this when it does.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {string} clientId
  * @returns {Promise<object[]>} Holder rows shaped as the directory query's.

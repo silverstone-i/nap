@@ -159,7 +159,8 @@ and payments that use it come later.
 - I0014-R017: A bill-to address must have a delivery method of `email`,
   `mail`, or `portal`. A new bill-to address defaults to `email`.
 - I0014-R018: Removing the `bill_to` purpose from, or archiving, an address
-  that scopes a `billing` role must fail with `409 ADDRESS_IN_USE`.
+  that scopes an active holder's `billing` role must fail with
+  `409 ADDRESS_IN_USE`. An archived holder's role scoped to it ends instead.
 - I0014-R019: Archiving the default address of a purpose that other active
   addresses share must make the oldest of them the default.
 - I0014-R020: A Napsoft client must have a default `location` address.
@@ -410,7 +411,7 @@ Verified on 2026-11-03.
 
 - `npm run lint`, `npm run format:check`, and `npm run build` pass.
   `npm test` passes: API unit 641, web 346, shared 25, toolchain 25.
-  `npm run test:db:local` passes 366, including role holders and minimums
+  `npm run test:db:local` passes 367, including role holders and minimums
   with bulk archive (AC01–AC03), the Acme Dallas/Austin resolution
   (AC04), scope and `copy_all` refusals (AC05), delivery-method holder
   rules (AC06), `ADDRESS_IN_USE` and default promotion (AC07), remit-to

@@ -21,7 +21,7 @@ import {
   ADDRESS_PURPOSES,
   DELIVERY_METHODS,
 } from '../models/address_purposes.js';
-import { normalizePhone } from '@nap/shared';
+import { addressPlaceSchema, normalizePhone } from '@nap/shared';
 import { z } from 'zod';
 import { effectiveSettings } from '../../tenant-settings/domain/general.js';
 import { DirectoryError } from './errors.js';
@@ -62,17 +62,6 @@ const methodUpdate = z.strictObject({
   isPrimary: z.boolean().optional(),
   revision,
 });
-/**
- * R063: address text is saved trimmed with each run of whitespace reduced to
- * one space, so the match index need only ignore case.
- * @param {number} max
- */
-const text = max =>
-  z
-    .string()
-    .transform(value => value.trim().replace(/\s+/g, ' '))
-    .pipe(z.string().min(1).max(max));
-const line = text(255);
 /** I0014-R015, R017: an organization address's purposes. */
 const purposes = z
   .array(
@@ -84,36 +73,12 @@ const purposes = z
   )
   .max(ADDRESS_PURPOSES.length);
 const addressFields = {
-  line1: line,
-  line2: line.nullable(),
-  city: text(120),
-  region: text(120).nullable(),
-  postalCode: text(32).nullable(),
-  country: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{2}$/),
+  ...addressPlaceSchema.shape,
   labelId,
   isPrimary: z.boolean(),
   purposes,
 };
-/** I0014-R024: the address fields alone, for provisioning's head office. */
-export const addressPlace = z.strictObject({
-  line1: addressFields.line1,
-  line2: addressFields.line2.optional(),
-  city: addressFields.city,
-  region: addressFields.region.optional(),
-  postalCode: addressFields.postalCode.optional(),
-  country: addressFields.country,
-});
-const addressCreate = z.strictObject({
-  line1: addressFields.line1,
-  line2: addressFields.line2.optional(),
-  city: addressFields.city,
-  region: addressFields.region.optional(),
-  postalCode: addressFields.postalCode.optional(),
-  country: addressFields.country,
+const addressCreate = addressPlaceSchema.extend({
   labelId: labelId.optional(),
   isPrimary: z.boolean().optional(),
   purposes: purposes.optional(),
@@ -264,6 +229,39 @@ async function promoteDefault(context, partyId, purpose, tx) {
 }
 
 /**
+ * Refuse losing a bill-to address that limits an active holder's `billing`
+ * role (I0014-R018). An archived holder's role limited to it ends instead,
+ * so a later restore cannot point at a removed address.
+ * @param {object} context
+ * @param {string} addressId
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `ADDRESS_IN_USE`
+ */
+async function releaseScopedRoles(context, addressId, tx) {
+  const scoped = await context.cell.contact_roles.rows(
+    { address_id: addressId },
+    { tx, lock: true }
+  );
+  const people = await context.cell.people.byKeys(
+    scoped.map(role => role.person_id).filter(Boolean),
+    { tx }
+  );
+  const archived = new Set(
+    people.filter(p => p.deactivated_at).map(p => p.party_id)
+  );
+  if (scoped.some(role => !archived.has(role.person_id)))
+    throw new DirectoryError('ADDRESS_IN_USE');
+  for (const role of scoped)
+    await context.cell.contact_roles.saveRevision(
+      role.id,
+      { archived: true },
+      context.actorId,
+      { tx }
+    );
+}
+
+/**
  * Replace an address's purposes with `wanted` (I0014-R015–R020). Purposes
  * belong to vendor and client addresses only; `remit_to` to vendors only. A
  * new purpose becomes the default when the organization has none; a
@@ -298,11 +296,7 @@ async function replacePurposes(context, party, addressId, wanted, tx) {
   for (const row of existing) {
     if (names.includes(row.purpose)) continue;
     if (row.purpose === 'bill_to') {
-      const scoped = await context.cell.contact_roles.rows(
-        { address_id: addressId },
-        { tx }
-      );
-      if (scoped.length) throw new DirectoryError('ADDRESS_IN_USE');
+      await releaseScopedRoles(context, addressId, tx);
     }
     await context.cell.address_purposes.saveRevision(
       row.id,

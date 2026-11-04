@@ -13,7 +13,7 @@ import {
   retryTenantProvisioning,
 } from './tenantProvisioning.js';
 import { TIERS, tenantCodeSchema, tenantNameSchema } from './tenants.js';
-import { addressPlace } from '../../business-directory/domain/details.js';
+import { addressPlaceSchema } from '@nap/shared';
 
 /** Advisory lock key serializing concurrent cell registrations. */
 const LOCK_KEY = "hashtext('admin-tenancy:cell-registry')";
@@ -593,7 +593,7 @@ const provisionCommandSchema = z.discriminatedUnion('operation', [
     }),
     // I0014-R024: the Napsoft client's head office, validated as M0005
     // validates addresses.
-    address: addressPlace,
+    address: addressPlaceSchema,
   }),
   z.strictObject({ operation: z.literal('tenant-retry'), tenant: z.uuid() }),
 ]);

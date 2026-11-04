@@ -74,10 +74,12 @@ export function getCompanyProfile(context) {
               array_agg(DISTINCT r.role) AS roles
          FROM app.people p
          JOIN app.contact_roles r ON r.person_id=p.party_id
-        WHERE p.organization_id IS NULL AND p.deactivated_at IS NULL
+        WHERE p.tenant_id=$1 AND p.organization_id IS NULL
+          AND p.deactivated_at IS NULL
           AND r.role IS NOT NULL AND r.deactivated_at IS NULL
         GROUP BY p.party_id
-        ORDER BY p.last_name, p.first_name, p.party_id`
+        ORDER BY p.last_name, p.first_name, p.party_id`,
+      [context.tenant.id]
     );
     const detailsOf = await contactDetailsOf(
       tx,

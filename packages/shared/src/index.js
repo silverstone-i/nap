@@ -572,6 +572,34 @@ export const contactMethodViewSchema = z.strictObject({
   revision: z.number().int().positive(),
 });
 
+/**
+ * M0005-R063: address text is saved trimmed with each run of whitespace
+ * reduced to one space, so the match index need only ignore case.
+ * @param {number} max
+ */
+const addressText = max =>
+  z
+    .string()
+    .transform(value => value.trim().replace(/\s+/g, ' '))
+    .pipe(z.string().min(1).max(max));
+
+/**
+ * Zod schema for an address's place fields (M0005-R015), which the directory
+ * and provisioning's head office both validate (I0014-R024).
+ */
+export const addressPlaceSchema = z.strictObject({
+  line1: addressText(255),
+  line2: addressText(255).nullable().optional(),
+  city: addressText(120),
+  region: addressText(120).nullable().optional(),
+  postalCode: addressText(32).nullable().optional(),
+  country: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2}$/),
+});
+
 /** Zod schema for one address (M0005-R015). */
 export const addressViewSchema = z.strictObject({
   id: z.uuid(),

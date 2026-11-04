@@ -22,8 +22,7 @@ import {
   revisionSchema,
 } from './shared.js';
 
-/** Label groups (R017). */
-/** M0005-R017; I0014-R004 adds `role` for role tags. */
+/** Label groups (M0005-R017); I0014-R004 adds `role` for role tags. */
 export const LABEL_GROUPS = Object.freeze([
   'email',
   'phone',

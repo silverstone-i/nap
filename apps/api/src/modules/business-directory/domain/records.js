@@ -961,8 +961,8 @@ export async function updateRecord(context, name, id, body) {
     // a role holder's name feeds Napsoft's copy.
     if (portal !== null && row.organization_id)
       await requireOrganizationHolders(tx, row.organization_id);
-    if (row.kind === 'employee' && (await holdsSystemRole(tx, row.party_id)))
-      await syncContact(context, tx, row.party_id, true);
+    if (row.kind === 'employee')
+      await syncContact(context, tx, row.party_id, false);
     const after = await viewOf(context, name, row, tx);
     return {
       result: after,
