@@ -50,6 +50,20 @@ export function setUnauthenticatedHandler(handler) {
   unauthenticatedHandler = handler;
 }
 
+/** @type {((path: string) => void)|null} */
+let forbiddenHandler = null;
+
+/**
+ * Register the one listener told when a request comes back `FORBIDDEN`, so
+ * the session can reload capabilities that have gone stale, whichever screen
+ * sent the request (I0005-R011). The listener gets the request path.
+ * @param {((path: string) => void)|null} handler
+ * @returns {void}
+ */
+export function setForbiddenHandler(handler) {
+  forbiddenHandler = handler;
+}
+
 /**
  * Send one request and unwrap the envelope.
  * @param {string} method
@@ -91,6 +105,7 @@ async function request(method, path, body, extraHeaders = {}) {
   if (envelope?.error) {
     const { code, capability, reason, details } = envelope.error;
     if (code === 'UNAUTHENTICATED') unauthenticatedHandler?.(path);
+    if (code === 'FORBIDDEN') forbiddenHandler?.(path);
     const retryAfter = response.headers.get('Retry-After');
     throw new ApiError(
       code,

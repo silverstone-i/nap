@@ -10,6 +10,7 @@ import { MemoryRouter, useLocation } from 'react-router';
 import {
   ApiError,
   apiGet,
+  apiPatch,
   setUnauthenticatedHandler,
 } from '../src/api/client.js';
 import * as api from '../src/api/endpoints.js';
@@ -210,6 +211,152 @@ function renderPasswordProbe() {
     </MemoryRouter>
   );
 }
+
+describe('a denied request reloads capabilities (I0005-R011)', () => {
+  const STALE = ['NAP::business-directory::*::*'];
+  const CURRENT = ['NAP::business-directory::tax-ids::read'];
+  const denyEverything = () =>
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        status: 403,
+        headers: new Headers(),
+        json: async () => ({
+          version: 1,
+          error: { code: 'FORBIDDEN', message: 'x' },
+        }),
+      })
+    );
+
+  function CapabilitiesProbe({ onRender }) {
+    const { status, capabilities, logout, selectTenant } = useSession();
+    onRender?.(capabilities);
+    return (
+      <>
+        <span>{`${status}:${capabilities?.patterns.join(',')}`}</span>
+        <button onClick={() => logout()}>log out</button>
+        <button onClick={() => selectTenant('m2')}>switch</button>
+      </>
+    );
+  }
+
+  async function renderProbe(onRender) {
+    api.getSessionCapabilities.mockResolvedValue(
+      capabilitiesFixture({ patterns: STALE })
+    );
+    render(
+      <MemoryRouter>
+        <SessionProvider>
+          <CapabilitiesProbe onRender={onRender} />
+        </SessionProvider>
+      </MemoryRouter>
+    );
+    await screen.findByText(`ready:${STALE[0]}`);
+    denyEverything();
+    api.getSessionCapabilities.mockClear();
+  }
+
+  it('picks up roles changed since the tab loaded, from any request', async () => {
+    await renderProbe();
+    api.getSessionCapabilities.mockResolvedValue(
+      capabilitiesFixture({ patterns: CURRENT })
+    );
+
+    await act(async () => {
+      await apiPatch('/api/business-directory/v1/organizations/1', {}).catch(
+        () => {}
+      );
+    });
+
+    expect(await screen.findByText(`ready:${CURRENT[0]}`)).toBeTruthy();
+  });
+
+  it('shares one reload between denials arriving together', async () => {
+    await renderProbe();
+
+    await act(async () => {
+      await Promise.all([
+        apiGet('/api/one').catch(() => {}),
+        apiGet('/api/two').catch(() => {}),
+      ]);
+    });
+
+    expect(api.getSessionCapabilities).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the same capabilities object when nothing changed', async () => {
+    const seen = [];
+    await renderProbe(capabilities => seen.push(capabilities));
+    const before = seen.at(-1);
+
+    await act(async () => {
+      await apiGet('/api/one').catch(() => {});
+    });
+
+    expect(api.getSessionCapabilities).toHaveBeenCalledTimes(1);
+    expect(seen.at(-1)).toBe(before);
+  });
+
+  it('does not reload when the capabilities route itself is denied', async () => {
+    await renderProbe();
+
+    await act(async () => {
+      await apiGet('/api/admin-tenancy/v1/session/capabilities').catch(
+        () => {}
+      );
+    });
+
+    expect(api.getSessionCapabilities).not.toHaveBeenCalled();
+  });
+
+  /** Start a reload that stays in flight; returns how to finish it. */
+  async function startHeldReload() {
+    let finish;
+    api.getSessionCapabilities.mockReturnValueOnce(
+      new Promise(resolve => {
+        finish = () => resolve(capabilitiesFixture({ patterns: ['held'] }));
+      })
+    );
+    await act(async () => {
+      await apiGet('/api/one').catch(() => {});
+    });
+    return finish;
+  }
+
+  it('drops a reload that lands after logout', async () => {
+    await renderProbe();
+    const finish = await startHeldReload();
+
+    await act(async () => {
+      screen.getByText('log out').click();
+    });
+    await screen.findByText('anonymous:undefined');
+    await act(async () => finish());
+
+    expect(screen.getByText('anonymous:undefined')).toBeTruthy();
+  });
+
+  it('drops a reload that lands after a tenant switch, and later denials start their own', async () => {
+    await renderProbe();
+    const finish = await startHeldReload();
+    api.getSessionCapabilities.mockResolvedValue(
+      capabilitiesFixture({ patterns: CURRENT })
+    );
+
+    await act(async () => {
+      screen.getByText('switch').click();
+    });
+    await screen.findByText(`ready:${CURRENT[0]}`);
+    api.getSessionCapabilities.mockClear();
+    await act(async () => {
+      await apiGet('/api/two').catch(() => {});
+    });
+    expect(api.getSessionCapabilities).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+
+    expect(screen.getByText(`ready:${CURRENT[0]}`)).toBeTruthy();
+  });
+});
 
 describe('password change failing UNAUTHENTICATED', () => {
   it('keeps the session and reports the wrong current password while the session still resolves', async () => {
