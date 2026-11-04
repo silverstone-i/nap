@@ -250,6 +250,7 @@ async function releaseScopedDesignations(context, addressId, tx) {
   const archived = new Set(
     people.filter(p => p.deactivated_at).map(p => p.party_id)
   );
+  // An email holder has no `person_id`; removing an email ends its rows, so it is always active.
   if (scoped.some(designation => !archived.has(designation.person_id)))
     throw new DirectoryError('ADDRESS_IN_USE');
   for (const designation of scoped)

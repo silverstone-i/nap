@@ -62,7 +62,7 @@ function contactLine(contact, country) {
 }
 
 /** I0014-R031: the designation groups, in order. */
-const ROLE_GROUPS = [
+const DESIGNATION_GROUPS = [
   ['primaryContacts', 'Primary contacts'],
   ['billingContacts', 'Billing contacts'],
   ['notificationContacts', 'Notification contacts'],
@@ -227,7 +227,7 @@ export function CompanySettingsPage() {
         ))}
       </Stack>
 
-      {ROLE_GROUPS.map(([group, title]) => (
+      {DESIGNATION_GROUPS.map(([group, title]) => (
         <Stack key={group} spacing={1}>
           <Typography variant="subtitle1">{title}</Typography>
           <List dense aria-label={title}>

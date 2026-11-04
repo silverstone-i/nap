@@ -4297,6 +4297,48 @@ describe('contact designations and address purposes (I0014)', () => {
     expect(restored.contactDesignations).toEqual([]);
   });
 
+  it('R018: an organization email limited to an address keeps it until the email is removed', async () => {
+    const north = ok(
+      await oak('post', '/organizations', {
+        kind: 'client',
+        legalName: 'North Corp',
+        taxId: '12-3459998',
+        taxIdFormatId: customer.formats.EIN,
+      })
+    );
+    const office = ok(
+      await oak('post', `/parties/${north.id}/addresses`, {
+        line1: '1 North St',
+        city: 'Plano',
+        region: 'TX',
+        country: 'US',
+        purposes: [{ purpose: 'bill_to' }],
+      })
+    );
+    const email = ok(
+      await oak('post', `/parties/${north.id}/contact-methods`, {
+        type: 'email',
+        value: 'ap@north.test',
+      })
+    );
+    ok(
+      await oak(
+        'put',
+        `/parties/${north.id}/contact-methods/${email.id}/designations`,
+        {
+          designations: [{ designation: 'billing', addressId: office.id }],
+          revision: email.revision,
+        }
+      )
+    );
+    expect(
+      (await oak('delete', `/parties/${north.id}/addresses/${office.id}`)).body
+        .error.code
+    ).toBe('ADDRESS_IN_USE');
+    ok(await oak('delete', `/parties/${north.id}/contact-methods/${email.id}`));
+    ok(await oak('delete', `/parties/${north.id}/addresses/${office.id}`));
+  });
+
   it('AC11: a designation tag shows under designations and changes nothing', async () => {
     const tag = ok(
       await oak('post', '/labels', {

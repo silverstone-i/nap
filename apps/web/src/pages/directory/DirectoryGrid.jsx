@@ -99,7 +99,7 @@ function columnsFor(collection, onOpen, formats, country) {
     columns.push({
       ...plain,
       field: 'contactDesignations',
-      // I0014-R030: the system contact designations, not portal designations.
+      // I0014-R030: the system contact designations, not portal roles.
       headerName: 'Designations',
       flex: 2,
       priority: 'secondary',
