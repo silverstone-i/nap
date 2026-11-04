@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.37.2] - 2026-11-04
+
 ### Fixed
 
 - When the API fails to start on a configuration problem, the log now names the error code and the setting, such as `INVALID_CONFIGURATION: REDIS_URL_DEV`. Other startup errors still print only the general message, because a driver error can quote a connection string.
