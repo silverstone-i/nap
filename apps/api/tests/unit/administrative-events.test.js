@@ -74,7 +74,7 @@ function model({ inserted = null, existing = null, failure } = {}) {
 
 describe('catalogue', () => {
   it('names every key in the PRD areas with permitted outcomes', () => {
-    expect(Object.keys(EVENT_CATALOGUE)).toHaveLength(85);
+    expect(Object.keys(EVENT_CATALOGUE)).toHaveLength(86);
     for (const [key, entry] of Object.entries(EVENT_CATALOGUE)) {
       expect(entry.outcomes.length, key).toBeGreaterThan(0);
       for (const outcome of entry.outcomes)
@@ -90,6 +90,18 @@ describe('catalogue', () => {
     ['cache.revision.failed', 'failed'],
   ])('pins %s to the outcome its name states', (key, outcome) => {
     expect(EVENT_CATALOGUE[key].outcomes).toEqual([outcome]);
+  });
+
+  it('catalogues the event a designation change sends (I0014-R011, R012)', () => {
+    expect(
+      parseDetails('directory.contact_designations.updated', {
+        kind: 'vendor',
+        party_id: 'party',
+        before: '{}',
+        after: '{}',
+        changed_at: new Date(0).toISOString(),
+      })
+    ).toMatchObject({ kind: 'vendor', party_id: 'party' });
   });
 
   it('draws every detail allowlist from the shared vocabulary', () => {

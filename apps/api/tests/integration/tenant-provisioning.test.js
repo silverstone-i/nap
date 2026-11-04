@@ -212,10 +212,10 @@ async function cellRoles(cellId, tenantId) {
           [tenantId]
         ),
         designations: await tx.any(
-          `SELECT person_id, role FROM app.contact_roles
-            WHERE tenant_id=$1 AND role IS NOT NULL
+          `SELECT person_id, designation FROM app.contact_designations
+            WHERE tenant_id=$1 AND designation IS NOT NULL
               AND deactivated_at IS NULL
-            ORDER BY role`,
+            ORDER BY designation`,
           [tenantId]
         ),
         labels: await tx.one(
@@ -435,7 +435,7 @@ describe('tenant provisioning (I0006)', () => {
     expect(assignments).toEqual([
       { portal_user_id: login.id, code: 'tenant_admin' },
     ]);
-    // I0014-R006: the administrator holds every system contact role.
+    // I0014-R006: the administrator holds every system contact designation.
     expect(people).toEqual([
       {
         party_id: membership.member_id,
@@ -447,9 +447,9 @@ describe('tenant provisioning (I0006)', () => {
     ]);
     expect(emails).toEqual([{ party_id: membership.member_id, value: email }]);
     expect(designations).toEqual(
-      ['billing', 'notifications', 'primary'].map(role => ({
+      ['billing', 'notifications', 'primary'].map(designation => ({
         person_id: membership.member_id,
-        role,
+        designation,
       }))
     );
     expect(phones).toEqual([
@@ -476,7 +476,7 @@ describe('tenant provisioning (I0006)', () => {
         last_name: 'Doe',
         email,
         phone: '+15125550100',
-        roles: ['primary', 'billing', 'notifications'],
+        designations: ['primary', 'billing', 'notifications'],
       },
     });
     // I0013-R003: the client stage created the Napsoft client.

@@ -24,7 +24,7 @@ import {
 import { CountrySelect } from '../../components/CountrySelect.jsx';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { LabelSelect } from './ContactMethodDialog.jsx';
-import { DELIVERY_LABELS, PURPOSE_LABELS } from './contactRoleText.js';
+import { DELIVERY_LABELS, PURPOSE_LABELS } from './contactDesignationText.js';
 import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
 import { DetailMatchesWarning } from './DetailMatchesWarning.jsx';
 
@@ -176,7 +176,7 @@ export function AddressDialog({
           CONTACT_DETAILS_REQUIRED:
             'A billing contact cannot receive invoices this way. Give them an email or portal access first.',
           ADDRESS_IN_USE:
-            'A billing contact is limited to this bill-to address. Change their roles first.',
+            'A billing contact is limited to this bill-to address. Change their designations first.',
           LAST_LOCATION: 'A Napsoft client needs a location.',
         })
       );

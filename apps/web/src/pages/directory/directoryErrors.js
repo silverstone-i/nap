@@ -25,15 +25,15 @@ const MESSAGES = {
   CELL_UNAVAILABLE: 'The tenant’s database is unavailable. Try again later.',
   // I0014-R007, R010, R018, R020.
   LAST_PRIMARY_CONTACT:
-    'The company needs at least one primary contact. Give someone else the role first.',
+    'The company needs at least one primary contact. Give someone else the designation first.',
   LAST_BILLING_CONTACT:
-    'The company needs at least one billing contact. Give someone else the role first.',
+    'The company needs at least one billing contact. Give someone else the designation first.',
   LAST_NOTIFICATIONS_CONTACT:
-    'The company needs at least one notifications contact. Give someone else the role first.',
+    'The company needs at least one notifications contact. Give someone else the designation first.',
   CONTACT_DETAILS_REQUIRED:
-    'A role holder needs an email, a phone for Primary, or portal access for portal invoices.',
+    'A designation holder needs an email, a phone for Primary, or portal access for portal invoices.',
   ADDRESS_IN_USE:
-    'A billing contact is limited to this bill-to address. Change their roles first.',
+    'A billing contact is limited to this bill-to address. Change their designations first.',
   LAST_LOCATION: 'A Napsoft client needs a location.',
 };
 

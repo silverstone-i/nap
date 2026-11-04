@@ -769,7 +769,7 @@ describe('company profile (I0013)', () => {
       last_name: 'Admin',
       email: 'ann@oak.test',
       phone: '+15125550100',
-      roles: ['primary', 'billing'],
+      designations: ['primary', 'billing'],
       ...extra,
     });
     const stored = () =>
@@ -781,7 +781,7 @@ describe('company profile (I0013)', () => {
     await drain();
     expect(await stored()).toMatchObject({
       phone: '+15125550100',
-      roles: ['primary', 'billing'],
+      designations: ['primary', 'billing'],
       revision: 1,
     });
     await cell.tx(tx =>
@@ -802,7 +802,9 @@ describe('company profile (I0013)', () => {
       )
     );
     expect((await stored()).phone).toBe('+15125550199');
-    await cell.tx(tx => requestTenantContact(tx, contact({ roles: [] })));
+    await cell.tx(tx =>
+      requestTenantContact(tx, contact({ designations: [] }))
+    );
     await drain();
     expect(await stored()).toBeNull();
   });

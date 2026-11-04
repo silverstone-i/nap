@@ -76,7 +76,7 @@ export const ERROR_MESSAGE = Object.freeze({
   LAST_NOTIFICATIONS_CONTACT:
     'The tenant needs at least one notifications contact',
   CONTACT_DETAILS_REQUIRED:
-    'A role holder is missing the email, phone, or portal access its role needs',
+    'A designation holder is missing the email, phone, or portal access its designation needs',
   ADDRESS_IN_USE: 'A billing contact is limited to this address',
   LAST_LOCATION: 'A Napsoft client needs a location',
   DUPLICATE_TAX_ID: 'Another record already has this tax ID',

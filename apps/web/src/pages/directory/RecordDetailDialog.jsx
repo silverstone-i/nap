@@ -43,13 +43,13 @@ import { useSession } from '../../auth/SessionContext.jsx';
 import { useCapabilities } from '../../auth/useCapabilities.js';
 import { ARCHIVE_TEXT, DirectoryGrid } from './DirectoryGrid.jsx';
 import { ContactMethodDialog } from './ContactMethodDialog.jsx';
-import { ContactRolesDialog } from './ContactRolesDialog.jsx';
+import { ContactDesignationsDialog } from './ContactDesignationsDialog.jsx';
 import { AccountOwnerDialog } from './AccountOwnerDialog.jsx';
 import {
   DELIVERY_LABELS,
-  describeRoles,
+  describeDesignations,
   PURPOSE_LABELS,
-} from './contactRoleText.js';
+} from './contactDesignationText.js';
 import { EditNameDialog } from './EditNameDialog.jsx';
 import { PortalAccessDialog } from './PortalAccessDialog.jsx';
 import { RecordFormDialog } from './RecordFormDialog.jsx';
@@ -196,11 +196,11 @@ export function RecordDetailDialog({
   const formats = useTaxIdFormats();
   const { defaultCountry } = useEffectiveSettings().settings;
   const [error, setError] = useState(null);
-  // The pencil dialog open: 'name', 'taxId', 'portal', 'roles', or 'owner'.
+  // The pencil dialog open: 'name', 'taxId', 'portal', 'designations', or 'owner'.
   const [section, setSection] = useState(null);
   const [methodForm, setMethodForm] = useState(null);
-  // I0014-R029: the organization email whose billing roles are open.
-  const [emailRoles, setEmailRolesFor] = useState(null);
+  // I0014-R029: the organization email whose billing designations are open.
+  const [emailDesignations, setEmailDesignationsFor] = useState(null);
   const [addressForm, setAddressForm] = useState(null);
   const [contactForm, setContactForm] = useState(false);
   const [openContact, setOpenContact] = useState(null);
@@ -326,10 +326,10 @@ export function RecordDetailDialog({
   // I0013-R005, R018, R025: a Napsoft client's contacts and tax ID are its
   // tenant's, shown read-only by its tenant panel.
   const napsoftClient = napsoft && record.kind === 'client';
-  // I0014-R003, R005: who may hold contact roles, and who may set them.
+  // I0014-R003, R005: who may hold contact designations, and who may set them.
   const companyContact = record.kind === 'employee' && !napsoft;
-  const holdsRoles = organizationContact || companyContact;
-  const canEditRoles = companyContact
+  const holdsDesignations = organizationContact || companyContact;
+  const canEditDesignations = companyContact
     ? canEditDetails && can('business-directory::company-profile::write')
     : canEditDetails;
   const organization = record.kind === 'vendor' || record.kind === 'client';
@@ -441,7 +441,7 @@ export function RecordDetailDialog({
                 Make primary tax contact
               </Button>
             ) : null}
-            {holdsRoles ? (
+            {holdsDesignations ? (
               <Stack
                 direction="row"
                 spacing={1}
@@ -449,8 +449,10 @@ export function RecordDetailDialog({
                 sx={{ alignItems: 'center', flexWrap: 'wrap' }}
               >
                 <Typography variant="body2">
-                  {`Roles: ${
-                    describeRoles(record.contactRoles).join(' · ') || 'None'
+                  {`Designations: ${
+                    describeDesignations(record.contactDesignations).join(
+                      ' · '
+                    ) || 'None'
                   }`}
                 </Typography>
                 {record.tags.map(tag => (
@@ -461,10 +463,10 @@ export function RecordDetailDialog({
                     label={tag.name}
                   />
                 ))}
-                {canEditRoles ? (
+                {canEditDesignations ? (
                   <SectionPencil
-                    label="Edit roles"
-                    onClick={() => setSection('roles')}
+                    label="Edit designations"
+                    onClick={() => setSection('designations')}
                   />
                 ) : null}
               </Stack>
@@ -530,7 +532,7 @@ export function RecordDetailDialog({
                           {organization && method.type === 'email' ? (
                             <Button
                               size="small"
-                              onClick={() => setEmailRolesFor(method)}
+                              onClick={() => setEmailDesignationsFor(method)}
                             >
                               Billing
                             </Button>
@@ -575,7 +577,10 @@ export function RecordDetailDialog({
                         method.type === 'email' ? 'Email' : 'Phone',
                         method.labelName,
                         method.isPrimary ? 'primary' : null,
-                        ...describeRoles(method.contactRoles ?? [], addresses),
+                        ...describeDesignations(
+                          method.contactDesignations ?? [],
+                          addresses
+                        ),
                       ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -835,8 +840,8 @@ export function RecordDetailDialog({
           onStale={reload}
         />
       ) : null}
-      {section === 'roles' ? (
-        <ContactRolesDialog
+      {section === 'designations' ? (
+        <ContactDesignationsDialog
           holder={{ kind: 'person', collection, record }}
           onClose={() => setSection(null)}
           onSaved={afterSection}
@@ -852,12 +857,16 @@ export function RecordDetailDialog({
           onStale={reload}
         />
       ) : null}
-      {emailRoles ? (
-        <ContactRolesDialog
-          holder={{ kind: 'email', organization: record, method: emailRoles }}
-          onClose={() => setEmailRolesFor(null)}
+      {emailDesignations ? (
+        <ContactDesignationsDialog
+          holder={{
+            kind: 'email',
+            organization: record,
+            method: emailDesignations,
+          }}
+          onClose={() => setEmailDesignationsFor(null)}
           onSaved={() => {
-            setEmailRolesFor(null);
+            setEmailDesignationsFor(null);
             changed();
           }}
           onStale={reload}

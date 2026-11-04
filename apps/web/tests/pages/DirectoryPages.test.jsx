@@ -64,8 +64,8 @@ vi.mock('../../src/api/endpoints.js', () => ({
   getTenantTaxIdRequest: vi.fn(),
   approveTaxIdRequest: vi.fn(),
   rejectTaxIdRequest: vi.fn(),
-  setPersonRoles: vi.fn(),
-  setEmailRoles: vi.fn(),
+  setPersonDesignations: vi.fn(),
+  setEmailDesignations: vi.fn(),
   getRecipients: vi.fn(async () => ({
     address: null,
     deliveryMethod: 'email',
@@ -142,7 +142,7 @@ const JANE = {
   revision: 2,
   primaryEmail: 'jane@acme.test',
   primaryPhone: null,
-  contactRoles: [],
+  contactDesignations: [],
   tags: [],
 };
 
@@ -918,7 +918,9 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
           primaryEmailLabel: 'Office',
           primaryPhone: null,
           primaryPhoneLabel: null,
-          contactRoles: [{ role: 'primary', addressId: null, copyAll: false }],
+          contactDesignations: [
+            { designation: 'primary', addressId: null, copyAll: false },
+          ],
           tags: [],
           isPrimaryTaxContact: false,
           portalAccess: { status: 'off' },
@@ -949,7 +951,7 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
     expect(
       await within(contacts).findByText('rita@flag.test (Office)')
     ).toBeTruthy();
-    // I0014-R030: the Roles column lists system roles.
+    // I0014-R030: the Designations column lists system designations.
     expect(within(contacts).getByText('Primary')).toBeTruthy();
   });
 });
@@ -1054,7 +1056,7 @@ describe('Organization contacts (M0005-R004)', () => {
     opener.remove();
   });
 
-  it("shows a contact's roles and replaces them from the Roles pencil (I0014-R028)", async () => {
+  it("shows a contact's designations and replaces them from the Designations pencil (I0014-R028)", async () => {
     const rita = {
       id: '55555555-5555-4555-8555-555555555555',
       kind: 'vendor_contact',
@@ -1062,7 +1064,9 @@ describe('Organization contacts (M0005-R004)', () => {
       firstName: 'Rita',
       lastName: 'Moss',
       taxIdLast4: null,
-      contactRoles: [{ role: 'primary', addressId: null, copyAll: false }],
+      contactDesignations: [
+        { designation: 'primary', addressId: null, copyAll: false },
+      ],
       tags: [],
       isPrimaryTaxContact: false,
       isPortalUser: false,
@@ -1073,8 +1077,8 @@ describe('Organization contacts (M0005-R004)', () => {
       addresses: [],
     };
     api.getDirectoryRecord.mockResolvedValue(rita);
-    api.setPersonRoles.mockResolvedValue({
-      contactRoles: [],
+    api.setPersonDesignations.mockResolvedValue({
+      contactDesignations: [],
       tags: [],
       revision: 5,
     });
@@ -1092,25 +1096,25 @@ describe('Organization contacts (M0005-R004)', () => {
       />
     );
     const dialog = await screen.findByRole('dialog', { name: /Rita Moss/ });
-    expect(within(dialog).getByText('Roles: Primary')).toBeTruthy();
+    expect(within(dialog).getByText('Designations: Primary')).toBeTruthy();
     // R008: a vendor contact has no tax ID to edit.
     expect(
       within(dialog).queryByRole('button', { name: 'Edit tax ID' })
     ).toBeNull();
     const user = userEvent.setup();
     await user.click(
-      within(dialog).getByRole('button', { name: 'Edit roles' })
+      within(dialog).getByRole('button', { name: 'Edit designations' })
     );
-    const form = await screen.findByRole('dialog', { name: 'Roles' });
+    const form = await screen.findByRole('dialog', { name: 'Designations' });
     // R005: notifications belong to a tenant's employees.
     expect(within(form).queryByLabelText('Notifications')).toBeNull();
     await user.click(within(form).getByLabelText('Billing'));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
-    expect(api.setPersonRoles).toHaveBeenCalledWith(
+    expect(api.setPersonDesignations).toHaveBeenCalledWith(
       'organization-contacts',
       rita.id,
       {
-        roles: [{ role: 'primary' }, { role: 'billing' }],
+        designations: [{ designation: 'primary' }, { designation: 'billing' }],
         revision: 4,
         tagIds: [],
       }
@@ -1141,7 +1145,7 @@ describe('Napsoft clients (I0013-R005, R017, R018, R029)', () => {
     lastName: 'Admin',
     email: 'ann@acme.test',
     phone: '+15125550111',
-    roles: ['primary', 'billing'],
+    designations: ['primary', 'billing'],
   };
   const EIN = {
     id: '6b6b6b6b-6b6b-4b6b-8b6b-6b6b6b6b6b6b',
@@ -1261,18 +1265,20 @@ describe('Napsoft clients (I0013-R005, R017, R018, R029)', () => {
 });
 
 describe('Employee company contacts (I0014-R003, R028)', () => {
-  it("shows an employee's roles and adds notifications", async () => {
+  it("shows an employee's designations and adds notifications", async () => {
     useSession.mockReturnValue(sessionFor());
     const record = {
       ...STAFF,
-      contactRoles: [{ role: 'primary', addressId: null, copyAll: false }],
+      contactDesignations: [
+        { designation: 'primary', addressId: null, copyAll: false },
+      ],
       contactMethods: [],
       addresses: [],
     };
     listRows = [record];
     api.getDirectoryRecord.mockResolvedValue(record);
-    api.setPersonRoles.mockResolvedValue({
-      contactRoles: [],
+    api.setPersonDesignations.mockResolvedValue({
+      contactDesignations: [],
       tags: [],
       revision: 3,
     });
@@ -1283,18 +1289,25 @@ describe('Employee company contacts (I0014-R003, R028)', () => {
       await within(table).findByRole('button', { name: 'Jane Doe' })
     );
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Roles: Primary')).toBeTruthy();
+    expect(within(dialog).getByText('Designations: Primary')).toBeTruthy();
     await user.click(
-      within(dialog).getByRole('button', { name: 'Edit roles' })
+      within(dialog).getByRole('button', { name: 'Edit designations' })
     );
-    const form = await screen.findByRole('dialog', { name: 'Roles' });
+    const form = await screen.findByRole('dialog', { name: 'Designations' });
     await user.click(within(form).getByLabelText('Notifications'));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
-    expect(api.setPersonRoles).toHaveBeenCalledWith('people', record.id, {
-      roles: [{ role: 'primary' }, { role: 'notifications' }],
-      revision: record.revision,
-      tagIds: [],
-    });
+    expect(api.setPersonDesignations).toHaveBeenCalledWith(
+      'people',
+      record.id,
+      {
+        designations: [
+          { designation: 'primary' },
+          { designation: 'notifications' },
+        ],
+        revision: record.revision,
+        tagIds: [],
+      }
+    );
   });
 });
 
@@ -1330,14 +1343,14 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     return table;
   }
 
-  it('lists role tags under For: Role (I0014-R004, R030)', async () => {
+  it('lists designation tags under For: Designation (I0014-R004, R030)', async () => {
     api.listContactLabels.mockResolvedValue([
       WORK,
-      label('88888888-8888-4888-8888-888888888888', 'role', 'Sales rep'),
+      label('88888888-8888-4888-8888-888888888888', 'designation', 'Sales rep'),
     ]);
     const table = await labelsGrid();
     expect(await within(table).findByText('Sales rep')).toBeTruthy();
-    expect(within(table).getByText('Role')).toBeTruthy();
+    expect(within(table).getByText('Designation')).toBeTruthy();
   });
 
   it('adds a label in a dialog and reports a duplicate name there', async () => {
@@ -2175,7 +2188,7 @@ describe('Emails, phones, and addresses on other records (M0005-R065–R067)', (
   });
 });
 
-describe('Organization roles, purposes, and owner (I0014-R028–R030)', () => {
+describe('Organization designations, purposes, and owner (I0014-R028–R030)', () => {
   const VENDOR = {
     id: '44444444-4444-4444-8444-444444444444',
     kind: 'vendor',
@@ -2200,7 +2213,7 @@ describe('Organization roles, purposes, and owner (I0014-R028–R030)', () => {
         isPrimary: false,
         archived: false,
         revision: 2,
-        contactRoles: [],
+        contactDesignations: [],
       },
     ],
     addresses: [
@@ -2311,9 +2324,9 @@ describe('Organization roles, purposes, and owner (I0014-R028–R030)', () => {
     );
   });
 
-  it('gives an organization email the billing role (R012)', async () => {
-    api.setEmailRoles.mockResolvedValue({
-      contactRoles: [],
+  it('gives an organization email the billing designation (R012)', async () => {
+    api.setEmailDesignations.mockResolvedValue({
+      contactDesignations: [],
       tags: [],
       revision: 3,
     });
@@ -2323,10 +2336,10 @@ describe('Organization roles, purposes, and owner (I0014-R028–R030)', () => {
     await user.click(within(form).getByLabelText('Receives invoices'));
     await user.click(within(form).getByLabelText('Copy on all invoices'));
     await user.click(within(form).getByRole('button', { name: 'Save' }));
-    expect(api.setEmailRoles).toHaveBeenCalledWith(
+    expect(api.setEmailDesignations).toHaveBeenCalledWith(
       VENDOR.id,
       VENDOR.contactMethods[0].id,
-      { roles: [{ role: 'billing', copyAll: true }], revision: 2 }
+      { designations: [{ designation: 'billing', copyAll: true }], revision: 2 }
     );
   });
 

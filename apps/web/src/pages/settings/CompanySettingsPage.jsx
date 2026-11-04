@@ -61,8 +61,8 @@ function contactLine(contact, country) {
     .join(' · ');
 }
 
-/** I0014-R031: the role groups, in order. */
-const ROLE_GROUPS = [
+/** I0014-R031: the designation groups, in order. */
+const DESIGNATION_GROUPS = [
   ['primaryContacts', 'Primary contacts'],
   ['billingContacts', 'Billing contacts'],
   ['notificationContacts', 'Notification contacts'],
@@ -158,7 +158,7 @@ function TaxIdSubmitDialog({ onClose, onSaved }) {
 /**
  * `/settings/company` (I0013-R026): a customer tenant's legal and DBA name,
  * which Napsoft keeps; its tax ID and any request waiting for Napsoft; and
- * the employees holding each contact role (I0014-R031). Roles are set on
+ * the employees holding each contact designation (I0014-R031). Designations are set on
  * each employee's detail.
  * @returns {JSX.Element}
  */
@@ -227,7 +227,7 @@ export function CompanySettingsPage() {
         ))}
       </Stack>
 
-      {ROLE_GROUPS.map(([group, title]) => (
+      {DESIGNATION_GROUPS.map(([group, title]) => (
         <Stack key={group} spacing={1}>
           <Typography variant="subtitle1">{title}</Typography>
           <List dense aria-label={title}>

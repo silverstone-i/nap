@@ -35,7 +35,7 @@ import {
   detailMatchesSchema,
   addressViewSchema,
   addressPurposeSchema,
-  contactRoleSchema,
+  contactDesignationSchema,
   recipientsSchema,
   contactLabelViewSchema,
   taxIdFormatViewSchema,
@@ -144,7 +144,7 @@ export async function listClientTenants(clientId) {
 
 /**
  * I0013-R001: provision a tenant and its Napsoft client into a ready cell
- * with its first administrator, who holds every contact role, and the
+ * with its first administrator, who holds every contact designation, and the
  * client's head office (I0014-R024).
  * @param {{legalName: string, dbaName: string|null, code: string, tier: string, cell: string, firstName: string, lastName: string, email: string, phone: string, password: string, address: object}} input
  * @returns {Promise<object>} The queued tenant job.
@@ -783,37 +783,37 @@ export async function removeAddress(partyId, id) {
   );
 }
 
-/** The roles a set-roles call returns (I0014-R011, R012). */
-const heldRolesSchema = z.strictObject({
-  contactRoles: z.array(contactRoleSchema),
+/** The designations a set-designations call returns (I0014-R011, R012). */
+const heldDesignationsSchema = z.strictObject({
+  contactDesignations: z.array(contactDesignationSchema),
   tags: z.array(z.strictObject({ id: z.uuid(), name: z.string() })),
   revision: z.number().int().positive(),
 });
 
 /**
- * I0014-R011: replace a person's contact roles and role tags.
+ * I0014-R011: replace a person's contact designations and designation tags.
  * @param {'people'|'organization-contacts'} collection
  * @param {string} id
- * @param {{revision: number, roles: {role: string, addressId?: string|null, copyAll?: boolean}[], tagIds?: string[]}} input
+ * @param {{revision: number, designations: {designation: string, addressId?: string|null, copyAll?: boolean}[], tagIds?: string[]}} input
  * @returns {Promise<object>}
  */
-export async function setPersonRoles(collection, id, input) {
-  return heldRolesSchema.parse(
-    await apiPut(`${DIRECTORY_BASE}/${collection}/${id}/roles`, input)
+export async function setPersonDesignations(collection, id, input) {
+  return heldDesignationsSchema.parse(
+    await apiPut(`${DIRECTORY_BASE}/${collection}/${id}/designations`, input)
   );
 }
 
 /**
- * I0014-R012: replace an organization email's billing roles.
+ * I0014-R012: replace an organization email's billing designations.
  * @param {string} partyId The organization.
  * @param {string} methodId
- * @param {{revision: number, roles: {role: 'billing', addressId?: string|null, copyAll?: boolean}[]}} input
+ * @param {{revision: number, designations: {designation: 'billing', addressId?: string|null, copyAll?: boolean}[]}} input
  * @returns {Promise<object>}
  */
-export async function setEmailRoles(partyId, methodId, input) {
-  return heldRolesSchema.parse(
+export async function setEmailDesignations(partyId, methodId, input) {
+  return heldDesignationsSchema.parse(
     await apiPut(
-      `${DIRECTORY_BASE}/parties/${partyId}/contact-methods/${methodId}/roles`,
+      `${DIRECTORY_BASE}/parties/${partyId}/contact-methods/${methodId}/designations`,
       input
     )
   );
@@ -836,7 +836,7 @@ export async function getRecipients(organizationId, { purpose, addressId }) {
 }
 
 /**
- * @param {{appliesTo?: 'email'|'phone'|'address'|'role', archived?: boolean}} [filters]
+ * @param {{appliesTo?: 'email'|'phone'|'address'|'designation', archived?: boolean}} [filters]
  *   `archived` lists only archived labels (I0011-R009).
  * @returns {Promise<object[]>}
  */
@@ -1129,8 +1129,8 @@ const companyContactSchema = z.object({
   lastName: z.string(),
   email: z.string().nullable(),
   phone: z.string().nullable(),
-  // I0014-R026: the system roles the employee holds.
-  roles: z.array(z.enum(['primary', 'billing', 'notifications'])),
+  // I0014-R026: the system designations the employee holds.
+  designations: z.array(z.enum(['primary', 'billing', 'notifications'])),
 });
 
 const companyProfileSchema = z.object({
@@ -1143,7 +1143,7 @@ const companyProfileSchema = z.object({
     pendingLast4: z.string().nullable(),
     reason: z.string().nullable(),
   }),
-  // I0014-R031: role holders in three groups.
+  // I0014-R031: designation holders in three groups.
   primaryContacts: z.array(companyContactSchema),
   billingContacts: z.array(companyContactSchema),
   notificationContacts: z.array(companyContactSchema),

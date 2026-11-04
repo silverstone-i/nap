@@ -575,7 +575,7 @@ describe('people (M0005-R002, R016)', () => {
 });
 
 describe('tax IDs (M0005-R006–R013)', () => {
-  it('gives an organization contact the primary and billing roles, and keeps each collection to its own kinds', async () => {
+  it('gives an organization contact the primary and billing designations, and keeps each collection to its own kinds', async () => {
     const vendor = await create('organizations', {
       kind: 'vendor',
       legalName: 'Flag Supply LLC',
@@ -590,20 +590,20 @@ describe('tax IDs (M0005-R006–R013)', () => {
       kind: 'vendor_contact',
       firstName: 'Rita',
       lastName: 'Moss',
-      contactRoles: [],
+      contactDesignations: [],
     });
     const billed = await call(
       'put',
-      `/organization-contacts/${contact.id}/roles`,
+      `/organization-contacts/${contact.id}/designations`,
       {
-        roles: [{ role: 'primary' }, { role: 'billing' }],
+        designations: [{ designation: 'primary' }, { designation: 'billing' }],
         revision: contact.revision,
       }
     );
     expect(billed.status).toBe(200);
-    expect(billed.body.data.contactRoles).toEqual([
-      { role: 'primary', addressId: null, copyAll: false },
-      { role: 'billing', addressId: null, copyAll: false },
+    expect(billed.body.data.contactDesignations).toEqual([
+      { designation: 'primary', addressId: null, copyAll: false },
+      { designation: 'billing', addressId: null, copyAll: false },
     ]);
     const emailLabel = (
       await call('post', '/labels', {
@@ -1447,18 +1447,23 @@ describe('portal access (I0008)', () => {
     expect(named.body.data).toMatchObject({
       firstName: 'Sam',
       lastName: 'Sections',
-      contactRoles: [],
+      contactDesignations: [],
     });
     const flagged = await call(
       'put',
-      `/organization-contacts/${contact.id}/roles`,
-      { roles: [{ role: 'billing' }], revision: named.body.data.revision }
+      `/organization-contacts/${contact.id}/designations`,
+      {
+        designations: [{ designation: 'billing' }],
+        revision: named.body.data.revision,
+      }
     );
     expect(flagged.status).toBe(200);
     const after = await call('get', `/organization-contacts/${contact.id}`);
     expect(after.body.data).toMatchObject({
       lastName: 'Sections',
-      contactRoles: [{ role: 'billing', addressId: null, copyAll: false }],
+      contactDesignations: [
+        { designation: 'billing', addressId: null, copyAll: false },
+      ],
     });
     const renamed = await call('patch', `/organizations/${vendor.id}`, {
       legalName: 'Section Supply Co',
@@ -3624,7 +3629,7 @@ describe('tenant company profile (I0013)', () => {
     );
   });
 
-  it('I0014 AC01: the provisioned administrator holds every role', async () => {
+  it('I0014 AC01: the provisioned administrator holds every designation', async () => {
     const profile = (await oak('get', '/company-profile')).body.data;
     expect(profile).toMatchObject({
       legalName: 'Oak Homes LLC',
@@ -3653,12 +3658,12 @@ describe('tenant company profile (I0013)', () => {
       expect.objectContaining({
         id: ann.id,
         phone: '+15125550111',
-        roles: ['primary', 'billing', 'notifications'],
+        designations: ['primary', 'billing', 'notifications'],
       }),
     ]);
   });
 
-  it('I0014 AC01, AC02: billing has any number of holders; each role keeps one', async () => {
+  it('I0014 AC01, AC02: billing has any number of holders; each designation keeps one', async () => {
     const billy = (
       await oak('post', '/people', {
         kind: 'employee',
@@ -3667,33 +3672,33 @@ describe('tenant company profile (I0013)', () => {
         primaryEmail: 'billy@oak.test',
       })
     ).body.data;
-    const setRoles = async (person, roles) =>
-      oak('put', `/people/${person}/roles`, {
-        roles: roles.map(role => ({ role })),
+    const setDesignations = async (person, designations) =>
+      oak('put', `/people/${person}/designations`, {
+        designations: designations.map(designation => ({ designation })),
         revision: (await oak('get', `/people/${person}`)).body.data.revision,
       });
     // R008: primary needs a phone; billing needs only an email.
-    expect((await setRoles(billy.id, ['primary'])).body.error.code).toBe(
+    expect((await setDesignations(billy.id, ['primary'])).body.error.code).toBe(
       'CONTACT_DETAILS_REQUIRED'
     );
-    expect((await setRoles(billy.id, ['billing'])).status).toBe(200);
+    expect((await setDesignations(billy.id, ['billing'])).status).toBe(200);
     expect(
       (await oak('get', '/company-profile')).body.data.billingContacts.map(
         c => c.id
       )
     ).toEqual([ann.id, billy.id]);
-    expect((await setRoles(ann.id, ['primary', 'notifications'])).status).toBe(
-      200
-    );
-    expect((await setRoles(billy.id, [])).body.error.code).toBe(
+    expect(
+      (await setDesignations(ann.id, ['primary', 'notifications'])).status
+    ).toBe(200);
+    expect((await setDesignations(billy.id, [])).body.error.code).toBe(
       'LAST_BILLING_CONTACT'
     );
-    expect((await setRoles(ann.id, ['primary'])).body.error.code).toBe(
+    expect((await setDesignations(ann.id, ['primary'])).body.error.code).toBe(
       'LAST_NOTIFICATIONS_CONTACT'
     );
-    expect((await setRoles(ann.id, ['notifications'])).body.error.code).toBe(
-      'LAST_PRIMARY_CONTACT'
-    );
+    expect(
+      (await setDesignations(ann.id, ['notifications'])).body.error.code
+    ).toBe('LAST_PRIMARY_CONTACT');
     const billyRecord = (await oak('get', `/people/${billy.id}`)).body.data;
     expect(
       (
@@ -3712,13 +3717,13 @@ describe('tenant company profile (I0013)', () => {
     await drain();
     const contacts = (await admin(`/tenants/${customer.tenantId}/contacts`))
       .body.data;
-    expect(contacts.map(c => [c.firstName, c.roles])).toEqual([
+    expect(contacts.map(c => [c.firstName, c.designations])).toEqual([
       ['Ann', ['primary', 'notifications']],
       ['Billy', ['billing']],
     ]);
   });
 
-  it('I0014 AC03: a standalone contact and a Napsoft employee hold no roles', async () => {
+  it('I0014 AC03: a standalone contact and a Napsoft employee hold no designations', async () => {
     const inspector = (
       await oak('post', '/people', {
         kind: 'contact',
@@ -3728,8 +3733,8 @@ describe('tenant company profile (I0013)', () => {
     ).body.data;
     expect(
       (
-        await oak('put', `/people/${inspector.id}/roles`, {
-          roles: [{ role: 'billing' }],
+        await oak('put', `/people/${inspector.id}/designations`, {
+          designations: [{ designation: 'billing' }],
           revision: inspector.revision,
         })
       ).body.error.code
@@ -3744,8 +3749,8 @@ describe('tenant company profile (I0013)', () => {
     ).body.data;
     expect(
       (
-        await call('put', `/people/${staffer.id}/roles`, {
-          roles: [{ role: 'primary' }],
+        await call('put', `/people/${staffer.id}/designations`, {
+          designations: [{ designation: 'primary' }],
           revision: staffer.revision,
         })
       ).body.error.code
@@ -3767,8 +3772,8 @@ describe('tenant company profile (I0013)', () => {
       labelId: labels.mobile,
       isPrimary: true,
     });
-    const flagged = await oak('put', `/people/${cara.id}/roles`, {
-      roles: [{ role: 'primary' }],
+    const flagged = await oak('put', `/people/${cara.id}/designations`, {
+      designations: [{ designation: 'primary' }],
       revision: (await oak('get', `/people/${cara.id}`)).body.data.revision,
     });
     expect(flagged.status, JSON.stringify(flagged.body)).toBe(200);
@@ -3909,7 +3914,7 @@ describe('tenant company profile (I0013)', () => {
   });
 });
 
-describe('contact roles and address purposes (I0014)', () => {
+describe('contact designations and address purposes (I0014)', () => {
   const oak = (method, path, body) => call(method, path, body, customer.cookie);
   const ok = response => {
     expect(response.status, JSON.stringify(response.body)).toBeLessThan(300);
@@ -3970,22 +3975,26 @@ describe('contact roles and address purposes (I0014)', () => {
       })
     );
     ok(
-      await oak('put', `/organization-contacts/${sam.id}/roles`, {
-        roles: [{ role: 'primary' }],
+      await oak('put', `/organization-contacts/${sam.id}/designations`, {
+        designations: [{ designation: 'primary' }],
         revision: await revisionOf(`/organization-contacts/${sam.id}`),
       })
     );
     ok(
-      await oak('put', `/organization-contacts/${pat.id}/roles`, {
-        roles: [{ role: 'billing', addressId: dallas.id }],
+      await oak('put', `/organization-contacts/${pat.id}/designations`, {
+        designations: [{ designation: 'billing', addressId: dallas.id }],
         revision: await revisionOf(`/organization-contacts/${pat.id}`),
       })
     );
     ok(
-      await oak('put', `/parties/${acme.id}/contact-methods/${ap.id}/roles`, {
-        roles: [{ role: 'billing', copyAll: true }],
-        revision: ap.revision,
-      })
+      await oak(
+        'put',
+        `/parties/${acme.id}/contact-methods/${ap.id}/designations`,
+        {
+          designations: [{ designation: 'billing', copyAll: true }],
+          revision: ap.revision,
+        }
+      )
     );
   });
 
@@ -4026,15 +4035,15 @@ describe('contact roles and address purposes (I0014)', () => {
 
   it('AC05: copy_all with a scope, a scope elsewhere, and notifications are refused', async () => {
     const revision = await revisionOf(`/organization-contacts/${sam.id}`);
-    const attempt = roles =>
-      oak('put', `/organization-contacts/${sam.id}/roles`, {
-        roles,
+    const attempt = designations =>
+      oak('put', `/organization-contacts/${sam.id}/designations`, {
+        designations,
         revision,
       });
     expect(
       (
         await attempt([
-          { role: 'billing', addressId: dallas.id, copyAll: true },
+          { designation: 'billing', addressId: dallas.id, copyAll: true },
         ])
       ).body.error.code
     ).toBe('INVALID_INPUT');
@@ -4055,12 +4064,12 @@ describe('contact roles and address purposes (I0014)', () => {
       })
     );
     expect(
-      (await attempt([{ role: 'billing', addressId: elsewhere.id }])).body.error
-        .code
+      (await attempt([{ designation: 'billing', addressId: elsewhere.id }]))
+        .body.error.code
     ).toBe('INVALID_STATE');
-    expect((await attempt([{ role: 'notifications' }])).body.error.code).toBe(
-      'INVALID_STATE'
-    );
+    expect(
+      (await attempt([{ designation: 'notifications' }])).body.error.code
+    ).toBe('INVALID_STATE');
   });
 
   it('AC06: a holder must meet the delivery method of the address it serves', async () => {
@@ -4089,8 +4098,8 @@ describe('contact roles and address purposes (I0014)', () => {
         )
       ).body.error.code
     ).toBe('CONTACT_DETAILS_REQUIRED');
-    expect(detail.contactRoles).toEqual([
-      { role: 'billing', addressId: dallas.id, copyAll: false },
+    expect(detail.contactDesignations).toEqual([
+      { designation: 'billing', addressId: dallas.id, copyAll: false },
     ]);
   });
 
@@ -4108,8 +4117,8 @@ describe('contact roles and address purposes (I0014)', () => {
       ).body.error.code
     ).toBe('ADDRESS_IN_USE');
     ok(
-      await oak('put', `/organization-contacts/${pat.id}/roles`, {
-        roles: [{ role: 'billing' }],
+      await oak('put', `/organization-contacts/${pat.id}/designations`, {
+        designations: [{ designation: 'billing' }],
         revision: await revisionOf(`/organization-contacts/${pat.id}`),
       })
     );
@@ -4161,8 +4170,8 @@ describe('contact roles and address purposes (I0014)', () => {
       })
     );
     ok(
-      await oak('put', `/organization-contacts/${rep.id}/roles`, {
-        roles: [{ role: 'primary' }],
+      await oak('put', `/organization-contacts/${rep.id}/designations`, {
+        designations: [{ designation: 'primary' }],
         revision: rep.revision,
       })
     );
@@ -4265,8 +4274,8 @@ describe('contact roles and address purposes (I0014)', () => {
       })
     );
     ok(
-      await oak('put', `/organization-contacts/${quinn.id}/roles`, {
-        roles: [{ role: 'billing', addressId: waco.id }],
+      await oak('put', `/organization-contacts/${quinn.id}/designations`, {
+        designations: [{ designation: 'billing', addressId: waco.id }],
         revision: await revisionOf(`/organization-contacts/${quinn.id}`),
       })
     );
@@ -4285,20 +4294,62 @@ describe('contact roles and address purposes (I0014)', () => {
         revision: archived.revision,
       })
     );
-    expect(restored.contactRoles).toEqual([]);
+    expect(restored.contactDesignations).toEqual([]);
   });
 
-  it('AC11: a role tag shows under roles and changes nothing', async () => {
+  it('R018: an organization email limited to an address keeps it until the email is removed', async () => {
+    const north = ok(
+      await oak('post', '/organizations', {
+        kind: 'client',
+        legalName: 'North Corp',
+        taxId: '12-3459998',
+        taxIdFormatId: customer.formats.EIN,
+      })
+    );
+    const office = ok(
+      await oak('post', `/parties/${north.id}/addresses`, {
+        line1: '1 North St',
+        city: 'Plano',
+        region: 'TX',
+        country: 'US',
+        purposes: [{ purpose: 'bill_to' }],
+      })
+    );
+    const email = ok(
+      await oak('post', `/parties/${north.id}/contact-methods`, {
+        type: 'email',
+        value: 'ap@north.test',
+      })
+    );
+    ok(
+      await oak(
+        'put',
+        `/parties/${north.id}/contact-methods/${email.id}/designations`,
+        {
+          designations: [{ designation: 'billing', addressId: office.id }],
+          revision: email.revision,
+        }
+      )
+    );
+    expect(
+      (await oak('delete', `/parties/${north.id}/addresses/${office.id}`)).body
+        .error.code
+    ).toBe('ADDRESS_IN_USE');
+    ok(await oak('delete', `/parties/${north.id}/contact-methods/${email.id}`));
+    ok(await oak('delete', `/parties/${north.id}/addresses/${office.id}`));
+  });
+
+  it('AC11: a designation tag shows under designations and changes nothing', async () => {
     const tag = ok(
       await oak('post', '/labels', {
-        appliesTo: 'role',
+        appliesTo: 'designation',
         name: 'Sales rep',
       })
     );
     const before = ok(await recipients('purpose=bill_to'));
     const tagged = ok(
-      await oak('put', `/organization-contacts/${sam.id}/roles`, {
-        roles: [{ role: 'primary' }],
+      await oak('put', `/organization-contacts/${sam.id}/designations`, {
+        designations: [{ designation: 'primary' }],
         tagIds: [tag.id],
         revision: await revisionOf(`/organization-contacts/${sam.id}`),
       })

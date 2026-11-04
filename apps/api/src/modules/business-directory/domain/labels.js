@@ -22,12 +22,12 @@ import {
   revisionSchema,
 } from './shared.js';
 
-/** Label groups (M0005-R017); I0014-R004 adds `role` for role tags. */
+/** Label groups (M0005-R017); I0014-R004 adds `designation` for designation tags. */
 export const LABEL_GROUPS = Object.freeze([
   'email',
   'phone',
   'address',
-  'role',
+  'designation',
 ]);
 
 const labelName = z.string().trim().min(1).max(64);

@@ -5,13 +5,13 @@
 
 /**
  * @file A customer tenant's company profile (I0013): its employees that hold
- * contact roles (I0014), its own tax ID and the request waiting for
+ * contact designations (I0014), its own tax ID and the request waiting for
  * Napsoft, and Napsoft's side of the same data. Changes reach the admin
  * database through the cell outbox (I0004).
  */
 
 import { z } from 'zod';
-import { contactDetailsOf } from './contactRoles.js';
+import { contactDetailsOf } from './contactDesignations.js';
 import { DirectoryError } from './errors.js';
 import {
   COMPANY_PROFILE_WRITE,
@@ -54,7 +54,7 @@ function requireNapsoft(context) {
 
 /**
  * The company profile a customer tenant sees (I0013-R026): its names, tax
- * ID status, and its employees grouped by system role (I0014-R031).
+ * ID status, and its employees grouped by system designation (I0014-R031).
  * @param {import('./shared.js').DirectoryContext} context
  * @returns {Promise<object>}
  */
@@ -71,12 +71,12 @@ export function getCompanyProfile(context) {
     );
     const holders = await tx.any(
       `SELECT p.party_id, p.first_name, p.last_name, p.revision,
-              array_agg(DISTINCT r.role) AS roles
+              array_agg(DISTINCT r.designation) AS designations
          FROM app.people p
-         JOIN app.contact_roles r ON r.person_id=p.party_id
+         JOIN app.contact_designations r ON r.person_id=p.party_id
         WHERE p.tenant_id=$1 AND p.organization_id IS NULL
           AND p.deactivated_at IS NULL
-          AND r.role IS NOT NULL AND r.deactivated_at IS NULL
+          AND r.designation IS NOT NULL AND r.deactivated_at IS NULL
         GROUP BY p.party_id
         ORDER BY p.last_name, p.first_name, p.party_id`,
       [context.tenant.id]
@@ -93,11 +93,12 @@ export function getCompanyProfile(context) {
         lastName: person.last_name,
         email: details.email,
         phone: details.phone,
-        roles: person.roles,
+        designations: person.designations,
         revision: person.revision,
       };
     });
-    const holding = role => contacts.filter(c => c.roles.includes(role));
+    const holding = designation =>
+      contacts.filter(c => c.designations.includes(designation));
     return {
       legalName: tenant?.legal_name ?? null,
       dbaName: tenant?.dba_name ?? null,

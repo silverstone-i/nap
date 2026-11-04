@@ -7,7 +7,7 @@ import { TableModel } from 'pg-schemata';
 
 /**
  * Schema object for `admin.tenant_contacts`: Napsoft's copy of each customer
- * tenant's employees that hold a system contact role, with those roles
+ * tenant's employees that hold a system contact designation, with those designations
  * (I0014-R026), written only by sync delivery (I0013-R015, R016).
  * Kept identical to the copy frozen in migration `001-admin-tenancy`.
  */
@@ -22,15 +22,15 @@ export const tenantContactsSchema = {
     { name: 'last_name', type: 'varchar(160)', notNull: true },
     { name: 'email', type: 'text' },
     { name: 'phone', type: 'text' },
-    { name: 'roles', type: 'text[]', notNull: true },
+    { name: 'designations', type: 'text[]', notNull: true },
     { name: 'revision', type: 'integer', notNull: true },
   ],
   constraints: {
     primaryKey: ['tenant_id', 'party_id'],
     checks: [
       'revision > 0',
-      'cardinality(roles) > 0',
-      "roles <@ ARRAY['primary', 'billing', 'notifications']::text[]",
+      'cardinality(designations) > 0',
+      "designations <@ ARRAY['primary', 'billing', 'notifications']::text[]",
     ],
     foreignKeys: [
       {

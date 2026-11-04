@@ -238,7 +238,7 @@ export const migration = defineMigration({
           ['tenant_id', 'applies_to', 'name'],
         ],
         checks: [
-          "applies_to IN ('email', 'phone', 'address', 'role')",
+          "applies_to IN ('email', 'phone', 'address', 'designation')",
           'revision > 0',
         ],
       },
@@ -452,9 +452,9 @@ export const migration = defineMigration({
         ],
       },
     };
-    const contactRolesSchema = {
+    const contactDesignationsSchema = {
       dbSchema: 'app',
-      table: 'contact_roles',
+      table: 'contact_designations',
       hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
       softDelete: true,
       columns: [
@@ -469,7 +469,7 @@ export const migration = defineMigration({
         { name: 'organization_id', type: 'uuid', immutable: true },
         { name: 'person_id', type: 'uuid', immutable: true },
         { name: 'contact_method_id', type: 'uuid', immutable: true },
-        { name: 'role', type: 'varchar(16)', immutable: true },
+        { name: 'designation', type: 'varchar(16)', immutable: true },
         { name: 'label_id', type: 'uuid', immutable: true },
         { name: 'address_id', type: 'uuid', immutable: true },
         { name: 'copy_all', type: 'boolean', notNull: true, default: false },
@@ -480,12 +480,12 @@ export const migration = defineMigration({
         checks: [
           'revision > 0',
           '(person_id IS NULL) <> (contact_method_id IS NULL)',
-          '(role IS NULL) <> (label_id IS NULL)',
-          "role IS NULL OR role IN ('primary', 'billing', 'notifications')",
-          "role = 'billing' OR (address_id IS NULL AND NOT copy_all)",
+          '(designation IS NULL) <> (label_id IS NULL)',
+          "designation IS NULL OR designation IN ('primary', 'billing', 'notifications')",
+          "designation = 'billing' OR (address_id IS NULL AND NOT copy_all)",
           'NOT (copy_all AND address_id IS NOT NULL)',
-          "role IS DISTINCT FROM 'notifications' OR organization_id IS NULL",
-          "contact_method_id IS NULL OR (role = 'billing' AND organization_id IS NOT NULL)",
+          "designation IS DISTINCT FROM 'notifications' OR organization_id IS NULL",
+          "contact_method_id IS NULL OR (designation = 'billing' AND organization_id IS NOT NULL)",
         ],
         foreignKeys: [
           {
@@ -541,10 +541,10 @@ export const migration = defineMigration({
         ],
         indexes: [
           {
-            name: 'uidx_contact_roles_holder',
+            name: 'uidx_contact_designations_holder',
             columns: [
               { expression: 'coalesce(person_id, contact_method_id)' },
-              { expression: 'coalesce(role, label_id::text)' },
+              { expression: 'coalesce(designation, label_id::text)' },
               {
                 expression:
                   "coalesce(address_id, '00000000-0000-0000-0000-000000000000'::uuid)",
@@ -639,7 +639,7 @@ export const migration = defineMigration({
       contactLabelsSchema,
       contactMethodsSchema,
       addressesSchema,
-      contactRolesSchema,
+      contactDesignationsSchema,
       addressPurposesSchema,
       tenantTaxIdsSchema,
     ];

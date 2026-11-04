@@ -182,6 +182,7 @@ const DIRECTORY_TARGETS = Object.freeze({
   record: 'directory_record',
   tax_id: 'directory_record',
   contact_method: 'contact_method',
+  contact_designations: 'contact_designation',
   address: 'address',
   label: 'contact_label',
   tax_id_format: 'tax_id_format',

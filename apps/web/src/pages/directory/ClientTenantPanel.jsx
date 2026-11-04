@@ -30,10 +30,10 @@ import { createListPageAdapter } from '../../grid/listPageAdapter.js';
 import { StandardDataGrid } from '../../grid/StandardDataGrid.jsx';
 import { useNotice } from '../../shell/NoticeContext.jsx';
 import { isNapsoftSelected } from './napsoftSession.js';
-import { ROLE_LABELS } from './contactRoleText.js';
+import { DESIGNATION_LABELS } from './contactDesignationText.js';
 
 /**
- * The read-only grid of a tenant's role holders (I0013-R017, I0014-R027).
+ * The read-only grid of a tenant's designation holders (I0013-R017, I0014-R027).
  * It has no portal column: Napsoft client contacts never hold portal
  * access (R018).
  */
@@ -53,11 +53,12 @@ const CONTACT_COLUMNS = [
     valueFormatter: value => (value ? formatPhone(value) : '—'),
   },
   {
-    field: 'roles',
-    headerName: 'Roles',
+    field: 'designations',
+    headerName: 'Designations',
     flex: 1,
     priority: 'essential',
-    valueGetter: value => value.map(role => ROLE_LABELS[role]).join(', '),
+    valueGetter: value =>
+      value.map(designation => DESIGNATION_LABELS[designation]).join(', '),
   },
 ].map(column => ({ sortable: false, filterable: false, ...column }));
 

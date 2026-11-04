@@ -56,9 +56,9 @@ import {
 } from '../../domain/companyProfile.js';
 import {
   resolveRecipients,
-  setEmailRoles,
-  setPersonRoles,
-} from '../../domain/contactRoles.js';
+  setEmailDesignations,
+  setPersonDesignations,
+} from '../../domain/contactDesignations.js';
 import { directoryContext, sendDirectoryError } from './shared.js';
 
 const READ = 'business-directory::directory::read';
@@ -174,15 +174,19 @@ function recordRouter(name) {
           )
         )
       );
-    // I0014-R011: a person's contact roles and tags, as one set. A tenant's
+    // I0014-R011: a person's contact designations and tags, as one set. A tenant's
     // employee also needs `company-profile::write`, checked in the domain.
     if (name !== 'organizations')
       router.put(
-        '/:id/roles',
+        '/:id/designations',
         ...route(deps, WRITE, async (context, request, response) =>
           sendData(
             response,
-            await setPersonRoles(context, request.params.id, request.body)
+            await setPersonDesignations(
+              context,
+              request.params.id,
+              request.body
+            )
           )
         )
       );
@@ -271,13 +275,13 @@ export function createPartiesRouter(deps) {
       )
     )
   );
-  // I0014-R012: an organization email's `billing` roles.
+  // I0014-R012: an organization email's `billing` designations.
   router.put(
-    '/:id/contact-methods/:methodId/roles',
+    '/:id/contact-methods/:methodId/designations',
     ...route(deps, WRITE, async (context, request, response) =>
       sendData(
         response,
-        await setEmailRoles(
+        await setEmailDesignations(
           context,
           request.params.id,
           request.params.methodId,
@@ -464,7 +468,7 @@ export function createTaxIdFormatsRouter(deps) {
 
 /**
  * Build the `company-profile` router: a customer tenant's names, tax ID,
- * and contact-role holders (I0013-R019, R026; I0014-R031).
+ * and contact-designation holders (I0013-R019, R026; I0014-R031).
  * @param {object} deps
  * @returns {import('express').Router}
  */

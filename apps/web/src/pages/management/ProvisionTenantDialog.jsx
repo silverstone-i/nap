@@ -64,7 +64,7 @@ const TIERS = ['starter', 'growth', 'enterprise'];
  * cell, and name its first administrator with a temporary password.
  * Provisioning creates the Napsoft client too, with its head office as its
  * location and bill-to address (I0014-R024). The administrator holds every
- * contact role.
+ * contact designation.
  * @param {{onClose: () => void, onProvisioned: () => void}} props
  * @returns {JSX.Element}
  */

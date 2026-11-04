@@ -38,9 +38,9 @@ let handle, app;
 const TABLES = [
   'address_purposes',
   'addresses',
+  'contact_designations',
   'contact_labels',
   'contact_methods',
-  'contact_roles',
   'organizations',
   'parties',
   'people',
@@ -310,7 +310,7 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
   });
 });
 
-it('holds any number of role holders and enforces the role and purpose checks (I0014 §9)', async () => {
+it('holds any number of designation holders and enforces the designation and purpose checks (I0014 §9)', async () => {
   await inTenant(tenant, async tx => {
     const vendor = await party(tx, 'vendor');
     await tx.none(
@@ -326,32 +326,35 @@ it('holds any number of role holders and enforces the role and purpose checks (I
       );
       people.push(id);
     }
-    const role = (person, values) =>
+    const designation = (person, values) =>
       tx.none(
-        `INSERT INTO app.contact_roles
-           (tenant_id, organization_id, person_id, role, address_id, copy_all)
+        `INSERT INTO app.contact_designations
+           (tenant_id, organization_id, person_id, designation, address_id, copy_all)
          VALUES ($1,$2,$3,$4,$5,$6)`,
         [
           tenant,
           vendor,
           person,
-          values.role,
+          values.designation,
           values.address ?? null,
           values.copyAll ?? false,
         ]
       );
     // Several billing holders, each once.
-    for (const person of people) await role(person, { role: 'billing' });
+    for (const person of people)
+      await designation(person, { designation: 'billing' });
     await expect(
-      tx.tx(() => role(people[0], { role: 'billing' }))
+      tx.tx(() => designation(people[0], { designation: 'billing' }))
     ).rejects.toMatchObject({ code: '23505' });
     // R005: notifications belong to a tenant's employees.
     await expect(
-      tx.tx(() => role(people[0], { role: 'notifications' }))
+      tx.tx(() => designation(people[0], { designation: 'notifications' }))
     ).rejects.toMatchObject({ code: '23514' });
     // R014: copy_all only on billing.
     await expect(
-      tx.tx(() => role(people[0], { role: 'primary', copyAll: true }))
+      tx.tx(() =>
+        designation(people[0], { designation: 'primary', copyAll: true })
+      )
     ).rejects.toMatchObject({ code: '23514' });
     const address = await tx.one(
       "INSERT INTO app.addresses (tenant_id, party_id, line1, city, country) VALUES ($1,$2,'1 Elm St','Austin','US') RETURNING id",
@@ -360,8 +363,8 @@ it('holds any number of role holders and enforces the role and purpose checks (I
     // R014: never both a scope and copy_all.
     await expect(
       tx.tx(() =>
-        role(people[1], {
-          role: 'billing',
+        designation(people[1], {
+          designation: 'billing',
           address: address.id,
           copyAll: true,
         })

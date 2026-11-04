@@ -16,13 +16,13 @@
 
 import { queueClientName, requireClientArchivable } from './companyProfile.js';
 import {
-  holdsSystemRole,
+  holdsSystemDesignation,
   requireContactDetails,
   requireOrganizationHolders,
-  requireRoleCounts,
-  roleViewsOf,
+  requireDesignationCounts,
+  designationViewsOf,
   syncContact,
-} from './contactRoles.js';
+} from './contactDesignations.js';
 import { z } from 'zod';
 import { encodeCursor, fingerprint, parseCursor } from './cursor.js';
 import { DirectoryError } from './errors.js';
@@ -215,7 +215,7 @@ async function loadRecord(context, name, id, tx, { lock = false } = {}) {
 
 /**
  * Primary email and phone of each party, the facts its portal-access
- * status comes from (I0008-R008), and a person's contact roles and tags
+ * status comes from (I0008-R008), and a person's contact designations and tags
  * (I0014), keyed by party ID.
  * @param {object} context
  * @param {string[]} partyIds
@@ -232,9 +232,11 @@ async function primaries(context, partyIds, tx) {
   }
   for (const [id, fact] of await portalFacts(context, partyIds, tx))
     map.get(id).portal = fact;
-  // I0014: a person's contact roles and tags; none for an organization.
-  for (const [id, roles] of await roleViewsOf(tx, { personIds: partyIds }))
-    Object.assign(map.get(id), roles);
+  // I0014: a person's contact designations and tags; none for an organization.
+  for (const [id, designations] of await designationViewsOf(tx, {
+    personIds: partyIds,
+  }))
+    Object.assign(map.get(id), designations);
   return map;
 }
 
@@ -267,7 +269,7 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
       lastName: row.last_name,
       isPortalUser: row.is_portal_user,
       portalAccess,
-      contactRoles: primary.contactRoles ?? [],
+      contactDesignations: primary.contactDesignations ?? [],
       tags: primary.tags ?? [],
     };
   if (name === 'organizations')
@@ -284,7 +286,7 @@ export function recordView(name, row, primary = { email: null, phone: null }) {
     lastName: row.last_name,
     isPortalUser: row.is_portal_user,
     portalAccess,
-    contactRoles: primary.contactRoles ?? [],
+    contactDesignations: primary.contactDesignations ?? [],
     tags: primary.tags ?? [],
     isPrimaryTaxContact: row.is_primary_tax_contact,
   };
@@ -636,7 +638,7 @@ export async function getRecord(context, name, id) {
       { tx, orderBy: ['type', 'created_at', 'id'] }
     );
     // I0014-R012: an organization's own emails may hold `billing`.
-    const methodRoles = await roleViewsOf(tx, {
+    const methodDesignations = await designationViewsOf(tx, {
       methodIds: name === 'organizations' ? methods.map(m => m.id) : [],
     });
     const addresses = await context.cell.addresses.rows(
@@ -653,7 +655,8 @@ export async function getRecord(context, name, id) {
       contactMethods: methods.map(method => ({
         ...contactMethodView(method),
         labelName: labelName(method.label_id),
-        contactRoles: methodRoles.get(method.id)?.contactRoles ?? [],
+        contactDesignations:
+          methodDesignations.get(method.id)?.contactDesignations ?? [],
       })),
       addresses: addresses.map(address => ({
         ...addressView(address),
@@ -958,7 +961,7 @@ export async function updateRecord(context, name, id, body) {
         await queueClientName(context, tx, row);
     }
     // I0014-R010, R026: portal access feeds the billing holder rule, and
-    // a role holder's name feeds Napsoft's copy.
+    // a designation holder's name feeds Napsoft's copy.
     if (portal !== null && row.organization_id)
       await requireOrganizationHolders(tx, row.organization_id);
     if (row.kind === 'employee')
@@ -1084,8 +1087,9 @@ async function archiveOne(
     throw new DirectoryError('INVALID_STATE');
   if (locked.is_primary_tax_contact && !locked.deactivated_at)
     throw new DirectoryError('PRIMARY_TAX_CONTACT');
-  const heldRoles =
-    locked.kind === 'employee' && (await holdsSystemRole(tx, locked.party_id));
+  const heldDesignations =
+    locked.kind === 'employee' &&
+    (await holdsSystemDesignation(tx, locked.party_id));
   // I0013-R030: a Napsoft client follows its tenant.
   if (isNapsoftClient(context, locked.kind) && locked.kind === 'client')
     await requireClientArchivable(context, locked.party_id);
@@ -1105,9 +1109,9 @@ async function archiveOne(
     locked
   );
   if (portalOff) await sendPortalAccess(context, row, false, undefined, tx);
-  // I0014-R007, R026: an archived holder's roles end with it.
-  if (heldRoles) {
-    await requireRoleCounts(context, tx);
+  // I0014-R007, R026: an archived holder's designations end with it.
+  if (heldDesignations) {
+    await requireDesignationCounts(context, tx);
     await syncContact(context, tx, locked.party_id, true);
   }
   const after = await viewOf(context, name, row, tx);
@@ -1165,11 +1169,14 @@ async function restoreOne(
     locked
   );
   // I0014-R008–R010: details may have changed while archived, and the
-  // restored holder's roles come back.
+  // restored holder's designations come back.
   if (table === 'people')
     await requireContactDetails(context, tx, row.party_id);
-  if (row.kind === 'employee' && (await holdsSystemRole(tx, row.party_id))) {
-    await requireRoleCounts(context, tx);
+  if (
+    row.kind === 'employee' &&
+    (await holdsSystemDesignation(tx, row.party_id))
+  ) {
+    await requireDesignationCounts(context, tx);
     await syncContact(context, tx, row.party_id, false);
   }
   const after = await viewOf(context, name, row, tx);

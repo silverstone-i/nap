@@ -12,11 +12,11 @@
  */
 
 import {
-  endEmailRoles,
+  endEmailDesignations,
   requireContactDetails,
   requireOrganizationHolders,
   syncContact,
-} from './contactRoles.js';
+} from './contactDesignations.js';
 import {
   ADDRESS_PURPOSES,
   DELIVERY_METHODS,
@@ -230,7 +230,7 @@ async function promoteDefault(context, partyId, purpose, tx) {
 
 /**
  * Refuse losing a bill-to address that limits an active holder's `billing`
- * role (I0014-R018). An archived holder's role limited to it ends instead,
+ * designation (I0014-R018). An archived holder's designation limited to it ends instead,
  * so a later restore cannot point at a removed address.
  * @param {object} context
  * @param {string} addressId
@@ -238,23 +238,24 @@ async function promoteDefault(context, partyId, purpose, tx) {
  * @returns {Promise<void>}
  * @throws {DirectoryError} `ADDRESS_IN_USE`
  */
-async function releaseScopedRoles(context, addressId, tx) {
-  const scoped = await context.cell.contact_roles.rows(
+async function releaseScopedDesignations(context, addressId, tx) {
+  const scoped = await context.cell.contact_designations.rows(
     { address_id: addressId },
     { tx, lock: true }
   );
   const people = await context.cell.people.byKeys(
-    scoped.map(role => role.person_id).filter(Boolean),
+    scoped.map(designation => designation.person_id).filter(Boolean),
     { tx }
   );
   const archived = new Set(
     people.filter(p => p.deactivated_at).map(p => p.party_id)
   );
-  if (scoped.some(role => !archived.has(role.person_id)))
+  // An email holder has no `person_id`; removing an email ends its rows, so it is always active.
+  if (scoped.some(designation => !archived.has(designation.person_id)))
     throw new DirectoryError('ADDRESS_IN_USE');
-  for (const role of scoped)
-    await context.cell.contact_roles.saveRevision(
-      role.id,
+  for (const designation of scoped)
+    await context.cell.contact_designations.saveRevision(
+      designation.id,
       { archived: true },
       context.actorId,
       { tx }
@@ -266,7 +267,7 @@ async function releaseScopedRoles(context, addressId, tx) {
  * belong to vendor and client addresses only; `remit_to` to vendors only. A
  * new purpose becomes the default when the organization has none; a
  * removed default passes to the oldest other address. A bill-to address
- * that scopes a `billing` role keeps its purpose, and a Napsoft client
+ * that scopes a `billing` designation keeps its purpose, and a Napsoft client
  * keeps a location.
  * @param {object} context
  * @param {{id: string, kind: string}} party
@@ -296,7 +297,7 @@ async function replacePurposes(context, party, addressId, wanted, tx) {
   for (const row of existing) {
     if (names.includes(row.purpose)) continue;
     if (row.purpose === 'bill_to') {
-      await releaseScopedRoles(context, addressId, tx);
+      await releaseScopedDesignations(context, addressId, tx);
     }
     await context.cell.address_purposes.saveRevision(
       row.id,
@@ -541,7 +542,7 @@ function detailChange(eventKey, party, before, after) {
 }
 
 /**
- * Keep a role holder's required details (I0014-R008–R010), and Napsoft's
+ * Keep a designation holder's required details (I0014-R008–R010), and Napsoft's
  * copy of a customer tenant's employee (R026).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {{id: string, kind: string}} party
@@ -707,8 +708,8 @@ export function removeContactMethod(context, partyId, methodId) {
       context.actorId,
       { tx }
     );
-    // I0014-R012: an organization email's roles end with it.
-    await endEmailRoles(context, tx, locked.id);
+    // I0014-R012: an organization email's designations end with it.
+    await endEmailDesignations(context, tx, locked.id);
     await requirePrimaryEmail(context, party, tx);
     await portalEmail();
     await contactDetailsChanged(context, party, tx);
