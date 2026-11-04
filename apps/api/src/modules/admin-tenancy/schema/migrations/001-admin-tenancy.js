@@ -699,15 +699,15 @@ export const migration = defineMigration({
         { name: 'last_name', type: 'varchar(160)', notNull: true },
         { name: 'email', type: 'text' },
         { name: 'phone', type: 'text' },
-        { name: 'roles', type: 'text[]', notNull: true },
+        { name: 'designations', type: 'text[]', notNull: true },
         { name: 'revision', type: 'integer', notNull: true },
       ],
       constraints: {
         primaryKey: ['tenant_id', 'party_id'],
         checks: [
           'revision > 0',
-          'cardinality(roles) > 0',
-          "roles <@ ARRAY['primary', 'billing', 'notifications']::text[]",
+          'cardinality(designations) > 0',
+          "designations <@ ARRAY['primary', 'billing', 'notifications']::text[]",
         ],
         foreignKeys: [
           {

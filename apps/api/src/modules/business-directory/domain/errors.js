@@ -42,7 +42,7 @@ const PASS_THROUGH = new Set([
   // M0005-R064: the party already has this email, phone, or address.
   'DUPLICATE_DETAIL',
   'ADMIN_ASSIGNED',
-  // I0014-R007, R010, R018, R020: the contact role rules a change would break.
+  // I0014-R007, R010, R018, R020: the contact designation rules a change would break.
   'LAST_PRIMARY_CONTACT',
   'LAST_BILLING_CONTACT',
   'LAST_NOTIFICATIONS_CONTACT',

@@ -10,6 +10,15 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+### Changed
+
+- Contact roles are now called **designations**, so "role" means only the access-control roles that hold grants. A person's detail shows a **Designations** line and an **Edit designations** pencil, the directory grids show a **Designations** column, and role tags are now designation tags (the **Designation** label group). The routes are now `PUT /api/business-directory/v1/{people,organization-contacts}/:id/designations` and `PUT …/parties/:id/contact-methods/:methodId/designations`, with `designations: [{ designation, addressId?, copyAll? }]` in place of `roles: [{ role, … }]`. Records return `contactDesignations`, and `GET …/tenants/:tenant/contacts` returns `designations`. Error codes keep their names.
+- Baseline migrations `001-business-directory` and `001-admin-tenancy` are edited in place (`app.contact_roles` becomes `app.contact_designations` with a `designation` column, `admin.tenant_contacts.roles` becomes `designations`, and the `contact_labels.applies_to` value `role` becomes `designation`). Recreate or align existing admin and cell databases.
+
+### Fixed
+
+- Changing a person's or organization email's designations now reaches the administrative event log. The event was missing from the catalogue, so every such change failed delivery with `INVALID_PAYLOAD`.
+
 ## [v0.37.2] - 2026-11-04
 
 ### Fixed

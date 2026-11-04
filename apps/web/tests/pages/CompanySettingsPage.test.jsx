@@ -44,7 +44,7 @@ const ANN = {
   lastName: 'Admin',
   email: 'ann@oak.test',
   phone: '+15125550111',
-  roles: ['primary', 'notifications'],
+  designations: ['primary', 'notifications'],
 };
 const BILLY = {
   id: '22222222-2222-4222-8222-222222222222',
@@ -52,7 +52,7 @@ const BILLY = {
   lastName: 'Bob',
   email: 'billy@oak.test',
   phone: null,
-  roles: ['billing'],
+  designations: ['billing'],
 };
 const BETH = {
   ...BILLY,
@@ -125,7 +125,7 @@ describe('CompanySettingsPage (I0013-R026)', () => {
     expect(within(primaries).getByText('Ann Admin')).toBeTruthy();
   });
 
-  it('lists every holder of each role (I0014-R031)', async () => {
+  it('lists every holder of each designation (I0014-R031)', async () => {
     renderPage();
     const billing = await screen.findByRole('list', {
       name: 'Billing contacts',

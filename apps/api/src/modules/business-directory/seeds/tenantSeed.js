@@ -12,7 +12,7 @@
  * and adds nothing.
  */
 
-import { SYSTEM_ROLES } from '../models/contact_roles.js';
+import { SYSTEM_DESIGNATIONS } from '../models/contact_designations.js';
 
 /**
  * Default labels by group (R017). A name appears in each group where it is
@@ -125,7 +125,7 @@ export async function taxIdFormatsPresent(db, tx, tenantId) {
  * Seed a customer tenant's directory: the default labels and tax ID
  * formats, the first
  * administrator as an employee marked as a portal user, with their primary
- * email and phone, holding every system contact role for the tenant
+ * email and phone, holding every system contact designation for the tenant
  * (R022, I0013-R004, I0014-R006).
  * @param {object} db Cell repository handle.
  * @param {import('pg-promise').IDatabase<unknown>} tx
@@ -182,15 +182,18 @@ export async function seedDirectoryTenant(db, tx, admin) {
       },
       { tx }
     );
-  // I0014-R006: the administrator starts as the holder of every role.
-  const held = await db.contact_roles.rows({ person_id: partyId }, { tx });
-  for (const role of SYSTEM_ROLES)
-    if (!held.some(row => row.role === role))
-      await db.contact_roles.insert(
-        { tenant_id: tenantId, person_id: partyId, role },
+  // I0014-R006: the administrator starts as the holder of every designation.
+  const held = await db.contact_designations.rows(
+    { person_id: partyId },
+    { tx }
+  );
+  for (const designation of SYSTEM_DESIGNATIONS)
+    if (!held.some(row => row.designation === designation))
+      await db.contact_designations.insert(
+        { tenant_id: tenantId, person_id: partyId, designation },
         { tx }
       );
-  // I0014-R026: Napsoft's copy of the administrator with those roles.
+  // I0014-R026: Napsoft's copy of the administrator with those designations.
   const queued = await db.outbox.findOneBy(
     { topic: 'tenant_contact', entity_id: partyId },
     { tx }
@@ -209,7 +212,7 @@ export async function seedDirectoryTenant(db, tx, admin) {
           last_name: lastName,
           email,
           phone,
-          roles: [...SYSTEM_ROLES],
+          designations: [...SYSTEM_DESIGNATIONS],
         },
       },
       { tx }
@@ -238,7 +241,10 @@ export async function directorySeedPresent(db, tx, admin) {
     { tenant_id: tenantId, party_id: partyId, type: 'phone', is_primary: true },
     { tx }
   );
-  const held = await db.contact_roles.rows({ person_id: partyId }, { tx });
+  const held = await db.contact_designations.rows(
+    { person_id: partyId },
+    { tx }
+  );
   // `nap-admin` is not filtered by row-level security: a party ID found in
   // another tenant is not this tenant's seed.
   return Boolean(
@@ -249,7 +255,9 @@ export async function directorySeedPresent(db, tx, admin) {
     person.first_name === firstName &&
     person.last_name === lastName &&
     person.is_portal_user &&
-    SYSTEM_ROLES.every(role => held.some(row => row.role === role)) &&
+    SYSTEM_DESIGNATIONS.every(designation =>
+      held.some(row => row.designation === designation)
+    ) &&
     primaryEmail?.value === email &&
     primaryPhone?.value === phone
   );

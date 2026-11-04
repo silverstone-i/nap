@@ -4,7 +4,7 @@
  */
 
 /**
- * @file How contact roles, address purposes, and delivery methods read on
+ * @file How contact designations, address purposes, and delivery methods read on
  * screen (I0014-R028–R030).
  */
 
@@ -20,8 +20,8 @@ export const DELIVERY_LABELS = Object.freeze({
   portal: 'Portal',
 });
 
-/** I0014-R001: the system roles as shown. */
-export const ROLE_LABELS = Object.freeze({
+/** I0014-R001: the system designations as shown. */
+export const DESIGNATION_LABELS = Object.freeze({
   primary: 'Primary',
   billing: 'Billing',
   notifications: 'Notifications',
@@ -37,15 +37,15 @@ export function addressName(address) {
 }
 
 /**
- * One line naming held system roles (I0014-R028): a scoped billing role
+ * One line naming held system designations (I0014-R028): a scoped billing designation
  * names its address, and `copy_all` reads "copy".
- * @param {{role: string, addressId: string|null, copyAll: boolean}[]} roles
+ * @param {{designation: string, addressId: string|null, copyAll: boolean}[]} designations
  * @param {object[]} [addresses] The organization's addresses.
  * @returns {string[]}
  */
-export function describeRoles(roles, addresses = []) {
-  return roles.map(({ role, addressId, copyAll }) => {
-    const label = ROLE_LABELS[role];
+export function describeDesignations(designations, addresses = []) {
+  return designations.map(({ designation, addressId, copyAll }) => {
+    const label = DESIGNATION_LABELS[designation];
     if (addressId)
       return `${label} (${addressName(addresses.find(a => a.id === addressId))})`;
     return copyAll ? `${label} (copy)` : label;

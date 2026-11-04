@@ -99,7 +99,7 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
   include a `billing` label for phones (M0005-R017 seeds `billing` for
   addresses only). In a customer tenant, renaming or archiving that phone
   label fails with `409 BILLING_LABEL`, since R011 finds the billing phone
-  by it. _Superseded in part by I0014-R032 ([I0014](I0014-contact-roles-and-address-purposes.md): roles in place of the
+  by it. _Superseded in part by I0014-R032 ([I0014](I0014-contact-designations-and-address-purposes.md): designations in place of the
   flags; no billing phone or `BILLING_LABEL`)._
 - I0013-R005: A Napsoft client must be created only by R003. In the Napsoft
   tenant, `POST /organizations` with `kind = client` fails with
@@ -125,19 +125,19 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
   `is_primary_contact`, `is_billing_contact`, or both. Setting or clearing
   either flag on an employee requires `business-directory::company-profile::write`.
   The Napsoft tenant's employees never carry either flag. _Superseded by
-  I0014-R003 and R005 ([I0014](I0014-contact-roles-and-address-purposes.md))._
+  I0014-R003 and R005 ([I0014](I0014-contact-designations-and-address-purposes.md))._
 - I0013-R010: A customer tenant must always have at least one primary
-  contact and exactly one billing contact. _Superseded by I0014-R006 ([I0014](I0014-contact-roles-and-address-purposes.md):
-  at least one of each role)._
+  contact and exactly one billing contact. _Superseded by I0014-R006 ([I0014](I0014-contact-designations-and-address-purposes.md):
+  at least one of each designation)._
 - I0013-R011: A primary contact must have a primary email and a primary
   phone. The billing contact must have a primary email and a billing phone.
-  _Superseded by I0014-R008 ([I0014](I0014-contact-roles-and-address-purposes.md))._
+  _Superseded by I0014-R008 ([I0014](I0014-contact-designations-and-address-purposes.md))._
 - I0013-R012: `POST /company-profile/billing-contact` with
   `{ "partyId": "<uuid>" }` must, in one cell transaction, clear the flag on
   the current billing contact and set it on the named employee. The named
   employee must meet R011, or the request fails with
   `409 CONTACT_DETAILS_REQUIRED`. _Superseded by I0014-R011 and R031
-  ([I0014](I0014-contact-roles-and-address-purposes.md): the endpoint is removed)._
+  ([I0014](I0014-contact-designations-and-address-purposes.md): the endpoint is removed)._
 - I0013-R013: A change that would break R010 or R011 must fail and change
   nothing:
   - archiving or unflagging the last primary contact: `409 LAST_PRIMARY_CONTACT`;
@@ -147,7 +147,7 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
     the billing phone: `409 CONTACT_DETAILS_REQUIRED`.
 
   Bulk archive reports these codes per item (M0005 §10). _Superseded by
-  I0014-R007 and R010 ([I0014](I0014-contact-roles-and-address-purposes.md))._
+  I0014-R007 and R010 ([I0014](I0014-contact-designations-and-address-purposes.md))._
 
 - I0013-R014: Primary and billing contacts may hold portal access under
   I0008, as any employee may.
@@ -158,7 +158,7 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
   first or last name, primary email, primary phone, billing phone, or
   archived state must write, in the same cell transaction, an outbox row
   holding the employee's snapshot. Clearing both flags writes a removal row.
-  _Superseded in part by I0014-R026 ([I0014](I0014-contact-roles-and-address-purposes.md): roles in place of the flags)._
+  _Superseded in part by I0014-R026 ([I0014](I0014-contact-designations-and-address-purposes.md): designations in place of the flags)._
 - I0013-R016: The cell-to-admin delivery (I0004) must upsert the snapshot
   into `admin.tenant_contacts`, or delete the row for a removal, applying a
   row only when its `revision` is higher than the stored one.
@@ -166,7 +166,7 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
   `admin.tenant_contacts` through `GET /tenants/:tenant/contacts`, with name,
   email, phone, billing phone, and contact type. The list is read-only and
   has no portal column, portal actions, or **New contact**. _Superseded in
-  part by I0014-R027 ([I0014](I0014-contact-roles-and-address-purposes.md): **Roles** column, no billing phone)._
+  part by I0014-R027 ([I0014](I0014-contact-designations-and-address-purposes.md): **Designations** column, no billing phone)._
 
 ### Napsoft client contacts
 
@@ -221,14 +221,14 @@ A tenant's `tenant_admin` holds them through its `<CODE>::*::*::*` grant.
   that shows the legal and DBA name, the tax ID status with a submit action,
   the primary contacts, and the billing contact with a **Change** action.
   Actions the session cannot perform are hidden (I0005). _Superseded in part
-  by I0014-R031 ([I0014](I0014-contact-roles-and-address-purposes.md): three role groups, no **Change**)._
+  by I0014-R031 ([I0014](I0014-contact-designations-and-address-purposes.md): three designation groups, no **Change**)._
 - I0013-R027: The capability catalogue must add
   `business-directory::company-profile::write` for customer tenants and
   `business-directory::tax-ids::approve` for the Napsoft tenant.
 - I0013-R028: An employee's detail in a customer tenant must show
   **Primary contact** as a switch and the billing flag as text, with **Change
   billing contact** linking to R012 (M0005-R051's pattern). _Superseded by
-  I0014-R028 ([I0014](I0014-contact-roles-and-address-purposes.md))._
+  I0014-R028 ([I0014](I0014-contact-designations-and-address-purposes.md))._
 - I0013-R029: The Napsoft client detail must show a pending tax ID's last
   four digits with **Approve** and **Reject**, using the request from
   `GET /tenants/:tenant/tax-id-request`.

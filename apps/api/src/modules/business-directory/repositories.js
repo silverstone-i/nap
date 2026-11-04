@@ -10,7 +10,7 @@ import { Organizations } from './models/organizations.js';
 import { ContactLabels } from './models/contact_labels.js';
 import { ContactMethods } from './models/contact_methods.js';
 import { Addresses } from './models/addresses.js';
-import { ContactRoles } from './models/contact_roles.js';
+import { ContactDesignations } from './models/contact_designations.js';
 import { AddressPurposes } from './models/address_purposes.js';
 import { TenantTaxIds } from './models/tenant_tax_ids.js';
 
@@ -23,7 +23,7 @@ export const repositories = {
   contact_labels: ContactLabels,
   contact_methods: ContactMethods,
   addresses: Addresses,
-  contact_roles: ContactRoles,
+  contact_designations: ContactDesignations,
   address_purposes: AddressPurposes,
   tenant_tax_ids: TenantTaxIds,
 };

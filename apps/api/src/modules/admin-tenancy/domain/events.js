@@ -200,6 +200,12 @@ export const EVENT_CATALOGUE = Object.freeze({
       { outcomes: ANY_OUTCOME, details: ['after', 'changed_at'] },
     ])
   ),
+  // I0014-R011, R012: a holder's designations and tags as one set; `party_id`
+  // names the organization when the holder is its email.
+  'directory.contact_designations.updated': {
+    outcomes: ANY_OUTCOME,
+    details: ['kind', 'party_id', 'before', 'after', 'changed_at'],
+  },
   ...Object.fromEntries(
     ['contact_method', 'address'].flatMap(target =>
       ['created', 'updated', 'removed'].map(action => [

@@ -12,11 +12,11 @@ import TextField from '@mui/material/TextField';
 import {
   getDirectoryRecord,
   listContactLabels,
-  setEmailRoles,
-  setPersonRoles,
+  setEmailDesignations,
+  setPersonDesignations,
 } from '../../api/endpoints.js';
 import { SectionDialog } from '../../components/SectionDialog.jsx';
-import { addressName, ROLE_LABELS } from './contactRoleText.js';
+import { addressName, DESIGNATION_LABELS } from './contactDesignationText.js';
 import { describeDirectoryError } from './directoryErrors.js';
 
 /**
@@ -33,7 +33,7 @@ function billTos(addresses) {
 }
 
 /**
- * The tenant's active role tags (I0014-R004), plus any the person holds.
+ * The tenant's active designation tags (I0014-R004), plus any the person holds.
  * @param {{value: string[], onChange: (ids: string[]) => void, current: {id: string, name: string}[]}} props
  * @returns {JSX.Element}
  */
@@ -41,7 +41,7 @@ function TagSelect({ value, onChange, current }) {
   const [tags, setTags] = useState(null);
   useEffect(() => {
     let live = true;
-    listContactLabels({ appliesTo: 'role' })
+    listContactLabels({ appliesTo: 'designation' })
       .then(rows => live && setTags(rows.filter(tag => !tag.archived)))
       .catch(() => live && setTags([]));
     return () => {
@@ -67,18 +67,23 @@ function TagSelect({ value, onChange, current }) {
 }
 
 /**
- * The Roles pencil's dialog (I0014-R028). A switch per role the holder may
+ * The Designations pencil's dialog (I0014-R028). A switch per designation the holder may
  * hold; under Billing, for an organization's holder, the bill-to
  * addresses it is limited to (none means all) and Copy on all invoices,
  * which only an unlimited holder may have (R013, R014). A person also takes
- * role tags. Save replaces the whole set (R011, R012).
+ * designation tags. Save replaces the whole set (R011, R012).
  *
  * `holder` is `{ kind: 'person', collection, record }` or
  * `{ kind: 'email', organization, method }`.
  * @param {{holder: object, onClose: () => void, onSaved: () => void, onStale: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
-export function ContactRolesDialog({ holder, onClose, onSaved, onStale }) {
+export function ContactDesignationsDialog({
+  holder,
+  onClose,
+  onSaved,
+  onStale,
+}) {
   const person = holder.kind === 'person';
   const record = person ? holder.record : holder.method;
   const organizationId = person
@@ -89,7 +94,9 @@ export function ContactRolesDialog({ holder, onClose, onSaved, onStale }) {
     : organizationId
       ? ['primary', 'billing']
       : ['primary', 'billing', 'notifications'];
-  const [roles, setRoles] = useState(record.contactRoles ?? []);
+  const [designations, setDesignations] = useState(
+    record.contactDesignations ?? []
+  );
   const [tagIds, setTagIds] = useState(() =>
     (record.tags ?? []).map(tag => tag.id)
   );
@@ -108,58 +115,68 @@ export function ContactRolesDialog({ holder, onClose, onSaved, onStale }) {
     };
   }, [person, organizationId]);
 
-  const holds = role => roles.some(entry => entry.role === role);
-  const billing = roles.filter(entry => entry.role === 'billing');
+  const holds = designation =>
+    designations.some(entry => entry.designation === designation);
+  const billing = designations.filter(entry => entry.designation === 'billing');
   const scope = billing.map(entry => entry.addressId).filter(Boolean);
   const copyAll = billing.some(entry => entry.copyAll);
   const options = billTos(addresses ?? []);
 
-  /** Turn a role on or off. */
-  function toggle(role, on) {
-    setRoles(current =>
+  /** Turn a designation on or off. */
+  function toggle(designation, on) {
+    setDesignations(current =>
       on
-        ? [...current, { role, addressId: null, copyAll: false }]
-        : current.filter(entry => entry.role !== role)
+        ? [...current, { designation, addressId: null, copyAll: false }]
+        : current.filter(entry => entry.designation !== designation)
     );
   }
 
   /** Limit billing to `ids`, or to none for every address. */
   function limitBilling(ids) {
-    setRoles(current => [
-      ...current.filter(entry => entry.role !== 'billing'),
+    setDesignations(current => [
+      ...current.filter(entry => entry.designation !== 'billing'),
       ...(ids.length
-        ? ids.map(addressId => ({ role: 'billing', addressId, copyAll: false }))
-        : [{ role: 'billing', addressId: null, copyAll: false }]),
+        ? ids.map(addressId => ({
+            designation: 'billing',
+            addressId,
+            copyAll: false,
+          }))
+        : [{ designation: 'billing', addressId: null, copyAll: false }]),
     ]);
   }
 
-  /** Set Copy on all invoices on the unlimited billing role. */
+  /** Set Copy on all invoices on the unlimited billing designation. */
   function setCopy(on) {
-    setRoles(current =>
+    setDesignations(current =>
       current.map(entry =>
-        entry.role === 'billing' ? { ...entry, copyAll: on } : entry
+        entry.designation === 'billing' ? { ...entry, copyAll: on } : entry
       )
     );
   }
 
   async function save() {
     const body = {
-      roles: roles.map(({ role, addressId, copyAll: copy }) => ({
-        role,
-        ...(addressId ? { addressId } : {}),
-        ...(copy ? { copyAll: true } : {}),
-      })),
+      designations: designations.map(
+        ({ designation, addressId, copyAll: copy }) => ({
+          designation,
+          ...(addressId ? { addressId } : {}),
+          ...(copy ? { copyAll: true } : {}),
+        })
+      ),
       revision: record.revision,
     };
     if (person)
-      await setPersonRoles(holder.collection, record.id, { ...body, tagIds });
-    else await setEmailRoles(organizationId, record.id, body);
+      await setPersonDesignations(holder.collection, record.id, {
+        ...body,
+        tagIds,
+      });
+    else await setEmailDesignations(organizationId, record.id, body);
     onSaved();
   }
 
   return (
     <SectionDialog
-      title={person ? 'Roles' : 'Billing'}
+      title={person ? 'Designations' : 'Billing'}
       onClose={onClose}
       onSave={save}
       onStale={async () => {
@@ -168,28 +185,28 @@ export function ContactRolesDialog({ holder, onClose, onSaved, onStale }) {
           ? fresh
           : fresh.contactMethods.find(method => method.id === record.id);
         if (!current) return;
-        setRoles(current.contactRoles ?? []);
+        setDesignations(current.contactDesignations ?? []);
         setTagIds((current.tags ?? []).map(tag => tag.id));
       }}
       describe={err =>
         describeDirectoryError(err, {
           CONTACT_DETAILS_REQUIRED: person
-            ? 'This person is missing the email, phone, or portal access a role needs.'
+            ? 'This person is missing the email, phone, or portal access a designation needs.'
             : 'A bill-to address this email serves is not delivered by email.',
-          INVALID_STATE: 'A role or address is no longer available.',
+          INVALID_STATE: 'A designation or address is no longer available.',
         })
       }
     >
-      {allowed.map(role => (
+      {allowed.map(designation => (
         <FormControlLabel
-          key={role}
+          key={designation}
           control={
             <Switch
-              checked={holds(role)}
-              onChange={event => toggle(role, event.target.checked)}
+              checked={holds(designation)}
+              onChange={event => toggle(designation, event.target.checked)}
             />
           }
-          label={person ? ROLE_LABELS[role] : 'Receives invoices'}
+          label={person ? DESIGNATION_LABELS[designation] : 'Receives invoices'}
         />
       ))}
       {holds('billing') && organizationId ? (

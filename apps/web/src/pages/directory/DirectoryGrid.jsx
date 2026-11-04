@@ -24,7 +24,7 @@ import { PortalAccessChip } from './PortalAccess.jsx';
 import { describeDirectoryError, PORTAL_MESSAGES } from './directoryErrors.js';
 import { KIND_LABELS, recordName } from './directoryRecords.js';
 import { displayTaxId, useTaxIdFormats } from './useTaxIdFormats.js';
-import { describeRoles } from './contactRoleText.js';
+import { describeDesignations } from './contactDesignationText.js';
 
 /** I0011-R007, M0005-R054: what Archive tells the user before it runs. */
 export const ARCHIVE_TEXT = 'Archived records move to the Archived tab.';
@@ -98,14 +98,14 @@ function columnsFor(collection, onOpen, formats, country) {
   if (collection !== 'organizations')
     columns.push({
       ...plain,
-      field: 'contactRoles',
-      // I0014-R030: the system contact roles, not portal roles.
-      headerName: 'Roles',
+      field: 'contactDesignations',
+      // I0014-R030: the system contact designations, not portal designations.
+      headerName: 'Designations',
       flex: 2,
       priority: 'secondary',
       valueGetter: (_value, row) =>
         [
-          ...describeRoles(row.contactRoles ?? []),
+          ...describeDesignations(row.contactDesignations ?? []),
           row.isPrimaryTaxContact ? 'Primary tax contact' : null,
         ]
           .filter(Boolean)

@@ -4,10 +4,10 @@
  */
 
 /**
- * @file Contact roles (I0014-R001–R014, R021). A person or an organization
- * email holds system roles and role tags in `app.contact_roles`. A customer
+ * @file Contact designations (I0014-R001–R014, R021). A person or an organization
+ * email holds system designations and designation tags in `app.contact_designations`. A customer
  * tenant's employees hold them for the tenant, and Napsoft keeps a copy of
- * those who hold a system role (R026). An organization's `billing` holders
+ * those who hold a system designation (R026). An organization's `billing` holders
  * must be able to receive what its bill-to addresses send (R009), and
  * `resolveRecipients` is the one definition of who receives an
  * organization's invoices and payment questions.
@@ -15,7 +15,7 @@
 
 import { z } from 'zod';
 import { requestTenantContact } from '../../cell-tenancy/domain/companyProfile.js';
-import { SYSTEM_ROLES } from '../models/contact_roles.js';
+import { SYSTEM_DESIGNATIONS } from '../models/contact_designations.js';
 import { DirectoryError } from './errors.js';
 import {
   COMPANY_PROFILE_WRITE,
@@ -29,26 +29,26 @@ import {
   uuid,
 } from './shared.js';
 
-/** I0014-R007: the error for a customer tenant left without a role's holder. */
+/** I0014-R007: the error for a customer tenant left without a designation's holder. */
 const LAST_HOLDER = Object.freeze({
   primary: 'LAST_PRIMARY_CONTACT',
   billing: 'LAST_BILLING_CONTACT',
   notifications: 'LAST_NOTIFICATIONS_CONTACT',
 });
 
-const roleEntry = z.strictObject({
-  role: z.enum(SYSTEM_ROLES),
+const designationEntry = z.strictObject({
+  designation: z.enum(SYSTEM_DESIGNATIONS),
   addressId: uuid.nullable().optional(),
   copyAll: z.boolean().optional(),
 });
-const personRolesBody = z.strictObject({
+const personDesignationsBody = z.strictObject({
   revision,
-  roles: z.array(roleEntry).max(20),
+  designations: z.array(designationEntry).max(20),
   tagIds: z.array(uuid).max(50).optional(),
 });
-const emailRolesBody = z.strictObject({
+const emailDesignationsBody = z.strictObject({
   revision,
-  roles: z.array(roleEntry).max(20),
+  designations: z.array(designationEntry).max(20),
 });
 const recipientsQuery = z.strictObject({
   purpose: z.enum(['bill_to', 'remit_to']),
@@ -79,32 +79,38 @@ export async function contactDetailsOf(tx, partyIds) {
 }
 
 /**
- * The roles and tags each holder holds, keyed by person ID or contact
- * method ID: `{ contactRoles: [{ role, addressId, copyAll }], tags: [{ id, name }] }`.
+ * The designations and tags each holder holds, keyed by person ID or contact
+ * method ID: `{ contactDesignations: [{ designation, addressId, copyAll }], tags: [{ id, name }] }`.
  * @param {object} tx
  * @param {{personIds?: string[], methodIds?: string[]}} holders
- * @returns {Promise<Map<string, {contactRoles: object[], tags: object[]}>>}
+ * @returns {Promise<Map<string, {contactDesignations: object[], tags: object[]}>>}
  */
-export async function roleViewsOf(tx, { personIds = [], methodIds = [] }) {
+export async function designationViewsOf(
+  tx,
+  { personIds = [], methodIds = [] }
+) {
   const map = new Map(
-    [...personIds, ...methodIds].map(id => [id, { contactRoles: [], tags: [] }])
+    [...personIds, ...methodIds].map(id => [
+      id,
+      { contactDesignations: [], tags: [] },
+    ])
   );
   if (map.size === 0) return map;
   const rows = await tx.any(
-    `SELECT r.person_id, r.contact_method_id, r.role, r.address_id,
+    `SELECT r.person_id, r.contact_method_id, r.designation, r.address_id,
             r.copy_all, r.label_id, l.name AS label_name
-       FROM app.contact_roles r
+       FROM app.contact_designations r
        LEFT JOIN app.contact_labels l ON l.id=r.label_id
       WHERE r.deactivated_at IS NULL
         AND (r.person_id = ANY($1::uuid[]) OR r.contact_method_id = ANY($2::uuid[]))
-      ORDER BY array_position($3::text[], r.role::text), l.name, r.address_id`,
-    [personIds, methodIds, SYSTEM_ROLES]
+      ORDER BY array_position($3::text[], r.designation::text), l.name, r.address_id`,
+    [personIds, methodIds, SYSTEM_DESIGNATIONS]
   );
   for (const row of rows) {
     const entry = map.get(row.person_id ?? row.contact_method_id);
-    if (row.role)
-      entry.contactRoles.push({
-        role: row.role,
+    if (row.designation)
+      entry.contactDesignations.push({
+        designation: row.designation,
         addressId: row.address_id,
         copyAll: row.copy_all,
       });
@@ -114,30 +120,32 @@ export async function roleViewsOf(tx, { personIds = [], methodIds = [] }) {
 }
 
 /**
- * The system roles an active employee holds; none when archived.
+ * The system designations an active employee holds; none when archived.
  * @param {object} tx
  * @param {string} partyId
  * @returns {Promise<string[]>}
  */
-async function heldRoles(tx, partyId) {
+async function heldDesignations(tx, partyId) {
   const rows = await tx.any(
-    `SELECT DISTINCT r.role FROM app.contact_roles r
+    `SELECT DISTINCT r.designation FROM app.contact_designations r
        JOIN app.people p ON p.party_id=r.person_id
-      WHERE r.person_id=$1 AND r.role IS NOT NULL
+      WHERE r.person_id=$1 AND r.designation IS NOT NULL
         AND r.deactivated_at IS NULL AND p.deactivated_at IS NULL`,
     [partyId]
   );
-  return SYSTEM_ROLES.filter(role => rows.some(row => row.role === role));
+  return SYSTEM_DESIGNATIONS.filter(designation =>
+    rows.some(row => row.designation === designation)
+  );
 }
 
 /**
- * Whether an active person holds any system role.
+ * Whether an active person holds any system designation.
  * @param {object} tx
  * @param {string} partyId
  * @returns {Promise<boolean>}
  */
-export async function holdsSystemRole(tx, partyId) {
-  return (await heldRoles(tx, partyId)).length > 0;
+export async function holdsSystemDesignation(tx, partyId) {
+  return (await heldDesignations(tx, partyId)).length > 0;
 }
 
 /**
@@ -155,30 +163,30 @@ async function employee(tx, partyId) {
 }
 
 /**
- * Require a customer tenant to keep a holder of each system role among its
+ * Require a customer tenant to keep a holder of each system designation among its
  * active employees (I0014-R006, R007).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {object} tx
  * @returns {Promise<void>}
  * @throws {DirectoryError} `LAST_PRIMARY_CONTACT`, `LAST_BILLING_CONTACT`, `LAST_NOTIFICATIONS_CONTACT`
  */
-export async function requireRoleCounts(context, tx) {
+export async function requireDesignationCounts(context, tx) {
   if (context.tenant.isNapsoft) return;
   const rows = await tx.any(
-    `SELECT DISTINCT r.role FROM app.contact_roles r
+    `SELECT DISTINCT r.designation FROM app.contact_designations r
        JOIN app.people p ON p.party_id=r.person_id
-      WHERE r.tenant_id=$1 AND r.organization_id IS NULL AND r.role IS NOT NULL
+      WHERE r.tenant_id=$1 AND r.organization_id IS NULL AND r.designation IS NOT NULL
         AND r.deactivated_at IS NULL AND p.deactivated_at IS NULL`,
     [context.tenant.id]
   );
-  for (const role of SYSTEM_ROLES)
-    if (!rows.some(row => row.role === role))
-      throw new DirectoryError(LAST_HOLDER[role]);
+  for (const designation of SYSTEM_DESIGNATIONS)
+    if (!rows.some(row => row.designation === designation))
+      throw new DirectoryError(LAST_HOLDER[designation]);
 }
 
 /**
- * Require a customer tenant's role holder's details (I0014-R008): a primary
- * email for every role, and a primary phone for `primary`.
+ * Require a customer tenant's designation holder's details (I0014-R008): a primary
+ * email for every designation, and a primary phone for `primary`.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {object} tx
  * @param {string} partyId
@@ -187,10 +195,10 @@ export async function requireRoleCounts(context, tx) {
  */
 async function requireEmployeeDetails(context, tx, partyId) {
   if (context.tenant.isNapsoft) return;
-  const roles = await heldRoles(tx, partyId);
-  if (roles.length === 0) return;
+  const designations = await heldDesignations(tx, partyId);
+  if (designations.length === 0) return;
   const details = (await contactDetailsOf(tx, [partyId])).get(partyId);
-  if (!details.email || (roles.includes('primary') && !details.phone))
+  if (!details.email || (designations.includes('primary') && !details.phone))
     throw new DirectoryError('CONTACT_DETAILS_REQUIRED');
 }
 
@@ -198,7 +206,7 @@ async function requireEmployeeDetails(context, tx, partyId) {
  * Require every `billing` holder of an organization to meet the delivery
  * method of each bill-to address it serves (I0014-R009): an email for
  * `email`, portal access for `portal`, nothing for `mail`. Holders that are
- * archived, or whose email is removed, no longer hold the role.
+ * archived, or whose email is removed, no longer hold the designation.
  * @param {object} tx
  * @param {string} organizationId
  * @returns {Promise<void>}
@@ -219,10 +227,10 @@ export async function requireOrganizationHolders(tx, organizationId) {
             (SELECT 1 FROM app.contact_methods m
               WHERE m.party_id=r.person_id AND m.type='email' AND m.is_primary
                 AND m.deactivated_at IS NULL LIMIT 1) IS NOT NULL AS has_email
-       FROM app.contact_roles r
+       FROM app.contact_designations r
        LEFT JOIN app.people p ON p.party_id=r.person_id
        LEFT JOIN app.contact_methods cm ON cm.id=r.contact_method_id
-      WHERE r.organization_id=$1 AND r.role='billing'
+      WHERE r.organization_id=$1 AND r.designation='billing'
         AND r.deactivated_at IS NULL
         AND (p.party_id IS NULL OR p.deactivated_at IS NULL)
         AND (cm.id IS NULL OR cm.deactivated_at IS NULL)`,
@@ -244,7 +252,7 @@ export async function requireOrganizationHolders(tx, organizationId) {
 }
 
 /**
- * Re-check the role rules a party's details feed (I0014-R008–R010): a
+ * Re-check the designation rules a party's details feed (I0014-R008–R010): a
  * customer tenant employee's own details, or its organization's billing
  * holders for an organization contact or an organization.
  * @param {import('./shared.js').DirectoryContext} context
@@ -270,8 +278,8 @@ export async function requireContactDetails(context, tx, partyId) {
 
 /**
  * Queue Napsoft's copy of a customer tenant's employee (I0014-R026): its
- * names, primary email and phone, and the system roles it holds. An
- * employee with no role, or archived, goes as a removal (`roles: []`).
+ * names, primary email and phone, and the system designations it holds. An
+ * employee with no designation, or archived, goes as a removal (`designations: []`).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {object} tx
  * @param {string} partyId
@@ -282,8 +290,8 @@ export async function syncContact(context, tx, partyId, wasContact) {
   if (context.tenant.isNapsoft) return;
   const person = await employee(tx, partyId);
   if (!person) return;
-  const roles = await heldRoles(tx, partyId);
-  if (roles.length === 0 && !wasContact) return;
+  const designations = await heldDesignations(tx, partyId);
+  if (designations.length === 0 && !wasContact) return;
   const details = (await contactDetailsOf(tx, [partyId])).get(partyId);
   await requestTenantContact(tx, {
     tenant_id: context.tenant.id,
@@ -292,39 +300,39 @@ export async function syncContact(context, tx, partyId, wasContact) {
     last_name: person.last_name,
     email: details.email,
     phone: details.phone,
-    roles,
+    designations,
   });
 }
 
 /**
- * Serialize role changes per organization, or per tenant for its
+ * Serialize designation changes per organization, or per tenant for its
  * employees, so the minimums and holder rules see one change at a time.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {object} tx
  * @param {string|null} organizationId
  * @returns {Promise<void>}
  */
-async function lockRoles(context, tx, organizationId) {
+async function lockDesignations(context, tx, organizationId) {
   await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
-    `business-directory:contact-roles:${organizationId ?? context.tenant.id}`,
+    `business-directory:contact-designations:${organizationId ?? context.tenant.id}`,
   ]);
 }
 
 /**
- * Check one requested system role against its holder (I0014-R003, R005,
+ * Check one requested system designation against its holder (I0014-R003, R005,
  * R013, R014), and return its row key.
  * @param {object} tx
- * @param {{role: string, addressId?: string|null, copyAll?: boolean}} entry
+ * @param {{designation: string, addressId?: string|null, copyAll?: boolean}} entry
  * @param {{organizationId: string|null}} holder
- * @returns {Promise<{role: string, addressId: string|null, copyAll: boolean}>}
+ * @returns {Promise<{designation: string, addressId: string|null, copyAll: boolean}>}
  * @throws {DirectoryError} `INVALID_INPUT`, `INVALID_STATE`
  */
 async function checkEntry(tx, entry, { organizationId }) {
   const addressId = entry.addressId ?? null;
   const copyAll = entry.copyAll ?? false;
-  if (entry.role === 'notifications' && organizationId)
+  if (entry.designation === 'notifications' && organizationId)
     throw new DirectoryError('INVALID_STATE');
-  if ((addressId || copyAll) && entry.role !== 'billing')
+  if ((addressId || copyAll) && entry.designation !== 'billing')
     throw new DirectoryError('INVALID_INPUT');
   if (addressId && copyAll) throw new DirectoryError('INVALID_INPUT');
   // A customer tenant's employees have no scope until Companies (R013).
@@ -340,29 +348,29 @@ async function checkEntry(tx, entry, { organizationId }) {
     );
     if (!billTo) throw new DirectoryError('INVALID_STATE');
   }
-  return { role: entry.role, addressId, copyAll };
+  return { designation: entry.designation, addressId, copyAll };
 }
 
 /**
- * Replace a holder's roles and tags with `wanted` in place: archive what is
+ * Replace a holder's designations and tags with `wanted` in place: archive what is
  * gone, insert what is new, and save a changed `copy_all`.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {object} tx
  * @param {{person_id?: string, contact_method_id?: string, organization_id: string|null}} holder
- * @param {{role: string|null, labelId: string|null, addressId: string|null, copyAll: boolean}[]} wanted
+ * @param {{designation: string|null, labelId: string|null, addressId: string|null, copyAll: boolean}[]} wanted
  * @returns {Promise<void>}
  */
-async function replaceRoles(context, tx, holder, wanted) {
+async function replaceDesignations(context, tx, holder, wanted) {
   const where = holder.person_id
     ? { person_id: holder.person_id }
     : { contact_method_id: holder.contact_method_id };
-  const key = row => `${row.role ?? row.labelId}|${row.addressId ?? ''}`;
+  const key = row => `${row.designation ?? row.labelId}|${row.addressId ?? ''}`;
   const existing = (
-    await context.cell.contact_roles.rows(where, { tx, lock: true })
+    await context.cell.contact_designations.rows(where, { tx, lock: true })
   ).map(row => ({
     row,
     key: key({
-      role: row.role,
+      designation: row.designation,
       labelId: row.label_id,
       addressId: row.address_id,
     }),
@@ -370,7 +378,7 @@ async function replaceRoles(context, tx, holder, wanted) {
   const wantedKeys = new Set(wanted.map(key));
   for (const { row, key: existingKey } of existing)
     if (!wantedKeys.has(existingKey))
-      await context.cell.contact_roles.saveRevision(
+      await context.cell.contact_designations.saveRevision(
         row.id,
         { archived: true },
         context.actorId,
@@ -380,7 +388,7 @@ async function replaceRoles(context, tx, holder, wanted) {
     const found = existing.find(item => item.key === key(entry));
     if (found) {
       if (found.row.copy_all !== entry.copyAll)
-        await context.cell.contact_roles.saveRevision(
+        await context.cell.contact_designations.saveRevision(
           found.row.id,
           { copy_all: entry.copyAll },
           context.actorId,
@@ -388,13 +396,13 @@ async function replaceRoles(context, tx, holder, wanted) {
         );
       continue;
     }
-    await context.cell.contact_roles.insert(
+    await context.cell.contact_designations.insert(
       {
         tenant_id: context.tenant.id,
         organization_id: holder.organization_id,
         person_id: holder.person_id ?? null,
         contact_method_id: holder.contact_method_id ?? null,
-        role: entry.role,
+        designation: entry.designation,
         label_id: entry.labelId,
         address_id: entry.addressId,
         copy_all: entry.copyAll,
@@ -407,30 +415,32 @@ async function replaceRoles(context, tx, holder, wanted) {
 }
 
 /**
- * Refuse a repeated role and scope in one request.
- * @param {{role: string, addressId: string|null}[]} entries
+ * Refuse a repeated designation and scope in one request.
+ * @param {{designation: string, addressId: string|null}[]} entries
  * @returns {void}
  * @throws {DirectoryError} `INVALID_INPUT`
  */
 function requireDistinct(entries) {
-  const keys = entries.map(entry => `${entry.role}|${entry.addressId ?? ''}`);
+  const keys = entries.map(
+    entry => `${entry.designation}|${entry.addressId ?? ''}`
+  );
   if (new Set(keys).size !== keys.length)
     throw new DirectoryError('INVALID_INPUT');
 }
 
 /**
- * Replace a person's roles and tags as one set (I0014-R011). A customer
+ * Replace a person's designations and tags as one set (I0014-R011). A customer
  * tenant's employee needs `company-profile::write`; a standalone contact
- * and a Napsoft employee hold no roles (R005).
+ * and a Napsoft employee hold no designations (R005).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {unknown} id
- * @param {unknown} body `{ revision, roles: [{ role, addressId?, copyAll? }], tagIds? }`
- * @returns {Promise<{contactRoles: object[], tags: object[], revision: number}>}
+ * @param {unknown} body `{ revision, designations: [{ designation, addressId?, copyAll? }], tagIds? }`
+ * @returns {Promise<{contactDesignations: object[], tags: object[], revision: number}>}
  * @throws {DirectoryError} `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE`, `FORBIDDEN`, `STALE_REVISION`, `CONTACT_DETAILS_REQUIRED`, `LAST_*_CONTACT`
  */
-export async function setPersonRoles(context, id, body) {
+export async function setPersonDesignations(context, id, body) {
   const key = parseId(id);
-  const input = parse(personRolesBody, body);
+  const input = parse(personDesignationsBody, body);
   const tagIds = input.tagIds ?? [];
   if (new Set(tagIds).size !== tagIds.length)
     throw new DirectoryError('INVALID_INPUT');
@@ -448,26 +458,28 @@ export async function setPersonRoles(context, id, body) {
     if (party.kind === 'employee')
       await requireCapability(context, COMPANY_PROFILE_WRITE);
     const organizationId = person.organization_id;
-    await lockRoles(context, tx, organizationId);
+    await lockDesignations(context, tx, organizationId);
     const entries = [];
-    for (const entry of input.roles)
+    for (const entry of input.designations)
       entries.push(await checkEntry(tx, entry, { organizationId }));
     requireDistinct(entries);
     for (const tagId of tagIds) {
       const label = await context.cell.contact_labels.byKey(tagId, { tx });
-      if (!label || label.deactivated_at || label.applies_to !== 'role')
+      if (!label || label.deactivated_at || label.applies_to !== 'designation')
         throw new DirectoryError('INVALID_INPUT');
     }
-    const wasContact = await holdsSystemRole(tx, key);
-    const before = (await roleViewsOf(tx, { personIds: [key] })).get(key);
-    await replaceRoles(
+    const wasContact = await holdsSystemDesignation(tx, key);
+    const before = (await designationViewsOf(tx, { personIds: [key] })).get(
+      key
+    );
+    await replaceDesignations(
       context,
       tx,
       { person_id: key, organization_id: organizationId },
       [
         ...entries.map(entry => ({ ...entry, labelId: null })),
         ...tagIds.map(labelId => ({
-          role: null,
+          designation: null,
           labelId,
           addressId: null,
           copyAll: false,
@@ -482,15 +494,15 @@ export async function setPersonRoles(context, id, body) {
     );
     if (party.kind === 'employee') {
       await requireEmployeeDetails(context, tx, key);
-      await requireRoleCounts(context, tx);
+      await requireDesignationCounts(context, tx);
       await syncContact(context, tx, key, wasContact);
     } else await requireOrganizationHolders(tx, organizationId);
-    const after = (await roleViewsOf(tx, { personIds: [key] })).get(key);
+    const after = (await designationViewsOf(tx, { personIds: [key] })).get(key);
     return {
       result: { ...after, revision: saved.revision },
       changes: [
         {
-          eventKey: 'directory.contact_roles.updated',
+          eventKey: 'directory.contact_designations.updated',
           recordId: key,
           details: {
             kind: party.kind,
@@ -504,19 +516,19 @@ export async function setPersonRoles(context, id, body) {
 }
 
 /**
- * Replace the `billing` roles of an organization's own email (I0014-R012),
+ * Replace the `billing` designations of an organization's own email (I0014-R012),
  * with the same scope and `copy_all` rules as a person.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {unknown} partyId The organization.
  * @param {unknown} methodId
- * @param {unknown} body `{ revision, roles: [{ role: 'billing', addressId?, copyAll? }] }`
- * @returns {Promise<{contactRoles: object[], tags: object[], revision: number}>}
+ * @param {unknown} body `{ revision, designations: [{ designation: 'billing', addressId?, copyAll? }] }`
+ * @returns {Promise<{contactDesignations: object[], tags: object[], revision: number}>}
  * @throws {DirectoryError} `NOT_FOUND`, `INVALID_INPUT`, `INVALID_STATE`, `STALE_REVISION`, `CONTACT_DETAILS_REQUIRED`
  */
-export async function setEmailRoles(context, partyId, methodId, body) {
+export async function setEmailDesignations(context, partyId, methodId, body) {
   const organizationId = parseId(partyId);
   const key = parseId(methodId);
-  const input = parse(emailRolesBody, body);
+  const input = parse(emailDesignationsBody, body);
   return mutate(context, async tx => {
     const party = await context.cell.parties.byKey(organizationId, { tx });
     if (!party) throw new DirectoryError('NOT_FOUND');
@@ -532,15 +544,18 @@ export async function setEmailRoles(context, partyId, methodId, body) {
       (party.kind !== 'vendor' && party.kind !== 'client')
     )
       throw new DirectoryError('INVALID_STATE');
-    await lockRoles(context, tx, organizationId);
+    await lockDesignations(context, tx, organizationId);
     const entries = [];
-    for (const entry of input.roles) {
-      if (entry.role !== 'billing') throw new DirectoryError('INVALID_STATE');
+    for (const entry of input.designations) {
+      if (entry.designation !== 'billing')
+        throw new DirectoryError('INVALID_STATE');
       entries.push(await checkEntry(tx, entry, { organizationId }));
     }
     requireDistinct(entries);
-    const before = (await roleViewsOf(tx, { methodIds: [key] })).get(key);
-    await replaceRoles(
+    const before = (await designationViewsOf(tx, { methodIds: [key] })).get(
+      key
+    );
+    await replaceDesignations(
       context,
       tx,
       { contact_method_id: key, organization_id: organizationId },
@@ -553,12 +568,12 @@ export async function setEmailRoles(context, partyId, methodId, body) {
       { tx }
     );
     await requireOrganizationHolders(tx, organizationId);
-    const after = (await roleViewsOf(tx, { methodIds: [key] })).get(key);
+    const after = (await designationViewsOf(tx, { methodIds: [key] })).get(key);
     return {
       result: { ...after, revision: saved.revision },
       changes: [
         {
-          eventKey: 'directory.contact_roles.updated',
+          eventKey: 'directory.contact_designations.updated',
           recordId: key,
           details: {
             kind: party.kind,
@@ -573,18 +588,18 @@ export async function setEmailRoles(context, partyId, methodId, body) {
 }
 
 /**
- * End the roles an organization email held when it is removed.
+ * End the designations an organization email held when it is removed.
  * @param {import('./shared.js').DirectoryContext} context
  * @param {object} tx
  * @param {string} methodId
  * @returns {Promise<void>}
  */
-export async function endEmailRoles(context, tx, methodId) {
-  for (const row of await context.cell.contact_roles.rows(
+export async function endEmailDesignations(context, tx, methodId) {
+  for (const row of await context.cell.contact_designations.rows(
     { contact_method_id: methodId },
     { tx, lock: true }
   ))
-    await context.cell.contact_roles.saveRevision(
+    await context.cell.contact_designations.saveRevision(
       row.id,
       { archived: true },
       context.actorId,
@@ -610,7 +625,7 @@ function fallbackAddress(addresses, purposes) {
 }
 
 /**
- * A Napsoft client's role holders: its tenant's employees, from Napsoft's
+ * A Napsoft client's designation holders: its tenant's employees, from Napsoft's
  * copy in admin (I0014-R026), since they live in the tenant's own cell.
  * None until the client has a tenant. Tenant employees have no address scope
  * or `copy_all` until Companies (R013), so the copy carries neither; revisit
@@ -632,10 +647,12 @@ async function tenantHolders(context, clientId) {
     { orderBy: ['last_name', 'first_name', 'party_id'] }
   );
   return contacts.flatMap(contact =>
-    contact.roles
-      .filter(role => role === 'primary' || role === 'billing')
-      .map(role => ({
-        role,
+    contact.designations
+      .filter(
+        designation => designation === 'primary' || designation === 'billing'
+      )
+      .map(designation => ({
+        designation,
         address_id: null,
         copy_all: false,
         person_id: contact.party_id,
@@ -696,12 +713,12 @@ export async function resolveRecipients(context, id, query) {
     const holders = await (context.tenant.isNapsoft && party.kind === 'client'
       ? tenantHolders(context, organizationId)
       : tx.any(
-          `SELECT r.role, r.address_id, r.copy_all, r.person_id,
+          `SELECT r.designation, r.address_id, r.copy_all, r.person_id,
               r.contact_method_id, p.first_name, p.last_name, cm.value
-         FROM app.contact_roles r
+         FROM app.contact_designations r
          LEFT JOIN app.people p ON p.party_id=r.person_id
          LEFT JOIN app.contact_methods cm ON cm.id=r.contact_method_id
-        WHERE r.organization_id=$1 AND r.role IN ('primary', 'billing')
+        WHERE r.organization_id=$1 AND r.designation IN ('primary', 'billing')
           AND r.deactivated_at IS NULL
           AND (p.party_id IS NULL OR p.deactivated_at IS NULL)
           AND (cm.id IS NULL OR cm.deactivated_at IS NULL)
@@ -731,8 +748,8 @@ export async function resolveRecipients(context, id, query) {
         list.map(h => [h.person_id ?? h.contact_method_id, h])
       ).values(),
     ];
-    const billing = holders.filter(h => h.role === 'billing');
-    const primary = holders.filter(h => h.role === 'primary');
+    const billing = holders.filter(h => h.designation === 'billing');
+    const primary = holders.filter(h => h.designation === 'primary');
     const billTo = address?.purposes.find(p => p.purpose === 'bill_to');
     let to;
     let copy = [];

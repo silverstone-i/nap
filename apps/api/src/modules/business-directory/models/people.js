@@ -8,7 +8,7 @@ import { DirectoryModel } from './directoryModel.js';
 /**
  * Schema object for `app.people`: employees and contacts, and vendor and
  * client contacts with their `organization_id` (M0005-R002, R004). Contact
- * roles live in `app.contact_roles` (I0014). Only a client contact can be its
+ * designations live in `app.contact_designations` (I0014). Only a client contact can be its
  * client's primary tax contact (R009).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */

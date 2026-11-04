@@ -93,8 +93,8 @@ export async function applyTenantContact(admin, row, snapshot, { tx }) {
     [snapshot.tenant_id, snapshot.party_id]
   );
   if (current && current.revision >= row.revision) return null;
-  // I0014-R026: an employee holding no system role leaves the copy.
-  if (snapshot.roles.length === 0) {
+  // I0014-R026: an employee holding no system designation leaves the copy.
+  if (snapshot.designations.length === 0) {
     await tx.none(
       'DELETE FROM admin.tenant_contacts WHERE tenant_id=$1 AND party_id=$2',
       [snapshot.tenant_id, snapshot.party_id]
@@ -104,12 +104,12 @@ export async function applyTenantContact(admin, row, snapshot, { tx }) {
   const actor = row.created_by ?? null;
   await tx.none(
     `INSERT INTO admin.tenant_contacts
-       (tenant_id, party_id, first_name, last_name, email, phone, roles,
+       (tenant_id, party_id, first_name, last_name, email, phone, designations,
         revision, created_by, updated_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)
      ON CONFLICT (tenant_id, party_id) DO UPDATE SET
        first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name,
-       email=EXCLUDED.email, phone=EXCLUDED.phone, roles=EXCLUDED.roles,
+       email=EXCLUDED.email, phone=EXCLUDED.phone, designations=EXCLUDED.designations,
        revision=EXCLUDED.revision, updated_by=EXCLUDED.updated_by`,
     [
       snapshot.tenant_id,
@@ -118,7 +118,7 @@ export async function applyTenantContact(admin, row, snapshot, { tx }) {
       snapshot.last_name,
       snapshot.email,
       snapshot.phone,
-      snapshot.roles,
+      snapshot.designations,
       row.revision,
       actor,
     ]
@@ -312,7 +312,7 @@ export async function applyTaxIdApplied(
 }
 
 /**
- * Napsoft's copy of a tenant's contact-role holders (I0013-R017, I0014-R027).
+ * Napsoft's copy of a tenant's contact-designation holders (I0013-R017, I0014-R027).
  * @param {object} admin
  * @param {unknown} tenantId
  * @returns {Promise<object[]>} Empty for an unknown tenant.
@@ -330,7 +330,7 @@ export async function listTenantContacts(admin, tenantId) {
     lastName: row.last_name,
     email: row.email ?? null,
     phone: row.phone ?? null,
-    roles: row.roles,
+    designations: row.designations,
   }));
 }
 

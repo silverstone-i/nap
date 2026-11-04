@@ -5,20 +5,20 @@
 
 import { DirectoryModel } from './directoryModel.js';
 
-/** I0014-R001: the roles the system acts on. */
-export const SYSTEM_ROLES = Object.freeze([
+/** I0014-R001: the designations the system acts on. */
+export const SYSTEM_DESIGNATIONS = Object.freeze([
   'primary',
   'billing',
   'notifications',
 ]);
 
 /**
- * One holder, one role or tag, one scope: the unique index's keys. Nulls
- * collapse so an unscoped role counts once.
+ * One holder, one designation or tag, one scope: the unique index's keys. Nulls
+ * collapse so an unscoped designation counts once.
  */
 const HOLDER_KEY = [
   { expression: 'coalesce(person_id, contact_method_id)' },
-  { expression: 'coalesce(role, label_id::text)' },
+  { expression: 'coalesce(designation, label_id::text)' },
   {
     expression:
       "coalesce(address_id, '00000000-0000-0000-0000-000000000000'::uuid)",
@@ -26,16 +26,16 @@ const HOLDER_KEY = [
 ];
 
 /**
- * Schema object for `app.contact_roles` (I0014 §9): the system roles and
- * role tags each person or organization email holds. `organization_id` is
+ * Schema object for `app.contact_designations` (I0014 §9): the system designations and
+ * designation tags each person or organization email holds. `organization_id` is
  * the holder's organization, or null for a customer tenant's employee. A
  * `billing` row may be scoped to one bill-to address or set `copy_all`,
  * never both (R013, R014).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
-export const contactRolesSchema = {
+export const contactDesignationsSchema = {
   dbSchema: 'app',
-  table: 'contact_roles',
+  table: 'contact_designations',
   hasAuditFields: { enabled: true, userFields: { type: 'uuid' } },
   softDelete: true,
   columns: [
@@ -50,7 +50,7 @@ export const contactRolesSchema = {
     { name: 'organization_id', type: 'uuid', immutable: true },
     { name: 'person_id', type: 'uuid', immutable: true },
     { name: 'contact_method_id', type: 'uuid', immutable: true },
-    { name: 'role', type: 'varchar(16)', immutable: true },
+    { name: 'designation', type: 'varchar(16)', immutable: true },
     { name: 'label_id', type: 'uuid', immutable: true },
     { name: 'address_id', type: 'uuid', immutable: true },
     { name: 'copy_all', type: 'boolean', notNull: true, default: false },
@@ -61,12 +61,12 @@ export const contactRolesSchema = {
     checks: [
       'revision > 0',
       '(person_id IS NULL) <> (contact_method_id IS NULL)',
-      '(role IS NULL) <> (label_id IS NULL)',
-      "role IS NULL OR role IN ('primary', 'billing', 'notifications')",
-      "role = 'billing' OR (address_id IS NULL AND NOT copy_all)",
+      '(designation IS NULL) <> (label_id IS NULL)',
+      "designation IS NULL OR designation IN ('primary', 'billing', 'notifications')",
+      "designation = 'billing' OR (address_id IS NULL AND NOT copy_all)",
       'NOT (copy_all AND address_id IS NOT NULL)',
-      "role IS DISTINCT FROM 'notifications' OR organization_id IS NULL",
-      "contact_method_id IS NULL OR (role = 'billing' AND organization_id IS NOT NULL)",
+      "designation IS DISTINCT FROM 'notifications' OR organization_id IS NULL",
+      "contact_method_id IS NULL OR (designation = 'billing' AND organization_id IS NOT NULL)",
     ],
     foreignKeys: [
       {
@@ -122,7 +122,7 @@ export const contactRolesSchema = {
     ],
     indexes: [
       {
-        name: 'uidx_contact_roles_holder',
+        name: 'uidx_contact_designations_holder',
         columns: HOLDER_KEY,
         unique: true,
         where: 'deactivated_at IS NULL',
@@ -135,10 +135,10 @@ export const contactRolesSchema = {
   },
 };
 
-/** Model for `app.contact_roles`. Subject to the tenant row-level security rule. */
-export class ContactRoles extends DirectoryModel {
-  static schema = contactRolesSchema;
+/** Model for `app.contact_designations`. Subject to the tenant row-level security rule. */
+export class ContactDesignations extends DirectoryModel {
+  static schema = contactDesignationsSchema;
   constructor(db, pgp, logger) {
-    super(db, pgp, contactRolesSchema, logger);
+    super(db, pgp, contactDesignationsSchema, logger);
   }
 }
