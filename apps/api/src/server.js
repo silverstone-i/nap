@@ -9,6 +9,7 @@
  * a drained shutdown. Startup never runs setup or migrations.
  */
 import { environment } from './application/shared/configuration.js';
+import { MaintenanceError } from './application/shared/errors.js';
 import { runtimeConfiguration } from './application/shared/runtimeConfiguration.js';
 import { createRuntime } from './application/runtime/createRuntime.js';
 import { createAdminDatabase } from './infrastructure/runtime/adminDatabase.js';
@@ -102,9 +103,16 @@ try {
     void stop(1);
   });
   console.log(`NAP BFF listening on port ${config.port}`);
-} catch {
+} catch (error) {
   console.error(
     'API startup failed; verify configuration, web build, and Admin database readiness'
   );
+  // Only MaintenanceError is known to be secret-free; a driver error can quote
+  // a connection string.
+  if (error instanceof MaintenanceError) {
+    console.error(
+      error.setting ? `${error.code}: ${error.setting}` : error.code
+    );
+  }
   await stop(1);
 }

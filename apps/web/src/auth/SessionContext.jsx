@@ -18,7 +18,11 @@ import {
   useState,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { ApiError, setUnauthenticatedHandler } from '../api/client.js';
+import {
+  ApiError,
+  setForbiddenHandler,
+  setUnauthenticatedHandler,
+} from '../api/client.js';
 import * as api from '../api/endpoints.js';
 import { clearReturnPath, storeReturnPath } from './returnPath.js';
 import { deriveDestination } from './deriveDestination.js';
@@ -84,6 +88,7 @@ export function SessionProvider({ children }) {
     locationRef.current = location;
   }, [location]);
   // Also guards against acting twice for one ending.
+  const capabilityReloadRef = useRef(null);
   const statusRef = useRef(state.status);
   useLayoutEffect(() => {
     statusRef.current = state.status;
@@ -289,16 +294,38 @@ export function SessionProvider({ children }) {
 
   /**
    * Reload the resolved capabilities, after the server denies an action the
-   * web app offered (I0005-R011).
+   * web app offered (I0005-R011). Denials arriving together share one reload,
+   * and an unchanged set keeps its identity, so a page whose effect depends
+   * on `can` does not refetch and get denied again.
    */
-  const refreshCapabilities = useCallback(async () => {
-    try {
-      const capabilities = await api.getSessionCapabilities();
-      setState(prev => ({ ...prev, capabilities }));
-    } catch {
-      // Keep the current set; the server still decides every request.
-    }
+  const refreshCapabilities = useCallback(() => {
+    capabilityReloadRef.current ??= api
+      .getSessionCapabilities()
+      .then(capabilities =>
+        setState(prev =>
+          JSON.stringify(prev.capabilities) === JSON.stringify(capabilities)
+            ? prev
+            : { ...prev, capabilities }
+        )
+      )
+      .catch(() => {
+        // Keep the current set; the server still decides every request.
+      })
+      .finally(() => {
+        capabilityReloadRef.current = null;
+      });
+    return capabilityReloadRef.current;
   }, []);
+
+  // I0005-R011: any denied request may mean the session's roles changed. The
+  // capabilities route is excluded so its own denial cannot start a loop.
+  useEffect(() => {
+    setForbiddenHandler(path => {
+      if (path.endsWith('/session/capabilities')) return;
+      if (statusRef.current === 'ready') void refreshCapabilities();
+    });
+    return () => setForbiddenHandler(null);
+  }, [refreshCapabilities]);
 
   const logout = useCallback(async () => {
     try {
