@@ -407,7 +407,8 @@ None blocking. For review, defaults chosen in drafting:
 
 ## Verification Evidence
 
-Verified on 2026-11-03.
+Verified on 2026-11-03 in
+[silverstone-i/nap#89](https://github.com/silverstone-i/nap/pull/89).
 
 - `npm run lint`, `npm run format:check`, and `npm run build` pass.
   `npm test` passes: API unit 641, web 346, shared 25, toolchain 25.
