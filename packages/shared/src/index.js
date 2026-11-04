@@ -494,6 +494,36 @@ export const portalAccessSchema = z.strictObject({
   failureCode: z.string().nullable(),
 });
 
+/** The system contact roles (I0014-R001). */
+export const CONTACT_ROLES = Object.freeze([
+  'primary',
+  'billing',
+  'notifications',
+]);
+
+/** Organization address purposes (I0014-R015). */
+export const ADDRESS_PURPOSES = Object.freeze([
+  'location',
+  'bill_to',
+  'remit_to',
+]);
+
+/** How a bill-to address receives invoices (I0014-R017). */
+export const DELIVERY_METHODS = Object.freeze(['email', 'mail', 'portal']);
+
+/** Zod schema for one held system role (I0014-R013, R014). */
+export const contactRoleSchema = z.strictObject({
+  role: z.enum(CONTACT_ROLES),
+  addressId: z.uuid().nullable(),
+  copyAll: z.boolean(),
+});
+
+/** A person's contact roles and role tags (I0014-R004, R028). */
+const contactRoleFields = {
+  contactRoles: z.array(contactRoleSchema),
+  tags: z.array(z.strictObject({ id: z.uuid(), name: z.string() })),
+};
+
 /** Zod schema for an employee or contact (M0005-R002). */
 export const personViewSchema = z.strictObject({
   ...directoryRecordBase,
@@ -502,9 +532,7 @@ export const personViewSchema = z.strictObject({
   lastName: z.string(),
   isPortalUser: z.boolean(),
   portalAccess: portalAccessSchema,
-  // I0013-R009: a customer tenant's primary and billing contacts.
-  isPrimaryContact: z.boolean(),
-  isBillingContact: z.boolean(),
+  ...contactRoleFields,
 });
 
 /** Zod schema for a vendor or client (M0005-R003). */
@@ -513,6 +541,10 @@ export const organizationViewSchema = z.strictObject({
   kind: z.enum(['vendor', 'client']),
   legalName: z.string(),
   dbaName: z.string().nullable(),
+  // I0014-R022: kept when the employee is archived.
+  accountOwner: z
+    .strictObject({ id: z.uuid(), name: z.string(), archived: z.boolean() })
+    .nullable(),
 });
 
 /** Zod schema for a vendor or client contact (M0005-R004). */
@@ -524,8 +556,7 @@ export const organizationContactViewSchema = z.strictObject({
   lastName: z.string(),
   isPortalUser: z.boolean(),
   portalAccess: portalAccessSchema,
-  isPrimaryContact: z.boolean(),
-  isBillingContact: z.boolean(),
+  ...contactRoleFields,
   isPrimaryTaxContact: z.boolean(),
 });
 
@@ -539,6 +570,34 @@ export const contactMethodViewSchema = z.strictObject({
   isPrimary: z.boolean(),
   archived: z.boolean(),
   revision: z.number().int().positive(),
+});
+
+/**
+ * M0005-R063: address text is saved trimmed with each run of whitespace
+ * reduced to one space, so the match index need only ignore case.
+ * @param {number} max
+ */
+const addressText = max =>
+  z
+    .string()
+    .transform(value => value.trim().replace(/\s+/g, ' '))
+    .pipe(z.string().min(1).max(max));
+
+/**
+ * Zod schema for an address's place fields (M0005-R015), which the directory
+ * and provisioning's head office both validate (I0014-R024).
+ */
+export const addressPlaceSchema = z.strictObject({
+  line1: addressText(255),
+  line2: addressText(255).nullable().optional(),
+  city: addressText(120),
+  region: addressText(120).nullable().optional(),
+  postalCode: addressText(32).nullable().optional(),
+  country: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2}$/),
 });
 
 /** Zod schema for one address (M0005-R015). */
@@ -582,12 +641,56 @@ export const detailMatchesSchema = z.strictObject({
   ),
 });
 
-// The detail read adds each label's name (M0005-R014, R015).
+/** Zod schema for one purpose of an organization address (I0014-R015–R017). */
+export const addressPurposeSchema = z.strictObject({
+  purpose: z.enum(ADDRESS_PURPOSES),
+  isDefault: z.boolean(),
+  deliveryMethod: z.enum(DELIVERY_METHODS).nullable(),
+});
+
+// The detail read adds each label's name (M0005-R014, R015), an
+// organization email's roles (I0014-R012), and address purposes.
 const labelName = z.string().nullable();
 const recordDetail = {
-  contactMethods: z.array(contactMethodViewSchema.extend({ labelName })),
-  addresses: z.array(addressViewSchema.extend({ labelName })),
+  contactMethods: z.array(
+    contactMethodViewSchema.extend({
+      labelName,
+      contactRoles: z.array(contactRoleSchema),
+    })
+  ),
+  addresses: z.array(
+    addressViewSchema.extend({
+      labelName,
+      purposes: z.array(addressPurposeSchema),
+    })
+  ),
 };
+
+/** Zod schema for one resolved recipient (I0014-R021). */
+const recipientSchema = z.strictObject({
+  kind: z.enum(['person', 'email']),
+  id: z.uuid(),
+  name: z.string(),
+  email: z.string().nullable(),
+});
+
+/** Zod schema for an organization's resolved recipients (I0014-R021). */
+export const recipientsSchema = z.strictObject({
+  address: z
+    .strictObject({
+      id: z.uuid(),
+      line1: z.string(),
+      line2: z.string().nullable(),
+      city: z.string(),
+      region: z.string().nullable(),
+      postalCode: z.string().nullable(),
+      country: z.string(),
+    })
+    .nullable(),
+  deliveryMethod: z.enum(DELIVERY_METHODS).nullable(),
+  to: z.array(recipientSchema),
+  copy: z.array(recipientSchema),
+});
 
 /**
  * A person's roles on the detail read (I0010 §10), present only for a
@@ -631,7 +734,7 @@ export const organizationContactDetailSchema =
 /** Zod schema for one label (M0005-R017). */
 export const contactLabelViewSchema = z.strictObject({
   id: z.uuid(),
-  appliesTo: z.enum(['email', 'phone', 'address']),
+  appliesTo: z.enum(['email', 'phone', 'address', 'role']),
   name: z.string(),
   archived: z.boolean(),
   revision: z.number().int().positive(),

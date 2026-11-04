@@ -108,6 +108,13 @@ function newTenant() {
     dbaName: `Customer ${code}`,
     code,
     phone: '(512) 555-0100',
+    address: {
+      line1: '1 Main St',
+      city: 'Austin',
+      region: 'TX',
+      postalCode: '78701',
+      country: 'US',
+    },
   };
 }
 
@@ -130,6 +137,7 @@ function provision(
       tier: 'starter',
       cell,
       admin: { email, password, phone: tenant.phone, ...name },
+      address: tenant.address,
     },
     { idempotencyKey: key, runtime: registry, hashingPolicy: ARGON2_MINIMUM }
   );
@@ -198,16 +206,16 @@ async function cellRoles(cellId, tenantId) {
         ),
         phones: await tx.any(
           `SELECT m.party_id, m.value, l.name AS label FROM app.contact_methods m
-             JOIN app.contact_labels l ON l.id=m.label_id
+             LEFT JOIN app.contact_labels l ON l.id=m.label_id
             WHERE m.tenant_id=$1 AND m.type='phone' AND m.is_primary
               AND m.deactivated_at IS NULL`,
           [tenantId]
         ),
         designations: await tx.any(
-          `SELECT party_id, is_primary_contact, is_billing_contact
-             FROM app.people
-            WHERE tenant_id=$1 AND (is_primary_contact OR is_billing_contact)
-              AND deactivated_at IS NULL`,
+          `SELECT person_id, role FROM app.contact_roles
+            WHERE tenant_id=$1 AND role IS NOT NULL
+              AND deactivated_at IS NULL
+            ORDER BY role`,
           [tenantId]
         ),
         labels: await tx.one(
@@ -427,7 +435,7 @@ describe('tenant provisioning (I0006)', () => {
     expect(assignments).toEqual([
       { portal_user_id: login.id, code: 'tenant_admin' },
     ]);
-    // I0013-R004: the administrator is the primary and billing contact.
+    // I0014-R006: the administrator holds every system contact role.
     expect(people).toEqual([
       {
         party_id: membership.member_id,
@@ -438,18 +446,17 @@ describe('tenant provisioning (I0006)', () => {
       },
     ]);
     expect(emails).toEqual([{ party_id: membership.member_id, value: email }]);
-    expect(designations).toEqual([
-      {
-        party_id: membership.member_id,
-        is_primary_contact: true,
-        is_billing_contact: true,
-      },
-    ]);
+    expect(designations).toEqual(
+      ['billing', 'notifications', 'primary'].map(role => ({
+        person_id: membership.member_id,
+        role,
+      }))
+    );
     expect(phones).toEqual([
       {
         party_id: membership.member_id,
         value: '+15125550100',
-        label: 'billing',
+        label: null,
       },
     ]);
     expect(labels.n).toBe(14);
@@ -469,9 +476,7 @@ describe('tenant provisioning (I0006)', () => {
         last_name: 'Doe',
         email,
         phone: '+15125550100',
-        billing_phone: '+15125550100',
-        is_primary_contact: true,
-        is_billing_contact: true,
+        roles: ['primary', 'billing', 'notifications'],
       },
     });
     // I0013-R003: the client stage created the Napsoft client.
@@ -489,6 +494,36 @@ describe('tenant provisioning (I0006)', () => {
       legal_name: tenant.legalName,
       dba_name: tenant.dbaName,
     });
+    // I0014-R024: its head office is its default location and bill-to.
+    expect(
+      await inNapsoftCell(tx =>
+        tx.any(
+          `SELECT a.line1, a.city, a.is_primary, ap.purpose, ap.is_default,
+                  ap.delivery_method
+             FROM app.addresses a
+             JOIN app.address_purposes ap ON ap.address_id=a.id
+            WHERE a.party_id=$1 ORDER BY ap.purpose`,
+          [tenant.clientId]
+        )
+      )
+    ).toEqual([
+      {
+        line1: '1 Main St',
+        city: 'Austin',
+        is_primary: true,
+        purpose: 'bill_to',
+        is_default: true,
+        delivery_method: 'email',
+      },
+      {
+        line1: '1 Main St',
+        city: 'Austin',
+        is_primary: true,
+        purpose: 'location',
+        is_default: true,
+        delivery_method: null,
+      },
+    ]);
     expect(formats.n).toBe(3);
     expect(settings.n).toBe(1);
   });

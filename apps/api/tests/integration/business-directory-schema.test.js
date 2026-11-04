@@ -36,9 +36,11 @@ const HASH = 'a'.repeat(64);
 let handle, app;
 
 const TABLES = [
+  'address_purposes',
   'addresses',
   'contact_labels',
   'contact_methods',
+  'contact_roles',
   'organizations',
   'parties',
   'people',
@@ -109,7 +111,7 @@ afterAll(async () => {
   );
 });
 
-it('AC01: creates the seven directory tables with unforced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
+it('AC01: creates the directory tables with unforced tenant RLS; the app schema verifies; reruns are no-ops', async () => {
   const tables = await handle.db.any(
     `SELECT c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force
        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -308,33 +310,105 @@ it('AC04, AC05: allows one active primary tax contact per client and one primary
   });
 });
 
-it('allows several flagged contacts per organization and one billing employee per tenant (I0013-R010)', async () => {
+it('holds any number of role holders and enforces the role and purpose checks (I0014 §9)', async () => {
   await inTenant(tenant, async tx => {
     const vendor = await party(tx, 'vendor');
     await tx.none(
-      "INSERT INTO app.organizations (party_id, tenant_id, legal_name) VALUES ($1,$2,'Flag Supply')",
+      "INSERT INTO app.organizations (party_id, tenant_id, legal_name) VALUES ($1,$2,'Role Supply')",
       [vendor, tenant]
     );
+    const people = [];
     for (const name of ['Rita', 'Sam']) {
       const id = await party(tx, 'vendor_contact');
       await tx.none(
-        "INSERT INTO app.people (party_id, tenant_id, organization_id, first_name, last_name, is_primary_contact, is_billing_contact) VALUES ($1,$2,$3,$4,'Moss',true,true)",
+        "INSERT INTO app.people (party_id, tenant_id, organization_id, first_name, last_name) VALUES ($1,$2,$3,$4,'Moss')",
         [id, tenant, vendor, name]
       );
+      people.push(id);
     }
-    const employee = await party(tx, 'employee');
-    await tx.none(
-      "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_primary_contact, is_billing_contact) VALUES ($1,$2,'Jane','Doe',true,true)",
-      [employee, tenant]
+    const role = (person, values) =>
+      tx.none(
+        `INSERT INTO app.contact_roles
+           (tenant_id, organization_id, person_id, role, address_id, copy_all)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          tenant,
+          vendor,
+          person,
+          values.role,
+          values.address ?? null,
+          values.copyAll ?? false,
+        ]
+      );
+    // Several billing holders, each once.
+    for (const person of people) await role(person, { role: 'billing' });
+    await expect(
+      tx.tx(() => role(people[0], { role: 'billing' }))
+    ).rejects.toMatchObject({ code: '23505' });
+    // R005: notifications belong to a tenant's employees.
+    await expect(
+      tx.tx(() => role(people[0], { role: 'notifications' }))
+    ).rejects.toMatchObject({ code: '23514' });
+    // R014: copy_all only on billing.
+    await expect(
+      tx.tx(() => role(people[0], { role: 'primary', copyAll: true }))
+    ).rejects.toMatchObject({ code: '23514' });
+    const address = await tx.one(
+      "INSERT INTO app.addresses (tenant_id, party_id, line1, city, country) VALUES ($1,$2,'1 Elm St','Austin','US') RETURNING id",
+      [tenant, vendor]
     );
-    const second = await party(tx, 'employee');
+    // R014: never both a scope and copy_all.
     await expect(
       tx.tx(() =>
-        tx.none(
-          "INSERT INTO app.people (party_id, tenant_id, first_name, last_name, is_billing_contact) VALUES ($1,$2,'John','Doe',true)",
-          [second, tenant]
+        role(people[1], {
+          role: 'billing',
+          address: address.id,
+          copyAll: true,
+        })
+      )
+    ).rejects.toMatchObject({ code: '23514' });
+    const purpose = (values, run = tx) =>
+      run.none(
+        `INSERT INTO app.address_purposes
+           (tenant_id, address_id, party_id, purpose, is_default, delivery_method)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          tenant,
+          address.id,
+          vendor,
+          values.purpose,
+          values.isDefault ?? false,
+          values.deliveryMethod ?? null,
+        ]
+      );
+    // R017: a delivery method exactly on bill-to.
+    await expect(
+      tx.tx(t => purpose({ purpose: 'bill_to' }, t))
+    ).rejects.toMatchObject({ code: '23514' });
+    await expect(
+      tx.tx(t => purpose({ purpose: 'location', deliveryMethod: 'mail' }, t))
+    ).rejects.toMatchObject({ code: '23514' });
+    await purpose({ purpose: 'location', isDefault: true });
+    await expect(
+      tx.tx(t => purpose({ purpose: 'location' }, t))
+    ).rejects.toMatchObject({ code: '23505' });
+    // Purposes belong to organization addresses only.
+    const contact = await party(tx, 'contact');
+    await tx.none(
+      "INSERT INTO app.people (party_id, tenant_id, first_name, last_name) VALUES ($1,$2,'Cal','Lee')",
+      [contact, tenant]
+    );
+    const home = await tx.one(
+      "INSERT INTO app.addresses (tenant_id, party_id, line1, city, country) VALUES ($1,$2,'2 Elm St','Austin','US') RETURNING id",
+      [tenant, contact]
+    );
+    await expect(
+      tx.tx(t =>
+        t.none(
+          "INSERT INTO app.address_purposes (tenant_id, address_id, party_id, purpose) VALUES ($1,$2,$3,'location')",
+          [tenant, home.id, contact]
         )
       )
-    ).rejects.toMatchObject({ code: '23505' });
+    ).rejects.toMatchObject({ code: '23503' });
   });
 });

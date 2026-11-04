@@ -50,6 +50,8 @@ export const tenantProvisioningSchema = {
       notNull: true,
       immutable: true,
     },
+    // I0014-R024: the Napsoft client's head office, stored by the client stage.
+    { name: 'client_address', type: 'jsonb', notNull: true, immutable: true },
     { name: 'stage', type: 'text', notNull: true, default: 'client' },
     { name: 'status', type: 'text', notNull: true, default: 'queued' },
     { name: 'attempts', type: 'integer', notNull: true, default: 0 },

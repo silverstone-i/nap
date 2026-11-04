@@ -41,7 +41,7 @@ describe('validation', () => {
       expect(tenantNameSchema.safeParse(bad).success).toBe(false);
   });
 
-  it('requires a legal name, code, tier, cell, and administrator with a phone to provision (I0013-R001)', async () => {
+  it('requires a legal name, code, tier, cell, administrator with a phone, and head office to provision (I0013-R001, I0014-R024)', async () => {
     const valid = {
       operation: 'tenant-provision',
       legalName: 'Acme Builders LLC',
@@ -56,7 +56,10 @@ describe('validation', () => {
         lastName: 'Lee',
         phone: '(512) 555-0100',
       },
+      address: { line1: '1 Main St', city: 'Austin', country: 'US' },
     };
+    const noAddress = { ...valid };
+    delete noAddress.address;
     const noLegalName = { ...valid };
     delete noLegalName.legalName;
     const noPhone = { ...valid, admin: { ...valid.admin } };
@@ -64,6 +67,7 @@ describe('validation', () => {
     for (const bad of [
       noLegalName,
       noPhone,
+      noAddress,
       { ...valid, client: randomUUID() },
       { ...valid, code: '1ACME' },
       { ...valid, tier: 'gold' },

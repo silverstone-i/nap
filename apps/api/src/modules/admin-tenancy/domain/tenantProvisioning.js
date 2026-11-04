@@ -93,6 +93,18 @@ async function advanceTenantCache(db, tenantId, tx) {
 const idempotencyKeySchema = z.uuid();
 
 /**
+ * Whether a stored head office equals the requested one (I0014-R024).
+ * @param {object|null} stored
+ * @param {object} requested
+ * @returns {boolean}
+ */
+function sameAddress(stored, requested) {
+  return Object.keys(requested).every(
+    field => (stored?.[field] ?? null) === requested[field]
+  );
+}
+
+/**
  * Resolve an earlier `tenant-provision` success recorded under this key
  * (I0006-R003). When that request created the login and its temporary
  * password is still unchanged, the password is checked against the stored
@@ -100,7 +112,7 @@ const idempotencyKeySchema = z.uuid();
  * No password or hash is stored on the event.
  * @param {object} db
  * @param {string} key
- * @param {{legalName: string, dbaName: string|null, code: string, tier: string, cell: string, email: string, phone: string, password: unknown, firstName: string, lastName: string}} request
+ * @param {{legalName: string, dbaName: string|null, code: string, tier: string, cell: string, email: string, phone: string, password: unknown, firstName: string, lastName: string, address: object}} request
  * @param {{tx?: object}} [options] Reads run on `tx` when called inside a transaction.
  * @returns {Promise<object|null>} The tenant's job view, or null.
  * @throws {AdminControlError} `IDEMPOTENCY_CONFLICT`
@@ -133,7 +145,8 @@ async function resolveReplay(db, key, request, { tx } = {}) {
   if (
     job.admin_first_name !== request.firstName ||
     job.admin_last_name !== request.lastName ||
-    job.admin_phone !== request.phone
+    job.admin_phone !== request.phone ||
+    !sameAddress(job.client_address, request.address)
   )
     throw new AdminControlError('IDEMPOTENCY_CONFLICT');
   if (details.login_created) {
@@ -166,7 +179,7 @@ async function resolveReplay(db, key, request, { tx } = {}) {
  * creates the client record (R003). One active tenant per code.
  * @param {object} db Admin repository handle.
  * @param {unknown} authority
- * @param {{legalName: string, dbaName?: string|null, code: string, tier: string, cell: string, admin: {email: string, password: string, firstName: string, lastName: string, phone: string}}} command Validated command.
+ * @param {{legalName: string, dbaName?: string|null, code: string, tier: string, cell: string, admin: {email: string, password: string, firstName: string, lastName: string, phone: string}, address: {line1: string, line2?: string|null, city: string, region?: string|null, postalCode?: string|null, country: string}}} command Validated command.
  * @param {unknown} idempotencyKeyHeader
  * @param {{requestId?: string|null, runtime?: {readiness: (id: string) => {ready: boolean}, dbFor: (id: string) => object}, hashingPolicy?: unknown}} [context]
  * @returns {Promise<object>} Job view.
@@ -200,6 +213,15 @@ export async function provisionTenant(
     password: command.admin.password,
     firstName: command.admin.firstName,
     lastName: command.admin.lastName,
+    // I0014-R024: stored in the cell's column names for the client stage.
+    address: {
+      line1: command.address.line1,
+      line2: command.address.line2 ?? null,
+      city: command.address.city,
+      region: command.address.region ?? null,
+      postal_code: command.address.postalCode ?? null,
+      country: command.address.country,
+    },
   };
   return withControlErrors(async () => {
     const replay = await resolveReplay(db, key.data, request);
@@ -272,6 +294,7 @@ export async function provisionTenant(
           admin_first_name: command.admin.firstName,
           admin_last_name: command.admin.lastName,
           admin_phone: phone,
+          client_address: request.address,
           created_by: granted.actorId,
         },
         { tx }

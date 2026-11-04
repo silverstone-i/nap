@@ -4,25 +4,31 @@
  */
 
 /**
- * @file A customer tenant's company profile (I0013): its primary and billing
- * contacts among its employees, its own tax ID and the request waiting for
+ * @file A customer tenant's company profile (I0013): its employees that hold
+ * contact roles (I0014), its own tax ID and the request waiting for
  * Napsoft, and Napsoft's side of the same data. Changes reach the admin
  * database through the cell outbox (I0004).
  */
 
 import { z } from 'zod';
+import { contactDetailsOf } from './contactRoles.js';
 import { DirectoryError } from './errors.js';
-import { mutate, parse, parseId, read, requireCapability } from './shared.js';
+import {
+  COMPANY_PROFILE_WRITE,
+  mutate,
+  parse,
+  parseId,
+  read,
+  requireCapability,
+} from './shared.js';
 import { activeTaxIdFormat } from './taxIdFormats.js';
 import {
   requestClientName,
   requestTaxId,
   requestTaxIdDecision,
-  requestTenantContact,
 } from '../../cell-tenancy/domain/companyProfile.js';
 
-export const COMPANY_PROFILE_WRITE =
-  'business-directory::company-profile::write';
+export { COMPANY_PROFILE_WRITE };
 export const TAX_IDS_APPROVE = 'business-directory::tax-ids::approve';
 
 /**
@@ -47,150 +53,8 @@ function requireNapsoft(context) {
 }
 
 /**
- * Each party's primary email, primary phone, and phone labeled `billing`
- * (I0013-R011), in one query.
- * @param {object} tx
- * @param {string[]} partyIds
- * @returns {Promise<Map<string, {email: string|null, phone: string|null, billingPhone: string|null}>>}
- */
-async function contactDetailsOf(tx, partyIds) {
-  const rows = await tx.any(
-    `SELECT id,
-       (SELECT value FROM app.contact_methods
-         WHERE party_id=x.id AND type='email' AND is_primary
-           AND deactivated_at IS NULL LIMIT 1) AS email,
-       (SELECT value FROM app.contact_methods
-         WHERE party_id=x.id AND type='phone' AND is_primary
-           AND deactivated_at IS NULL LIMIT 1) AS phone,
-       (SELECT m.value FROM app.contact_methods m
-          JOIN app.contact_labels l ON l.id=m.label_id
-         WHERE m.party_id=x.id AND m.type='phone' AND l.applies_to='phone'
-           AND l.name='billing' AND m.deactivated_at IS NULL
-         ORDER BY m.is_primary DESC, m.created_at LIMIT 1) AS billing_phone
-       FROM unnest($1::uuid[]) AS x(id)`,
-    [partyIds]
-  );
-  return new Map(
-    rows.map(row => [
-      row.id,
-      { email: row.email, phone: row.phone, billingPhone: row.billing_phone },
-    ])
-  );
-}
-
-/**
- * One party's contact details (see `contactDetailsOf`).
- * @param {object} tx
- * @param {string} partyId
- * @returns {Promise<{email: string|null, phone: string|null, billingPhone: string|null}>}
- */
-async function contactDetails(tx, partyId) {
-  return (await contactDetailsOf(tx, [partyId])).get(partyId);
-}
-
-/**
- * An employee's `people` row, or null for any other party.
- * @param {object} tx
- * @param {string} partyId
- * @returns {Promise<object|null>}
- */
-async function employee(tx, partyId) {
-  return tx.oneOrNone(
-    `SELECT p.* FROM app.people p JOIN app.parties x ON x.id=p.party_id
-      WHERE p.party_id=$1 AND x.kind='employee'`,
-    [partyId]
-  );
-}
-
-/**
- * Whether an employee is an active primary or billing contact.
- * @param {object|null} person
- * @returns {boolean}
- */
-export function isCompanyContact(person) {
-  return Boolean(
-    person &&
-    !person.deactivated_at &&
-    (person.is_primary_contact || person.is_billing_contact)
-  );
-}
-
-/**
- * Require a flagged employee's contact details (I0013-R011): a primary
- * email, a primary phone for a primary contact, and a billing phone for the
- * billing contact.
- * @param {import('./shared.js').DirectoryContext} context
- * @param {object} tx
- * @param {string} partyId
- * @returns {Promise<void>}
- * @throws {DirectoryError} `CONTACT_DETAILS_REQUIRED`
- */
-export async function requireContactDetails(context, tx, partyId) {
-  if (context.tenant.isNapsoft) return;
-  const person = await employee(tx, partyId);
-  if (!isCompanyContact(person)) return;
-  const details = await contactDetails(tx, partyId);
-  if (
-    !details.email ||
-    (person.is_primary_contact && !details.phone) ||
-    (person.is_billing_contact && !details.billingPhone)
-  )
-    throw new DirectoryError('CONTACT_DETAILS_REQUIRED');
-}
-
-/**
- * Require at least one primary contact and exactly one billing contact
- * (I0013-R010).
- * @param {import('./shared.js').DirectoryContext} context
- * @param {object} tx
- * @returns {Promise<void>}
- * @throws {DirectoryError} `LAST_PRIMARY_CONTACT`, `BILLING_CONTACT`
- */
-export async function requireContactCounts(context, tx) {
-  if (context.tenant.isNapsoft) return;
-  const counts = await tx.one(
-    `SELECT count(*) FILTER (WHERE is_primary_contact)::int AS primaries,
-            count(*) FILTER (WHERE is_billing_contact)::int AS billing
-       FROM app.people
-      WHERE tenant_id=$1 AND organization_id IS NULL AND deactivated_at IS NULL`,
-    [context.tenant.id]
-  );
-  if (counts.primaries < 1) throw new DirectoryError('LAST_PRIMARY_CONTACT');
-  if (counts.billing !== 1) throw new DirectoryError('BILLING_CONTACT');
-}
-
-/**
- * Queue Napsoft's copy of an employee who is, or was, a primary or billing
- * contact (I0013-R015). An archived or unflagged employee goes as a removal.
- * @param {import('./shared.js').DirectoryContext} context
- * @param {object} tx
- * @param {string} partyId
- * @param {boolean} wasContact Whether the employee was a contact before.
- * @returns {Promise<void>}
- */
-export async function syncContact(context, tx, partyId, wasContact) {
-  if (context.tenant.isNapsoft) return;
-  const person = await employee(tx, partyId);
-  if (!person) return;
-  const active = isCompanyContact(person);
-  if (!active && !wasContact) return;
-  const details = await contactDetails(tx, partyId);
-  await requestTenantContact(tx, {
-    tenant_id: context.tenant.id,
-    party_id: partyId,
-    first_name: person.first_name,
-    last_name: person.last_name,
-    email: details.email,
-    phone: details.phone,
-    billing_phone: details.billingPhone,
-    is_primary_contact: active && person.is_primary_contact,
-    is_billing_contact: active && person.is_billing_contact,
-  });
-}
-
-/**
  * The company profile a customer tenant sees (I0013-R026): its names, tax
- * ID status, and contacts.
+ * ID status, and its employees grouped by system role (I0014-R031).
  * @param {import('./shared.js').DirectoryContext} context
  * @returns {Promise<object>}
  */
@@ -205,21 +69,23 @@ export function getCompanyProfile(context) {
       'SELECT * FROM app.tenant_tax_ids WHERE tenant_id=$1',
       [context.tenant.id]
     );
-    const people = await tx.any(
-      `SELECT party_id, first_name, last_name, is_primary_contact,
-              is_billing_contact, revision
-         FROM app.people
-        WHERE tenant_id=$1 AND organization_id IS NULL
-          AND deactivated_at IS NULL
-          AND (is_primary_contact OR is_billing_contact)
-        ORDER BY last_name, first_name, party_id`,
+    const holders = await tx.any(
+      `SELECT p.party_id, p.first_name, p.last_name, p.revision,
+              array_agg(DISTINCT r.role) AS roles
+         FROM app.people p
+         JOIN app.contact_roles r ON r.person_id=p.party_id
+        WHERE p.tenant_id=$1 AND p.organization_id IS NULL
+          AND p.deactivated_at IS NULL
+          AND r.role IS NOT NULL AND r.deactivated_at IS NULL
+        GROUP BY p.party_id
+        ORDER BY p.last_name, p.first_name, p.party_id`,
       [context.tenant.id]
     );
     const detailsOf = await contactDetailsOf(
       tx,
-      people.map(person => person.party_id)
+      holders.map(person => person.party_id)
     );
-    const contacts = people.map(person => {
+    const contacts = holders.map(person => {
       const details = detailsOf.get(person.party_id);
       return {
         id: person.party_id,
@@ -227,12 +93,11 @@ export function getCompanyProfile(context) {
         lastName: person.last_name,
         email: details.email,
         phone: details.phone,
-        billingPhone: details.billingPhone,
-        isPrimaryContact: person.is_primary_contact,
-        isBillingContact: person.is_billing_contact,
+        roles: person.roles,
         revision: person.revision,
       };
     });
+    const holding = role => contacts.filter(c => c.roles.includes(role));
     return {
       legalName: tenant?.legal_name ?? null,
       dbaName: tenant?.dba_name ?? null,
@@ -243,65 +108,11 @@ export function getCompanyProfile(context) {
         pendingLast4: tax?.pending_last4 ?? null,
         reason: tax?.pending_reason ?? null,
       },
-      primaryContacts: contacts.filter(c => c.isPrimaryContact),
-      billingContact: contacts.find(c => c.isBillingContact) ?? null,
+      primaryContacts: holding('primary'),
+      billingContacts: holding('billing'),
+      notificationContacts: holding('notifications'),
     };
   });
-}
-
-const billingSchema = z.strictObject({ partyId: z.uuid() });
-
-/**
- * Move the billing contact flag to another employee in one transaction
- * (I0013-R012).
- * @param {import('./shared.js').DirectoryContext} context
- * @param {unknown} body
- * @returns {Promise<object>} The company profile.
- * @throws {DirectoryError} `FORBIDDEN`, `INVALID_INPUT`, `NOT_FOUND`, `CONTACT_DETAILS_REQUIRED`
- */
-export async function setBillingContact(context, body) {
-  requireCustomerTenant(context);
-  await requireCapability(context, COMPANY_PROFILE_WRITE);
-  const { partyId } = parse(billingSchema, body);
-  await mutate(context, async tx => {
-    // Serialize billing changes per tenant: locking the current billing row
-    // alone locks nothing once a concurrent change has moved the flag.
-    await tx.one('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
-      `business-directory:billing-contact:${context.tenant.id}`,
-    ]);
-    const target = await employee(tx, partyId);
-    if (!target || target.deactivated_at) throw new DirectoryError('NOT_FOUND');
-    const current = await tx.oneOrNone(
-      `SELECT party_id FROM app.people
-        WHERE tenant_id=$1 AND organization_id IS NULL
-          AND deactivated_at IS NULL AND is_billing_contact
-        FOR UPDATE`,
-      [context.tenant.id]
-    );
-    if (current?.party_id === partyId) return { result: null };
-    const set = (id, value) =>
-      tx.none(
-        `UPDATE app.people SET is_billing_contact=$2, revision=revision+1,
-           updated_by=$3 WHERE party_id=$1`,
-        [id, value, context.actorId]
-      );
-    if (current) await set(current.party_id, false);
-    await set(partyId, true);
-    await requireContactDetails(context, tx, partyId);
-    if (current) await syncContact(context, tx, current.party_id, true);
-    await syncContact(context, tx, partyId, isCompanyContact(target));
-    return {
-      result: null,
-      changes: [
-        {
-          eventKey: 'directory.billing_contact.changed',
-          recordId: partyId,
-          details: { before: current?.party_id ?? null, after: partyId },
-        },
-      ],
-    };
-  });
-  return getCompanyProfile(context);
 }
 
 const taxIdSchema = z.strictObject({

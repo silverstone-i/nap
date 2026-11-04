@@ -7,11 +7,21 @@
  * @file Emails, phones, and addresses of any directory record
  * (M0005-R014–R016). Making one primary demotes the party's previous
  * primary of the same type in the same transaction; an employee always
- * keeps a primary email (R016).
+ * keeps a primary email (R016). An organization address may also have
+ * purposes, each with one default per organization (I0014-R015–R020).
  */
 
-import { requireContactDetails, syncContact } from './companyProfile.js';
-import { normalizePhone } from '@nap/shared';
+import {
+  endEmailRoles,
+  requireContactDetails,
+  requireOrganizationHolders,
+  syncContact,
+} from './contactRoles.js';
+import {
+  ADDRESS_PURPOSES,
+  DELIVERY_METHODS,
+} from '../models/address_purposes.js';
+import { addressPlaceSchema, normalizePhone } from '@nap/shared';
 import { z } from 'zod';
 import { effectiveSettings } from '../../tenant-settings/domain/general.js';
 import { DirectoryError } from './errors.js';
@@ -52,40 +62,26 @@ const methodUpdate = z.strictObject({
   isPrimary: z.boolean().optional(),
   revision,
 });
-/**
- * R063: address text is saved trimmed with each run of whitespace reduced to
- * one space, so the match index need only ignore case.
- * @param {number} max
- */
-const text = max =>
-  z
-    .string()
-    .transform(value => value.trim().replace(/\s+/g, ' '))
-    .pipe(z.string().min(1).max(max));
-const line = text(255);
+/** I0014-R015, R017: an organization address's purposes. */
+const purposes = z
+  .array(
+    z.strictObject({
+      purpose: z.enum(ADDRESS_PURPOSES),
+      isDefault: z.boolean().optional(),
+      deliveryMethod: z.enum(DELIVERY_METHODS).optional(),
+    })
+  )
+  .max(ADDRESS_PURPOSES.length);
 const addressFields = {
-  line1: line,
-  line2: line.nullable(),
-  city: text(120),
-  region: text(120).nullable(),
-  postalCode: text(32).nullable(),
-  country: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{2}$/),
+  ...addressPlaceSchema.shape,
   labelId,
   isPrimary: z.boolean(),
+  purposes,
 };
-const addressCreate = z.strictObject({
-  line1: addressFields.line1,
-  line2: addressFields.line2.optional(),
-  city: addressFields.city,
-  region: addressFields.region.optional(),
-  postalCode: addressFields.postalCode.optional(),
-  country: addressFields.country,
+const addressCreate = addressPlaceSchema.extend({
   labelId: labelId.optional(),
   isPrimary: z.boolean().optional(),
+  purposes: purposes.optional(),
 });
 const addressUpdate = z.strictObject({
   ...Object.fromEntries(
@@ -100,7 +96,7 @@ const addressUpdate = z.strictObject({
 const matchBody = z.discriminatedUnion('type', [
   z.strictObject({ type: z.enum(['email', 'phone']), value: z.string() }),
   addressCreate
-    .omit({ labelId: true, isPrimary: true })
+    .omit({ labelId: true, isPrimary: true, purposes: true })
     .extend({ type: z.literal('address') }),
 ]);
 /** R066: the most matches a lookup returns. */
@@ -133,6 +129,249 @@ export function contactMethodView(row) {
     isPrimary: row.is_primary,
     archived: row.deactivated_at != null,
     revision: row.revision,
+  };
+}
+
+/**
+ * Safe projection of an address purpose (I0014-R015–R017).
+ * @param {object} row
+ * @returns {{purpose: string, isDefault: boolean, deliveryMethod: string|null}}
+ */
+export function purposeView(row) {
+  return {
+    purpose: row.purpose,
+    isDefault: row.is_default,
+    deliveryMethod: row.delivery_method ?? null,
+  };
+}
+
+/**
+ * The active purposes of each address, keyed by address ID.
+ * @param {object} context
+ * @param {string[]} addressIds
+ * @param {object} tx
+ * @returns {Promise<Map<string, object[]>>}
+ */
+export async function purposesOf(context, addressIds, tx) {
+  const map = new Map();
+  if (addressIds.length === 0) return map;
+  const rows = await tx.any(
+    `SELECT * FROM app.address_purposes
+      WHERE address_id = ANY($1::uuid[]) AND deactivated_at IS NULL
+      ORDER BY array_position($2::text[], purpose::text)`,
+    [addressIds, ADDRESS_PURPOSES]
+  );
+  for (const row of rows) {
+    if (!map.has(row.address_id)) map.set(row.address_id, []);
+    map.get(row.address_id).push(row);
+  }
+  return map;
+}
+
+/**
+ * Whether a party is a Napsoft client, which must keep a location
+ * (I0014-R020).
+ * @param {object} context
+ * @param {{kind: string}} party
+ * @returns {boolean}
+ */
+function isNapsoftClient(context, party) {
+  return context.tenant.isNapsoft === true && party.kind === 'client';
+}
+
+/**
+ * Clear the default of one purpose on the organization's other addresses.
+ * @param {object} context
+ * @param {string} partyId
+ * @param {string} purpose
+ * @param {object} tx
+ * @returns {Promise<void>}
+ */
+async function demoteDefault(context, partyId, purpose, tx) {
+  for (const row of await context.cell.address_purposes.rows(
+    { party_id: partyId, purpose, is_default: true },
+    { tx, lock: true }
+  ))
+    await context.cell.address_purposes.saveRevision(
+      row.id,
+      { is_default: false },
+      context.actorId,
+      { tx }
+    );
+}
+
+/**
+ * Make the oldest other address with a purpose its default, when it has
+ * none (I0014-R019).
+ * @param {object} context
+ * @param {string} partyId
+ * @param {string} purpose
+ * @param {object} tx
+ * @returns {Promise<void>}
+ */
+async function promoteDefault(context, partyId, purpose, tx) {
+  const next = await tx.oneOrNone(
+    `SELECT ap.id, bool_or(ap.is_default) OVER () AS has_default
+       FROM app.address_purposes ap
+       JOIN app.addresses a ON a.id=ap.address_id
+      WHERE ap.party_id=$1 AND ap.purpose=$2
+        AND ap.deactivated_at IS NULL AND a.deactivated_at IS NULL
+      ORDER BY a.created_at, a.id LIMIT 1`,
+    [partyId, purpose]
+  );
+  if (next && !next.has_default)
+    await context.cell.address_purposes.saveRevision(
+      next.id,
+      { is_default: true },
+      context.actorId,
+      { tx }
+    );
+}
+
+/**
+ * Refuse losing a bill-to address that limits an active holder's `billing`
+ * role (I0014-R018). An archived holder's role limited to it ends instead,
+ * so a later restore cannot point at a removed address.
+ * @param {object} context
+ * @param {string} addressId
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `ADDRESS_IN_USE`
+ */
+async function releaseScopedRoles(context, addressId, tx) {
+  const scoped = await context.cell.contact_roles.rows(
+    { address_id: addressId },
+    { tx, lock: true }
+  );
+  const people = await context.cell.people.byKeys(
+    scoped.map(role => role.person_id).filter(Boolean),
+    { tx }
+  );
+  const archived = new Set(
+    people.filter(p => p.deactivated_at).map(p => p.party_id)
+  );
+  if (scoped.some(role => !archived.has(role.person_id)))
+    throw new DirectoryError('ADDRESS_IN_USE');
+  for (const role of scoped)
+    await context.cell.contact_roles.saveRevision(
+      role.id,
+      { archived: true },
+      context.actorId,
+      { tx }
+    );
+}
+
+/**
+ * Replace an address's purposes with `wanted` (I0014-R015–R020). Purposes
+ * belong to vendor and client addresses only; `remit_to` to vendors only. A
+ * new purpose becomes the default when the organization has none; a
+ * removed default passes to the oldest other address. A bill-to address
+ * that scopes a `billing` role keeps its purpose, and a Napsoft client
+ * keeps a location.
+ * @param {object} context
+ * @param {{id: string, kind: string}} party
+ * @param {string} addressId
+ * @param {{purpose: string, isDefault?: boolean, deliveryMethod?: string}[]} wanted
+ * @param {object} tx
+ * @returns {Promise<void>}
+ * @throws {DirectoryError} `INVALID_INPUT`, `ADDRESS_IN_USE`, `LAST_LOCATION`
+ */
+async function replacePurposes(context, party, addressId, wanted, tx) {
+  const organization = party.kind === 'vendor' || party.kind === 'client';
+  if (wanted.length && !organization) throw new DirectoryError('INVALID_INPUT');
+  const names = wanted.map(entry => entry.purpose);
+  if (new Set(names).size !== names.length)
+    throw new DirectoryError('INVALID_INPUT');
+  for (const entry of wanted)
+    if (
+      (entry.purpose === 'remit_to' && party.kind !== 'vendor') ||
+      (entry.deliveryMethod && entry.purpose !== 'bill_to')
+    )
+      throw new DirectoryError('INVALID_INPUT');
+  if (!organization) return;
+  const existing = await context.cell.address_purposes.rows(
+    { address_id: addressId },
+    { tx, lock: true }
+  );
+  for (const row of existing) {
+    if (names.includes(row.purpose)) continue;
+    if (row.purpose === 'bill_to') {
+      await releaseScopedRoles(context, addressId, tx);
+    }
+    await context.cell.address_purposes.saveRevision(
+      row.id,
+      { archived: true, is_default: false },
+      context.actorId,
+      { tx }
+    );
+    if (row.purpose === 'location' && isNapsoftClient(context, party)) {
+      const other = await context.cell.address_purposes.rows(
+        { party_id: party.id, purpose: 'location' },
+        { tx }
+      );
+      if (other.length === 0) throw new DirectoryError('LAST_LOCATION');
+    }
+    if (row.is_default)
+      await promoteDefault(context, party.id, row.purpose, tx);
+  }
+  for (const entry of wanted) {
+    const found = existing.find(row => row.purpose === entry.purpose);
+    const deliveryMethod =
+      entry.purpose === 'bill_to'
+        ? (entry.deliveryMethod ?? found?.delivery_method ?? 'email')
+        : null;
+    if (entry.isDefault && !found?.is_default)
+      await demoteDefault(context, party.id, entry.purpose, tx);
+    if (found) {
+      const changes = {};
+      if (entry.isDefault && !found.is_default) changes.is_default = true;
+      if (deliveryMethod !== found.delivery_method)
+        changes.delivery_method = deliveryMethod;
+      if (Object.keys(changes).length)
+        await context.cell.address_purposes.saveRevision(
+          found.id,
+          changes,
+          context.actorId,
+          { tx }
+        );
+      continue;
+    }
+    const hasDefault =
+      (
+        await context.cell.address_purposes.rows(
+          { party_id: party.id, purpose: entry.purpose, is_default: true },
+          { tx }
+        )
+      ).length > 0;
+    await context.cell.address_purposes.insert(
+      {
+        tenant_id: context.tenant.id,
+        address_id: addressId,
+        party_id: party.id,
+        purpose: entry.purpose,
+        is_default: Boolean(entry.isDefault) || !hasDefault,
+        delivery_method: deliveryMethod,
+        created_by: context.actorId,
+        updated_by: context.actorId,
+      },
+      { tx }
+    );
+  }
+  await requireOrganizationHolders(tx, party.id);
+}
+
+/**
+ * An address view with its purposes.
+ * @param {object} context
+ * @param {object} row
+ * @param {object} tx
+ * @returns {Promise<object>}
+ */
+async function addressWithPurposes(context, row, tx) {
+  const map = await purposesOf(context, [row.id], tx);
+  return {
+    ...addressView(row),
+    purposes: (map.get(row.id) ?? []).map(purposeView),
   };
 }
 
@@ -302,8 +541,8 @@ function detailChange(eventKey, party, before, after) {
 }
 
 /**
- * Keep a primary or billing contact's required email and phone, and
- * Napsoft's copy of them (I0013-R011, R015).
+ * Keep a role holder's required details (I0014-R008–R010), and Napsoft's
+ * copy of a customer tenant's employee (R026).
  * @param {import('./shared.js').DirectoryContext} context
  * @param {{id: string, kind: string}} party
  * @param {object} tx
@@ -311,9 +550,9 @@ function detailChange(eventKey, party, before, after) {
  * @throws {DirectoryError} `CONTACT_DETAILS_REQUIRED`
  */
 async function contactDetailsChanged(context, party, tx) {
-  if (party.kind !== 'employee') return;
   await requireContactDetails(context, tx, party.id);
-  await syncContact(context, tx, party.id, false);
+  if (party.kind === 'employee')
+    await syncContact(context, tx, party.id, false);
 }
 
 /**
@@ -468,6 +707,8 @@ export function removeContactMethod(context, partyId, methodId) {
       context.actorId,
       { tx }
     );
+    // I0014-R012: an organization email's roles end with it.
+    await endEmailRoles(context, tx, locked.id);
     await requirePrimaryEmail(context, party, tx);
     await portalEmail();
     await contactDetailsChanged(context, party, tx);
@@ -523,7 +764,8 @@ export function addAddress(context, partyId, body) {
       },
       { tx }
     );
-    const view = addressView(row);
+    await replacePurposes(context, party, row.id, input.purposes ?? [], tx);
+    const view = await addressWithPurposes(context, row, tx);
     return {
       result: view,
       changes: [detailChange('directory.address.created', party, null, view)],
@@ -545,6 +787,7 @@ export function updateAddress(context, partyId, addressId, body) {
     const party = await lockParty(context, partyId, tx);
     const locked = await lockDetail(context, 'addresses', party, addressId, tx);
     requireRevision(locked, input.revision);
+    const before = await addressWithPurposes(context, locked, tx);
     if (input.labelId !== undefined)
       await requireLabel(context, input.labelId, 'address', tx);
     if (input.isPrimary)
@@ -564,17 +807,12 @@ export function updateAddress(context, partyId, addressId, body) {
       context.actorId,
       { tx }
     );
-    const view = addressView(row);
+    if (input.purposes !== undefined)
+      await replacePurposes(context, party, row.id, input.purposes, tx);
+    const view = await addressWithPurposes(context, row, tx);
     return {
       result: view,
-      changes: [
-        detailChange(
-          'directory.address.updated',
-          party,
-          addressView(locked),
-          view
-        ),
-      ],
+      changes: [detailChange('directory.address.updated', party, before, view)],
     };
   });
 }
@@ -590,6 +828,10 @@ export function removeAddress(context, partyId, addressId) {
   return mutate(context, async tx => {
     const party = await lockParty(context, partyId, tx);
     const locked = await lockDetail(context, 'addresses', party, addressId, tx);
+    const before = await addressWithPurposes(context, locked, tx);
+    // I0014-R018–R020: purposes end with the address, defaults pass on.
+    if (before.purposes.length)
+      await replacePurposes(context, party, locked.id, [], tx);
     const row = await context.cell.addresses.saveRevision(
       locked.id,
       { archived: true },
@@ -599,14 +841,7 @@ export function removeAddress(context, partyId, addressId) {
     const view = addressView(row);
     return {
       result: view,
-      changes: [
-        detailChange(
-          'directory.address.removed',
-          party,
-          addressView(locked),
-          view
-        ),
-      ],
+      changes: [detailChange('directory.address.removed', party, before, view)],
     };
   });
 }

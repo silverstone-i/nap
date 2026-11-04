@@ -12,8 +12,10 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import {
   addAddress,
   findDetailMatches,
@@ -22,6 +24,7 @@ import {
 import { CountrySelect } from '../../components/CountrySelect.jsx';
 import { useEffectiveSettings } from '../../shell/EffectiveSettingsContext.jsx';
 import { LabelSelect } from './ContactMethodDialog.jsx';
+import { DELIVERY_LABELS, PURPOSE_LABELS } from './contactRoleText.js';
 import { describeDirectoryError, isStaleRevision } from './directoryErrors.js';
 import { DetailMatchesWarning } from './DetailMatchesWarning.jsx';
 
@@ -29,15 +32,50 @@ import { DetailMatchesWarning } from './DetailMatchesWarning.jsx';
 const orNull = value => (value.trim() ? value.trim() : null);
 
 /**
+ * The purposes an organization of `kind` may give an address: remit-to is
+ * for vendors only (I0014-R015).
+ * @param {string|undefined} kind
+ * @returns {string[]}
+ */
+function purposesFor(kind) {
+  if (kind === 'vendor') return ['location', 'bill_to', 'remit_to'];
+  if (kind === 'client') return ['location', 'bill_to'];
+  return [];
+}
+
+/**
+ * Form state for an address's purposes, keyed by purpose.
+ * @param {object|null} address
+ * @returns {Record<string, {on: boolean, isDefault: boolean, wasDefault: boolean, deliveryMethod: string}>}
+ */
+function purposeState(address) {
+  const state = {};
+  for (const purpose of Object.keys(PURPOSE_LABELS)) {
+    const held = address?.purposes?.find(p => p.purpose === purpose);
+    state[purpose] = {
+      on: Boolean(held),
+      isDefault: held?.isDefault ?? false,
+      wasDefault: held?.isDefault ?? false,
+      deliveryMethod: held?.deliveryMethod ?? 'email',
+    };
+  }
+  return state;
+}
+
+/**
  * Add or edit an address (M0005-R015). The country comes from the M0004
  * country lookup; making it primary replaces the current primary address.
+ * A vendor's or client's address also takes purposes, a default per
+ * purpose, and a bill-to delivery method (I0014-R015–R017). A default is
+ * changed by making another address the default.
  * On `STALE_REVISION`, `onReload` fetches the address, and the form starts
  * over from it.
- * @param {{partyId: string, address: object|null, onClose: () => void, onSaved: () => void, onReload?: () => Promise<object>}} props
+ * @param {{partyId: string, kind?: string, address: object|null, onClose: () => void, onSaved: () => void, onReload?: () => Promise<object>}} props
  * @returns {JSX.Element}
  */
 export function AddressDialog({
   partyId,
+  kind,
   address: initialAddress,
   onClose,
   onSaved,
@@ -54,6 +92,13 @@ export function AddressDialog({
   const [country, setCountry] = useState(address?.country ?? defaultCountry);
   const [labelId, setLabelId] = useState(address?.labelId ?? null);
   const [isPrimary, setIsPrimary] = useState(address?.isPrimary ?? false);
+  const allowed = purposesFor(kind);
+  const [purposes, setPurposes] = useState(() => purposeState(address));
+  const setPurpose = (purpose, change) =>
+    setPurposes(current => ({
+      ...current,
+      [purpose]: { ...current[purpose], ...change },
+    }));
   const [error, setError] = useState(null);
   // M0005-R065: other records holding this address, once Save has looked.
   const [matches, setMatches] = useState(null);
@@ -80,6 +125,16 @@ export function AddressDialog({
       country,
     };
     const fields = { ...place, labelId, isPrimary };
+    if (allowed.length)
+      fields.purposes = allowed
+        .filter(purpose => purposes[purpose].on)
+        .map(purpose => ({
+          purpose,
+          isDefault: purposes[purpose].isDefault,
+          ...(purpose === 'bill_to'
+            ? { deliveryMethod: purposes[purpose].deliveryMethod }
+            : {}),
+        }));
     try {
       // M0005-R065, R067: warn once about other records holding the
       // address; a lookup failure skips the warning and the save reports
@@ -117,6 +172,12 @@ export function AddressDialog({
         describeDirectoryError(err, {
           // M0005-R064.
           DUPLICATE_DETAIL: 'This record already has this address.',
+          // I0014-R010, R018, R020.
+          CONTACT_DETAILS_REQUIRED:
+            'A billing contact cannot receive invoices this way. Give them an email or portal access first.',
+          ADDRESS_IN_USE:
+            'A billing contact is limited to this bill-to address. Change their roles first.',
+          LAST_LOCATION: 'A Napsoft client needs a location.',
         })
       );
       if (address && onReload && isStaleRevision(err)) {
@@ -131,6 +192,7 @@ export function AddressDialog({
           setCountry(fresh.country);
           setLabelId(fresh.labelId ?? null);
           setIsPrimary(fresh.isPrimary);
+          setPurposes(purposeState(fresh));
         } catch (reloadErr) {
           setError(describeDirectoryError(reloadErr));
         }
@@ -212,6 +274,73 @@ export function AddressDialog({
             }
             label="Primary address"
           />
+          {allowed.length ? (
+            <Stack spacing={1} role="group" aria-label="Purposes">
+              <Typography variant="subtitle2">Purposes</Typography>
+              {allowed.map(purpose => {
+                const state = purposes[purpose];
+                return (
+                  <Stack
+                    key={purpose}
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    sx={{ alignItems: { sm: 'center' } }}
+                  >
+                    <FormControlLabel
+                      sx={{ minWidth: 140 }}
+                      control={
+                        <Checkbox
+                          checked={state.on}
+                          onChange={event =>
+                            setPurpose(purpose, { on: event.target.checked })
+                          }
+                        />
+                      }
+                      label={PURPOSE_LABELS[purpose]}
+                    />
+                    {state.on ? (
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={state.isDefault}
+                            disabled={state.wasDefault}
+                            onChange={event =>
+                              setPurpose(purpose, {
+                                isDefault: event.target.checked,
+                              })
+                            }
+                          />
+                        }
+                        label="Default"
+                      />
+                    ) : null}
+                    {state.on && purpose === 'bill_to' ? (
+                      <TextField
+                        select
+                        size="small"
+                        label="Delivery"
+                        value={state.deliveryMethod}
+                        onChange={event =>
+                          setPurpose(purpose, {
+                            deliveryMethod: event.target.value,
+                          })
+                        }
+                        sx={{ minWidth: 140 }}
+                      >
+                        {Object.entries(DELIVERY_LABELS).map(
+                          ([value, label]) => (
+                            <MenuItem key={value} value={value}>
+                              {label}
+                            </MenuItem>
+                          )
+                        )}
+                      </TextField>
+                    ) : null}
+                  </Stack>
+                );
+              })}
+            </Stack>
+          ) : null}
         </Stack>
       </DialogContent>
       <DialogActions>

@@ -7,11 +7,8 @@ import { DirectoryModel } from './directoryModel.js';
 
 /**
  * Schema object for `app.people`: employees and contacts, and vendor and
- * client contacts with their `organization_id` (M0005-R002, R004). An
- * organization contact flagged `is_primary_contact` or `is_billing_contact`
- * is that organization's primary or billing contact, and any number may hold
- * each. A customer tenant's employees carry the same flags for the tenant
- * itself, with exactly one billing employee (I0013-R009, R010). Only a client contact can be its
+ * client contacts with their `organization_id` (M0005-R002, R004). Contact
+ * roles live in `app.contact_roles` (I0014). Only a client contact can be its
  * client's primary tax contact (R009).
  * Kept identical to the copy frozen in migration `001-business-directory`.
  */
@@ -28,18 +25,6 @@ export const peopleSchema = {
     { name: 'last_name', type: 'varchar(160)', notNull: true },
     {
       name: 'is_portal_user',
-      type: 'boolean',
-      notNull: true,
-      default: false,
-    },
-    {
-      name: 'is_primary_contact',
-      type: 'boolean',
-      notNull: true,
-      default: false,
-    },
-    {
-      name: 'is_billing_contact',
       type: 'boolean',
       notNull: true,
       default: false,
@@ -88,13 +73,6 @@ export const peopleSchema = {
         where: 'is_primary_tax_contact AND deactivated_at IS NULL',
       },
       { columns: ['organization_id'] },
-      // I0013-R010: one active billing employee per tenant.
-      {
-        columns: ['tenant_id'],
-        unique: true,
-        where:
-          'is_billing_contact AND organization_id IS NULL AND deactivated_at IS NULL',
-      },
     ],
   },
 };

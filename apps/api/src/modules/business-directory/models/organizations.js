@@ -19,6 +19,9 @@ export const organizationsSchema = {
     { name: 'tenant_id', type: 'uuid', notNull: true, immutable: true },
     { name: 'legal_name', type: 'varchar(255)', notNull: true },
     { name: 'dba_name', type: 'varchar(255)' },
+    // I0014-R022: an employee's `people.party_id`. No foreign key, since
+    // `people` is created after `organizations`; the domain checks it.
+    { name: 'account_owner_id', type: 'uuid' },
     { name: 'revision', type: 'integer', notNull: true, default: 1 },
   ],
   constraints: {

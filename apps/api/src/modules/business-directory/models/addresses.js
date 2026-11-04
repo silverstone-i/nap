@@ -44,6 +44,7 @@ export const addressesSchema = {
   ],
   constraints: {
     primaryKey: ['id'],
+    unique: [['tenant_id', 'id']],
     checks: ['revision > 0'],
     foreignKeys: [
       {

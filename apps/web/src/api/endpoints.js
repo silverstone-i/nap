@@ -34,6 +34,9 @@ import {
   contactMethodViewSchema,
   detailMatchesSchema,
   addressViewSchema,
+  addressPurposeSchema,
+  contactRoleSchema,
+  recipientsSchema,
   contactLabelViewSchema,
   taxIdFormatViewSchema,
   generalSettingsViewSchema,
@@ -141,9 +144,9 @@ export async function listClientTenants(clientId) {
 
 /**
  * I0013-R001: provision a tenant and its Napsoft client into a ready cell
- * with its first administrator, who becomes the tenant's primary and
- * billing contact.
- * @param {{legalName: string, dbaName: string|null, code: string, tier: string, cell: string, firstName: string, lastName: string, email: string, phone: string, password: string}} input
+ * with its first administrator, who holds every contact role, and the
+ * client's head office (I0014-R024).
+ * @param {{legalName: string, dbaName: string|null, code: string, tier: string, cell: string, firstName: string, lastName: string, email: string, phone: string, password: string, address: object}} input
  * @returns {Promise<object>} The queued tenant job.
  */
 export async function provisionTenant({
@@ -157,6 +160,7 @@ export async function provisionTenant({
   email,
   phone,
   password,
+  address,
 }) {
   return apiPost(
     `${BASE}/control/provision`,
@@ -168,6 +172,7 @@ export async function provisionTenant({
       tier,
       cell,
       admin: { email, password, firstName, lastName, phone },
+      address,
     },
     { 'Idempotency-Key': crypto.randomUUID() }
   );
@@ -736,13 +741,18 @@ export async function removeContactMethod(partyId, id) {
   );
 }
 
+/** A saved address with its purposes (I0014-R015). */
+const savedAddressSchema = addressViewSchema.extend({
+  purposes: z.array(addressPurposeSchema),
+});
+
 /**
  * @param {string} partyId
- * @param {object} input
+ * @param {object} input May carry `purposes` for an organization (I0014-R015).
  * @returns {Promise<object>}
  */
 export async function addAddress(partyId, input) {
-  return addressViewSchema.parse(
+  return savedAddressSchema.parse(
     await apiPost(`${DIRECTORY_BASE}/parties/${partyId}/addresses`, input)
   );
 }
@@ -754,7 +764,7 @@ export async function addAddress(partyId, input) {
  * @returns {Promise<object>}
  */
 export async function updateAddress(partyId, id, input) {
-  return addressViewSchema.parse(
+  return savedAddressSchema.parse(
     await apiPatch(
       `${DIRECTORY_BASE}/parties/${partyId}/addresses/${id}`,
       input
@@ -773,8 +783,60 @@ export async function removeAddress(partyId, id) {
   );
 }
 
+/** The roles a set-roles call returns (I0014-R011, R012). */
+const heldRolesSchema = z.strictObject({
+  contactRoles: z.array(contactRoleSchema),
+  tags: z.array(z.strictObject({ id: z.uuid(), name: z.string() })),
+  revision: z.number().int().positive(),
+});
+
 /**
- * @param {{appliesTo?: 'email'|'phone'|'address', archived?: boolean}} [filters]
+ * I0014-R011: replace a person's contact roles and role tags.
+ * @param {'people'|'organization-contacts'} collection
+ * @param {string} id
+ * @param {{revision: number, roles: {role: string, addressId?: string|null, copyAll?: boolean}[], tagIds?: string[]}} input
+ * @returns {Promise<object>}
+ */
+export async function setPersonRoles(collection, id, input) {
+  return heldRolesSchema.parse(
+    await apiPut(`${DIRECTORY_BASE}/${collection}/${id}/roles`, input)
+  );
+}
+
+/**
+ * I0014-R012: replace an organization email's billing roles.
+ * @param {string} partyId The organization.
+ * @param {string} methodId
+ * @param {{revision: number, roles: {role: 'billing', addressId?: string|null, copyAll?: boolean}[]}} input
+ * @returns {Promise<object>}
+ */
+export async function setEmailRoles(partyId, methodId, input) {
+  return heldRolesSchema.parse(
+    await apiPut(
+      `${DIRECTORY_BASE}/parties/${partyId}/contact-methods/${methodId}/roles`,
+      input
+    )
+  );
+}
+
+/**
+ * I0014-R021: who receives an organization's invoices, and where.
+ * @param {string} organizationId
+ * @param {{purpose: 'bill_to'|'remit_to', addressId?: string}} query
+ * @returns {Promise<object>}
+ */
+export async function getRecipients(organizationId, { purpose, addressId }) {
+  const params = new URLSearchParams({ purpose });
+  if (addressId) params.set('addressId', addressId);
+  return recipientsSchema.parse(
+    await apiGet(
+      `${DIRECTORY_BASE}/organizations/${organizationId}/recipients?${params}`
+    )
+  );
+}
+
+/**
+ * @param {{appliesTo?: 'email'|'phone'|'address'|'role', archived?: boolean}} [filters]
  *   `archived` lists only archived labels (I0011-R009).
  * @returns {Promise<object[]>}
  */
@@ -1067,9 +1129,8 @@ const companyContactSchema = z.object({
   lastName: z.string(),
   email: z.string().nullable(),
   phone: z.string().nullable(),
-  billingPhone: z.string().nullable(),
-  isPrimaryContact: z.boolean(),
-  isBillingContact: z.boolean(),
+  // I0014-R026: the system roles the employee holds.
+  roles: z.array(z.enum(['primary', 'billing', 'notifications'])),
 });
 
 const companyProfileSchema = z.object({
@@ -1082,8 +1143,10 @@ const companyProfileSchema = z.object({
     pendingLast4: z.string().nullable(),
     reason: z.string().nullable(),
   }),
+  // I0014-R031: role holders in three groups.
   primaryContacts: z.array(companyContactSchema),
-  billingContact: companyContactSchema.nullable(),
+  billingContacts: z.array(companyContactSchema),
+  notificationContacts: z.array(companyContactSchema),
 });
 
 const taxIdRequestSchema = z
@@ -1103,19 +1166,6 @@ const taxIdRequestSchema = z
 export async function getCompanyProfile() {
   return companyProfileSchema.parse(
     await apiGet(`${DIRECTORY_BASE}/company-profile`)
-  );
-}
-
-/**
- * I0013-R012: make another employee the billing contact.
- * @param {string} partyId
- * @returns {Promise<object>} The company profile.
- */
-export async function setBillingContact(partyId) {
-  return companyProfileSchema.parse(
-    await apiPost(`${DIRECTORY_BASE}/company-profile/billing-contact`, {
-      partyId,
-    })
   );
 }
 

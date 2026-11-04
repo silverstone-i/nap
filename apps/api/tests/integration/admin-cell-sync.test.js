@@ -759,7 +759,7 @@ describe('admin-cell sync (I0004)', () => {
 });
 
 describe('company profile (I0013)', () => {
-  it('R015, R016: copies a contact forward only and removes it when unflagged', async () => {
+  it('R015, R016: copies a contact forward only and removes it when it holds no role (I0014-R026)', async () => {
     const tenantId = await tenantOnCell();
     const partyId = randomUUID();
     const contact = extra => ({
@@ -769,9 +769,7 @@ describe('company profile (I0013)', () => {
       last_name: 'Admin',
       email: 'ann@oak.test',
       phone: '+15125550100',
-      billing_phone: '+15125550100',
-      is_primary_contact: true,
-      is_billing_contact: true,
+      roles: ['primary', 'billing'],
       ...extra,
     });
     const stored = () =>
@@ -783,6 +781,7 @@ describe('company profile (I0013)', () => {
     await drain();
     expect(await stored()).toMatchObject({
       phone: '+15125550100',
+      roles: ['primary', 'billing'],
       revision: 1,
     });
     await cell.tx(tx =>
@@ -803,12 +802,7 @@ describe('company profile (I0013)', () => {
       )
     );
     expect((await stored()).phone).toBe('+15125550199');
-    await cell.tx(tx =>
-      requestTenantContact(
-        tx,
-        contact({ is_primary_contact: false, is_billing_contact: false })
-      )
-    );
+    await cell.tx(tx => requestTenantContact(tx, contact({ roles: [] })));
     await drain();
     expect(await stored()).toBeNull();
   });

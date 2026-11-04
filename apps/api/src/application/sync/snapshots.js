@@ -131,8 +131,8 @@ const SNAPSHOTS = Object.freeze({
     request_id: z.uuid().nullable(),
     details: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
   }),
-  // I0013-R015: a customer tenant's primary or billing contact as it now
-  // stands. Both flags false removes the contact from Napsoft's copy.
+  // I0014-R026: a customer tenant's role holder as it now stands. No roles
+  // removes the employee from Napsoft's copy.
   tenant_contact: z.strictObject({
     tenant_id: z.uuid(),
     party_id: z.uuid(),
@@ -140,9 +140,7 @@ const SNAPSHOTS = Object.freeze({
     last_name: z.string().min(1).max(160),
     email: z.string().max(320).nullable(),
     phone: z.string().max(32).nullable(),
-    billing_phone: z.string().max(32).nullable(),
-    is_primary_contact: z.boolean(),
-    is_billing_contact: z.boolean(),
+    roles: z.array(z.enum(['primary', 'billing', 'notifications'])).max(3),
   }),
   // I0013-R006: Napsoft renamed the client of `target_tenant_id`.
   client_name: z.strictObject({

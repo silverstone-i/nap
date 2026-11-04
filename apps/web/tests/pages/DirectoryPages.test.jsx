@@ -64,7 +64,14 @@ vi.mock('../../src/api/endpoints.js', () => ({
   getTenantTaxIdRequest: vi.fn(),
   approveTaxIdRequest: vi.fn(),
   rejectTaxIdRequest: vi.fn(),
-  setBillingContact: vi.fn(),
+  setPersonRoles: vi.fn(),
+  setEmailRoles: vi.fn(),
+  getRecipients: vi.fn(async () => ({
+    address: null,
+    deliveryMethod: 'email',
+    to: [],
+    copy: [],
+  })),
   listCountries: vi.fn(async () => [
     { code: 'US', alpha3: 'USA', numericCode: '840', name: 'United States' },
   ]),
@@ -135,6 +142,8 @@ const JANE = {
   revision: 2,
   primaryEmail: 'jane@acme.test',
   primaryPhone: null,
+  contactRoles: [],
+  tags: [],
 };
 
 /** Jane without portal access, so an edit needs no roles. */
@@ -909,8 +918,8 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
           primaryEmailLabel: 'Office',
           primaryPhone: null,
           primaryPhoneLabel: null,
-          isPrimaryContact: true,
-          isBillingContact: false,
+          contactRoles: [{ role: 'primary', addressId: null, copyAll: false }],
+          tags: [],
           isPrimaryTaxContact: false,
           portalAccess: { status: 'off' },
         },
@@ -940,7 +949,8 @@ describe('Labels in the record detail (M0005-R014, R015)', () => {
     expect(
       await within(contacts).findByText('rita@flag.test (Office)')
     ).toBeTruthy();
-    expect(within(contacts).getByText('Primary contact')).toBeTruthy();
+    // I0014-R030: the Roles column lists system roles.
+    expect(within(contacts).getByText('Primary')).toBeTruthy();
   });
 });
 
@@ -1044,7 +1054,7 @@ describe('Organization contacts (M0005-R004)', () => {
     opener.remove();
   });
 
-  it("shows and toggles a contact's primary and billing flags on its detail (M0005-R051)", async () => {
+  it("shows a contact's roles and replaces them from the Roles pencil (I0014-R028)", async () => {
     const rita = {
       id: '55555555-5555-4555-8555-555555555555',
       kind: 'vendor_contact',
@@ -1052,8 +1062,8 @@ describe('Organization contacts (M0005-R004)', () => {
       firstName: 'Rita',
       lastName: 'Moss',
       taxIdLast4: null,
-      isPrimaryContact: true,
-      isBillingContact: false,
+      contactRoles: [{ role: 'primary', addressId: null, copyAll: false }],
+      tags: [],
       isPrimaryTaxContact: false,
       isPortalUser: false,
       portalAccess: { status: 'off', failureCode: null },
@@ -1063,7 +1073,11 @@ describe('Organization contacts (M0005-R004)', () => {
       addresses: [],
     };
     api.getDirectoryRecord.mockResolvedValue(rita);
-    api.updateDirectoryRecord.mockResolvedValue({ ...rita });
+    api.setPersonRoles.mockResolvedValue({
+      contactRoles: [],
+      tags: [],
+      revision: 5,
+    });
     // The dialog restores focus to whatever opened it; stand one in.
     const opener = document.createElement('button');
     document.body.appendChild(opener);
@@ -1078,22 +1092,28 @@ describe('Organization contacts (M0005-R004)', () => {
       />
     );
     const dialog = await screen.findByRole('dialog', { name: /Rita Moss/ });
-    const primary = within(dialog).getByLabelText('Primary contact');
-    expect(primary.checked).toBe(true);
-    expect(within(dialog).getByLabelText('Billing contact').checked).toBe(
-      false
-    );
+    expect(within(dialog).getByText('Roles: Primary')).toBeTruthy();
     // R008: a vendor contact has no tax ID to edit.
     expect(
       within(dialog).queryByRole('button', { name: 'Edit tax ID' })
     ).toBeNull();
-    await userEvent
-      .setup()
-      .click(within(dialog).getByLabelText('Billing contact'));
-    expect(api.updateDirectoryRecord).toHaveBeenCalledWith(
+    const user = userEvent.setup();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Edit roles' })
+    );
+    const form = await screen.findByRole('dialog', { name: 'Roles' });
+    // R005: notifications belong to a tenant's employees.
+    expect(within(form).queryByLabelText('Notifications')).toBeNull();
+    await user.click(within(form).getByLabelText('Billing'));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.setPersonRoles).toHaveBeenCalledWith(
       'organization-contacts',
       rita.id,
-      { isBillingContact: true, revision: 4 }
+      {
+        roles: [{ role: 'primary' }, { role: 'billing' }],
+        revision: 4,
+        tagIds: [],
+      }
     );
     cleanup();
     opener.remove();
@@ -1121,9 +1141,7 @@ describe('Napsoft clients (I0013-R005, R017, R018, R029)', () => {
     lastName: 'Admin',
     email: 'ann@acme.test',
     phone: '+15125550111',
-    billingPhone: '+15125550100',
-    isPrimaryContact: true,
-    isBillingContact: true,
+    roles: ['primary', 'billing'],
   };
   const EIN = {
     id: '6b6b6b6b-6b6b-4b6b-8b6b-6b6b6b6b6b6b',
@@ -1175,9 +1193,7 @@ describe('Napsoft clients (I0013-R005, R017, R018, R029)', () => {
       name: 'Tenant contacts',
     });
     expect(await within(grid).findByText('ann@acme.test')).toBeTruthy();
-    expect(
-      within(grid).getByText('Primary contact, Billing contact')
-    ).toBeTruthy();
+    expect(within(grid).getByText('Primary, Billing')).toBeTruthy();
     expect(within(grid).queryByText('Portal access')).toBeNull();
     expect(
       within(dialog).queryByRole('button', { name: 'New contact' })
@@ -1244,19 +1260,22 @@ describe('Napsoft clients (I0013-R005, R017, R018, R029)', () => {
   });
 });
 
-describe('Employee company contacts (I0013-R028)', () => {
-  it('shows the primary contact switch and makes an employee the billing contact', async () => {
+describe('Employee company contacts (I0014-R003, R028)', () => {
+  it("shows an employee's roles and adds notifications", async () => {
     useSession.mockReturnValue(sessionFor());
     const record = {
       ...STAFF,
-      isPrimaryContact: true,
-      isBillingContact: false,
+      contactRoles: [{ role: 'primary', addressId: null, copyAll: false }],
       contactMethods: [],
       addresses: [],
     };
     listRows = [record];
     api.getDirectoryRecord.mockResolvedValue(record);
-    api.setBillingContact.mockResolvedValue({});
+    api.setPersonRoles.mockResolvedValue({
+      contactRoles: [],
+      tags: [],
+      revision: 3,
+    });
     renderWithHeader(<DirectoryRecordsPage kind="employee" />);
     const user = userEvent.setup();
     const table = await screen.findByRole('grid', { name: 'Employees' });
@@ -1264,13 +1283,18 @@ describe('Employee company contacts (I0013-R028)', () => {
       await within(table).findByRole('button', { name: 'Jane Doe' })
     );
     const dialog = await screen.findByRole('dialog');
-    expect(
-      within(dialog).getByRole('switch', { name: 'Primary contact' }).checked
-    ).toBe(true);
+    expect(within(dialog).getByText('Roles: Primary')).toBeTruthy();
     await user.click(
-      within(dialog).getByRole('button', { name: 'Make billing contact' })
+      within(dialog).getByRole('button', { name: 'Edit roles' })
     );
-    expect(api.setBillingContact).toHaveBeenCalledWith(record.id);
+    const form = await screen.findByRole('dialog', { name: 'Roles' });
+    await user.click(within(form).getByLabelText('Notifications'));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.setPersonRoles).toHaveBeenCalledWith('people', record.id, {
+      roles: [{ role: 'primary' }, { role: 'notifications' }],
+      revision: record.revision,
+      tagIds: [],
+    });
   });
 });
 
@@ -1305,6 +1329,16 @@ describe('Labels (M0005-R017, R031, R032)', () => {
     await within(table).findByText('work');
     return table;
   }
+
+  it('lists role tags under For: Role (I0014-R004, R030)', async () => {
+    api.listContactLabels.mockResolvedValue([
+      WORK,
+      label('88888888-8888-4888-8888-888888888888', 'role', 'Sales rep'),
+    ]);
+    const table = await labelsGrid();
+    expect(await within(table).findByText('Sales rep')).toBeTruthy();
+    expect(within(table).getByText('Role')).toBeTruthy();
+  });
 
   it('adds a label in a dialog and reports a duplicate name there', async () => {
     api.createContactLabel.mockRejectedValue(new ApiError('CONFLICT', 409));
@@ -2138,5 +2172,183 @@ describe('Emails, phones, and addresses on other records (M0005-R065–R067)', (
     expect(within(dialog).queryByText(/Also on:/)).toBeNull();
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
     await vi.waitFor(() => expect(api.addAddress).toHaveBeenCalled());
+  });
+});
+
+describe('Organization roles, purposes, and owner (I0014-R028–R030)', () => {
+  const VENDOR = {
+    id: '44444444-4444-4444-8444-444444444444',
+    kind: 'vendor',
+    legalName: 'Flag Supply LLC',
+    dbaName: null,
+    taxIdLast4: null,
+    taxIdFormatId: null,
+    archived: false,
+    revision: 3,
+    primaryEmail: null,
+    primaryPhone: null,
+    accountOwner: null,
+    contacts: [],
+    contactMethods: [
+      {
+        id: '66666666-6666-4666-8666-666666666666',
+        partyId: '44444444-4444-4444-8444-444444444444',
+        type: 'email',
+        value: 'ap@flag.test',
+        labelId: null,
+        labelName: null,
+        isPrimary: false,
+        archived: false,
+        revision: 2,
+        contactRoles: [],
+      },
+    ],
+    addresses: [
+      {
+        id: '77777777-7777-4777-8777-777777777777',
+        partyId: '44444444-4444-4444-8444-444444444444',
+        line1: '1 Elm St',
+        line2: null,
+        city: 'Dallas',
+        region: 'TX',
+        postalCode: null,
+        country: 'US',
+        labelId: null,
+        labelName: null,
+        isPrimary: false,
+        archived: false,
+        revision: 1,
+        purposes: [
+          { purpose: 'bill_to', isDefault: true, deliveryMethod: 'email' },
+        ],
+      },
+    ],
+  };
+
+  // The dialogs restore focus to whatever opened them; stand one in.
+  let opener;
+  beforeEach(() => {
+    opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+  });
+  afterEach(() => {
+    cleanup();
+    opener.remove();
+  });
+
+  async function openVendor() {
+    api.getDirectoryRecord.mockResolvedValue(VENDOR);
+    renderWithHeader(
+      <RecordDetailDialog
+        collection="organizations"
+        id={VENDOR.id}
+        abilities={{ write: true, readTaxIds: true, writeTaxIds: true }}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+      />
+    );
+    return {
+      user: userEvent.setup(),
+      dialog: await screen.findByRole('dialog', { name: /Flag Supply/ }),
+    };
+  }
+
+  it("shows a bill-to address's purposes and recipients, and edits its purposes", async () => {
+    api.getRecipients.mockResolvedValue({
+      address: null,
+      deliveryMethod: 'email',
+      to: [
+        {
+          kind: 'person',
+          id: '55555555-5555-4555-8555-555555555555',
+          name: 'Pat Acme',
+          email: 'pat@flag.test',
+        },
+      ],
+      copy: [
+        {
+          kind: 'email',
+          id: VENDOR.contactMethods[0].id,
+          name: 'ap@flag.test',
+          email: 'ap@flag.test',
+        },
+      ],
+    });
+    api.updateAddress.mockResolvedValue({});
+    const { user, dialog } = await openVendor();
+    expect(
+      within(dialog).getByText(/Dallas TX US · Bill-to, default, email/)
+    ).toBeTruthy();
+    expect(
+      await within(dialog).findByText(
+        'Invoices to: Pat Acme · Copy: ap@flag.test'
+      )
+    ).toBeTruthy();
+    expect(api.getRecipients).toHaveBeenCalledWith(VENDOR.id, {
+      purpose: 'bill_to',
+      addressId: VENDOR.addresses[0].id,
+    });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Edit 1 Elm St' })
+    );
+    const form = await screen.findByRole('dialog', { name: 'Edit address' });
+    const purposes = within(form).getByRole('group', { name: 'Purposes' });
+    // R015: a vendor address may be a remit-to address.
+    expect(within(purposes).getByLabelText('Remit-to')).toBeTruthy();
+    await user.click(within(purposes).getByLabelText('Location'));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateAddress).toHaveBeenCalledWith(
+      VENDOR.id,
+      VENDOR.addresses[0].id,
+      expect.objectContaining({
+        purposes: [
+          { purpose: 'location', isDefault: false },
+          { purpose: 'bill_to', isDefault: true, deliveryMethod: 'email' },
+        ],
+        revision: 1,
+      })
+    );
+  });
+
+  it('gives an organization email the billing role (R012)', async () => {
+    api.setEmailRoles.mockResolvedValue({
+      contactRoles: [],
+      tags: [],
+      revision: 3,
+    });
+    const { user, dialog } = await openVendor();
+    await user.click(within(dialog).getByRole('button', { name: 'Billing' }));
+    const form = await screen.findByRole('dialog', { name: 'Billing' });
+    await user.click(within(form).getByLabelText('Receives invoices'));
+    await user.click(within(form).getByLabelText('Copy on all invoices'));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.setEmailRoles).toHaveBeenCalledWith(
+      VENDOR.id,
+      VENDOR.contactMethods[0].id,
+      { roles: [{ role: 'billing', copyAll: true }], revision: 2 }
+    );
+  });
+
+  it('sets the account owner from an employee search (R022, R023)', async () => {
+    api.listDirectoryPage.mockImplementation(async collection => ({
+      rows: collection === 'people' ? [STAFF] : [],
+      nextCursor: null,
+    }));
+    api.updateDirectoryRecord.mockResolvedValue(VENDOR);
+    const { user, dialog } = await openVendor();
+    expect(within(dialog).getByText('Account owner: None')).toBeTruthy();
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Edit account owner' })
+    );
+    const form = await screen.findByRole('dialog', { name: 'Account owner' });
+    await user.type(within(form).getByRole('combobox'), 'Ja');
+    await user.click(await screen.findByRole('option', { name: 'Jane Doe' }));
+    await user.click(within(form).getByRole('button', { name: 'Save' }));
+    expect(api.updateDirectoryRecord).toHaveBeenCalledWith(
+      'organizations',
+      VENDOR.id,
+      { accountOwnerId: STAFF.id, revision: 3 }
+    );
   });
 });

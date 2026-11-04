@@ -52,9 +52,13 @@ import {
   approveTaxIdRequest,
   getCompanyProfile,
   rejectTaxIdRequest,
-  setBillingContact,
   submitTaxId,
 } from '../../domain/companyProfile.js';
+import {
+  resolveRecipients,
+  setEmailRoles,
+  setPersonRoles,
+} from '../../domain/contactRoles.js';
 import { directoryContext, sendDirectoryError } from './shared.js';
 
 const READ = 'business-directory::directory::read';
@@ -159,6 +163,29 @@ function recordRouter(name) {
         )
       )
     );
+    // I0014-R021: who receives an organization's invoices or payments.
+    if (name === 'organizations')
+      router.get(
+        '/:id/recipients',
+        ...route(deps, READ, async (context, request, response) =>
+          sendData(
+            response,
+            await resolveRecipients(context, request.params.id, request.query)
+          )
+        )
+      );
+    // I0014-R011: a person's contact roles and tags, as one set. A tenant's
+    // employee also needs `company-profile::write`, checked in the domain.
+    if (name !== 'organizations')
+      router.put(
+        '/:id/roles',
+        ...route(deps, WRITE, async (context, request, response) =>
+          sendData(
+            response,
+            await setPersonRoles(context, request.params.id, request.body)
+          )
+        )
+      );
     // I0013-R022, R023: Napsoft decides a client's tenant tax ID request.
     if (name === 'organizations') {
       router.post(
@@ -240,6 +267,21 @@ export function createPartiesRouter(deps) {
           context,
           request.params.id,
           request.params.methodId
+        )
+      )
+    )
+  );
+  // I0014-R012: an organization email's `billing` roles.
+  router.put(
+    '/:id/contact-methods/:methodId/roles',
+    ...route(deps, WRITE, async (context, request, response) =>
+      sendData(
+        response,
+        await setEmailRoles(
+          context,
+          request.params.id,
+          request.params.methodId,
+          request.body
         )
       )
     )
@@ -422,7 +464,7 @@ export function createTaxIdFormatsRouter(deps) {
 
 /**
  * Build the `company-profile` router: a customer tenant's names, tax ID,
- * and primary and billing contacts (I0013-R012, R019, R026).
+ * and contact-role holders (I0013-R019, R026; I0014-R031).
  * @param {object} deps
  * @returns {import('express').Router}
  */
@@ -432,12 +474,6 @@ export function createCompanyProfileRouter(deps) {
     '/',
     ...route(deps, READ, async (context, request, response) =>
       sendData(response, await getCompanyProfile(context))
-    )
-  );
-  router.post(
-    '/billing-contact',
-    ...route(deps, COMPANY_PROFILE_WRITE, async (context, request, response) =>
-      sendData(response, await setBillingContact(context, request.body))
     )
   );
   router.post(
