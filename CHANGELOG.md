@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.37.1] - 2026-11-04
+
 ### Added
 
 - Contact roles replace the primary and billing contact flags (I0014). Vendor and client contacts can hold **Primary** and **Billing**; a customer tenant's employees can also hold **Notifications** for Napsoft's maintenance and product notices. A role has any number of holders, so a tenant may now have several billing contacts. A billing role can be limited to one or more of the organization's bill-to addresses, or, unlimited, set **Copy on all invoices**. An organization's own email (such as `ap@`) can hold Billing through a **Billing** action on the email row. Tenants can add their own role tags (a new **Role** label group) that carry no behavior. A person's detail shows a **Roles** line and pencil, and the directory grids show a **Roles** column. New routes: `PUT /api/business-directory/v1/{people,organization-contacts}/:id/roles` and `PUT …/parties/:id/contact-methods/:methodId/roles`.
