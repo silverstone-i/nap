@@ -10,6 +10,8 @@ when a pull request with a release label merges into `main`.
 
 ## [Unreleased]
 
+## [v0.37.3] - 2026-11-04
+
 ### Changed
 
 - Contact roles are now called **designations**, so "role" means only the access-control roles that hold grants. A person's detail shows a **Designations** line and an **Edit designations** pencil, the directory grids show a **Designations** column, and role tags are now designation tags (the **Designation** label group). The routes are now `PUT /api/business-directory/v1/{people,organization-contacts}/:id/designations` and `PUT …/parties/:id/contact-methods/:methodId/designations`, with `designations: [{ designation, addressId?, copyAll? }]` in place of `roles: [{ role, … }]`. Records return `contactDesignations`, and `GET …/tenants/:tenant/contacts` returns `designations`. Error codes keep their names.
