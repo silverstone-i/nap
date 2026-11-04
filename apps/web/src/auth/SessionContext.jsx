@@ -88,14 +88,17 @@ export function SessionProvider({ children }) {
     locationRef.current = location;
   }, [location]);
   // Also guards against acting twice for one ending.
-  const capabilityReloadRef = useRef(null);
   const statusRef = useRef(state.status);
   useLayoutEffect(() => {
     statusRef.current = state.status;
   }, [state.status]);
+  // The capability reload in flight, if any (see `refreshCapabilities`).
+  const capabilityReloadRef = useRef(null);
   const channelRef = useRef(null);
 
-  const applyContext = ([context, capabilities]) =>
+  const applyContext = ([context, capabilities]) => {
+    // This context is newer than any capability reload still in flight.
+    capabilityReloadRef.current = null;
     setState({
       status: 'ready',
       session: context.session,
@@ -111,6 +114,7 @@ export function SessionProvider({ children }) {
       notice: null,
       error: null,
     });
+  };
 
   const applyContextFailure = error => {
     if (error instanceof ApiError && error.code === 'UNAUTHENTICATED') {
@@ -296,25 +300,31 @@ export function SessionProvider({ children }) {
    * Reload the resolved capabilities, after the server denies an action the
    * web app offered (I0005-R011). Denials arriving together share one reload,
    * and an unchanged set keeps its identity, so a page whose effect depends
-   * on `can` does not refetch and get denied again.
+   * on `can` does not refetch and get denied again. A result that lands after
+   * the context reloaded, or once the session is no longer ready, is dropped.
    */
   const refreshCapabilities = useCallback(() => {
-    capabilityReloadRef.current ??= api
+    if (capabilityReloadRef.current) return capabilityReloadRef.current;
+    const reload = api
       .getSessionCapabilities()
-      .then(capabilities =>
+      .then(capabilities => {
+        if (capabilityReloadRef.current !== reload) return;
         setState(prev =>
+          prev.status !== 'ready' ||
           JSON.stringify(prev.capabilities) === JSON.stringify(capabilities)
             ? prev
             : { ...prev, capabilities }
-        )
-      )
+        );
+      })
       .catch(() => {
         // Keep the current set; the server still decides every request.
       })
       .finally(() => {
-        capabilityReloadRef.current = null;
+        if (capabilityReloadRef.current === reload)
+          capabilityReloadRef.current = null;
       });
-    return capabilityReloadRef.current;
+    capabilityReloadRef.current = reload;
+    return reload;
   }, []);
 
   // I0005-R011: any denied request may mean the session's roles changed. The

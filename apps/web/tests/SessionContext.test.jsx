@@ -229,9 +229,15 @@ describe('a denied request reloads capabilities (I0005-R011)', () => {
     );
 
   function CapabilitiesProbe({ onRender }) {
-    const { status, capabilities } = useSession();
+    const { status, capabilities, logout, selectTenant } = useSession();
     onRender?.(capabilities);
-    return <span>{`${status}:${capabilities?.patterns.join(',')}`}</span>;
+    return (
+      <>
+        <span>{`${status}:${capabilities?.patterns.join(',')}`}</span>
+        <button onClick={() => logout()}>log out</button>
+        <button onClick={() => selectTenant('m2')}>switch</button>
+      </>
+    );
   }
 
   async function renderProbe(onRender) {
@@ -301,6 +307,54 @@ describe('a denied request reloads capabilities (I0005-R011)', () => {
     });
 
     expect(api.getSessionCapabilities).not.toHaveBeenCalled();
+  });
+
+  /** Start a reload that stays in flight; returns how to finish it. */
+  async function startHeldReload() {
+    let finish;
+    api.getSessionCapabilities.mockReturnValueOnce(
+      new Promise(resolve => {
+        finish = () => resolve(capabilitiesFixture({ patterns: ['held'] }));
+      })
+    );
+    await act(async () => {
+      await apiGet('/api/one').catch(() => {});
+    });
+    return finish;
+  }
+
+  it('drops a reload that lands after logout', async () => {
+    await renderProbe();
+    const finish = await startHeldReload();
+
+    await act(async () => {
+      screen.getByText('log out').click();
+    });
+    await screen.findByText('anonymous:undefined');
+    await act(async () => finish());
+
+    expect(screen.getByText('anonymous:undefined')).toBeTruthy();
+  });
+
+  it('drops a reload that lands after a tenant switch, and later denials start their own', async () => {
+    await renderProbe();
+    const finish = await startHeldReload();
+    api.getSessionCapabilities.mockResolvedValue(
+      capabilitiesFixture({ patterns: CURRENT })
+    );
+
+    await act(async () => {
+      screen.getByText('switch').click();
+    });
+    await screen.findByText(`ready:${CURRENT[0]}`);
+    api.getSessionCapabilities.mockClear();
+    await act(async () => {
+      await apiGet('/api/two').catch(() => {});
+    });
+    expect(api.getSessionCapabilities).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+
+    expect(screen.getByText(`ready:${CURRENT[0]}`)).toBeTruthy();
   });
 });
 
